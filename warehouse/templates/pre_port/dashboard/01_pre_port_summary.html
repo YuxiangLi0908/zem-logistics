@@ -1,309 +1,554 @@
 {% extends 'base.html' %}
 {% block content %}
     <style>
+/* 全局样式调整 */
+body {
+    background-color: #f5f7fa;
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+}
+
+/* 按钮样式优化 */
 .custom-btn {
-  /* 基础样式 */
-  padding: 2px 10px;
-  border: none;
-  border-radius: 4px;
-  background-color: #4096ff; /* 主色调：蓝色 */
-  color: #fff; /* 文字白色 */
-  font-size: 13px;
-  cursor: pointer;
-  /* 对齐方式 */
-  vertical-align: middle;
-  margin-left: 8px;
-  /* 过渡动画（平滑交互） */
-  transition: all 0.2s ease;
+    padding: 4px 12px;
+    border: none;
+    border-radius: 4px;
+    background-color: #4096ff;
+    color: #fff;
+    font-size: 13px;
+    cursor: pointer;
+    vertical-align: middle;
+    margin-left: 8px;
+    transition: all 0.2s ease;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.1);
 }
 
-/* 悬停效果 */
 .custom-btn:hover {
-  background-color: #69b1ff; /* 浅一点的蓝色 */
-  box-shadow: 0 2px 8px rgba(64, 150, 255, 0.3); /* 轻微阴影 */
-  transform: translateY(-1px); /* 轻微上浮 */
+    background-color: #69b1ff;
+    box-shadow: 0 2px 8px rgba(64, 150, 255, 0.3);
+    transform: translateY(-1px);
 }
 
-/* 点击效果 */
 .custom-btn:active {
-  background-color: #3385ff; /* 深一点的蓝色 */
-  transform: translateY(0); /* 恢复原位 */
-  box-shadow: none; /* 取消阴影 */
+    background-color: #3385ff;
+    transform: translateY(0);
+    box-shadow: none;
 }
 
-/* 禁用状态（可选） */
 .custom-btn:disabled {
-  background-color: #c9c9c9;
-  cursor: not-allowed;
-  transform: none;
-  box-shadow: none;
+    background-color: #c9c9c9;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+/* 导航栏样式 */
+.nav-tabs {
+    border-bottom: 1px solid #e5e6eb;
+    margin-bottom: 15px;
+    background-color: #fff;
+    padding: 0 15px;
+    border-radius: 4px 4px 0 0;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+}
+
+.nav-item .nav-link {
+    color: #4e5969;
+    border: none;
+    padding: 10px 15px;
+    margin-right: 5px;
+    border-radius: 4px 4px 0 0;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+.nav-item .nav-link.active {
+    color: #4096ff;
+    background-color: #f5f7fa;
+    border-bottom: 2px solid #4096ff;
+}
+
+.nav-item .nav-link:hover:not(.active) {
+    background-color: #f2f3f5;
+    color: #4096ff;
+}
+
+/* 内容区域容器 */
+#order-info-sec {
+    background-color: #fff;
+    border-radius: 4px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    overflow: hidden;
+}
+
+/* 搜索和批量操作区域 */
+.search-bar {
+    padding: 15px;
+    border-bottom: 1px solid #e5e6eb;
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 15px;
+    align-items: center;
+    background-color: #fafbfc;
+}
+
+.search-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.search-group b {
+    color: #4e5969;
+    font-size: 14px;
+}
+
+.search-group input[type="date"] {
+    padding: 6px 8px;
+    border: 1px solid #dcdfe6;
+    border-radius: 4px;
+    font-size: 13px;
+}
+
+/* 批量操作按钮区域 */
+.batch-actions {
+    margin: 0;
+    padding: 0;
+    background-color: transparent;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.batch-actions .btn {
+    padding: 6px 12px;
+    font-size: 13px;
+    transition: all 0.2s ease;
+}
+
+.batch-actions .btn-primary {
+    background-color: #4096ff;
+    border-color: #4096ff;
+}
+
+.batch-actions .btn-primary:hover {
+    background-color: #69b1ff;
+    border-color: #69b1ff;
+}
+
+/* 表格样式优化 */
+.table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 12px;
+    margin-bottom: 0;
+}
+
+.table thead {
+    background-color: #f5f7fa;
+}
+
+.table th, .table td {
+    padding: 10px 8px;
+    text-align: left;
+    border-bottom: 1px solid #e5e6eb;
+}
+
+.table th {
+    color: #4e5969;
+    font-weight: 500;
+    white-space: nowrap;
+    position: relative;
+}
+
+.table th:after {
+    content: '';
+    position: absolute;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    height: 12px;
+    width: 1px;
+    background-color: #e5e6eb;
+}
+
+.table th:last-child:after {
+    display: none;
+}
+
+.table tbody tr {
+    transition: background-color 0.2s ease;
+}
+
+.table tbody tr:hover {
+    background-color: #fafbfc;
+}
+
+/* 复选框样式 */
+.checkbox-cell {
+    text-align: center !important;
+    vertical-align: middle;
+    width: 50px;
+}
+
+.checkbox-cell input {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+}
+
+/* 搜索输入框样式 */
+.table th input, .table th select {
+    width: 100%;
+    padding: 5px 8px;
+    border: 1px solid #dcdfe6;
+    border-radius: 3px;
+    font-size: 11px;
+    transition: border-color 0.2s ease;
+}
+
+.table th input:focus, .table th select:focus {
+    border-color: #4096ff;
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(64, 150, 255, 0.2);
+}
+
+/* 状态标签样式 */
+.status-span-green-100 {
+    color: #52c41a;
+    background-color: rgba(82, 196, 26, 0.1);
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 11px;
+}
+
+.status-span-red-100 {
+    color: #f5222d;
+    background-color: rgba(245, 34, 45, 0.1);
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 11px;
+}
+
+.status-span-blue-100 {
+    color: #1890ff;
+    background-color: rgba(24, 144, 255, 0.1);
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 11px;
+}
+
+/* 链接样式 */
+.table a {
+    color: #4096ff;
+    text-decoration: none;
+    transition: color 0.2s ease;
+}
+
+.table a:hover {
+    color: #69b1ff;
+    text-decoration: underline;
+}
+
+/* 备注输入框样式 */
+textarea[name="note_preport_dispatch"] {
+    width: 100%;
+    min-height: 50px;
+    padding: 5px 8px;
+    border: 1px solid #dcdfe6;
+    border-radius: 3px;
+    font-size: 12px;
+    resize: vertical;
+    transition: border-color 0.2s ease;
+}
+
+textarea[name="note_preport_dispatch"]:focus {
+    border-color: #4096ff;
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(64, 150, 255, 0.2);
+}
+
+/* 滚动区域美化 */
+#status-summary-sec {
+    overflow-y: scroll;
+    max-height: 800px;
+    scrollbar-width: thin;
+    scrollbar-color: #c9c9c9 #f5f5f5;
+}
+
+#status-summary-sec::-webkit-scrollbar {
+    width: 6px;
+}
+
+#status-summary-sec::-webkit-scrollbar-track {
+    background: #f5f5f5;
+}
+
+#status-summary-sec::-webkit-scrollbar-thumb {
+    background-color: #c9c9c9;
+    border-radius: 3px;
 }
 </style>
-<div style="width: 100%; font-size: 11px;">
+<div style="width: 100%; padding: 15px; box-sizing: border-box;">
     <ul class="nav nav-tabs">
         <li class="nav-item">
             <button {% if tab == "summary" %}class="nav-link active"{% else %}class="nav-link"{% endif %} onclick="showSection(this, 'status-summary-sec')">
-                <b>货柜进度汇总</b>
+                货柜进度汇总
             </button>
-        </li> 
+        </li>
         <!-- <li class="nav-item">
-            <button class="nav-link" onclick="showSection(this, 'dispatch-summary-sec')"><b></b></button>
+            <button class="nav-link" onclick="showSection(this, 'dispatch-summary-sec')"></button>
         </li> -->
     </ul>
-</div>
 
-<div id="order-info-sec" style="width: 100%;">
-    <div id="status-summary-sec" style=" overflow-y: scroll; max-height: 800px;">
-        <div style="max-height: 100%; max-width: 100%;">
-            <div style="width: 100%; display: flex; justify-content: space-between;">
+    <div id="order-info-sec" style="width: 100%;">
+        <div id="status-summary-sec">
+            <!-- 搜索和批量操作区域 -->
+            <div class="search-bar">
                 <form method="post" action="">
                     {% csrf_token %}
-                    <div style="font-size: 15px;">
-                        <b style="margin-left: 10px;">建单时间: </b>
-                        <input type="date" name="start_date" value="{{ start_date }}">
-                        <input type="date" name="end_date" value="{{ end_date }}" style="margin-right: 5px;">
-                        <!-- <button id="submit-btn" type="submit" name="step" value = "search_orders_by_created_at" class="btn btn-primary" style="height: 35px; margin-left: 20px; font-size: 13px;">查询</button> -->
-                        <b style="margin-left: 10px;">ETA: </b>
+                    <div class="search-group">
+                        <b>ETA: </b>
                         <input type="date" name="start_date_eta" value="{{ start_date_eta }}">
-                        <input type="date" name="end_date_eta" value="{{ end_date_eta }}" style="margin-right: 5px;">
-                        <button id="submit-btn" type="submit" name="step" value = "search_orders" class="btn btn-primary" style="height: 35px; margin-left: 20px; font-size: 13px;">查询</button>
-                        <button id="submit-btn" type="submit" name="step" value = "download_eta_file" class="btn btn-primary" style="height: 35px; margin-left: 20px; font-size: 13px;">导出</button>
+                        <span style="color: #86909c;">至</span>
+                        <input type="date" name="end_date_eta" value="{{ end_date_eta }}">
+                        <button type="submit" name="step" value="search_orders" class="btn btn-primary">查询</button>
+                        <button type="submit" name="step" value="download_eta_file" class="btn btn-secondary">导出</button>
                     </div>
                 </form>
+
+                <!-- 批量操作按钮区域 -->
+                <div class="batch-actions">
+                    <button id="batchActionBtn" class="btn btn-primary" disabled>
+                        批量操作（已选 <span id="selectedCount">0</span> 项）
+                    </button>
+                    <button id="exportSelectedBtn" class="btn btn-secondary" disabled>
+                        导出选中项
+                    </button>
+                </div>
             </div>
-        </div>
-        <table class="table" style="font-size: 11px;">
-            <thead>
-                <tr style="position: sticky; top: 0;">
-                    <th class="th">柜号</th>
-                    <th class="th">客户</th>
-                    <th class="th">订单类型</th>
-                    <th class="th">建单日期</th>
-                    <th class="th">港前完结</th>
-                    <th class="th">ETA</th>
-                    <th class="th">所属仓/直送地址</th>
-                    <th class="th">建单进度</th>
-                    <th class="th">Vessel状态</th>
-                    <th class="th">放行状态</th>
-                    <th class="th">预约提柜</th>
-                    <th class="th">实际提柜</th>
-                    <th class="th">抵达仓库</th>
-                    <th class="th">拆柜状态</th>
-                    <th class="th">还空状态</th>
-                    <th class="th">货柜备注</th>
-                </tr>
-                <tr style="position: sticky; top: 20px;">
-                    <th class="th">
-                        <input type="text" id="ctnSearch" placeholder="搜索柜号..." 
-                            oninput="filterTable(this)" 
-                            size="13" style="font-size: 11px;" 
-                            data-col="0">  
-                    </th>
-                    <th class="th">
-                        <select name="customer" onchange="filterTable(this)" data-col="1">
-                            <option value="" selected></option>
-                            {% for k, v in customers.items %}
-                                <option value="{{ v }}">{{ k }}</option>
-                            {% endfor %}
-                        </select>
-                    </th>
-                    <th class="th">
-                        <input type="text" id="ctnSearch" placeholder="搜索订单类型..."
-                               oninput="filterTable(this)"
-                               size="13" style="font-size: 11px;"
-                               data-col="2">
-                    </th>
-                    <th class="th">
-                        <input type="text" id="ctnSearch" placeholder="建单日期..."
-                               oninput="filterTable(this)"
-                               size="13" style="font-size: 11px;"
-                               data-col="3">
-                    </th>
-                    <th class="th">
-                        <input type="text" id="ctnSearch" placeholder="搜索港前完结..."
-                               oninput="filterTable(this)"
-                               size="13" style="font-size: 11px;"
-                               data-col="4">
-                    </th>
-                    <th class="th">
-                        <input type="text" id="ctnSearch" placeholder="搜索ETA..."
-                               oninput="filterTable(this)"
-                               size="13" style="font-size: 11px;"
-                               data-col="5">
-                    </th>
-                    <th class="th">
-                        <input type="text" id="warehouseSearch" placeholder="搜索仓库..." 
-                            oninput="filterTable(this)" 
-                            size="13" style="font-size: 11px;" 
-                            data-col="6">  
-                    </th>
-                    <th class="th">
-                        <input type="text" id="ctnSearch" placeholder="搜索建单进度..."
-                               oninput="filterTable(this)"
-                               size="13" style="font-size: 11px;"
-                               data-col="7">
-                    </th>
-                    <th class="th">
-                        <input type="text" id="ctnSearch" placeholder="搜索Vessel状态..."
-                               oninput="filterTable(this)"
-                               size="13" style="font-size: 11px;"
-                               data-col="8">
-                    </th>
-                    <th class="th">
-                        <input type="text" id="ctnSearch" placeholder="搜索放行状态..."
-                               oninput="filterTable(this)"
-                               size="13" style="font-size: 11px;"
-                               data-col="9">
-                    </th>
-                    <th class="th">
-                        <input type="text" id="ctnSearch" placeholder="搜索预约提柜..."
-                               oninput="filterTable(this)"
-                               size="13" style="font-size: 11px;"
-                               data-col="10">
-                    </th>
-                    <th class="th">
-                        <input type="text" id="ctnSearch" placeholder="搜索实际提柜..."
-                               oninput="filterTable(this)"
-                               size="13" style="font-size: 11px;"
-                               data-col="11">
-                    </th>
-                    <th class="th">
-                        <input type="text" id="ctnSearch" placeholder="搜索抵达仓库..."
-                               oninput="filterTable(this)"
-                               size="13" style="font-size: 11px;"
-                               data-col="12">
-                    </th>
-                    <th class="th">
-                        <input type="text" id="ctnSearch" placeholder="搜索拆柜状态..."
-                               oninput="filterTable(this)"
-                               size="13" style="font-size: 11px;"
-                               data-col="13">
-                    </th>
-                    <th class="th">
-                        <input type="text" id="ctnSearch" placeholder="搜索还空状态..."
-                               oninput="filterTable(this)"
-                               size="13" style="font-size: 11px;"
-                               data-col="14">
-                    </th>
-                    <th class="th">
-                        <input type="text" id="ctnSearch" placeholder="搜索货柜备注..."
-                               oninput="filterTable(this)"
-                               size="13" style="font-size: 11px;"
-                               data-col="15">
-                    </th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for o in orders %}
-                <tr>
-                    <td class="td">
-                        <a href="/create_order/?step=order_management_container&container_number={{ o.container_number.container_number }}" target="_blank">
-                            {{ o.container_number.container_number }}
-                        </a>
-                    </td>
-                    <td class="td">{{ o.customer_name.zem_name }}</td>
-                    <td class="td">{{ o.order_type }}</td>
-                    <td class="td">{{ o.created_at|date:"M-j" }}</td>
-                    <td class="td">
-                        {% if o.retrieval_id.empty_returned %}
-                        <span class="status-span-green-100"><i class="bi bi-check-square"></i></span>
-                        {% else %}
-                        <span class="status-span-red-100"><i class="bi bi-x-square"></i></span>
-                        {% endif %}
-                    </td>
-                    <td class="td">
-                        {% if o.vessel_id.vessel_eta %}
-                        {{ o.vessel_id.vessel_eta|date:"M-j" }}
-                        {% else %}
-                        {{ o.eta|date:"M-j" }}
-                        {% endif %}
-                    </td>
-                    <td class="td">{{ o.retrieval_id.retrieval_destination_area }}</td>
-                    <td>
-                        {% if o.vessel_id and o.packing_list_updloaded %}
-                        <span class="status-span-green-100">完成</span>
-                        {% else %}
-                            {% if not o.vessel_id %}
-                            <span class="status-span-red-100">缺航运信息</span>
-                            {% endif %}
-                            {% if not o.packing_list_updloaded %}
-                            <span class="status-span-red-100">缺PL</span>
-                            {% endif %}
-                        {% endif %}
-                    </td>
-                    <td>
-                        {% if o.retrieval_id.temp_t49_pod_arrive_at %}
-                        <span class="status-span-green-100">到港</span>
-                        {% elif o.vessel_id %}
-                        <span class="status-span-blue-100">en route</span>
-                        {% endif %}
-                    </td>
-                    <td class="td">
-                        {% if o.retrieval_id.temp_t49_available_for_pickup == True %}
-                                <span style="color: #28a745;">√</span>
+
+            <!-- 表格内容 -->
+            <table class="table">
+                <thead>
+                    <tr style="position: sticky; top: 0; z-index: 2;">
+                        <!-- 全选复选框列 -->
+                        <th class="th checkbox-cell">
+                            <input type="checkbox" id="selectAll" style="width: 16px; height: 16px; vertical-align: middle;">
+                        </th>
+                        <th class="th">柜号</th>
+                        <th class="th">客户</th>
+                        <th class="th">订单类型</th>
+                        <th class="th">港前完结</th>
+                        <th class="th">所属仓/直送地址</th>
+                        <th class="th">Vessel状态</th>
+                        <th class="th">放行状态</th>
+                        <th class="th">预约提柜</th>
+                        <th class="th">实际提柜</th>
+                        <th class="th">抵达仓库</th>
+                        <th class="th">拆柜状态</th>
+                        <th class="th">还空状态</th>
+                        <th class="th">货柜备注</th>
+                    </tr>
+                    <tr style="position: sticky; top: 42px; z-index: 1; background-color: #f9fafb;">
+                        <!-- 复选框搜索列（留空） -->
+                        <th class="th checkbox-cell"></th>
+                        <th class="th">
+                            <input type="text" placeholder="搜索柜号..."
+                                oninput="filterTable(this)"
+                                size="13" style="font-size: 11px;"
+                                data-col="1">
+                        </th>
+                        <th class="th">
+                            <select name="customer" onchange="filterTable(this)" data-col="2">
+                                <option value="" selected></option>
+                                {% for k, v in customers.items %}
+                                    <option value="{{ v }}">{{ k }}</option>
+                                {% endfor %}
+                            </select>
+                        </th>
+                        <th class="th">
+                            <input type="text" placeholder="搜索订单类型..."
+                                   oninput="filterTable(this)"
+                                   size="13" style="font-size: 11px;"
+                                   data-col="3">
+                        </th>
+                        <th class="th">
+                            <input type="text" placeholder="搜索港前完结..."
+                                   oninput="filterTable(this)"
+                                   size="13" style="font-size: 11px;"
+                                   data-col="4">
+                        </th>
+                        <th class="th">
+                            <input type="text" placeholder="搜索仓库..."
+                                oninput="filterTable(this)"
+                                size="13" style="font-size: 11px;"
+                                data-col="5">
+                        </th>
+                        <th class="th">
+                            <input type="text" placeholder="搜索Vessel状态..."
+                                   oninput="filterTable(this)"
+                                   size="13" style="font-size: 11px;"
+                                   data-col="6">
+                        </th>
+                        <th class="th">
+                            <input type="text" placeholder="搜索放行状态..."
+                                   oninput="filterTable(this)"
+                                   size="13" style="font-size: 11px;"
+                                   data-col="7">
+                        </th>
+                        <th class="th">
+                            <input type="text" placeholder="搜索预约提柜..."
+                                   oninput="filterTable(this)"
+                                   size="13" style="font-size: 11px;"
+                                   data-col="8">
+                        </th>
+                        <th class="th">
+                            <input type="text" placeholder="搜索实际提柜..."
+                                   oninput="filterTable(this)"
+                                   size="13" style="font-size: 11px;"
+                                   data-col="9">
+                        </th>
+                        <th class="th">
+                            <input type="text" placeholder="搜索抵达仓库..."
+                                   oninput="filterTable(this)"
+                                   size="13" style="font-size: 11px;"
+                                   data-col="10">
+                        </th>
+                        <th class="th">
+                            <input type="text" placeholder="搜索拆柜状态..."
+                                   oninput="filterTable(this)"
+                                   size="13" style="font-size: 11px;"
+                                   data-col="11">
+                        </th>
+                        <th class="th">
+                            <input type="text" placeholder="搜索还空状态..."
+                                   oninput="filterTable(this)"
+                                   size="13" style="font-size: 11px;"
+                                   data-col="12">
+                        </th>
+                        <th class="th">
+                            <input type="text" placeholder="搜索货柜备注..."
+                                   oninput="filterTable(this)"
+                                   size="13" style="font-size: 11px;"
+                                   data-col="13">
+                        </th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for o in orders %}
+                    <tr>
+                        <!-- 行复选框 -->
+                        <td class="td checkbox-cell">
+                            <input type="checkbox" class="rowCheckbox" style="width: 16px; height: 16px; vertical-align: middle;"
+                                   data-container="{{ o.container_number.container_number }}"
+                                   data-id="{{ o.id }}">
+                        </td>
+                        <td class="td">
+                            <a href="/create_order/?step=order_management_container&container_number={{ o.container_number.container_number }}" target="_blank">
+                                {{ o.container_number.container_number }}
+                            </a>
+                        </td>
+                        <td class="td">{{ o.customer_name.zem_name }}</td>
+                        <td class="td">{{ o.order_type }}</td>
+                        <td class="td">
+                            {% if o.retrieval_id.empty_returned %}
+                            <span class="status-span-green-100"><i class="bi bi-check-square"></i> 已完结</span>
                             {% else %}
-                                <span style="color: #dc3545;">{{ o.retrieval_id.temp_t49_available_for_pickup|default:"×" }}</span>
+                            <span class="status-span-red-100"><i class="bi bi-x-square"></i> 未完结</span>
                             {% endif %}
-                    </td>
-                    <td>
-                        {% if o.retrieval_id.target_retrieval_timestamp %}
-                        <span class="status-span-green-100">
-                            {{ o.retrieval_id.retrieval_carrier }} {{ o.retrieval_id.target_retrieval_timestamp|date:"M-j" }}
-                        </span>
-                        {% else %}
-                        <span class="status-span-red-100">无提柜计划</span>
-                        {% endif %}
-                    </td>
-                    <td>
-                        {% if o.retrieval_id.actual_retrieval_timestamp %}
-                        <span class="status-span-green-100">{{ o.retrieval_id.actual_retrieval_timestamp|date:"M-j" }}</span>
-                        {% elif o.retrieval_id.target_retrieval_timestamp.date > current_date %}
-                        <span class="status-span-blue-100">预计提柜 {{ o.retrieval_id.target_retrieval_timestamp|date:"M-j" }}</span>
-                        {% endif %}
-                    </td>
-                    <td>
-                        {% if o.retrieval_id.arrive_at_destination %}
-                        <span class="status-span-green-100">{{ o.retrieval_id.arrive_at|date:"M-j" }}</span>
-                        {% endif %}
-                    </td>
-                    <td>
-                        {% if o.offload_id.offload_at %}
-                        <span class="status-span-green-100">{{ o.offload_id.offload_at|date:"M-j" }}</span>
-                        {% endif %}
-                    </td>
-                    <td>
-                        {% if o.retrieval_id.empty_returned %}
-                        <span class="status-span-green-100">{{ o.retrieval_id.empty_returned_at|date:"M-j" }}</span>
-                        {% endif %}
-                    </td>
-                    <td>
-                        <form action="" method="post">
-                        {% csrf_token %}
-                        <input type="hidden" name="step" value="get_note_preport_dispatch">
-                        <input type="hidden" name="start_date" value="{{ start_date|default:'' }}">
-                        <input type="hidden" name="end_date" value="{{ end_date|default:'' }}" style="margin-right: 5px;">
-                        <input type="hidden" name="start_date_eta" value="{{ start_date_eta|default:'' }}" style="margin-right: 5px;">
-                        <input type="hidden" name="end_date_eta" value="{{ end_date_eta|default:'' }}" style="margin-right: 5px;">
-                        <input type="hidden" name="retrieval_id" value="{{ o.retrieval_id|default:'' }}">
-                        <span style="display: inline-flex; align-items: flex-end; gap: 10px;">
-                            <textarea
-                                    name="note_preport_dispatch"
-                                    style="width: 66%; min-height: 50px;"
-                            >{{ o.retrieval_id.note_preport_dispatch|default:'' }}</textarea>
-                            <button type="submit" class="custom-btn" style="font-size: 12px;">
-                            <span>确认</span>
-                            </button>
-                        </span>
-                        </form>
+                        </td>
+                        <td class="td">{{ o.retrieval_id.retrieval_destination_area }}</td>
+                        <td>
+                            {% if o.retrieval_id.temp_t49_pod_arrive_at %}
+                            <span class="status-span-green-100">到港</span>
+                            {% elif o.vessel_id %}
+                            <span class="status-span-blue-100">运输中</span>
+                            {% else %}
+                            <span style="color: #86909c;">待出发</span>
+                            {% endif %}
+                        </td>
+                        <td class="td">
+                            {% if o.retrieval_id.temp_t49_available_for_pickup == True %}
+                                    <span class="status-span-green-100">√ 已放行</span>
+                                {% else %}
+                                    <span class="status-span-red-100">{{ o.retrieval_id.temp_t49_available_for_pickup|default:"× 未放行" }}</span>
+                                {% endif %}
+                        </td>
+                        <td>
+                            {% if o.retrieval_id.target_retrieval_timestamp %}
+                            <span class="status-span-green-100">
+                                {{ o.retrieval_id.retrieval_carrier }} {{ o.retrieval_id.target_retrieval_timestamp|date:"M-j" }}
+                            </span>
+                            {% else %}
+                            <span class="status-span-red-100">无提柜计划</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if o.retrieval_id.actual_retrieval_timestamp %}
+                            <span class="status-span-green-100">{{ o.retrieval_id.actual_retrieval_timestamp|date:"M-j" }}</span>
+                            {% elif o.retrieval_id.target_retrieval_timestamp.date > current_date %}
+                            <span class="status-span-blue-100">预计 {{ o.retrieval_id.target_retrieval_timestamp|date:"M-j" }}</span>
+                            {% else %}
+                            <span style="color: #86909c;">未提柜</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if o.retrieval_id.arrive_at_destination %}
+                            <span class="status-span-green-100">{{ o.retrieval_id.arrive_at|date:"M-j" }}</span>
+                            {% else %}
+                            <span style="color: #86909c;">未抵达</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if o.offload_id.offload_at %}
+                            <span class="status-span-green-100">{{ o.offload_id.offload_at|date:"M-j" }}</span>
+                            {% else %}
+                            <span style="color: #86909c;">未拆柜</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if o.retrieval_id.empty_returned %}
+                            <span class="status-span-green-100">{{ o.retrieval_id.empty_returned_at|date:"M-j" }}</span>
+                            {% else %}
+                            <span style="color: #86909c;">未还空</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <form action="" method="post">
+                            {% csrf_token %}
+                            <input type="hidden" name="step" value="get_note_preport_dispatch">
+                            <input type="hidden" name="start_date" value="{{ start_date|default:'' }}">
+                            <input type="hidden" name="end_date" value="{{ end_date|default:'' }}">
+                            <input type="hidden" name="start_date_eta" value="{{ start_date_eta|default:'' }}">
+                            <input type="hidden" name="end_date_eta" value="{{ end_date_eta|default:'' }}">
+                            <input type="hidden" name="retrieval_id" value="{{ o.retrieval_id|default:'' }}">
+                            <div style="display: flex; gap: 8px; align-items: flex-end;">
+                                <textarea
+                                        name="note_preport_dispatch"
+                                        style="flex: 1; min-height: 50px;"
+                                >{{ o.retrieval_id.note_preport_dispatch|default:'' }}</textarea>
+                                <button type="submit" class="custom-btn">
+                                    确认
+                                </button>
+                            </div>
+                            </form>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="14" style="text-align: center; padding: 30px; color: #86909c;">
+                            暂无数据
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <div id="dispatch-summary-sec" style="display: none;">
 
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-    <div id="dispatch-summary-sec" style="display: none;">
-
+        </div>
     </div>
 </div>
 
@@ -317,7 +562,7 @@
 
         const sections = document.querySelectorAll('#order-info-sec > div');
         sections.forEach(section => {
-            section.style.display = section.id === secId ? "":"none";
+            section.style.display = section.id === secId ? "" : "none";
         });
     };
 
@@ -328,8 +573,8 @@
 
         var filters = document.querySelectorAll('thead input[type="text"], thead select');
         var filterValues = Array.from(filters).map(function(filter) {
-            var colIdx = parseInt(filter.dataset.col, 10);  
-            if (colIdx === 0) {
+            var colIdx = parseInt(filter.dataset.col, 10);
+            if (colIdx === 1) {  // 柜号列
                 return filter.value.toUpperCase().split(/\s+/).filter(Boolean);
             } else {
                 return [filter.value.toUpperCase().trim()];
@@ -344,12 +589,12 @@
                 var colIdx = parseInt(filter.dataset.col, 10);
                 var filterValueList = filterValues[idx];
                 var cell = row.getElementsByTagName("td")[colIdx];
-                
+
                 if (cell && filterValueList.length > 0 && filterValueList[0] !== "") {
                     var cellText = cell.textContent || cell.innerText;
                     var cellValue = cellText.toUpperCase().trim();
-                    
-                    if (colIdx === 0) {
+
+                    if (colIdx === 1) {  // 柜号列特殊处理
                         var matchFound = filterValueList.some(function(filterValue) {
                             return cellValue.includes(filterValue) || filterValue.includes(cellValue);
                         });
@@ -362,6 +607,122 @@
 
             row.style.display = showRow ? "" : "none";
         }
+
+        // 过滤后更新全选状态
+        updateSelectAllStatus();
     };
+
+    // 初始化批量选择功能
+    document.addEventListener('DOMContentLoaded', function() {
+        const selectAllCheckbox = document.getElementById('selectAll');
+        const rowCheckboxes = document.querySelectorAll('.rowCheckbox');
+        const selectedCountElement = document.getElementById('selectedCount');
+        const batchActionBtn = document.getElementById('batchActionBtn');
+        const exportSelectedBtn = document.getElementById('exportSelectedBtn');
+
+        // 全选/取消全选功能
+        selectAllCheckbox.addEventListener('change', function() {
+            const isChecked = this.checked;
+            // 只选中可见行
+            document.querySelectorAll('tr:not([style="display: none;"]) .rowCheckbox').forEach(checkbox => {
+                checkbox.checked = isChecked;
+            });
+            updateSelectedCount();
+        });
+
+        // 行复选框变化时更新全选状态
+        rowCheckboxes.forEach(checkbox => {
+            checkbox.addEventListener('change', function() {
+                updateSelectAllStatus();
+                updateSelectedCount();
+            });
+        });
+
+        // 更新已选数量和按钮状态
+        function updateSelectedCount() {
+            const selectedCount = document.querySelectorAll('.rowCheckbox:checked').length;
+            selectedCountElement.textContent = selectedCount;
+
+            // 启用/禁用批量操作按钮
+            batchActionBtn.disabled = selectedCount === 0;
+            exportSelectedBtn.disabled = selectedCount === 0;
+        }
+
+        // 更新全选框状态
+        function updateSelectAllStatus() {
+            const visibleRows = document.querySelectorAll('tr:not([style="display: none;"])');
+            const visibleCheckboxes = document.querySelectorAll('tr:not([style="display: none;"]) .rowCheckbox');
+            const checkedCheckboxes = document.querySelectorAll('tr:not([style="display: none;"]) .rowCheckbox:checked');
+
+            // 只有当所有可见行都被选中时，全选框才选中
+            selectAllCheckbox.checked = visibleCheckboxes.length > 0 &&
+                                      visibleCheckboxes.length === checkedCheckboxes.length;
+        }
+
+        // 批量操作按钮点击事件
+        batchActionBtn.addEventListener('click', function() {
+            const selectedItems = Array.from(document.querySelectorAll('.rowCheckbox:checked'))
+                .map(checkbox => checkbox.getAttribute('data-container'));
+
+            if (selectedItems.length > 0) {
+                alert(`已选择 ${selectedItems.length} 个柜号：\n${selectedItems.join(', ')}\n\n可以在这里添加批量操作逻辑`);
+                // 这里可以添加实际的批量操作逻辑，如打开批量编辑弹窗等
+            }
+        });
+
+        // 导出选中项按钮点击事件
+        exportSelectedBtn.addEventListener('click', function() {
+            const selectedIds = Array.from(document.querySelectorAll('.rowCheckbox:checked'))
+                .map(checkbox => checkbox.getAttribute('data-id'));
+
+            if (selectedIds.length > 0) {
+                // 构建导出表单并提交
+                const form = document.createElement('form');
+                form.method = 'post';
+                form.action = '';
+
+                // 添加CSRF令牌
+                const csrfInput = document.createElement('input');
+                csrfInput.type = 'hidden';
+                csrfInput.name = 'csrfmiddlewaretoken';
+                csrfInput.value = document.querySelector('[name="csrfmiddlewaretoken"]').value;
+                form.appendChild(csrfInput);
+
+                // 添加步骤参数
+                const stepInput = document.createElement('input');
+                stepInput.type = 'hidden';
+                stepInput.name = 'step';
+                stepInput.value = 'export_selected';
+                form.appendChild(stepInput);
+
+                // 添加选中的ID
+                selectedIds.forEach(id => {
+                    const idInput = document.createElement('input');
+                    idInput.type = 'hidden';
+                    idInput.name = 'selected_ids[]';
+                    idInput.value = id;
+                    form.appendChild(idInput);
+                });
+
+                // 添加日期参数
+                const dateParams = ['start_date', 'end_date', 'start_date_eta', 'end_date_eta'];
+                dateParams.forEach(param => {
+                    const dateInput = document.createElement('input');
+                    dateInput.type = 'hidden';
+                    dateInput.name = param;
+                    dateInput.value = document.querySelector(`[name="${param}"]`)?.value || '';
+                    form.appendChild(dateInput);
+                });
+
+                // 提交表单
+                document.body.appendChild(form);
+                form.submit();
+                document.body.removeChild(form);
+            }
+        });
+
+        // 初始化计数
+        updateSelectedCount();
+    });
 </script>
 {% endblock %}
