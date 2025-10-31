@@ -1,3 +1,150 @@
+<style>
+/* 智能PO弹窗专用样式 - 新增样式 */
+.intelligent-group {
+    margin-bottom: 25px;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.intelligent-group h4 {
+    background: #f8f9fa;
+    padding: 12px 15px;
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: #2c3e50;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.intelligent-group table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+.intelligent-group th {
+    background: #34495e;
+    color: white;
+    padding: 10px 8px;
+    text-align: left;
+    font-weight: 600;
+    border: none;
+}
+
+.intelligent-group td {
+    padding: 8px;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.intelligent-group tr:nth-child(even) {
+    background-color: #f9f9f9;
+}
+
+.intelligent-group tr:hover {
+    background-color: #edf2f7;
+}
+
+/* Ref ID列样式 - 新增 */
+.ref-id-cell {
+    max-width: 180px;
+    min-width: 150px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    position: relative;
+    cursor: help;
+}
+
+.ref-id-cell:hover::after {
+    content: attr(data-full-text);
+    position: absolute;
+    left: 0;
+    top: 100%;
+    background: #333;
+    color: white;
+    padding: 8px 12px;
+    border-radius: 4px;
+    white-space: normal;
+    max-width: 400px;
+    z-index: 1000;
+    font-size: 12px;
+    line-height: 1.4;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+}
+
+.container-cell {
+    max-width: 300px;
+    min-width: 200px;
+    white-space: normal;  /* 改为normal允许换行 */
+    word-wrap: break-word;  /* 允许长单词换行 */
+    word-break: break-all;  /* 允许在任何字符间断行 */
+    overflow: visible;  /* 改为visible显示全部内容 */
+    position: relative;
+    cursor: help;
+    line-height: 1.4;  /* 增加行高，让换行后更美观 */
+}
+
+.container-cell:hover::after {
+    content: attr(data-full-text);
+    position: absolute;
+    left: 0;
+    top: 100%;
+    background: #333;
+    color: white;
+    padding: 8px 12px;
+    border-radius: 4px;
+    white-space: normal;
+    max-width: 400px;
+    z-index: 1000;
+    font-size: 12px;
+    line-height: 1.4;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+}
+
+/* 其他列样式 - 新增 */
+.checkbox-cell {
+    width: 40px;
+    text-align: center;
+}
+
+.destination-cell {
+    width: 120px;
+    min-width: 100px;
+}
+
+.delivery-method-cell {
+    max-width: 120px;
+    min-width: 80px;
+}
+
+.cbm-cell, .pallet-cell, .status-cell {
+    width: 80px;
+    text-align: center;
+}
+
+/* 统计信息样式 - 修改 */
+.intelligent-group-stats {
+    position: sticky;
+    top: 0;
+    background: #f8f9fa;
+    padding: 12px 15px;
+    border-bottom: 2px solid #e0e0e0;
+    font-weight: 600;
+    color: #2c3e50;
+    z-index: 10;
+    font-size: 14px;
+}
+
+.intelligent-group-stats span {
+    margin-right: 20px;
+    padding: 4px 8px;
+    background: white;
+    border-radius: 4px;
+    border: 1px solid #e0e0e0;
+}
+</style>
+
 <div id="intelligentPoModal" class="modal" style="display:none; position:fixed; z-index:2000; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,0.5);">
   <div class="modal-content" style="width:80%; max-height:90%; background:#fff; border-radius:12px; overflow:auto; padding:25px; position:absolute; top:50%; left:50%; transform:translate(-50%, -50%); box-shadow:0 10px 30px rgba(0,0,0,0.3);">    <h3 style="margin-bottom:15px; color:#333;">
     <span class="close-btn" style="position:absolute; top:15px; right:20px; font-size:28px; font-weight:bold; color:#888; cursor:pointer; z-index:10;" onclick="closeIntelligentPoModal()">&times;</span>
@@ -42,21 +189,12 @@ function renderGroupedTables(groups, stats) {
     let html = "";
     if (stats) {
         html += `
-        <div class="intelligent-group-stats" style="
-            position: sticky;
-            top: 0;
-            background: #f9f9f9;
-            padding: 10px 15px;
-            border-bottom: 1px solid #e0e0e0;
-            font-weight: bold;
-            color: #2c3e50;
-            z-index: 10;
-        ">
-            <span style="margin-right:15px;">总计: ${stats.total_count}</span>
-            <span style="margin-right:15px;">已拆正常派送组: ${stats.ACT_normal_count}</span>
-            <span style="margin-right:15px;">已拆暂扣组: ${stats.ACT_hold_count}</span>
-            <span style="margin-right:15px;">未拆正常派送组: ${stats.EST_normal_count}</span>
-            <span style="margin-right:15px;">未拆暂扣组: ${stats.EST_hold_count}</span>
+        <div class="intelligent-group-stats" 
+            <span>总计: ${stats.total_count}</span>
+            <span>已拆正常派送组: ${stats.ACT_normal_count}</span>
+            <span>已拆暂扣组: ${stats.ACT_hold_count}</span>
+            <span>未拆正常派送组: ${stats.EST_normal_count}</span>
+            <span>未拆暂扣组: ${stats.EST_hold_count}</span>
         </div>
         `;
     }
@@ -64,30 +202,30 @@ function renderGroupedTables(groups, stats) {
         html += `
             <div class="intelligent-group">
                 <h4>${orderNumber}</h4>
-                <table class="data-table">
+                <table>
                     <thead>
                         <tr>
-                            <th><input type="checkbox" class="select-all"></th>
-                            <th>目的地</th>
-                            <th>派送方式</th>
-                            <th>Ref ID</th>
-                            <th>柜号</th>
-                            <th>体积(CBM)</th>
-                            <th>板数</th>
-                            <th>状态</th>
+                            <th class="checkbox-cell"><input type="checkbox" class="select-all"></th>
+                            <th class="destination-cell">目的地</th>
+                            <th class="delivery-method-cell">派送方式</th>
+                            <th class="ref-id-cell">Ref ID</th>
+                            <th class="container-cell">柜号</th>
+                            <th class="cbm-cell">体积(CBM)</th>
+                            <th class="pallet-cell">板数</th>
+                            <th class="status-cell">状态</th>
                         </tr>
                     </thead>
                     <tbody>
                         ${items.map(item => `
                             <tr>
                                 <td><input type="checkbox" class="cargo-checkbox" value="${item.ids}" data-cargo='${JSON.stringify(item).replace(/'/g, "&apos;")}'></td>
-                                <td>${item.destination || ''}</td>
-                                <td>${item.custom_delivery_method || ''}</td>
-                                <td style="max-width: 120px; min-width: 100px; white-space: normal; word-break: break-word;">${item.ref_ids || ''}</td>
-                                <td style="max-width: 200px; width: 200px; white-space: normal; overflow: hidden; text-overflow: ellipsis;">${item.container_numbers || ''}</td>
-                                <td>${item.total_cbm || ''}</td>
-                                <td>${item.total_n_pallet_est || ''}</td>
-                                <td>${item.label === 'ACT' ? '已打板' : '未打板'}</td>
+                                <td class="destination-cell">${item.destination || ''}</td>
+                                <td class="delivery-method-cell">${item.custom_delivery_method || ''}</td>
+                                <td class="ref-id-cell" data-full-text="${item.ref_ids || ''}">${item.ref_ids || ''}</td>
+                                <td class="container-cell">${item.container_numbers || ''}</td>
+                                <td class="cbm-cell">${item.total_cbm || ''}</td>
+                                <td class="pallet-cell">${item.total_n_pallet_est || ''}</td>
+                                <td class="status-cell">${item.label === 'ACT' ? '已打板' : '未打板'}</td>
                             </tr>
                         `).join('')}
                     </tbody>

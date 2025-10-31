@@ -167,8 +167,9 @@
             <select name="search_type" class="search-select" required>
                 <option value="batch" {% if search_type == 'batch' %}selected{% endif %}>批次号查询</option>
                 <option value="appointment" {% if search_type == 'appointment' %}selected{% endif %}>预约号查询</option>
+                <option value="fleet" {% if search_type == 'fleet' %}selected{% endif %}>车次号查询</option>
             </select>
-            <input type="text" name="shipment_batch_number" class="search-input"
+            <input type="text" name="search_value" class="search-input"
                    placeholder="输入查询内容" value="{{ search_value|default:'' }}" required>
             <button type="submit" class="search-btn">查询</button>
         </div>
@@ -188,11 +189,23 @@
 {% if shipments %}
 <div class="search-info">
     <strong>查询方式:</strong> 
-    {% if search_type == 'batch' %}批次号查询{% else %}预约号查询{% endif %} | 
+    {% if search_type == 'batch' %}批次号查询
+    {% elif search_type == 'appointment' %}预约号查询
+    {% endif %}
     <strong>查询内容:</strong> {{ search_value }} | 
-    <strong>查询结果:</strong> 1 条记录
+    <strong>查询结果:</strong> {{ shipments|length }} 条记录
 </div>
+{% endif %}
 
+{% if fleet %}
+<div class="search-info">
+    车次查询:
+    <strong>查询内容:</strong> {{ search_value }} | 
+    <strong>查询结果:</strong> {{ fleet|length }} 条记录
+</div>
+{% endif %}
+
+{% if shipments %}
 <table class="data-table">
     <thead>
         <tr>
@@ -201,10 +214,13 @@
             <th>预约号</th>
             <th>当前状态</th>
             <th>目的地</th>
+            <th>绑定车次</th>
             <th>供应商</th>
             <th>预约时间</th>
             <th>发货时间</th>
             <th>送达时间</th>
+            <th>in_use</th>
+            <th>已经取消</th>
             <th>POD链接</th>
             <th>操作</th>
         </tr>
@@ -221,10 +237,39 @@
                 </span>
             </td>
             <td>{{ shipment.destination|default:"-" }}</td>
+            <td>{{ shipment.fleet_number}}</td>
             <td>{{ shipment.carrier|default:"-" }}</td>
             <td>{{ shipment.shipment_appointment|default:"-" }}</td>
             <td>{{ shipment.shipped_at|default:"-" }}</td>
             <td>{{ shipment.arrived_at|default:"-" }}</td>
+            <td>
+                <form method="post" style="display: inline-block; margin: 2px;">
+                    {% csrf_token %}
+                    <input type="hidden" name="step" value="update_shipment_in_use">
+                    <input type="hidden" name="shipment_id" value="{{ shipment.id }}">
+                    <input type="hidden" name="search_value" value="{{ search_value }}">
+                    <input type="hidden" name="search_type" value="{{ search_type }}">
+                    <select name="in_use" class="in-use-select" onchange="this.form.submit()">
+                        <option value="true" {% if shipment.in_use %}selected{% endif %}>是</option>
+                        <option value="false" {% if not shipment.in_use %}selected{% endif %}>否</option>
+                    </select>
+                </form>
+                
+            </td>
+            <td>
+                <form method="post" style="display: inline-block; margin: 2px;">
+                    {% csrf_token %}
+                    <input type="hidden" name="step" value="update_shipment_is_canceled">
+                    <input type="hidden" name="shipment_id" value="{{ shipment.id }}">
+                    <input type="hidden" name="search_value" value="{{ search_value }}">
+                    <input type="hidden" name="search_type" value="{{ search_type }}">
+                    <select name="is_canceled" class="is-canceled-select" onchange="this.form.submit()">
+                        <option value="true" {% if shipment.is_canceled %}selected{% endif %}>是</option>
+                        <option value="false" {% if not shipment.is_canceled %}selected{% endif %}>否</option>
+                    </select>
+                </form>
+                
+            </td>
             <td>
                 {% if shipment.pod_link %}
                     <a href="{{ shipment.pod_link }}" target="_blank" 
@@ -257,9 +302,108 @@
         {% endfor %}
     </tbody>
 </table>
+{% elif fleets %}
+<table class="data-table">
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>车次号</th>
+            <th>Pickup Number</th>
+            <th>车次类型</th>
+            <th>仓库</th>
+            <th>Carrier</th>
+            <th>司机姓名</th>
+            <th>司机电话</th>
+            <th>Trailer Number</th>
+            <th>关联预约批次</th>
+            <th>仓库处理状态</th>
+            <th>预计提货时间</th>
+            <th>总板数</th>
+            <th>总箱数</th>
+            <th>Pre-load</th>
+            <th>是否取消</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for fleet in fleets %}
+        <tr>
+            <td>{{ fleet.id }}</td>
+            <td>{{ fleet.fleet_number|default:"-" }}</td>
+            <td>{{ fleet.pickup_number|default:"-" }}</td>
+            <td>
+                <form method="post" style="display: inline-block; margin: 2px;">
+                    {% csrf_token %}
+                    <input type="hidden" name="step" value="update_fleet_type">
+                    <input type="hidden" name="fleet_id" value="{{ fleet.id }}">
+                    <input type="hidden" name="search_value" value="{{ search_value }}">
+                    <input type="hidden" name="search_type" value="{{ search_type }}">
+                    <select name="fleet_type" class="fleet-type-select" onchange="this.form.submit()">
+                        {% for key, value in shipment_type_options.items %}
+                        <option value="{{ value }}" {% if fleet.fleet_type == value %}selected{% endif %}>{{ key }}</option>
+                        {% endfor %}
+                    </select>
+                </form>
+            </td>
+            <td>
+                <form method="post" style="display: inline-block; margin: 2px;">
+                    {% csrf_token %}
+                    <input type="hidden" name="step" value="update_fleet_origin">
+                    <input type="hidden" name="fleet_id" value="{{ fleet.id }}">
+                    <input type="hidden" name="search_value" value="{{ search_value }}">
+                    <input type="hidden" name="search_type" value="{{ search_type }}">
+                    <select name="origin" class="origin-select" onchange="this.form.submit()">
+                        {% for key, value in warehouse_options.items %}
+                        <option value="{{ value }}" {% if fleet.origin == value %}selected{% endif %}>{{ key }}</option>
+                        {% endfor %}
+                    </select>
+                </form>
+            </td>
+            <td>{{ fleet.carrier|default:"-" }}</td>
+            <td>{{ fleet.driver_name|default:"-" }}</td>
+            <td>{{ fleet.driver_phone|default:"-" }}</td>
+            <td>{{ fleet.trailer_number|default:"-" }}</td>
+            <td>
+                {% if fleet_sp %}
+                    <div style="max-height: 100px; overflow-y: auto;">
+                        {% for shipment in fleet_sp %}
+                            <div style="margin: 2px 0; font-size: 12px;">
+                                {{ shipment.shipment_batch_number }}
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    -
+                {% endif %}
+            </td>
+            <td>
+                <span class="status-badge status-{{ fleet.warehouse_process_status }}">
+                    {{ fleet.get_warehouse_process_status_display }}
+                </span>
+            </td>
+            <td>{{ fleet.appointment_datetime|default:"-" }}</td>
+            <td>{{ fleet.total_pallet|default:"0" }}</td>
+            <td>{{ fleet.total_pcs|default:"0" }}</td>
+            <td>{{ fleet.pre_load|default:"-" }}</td>
+            <td>
+                <form method="post" style="display: inline-block; margin: 2px;">
+                    {% csrf_token %}
+                    <input type="hidden" name="step" value="update_fleet_is_canceled">
+                    <input type="hidden" name="fleet_id" value="{{ fleet.id }}">
+                    <input type="hidden" name="search_value" value="{{ search_value }}">
+                    <input type="hidden" name="search_type" value="{{ search_type }}">
+                    <select name="is_canceled" class="is-canceled-select" onchange="this.form.submit()">
+                        <option value="true" {% if fleet.is_canceled %}selected{% endif %}>是</option>
+                        <option value="false" {% if not fleet.is_canceled %}selected{% endif %}>否</option>
+                    </select>
+                </form>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
 {% elif search_value and not shipments %}
 <div class="no-results">
-    未找到{% if search_type == 'batch' %}批次号{% else %}预约号{% endif %} "{{ search_value }}" 的相关数据
+    未找到相关数据
 </div>
 {% endif %}
 

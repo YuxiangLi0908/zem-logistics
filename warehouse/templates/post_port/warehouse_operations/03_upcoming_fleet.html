@@ -625,6 +625,7 @@
                     {% endfor %}
                 </select>
                 <input type="hidden" name="step" value="upcoming_fleet_warehouse">
+                <input type="hidden" name="shipment_type_filter" id="shipmentTypeHidden">
                 <button id="confirmWarehouse">
                     <i class="fas fa-check"></i> 确认
                 </button>
@@ -656,14 +657,14 @@
                 <div style="display: flex; align-items: center; gap: 4px;"><strong>完成率:</strong> <span id="completion-rate-mini" style="color: #27ae60; font-weight: 600;">{{ summary.day_stats.0.completion_rate }}</span>%</div>
             </div>
             <div style="display: flex; align-items: center; gap: 10px;">
-                <label for="fleetTypeFilter" style="font-weight: 600; color: #2c3e50; white-space: nowrap;">出库类型:</label>
-                <select id="fleetTypeFilter" class="search-input" style="min-width: 150px;">
-                    <option value="all">全部类型</option>
-                    <option value="FTL">FTL</option>
-                    <option value="LTL">LTL</option>
-                    <option value="客户自提">客户自提</option>
-                    <option value="快递">快递</option>
-                    <option value="快递">外配</option>
+                <label for="shipmentTypeFilter" style="font-weight: 600; color: #2c3e50; white-space: nowrap;">出库类型:</label>
+                <select id="shipmentTypeFilter" name="shipment_type_filter">
+                    <option value="all" {% if shipment_type_filter == "all" %}selected{% endif %}>全部类型</option>
+                    <option value="FTL" {% if shipment_type_filter == "FTL" %}selected{% endif %}>FTL</option>
+                    <option value="LTL" {% if shipment_type_filter == "LTL" %}selected{% endif %}>LTL</option>
+                    <option value="客户自提" {% if shipment_type_filter == "客户自提" %}selected{% endif %}>客户自提</option>
+                    <option value="快递" {% if shipment_type_filter == "快递" %}selected{% endif %}>快递</option>
+                    <option value="外配" {% if shipment_type_filter == "外配" %}selected{% endif %}>外配</option>
                 </select>
             </div>
         </div>
@@ -746,7 +747,7 @@
                                 <input type="hidden" name="step" value="record_load">
                                 <input type="hidden" name="warehouse" value="{{ warehouse }}">
                                 <input type="hidden" name="fleet_number" value="{{ fleet.fleet_number }}">
-                                
+                                <input type="hidden" name="shipment_type_filter" id="shipmentTypeHidden">
                                 <div style="display: flex; flex-direction: column; gap: 2px;">
                                     <input type="text" name="pre_load" value="{{ fleet.pre_load|default_if_none:'' }}" 
                                         class="form-control form-control-sm" style="width: 80px;">
@@ -775,7 +776,7 @@
                                 <input type="hidden" name="step" value="checkin_fleet">
                                 <input type="hidden" name="warehouse" value="{{ warehouse }}">
                                 <input type="hidden" name="fleet_number" value="{{ fleet.fleet_number }}">
-                                
+                                <input type="hidden" name="shipment_type_filter" id="shipmentTypeHidden">
                                 <div class="driver-info">
                                     <input type="text" name="driver_name" class="info-input" placeholder="司机姓名" 
                                         value="{{ fleet.driver_name|default:'' }}">
@@ -811,6 +812,7 @@
                                 {% csrf_token %}
                                 <input type="hidden" name="step" value="export_bol">
                                 <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                                <input type="hidden" name="shipment_type_filter" id="shipmentTypeHidden">
                                 <input type="hidden" name="fleet_number" value="{{ fleet.fleet_number }}">
                                 <button type="submit" class="action-btn btn-primary">
                                     <i class="fas fa-download"></i> BOL
@@ -823,6 +825,7 @@
                                     <input type="hidden" name="step" value="loading_fleet">
                                     <input type="hidden" name="warehouse" value="{{ warehouse }}">
                                     <input type="hidden" name="fleet_number" value="{{ fleet.fleet_number }}">
+                                    <input type="hidden" name="shipment_type_filter" id="shipmentTypeHidden">
                                     <button type="submit" class="action-btn btn-success">
                                         <i class="fas fa-play-circle"></i> 开始装柜
                                     </button>
@@ -833,6 +836,7 @@
                                     <input type="hidden" name="step" value="loading_fleet">
                                     <input type="hidden" name="warehouse" value="{{ warehouse }}">
                                     <input type="hidden" name="fleet_number" value="{{ fleet.fleet_number }}">
+                                    <input type="hidden" name="shipment_type_filter" id="shipmentTypeHidden">
                                     <button type="submit" class="action-btn btn-success">
                                         <i class="fas fa-play-circle"></i> 开始装柜
                                     </button>
@@ -843,6 +847,7 @@
                                     <input type="hidden" name="step" value="shipped_fleet">
                                     <input type="hidden" name="warehouse" value="{{ warehouse }}">
                                     <input type="hidden" name="fleet_number" value="{{ fleet.fleet_number }}">
+                                    <input type="hidden" name="shipment_type_filter" id="shipmentTypeHidden">
                                     <button type="submit" class="action-btn btn-success">
                                         <i class="fas fa-play-circle"></i> 确认出库
                                     </button>
@@ -894,6 +899,7 @@
             <input type="hidden" name="step" value="complete_loading">
             <input type="hidden" name="warehouse" value="{{ warehouse }}">
             <input type="hidden" name="fleet_number" id="modalFleetNumber" value="">
+            <input type="hidden" name="shipment_type_filter" id="shipmentTypeHidden">
             
             <div class="form-group" style="margin-bottom: 15px;">
                 <label style="display: block; margin-bottom: 6px; font-size: 14px; color: #555;">凭证图片：</label>
@@ -933,6 +939,7 @@
             <input type="hidden" name="step" value="report_issue">
             <input type="hidden" name="warehouse" value="{{ warehouse }}">
             <input type="hidden" name="fleet_number" id="issueFleetNumber" value="">
+            <input type="hidden" name="shipment_type_filter" id="shipmentTypeHidden">
             
             <div class="form-group" style="margin-bottom: 15px;">
                 <label style="display: block; margin-bottom: 6px; font-size: 14px; color: #555; font-weight: 600;">异常类型：</label>
@@ -971,7 +978,7 @@
     }
 
     document.getElementById('searchBtn').addEventListener('click', applyFilters);
-    document.getElementById('fleetTypeFilter').addEventListener('change', applyFilters);
+    document.getElementById('shipmentTypeFilter').addEventListener('change', applyFilters);
 
     function filterTableBySearch(searchTerm) {
         applyFilters();
@@ -991,7 +998,7 @@
         const activeTab = document.querySelector('.time-tab.active');
         const selectedDay = activeTab ? activeTab.getAttribute('data-day') : '0';
         const searchTerm = document.getElementById('fleetSearch').value.trim().toLowerCase();
-        const typeFilter = document.getElementById('fleetTypeFilter').value;
+        const typeFilter = document.getElementById('shipmentTypeFilter').value;
         
         // 处理普通行
         const rows = document.querySelectorAll('.shipment-table tbody tr');
@@ -1055,7 +1062,23 @@
             // 默认选择今天
             applyFilters();
         }
-        
+        const shipmentTypeSelect = document.getElementById('shipmentTypeFilter');
+        const shipmentTypeHidden = document.getElementById('shipmentTypeHidden');
+
+        // 恢复上次选择
+        const savedShipmentType = localStorage.getItem('selectedShipmentType');
+        if (savedShipmentType) {
+            shipmentTypeSelect.value = savedShipmentType;
+            shipmentTypeHidden.value = savedShipmentType;
+        }
+
+        // 每次切换时保存并更新隐藏字段
+        shipmentTypeSelect.addEventListener('change', function() {
+            const selectedType = shipmentTypeSelect.value;
+            localStorage.setItem('selectedShipmentType', selectedType);
+            shipmentTypeHidden.value = selectedType;
+            applyFilters();
+        });
         // 恢复所有按钮状态
         restoreAllButtons();
     });

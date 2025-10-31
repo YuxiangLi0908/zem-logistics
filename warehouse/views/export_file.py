@@ -265,6 +265,7 @@ async def export_palletization_list_v2(request: HttpRequest) -> HttpResponse:
     else:
         df = pd.DataFrame(columns=["destination", "delivery_method", "shipping_mark", "pcs", "pl", "note", "slot"])
 
+    df = df[["destination", "delivery_method", "shipping_mark", "slot", "pcs", "pl", "note"]]
     buffer = BytesIO()
     wb = openpyxl.Workbook()
     ws = wb.active
@@ -312,7 +313,7 @@ async def export_palletization_list_v2(request: HttpRequest) -> HttpResponse:
     ws['F1'].border = thin_border
     ws['F1'].alignment = center_alignment
 
-    column_names = ["destination", "delivery_method", "shipping_mark", "pcs", "pl", "note", "slot"]
+    column_names = ["destination", "delivery_method", "shipping_mark", "slot", "pcs", "pl", "note"]
     for col_idx, name in enumerate(column_names, 1):
         cell = ws.cell(row=2, column=col_idx)
         cell.value = name

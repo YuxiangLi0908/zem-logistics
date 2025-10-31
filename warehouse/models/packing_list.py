@@ -48,6 +48,7 @@ class PackingList(models.Model):
         related_name="packinglist_master",
     )
     note = models.CharField(null=True, blank=True, max_length=2000)
+    note_sp = models.CharField(max_length=2000, null=True, blank=True)
     express_number = models.CharField(null=True, blank=True, verbose_name="快递单号")
     long = models.DecimalField(
         max_digits=10,

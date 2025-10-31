@@ -28,6 +28,24 @@ class ExceptionHandling(View):
     template_container_pallet = "exception_handling/shipment_actual.html"
     template_post_port_status = "exception_handling/post_port_status.html"
     template_delivery_invoice = "exception_handling/delivery_invoice.html"
+    template_excel_formula_tool = "exception_handling/excel_formula_tool.html"
+    shipment_type_options = {
+        "": "",
+        "FTL": "FTL",
+        "LTL": "LTL",
+        "外配": "外配",
+        "快递": "快递",
+        "客户自提": "客户自提",
+    }
+    warehouse_options = {
+        "": "",
+        "NJ-07001": "NJ-07001",
+        "NJ-08817": "NJ-08817",
+        "SAV-31326": "SAV-31326",
+        "LA-91761": "LA-91761",
+        "MO-62025": "MO-62025",
+        "TX-77503": "TX-77503",
+    }
 
     async def get(self, request: HttpRequest) -> HttpResponse:
         step = request.GET.get("step", None)
@@ -41,6 +59,8 @@ class ExceptionHandling(View):
             
         elif step == "delivery_invoice":
             return await sync_to_async(render)(request, self.template_delivery_invoice)     
+        elif step == "excel_formula_tool":
+            return await sync_to_async(render)(request, self.template_excel_formula_tool)   
         elif step == "shipment_actual":
             if self._validate_user_exception_handling(request.user):
                 return await sync_to_async(render)(request, self.template_container_pallet)
@@ -57,6 +77,21 @@ class ExceptionHandling(View):
             return await sync_to_async(render)(request, template, context)          
         elif step == "update_shipment_status":
             template, context = await self.handle_update_shipment_status(request)
+            return await sync_to_async(render)(request, template, context)
+        elif step == "update_shipment_in_use":
+            template, context = await self.handle_update_shipment_in_use(request)
+            return await sync_to_async(render)(request, template, context)
+        elif step == "update_fleet_type":
+            template, context = await self.handle_update_fleet_type(request)
+            return await sync_to_async(render)(request, template, context)
+        elif step == "update_fleet_origin":
+            template, context = await self.handle_update_fleet_origin(request)
+            return await sync_to_async(render)(request, template, context)
+        elif step == "update_fleet_is_canceled":
+            template, context = await self.handle_update_fleet_is_canceled(request)
+            return await sync_to_async(render)(request, template, context)
+        elif step == "update_shipment_is_canceled":
+            template, context = await self.handle_update_shipment_is_canceled(request)
             return await sync_to_async(render)(request, template, context)
         #修改主约和实际约
         elif step == "search_container":
@@ -262,10 +297,13 @@ class ExceptionHandling(View):
     
     async def handle_search_shipment(self, request: HttpRequest):
         """处理查询shipment请求"""
-        context = {}
-        search_value = request.POST.get('shipment_batch_number', '').strip()
-        search_type = request.POST.get('search_type', 'batch')
+        context = {
+            'warehouse_options':self.warehouse_options,
+            'shipment_type_options': self.shipment_type_options,
+        }
         
+        search_value = request.POST.get('search_value', '').strip()
+        search_type = request.POST.get('search_type')
         if not search_value:
             messages.error(request, "请输入查询内容")
             return self.template_post_port_status, context
@@ -275,26 +313,36 @@ class ExceptionHandling(View):
             if search_type == 'batch':
                 # 按批次号查询
                 shipment = await sync_to_async(
-                    lambda: Shipment.objects.get(shipment_batch_number=search_value)
+                    lambda: Shipment.objects.select_related('fleet_number').get(shipment_batch_number=search_value)
                 )()
                 context['search_type'] = 'batch'
                 context['search_value'] = search_value
-            else:
+            elif search_type == 'appointment':
                 # 按预约号查询
                 shipment = await sync_to_async(
-                    lambda: Shipment.objects.get(appointment_id=search_value)
+                    lambda: Shipment.objects.select_related('fleet_number').get(appointment_id=search_value)
                 )()
                 context['search_type'] = 'appointment'
                 context['search_value'] = search_value
-            
-            # 将单个shipment对象放入列表中，保持前端模板的一致性
-            context['shipments'] = [shipment]
-            context['search_batch_number'] = search_value
-            
-            # 计算状态和可用操作
-            shipment.current_status = await self.get_shipment_status(shipment)
-            shipment.status_display = await self.get_status_display_name(shipment.current_status)
-            shipment.available_operations = await self.get_available_operations(shipment.current_status)
+            elif search_type == 'fleet':
+                fleets = await sync_to_async(lambda: Fleet.objects.get(fleet_number=search_value))()
+                fleet_sp = await sync_to_async(
+                    lambda: list(Shipment.objects.filter(fleet_number=fleets))
+                )()
+                context['search_type'] = 'fleet'
+                context['search_value'] = search_value
+                context['fleets'] = [fleets]
+                context['fleet_sp'] = fleet_sp
+                
+            if search_type != 'fleet':
+                # 将单个shipment对象放入列表中，保持前端模板的一致性
+                context['shipments'] = [shipment]
+                context['search_batch_number'] = search_value
+                
+                # 计算状态和可用操作
+                shipment.current_status = await self.get_shipment_status(shipment)
+                shipment.status_display = await self.get_status_display_name(shipment.current_status)
+                shipment.available_operations = await self.get_available_operations(shipment.current_status)
                 
         except MultipleObjectsReturned:
             messages.error(request, f"找到多个匹配的记录，请核实查询条件：{search_value}")
@@ -308,6 +356,95 @@ class ExceptionHandling(View):
         
         return self.template_post_port_status, context
     
+    async def handle_update_shipment_is_canceled(self, request: HttpRequest):
+        shipment_id = request.POST.get('shipment_id')
+        is_canceled_value = request.POST.get('is_canceled')
+        is_canceled_bool = is_canceled_value.lower() == 'true' if is_canceled_value else False
+        shipment = await sync_to_async(
+            lambda: Shipment.objects.select_related('fleet_number').filter(id=shipment_id).first()
+        )()
+        if shipment:
+            # 更新in_use字段
+            shipment.is_canceled = is_canceled_bool
+            await sync_to_async(shipment.save)()
+            
+            # 添加成功消息
+            messages.success(request, f"成功更新 Shipment ID {shipment_id} 的取消状态为: {'是' if is_canceled_bool else '否'}")
+        else:
+            messages.error(request, f"未找到 ID 为 {shipment_id} 的 Shipment")
+        return await self.handle_search_shipment(request)
+    
+    async def handle_update_fleet_type(self, request: HttpRequest):
+        fleet_id = request.POST.get('fleet_id')
+        fleet_type = request.POST.get('fleet_type')
+        
+        fleet = await sync_to_async(
+            lambda: Fleet.objects.filter(id=fleet_id).first()
+        )()
+        
+        if fleet:
+            fleet.fleet_type = fleet_type
+            await sync_to_async(fleet.save)()
+            
+            messages.success(request, f"成功更新车次 {fleet.fleet_number} 的类型为: {fleet_type}")
+        else:
+            messages.error(request, f"未找到 ID 为 {fleet_id} 的车次")
+        return await self.handle_search_shipment(request)
+
+    async def handle_update_fleet_origin(self, request: HttpRequest):
+        fleet_id = request.POST.get('fleet_id')
+        origin = request.POST.get('origin')
+        
+        fleet = await sync_to_async(
+            lambda: Fleet.objects.filter(id=fleet_id).first()
+        )()
+        
+        if fleet:
+            fleet.origin = origin
+            await sync_to_async(fleet.save)()
+            
+            messages.success(request, f"成功更新车次 {fleet.fleet_number} 的仓库为: {origin}")
+        else:
+            messages.error(request, f"未找到 ID 为 {fleet_id} 的车次")
+        return await self.handle_search_shipment(request)
+
+    async def handle_update_fleet_is_canceled(self, request: HttpRequest):
+        fleet_id = request.POST.get('fleet_id')
+        is_canceled_value = request.POST.get('is_canceled')
+        is_canceled_bool = is_canceled_value.lower() == 'true' if is_canceled_value else False
+        
+        fleet = await sync_to_async(
+            lambda: Fleet.objects.filter(id=fleet_id).first()
+        )()
+        
+        if fleet:
+            fleet.is_canceled = is_canceled_bool
+            await sync_to_async(fleet.save)()
+            
+            messages.success(request, f"成功更新车次 {fleet.fleet_number} 的取消状态为: {'是' if is_canceled_bool else '否'}")
+        else:
+            messages.error(request, f"未找到 ID 为 {fleet_id} 的车次")
+        return await self.handle_search_shipment(request)
+    
+    async def handle_update_shipment_in_use(self, request: HttpRequest):
+        shipment_id = request.POST.get('shipment_id')
+        in_use_value = request.POST.get('in_use')
+        in_use_bool = in_use_value.lower() == 'true' if in_use_value else False
+        shipment = await sync_to_async(
+            lambda: Shipment.objects.select_related('fleet_number').filter(id=shipment_id).first()
+        )()
+        if shipment:
+            # 更新in_use字段
+            shipment.in_use = in_use_bool
+            await sync_to_async(shipment.save)()
+            
+            # 添加成功消息
+            messages.success(request, f"成功更新 Shipment ID {shipment_id} 的使用状态为: {'是' if in_use_bool else '否'}")
+        else:
+            messages.error(request, f"未找到 ID 为 {shipment_id} 的 Shipment")
+        return await self.handle_search_shipment(request)
+
+
     async def handle_update_shipment_status(self, request: HttpRequest):
         """处理更新shipment状态请求"""
         context = {}
@@ -530,9 +667,10 @@ class ExceptionHandling(View):
                     context["container_info"] = {"id": container.id, "number": container.container_number}
                     pallets = await sync_to_async(list)(
                         Pallet.objects.filter(container_number=container)
-                        .select_related("invoice_delivery")
+                        .select_related("invoice_delivery","shipment_batch_number", "shipment_batch_number__fleet_number")
                         .values(
-                            "id", "container_number__container_number", "destination", "delivery_method",
+                            "id", "container_number__container_number", "shipment_batch_number", "shipment_batch_number__shipment_batch_number", 
+                            "shipment_batch_number__fleet_number__fleet_number","destination", "delivery_method",
                             "cbm", "weight_lbs", "pcs", "location", "note",
                             "fba_id", "ref_id", "invoice_delivery_id"
                         )
@@ -577,20 +715,45 @@ class ExceptionHandling(View):
             # === Pallet 查询 ===
             elif search_type == "pallet":
                 try:
-                    pallet_id = int(search_value)
-                    pallet = await sync_to_async(
-                        lambda: Pallet.objects.filter(id=pallet_id)
-                        .select_related("invoice_delivery", "container_number")
-                        .values(
-                            "id", "container_number__container_number", "destination", "delivery_method",
-                            "cbm", "weight_lbs", "pcs", "location", "note",
-                            "fba_id", "ref_id", "invoice_delivery_id"
-                        ).first()
-                    )()
-                    if pallet:
-                        search_results = [pallet]
+                    if "," in search_value:
+                        pallet_ids = [
+                            int(i.strip()) for i in search_value.split(",") if i.strip().isdigit()
+                        ]
+                        if not pallet_ids:
+                            messages.error(request, "请输入有效的 Pallet ID 列表")
+                        else:
+                            pallets = await sync_to_async(
+                                lambda: list(
+                                    Pallet.objects.filter(id__in=pallet_ids)
+                                    .select_related("invoice_delivery", "container_number","shipment_batch_number", "shipment_batch_number__fleet_number")
+                                    .values(
+                                        "id", "container_number__container_number", "shipment_batch_number", "shipment_batch_number__shipment_batch_number", 
+                                        "shipment_batch_number__fleet_number__fleet_number", "destination", "delivery_method",
+                                        "cbm", "weight_lbs", "pcs", "location", "note",
+                                        "fba_id", "ref_id", "invoice_delivery_id"
+                                    )
+                                )
+                            )()
+                            if pallets:
+                                search_results = pallets
+                            else:
+                                messages.warning(request, f"未找到指定的 Pallet ID: {search_value}")
                     else:
-                        messages.warning(request, f"未找到 Pallet ID: {search_value}")
+                        pallet_id = int(search_value)
+                        pallet = await sync_to_async(
+                            lambda: Pallet.objects.filter(id=pallet_id)
+                            .select_related("invoice_delivery", "container_number","shipment_batch_number", "shipment_batch_number__fleet_number")
+                            .values(
+                                "id", "container_number__container_number","shipment_batch_number", "shipment_batch_number__shipment_batch_number", 
+                                "shipment_batch_number__fleet_number__fleet_number", "destination", "delivery_method",
+                                "cbm", "weight_lbs", "pcs", "location", "note",
+                                "fba_id", "ref_id", "invoice_delivery_id"
+                            ).first()
+                        )()
+                        if pallet:
+                            search_results = [pallet]
+                        else:
+                            messages.warning(request, f"未找到 Pallet ID: {search_value}")
                 except ValueError:
                     messages.error(request, "Pallet ID 必须是数字")
 

@@ -59,6 +59,7 @@ class Fleet(models.Model):
     status_description = models.CharField(max_length=1000, null=True, blank=True)
     pre_load =  models.CharField(max_length=1000, null=True, blank=True)
     abnormal_reason = models.CharField(max_length=1000, null=True, blank=True)
+    is_virtual = models.BooleanField(default=False, null=True, blank=True)
     history = HistoricalRecords()
 
     class Meta:

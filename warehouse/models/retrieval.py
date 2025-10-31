@@ -11,6 +11,7 @@ class Retrieval(models.Model):
     note_preport_dispatch = models.TextField(null=True, blank=True, verbose_name="货柜进度汇总备注")
     retrive_by_zem = models.BooleanField(default=True, blank=True)
     retrieval_carrier = models.CharField(max_length=100, null=True, blank=True)
+    retrieval_carrier_planned = models.CharField(max_length=100, null=True, blank=True, verbose_name="计划提柜供应商")
     origin_port = models.CharField(max_length=255, null=True, blank=True)
     destination_port = models.CharField(max_length=255, null=True, blank=True)
     shipping_line = models.CharField(max_length=255, null=True, blank=True)

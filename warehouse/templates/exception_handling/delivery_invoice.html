@@ -220,6 +220,8 @@ body {
         <tr>
             <th>Pallet ID</th>
             <th>柜号</th>
+            <th>Shipment</th>
+            <th>Fleet</th>
             <th class="col-fba">FBA</th>
             <th class="col-ref">REF</th>
             <th>目的地</th>
@@ -238,6 +240,8 @@ body {
         <tr>
             <td>{{ pallet.id }}</td>
             <td>{{ pallet.container_number__container_number }}</td>
+            <td>{{ pallet.shipment_batch_number__shipment_batch_number|default_if_none:"" }}</td>
+            <td>{{ pallet.shipment_batch_number__fleet_number__fleet_number|default_if_none:"" }}</td>
             <td class="col-fba">{{ pallet.fba_id|default:"-" }}</td>
             <td class="col-ref">{{ pallet.ref_id|default:"-" }}</td>
             <td>{{ pallet.destination|default:"-" }}</td>

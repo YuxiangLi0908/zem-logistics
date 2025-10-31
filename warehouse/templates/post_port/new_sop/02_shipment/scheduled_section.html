@@ -25,6 +25,7 @@
                     <th>FBA ID</th>
                     <th>板数</th>
                     <th>CBM</th>
+                    <th>备注</th>
                     <th>操作</th>
                 </tr>
             </thead>
@@ -69,6 +70,19 @@
                         {% endif %}
                     </td>
                     <td>{{ cargo.total_cbm|default:0 }}</td>
+                    <td>
+                        <form method="post">
+                            {% csrf_token %}
+                            <input type="hidden" name="step" value="edit_note_sp">
+                            <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                            <input type="hidden" name="cargo_ids" value="{{ cargo.ids|default:'' }}">
+                            <input type="hidden" name="plt_ids" value="{{ cargo.plt_ids|default:'' }}">
+                            <div style="margin-bottom: 5px;">
+                                <input type="text" name="note_sp" class="form-input" value="{{ cargo.note_sp|default:'' }}" style="width: 80px;">
+                            </div>
+                            <button type="submit" class="btn btn-sm btn-primary" style="margin-top: 2px;">保存</button>
+                        </form>
+                    </td>
                     {% if forloop.first %}
                     <td rowspan="{{ shipment_group.cargos|length }}" style="vertical-align: middle;">
                         
@@ -103,6 +117,14 @@
                                 data-operation-type="remove_po">
                             <i class="fas fa-square-minus"></i> 删除PO
                         </button>
+                        <button class="action-btn btn-primary open-edit-modal"
+                                data-appointment-id="{{ shipment_group.appointment_id }}"
+                                data-destination="{{ shipment_group.destination }}"
+                                data-scheduled-time="{{ shipment_group.shipment_appointment|date:'Y-m-d H:i' }}"
+                                data-load-type="{{ shipment_group.load_type }}"
+                                data-origin="{{ warehouse }}">
+                            <i class="fas fa-edit"></i> 修改约
+                        </button>
                     </td>
                     {% endif %}
                 </tr>
@@ -118,10 +140,114 @@
         </table>
     </div>
 </div>
+<div id="editAppointmentModal" class="modal">
+    <div class="modal-content" style="width: 600px; max-width: 90%;">
+        <div class="modal-header">
+            <h3><i class="fas fa-edit"></i> 修改预约</h3>
+            <span class="close">&times;</span>
+        </div>
+        <div class="modal-body">
+            <form id="editAppointmentForm" method="post">
+                {% csrf_token %}
+                <input type="hidden" name="step" value="edit_appointment">
+                <input type="hidden" name="appointment_id" id="editModalAppointmentId">
+                <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                <input type="hidden" name="st_type" value="{{ st_type }}">
 
+                <table class="modal-table">
+                    <tbody>
+                        <tr>
+                            <th>预约号</th>
+                            <td><input type="text" name="appointment_id_input" id="editModalAppointmentInput" class="form-input" required></td>
+                        </tr>
+                        <tr>
+                            <th>Scheduled Time</th>
+                            <td><input type="datetime-local" name="shipment_appointment" id="editModalScheduledTime" class="form-input" required></td>
+                        </tr>
+                        <tr>
+                            <th>目的地</th>
+                            <td><input type="text" name="destination" id="editModalDestination" class="form-input" required></td>
+                        </tr>
+                        <tr>
+                            <th>装车类型</th>
+                            <td>
+                                <select name="load_type" id="editModalLoadType" class="form-select">
+                                    {% for k, v in load_type_options %}
+                                    <option value="{{ v }}">{{ k }}</option>
+                                    {% endfor %}
+                                </select>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>发货仓库</th>
+                            <td>
+                                <select name="origin" id="editModalOrigin" class="form-select">
+                                    {% for k, v in warehouse_options.items %}
+                                    <option value="{{ v }}">{{ k }}</option>
+                                    {% endfor %}
+                                </select>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <div class="modal-actions">
+                    <button type="submit" class="modal-btn modal-btn-success">
+                        <i class="fas fa-check"></i> 保存修改
+                    </button>
+                    <button type="button" class="modal-btn modal-btn-danger" onclick="closeEditModal()">
+                        <i class="fas fa-times"></i> 取消
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 <script>
 // 已排约页面特定的JavaScript
 document.addEventListener('DOMContentLoaded', function() {
     // 已排约页面的特定功能可以在这里添加
 });
+// 打开修改约模态框
+document.querySelectorAll('.open-edit-modal').forEach(btn => {
+    btn.addEventListener('click', function() {
+        const appointmentId = this.dataset.appointmentId;
+        const scheduledTime = this.dataset.scheduledTime.replace(' ', 'T');
+        const destination = this.dataset.destination;
+        const loadType = this.dataset.loadType;
+        const origin = this.dataset.origin;
+
+        document.getElementById('editModalAppointmentId').value = appointmentId;
+        document.getElementById('editModalAppointmentInput').value = appointmentId;
+        document.getElementById('editModalScheduledTime').value = scheduledTime;
+        document.getElementById('editModalDestination').value = destination;
+        document.getElementById('editModalLoadType').value = loadType;
+        document.getElementById('editModalOrigin').value = origin;
+
+        document.getElementById('editAppointmentModal').style.display = 'block';
+    });
+});
+
+// 关闭弹框
+function closeEditModal() {
+    document.getElementById('editAppointmentModal').style.display = 'none';
+}
+
+// 点击空白区域关闭
+window.addEventListener('click', function(event) {
+    const modal = document.getElementById('editAppointmentModal');
+    if (event.target === modal) {
+        closeEditModal();
+    }
+});
+
+// 提交表单
+document.getElementById('editAppointmentForm').addEventListener('submit', function(e) {
+    if (!confirm('确定保存修改吗？')) {
+        e.preventDefault();
+        return;
+    }
+});
+
+
 </script>
