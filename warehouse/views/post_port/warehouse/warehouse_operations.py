@@ -119,14 +119,41 @@ class WarehouseOperations(View):
                     "icon": "fa-user-check",
                     "driver_name": fleet["driver_name"],
                     "driver_phone": fleet["driver_phone"],
+                    "trailer_number": fleet.get("trailer_number"),
+                    "PRO": fleet.get("PRO"),
                 })
 
             return render(request, template, context)
         elif step == "loading_fleet":
             template, context = await self.handle_loading_fleet_post(request)
+            if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+                fleet_number = request.POST.get("fleet_number")
+                fleet = next((f for f in context["fleets"] if f["fleet_number"] == fleet_number), None)
+                if not fleet:
+                    return JsonResponse({"success": False, "error": "未找到该车次"})
+
+                return JsonResponse({
+                    "success": True,
+                    "new_status": fleet["warehouse_process_status"],  # 'loading'
+                    "display_text": "装柜中",
+                    "icon": "fa-truck-loading"
+                })
             return render(request, template, context)
         elif step == "shipped_fleet":
             template, context = await self.handle_shipped_fleet_post(request)
+            if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+                fleet_number = request.POST.get("fleet_number")
+                fleet = next((f for f in context["fleets"] if f["fleet_number"] == fleet_number), None)
+                if not fleet:
+                    return JsonResponse({"success": False, "error": "未找到该车次"})
+
+                # 返回更新后的状态给前端
+                return JsonResponse({
+                    "success": True,
+                    "new_status": "shipped",
+                    "display_text": "已出库",
+                    "icon": "fa-check-double"
+                })
             return render(request, template, context)
         elif step == "complete_loading":
             file_path_name = "outbound_file"
@@ -151,16 +178,21 @@ class WarehouseOperations(View):
             template, context = await self.handle_record_load_post(request)
             if request.headers.get("X-Requested-With") == "XMLHttpRequest":
                 fleet_number = request.POST.get("fleet_number")
-                fleet = next((f for f in context["fleets"] if f["fleet_number"] == fleet_number), None)
+                pre_load = request.POST.get("pre_load")
 
+                # 找到对应 fleet
+                fleet = next((f for f in context["fleets"] if f["fleet_number"] == fleet_number), None)
                 if not fleet:
                     return JsonResponse({"success": False, "error": "未找到该车次"})
 
+                # 更新数据库/上下文（假设 handle_record_load_post 已做）
+                fleet["pre_load"] = pre_load
+
                 return JsonResponse({
                     "success": True,
-                    "message": "Pre-load值更新成功",
-                    "pre_load": fleet.get("pre_load", "")
+                    "pre_load": fleet["pre_load"]
                 })
+
             return await sync_to_async(render)(request, template, context)
 
 
@@ -649,7 +681,7 @@ class WarehouseOperations(View):
         driver_name = request.POST.get("driver_name")
         driver_phone = request.POST.get("driver_phone")
         trailer_number = request.POST.get("trailer_number")
-
+        PRO = request.POST.get("PRO")
         updated = await sync_to_async(
             Fleet.objects.filter(fleet_number=fleet_number).update
         )(
@@ -658,9 +690,17 @@ class WarehouseOperations(View):
             driver_phone=driver_phone,
             trailer_number=trailer_number
         )
-
+        
         if updated == 0:
             return ValueError('未查到该车次')
+        if PRO:
+            try:
+                await sync_to_async(
+                    Shipment.objects.filter(fleet_number__fleet_number=fleet_number).update
+                )(ARM_PRO=PRO)
+            except Exception as e:
+                # 可以记录日志
+                print(f"更新 PRO 出错: {e}")
         return await self.handle_upcoming_fleet_post(request)
 
     async def handle_adjust_inventory_post(
@@ -1140,6 +1180,5 @@ class WarehouseOperations(View):
                 normal = g['total_fleets'] - g['abnormal_count']
                 g['completion_rate'] = round((g['completed_count'] / normal) * 100) if normal > 0 else 0
             day_type_stats[day] = grouped
-        print('day_type_stats',day_type_stats)
         context["day_type_stats"] = day_type_stats
         return self.template_upcoming_fleet, context
