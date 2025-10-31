@@ -55,7 +55,9 @@
                                                     data-appointment-datetime="{{ fleet_group.appointment_datetime }}">
                                                     <strong style="color: #3498db; text-decoration: underline;">{{ fleet_group.fleet_number }}</strong>
                                                     <br>
-                                                    <small style="color: #7f8c8d; font-size: 10px;">点击编辑</small>
+                                                    {% if fleet_group.is_virtual %}
+                                                    <small style="color: #7f8c8d; font-size: 10px;">虚拟车次待编辑</small>
+                                                    {% endif %}
                                                 </td>
                                                 <td rowspan="{{ fleet_rowspan }}" style="vertical-align: middle; background-color: #f8f9fa;">
                                                     {{ fleet_group.appointment_datetime|date:"Y-m-d" }}
@@ -105,7 +107,9 @@
                                                     data-appointment-datetime="{{ fleet_group.appointment_datetime }}">
                                                     <strong style="color: #3498db; text-decoration: underline;">{{ fleet_group.fleet_number }}</strong>
                                                     <br>
-                                                    <small style="color: #7f8c8d; font-size: 10px;">点击编辑</small>
+                                                    {% if fleet_group.is_virtual%}
+                                                    <small style="color: #7f8c8d; font-size: 10px;">虚拟车次待编辑</small>
+                                                    {% endif %}
                                                 </td> 
                                                 <td rowspan="{{ fleet_rowspan }}" style="vertical-align: middle; background-color: #f8f9fa;">
                                                     {{ fleet_group.appointment_datetime|date:"Y-m-d" }}
