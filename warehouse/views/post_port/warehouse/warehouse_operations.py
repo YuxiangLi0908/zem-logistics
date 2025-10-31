@@ -105,6 +105,22 @@ class WarehouseOperations(View):
             return await sync_to_async(render)(request, template, context)
         elif step == "checkin_fleet":
             template, context = await self.handle_checkin_fleet_post(request)
+            if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+                fleet_number = request.POST.get("fleet_number")
+                fleet = next((f for f in context["fleets"] if f["fleet_number"] == fleet_number), None)
+
+                if not fleet:
+                    return JsonResponse({"success": False, "error": "未找到该车次"})
+
+                return JsonResponse({
+                    "success": True,
+                    "new_status": fleet["warehouse_process_status"],
+                    "display_text": "已签到",
+                    "icon": "fa-user-check",
+                    "driver_name": fleet["driver_name"],
+                    "driver_phone": fleet["driver_phone"],
+                })
+
             return render(request, template, context)
         elif step == "loading_fleet":
             template, context = await self.handle_loading_fleet_post(request)
@@ -133,6 +149,18 @@ class WarehouseOperations(View):
             return await sync_to_async(render)(request, template, context)
         elif step == "record_load":
             template, context = await self.handle_record_load_post(request)
+            if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+                fleet_number = request.POST.get("fleet_number")
+                fleet = next((f for f in context["fleets"] if f["fleet_number"] == fleet_number), None)
+
+                if not fleet:
+                    return JsonResponse({"success": False, "error": "未找到该车次"})
+
+                return JsonResponse({
+                    "success": True,
+                    "message": "Pre-load值更新成功",
+                    "pre_load": fleet.get("pre_load", "")
+                })
             return await sync_to_async(render)(request, template, context)
 
 
@@ -831,6 +859,14 @@ class WarehouseOperations(View):
             3: {'fleets': [], 'total_pallets': 0, 'total_cbm': 0, 'completed_count': 0, 'abnormal_count': 0}
         }
 
+        type_stats = {
+            'all': {'fleets': [], 'total_pallets': 0, 'total_cbm': 0, 'completed_count': 0, 'abnormal_count': 0},
+            'FTL': {'fleets': [], 'total_pallets': 0, 'total_cbm': 0, 'completed_count': 0, 'abnormal_count': 0},
+            'LTL': {'fleets': [], 'total_pallets': 0, 'total_cbm': 0, 'completed_count': 0, 'abnormal_count': 0},
+            '客户自提': {'fleets': [], 'total_pallets': 0, 'total_cbm': 0, 'completed_count': 0, 'abnormal_count': 0},
+            '外配': {'fleets': [], 'total_pallets': 0, 'total_cbm': 0, 'completed_count': 0, 'abnormal_count': 0},
+            '快递': {'fleets': [], 'total_pallets': 0, 'total_cbm': 0, 'completed_count': 0, 'abnormal_count': 0}
+        }
         for fleet in fleets:
             pls_details = await sync_to_async(
                 lambda: list(
@@ -878,7 +914,8 @@ class WarehouseOperations(View):
             days_diff = (fleet.appointment_datetime.date() - today).days
             all_details = pls_details + plt_details
             details = {}
-            if fleet.fleet_type == 'LTL':
+            fleet_type = fleet.fleet_type
+            if fleet_type == 'LTL':
                 # 获取container_number和shipping_mark信息（去重）
                 seen = set()
                 details['柜号'] = []
@@ -892,7 +929,7 @@ class WarehouseOperations(View):
                             details['柜号'].append(container_num)
                             details['唛头'].append(shipping_mark)
                             seen.add(key)                         
-            elif fleet.fleet_type == '外配':
+            elif fleet_type == '外配':
                 # 获取destination信息（去重）
                 details['仓点'] = []
                 destinations_set = set()
@@ -901,7 +938,7 @@ class WarehouseOperations(View):
                     if destination and destination not in destinations_set:
                         details['仓点'].append(destination)
                         destinations_set.add(destination)                
-            elif fleet.fleet_type == '快递':
+            elif fleet_type == '快递':
                 # 获取container_number信息（去重）
                 details['柜号'] = []
                 container_set = set()
@@ -910,11 +947,11 @@ class WarehouseOperations(View):
                     if container_num and container_num not in container_set:
                         details['柜号'].append(container_num)
                         container_set.add(container_num)
-            
+
             display_day = days_diff
             arm_pro_combined = None
             is_print_label_combined = None
-            if fleet.fleet_type != 'FTL':
+            if fleet_type != 'FTL':
                 arm_pro_list = [
                     str(getattr(shipment, 'ARM_PRO', ''))
                     for shipment in fleet.shipment.all()
@@ -955,6 +992,26 @@ class WarehouseOperations(View):
                 'is_print_label':is_print_label_combined,
             }
             fleet_data.append(fleet_item)
+
+            #按类型，计算总数量什么的
+            if fleet_type in type_stats:
+                type_stats[fleet_type]['fleets'].append(fleet_item)
+                type_stats[fleet_type]['total_pallets'] += total_pallets
+                type_stats[fleet_type]['total_cbm'] += total_cbm
+                if fleet.warehouse_process_status == 'shipped':
+                    type_stats[fleet_type]['completed_count'] += 1
+                elif fleet.warehouse_process_status == 'abnormal':
+                    type_stats[fleet_type]['abnormal_count'] += 1
+            
+            # 同时添加到all统计
+            type_stats['all']['fleets'].append(fleet_item)
+            type_stats['all']['total_pallets'] += total_pallets
+            type_stats['all']['total_cbm'] += total_cbm
+            if fleet.warehouse_process_status == 'shipped':
+                type_stats['all']['completed_count'] += 1
+            elif fleet.warehouse_process_status == 'abnormal':
+                type_stats['all']['abnormal_count'] += 1
+
             if days_diff < 0:
                 day_to_count = 3  #过去一周的
             elif 0 <= days_diff <= 2:
@@ -982,14 +1039,30 @@ class WarehouseOperations(View):
             day_stats[day]['completion_rate'] = completion_rate
             day_stats[day]['normal_count'] = normal_count
 
+        for stats in type_stats.values():
+            total_fleets = len(stats['fleets'])
+            completed_count = stats['completed_count']
+            abnormal_count = stats['abnormal_count']
+            normal_count = total_fleets - abnormal_count
+            
+            if normal_count > 0:
+                completion_rate = round((completed_count / normal_count) * 100)
+            else:
+                completion_rate = 0
+                
+            stats['completion_rate'] = completion_rate
+            stats['normal_count'] = normal_count
+            stats['total_fleets'] = total_fleets
+
         fleet_data.sort(key=lambda x: x['days_diff'])
-        print('111111111111111',request.POST.get("shipment_type_filter"))
         shipment_type_filter = request.POST.get("shipment_type_filter") or "all"
+        
         context = {
             'warehouse_options': self.warehouse_options,
             'fleets': fleet_data,
             'warehouse': warehouse,
             'shipment_type_filter': shipment_type_filter,
+            'type_stats': type_stats,
             'summary': {
                 'total_fleets': len(fleet_data),
                 'total_pallets': sum(f['pallets'] for f in fleet_data),
@@ -1040,4 +1113,33 @@ class WarehouseOperations(View):
                 }
             }
         }
+        day_type_stats = {0: {}, 1: {}, 2: {}, 3: {}}
+        for day in [0, 1, 2, 3]:
+            fleets = day_stats[day]['fleets']
+            grouped = {}
+            for f in fleets:
+                t = f['fleet_type']
+                if t not in grouped:
+                    grouped[t] = {
+                        'total_fleets': 0,
+                        'total_pallets': 0,
+                        'total_cbm': 0,
+                        'completed_count': 0,
+                        'abnormal_count': 0
+                    }
+                grouped[t]['total_fleets'] += 1
+                grouped[t]['total_pallets'] += f['pallets']
+                grouped[t]['total_cbm'] += f['pcs']
+                if f['warehouse_process_status'] == 'shipped':
+                    grouped[t]['completed_count'] += 1
+                elif f['warehouse_process_status'] == 'abnormal':
+                    grouped[t]['abnormal_count'] += 1
+
+            # 计算完成率
+            for g in grouped.values():
+                normal = g['total_fleets'] - g['abnormal_count']
+                g['completion_rate'] = round((g['completed_count'] / normal) * 100) if normal > 0 else 0
+            day_type_stats[day] = grouped
+        print('day_type_stats',day_type_stats)
+        context["day_type_stats"] = day_type_stats
         return self.template_upcoming_fleet, context
