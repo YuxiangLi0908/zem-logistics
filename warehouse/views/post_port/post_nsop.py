@@ -617,7 +617,7 @@ class PostNsop(View):
         """更新 fleet 基础信息"""
         context = {}
 
-        # 1️⃣ 获取请求中的字段
+        # 获取请求中的字段
         fleet_number = request.POST.get("fleet_number", "").strip()
         warehouse = request.POST.get("warehouse", "").strip()
         carrier = request.POST.get("carrier", "").strip()
@@ -653,6 +653,7 @@ class PostNsop(View):
         fleet.motor_carrier_number = motor_carrier_number or fleet.motor_carrier_number
         fleet.dot_number = dot_number or fleet.dot_number
         fleet.note = note or fleet.note
+        fleet.is_virtual = False
         if appointment_datetime:
             fleet.appointment_datetime = appointment_datetime
 
@@ -2261,6 +2262,7 @@ class PostNsop(View):
                 'license_plate': fleet.license_plate,
                 'dot_number': fleet.dot_number,
                 'appointment_datetime': fleet.appointment_datetime,
+                'is_virtual': fleet.is_virtual,
                 'shipments': {},  # 改回字典结构，保持与前端兼容
                 'pl_ids': [],
                 'plt_ids': [],
