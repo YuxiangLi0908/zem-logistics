@@ -983,11 +983,13 @@ class WarehouseOperations(View):
             day_stats[day]['normal_count'] = normal_count
 
         fleet_data.sort(key=lambda x: x['days_diff'])
-        
+        print('111111111111111',request.POST.get("shipment_type_filter"))
+        shipment_type_filter = request.POST.get("shipment_type_filter") or "all"
         context = {
             'warehouse_options': self.warehouse_options,
             'fleets': fleet_data,
             'warehouse': warehouse,
+            'shipment_type_filter': shipment_type_filter,
             'summary': {
                 'total_fleets': len(fleet_data),
                 'total_pallets': sum(f['pallets'] for f in fleet_data),

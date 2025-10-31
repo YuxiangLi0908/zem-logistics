@@ -6,6 +6,7 @@ import pandas as pd
 import json
 import uuid
 import pytz
+from django.utils.safestring import mark_safe
 from asgiref.sync import sync_to_async
 from django.contrib.postgres.aggregates import StringAgg
 from django.db.models.functions import Round, Cast, Coalesce
@@ -603,13 +604,13 @@ class PostNsop(View):
         appointment_datetime_str = request.POST.get("appointment_datetime", "").strip()
         note = request.POST.get("note", "").strip()
 
-        # 2️⃣ 查找 Fleet
+        # 查找 Fleet
         fleet = await sync_to_async(lambda: Fleet.objects.filter(fleet_number=fleet_number).first())()
         if not fleet:
             context["error_messages"] = f"Fleet {fleet_number} 不存在"
             return await self.handle_td_shipment_post(request, context)
 
-        # 3️⃣ 解析时间字符串
+        # 解析时间字符串
         appointment_datetime = None
         if appointment_datetime_str:
             try:
@@ -619,7 +620,6 @@ class PostNsop(View):
                 context["error_messages"] = f"时间格式错误: {appointment_datetime_str} ({e})"
                 return await self.handle_td_shipment_post(request, context)
 
-        # 4️⃣ 更新字段
         fleet.origin = warehouse or fleet.origin
         fleet.carrier = carrier or fleet.carrier
         fleet.third_party_address = third_party_address or fleet.third_party_address
@@ -631,10 +631,8 @@ class PostNsop(View):
         if appointment_datetime:
             fleet.appointment_datetime = appointment_datetime
 
-        # 5️⃣ 保存更新
         await sync_to_async(fleet.save)()
 
-        # 6️⃣ 返回结果
         context["message"] = f"Fleet {fleet_number} 信息已成功更新。"
         context["fleet_number"] = fleet_number
         return await self.handle_td_shipment_post(request, context)
@@ -684,31 +682,34 @@ class PostNsop(View):
             if result['success']:
                 success_groups.append({
                     'suggestion_id': result.get('suggestion_id'),
-                    'appointment_id': result.get('appointment_id')
+                    'appointment_id': result.get('appointment_id'),
+                    'batch_number': result.get('shipment_batch_number')
                 })
-                success_appointment_ids.append(result.get('appointment_id'))
+                appointment_id = int(str(appointment_id).strip())
+                success_appointment_ids.append(appointment_id)
             else:
                 failed_groups.append({
                     'suggestion_id': result.get('suggestion_id'),
                     'appointment_id': result.get('appointment_id'),
+                    'batch_number': result.get('shipment_batch_number'),
                     'error': result.get('error', '未知错误')
                 })
                        
         # 构建返回消息
         messages = []
         if success_groups:
-            success_msg = f"成功预约 {len(success_groups)} 个大组: "
-            success_msg += ", ".join([f"{group['suggestion_id']}(预约号:{group['appointment_id']})" for group in success_groups])
-            messages.append(success_msg)
+            success_msg = mark_safe(f"成功预约 {len(success_groups)} 个大组: <br>")
+            success_msg += ", ".join([f"(批次号：{group['batch_number']},预约号:{group['appointment_id']})" for group in success_groups])
+            messages.append(mark_safe(success_msg + "<br>"))
             
         if failed_groups:
-            failed_msg = f"预约失败 {len(failed_groups)} 个大组: "
+            failed_msg = mark_safe(f"预约失败 {len(failed_groups)} 个大组: <br>")
             failed_details = []
             for group in failed_groups:
-                detail = f"{group['suggestion_id']}(预约号:{group['appointment_id']}) - {group['error']}"
+                detail = f"(批次号：{group['batch_number']},预约号:{group['appointment_id']}) - {group['error']}"
                 failed_details.append(detail)
             failed_msg += "; ".join(failed_details)
-            messages.append(failed_msg)
+            messages.append(mark_safe(success_msg + "<br>"))
         
         # 存储成功创建的shipment IDs，方便后续约车使用
         if success_appointment_ids:
@@ -717,11 +718,12 @@ class PostNsop(View):
             success_msg = f"成功排车，车次号是 {fleet_number}"
             messages.append(success_msg)
         if messages:
-            context.update({"success_messages": "<br>".join(messages)})
+            context.update({"success_messages": mark_safe("<br>".join(messages))})
     
         return await self.handle_td_shipment_post(request, context)
 
     async def _add_appointments_to_fleet(self,appointment_ids):
+        print('appointment_ids',appointment_ids)
         current_time = datetime.now()
         fleet_number = (
             "F"
@@ -729,13 +731,16 @@ class PostNsop(View):
             + str(uuid.uuid4())[:2].upper()
         )
         shipment_info = await sync_to_async(list)(
-            Shipment.objects.filter(id__in=appointment_ids)
+            Shipment.objects.filter(appointment_id__in=appointment_ids)
             .values('id', 'shipment_type', 'origin')
             .distinct()
         )
+        print('shipment_info',shipment_info)
         shipment_ids = [item['id'] for item in shipment_info]
         shipment_types = list(set(item['shipment_type'] for item in shipment_info))
         origins = list(set(item['origin'] for item in shipment_info))
+        print('shipment_types',shipment_types)
+        print('origins',origins)
 
         total_weight, total_cbm, total_pcs, total_pallet = 0.0, 0.0, 0, 0
         #记录总数
@@ -758,17 +763,17 @@ class PostNsop(View):
             
             # 汇总Pallet数据
             for p in pallet_records:
-                total_weight += p.total_weight or 0
-                total_cbm += p.total_cbm or 0
-                total_pcs += p.total_pcs or 0
-                total_pallet += p.total_pallet or 0
+                total_weight += p.weight_lbs or 0
+                total_cbm += p.cbm or 0
+                total_pcs += p.pcs or 0
+                total_pallet += 1
             
             # 汇总PackingList数据
             for pl in packinglist_records:
-                total_weight += pl.total_weight or 0
-                total_cbm += pl.total_cbm or 0
-                total_pcs += pl.total_pcs or 0
-                total_pallet += pl.total_pallet or 0
+                total_weight += pl.total_weight_lbs or 0
+                total_cbm += pl.cbm or 0
+                total_pcs += pl.pcs or 0
+                total_pallet += round(pl.cbm /1.8)
         
         fleet_data = {
             "fleet_number": fleet_number,
@@ -845,12 +850,12 @@ class PostNsop(View):
             'appointment_id': appointment_id,
             'shipment_cargo_id': shipment_cargo_id,
             'shipment_appointment': shipment_appointment,
-            'load_type': request.POST.get('load_type'),
-            'origin': request.POST.get('warehouse'),
-            'note': request.POST.get('note'),
+            'load_type': load_type,
+            'origin': origin,
+            'note': note,
             'address': address,
         }
-    
+        print('shipment_account',shipment_account)
         new_post = {**new_post, **shipment_data}
         new_post['shipment_data'] = str(shipment_data)
         new_post['pl_ids'] = cargo_id_list
@@ -871,7 +876,8 @@ class PostNsop(View):
             return {
                 'success': True,
                 'appointment_id': appointment_id,
-                'suggestion_id': suggestion_id
+                'suggestion_id': suggestion_id,
+                'shipment_batch_number': shipment_batch_number,
             }
             
         except Exception as e:
@@ -879,6 +885,7 @@ class PostNsop(View):
                 'success': False,
                 'appointment_id': appointment_id,
                 'suggestion_id': suggestion_id,
+                'shipment_batch_number': shipment_batch_number,
                 'error': f"预约失败: {str(e)}"
             }
     
