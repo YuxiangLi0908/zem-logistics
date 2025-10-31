@@ -650,11 +650,32 @@
                     <i class="fas fa-search"></i> 搜索
                 </button>
             </div>
-            <div class="summary-mini" style="display: flex; gap: 20px; align-items: center; font-size: 0.85rem; color: #555; background: #f8f9fa; padding: 8px 16px; border-radius: 6px; border: 1px solid #e9ecef; height: 40px;">
-                <div style="display: flex; align-items: center; gap: 4px;"><strong>总批次:</strong> <span id="total-fleets-mini" style="color: #2c3e50; font-weight: 600;">{{ summary.day_stats.0.total_fleets }}</span></div>
-                <div style="display: flex; align-items: center; gap: 4px;"><strong>总板数:</strong> <span id="total-pallets-mini" style="color: #2c3e50; font-weight: 600;">{{ summary.day_stats.0.total_pallets }}</span></div>
-                <div style="display: flex; align-items: center; gap: 4px;"><strong>总箱数:</strong> <span id="total-cbm-mini" style="color: #2c3e50; font-weight: 600;">{{ summary.day_stats.0.total_pcs }}</span> CBM</div>
-                <div style="display: flex; align-items: center; gap: 4px;"><strong>完成率:</strong> <span id="completion-rate-mini" style="color: #27ae60; font-weight: 600;">{{ summary.day_stats.0.completion_rate }}</span>%</div>
+
+            <div class="type-summary" style="margin-top: 6px;">
+                <table class="table table-sm table-bordered" style="font-size: 0.8rem; background: #fff;" id="typeStatsTable">
+                    <thead style="background: #f0f0f0; text-align: center;">
+                        <tr>
+                            <th style="width: 80px;">类型</th>
+                            <th>总批次</th>
+                            <th>总板数</th>
+                            <th>总CBM</th>
+                            <th>完成率</th>
+                        </tr>
+                    </thead>
+                    <tbody style="text-align: center;">
+                        {% for day, types in day_type_stats.items %}
+                            {% for t, stat in types.items %}
+                            <tr data-day="{{ day }}">
+                                <td>{{ t }}</td>
+                                <td>{{ stat.total_fleets }}</td>
+                                <td>{{ stat.total_pallets }}</td>
+                                <td>{{ stat.total_cbm }}</td>
+                                <td>{{ stat.completion_rate }}%</td>
+                            </tr>
+                            {% endfor %}
+                        {% endfor %}
+                    </tbody>
+                </table>
             </div>
             <div style="display: flex; align-items: center; gap: 10px;">
                 <label for="shipmentTypeFilter" style="font-weight: 600; color: #2c3e50; white-space: nowrap;">出库类型:</label>
@@ -1105,6 +1126,10 @@
             this.classList.add('active');
             
             const dayFilter = this.getAttribute('data-day');
+            document.querySelectorAll('#typeStatsTable tbody tr').forEach(row => {
+                const day = row.getAttribute('data-day');
+                row.style.display = (day === dayFilter) ? '' : 'none';
+            });
             saveSelectedDay(dayFilter);
             
             applyFilters();
