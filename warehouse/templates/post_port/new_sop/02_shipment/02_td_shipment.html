@@ -867,9 +867,30 @@ function applySearch(section) {
         handleGroupedSearch(rows, searchTerm);
     } else if (section === 'ready') {
         handleReadySectionSearch(rows, searchTerm);
-    } else {
+    } else if (section === 'scheduled') {
+        handleScheduledSearch(rows, searchTerm);
+}   else {
         handleNormalSearch(rows, searchTerm);
     }
+}
+
+function handleScheduledSearch(rows, searchTerm) {
+    const groups = new Set();
+    rows.forEach(tr => {
+        const groupId = tr.dataset.shipmentGroup;
+        if (!groupId) return;
+
+        const firstRow = document.querySelector(`tr[data-shipment-group="${groupId}"]`);
+        if (!firstRow) return;
+
+        const text = firstRow.innerText.toLowerCase();
+        if (text.includes(searchTerm)) groups.add(groupId);
+    });
+
+    rows.forEach(tr => {
+        const groupId = tr.dataset.shipmentGroup;
+        if (!groups.has(groupId)) tr.style.display = 'none';
+    });
 }
 
 function handleGroupedSearch(rows, searchTerm) {
