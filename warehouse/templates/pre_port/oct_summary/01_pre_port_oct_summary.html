@@ -158,130 +158,150 @@
         }
 
         /* 关键列宽度设置（确保核心列宽合理，新增字段自动适配） */
+        /* 固定复选框列 - 关键修改 */
         .fixed-header th:nth-child(1),
         .scroll-body td:nth-child(1) {
             width: 50px;
             min-width: 50px;
             text-align: center;
+            position: sticky;
+            left: 0;
+            background-color: #fff;
+            z-index: 2; /* 确保在滚动时显示在最上层 */
         }
 
-        /* 复选框列 */
+        /* 下单日期 */
         .fixed-header th:nth-child(2),
         .scroll-body td:nth-child(2) {
             width: 100px;
             min-width: 100px;
         }
 
-        /* 下单日期 */
+        /* 客户 */
         .fixed-header th:nth-child(3),
         .scroll-body td:nth-child(3) {
             width: 120px;
             min-width: 120px;
         }
 
-        /* 客户 */
+        /* 所属仓/直送地址 */
         .fixed-header th:nth-child(4),
         .scroll-body td:nth-child(4) {
             width: 160px;
             min-width: 160px;
         }
 
-        /* 所属仓/直送地址 */
+        /* 调度备注 */
         .fixed-header th:nth-child(5),
         .scroll-body td:nth-child(5) {
             width: 140px;
             min-width: 140px;
         }
 
-        /* 调度备注 */
+        /* 柜号 */
         .fixed-header th:nth-child(6),
         .scroll-body td:nth-child(6) {
             width: 176px;
             min-width: 176px;
         }
 
-        /* 柜号 */
-
+        /* MBL */
         .fixed-header th:nth-child(7),
         .scroll-body td:nth-child(7) {
             width: 176px;
             min-width: 176px;
         }
 
-        /* mbl */
-
+        /* 船司 */
         .fixed-header th:nth-child(8),
         .scroll-body td:nth-child(8) {
             width: 176px;
             min-width: 176px;
         }
 
+        /* 船名航次 */
         .fixed-header th:nth-child(9),
         .scroll-body td:nth-child(9) {
             width: 200px;
             min-width: 200px;
         }
 
+        /* 柜型 */
         .fixed-header th:nth-child(10),
         .scroll-body td:nth-child(10) {
             width: 176px;
             min-width: 176px;
         }
 
+        /* 船期 */
         .fixed-header th:nth-child(11),
         .scroll-body td:nth-child(11) {
             width: 176px;
             min-width: 176px;
         }
 
+        /* ETD */
         .fixed-header th:nth-child(12),
         .scroll-body td:nth-child(12) {
             width: 176px;
             min-width: 176px;
         }
 
+        /* ETA */
         .fixed-header th:nth-child(13),
         .scroll-body td:nth-child(13) {
             width: 176px;
             min-width: 176px;
         }
 
+        /* 放行状态 */
         .fixed-header th:nth-child(14),
         .scroll-body td:nth-child(14) {
             width: 176px;
             min-width: 176px;
         }
 
+        /* 实际提柜供应商 */
         .fixed-header th:nth-child(15),
         .scroll-body td:nth-child(15) {
-            width: 176px;
-            min-width: 176px;
+            width: 250px;
+            min-width: 250px;
         }
 
+        /* 调度委托 */
         .fixed-header th:nth-child(16),
         .scroll-body td:nth-child(16) {
             width: 176px;
             min-width: 176px;
         }
 
+        /* 私仓数量 */
         .fixed-header th:nth-child(17),
         .scroll-body td:nth-child(17) {
             width: 176px;
             min-width: 176px;
         }
 
+        /* 是否提供Do */
         .fixed-header th:nth-child(18),
         .scroll-body td:nth-child(18) {
             width: 176px;
             min-width: 176px;
         }
 
+        /* 新增：计划提柜供应商 */
         .fixed-header th:nth-child(19),
         .scroll-body td:nth-child(19) {
+            width: 250px;
+            min-width: 250px;
+        }
+
+        /* 建单进度 */
+        .fixed-header th:nth-child(20),
+        .scroll-body td:nth-child(20) {
             width: 176px;
             min-width: 176px;
         }
-
 
         /* 滚动条样式优化 */
         .table-container::-webkit-scrollbar {
@@ -313,7 +333,7 @@
             display: none; /* 隐藏表体表头，避免重复 */
         }
 
-        .do-column-content {
+        .do-column-content, .retrieval-carrier-content {
             display: flex;
             align-items: center;
             gap: 5px;
@@ -321,14 +341,47 @@
             box-sizing: border-box;
         }
 
-        .do-column-content button {
+        .do-column-content button, .retrieval-carrier-content button {
             padding: 0 6px !important;
             height: 22px !important;
             line-height: 22px !important;
             font-size: 12px !important;
         }
 
-        /* 导出按钮容器：三个按钮同一行（新增复制按钮后调整） */
+        /* 计划提柜供应商输入框样式 */
+        .retrieval-carrier-input {
+            flex: 1;
+            padding: 3px 6px;
+            font-size: 12px;
+            border: 1px solid #e6e6e6;
+            border-radius: 3px;
+            outline: none;
+        }
+
+        .retrieval-carrier-input:focus {
+            border-color: #57c5f7;
+            box-shadow: 0 0 0 2px rgba(87, 197, 247, 0.2);
+        }
+
+        /* 批量操作按钮样式 */
+        .batch-operation-btn {
+            padding: 6px 15px;
+            background-color: #1E9FFF;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 14px;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .batch-operation-btn:hover {
+            background-color: #0088cc;
+        }
+
+        /* 导出按钮容器：四个按钮同一行 */
         .export-buttons-wrap {
             margin: 15px 0;
             text-align: right;
@@ -453,8 +506,13 @@
             <div class="error提示" id="timeError"></div>
         </form>
 
-        <!-- 导出按钮统一容器：两个按钮同一行 -->
+        <!-- 导出按钮统一容器：新增批量设置按钮 -->
         <div class="export-buttons-wrap">
+            <!-- 批量设置计划提柜供应商按钮 -->
+            <button type="button" id="batchSetCarrierBtn" class="batch-operation-btn">
+                <i class="layui-icon layui-icon-edit"></i> 批量设置计划提柜供应商
+            </button>
+
             <!-- 第一个导出按钮 -->
             <form id="batchExportForm" method="post" action="">
                 {% csrf_token %}
@@ -485,7 +543,7 @@
                 </button>
             </form>
 
-            <!-- 新增：复制按钮 -->
+            <!-- 复制按钮 -->
             <button type="button" id="copySelectedBtn" class="copy-btn">
                 <i class="layui-icon layui-icon-copy"></i> 复制选中的柜号和MBL
             </button>
@@ -515,12 +573,12 @@
                             <th>ETD</th>
                             <th>ETA</th>
                             <th>放行状态</th>
-                            <th>供应商</th>
+                            <th>实际提柜供应商</th>
                             <th>调度委托</th>
                             <th>私仓数量</th>
                             <th>是否提供Do</th>
+                            <th>计划提柜供应商</th> <!-- 新增列 -->
                             <th>建单进度</th>
-                            <!-- 后续新增字段直接加在这里，无需修改样式 -->
                         </tr>
                         <tr>
                             <th class="search-th"></th>
@@ -551,7 +609,7 @@
                             <th class="search-th"><input type="text" class="column-search" data-index="13"
                                                          placeholder="搜索放行状态..."></th>
                             <th class="search-th"><input type="text" class="column-search" data-index="14"
-                                                         placeholder="搜索供应商..."></th>
+                                                         placeholder="搜索实际提柜供应商..."></th>
                             <th class="search-th"><input type="text" class="column-search" data-index="15"
                                                          placeholder="搜索调度委托..."></th>
                             <th class="search-th"><input type="text" class="column-search" data-index="16"
@@ -559,6 +617,8 @@
                             <th class="search-th"><input type="text" class="column-search" data-index="17"
                                                          placeholder="搜索Do..."></th>
                             <th class="search-th"><input type="text" class="column-search" data-index="18"
+                                                         placeholder="搜索计划提柜供应商..."></th> <!-- 新增搜索列 -->
+                            <th class="search-th"><input type="text" class="column-search" data-index="19"
                                                          placeholder="搜索建单进度..."></th>
                         </tr>
                         </thead>
@@ -588,6 +648,7 @@
                             <th>调度委托</th>
                             <th>私仓数量</th>
                             <th>是否提供Do</th>
+                            <th>计划提柜供应商</th> <!-- 新增列 -->
                             <th>建单进度</th>
                         </tr>
                         </thead>
@@ -598,7 +659,8 @@
                                     <input type="checkbox" class="rowCheckbox" lay-skin="primary"
                                            data-id="{{ data.id }}"
                                            data-container="{{ data.container }}"
-                                           data-mbl="{{ data.mbl|default:'' }}">
+                                           data-mbl="{{ data.mbl|default:'' }}"
+                                           data-retrieval-id="{{ data.retrieval_id__retrieval_id }}">
                                 </td>
                                 <td>{{ data.created_at|date:"Y-m-d" }}</td>
                                 <td>{{ data.customer_name }}</td>
@@ -694,6 +756,38 @@
                                         </div>
                                     </form>
                                 </td>
+
+                                <!-- 新增：计划提柜供应商列 -->
+                                <td>
+                                    <form action="" method="post" class="retrieval-carrier-form" style="margin: 0;">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="step" value="save_retrieval_carrier_planned">
+                                        <input type="hidden" name="order_id" value="{{ data.id }}">
+                                        <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                                        <input type="hidden" name="eta_start" value="{{ eta_start }}">
+                                        <input type="hidden" name="eta_end" value="{{ eta_end }}">
+                                        <input type="hidden" name="order_start" value="{{ order_start }}">
+                                        <input type="hidden" name="order_end" value="{{ order_end }}">
+                                        <input type="hidden" name="timeRangeType" value="{{ time_range_type }}">
+                                        <input type="hidden" name="retrieval_carrier_planned"
+                                               value="{{ data.retrieval_carrier_planned }}">
+                                        <input type="hidden" name="retrieval_id__retrieval_id"
+                                               value="{{ data.retrieval_id__retrieval_id }}">
+
+                                        <div class="retrieval-carrier-content">
+                                            <input type="text" name="retrieval_carrier_planned"
+                                                   class="retrieval-carrier-input"
+                                                   value="{{ data.retrieval_carrier_planned|default:'' }}"
+                                                   placeholder="输入计划提柜供应商">
+                                            <button type="submit" class="layui-btn layui-btn-sm"
+                                                    style="margin: 0; padding: 0 8px; height: 20px; line-height: 20px; font-size: 12px;">
+                                                <i class="layui-icon layui-icon-ok"
+                                                   style="margin-right: 2px; font-size: 10px;"></i>确定
+                                            </button>
+                                        </div>
+                                    </form>
+                                </td>
+
                                 <!--建单状态-->
                                 {% if data.status == "unfinished" %}
                                     <td>
@@ -711,7 +805,7 @@
                             </tr>
                         {% empty %}
                             <tr>
-                                <td colspan="19" style="text-align: center; padding: 40px 0; color: #6c757d;">
+                                <td colspan="20" style="text-align: center; padding: 40px 0; color: #6c757d;">
                                     {% if warehouse %}
                                         未找到符合条件的数据
                                     {% else %}
@@ -728,6 +822,45 @@
         </div>
     </div>
 
+    <!-- 批量设置计划提柜供应商弹出层（核心容器） -->
+    <div id="batchSetCarrierLayer" style="display: none; padding: 20px;">
+        <form id="batchSetCarrierForm" method="post" class="layui-form">
+            {% csrf_token %}
+            <input type="hidden" name="step" value="batch_save_retrieval_carrier_planned">
+            <input type="hidden" name="warehouse" value="{{ warehouse }}">
+            <input type="hidden" name="eta_start" value="{{ eta_start }}">
+            <input type="hidden" name="eta_end" value="{{ eta_end }}">
+            <input type="hidden" name="order_start" value="{{ order_start }}">
+            <input type="hidden" name="order_end" value="{{ order_end }}">
+            <input type="hidden" name="timeRangeType" value="{{ time_range_type }}">
+
+            <!-- 已选记录数量显示 -->
+            <div class="layui-form-item">
+                <div class="layui-input-block" style="margin-left: 0px; color: #666; font-size: 16px;">
+                    已选择 <span id="selectedCount" style="color: #1E9FFF; font-weight: bold;">0</span> 条记录
+                </div>
+            </div>
+
+            <div class="layui-form-item" style="margin-bottom: 15px;">
+                <div style="font-size: 16px; font-weight: 500; margin-bottom: 10px; color: #2c3e50; line-height: 1.4;">
+                    计划提柜供应商
+                </div>
+                <div class="layui-input-block" style="margin-left: 0;">
+                    <input type="text" name="batch_carrier" required
+                           placeholder="请输入要批量设置的计划提柜供应商"
+                           autocomplete="off" class="layui-input"
+                           style="width: 100%;">
+                </div>
+            </div>
+            <div class="layui-form-item" style="margin-top: 20px;">
+                <div class="layui-input-block">
+                    <button class="layui-btn" lay-submit lay-filter="batchSetCarrierSubmit">确认设置</button>
+                    <button type="button" class="layui-btn layui-btn-primary" id="closeBatchLayer">关闭</button>
+                </div>
+            </div>
+        </form>
+    </div>
+
     <script>
         function initAllFeatures() {
             layui.use(['form', 'laydate', 'layer'], function () {
@@ -736,6 +869,7 @@
                 var laydate = layui.laydate;
                 var timeError = document.getElementById('timeError');
                 var columnNoMatch = document.getElementById('columnNoMatch');
+                var batchSetModal; // 批量设置弹窗对象
 
                 // 1. 格式化年月
                 function formatYearMonth(dateStr) {
@@ -923,7 +1057,7 @@
                     }
                 }
 
-                // 修正后的批量导出点击事件
+                // 10. 批量导出功能
                 document.getElementById('batchExportBtn').addEventListener('click', async function () {
                     const checkedBoxes = document.querySelectorAll('.rowCheckbox:checked');
                     if (checkedBoxes.length === 0) {
@@ -931,7 +1065,7 @@
                         return;
                     }
 
-                    // 1. 构建表单数据（删除status和customer_name）
+                    // 构建表单数据
                     const formData = new FormData();
                     formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
                     formData.append('warehouse', document.querySelector('input[name="warehouse"]').value);
@@ -949,7 +1083,7 @@
                     });
 
                     try {
-                        // 2. 发送请求获取文件流
+                        // 发送请求获取文件流
                         const response = await fetch(window.location.href, {
                             method: 'POST',
                             body: formData,
@@ -961,28 +1095,29 @@
                             return;
                         }
 
-                        // 3. 处理文件下载
+                        // 处理文件下载
                         const blob = await response.blob();
                         const url = URL.createObjectURL(blob);
                         const a = document.createElement('a');
                         a.href = url;
-                        a.download = '港口客户统计.xlsx';  // 与后端文件名保持一致
+                        a.download = '港口客户统计.xlsx';
                         document.body.appendChild(a);
                         a.click();
                         document.body.removeChild(a);
                         URL.revokeObjectURL(url);
 
-                        // 4. 下载完成后刷新页面
+                        // 下载完成后刷新页面
                         layer.msg('导出成功，即将返回页面', {icon: 1, time: 1500}, function () {
                             window.location.reload();
                         });
 
                     } catch (error) {
-                        console.error('导出错误:', error);  // 打印错误详情
+                        console.error('导出错误:', error);
                         layer.msg('网络错误，导出失败', {icon: 2, time: 2000});
                     }
                 });
 
+                // 11. 批量导出功能V1
                 document.getElementById('batchExportBtnV1').addEventListener('click', async function () {
                     const checkedBoxes = document.querySelectorAll('.rowCheckbox:checked');
                     if (checkedBoxes.length === 0) {
@@ -990,7 +1125,7 @@
                         return;
                     }
 
-                    // 1. 构建表单数据
+                    // 构建表单数据
                     const formData = new FormData();
                     formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
                     formData.append('timeRangeType', document.querySelector('input[name="timeRangeType"]').value);
@@ -1007,7 +1142,7 @@
                     });
 
                     try {
-                        // 2. 发送请求获取文件流
+                        // 发送请求获取文件流
                         const response = await fetch(window.location.href, {
                             method: 'POST',
                             body: formData,
@@ -1019,7 +1154,7 @@
                             return;
                         }
 
-                        // 3. 处理文件下载（关键修改：使用后端返回的文件名）
+                        // 处理文件下载
                         const blob = await response.blob();
                         const url = URL.createObjectURL(blob);
                         const a = document.createElement('a');
@@ -1028,10 +1163,9 @@
                         // 从响应头中获取后端指定的文件名
                         const contentDisposition = response.headers.get('Content-Disposition');
                         if (contentDisposition) {
-                            // 解析后端返回的文件名（兼容不同浏览器）
                             const fileNameMatch = contentDisposition.match(/filename="(.+)"/);
                             if (fileNameMatch && fileNameMatch[1]) {
-                                a.download = fileNameMatch[1];  // 使用后端指定的文件名（含.zip后缀）
+                                a.download = fileNameMatch[1];
                             }
                         }
 
@@ -1040,7 +1174,7 @@
                         document.body.removeChild(a);
                         URL.revokeObjectURL(url);
 
-                        // 4. 下载完成提示（无需刷新页面）
+                        // 下载完成提示
                         layer.msg('导出成功，文件已下载', {icon: 1, time: 1500});
 
                     } catch (error) {
@@ -1049,7 +1183,7 @@
                     }
                 });
 
-                // 12. 新增：批量复制柜号和MBL功能
+                // 12. 批量复制柜号和MBL功能
                 document.getElementById('copySelectedBtn').addEventListener('click', function () {
                     // 获取所有选中的行
                     const checkedBoxes = document.querySelectorAll('.rowCheckbox:checked');
@@ -1089,6 +1223,136 @@
                         checkbox.checked = data.elem.checked;
                     });
                     form.render('checkbox'); // 重新渲染复选框
+                });
+
+                // 14. 新增：批量设置计划提柜供应商功能
+                $(document).ready(function () {
+                    $('#batchSetCarrierBtn').off('click').on('click', function () {
+                        const checkedBoxes = document.querySelectorAll('.rowCheckbox:checked');
+                        if (checkedBoxes.length === 0) {
+                            layer.msg('请先勾选需要设置的记录', {icon: 2, time: 2000});
+                            return;
+                        }
+                        document.getElementById('selectedCount').textContent = checkedBoxes.length;
+                        console.log('准备显示弹出层，选中数量：', checkedBoxes.length);
+
+                        // 关键修复：直接传递jQuery对象（移除[0]，不要转为原生DOM）
+                        const batchLayerIndex = layer.open({
+                            type: 1,
+                            title: `批量设置计划提柜供应商（${checkedBoxes.length}条记录）`,
+                            content: $('#batchSetCarrierLayer'), // 这里直接用jQuery对象，不要加[0]
+                            area: ['450px', '260px'],
+                            shade: 0.3,
+                            btnAlign: 'c',
+                            id: 'batchSetLayer',
+                            fixed: true,
+                            resize: false,
+                            success: function (layero, index) {
+                                console.log('弹出层显示成功');
+                                // 修复：确保这里也用jQuery方法查找元素
+                                $('input[name="batch_carrier"]', layero).focus();
+                            },
+                            error: function () {
+                                console.error('弹出层显示失败');
+                            }
+                        });
+
+                        // 清空历史数据（保持不变）
+                        $('#batchSetCarrierForm input[name="selected_ids[]"]').remove();
+                        $('#batchSetCarrierForm input[name="retrieval_ids[]"]').remove();
+
+                        // 绑定选中数据（保持不变）
+                        checkedBoxes.forEach(box => {
+                            $('<input>').attr({
+                                type: 'hidden',
+                                name: 'selected_ids[]',
+                                value: box.getAttribute('data-id')
+                            }).appendTo('#batchSetCarrierForm');
+
+                            $('<input>').attr({
+                                type: 'hidden',
+                                name: 'retrieval_ids[]',
+                                value: box.getAttribute('data-retrieval-id')
+                            }).appendTo('#batchSetCarrierForm');
+                        });
+
+                        // 关闭按钮事件（保持不变）
+                        $('#closeBatchLayer').off('click').on('click', function () {
+                            layer.close(batchLayerIndex);
+                        });
+                    });
+                });
+
+                // 弹出层表单提交处理
+                form.on('submit(batchSetCarrierSubmit)', function (data) {
+                    // 关键：从当前表单域内查找输入框（而非全局查找）
+                    const $form = $('#batchSetCarrierForm');
+                    const $carrierInput = $form.find('input[name="batch_carrier"]');
+                    const carrierValue = $carrierInput.val().trim();
+
+                    // 输入验证
+                    if (!carrierValue) {
+                        layer.msg('请输入计划提柜供应商', {icon: 2, time: 2000});
+                        $carrierInput.focus(); // 聚焦到弹出层内的输入框
+                        return false;
+                    }
+
+                    // 显示加载层
+                    const loadingIndex = layer.load(2, {
+                        shade: [0.3, '#fff'],
+                        time: 10000
+                    });
+
+                    // 构建表单数据（从当前表单中序列化，确保所有字段都被正确获取）
+                    const formData = new FormData($form[0]);
+
+                    // AJAX提交（使用表单的action或当前URL）
+                    $.ajax({
+                        url: $form.attr('action') || window.location.href,
+                        type: 'POST',
+                        data: formData,
+                        processData: false, // 禁止序列化FormData
+                        contentType: false, // 由浏览器自动设置正确的Content-Type
+                        success: function (response) {
+                            layer.close(loadingIndex);
+                            if (response.success) {
+                                layer.closeAll('page');
+                                layer.msg(`成功设置 ${response.count} 条记录`, {icon: 1, time: 2000}, function () {
+                                    window.location.reload();
+                                });
+                            } else {
+                                layer.msg(response.message || '设置失败', {icon: 2, time: 2000});
+                            }
+                        },
+                        error: function () {
+                            layer.close(loadingIndex);
+                            layer.msg('网络错误，设置失败', {icon: 2, time: 2000});
+                        }
+                    });
+
+                    return false;
+                });
+
+            // 3. 确保弹出层初始化时重新渲染表单（解决动态DOM的Layui验证问题）
+                const batchLayerIndex = layer.open({
+                    type: 1,
+                    title: `批量设置计划提柜供应商（${checkedBoxes.length}条记录）`,
+                    content: $('#batchSetCarrierLayer'),
+                    area: ['450px', '260px'],
+                    shade: 0.3,
+                    btnAlign: 'c',
+                    id: 'batchSetLayer',
+                    fixed: true,
+                    resize: false,
+                    success: function (layero, index) {
+                        console.log('弹出层显示成功');
+                        // 关键：重新渲染弹出层内的表单，确保Layui能识别字段
+                        form.render(null, 'batchSetCarrierForm'); // 第二个参数是表单的id
+                        $('input[name="batch_carrier"]', layero).focus();
+                    },
+                    error: function () {
+                        console.error('弹出层显示失败');
+                    }
                 });
 
 

@@ -15,6 +15,7 @@ from sqlalchemy import values
 
 from warehouse.models.order import Order
 from warehouse.models.pallet import Pallet
+from warehouse.models.retrieval import Retrieval
 from warehouse.utils.constants import PORT_TO_WAREHOUSE_AREA
 from warehouse.views.export_file import export_do, export_do_branch
 
@@ -45,6 +46,12 @@ class OctSummaryView(View):
         elif step == "batch_export_v1":
             # 直接返回 batch_export 生成的文件响应（无需 render）
             return await self.batch_export_v1(request)
+        elif step == "save_retrieval_carrier_planned":
+            template, context = await self.save_retrieval_carrier_planned(request)
+            return render(request, template, context)
+        elif step == "batch_save_retrieval_carrier_planned":
+            template, context = await self.batch_save_retrieval_carrier_planned(request)
+            return render(request, template, context)
 
     async def check_disnation(self) -> tuple[Any, Any]:
         context = {"warehouse_options": self.warehouse_options}
@@ -242,6 +249,30 @@ class OctSummaryView(View):
         template, context = await self.oct_handle_warehouse_post(request)
         return template, context
 
+    async def save_retrieval_carrier_planned(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
+        retrieval_carrier_planned = request.POST.get("retrieval_carrier_planned")
+        retrieval_id = request.POST.get("retrieval_id__retrieval_id")
+        await sync_to_async(lambda:Retrieval.objects.filter(retrieval_id=retrieval_id).update(retrieval_carrier_planned=retrieval_carrier_planned))()
+        template, context = await self.oct_handle_warehouse_post(request)
+        return template, context
+
+    async def batch_save_retrieval_carrier_planned(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
+        batch_carrier = request.POST.get("batch_carrier")
+        if not batch_carrier:
+            return "错误页面", {"error": "请输入计划提柜供应商"}
+        retrieval_ids = request.POST.getlist("retrieval_ids[]")
+        if not retrieval_ids:
+            return "错误页面", {"error": "未选择任何记录"}
+
+        await sync_to_async(
+            lambda: Retrieval.objects.filter(retrieval_id__in=retrieval_ids).update(
+                retrieval_carrier_planned=batch_carrier
+            )
+        )()
+        template, context = await self.oct_handle_warehouse_post(request)
+        return template, context
+
+
     async def _get_pallet(self, warehouse: str, eta_start: str, eta_end: str) -> list[dict]:
         # 时间处理：将年月转换为完整的时间范围（月初到月末最后一秒）
         eta_start_datetime = timezone.datetime.strptime(eta_start, "%Y-%m")
@@ -306,6 +337,7 @@ class OctSummaryView(View):
                     output_field=CharField()
                 ),
                 retrieval_note=F("retrieval_id__note"),
+                retrieval_carrier_planned=F("retrieval_id__retrieval_carrier_planned"),
                 mbl=F("vessel_id__master_bill_of_lading"),
                 shipping_line=F("vessel_id__shipping_line"),
                 vessel=F("vessel_id__vessel"),
@@ -352,7 +384,7 @@ class OctSummaryView(View):
                 "retrieval_note", "mbl", "shipping_line", "vessel", "container_type",
                 "vessel_date", "vessel_etd", "vessel_eta", "temp_t49_available_for_pickup",
                 "retrieval_carrier", "ke_destination_num", "si_destination_num", "order_type",
-                "do_sent", "id", "status"
+                "do_sent", "id", "status", "retrieval_carrier_planned", "retrieval_id__retrieval_id"
             )
             # 按创建时间倒序（最新数据优先显示，符合用户习惯）
             .order_by("-created_at")
@@ -420,6 +452,7 @@ class OctSummaryView(View):
                     output_field=CharField()
                 ),
                 retrieval_note=F("retrieval_id__note"),
+                retrieval_carrier_planned=F("retrieval_id__retrieval_carrier_planned"),
                 mbl=F("vessel_id__master_bill_of_lading"),
                 shipping_line=F("vessel_id__shipping_line"),
                 vessel=F("vessel_id__vessel"),
@@ -466,7 +499,7 @@ class OctSummaryView(View):
                 "retrieval_note", "mbl", "shipping_line", "vessel", "container_type",
                 "vessel_date", "vessel_etd", "vessel_eta", "temp_t49_available_for_pickup",
                 "retrieval_carrier", "ke_destination_num", "si_destination_num", "order_type",
-                "do_sent", "id", "status"
+                "do_sent", "id", "status", "retrieval_carrier_planned", "retrieval_id__retrieval_id"
             )
             # 按创建时间倒序（最新数据优先显示，符合用户习惯）
             .order_by("-created_at")
