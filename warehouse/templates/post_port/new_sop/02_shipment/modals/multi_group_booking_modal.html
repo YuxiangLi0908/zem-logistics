@@ -220,9 +220,9 @@
             shipmentTypeOptionsHTML += `<option value="{{ value }}">{{ key }}</option>`;
         {% endfor %}
         
-        let carrierOptionsHTML = '';
-        {% for key, value in carrier_options.items %}
-            carrierOptionsHTML += `<option value="{{ value }}">{{ key }}</option>`;
+        let accountOptionsHTML = '';
+        {% for key, value in account_options.items %}
+            accountOptionsHTML += `<option value="{{ value }}">{{ key }}</option>`;
         {% endfor %}
         
         let warehouseOptionsHTML = '';
@@ -282,7 +282,7 @@
                                 </td>
                                 <td>
                                     <select name="shipment_account" class="form-select multi-group-field">                                 
-                                        ${carrierOptionsHTML}
+                                        ${accountOptionsHTML}
                                     </select>
                                 </td>
                                 <td>
