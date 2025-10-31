@@ -558,7 +558,7 @@
                         <thead>
                         <tr>
                             <th>
-                                <input type="checkbox" id="selectAll" lay-skin="primary" title="全选">
+                                <input type="checkbox" id="selectAll" lay-skin="primary" title="全选" lay-filter="selectAllFilter" data-fullselect="true">
                             </th>
                             <th>下单日期</th>
                             <th>客户</th>
@@ -1234,13 +1234,11 @@
                             return;
                         }
                         document.getElementById('selectedCount').textContent = checkedBoxes.length;
-                        console.log('准备显示弹出层，选中数量：', checkedBoxes.length);
 
-                        // 关键修复：直接传递jQuery对象（移除[0]，不要转为原生DOM）
                         const batchLayerIndex = layer.open({
                             type: 1,
                             title: `批量设置计划提柜供应商（${checkedBoxes.length}条记录）`,
-                            content: $('#batchSetCarrierLayer'), // 这里直接用jQuery对象，不要加[0]
+                            content: $('#batchSetCarrierLayer'),
                             area: ['450px', '260px'],
                             shade: 0.3,
                             btnAlign: 'c',
@@ -1249,11 +1247,9 @@
                             resize: false,
                             success: function (layero, index) {
                                 console.log('弹出层显示成功');
-                                // 修复：确保这里也用jQuery方法查找元素
+                                // 关键：在弹出层成功显示后，重新渲染表单
+                                form.render(null, 'batchSetCarrierForm');
                                 $('input[name="batch_carrier"]', layero).focus();
-                            },
-                            error: function () {
-                                console.error('弹出层显示失败');
                             }
                         });
 
@@ -1333,27 +1329,7 @@
                     return false;
                 });
 
-            // 3. 确保弹出层初始化时重新渲染表单（解决动态DOM的Layui验证问题）
-                const batchLayerIndex = layer.open({
-                    type: 1,
-                    title: `批量设置计划提柜供应商（${checkedBoxes.length}条记录）`,
-                    content: $('#batchSetCarrierLayer'),
-                    area: ['450px', '260px'],
-                    shade: 0.3,
-                    btnAlign: 'c',
-                    id: 'batchSetLayer',
-                    fixed: true,
-                    resize: false,
-                    success: function (layero, index) {
-                        console.log('弹出层显示成功');
-                        // 关键：重新渲染弹出层内的表单，确保Layui能识别字段
-                        form.render(null, 'batchSetCarrierForm'); // 第二个参数是表单的id
-                        $('input[name="batch_carrier"]', layero).focus();
-                    },
-                    error: function () {
-                        console.error('弹出层显示失败');
-                    }
-                });
+
 
 
                 // 初始化所有功能
@@ -1371,11 +1347,62 @@
                     showTimeRange(selectedType);
                 }
 
-                form.render();
+                form.render('checkbox', 'selectAllFilter');
             });
         }
 
         // 页面加载完成后初始化
         window.addEventListener('load', initAllFeatures);
+        // 等待页面所有元素加载完成（包括动态生成的内容）
+    window.onload = function() {
+        // 强制等待500ms，确保Layui完全初始化
+        setTimeout(function() {
+            // 直接获取全选框DOM元素（无视框架）
+            var selectAll = document.querySelector('input[data-fullselect="true"]');
+            if (!selectAll) {
+                console.error('全选框元素未找到');
+                return;
+            }
+
+            // 手动触发Layui渲染（最后一次）
+            layui.use('form', function(form) {
+                form.render('checkbox');
+            });
+
+            // 绑定原生点击事件（最底层事件，确保执行）
+            selectAll.addEventListener('click', function(e) {
+                e.stopImmediatePropagation(); // 阻止所有上层框架的事件拦截
+
+                // 直接获取当前选中状态（原生DOM属性）
+                var isChecked = this.checked;
+
+                // 暴力获取所有行复选框（包括动态生成的）
+                var rowCheckboxes = document.querySelectorAll('.rowCheckbox');
+                if (rowCheckboxes.length === 0) {
+                    console.error('未找到行复选框');
+                    return;
+                }
+
+                // 逐个设置行复选框状态
+                rowCheckboxes.forEach(function(checkbox) {
+                    // 处理Layui样式的复选框（核心）
+                    var layuiBox = checkbox.nextElementSibling;
+                    if (layuiBox && layuiBox.classList.contains('layui-form-checkbox')) {
+                        checkbox.checked = isChecked;
+                        if (isChecked) {
+                            layuiBox.classList.add('layui-form-checked');
+                        } else {
+                            layuiBox.classList.remove('layui-form-checked');
+                        }
+                    } else {
+                        // 处理原生复选框
+                        checkbox.checked = isChecked;
+                    }
+                });
+            });
+
+            console.log('全选功能初始化完成');
+        }, 500);
+    };
     </script>
 {% endblock %}
