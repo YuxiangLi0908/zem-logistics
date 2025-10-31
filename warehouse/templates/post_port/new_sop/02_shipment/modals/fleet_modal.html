@@ -134,7 +134,7 @@ function buildFleetForm(fleetNumber) {
                 <table class="fleet-table">
                     <thead>
                         <tr>
-                            <th>承运商</th>
+                            <th>供应商</th>
                             <th>第三方地址</th>
                             <th>提货号码</th>
                         </tr>
@@ -291,9 +291,7 @@ function openFleetModal(fleetNumber, third_party_address, pickup_number, motor_c
     const modal = document.getElementById('fleetInfoModal');
     const title = document.getElementById('fleetInfoModalTitle');
     const content = document.getElementById('fleetInfoModalContent');
-    const fleetCarrierSelect = document.getElementById('fleetCarrier');
-    
-    
+
     if (!modal || !title || !content) {
         return;
     }
@@ -318,13 +316,10 @@ function openFleetModal(fleetNumber, third_party_address, pickup_number, motor_c
         const formattedDatetime = parseLocalizedDatetime(appointment_datetime);
         document.getElementById('fleetAppointmentDatetime').value = formattedDatetime;
 
+        const fleetCarrierSelect = document.getElementById('fleetCarrier');
         if (fleetCarrierSelect && carrier) {
-            for (let i = 0; i < fleetCarrierSelect.options.length; i++) {
-                if (fleetCarrierSelect.options[i].value === carrier) {
-                    fleetCarrierSelect.selectedIndex = i;
-                    break;
-                }
-            }
+            const option = Array.from(fleetCarrierSelect.options).find(opt => opt.value === carrier);
+            if (option) option.selected = true;
         }
 
         

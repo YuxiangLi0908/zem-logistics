@@ -2263,6 +2263,7 @@ class PostNsop(View):
                 'license_plate': fleet.license_plate,
                 'dot_number': fleet.dot_number,
                 'appointment_datetime': fleet.appointment_datetime,
+                'carrier': fleet.carrier,
                 'is_virtual': fleet.is_virtual,
                 'shipments': {},  # 改回字典结构，保持与前端兼容
                 'pl_ids': [],
