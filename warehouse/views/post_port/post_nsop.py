@@ -6,6 +6,8 @@ import pandas as pd
 import json
 import uuid
 import pytz
+import io
+import zipfile
 from django.utils.safestring import mark_safe
 from asgiref.sync import sync_to_async
 from django.contrib.postgres.aggregates import StringAgg
@@ -583,9 +585,32 @@ class PostNsop(View):
         )
 
         # 导出 CSV
-        response = HttpResponse(content_type="text/csv")
-        response["Content-Disposition"] = f"attachment; filename=PO_virtual_fleet.csv"
-        grouped.to_csv(path_or_buf=response, index=False)
+        # 按 Destination 分组
+        grouped_by_dest = {}
+        for _, row in grouped.iterrows():
+            dest = row["Destination"]
+            grouped_by_dest.setdefault(dest, []).append(row.to_dict())
+
+        # 如果只有一个 Destination，保持原来返回单 CSV
+        if len(grouped_by_dest) == 1:
+            df_single = pd.DataFrame.from_records(list(grouped_by_dest.values())[0])
+            response = HttpResponse(content_type="text/csv")
+            response["Content-Disposition"] = f"attachment; filename=PO_virtual_fleet.csv"
+            df_single.to_csv(path_or_buf=response, index=False)
+            return response
+
+        # 多个 Destination 打包 zip
+        zip_buffer = io.BytesIO()
+        with zipfile.ZipFile(zip_buffer, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
+            for dest, rows in grouped_by_dest.items():
+                df_dest = pd.DataFrame.from_records(rows)
+                csv_buffer = io.StringIO()
+                df_dest.to_csv(csv_buffer, index=False)
+                zf.writestr(f"{dest}.csv", csv_buffer.getvalue())
+
+        zip_buffer.seek(0)
+        response = HttpResponse(zip_buffer, content_type="application/zip")
+        response["Content-Disposition"] = "attachment; filename=PO_virtual_fleet.zip"
         return response
     
     async def handle_update_fleet_info(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
@@ -855,7 +880,6 @@ class PostNsop(View):
             'note': note,
             'address': address,
         }
-        print('shipment_account',shipment_account)
         new_post = {**new_post, **shipment_data}
         new_post['shipment_data'] = str(shipment_data)
         new_post['pl_ids'] = cargo_id_list
