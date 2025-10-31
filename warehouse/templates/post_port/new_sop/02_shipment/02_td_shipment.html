@@ -895,38 +895,50 @@ function handleScheduledSearch(rows, searchTerm) {
 
 function handleGroupedSearch(rows, searchTerm) {
     const groupMap = new Map();
-    
+
+    // 遍历每行，按 suggestionId 分组
     rows.forEach(row => {
         const suggestionId = row.getAttribute('data-suggestion-id');
         if (!suggestionId) {
-            handleNormalRowSearch(row, searchTerm);
+            // 非组行，按普通行搜索
+            row.style.display = isRowMatch(row, searchTerm) ? '' : 'none';
             return;
         }
-        
+
         if (!groupMap.has(suggestionId)) {
             groupMap.set(suggestionId, []);
         }
-        
-        const isMatch = isRowMatch(row, searchTerm);
-        groupMap.get(suggestionId).push({ row, isMatch });
+
+        groupMap.get(suggestionId).push(row);
     });
-    
-    groupMap.forEach((groupRows, suggestionId) => {
-        const hasAnyMatch = groupRows.some(item => item.isMatch);
-        
-        if (hasAnyMatch) {
-            groupRows.forEach(item => {
-                item.row.style.display = '';
-                item.row.querySelectorAll('td[rowspan]').forEach(td => {
-                    td.style.display = '';
-                });
-            });
-        } else {
-            groupRows.forEach(item => {
-                item.row.style.display = 'none';
-            });
-        }
+
+    // 遍历每个组，判断是否整组显示
+    groupMap.forEach(groupRows => {
+        if (groupRows.length === 0) return;
+
+        const firstRow = groupRows[0]; // 取组第一行
+        const firstCol = firstRow.querySelector('td[rowspan]'); // 仓点列
+        const appointmentCell = firstRow.querySelector('td:nth-child(2)'); // 预约号列
+
+        // 仓点或预约号匹配
+        const isMatch = (firstCol && firstCol.textContent.toLowerCase().includes(searchTerm)) ||
+                        (appointmentCell && appointmentCell.textContent.toLowerCase().includes(searchTerm));
+
+        groupRows.forEach(row => {
+            row.style.display = isMatch ? '' : 'none';
+            if (isMatch) {
+                // 确保 rowspan td 也显示
+                row.querySelectorAll('td[rowspan]').forEach(td => td.style.display = '');
+            }
+        });
     });
+}
+
+// 备用：普通行搜索
+function isRowMatch(row, searchTerm) {
+    return Array.from(row.querySelectorAll('td')).some(td => 
+        td.textContent.toLowerCase().includes(searchTerm)
+    );
 }
 
 function handleReadySectionSearch(rows, searchTerm) {
