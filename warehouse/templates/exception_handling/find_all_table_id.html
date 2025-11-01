@@ -1,0 +1,420 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<style>
+    body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        color: #2c3e50;
+    }
+
+    .page-title {
+        background: #34495e;
+        color: white;
+        padding: 20px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+    }
+
+    .page-title h2 {
+        margin: 0;
+        font-size: 24px;
+    }
+
+    .page-title p {
+        margin: 5px 0 0 0;
+        opacity: 0.9;
+        font-size: 14px;
+    }
+
+    .search-form {
+        background: #ecf0f1;
+        padding: 20px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+    }
+
+    .search-input-group {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        align-items: center;
+    }
+
+    .search-select {
+        padding: 8px 12px;
+        border-radius: 4px;
+        border: 1px solid #bdc3c7;
+        font-size: 14px;
+        min-width: 200px;
+    }
+
+    .search-input {
+        padding: 8px 12px;
+        border-radius: 4px;
+        border: 1px solid #bdc3c7;
+        font-size: 14px;
+        min-width: 300px;
+    }
+
+    .search-btn {
+        padding: 8px 16px;
+        background-color: #27ae60;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-weight: 600;
+        transition: all 0.3s;
+    }
+
+    .search-btn:hover {
+        background-color: #2ecc71;
+    }
+
+    .message {
+        padding: 12px;
+        border-radius: 4px;
+        margin-bottom: 12px;
+    }
+
+    .message.success {
+        background: #d4edda;
+        color: #155724;
+        border: 1px solid #c3e6cb;
+    }
+
+    .message.error {
+        background: #f8d7da;
+        color: #721c24;
+        border: 1px solid #f5c6cb;
+    }
+
+    .data-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 15px;
+        font-size: 12px;
+    }
+
+    .data-table th, .data-table td {
+        border: 1px solid #bdc3c7;
+        padding: 6px 8px;
+        text-align: left;
+        max-width: 300px;
+        word-wrap: break-word;
+    }
+
+    .data-table th {
+        background-color: #34495e;
+        color: white;
+        font-weight: 600;
+        position: sticky;
+        top: 0;
+    }
+
+    .data-table tr:nth-child(even) {
+        background-color: #f8f9fa;
+    }
+
+    .data-table tr:hover {
+        background-color: #e9ecef;
+    }
+
+    .field-name {
+        font-weight: bold;
+        color: #2c3e50;
+        min-width: 150px;
+    }
+
+    .field-value {
+        color: #34495e;
+    }
+
+    .no-results {
+        padding: 20px;
+        text-align: center;
+        color: #7f8c8d;
+        font-style: italic;
+        border: 1px solid #bdc3c7;
+        border-radius: 4px;
+        margin-top: 15px;
+    }
+
+    .search-info {
+        margin-bottom: 15px;
+        padding: 10px;
+        background: #f8f9fa;
+        border-radius: 4px;
+        border-left: 4px solid #3498db;
+        font-size: 14px;
+    }
+
+    .query-hint {
+        font-size: 12px;
+        color: #7f8c8d;
+        margin-top: 5px;
+    }
+</style>
+
+<!-- 页面标题 -->
+<div class="page-title">
+    <h2>🔍 统一数据查询系统</h2>
+    <p>通过ID或其他字段查询所有表的数据记录 - 支持多表多字段查询</p>
+</div>
+
+<!-- 查询表单 -->
+<div class="search-form">
+    <form method="post">
+        {% csrf_token %}
+        <input type="hidden" name="step" value="search_data">
+        <div class="search-input-group">
+            <select name="table_name" class="search-select" required>
+                <option value="">选择数据表</option>
+                <option value="Container" {% if table_name == 'Container' %}selected{% endif %}>Container - 货柜信息</option>
+                <option value="Customer" {% if table_name == 'Customer' %}selected{% endif %}>Customer - 客户信息</option>
+                <option value="FeeDetail" {% if table_name == 'FeeDetail' %}selected{% endif %}>FeeDetail - 费用详情</option>
+                <option value="FleetShipmentPallet" {% if table_name == 'FleetShipmentPallet' %}selected{% endif %}>FleetShipmentPallet - 车次货盘</option>
+                <option value="Fleet" {% if table_name == 'Fleet' %}selected{% endif %}>Fleet - 车次信息</option>
+                <option value="InvoicePreport" {% if table_name == 'InvoicePreport' %}selected{% endif %}>InvoicePreport - 发票港前</option>
+                <option value="InvoiceWarehouse" {% if table_name == 'InvoiceWarehouse' %}selected{% endif %}>InvoiceWarehouse - 发票仓库</option>
+                <option value="InvoiceDelivery" {% if table_name == 'InvoiceDelivery' %}selected{% endif %}>InvoiceDelivery - 发票派送</option>
+                <option value="Invoice" {% if table_name == 'Invoice' %}selected{% endif %}>Invoice - 发票主表</option>
+                <option value="InvoiceStatus" {% if table_name == 'InvoiceStatus' %}selected{% endif %}>InvoiceStatus - 发票状态</option>
+                <option value="AbnormalOffloadStatus" {% if table_name == 'AbnormalOffloadStatus' %}selected{% endif %}>AbnormalOffloadStatus - 异常卸货状态</option>
+                <option value="Order" {% if table_name == 'Order' %}selected{% endif %}>Order - 订单信息</option>
+                <option value="PackingList" {% if table_name == 'PackingList' %}selected{% endif %}>PackingList - 装箱单</option>
+                <option value="PalletDestroyed" {% if table_name == 'PalletDestroyed' %}selected{% endif %}>PalletDestroyed - 销毁托盘</option>
+                <option value="Pallet" {% if table_name == 'Pallet' %}selected{% endif %}>Pallet - 托盘信息</option>
+                <option value="PoCheckEtaSeven" {% if table_name == 'PoCheckEtaSeven' %}selected{% endif %}>PoCheckEtaSeven - PO查验</option>
+                <option value="QuotationMaster" {% if table_name == 'QuotationMaster' %}selected{% endif %}>QuotationMaster - 报价主表</option>
+                <option value="TransferLocation" {% if table_name == 'TransferLocation' %}selected{% endif %}>TransferLocation - 转运位置</option>
+                <option value="Vessel" {% if table_name == 'Vessel' %}selected{% endif %}>Vessel - 船运信息</option>
+            </select>
+
+            <select name="search_field" class="search-select" required id="search_field_select">
+                <option value="">选择查询字段</option>
+                <!-- 选项会根据选择的表动态更新 -->
+                {% for field in available_fields %}
+                <option value="{{ field.0 }}" 
+                        {% if search_field == field.0 or default_search_field == field.0 %}selected{% endif %}>
+                    {{ field.1 }}
+                </option>
+                {% endfor %}
+            </select>
+
+            <input type="text" name="search_value" class="search-input"
+                   placeholder="输入查询值" value="{{ search_value|default:'' }}" required>
+            
+            <button type="submit" class="search-btn">查询</button>
+        </div>
+        <div class="query-hint" id="query-hint">
+            {% if table_name %}
+            当前表支持查询字段: 
+            {% for field in available_fields %}
+            <span style="margin-right: 10px;">{{ field.1 }}</span>
+            {% endfor %}
+            {% endif %}
+        </div>
+    </form>
+</div>
+
+<!-- 消息提示 -->
+{% if messages %}
+    {% for message in messages %}
+        <div class="message {% if message.tags %}{{ message.tags }}{% endif %}">
+            {{ message }}
+        </div>
+    {% endfor %}
+{% endif %}
+
+<!-- 查询结果 -->
+{% if search_info %}
+<div class="search-info">
+    <strong>查询表:</strong> {{ table_name }} | 
+    <strong>查询字段:</strong> {{ search_field }} | 
+    <strong>查询值:</strong> {{ search_value }} | 
+    <strong>查询结果:</strong> {{ record_count }} 条记录
+</div>
+{% endif %}
+
+{% if record_data %}
+<div style="overflow-x: auto; max-height: 600px;">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th style="width: 200px;">字段名</th>
+                <th>字段值</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for field, value in record_data.items %}
+            <tr>
+                <td class="field-name">{{ field }}</td>
+                <td class="field-value">
+                    {% if value == None %}
+                        <span style="color: #95a5a6; font-style: italic;">null</span>
+                    {% elif value == True %}
+                        <span style="color: #27ae60;">True</span>
+                    {% elif value == False %}
+                        <span style="color: #e74c3c;">False</span>
+                    {% else %}
+                        {{ value|default:"" }}
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% elif search_value and not record_data %}
+<div class="no-results">
+    未找到相关数据
+</div>
+{% endif %}
+
+<script>
+// 动态更新查询字段选项
+document.querySelector('select[name="table_name"]').addEventListener('change', function() {
+    const tableName = this.value;
+    const searchFieldSelect = document.querySelector('select[name="search_field"]');
+    const queryHint = document.getElementById('query-hint');
+    
+    // 清空现有选项
+    searchFieldSelect.innerHTML = '<option value="">选择查询字段</option>';
+    queryHint.innerHTML = '';
+    
+    if (tableName) {
+        // 根据选择的表设置可查询字段
+        const fieldOptions = getFieldOptions(tableName);
+        
+        // 设置默认选中字段（优先container_number，否则第一个字段）
+        let defaultField = '';
+        if (fieldOptions.some(field => field[0] === 'container_number')) {
+            defaultField = 'container_number';
+        } else if (fieldOptions.length > 0) {
+            defaultField = fieldOptions[0][0];
+        }
+        
+        fieldOptions.forEach(field => {
+            const option = document.createElement('option');
+            option.value = field[0];
+            option.textContent = field[1];
+            if (field[0] === defaultField) {
+                option.selected = true;
+            }
+            searchFieldSelect.appendChild(option);
+        });
+        
+        // 更新查询提示
+        queryHint.innerHTML = `当前表支持查询字段: ${fieldOptions.map(f => f[1]).join(', ')}`;
+        
+        // 如果有默认字段，自动聚焦到查询值输入框
+        if (defaultField) {
+            document.querySelector('input[name="search_value"]').focus();
+        }
+    }
+});
+
+function getFieldOptions(tableName) {
+    const fieldMap = {
+        'Container': [
+            ['id', 'ID'],
+            ['container_number', 'container_number']
+        ],
+        'Customer': [
+            ['id', 'ID'],
+            ['zem_name', 'zem_name']
+        ],
+        'FeeDetail': [
+            ['id', 'ID'],
+            ['quotation_id', 'quotation_id']
+        ],
+        'FleetShipmentPallet': [
+            ['id', 'ID'],
+            ['fleet_number', 'fleet_number'],
+            ['pickup_number', 'pickup_number'],
+            ['shipment_batch_number', 'shipment_batch_number']
+        ],
+        'Fleet': [
+            ['id', 'ID'],
+            ['fleet_number', 'fleet_number'],
+            ['pickup_number', 'pickup_number']
+        ],
+        'InvoicePreport': [
+            ['id', 'ID'],
+            ['invoice_number', 'invoice_number']
+        ],
+        'InvoiceWarehouse': [
+            ['id', 'ID'],
+            ['invoice_number', 'invoice_number']
+        ],
+        'InvoiceDelivery': [
+            ['id', 'ID'],
+            ['invoice_number', 'invoice_number']
+        ],
+        'Invoice': [
+            ['id', 'ID'],
+            ['invoice_number', 'invoice_number'],
+            ['container_number', 'container_number']
+        ],
+        'InvoiceStatus': [
+            ['id', 'ID'],
+            ['container_number', 'container_number']
+        ],
+        'AbnormalOffloadStatus': [
+            ['id', 'ID'],
+            ['container_number', 'container_number']
+        ],
+        'Order': [
+            ['id', 'ID'],
+            ['container_number', 'container_number']
+        ],
+        'PackingList': [
+            ['id', 'ID'],
+            ['container_number', 'container_number'],
+            ['PO_ID', 'PO_ID']
+        ],
+        'PalletDestroyed': [
+            ['id', 'ID'],
+            ['container_number', 'container_number']
+        ],
+        'Pallet': [
+            ['id', 'ID'],
+            ['container_number', 'container_number'],
+            ['PO_ID', 'PO_ID'],
+            ['slot', 'slot']
+        ],
+        'PoCheckEtaSeven': [
+            ['id', 'ID'],
+            ['container_number', 'container_number']
+        ],
+        'QuotationMaster': [
+            ['id', 'ID'],
+            ['exclusive_user', 'exclusive_user'],
+            ['quote_type', 'quote_type']
+        ],
+        'TransferLocation': [
+            ['id', 'ID'],
+            ['fleet_number', 'fleet_number'],
+            ['container_number', 'container_number']
+        ],
+        'Vessel': [
+            ['id', 'ID'],
+            ['vessel', 'vessel']
+        ]
+    };
+    
+    return fieldMap[tableName] || [['id', 'ID']];
+}
+
+// 页面加载时初始化
+document.addEventListener('DOMContentLoaded', function() {
+    const tableSelect = document.querySelector('select[name="table_name"]');
+    // 如果没有选择表，默认选择Container
+    if (!tableSelect.value) {
+        tableSelect.value = 'Container';
+    }
+    tableSelect.dispatchEvent(new Event('change'));
+});
+</script>
+{% endblock %}
