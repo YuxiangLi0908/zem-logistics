@@ -6799,7 +6799,9 @@ class Accounting(View):
             raise ValueError("报价表查找失败", e)
         
         context["pallet_details"] = pallet_details
-
+        #因为应付10/1之后的报价表格式没整理好，这条费用先按时间写成固定的
+        if act_pick_time and act_pick_time > datetime(2025, 10, 1, tzinfo=timezone.utc):
+            fees["basic_fee"] = 1450
         # 获取其他费用
         pickup_other_fee, pallet_other_fee = self._get_other_fees(invoice)
         # 更新时间数据
