@@ -609,6 +609,8 @@ class PO(View):
         start_date = request.POST.get("start_date")
         end_date = request.POST.get("end_date")
         container_number = request.POST.get("container_number")
+        print('container_number',container_number)
+        
         destination = request.POST.get("destination")
         container_list = container_number.split()
         if warehouse:
@@ -839,10 +841,8 @@ class PO(View):
             }
             return context
         else:
-            mutable_post = request.POST.copy()
-            mutable_post["name"] = warehouse
-            request.POST = mutable_post
-            return self.handle_search_post(request)
+            raise ValueError('没有选择PO')
+            
 
     def _get_pl_agg_summary(self, agg_pl: Any) -> dict[str, Any]:
         if len(agg_pl) == 2:

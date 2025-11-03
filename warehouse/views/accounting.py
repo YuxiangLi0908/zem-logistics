@@ -5256,9 +5256,16 @@ class Accounting(View):
             "selfpickup": [],
             "invoice_delivery": invoice_deliveries,
         }
+        deliveries_to_delete = []
+        
         # 没有单价的找单价，再根据type汇总派送方式
         for delivery in invoice_deliveries:
             pallets_in_delivery = delivery.pallet_delivery.all()
+            # 如果没有关联的pallet，标记为需要删除
+            if not pallets_in_delivery.exists():
+                deliveries_to_delete.append(delivery.id)
+                continue  # 跳过后续处理
+
             pallet_ids = [str(p.id) for p in pallets_in_delivery]
             setattr(delivery, "plt_ids", pallet_ids)
 
@@ -5270,7 +5277,10 @@ class Accounting(View):
                 )
             if delivery.type in delivery_groups:
                 delivery_groups[delivery.type].append(delivery)
-
+        
+        # 删除没有关联pallet的delivery记录
+        if deliveries_to_delete:
+            InvoiceDelivery.objects.filter(id__in=deliveries_to_delete).delete()
         return delivery_groups
 
     # 根据报价表找单价

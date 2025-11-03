@@ -7,7 +7,7 @@ from django.shortcuts import render
 from django.utils.decorators import method_decorator
 from django.views import View
 import pandas as pd
-import re
+import re, json
 from django.contrib import messages
 from warehouse.forms.upload_file import UploadFileForm
 from asgiref.sync import sync_to_async
@@ -21,6 +21,19 @@ from warehouse.models.fleet import Fleet
 from warehouse.models.pallet import Pallet
 from warehouse.models.invoice import Invoice
 from warehouse.models.invoice_details import InvoiceDelivery
+from warehouse.models.customer import Customer
+from warehouse.models.fee_detail import FeeDetail
+from warehouse.models.fleet_shipment_pallet import FleetShipmentPallet
+from warehouse.models.invoice_details import InvoicePreport
+from warehouse.models.invoice_details import InvoiceWarehouse
+from warehouse.models.invoice import InvoiceStatus
+from warehouse.models.offload_status import AbnormalOffloadStatus
+from warehouse.models.packing_list import PackingList
+from warehouse.models.pallet_destroyed import PalletDestroyed
+from warehouse.models.po_check_eta import PoCheckEtaSeven
+from warehouse.models.quotation_master import QuotationMaster
+from warehouse.models.transfer_location import TransferLocation
+from warehouse.models.vessel import Vessel
 
 from warehouse.views.terminal49_webhook import T49Webhook
 
@@ -29,6 +42,7 @@ class ExceptionHandling(View):
     template_post_port_status = "exception_handling/post_port_status.html"
     template_delivery_invoice = "exception_handling/delivery_invoice.html"
     template_excel_formula_tool = "exception_handling/excel_formula_tool.html"
+    template_find_all_table = "exception_handling/find_all_table_id.html"
     shipment_type_options = {
         "": "",
         "FTL": "FTL",
@@ -61,6 +75,8 @@ class ExceptionHandling(View):
             return await sync_to_async(render)(request, self.template_delivery_invoice)     
         elif step == "excel_formula_tool":
             return await sync_to_async(render)(request, self.template_excel_formula_tool)   
+        elif step == "find_table_id":
+            return await sync_to_async(render)(request, self.template_find_all_table)  
         elif step == "shipment_actual":
             if self._validate_user_exception_handling(request.user):
                 return await sync_to_async(render)(request, self.template_container_pallet)
@@ -116,9 +132,304 @@ class ExceptionHandling(View):
         elif step == "delete_all_invoice_delivery":
             template, context = await self.handle_delete_all_invoice_delivery(request)
             return await sync_to_async(render)(request, template, context) 
+        elif step == "search_data":
+            template, context = await self.handle_search_data(request)
+            return await sync_to_async(render)(request, template, context) 
+            
         else:
             return await sync_to_async(T49Webhook().post)(request)
     
+    async def handle_search_data(self, request: HttpRequest):
+        context = {}
+        
+        table_name = request.POST.get("table_name")
+        search_field = request.POST.get("search_field") 
+        search_value = request.POST.get("search_value")
+        
+        if not all([table_name, search_field, search_value]):
+            await sync_to_async(messages.error)(request, "请填写完整的查询条件")
+            context['available_fields'] = await self.get_available_fields(None)
+            return 'data_query.html', context
+        
+        # 设置上下文
+        context.update({
+            'table_name': table_name,
+            'search_field': search_field,
+            'search_value': search_value,
+            'default_search_field': search_field,
+        })
+        
+        #try:
+            # 根据表名执行查询
+        record_data = await self.query_table_data(table_name, search_field, search_value)
+        
+        if record_data:
+            context.update({
+                'record_data': record_data,
+                'record_count': 1,
+                'search_info': True,
+            })
+            await sync_to_async(messages.success)(request, "查询成功")
+        else:
+            context.update({
+                'record_data': None,
+                'record_count': 0,
+                'search_info': True,
+            })
+            await sync_to_async(messages.warning)(request, "未找到匹配的记录")
+                
+        # except Exception as e:
+        #     await sync_to_async(messages.error)(request, f"查询失败: {str(e)}")
+        
+        # 设置可用的查询字段
+        context['available_fields'] = await self.get_available_fields(table_name)
+        
+        return self.template_find_all_table, context
+
+    async def query_table_data(self, table_name, search_field, search_value):
+        """异步查询表数据"""
+        model_map = {
+            'Container': Container,
+            'Customer': Customer,
+            'FeeDetail': FeeDetail,
+            'FleetShipmentPallet': FleetShipmentPallet,
+            'Fleet': Fleet,
+            'InvoicePreport': InvoicePreport,
+            'InvoiceWarehouse': InvoiceWarehouse,
+            'InvoiceDelivery': InvoiceDelivery,
+            'Invoice': Invoice,
+            'InvoiceStatus': InvoiceStatus,
+            'AbnormalOffloadStatus': AbnormalOffloadStatus,
+            'Order': Order,
+            'PackingList': PackingList,
+            'PalletDestroyed': PalletDestroyed,
+            'Pallet': Pallet,
+            'PoCheckEtaSeven': PoCheckEtaSeven,
+            'QuotationMaster': QuotationMaster,
+            'TransferLocation': TransferLocation,
+            'Vessel': Vessel,
+        }
+        
+        if table_name not in model_map:
+            raise ValueError(f"未知的表名: {table_name}")
+        
+        model = model_map[table_name]
+        
+        # 构建查询条件
+        if search_field == 'id':
+            # ID查询
+            try:
+                obj = await model.objects.aget(id=int(search_value))
+            except (ValueError, model.DoesNotExist):
+                return None
+        else:
+            # 其他字段查询
+            if search_field in ['container_number', 'fleet_number', 'shipment_batch_number', 
+                        'quotation_id', 'invoice_number']:
+                # 这些是外键字段，需要特殊处理
+                if search_field == 'container_number':
+                    if table_name == 'Container':
+                        # 在Container表本身搜索container_number字段
+                        obj = await model.objects.filter(
+                            container_number__icontains=search_value
+                        ).afirst()
+                    elif hasattr(model, 'container_number'):
+                        # 在其他表通过外键搜索关联的container_number
+                        obj = await model.objects.filter(
+                            container_number__container_number__icontains=search_value
+                        ).afirst()
+                    else:
+                        obj = await model.objects.filter(**{f"{search_field}__icontains": search_value}).afirst()
+                        
+                elif search_field == 'fleet_number':
+                    if table_name == 'Fleet':
+                        # 在Fleet表本身搜索fleet_number字段
+                        obj = await model.objects.filter(
+                            fleet_number__icontains=search_value
+                        ).afirst()
+                    elif hasattr(model, 'fleet_number'):
+                        # 在其他表通过外键搜索关联的fleet_number
+                        obj = await model.objects.filter(
+                            fleet_number__fleet_number__icontains=search_value
+                        ).afirst()
+                    else:
+                        obj = await model.objects.filter(**{f"{search_field}__icontains": search_value}).afirst()
+                        
+                elif search_field == 'shipment_batch_number':
+                    if table_name == 'Shipment':  # 注意：Shipment表不在model_map中，需要调整
+                        obj = await model.objects.filter(
+                            shipment_batch_number__icontains=search_value
+                        ).afirst()
+                    elif hasattr(model, 'shipment_batch_number'):
+                        obj = await model.objects.filter(
+                            shipment_batch_number__shipment_batch_number__icontains=search_value
+                        ).afirst()
+                    else:
+                        obj = await model.objects.filter(**{f"{search_field}__icontains": search_value}).afirst()
+                        
+                elif search_field == 'quotation_id':
+                    if table_name == 'QuotationMaster':
+                        obj = await model.objects.filter(
+                            quotation_id__icontains=search_value
+                        ).afirst()
+                    elif hasattr(model, 'quotation_id'):
+                        obj = await model.objects.filter(
+                            quotation_id__quotation_id__icontains=search_value
+                        ).afirst()
+                    else:
+                        obj = await model.objects.filter(**{f"{search_field}__icontains": search_value}).afirst()
+                        
+                elif search_field == 'invoice_number':
+                    if table_name == 'Invoice':
+                        obj = await model.objects.filter(
+                            invoice_number__icontains=search_value
+                        ).afirst()
+                    elif hasattr(model, 'invoice_number'):
+                        obj = await model.objects.filter(
+                            invoice_number__invoice_number__icontains=search_value
+                        ).afirst()
+                    else:
+                        obj = await model.objects.filter(**{f"{search_field}__icontains": search_value}).afirst()
+                else:
+                    obj = await model.objects.filter(**{f"{search_field}__icontains": search_value}).afirst()
+            else:
+                # 普通字段查询
+                obj = await model.objects.filter(**{f"{search_field}__icontains": search_value}).afirst()
+        
+        if not obj:
+            return None
+        
+        # 使用 sync_to_async 包装对象属性访问
+        record_data = await sync_to_async(self._convert_obj_to_dict)(obj)
+        return record_data
+
+    def _convert_obj_to_dict(self, obj):
+        """同步方法：将对象转换为字典"""
+        record_data = {}
+        for field in obj._meta.fields:
+            field_name = field.name
+            field_value = getattr(obj, field_name)
+            
+            # 处理外键字段
+            if field.is_relation and field_value is not None:
+                try:
+                    # 获取外键对象的字符串表示
+                    related_obj = getattr(obj, field_name)
+                    if hasattr(related_obj, 'id'):
+                        related_str = f"{related_obj} (ID: {related_obj.id})"
+                        record_data[field_name] = related_str
+                    else:
+                        record_data[field_name] = str(related_obj)
+                except Exception as e:
+                    record_data[field_name] = f"Error: {str(e)}"
+            else:
+                # 处理JSONField
+                if hasattr(field_value, 'items'):  # 如果是字典类型的JSONField
+                    try:
+                        record_data[field_name] = json.dumps(field_value, ensure_ascii=False, indent=2)
+                    except:
+                        record_data[field_name] = str(field_value)
+                elif isinstance(field_value, (list, tuple)):
+                    try:
+                        record_data[field_name] = json.dumps(field_value, ensure_ascii=False, indent=2)
+                    except:
+                        record_data[field_name] = str(field_value)
+                else:
+                    record_data[field_name] = field_value
+        
+        return record_data
+
+    async def get_available_fields(self, table_name):
+        """异步获取可用字段"""
+        field_map = {
+            'Container': [
+                ('id', 'ID'),
+                ('container_number', 'container_number')
+            ],
+            'Customer': [
+                ('id', 'ID'),
+                ('zem_name', 'zem_name')
+            ],
+            'FeeDetail': [
+                ('id', 'ID'),
+                ('quotation_id', 'quotation_id')
+            ],
+            'FleetShipmentPallet': [
+                ('id', 'ID'),
+                ('fleet_number', 'fleet_number'),
+                ('pickup_number', 'pickup_number'),
+                ('shipment_batch_number', 'shipment_batch_number')
+            ],
+            'Fleet': [
+                ('id', 'ID'),
+                ('fleet_number', 'fleet_number'),
+                ('pickup_number', 'pickup_number')
+            ],
+            'InvoicePreport': [
+                ('id', 'ID'),
+                ('invoice_number', 'invoice_number')
+            ],
+            'InvoiceWarehouse': [
+                ('id', 'ID'),
+                ('invoice_number', 'invoice_number')
+            ],
+            'InvoiceDelivery': [
+                ('id', 'ID'),
+                ('invoice_number', 'invoice_number')
+            ],
+            'Invoice': [
+                ('id', 'ID'),
+                ('invoice_number', 'invoice_number'),
+                ('container_number', 'container_number')
+            ],
+            'InvoiceStatus': [
+                ('id', 'ID'),
+                ('container_number', 'container_number')
+            ],
+            'AbnormalOffloadStatus': [
+                ('id', 'ID'),
+                ('container_number', 'container_number')
+            ],
+            'Order': [
+                ('id', 'ID'),
+                ('container_number', 'container_number')
+            ],
+            'PackingList': [
+                ('id', 'ID'),
+                ('container_number', 'container_number'),
+                ('PO_ID', 'PO_ID')
+            ],
+            'PalletDestroyed': [
+                ('id', 'ID'),
+                ('container_number', 'container_number')
+            ],
+            'Pallet': [
+                ('id', 'ID'),
+                ('container_number', 'container_number'),
+                ('PO_ID', 'PO_ID'),
+                ('slot', 'slot')
+            ],
+            'PoCheckEtaSeven': [
+                ('id', 'ID'),
+                ('container_number', 'container_number')
+            ],
+            'QuotationMaster': [
+                ('id', 'ID'),
+                ('exclusive_user', 'exclusive_user'),
+                ('quote_type', 'quote_type')
+            ],
+            'TransferLocation': [
+                ('id', 'ID'),
+                ('fleet_number', 'fleet_number'),
+                ('container_number', 'container_number')
+            ],
+            'Vessel': [
+                ('id', 'ID'),
+                ('vessel', 'vessel')
+            ]
+        }
+        
+        return field_map.get(table_name, [('id', 'ID')])
     async def handle_search_container(self, request: HttpRequest):
         """处理查询柜号请求"""
         context = {}
