@@ -38,6 +38,10 @@
             <tbody>
                 {% for fleet_group in ready_to_ship_data %}
                     {% with fleet_rowspan=fleet_group.total_cargos %}
+                        <tr class="group-separator">
+                            <td colspan="11" style="background: linear-gradient(90deg, #3498db, #6c8bc7); 
+                                                height: 2px; padding: 0;"></td>
+                        </tr>
                         {% for shipment_id, shipment in fleet_group.shipments.items %}
                             {% with shipment_rowspan=shipment.cargos|length|default:0 %}
                                 {% if shipment_rowspan == 0 %}
