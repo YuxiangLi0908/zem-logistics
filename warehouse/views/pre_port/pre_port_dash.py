@@ -7,6 +7,7 @@ from django.db import models
 from django.db.models import Case, When, Value, IntegerField, F
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
+from django.utils import timezone
 from django.views import View
 
 from warehouse.models.customer import Customer
@@ -59,6 +60,9 @@ class PrePortDash(View):
         elif step == "get_note_preport_dispatch":
             template, context = await self.get_note_preport_dispatch(request)
             return render(request, template, context)
+        elif step == "get_retrieval_cabinet_arrangement_time":
+            template, context = await self.get_retrieval_cabinet_arrangement_time(request)
+            return await sync_to_async(render)(request, template, context)
         else:
             return await sync_to_async(render)(request, self.template_main, {})
 
@@ -215,6 +219,30 @@ class PrePortDash(View):
             "tab": tab,
         }
         return self.template_main, context
+
+    async def get_retrieval_cabinet_arrangement_time(self, request: HttpRequest) -> tuple[Any, Any]:
+        time_str = request.POST.get("retrieval_cabinet_arrangement_time")
+        retrieval_id = request.POST.get("retrieval_id")
+        retrieval_obj = await Retrieval.objects.aget(retrieval_id=retrieval_id)
+        if time_str:
+            naive_datetime = datetime.strptime(time_str, "%Y-%m-%dT%H:%M")
+            aware_datetime = timezone.make_aware(naive_datetime)
+            retrieval_obj.retrieval_cabinet_arrangement_time = aware_datetime
+        else:
+            retrieval_obj.retrieval_cabinet_arrangement_time = None
+        await retrieval_obj.asave()
+        start_date = request.POST.get("start_date", None)
+        end_date = request.POST.get("end_date", None)
+        start_date_eta = request.POST.get("start_date_eta", None)
+        end_date_eta = request.POST.get("end_date_eta", None)
+        template, context = await self.handle_all_get(
+            start_date=start_date,
+            end_date=end_date,
+            start_date_eta=start_date_eta,
+            end_date_eta=end_date_eta,
+            tab="summary",
+        )
+        return template, context
 
     async def get_note_preport_dispatch(self, request: HttpRequest) -> tuple[Any, Any]:
         def process_empty(value):

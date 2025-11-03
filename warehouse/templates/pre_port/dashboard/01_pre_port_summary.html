@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
 {% block content %}
-    <style>
+<style>
 /* 全局样式调整 */
 body {
     background-color: #f5f7fa;
@@ -345,6 +345,7 @@ textarea[name="note_preport_dispatch"]:focus {
                         <th class="th">Vessel状态</th>
                         <th class="th">放行状态</th>
                         <th class="th">预计提柜时间</th>
+                        <th class="th">提柜安排</th>
                         <th class="th">实际提柜</th>
                         <th class="th">抵达仓库</th>
                         <th class="th">拆柜状态</th>
@@ -399,12 +400,18 @@ textarea[name="note_preport_dispatch"]:focus {
                                    data-col="7">
                         </th>
                         <th class="th">
-                            <input type="text" placeholder="搜索预约提柜..."
+                            <input type="text" placeholder="搜索预计提柜时间..."
                                    oninput="filterTable(this)"
                                    size="13" style="font-size: 11px;"
                                    data-col="8">
                         </th>
                         <th class="th">
+                            <input type="text" placeholder="搜索提柜安排..."
+                                   oninput="filterTable(this)"
+                                   size="13" style="font-size: 11px;"
+                                   data-col="8">
+                        </th>
+                        <th class="th" style="width: 237px">
                             <input type="text" placeholder="搜索实际提柜..."
                                    oninput="filterTable(this)"
                                    size="13" style="font-size: 11px;"
@@ -493,6 +500,28 @@ textarea[name="note_preport_dispatch"]:focus {
                             {% else %}
                             <span style="color: #86909c;">未提柜</span>
                             {% endif %}
+                        </td>
+                        <td class="td">
+                            <form action="" method="post">
+                                {% csrf_token %}
+                                <div class="time-input-container">
+                                    <input type="hidden" name="step" value="get_retrieval_cabinet_arrangement_time">
+                                    <input type="hidden" name="start_date" value="{{ start_date|default:'' }}">
+                                    <input type="hidden" name="end_date" value="{{ end_date|default:'' }}">
+                                    <input type="hidden" name="start_date_eta" value="{{ start_date_eta|default:'' }}">
+                                    <input type="hidden" name="end_date_eta" value="{{ end_date_eta|default:'' }}">
+                                    <input type="hidden" name="retrieval_id" value="{{ o.retrieval_id.retrieval_id }}">
+                                    <input type="datetime-local"
+                                           value="{% if o.retrieval_id.retrieval_cabinet_arrangement_time %}{{ o.retrieval_id.retrieval_cabinet_arrangement_time|date:'Y-m-d\TH:i' }}{% endif %}"
+                                           class="datetime-input"
+                                           name="retrieval_cabinet_arrangement_time"
+                                           placeholder="选择日期时间">
+                                    <button type="submit" class="custom-btn"
+                                            style="margin-left:158px;margin-top:-43px;">
+                                        确认
+                                    </button>
+                                </div>
+                            </form>
                         </td>
                         <td>
                             {% if o.retrieval_id.arrive_at_destination %}
