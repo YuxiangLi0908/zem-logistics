@@ -31,6 +31,8 @@
             </thead>
             <tbody>
                 {% for shipment_group in scheduled_data %}
+                <td colspan="12" style="background: linear-gradient(90deg, #3498db, #6c8bc7); 
+                                                height: 2px; padding: 0;"></td>
                 {% for cargo in shipment_group.cargos %}
                 <tr data-suggestion-id="{{ suggestion.suggestion_id }}"
                             data-cargo-id="{{ cargo.ids|default:'' }}"
