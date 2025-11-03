@@ -344,7 +344,7 @@ textarea[name="note_preport_dispatch"]:focus {
                         <th class="th">所属仓/直送地址</th>
                         <th class="th">Vessel状态</th>
                         <th class="th">放行状态</th>
-                        <th class="th">预约提柜</th>
+                        <th class="th">预计提柜时间</th>
                         <th class="th">实际提柜</th>
                         <th class="th">抵达仓库</th>
                         <th class="th">拆柜状态</th>
@@ -477,9 +477,9 @@ textarea[name="note_preport_dispatch"]:focus {
                                 {% endif %}
                         </td>
                         <td>
-                            {% if o.retrieval_id.target_retrieval_timestamp %}
+                            {% if o.retrieval_id.target_retrieval_timestamp_lower or o.retrieval_id.target_retrieval_timestamp%}
                             <span class="status-span-green-100">
-                                {{ o.retrieval_id.retrieval_carrier }} {{ o.retrieval_id.target_retrieval_timestamp|date:"M-j" }}
+                                {{ o.retrieval_id.target_retrieval_timestamp_lower|date:"M-j" }} - {{ o.retrieval_id.target_retrieval_timestamp|date:"M-j" }}
                             </span>
                             {% else %}
                             <span class="status-span-red-100">无提柜计划</span>
