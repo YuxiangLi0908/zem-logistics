@@ -1,386 +1,471 @@
 {% extends 'base.html' %}
 {% block content %}
-<style>
-/* 全局样式调整 */
-body {
-    background-color: #f5f7fa;
-    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
-}
+    <style>
+        /* 全局样式调整 */
+        body {
+            background-color: #f5f7fa;
+            font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+        }
 
-/* 按钮样式优化 */
-.custom-btn {
-    padding: 4px 12px;
-    border: none;
-    border-radius: 4px;
-    background-color: #4096ff;
-    color: #fff;
-    font-size: 13px;
-    cursor: pointer;
-    vertical-align: middle;
-    margin-left: 8px;
-    transition: all 0.2s ease;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.1);
-}
+        /* 按钮样式优化 */
+        .custom-btn {
+            padding: 4px 12px;
+            border: none;
+            border-radius: 4px;
+            background-color: #4096ff;
+            color: #fff;
+            font-size: 13px;
+            cursor: pointer;
+            vertical-align: middle;
+            margin-left: 8px;
+            transition: all 0.2s ease;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+        }
 
-.custom-btn:hover {
-    background-color: #69b1ff;
-    box-shadow: 0 2px 8px rgba(64, 150, 255, 0.3);
-    transform: translateY(-1px);
-}
+        .custom-btn:hover {
+            background-color: #69b1ff;
+            box-shadow: 0 2px 8px rgba(64, 150, 255, 0.3);
+            transform: translateY(-1px);
+        }
 
-.custom-btn:active {
-    background-color: #3385ff;
-    transform: translateY(0);
-    box-shadow: none;
-}
+        .custom-btn:active {
+            background-color: #3385ff;
+            transform: translateY(0);
+            box-shadow: none;
+        }
 
-.custom-btn:disabled {
-    background-color: #c9c9c9;
-    cursor: not-allowed;
-    transform: none;
-    box-shadow: none;
-}
+        .custom-btn:disabled {
+            background-color: #c9c9c9;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
 
-/* 导航栏样式 */
-.nav-tabs {
-    border-bottom: 1px solid #e5e6eb;
-    margin-bottom: 15px;
-    background-color: #fff;
-    padding: 0 15px;
-    border-radius: 4px 4px 0 0;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
-}
+        /* 导航栏样式 */
+        .nav-tabs {
+            border-bottom: 1px solid #e5e6eb;
+            margin-bottom: 15px;
+            background-color: #fff;
+            padding: 0 15px;
+            border-radius: 4px 4px 0 0;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+        }
 
-.nav-item .nav-link {
-    color: #4e5969;
-    border: none;
-    padding: 10px 15px;
-    margin-right: 5px;
-    border-radius: 4px 4px 0 0;
-    font-weight: 500;
-    transition: all 0.2s ease;
-}
+        .nav-item .nav-link {
+            color: #4e5969;
+            border: none;
+            padding: 10px 15px;
+            margin-right: 5px;
+            border-radius: 4px 4px 0 0;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
 
-.nav-item .nav-link.active {
-    color: #4096ff;
-    background-color: #f5f7fa;
-    border-bottom: 2px solid #4096ff;
-}
+        .nav-item .nav-link.active {
+            color: #4096ff;
+            background-color: #f5f7fa;
+            border-bottom: 2px solid #4096ff;
+        }
 
-.nav-item .nav-link:hover:not(.active) {
-    background-color: #f2f3f5;
-    color: #4096ff;
-}
+        .nav-item .nav-link:hover:not(.active) {
+            background-color: #f2f3f5;
+            color: #4096ff;
+        }
 
-/* 内容区域容器 */
-#order-info-sec {
-    background-color: #fff;
-    border-radius: 4px;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
-    overflow: hidden;
-}
+        /* 内容区域容器 */
+        #order-info-sec {
+            background-color: #fff;
+            border-radius: 4px;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+            overflow: hidden;
+        }
 
-/* 搜索和批量操作区域 */
-.search-bar {
-    padding: 15px;
-    border-bottom: 1px solid #e5e6eb;
-    display: flex;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 15px;
-    align-items: center;
-    background-color: #fafbfc;
-}
+        /* 搜索和批量操作区域 */
+        .search-bar {
+            padding: 15px;
+            border-bottom: 1px solid #e5e6eb;
+            display: flex;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 15px;
+            align-items: center;
+            background-color: #fafbfc;
+        }
 
-.search-group {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}
+        .search-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
 
-.search-group b {
-    color: #4e5969;
-    font-size: 14px;
-}
+        .search-group b {
+            color: #4e5969;
+            font-size: 14px;
+        }
 
-.search-group input[type="date"] {
-    padding: 6px 8px;
-    border: 1px solid #dcdfe6;
-    border-radius: 4px;
-    font-size: 13px;
-}
+        .search-group input[type="date"] {
+            padding: 6px 8px;
+            border: 1px solid #dcdfe6;
+            border-radius: 4px;
+            font-size: 13px;
+        }
 
-/* 批量操作按钮区域 */
-.batch-actions {
-    margin: 0;
-    padding: 0;
-    background-color: transparent;
-    display: flex;
-    gap: 10px;
-    align-items: center;
-}
+        /* 批量操作按钮区域 */
+        .batch-actions {
+            margin: 0;
+            padding: 0;
+            background-color: transparent;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
 
-.batch-actions .btn {
-    padding: 6px 12px;
-    font-size: 13px;
-    transition: all 0.2s ease;
-    text-decoration: none;
-}
+        .batch-actions .btn {
+            padding: 6px 12px;
+            font-size: 13px;
+            transition: all 0.2s ease;
+            text-decoration: none;
+        }
 
-.batch-actions .btn-primary {
-    background-color: #4096ff;
-    border-color: #4096ff;
-}
+        .batch-actions .btn-primary {
+            background-color: #4096ff;
+            border-color: #4096ff;
+        }
 
-.batch-actions .btn-primary:hover {
-    background-color: #69b1ff;
-    border-color: #69b1ff;
-}
+        .batch-actions .btn-primary:hover {
+            background-color: #69b1ff;
+            border-color: #69b1ff;
+        }
 
-/* 表格样式优化 */
-.table {
-    width: 100%;
-    border-collapse: separate;
-    border-spacing: 0;
-    font-size: 12px;
-    margin-bottom: 0;
-}
+        /* 表格样式优化 */
+        .table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            font-size: 12px;
+            margin-bottom: 0;
+        }
 
-.table thead {
-    background-color: #f5f7fa;
-}
+        .table thead {
+            background-color: #f5f7fa;
+        }
 
-.table th, .table td {
-    padding: 10px 8px;
-    text-align: left;
-    border-bottom: 1px solid #e5e6eb;
-}
+        .table th, .table td {
+            padding: 10px 8px;
+            text-align: left;
+            border-bottom: 1px solid #e5e6eb;
+        }
 
-.table th {
-    color: #4e5969;
-    font-weight: 500;
-    white-space: nowrap;
-    position: relative;
-}
+        .table th {
+            color: #4e5969;
+            font-weight: 500;
+            white-space: nowrap;
+            position: relative;
+        }
 
-.table th:after {
-    content: '';
-    position: absolute;
-    right: 0;
-    top: 50%;
-    transform: translateY(-50%);
-    height: 12px;
-    width: 1px;
-    background-color: #e5e6eb;
-}
+        .table th:after {
+            content: '';
+            position: absolute;
+            right: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            height: 12px;
+            width: 1px;
+            background-color: #e5e6eb;
+        }
 
-.table th:last-child:after {
-    display: none;
-}
+        .table th:last-child:after {
+            display: none;
+        }
 
-.table tbody tr {
-    transition: background-color 0.2s ease;
-}
+        .table tbody tr {
+            transition: background-color 0.2s ease;
+        }
 
-.table tbody tr:hover {
-    background-color: #fafbfc;
-}
+        .table tbody tr:hover {
+            background-color: #fafbfc;
+        }
 
-/* 复选框样式 */
-.checkbox-cell {
-    text-align: center !important;
-    vertical-align: middle;
-    width: 50px;
-}
+        /* 复选框样式 */
+        .checkbox-cell {
+            text-align: center !important;
+            vertical-align: middle;
+            width: 50px;
+        }
 
-.checkbox-cell input {
-    width: 16px;
-    height: 16px;
-    cursor: pointer;
-}
+        .checkbox-cell input {
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
+        }
 
-/* 搜索输入框样式 */
-.table th input, .table th select {
-    width: 100%;
-    padding: 5px 8px;
-    border: 1px solid #dcdfe6;
-    border-radius: 3px;
-    font-size: 11px;
-    transition: border-color 0.2s ease;
-}
+        /* 搜索输入框样式 */
+        .table th input, .table th select {
+            width: 100%;
+            padding: 5px 8px;
+            border: 1px solid #dcdfe6;
+            border-radius: 3px;
+            font-size: 11px;
+            transition: border-color 0.2s ease;
+        }
 
-.table th input:focus, .table th select:focus {
-    border-color: #4096ff;
-    outline: none;
-    box-shadow: 0 0 0 2px rgba(64, 150, 255, 0.2);
-}
+        .table th input:focus, .table th select:focus {
+            border-color: #4096ff;
+            outline: none;
+            box-shadow: 0 0 0 2px rgba(64, 150, 255, 0.2);
+        }
 
-/* 状态标签样式 */
-.status-span-green-100 {
-    color: #52c41a;
-    background-color: rgba(82, 196, 26, 0.1);
-    padding: 2px 6px;
-    border-radius: 3px;
-    font-size: 11px;
-}
+        /* 状态标签样式 */
+        .status-span-green-100 {
+            color: #52c41a;
+            background-color: rgba(82, 196, 26, 0.1);
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 11px;
+        }
 
-.status-span-red-100 {
-    color: #f5222d;
-    background-color: rgba(245, 34, 45, 0.1);
-    padding: 2px 6px;
-    border-radius: 3px;
-    font-size: 11px;
-}
+        .status-span-red-100 {
+            color: #f5222d;
+            background-color: rgba(245, 34, 45, 0.1);
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 11px;
+        }
 
-.status-span-blue-100 {
-    color: #1890ff;
-    background-color: rgba(24, 144, 255, 0.1);
-    padding: 2px 6px;
-    border-radius: 3px;
-    font-size: 11px;
-}
+        .status-span-blue-100 {
+            color: #1890ff;
+            background-color: rgba(24, 144, 255, 0.1);
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 11px;
+        }
 
-/* 链接样式 */
-.table a {
-    color: #4096ff;
-    text-decoration: none;
-    transition: color 0.2s ease;
-}
+        /* 链接样式 */
+        .table a {
+            color: #4096ff;
+            text-decoration: none;
+            transition: color 0.2s ease;
+        }
 
-.table a:hover {
-    color: #69b1ff;
-    text-decoration: underline;
-}
+        .table a:hover {
+            color: #69b1ff;
+            text-decoration: underline;
+        }
 
-/* 备注输入框样式 */
-textarea[name="note_preport_dispatch"] {
-    width: 100%;
-    min-height: 50px;
-    padding: 5px 8px;
-    border: 1px solid #dcdfe6;
-    border-radius: 3px;
-    font-size: 12px;
-    resize: vertical;
-    transition: border-color 0.2s ease;
-}
+        /* 备注输入框样式 */
+        textarea[name="note_preport_dispatch"] {
+            width: 100%;
+            min-height: 50px;
+            padding: 5px 8px;
+            border: 1px solid #dcdfe6;
+            border-radius: 3px;
+            font-size: 12px;
+            resize: vertical;
+            transition: border-color 0.2s ease;
+        }
 
-textarea[name="note_preport_dispatch"]:focus {
-    border-color: #4096ff;
-    outline: none;
-    box-shadow: 0 0 0 2px rgba(64, 150, 255, 0.2);
-}
+        textarea[name="note_preport_dispatch"]:focus {
+            border-color: #4096ff;
+            outline: none;
+            box-shadow: 0 0 0 2px rgba(64, 150, 255, 0.2);
+        }
 
-/* 滚动区域美化 */
-#status-summary-sec {
-    overflow-y: scroll;
-    max-height: 800px;
-    scrollbar-width: thin;
-    scrollbar-color: #c9c9c9 #f5f5f5;
-}
+        /* 滚动区域美化 */
+        #status-summary-sec {
+            overflow-y: scroll;
+            max-height: 800px;
+            scrollbar-width: thin;
+            scrollbar-color: #c9c9c9 #f5f5f5;
+        }
 
-#status-summary-sec::-webkit-scrollbar {
-    width: 6px;
-}
+        #status-summary-sec::-webkit-scrollbar {
+            width: 6px;
+        }
 
-#status-summary-sec::-webkit-scrollbar-track {
-    background: #f5f5f5;
-}
+        #status-summary-sec::-webkit-scrollbar-track {
+            background: #f5f5f5;
+        }
 
-#status-summary-sec::-webkit-scrollbar-thumb {
-    background-color: #c9c9c9;
-    border-radius: 3px;
-}
+        #status-summary-sec::-webkit-scrollbar-thumb {
+            background-color: #c9c9c9;
+            border-radius: 3px;
+        }
 
-/* 时间输入框样式 */
-.datetime-input {
-    padding: 5px 8px;
-    border: 1px solid #dcdfe6;
-    border-radius: 3px;
-    font-size: 12px;
-    transition: all 0.2s;
-    width: 160px;
-}
+        /* 时间输入框样式 */
+        .datetime-input {
+            padding: 5px 8px;
+            border: 1px solid #dcdfe6;
+            border-radius: 3px;
+            font-size: 12px;
+            transition: all 0.2s;
+            width: 160px;
+        }
 
-.datetime-input:focus {
-    border-color: #4096ff;
-    box-shadow: 0 0 0 2px rgba(64, 150, 255, 0.1);
-    outline: none;
-}
+        .datetime-input:focus {
+            border-color: #4096ff;
+            box-shadow: 0 0 0 2px rgba(64, 150, 255, 0.1);
+            outline: none;
+        }
 
-.time-input-container {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
+        .time-input-container {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
 
-/* 复制成功提示 */
-.copy-toast {
-    position: fixed;
-    bottom: 20px;
-    right: 20px;
-    background-color: #52c41a;
-    color: white;
-    padding: 8px 16px;
-    border-radius: 4px;
-    font-size: 13px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-    opacity: 0;
-    transition: opacity 0.3s ease;
-    pointer-events: none;
-}
+        /* 复制成功提示 */
+        .copy-toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background-color: #52c41a;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 4px;
+            font-size: 13px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            pointer-events: none;
+        }
 
-.copy-toast.show {
-    opacity: 1;
-}
-</style>
-<div style="width: 100%; padding: 15px; box-sizing: border-box;">
-    <ul class="nav nav-tabs">
-        <li class="nav-item">
-            <button {% if tab == "summary" %}class="nav-link active"{% else %}class="nav-link"{% endif %} onclick="showSection(this, 'status-summary-sec')">
-                货柜进度汇总
-            </button>
-        </li>
-    </ul>
+        .copy-toast.show {
+            opacity: 1;
+        }
 
-    <div id="order-info-sec" style="width: 100%;">
-        <div id="status-summary-sec">
-            <!-- 搜索和批量操作区域 -->
-            <div class="search-bar">
-                <form method="post" action="">
-                    {% csrf_token %}
-                    <div class="search-group">
-                        <b>ETA: </b>
-                        <input type="date" name="start_date_eta" value="{{ start_date_eta }}">
-                        <span style="color: #86909c;">至</span>
-                        <input type="date" name="end_date_eta" value="{{ end_date_eta }}">
-                        <button type="submit" name="step" value="search_orders" class="btn btn-primary">查询</button>
-                        <button type="submit" name="step" value="download_eta_file" class="btn btn-secondary">导出</button>
+        /* 批量操作弹窗样式 */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .modal-overlay.show {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .modal-container {
+            background-color: #fff;
+            border-radius: 6px;
+            width: 500px;
+            max-width: 90%;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+            transform: translateY(-20px);
+            transition: transform 0.3s ease;
+        }
+
+        .modal-overlay.show .modal-container {
+            transform: translateY(0);
+        }
+
+        .modal-header {
+            padding: 15px 20px;
+            border-bottom: 1px solid #e5e6eb;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-title {
+            font-size: 16px;
+            font-weight: 500;
+            color: #1f2329;
+            margin: 0;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 20px;
+            cursor: pointer;
+            color: #86909c;
+            transition: color 0.2s ease;
+        }
+
+        .modal-close:hover {
+            color: #1f2329;
+        }
+
+        .modal-body {
+            padding: 20px;
+        }
+
+        .modal-footer {
+            padding: 15px 20px;
+            border-top: 1px solid #e5e6eb;
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+
+        .modal-footer .btn {
+            padding: 6px 16px;
+            font-size: 13px;
+        }
+    </style>
+    <div style="width: 100%; padding: 15px; box-sizing: border-box;">
+        <ul class="nav nav-tabs">
+            <li class="nav-item">
+                <button {% if tab == "summary" %}class="nav-link active"{% else %}class="nav-link"{% endif %}
+                        onclick="showSection(this, 'status-summary-sec')">
+                    货柜进度汇总
+                </button>
+            </li>
+        </ul>
+
+        <div id="order-info-sec" style="width: 100%;">
+            <div id="status-summary-sec">
+                <!-- 搜索和批量操作区域 -->
+                <div class="search-bar">
+                    <form method="post" action="">
+                        {% csrf_token %}
+                        <div class="search-group">
+                            <b>ETA: </b>
+                            <input type="date" name="start_date_eta" value="{{ start_date_eta }}">
+                            <span style="color: #86909c;">至</span>
+                            <input type="date" name="end_date_eta" value="{{ end_date_eta }}">
+                            <button type="submit" name="step" value="search_orders" class="btn btn-primary">查询
+                            </button>
+                            <button type="submit" name="step" value="download_eta_file" class="btn btn-secondary">导出
+                            </button>
+                        </div>
+                    </form>
+
+                    <!-- 批量操作按钮区域 -->
+                    <div class="batch-actions">
+                        <button id="batchActionBtn" class="btn btn-primary" disabled>
+                            批量操作（已选 <span id="selectedCount">0</span> 项）
+                        </button>
+                        <button id="copyContainersBtn" class="btn btn-success" disabled>
+                            复制柜号到剪贴板
+                        </button>
+                        <button id="exportSelectedBtn" class="btn btn-secondary" disabled>
+                            批量跳转港口提柜
+                        </button>
+                        <button id="batchSetOffloadBtn" class="btn btn-warning" disabled>
+                            批量设置拆柜时间
+                        </button>
                     </div>
-                </form>
-
-                <!-- 批量操作按钮区域 -->
-                <div class="batch-actions">
-                    <button id="batchActionBtn" class="btn btn-primary" disabled>
-                        批量操作（已选 <span id="selectedCount">0</span> 项）
-                    </button>
-                    <button id="copyContainersBtn" class="btn btn-success" disabled>
-                        复制柜号到剪贴板
-                    </button>
-                    <button id="exportSelectedBtn" class="btn btn-secondary" disabled>
-                        批量跳转港口提柜
-                    </button>
-                    <button id="exportSelectedBtn"  disabled>
-                        批量设置拆柜时间
-                    </button>
                 </div>
-            </div>
 
-            <!-- 表格内容 -->
-            <table class="table">
-                <thead>
+                <!-- 表格内容 -->
+                <table class="table">
+                    <thead>
                     <tr style="position: sticky; top: 0; z-index: 2;">
                         <th class="th checkbox-cell">
-                            <input type="checkbox" id="selectAll" style="width: 16px; height: 16px; vertical-align: middle;">
+                            <input type="checkbox" id="selectAll"
+                                   style="width: 16px; height: 16px; vertical-align: middle;">
                         </th>
                         <th class="th">柜号</th>
                         <th class="th">客户</th>
@@ -399,9 +484,9 @@ textarea[name="note_preport_dispatch"]:focus {
                         <th class="th checkbox-cell"></th>
                         <th class="th">
                             <input type="text" placeholder="搜索柜号..."
-                                oninput="filterTable(this)"
-                                size="13" style="font-size: 11px;"
-                                data-col="1">
+                                   oninput="filterTable(this)"
+                                   size="13" style="font-size: 11px;"
+                                   data-col="1">
                         </th>
                         <th class="th">
                             <select name="customer" onchange="filterTable(this)" data-col="2">
@@ -419,9 +504,9 @@ textarea[name="note_preport_dispatch"]:focus {
                         </th>
                         <th class="th">
                             <input type="text" placeholder="搜索仓库..."
-                                oninput="filterTable(this)"
-                                size="13" style="font-size: 11px;"
-                                data-col="5">
+                                   oninput="filterTable(this)"
+                                   size="13" style="font-size: 11px;"
+                                   data-col="5">
                         </th>
                         <th class="th">
                             <input type="text" placeholder="搜索放行状态..."
@@ -472,334 +557,471 @@ textarea[name="note_preport_dispatch"]:focus {
                                    data-col="13">
                         </th>
                     </tr>
-                </thead>
-                <tbody>
+                    </thead>
+                    <tbody>
                     {% for o in orders %}
-                    <tr>
-                        <td class="td checkbox-cell">
-                            <input type="checkbox" class="rowCheckbox" style="width: 16px; height: 16px; vertical-align: middle;"
-                                   data-container="{{ o.container_number.container_number }}"
-                                   data-id="{{ o.id }}">
-                        </td>
-                        <td class="td">
-                            <a href="/create_order/?step=order_management_container&container_number={{ o.container_number.container_number }}" target="_blank">
-                                {{ o.container_number.container_number }}
-                            </a>
-                        </td>
-                        <td class="td">{{ o.customer_name.zem_name }}</td>
-                        <td class="td">{{ o.order_type }}</td>
-                        <td class="td">{{ o.retrieval_id.retrieval_destination_area }}</td>
-                        <td class="td">
-                            {% if o.retrieval_id.temp_t49_available_for_pickup == True %}
+                        <tr>
+                            <td class="td checkbox-cell">
+                                <input type="checkbox" class="rowCheckbox"
+                                       style="width: 16px; height: 16px; vertical-align: middle;"
+                                       data-container="{{ o.container_number.container_number }}"
+                                       data-id="{{ o.id }}"
+                                       data-offload-id="{{ o.offload_id.offload_id }}">
+                            </td>
+                            <td class="td">
+                                <a href="/create_order/?step=order_management_container&container_number={{ o.container_number.container_number }}"
+                                   target="_blank">
+                                    {{ o.container_number.container_number }}
+                                </a>
+                            </td>
+                            <td class="td">{{ o.customer_name.zem_name }}</td>
+                            <td class="td">{{ o.order_type }}</td>
+                            <td class="td">{{ o.retrieval_id.retrieval_destination_area }}</td>
+                            <td class="td">
+                                {% if o.retrieval_id.temp_t49_available_for_pickup == True %}
                                     <span class="status-span-green-100">√ 已放行</span>
                                 {% else %}
                                     <span class="status-span-red-100">{{ o.retrieval_id.temp_t49_available_for_pickup|default:"× 未放行" }}</span>
                                 {% endif %}
-                        </td>
-                        <td>
-                            {% if o.retrieval_id.target_retrieval_timestamp_lower or o.retrieval_id.target_retrieval_timestamp%}
-                            <span class="status-span-green-100">
+                            </td>
+                            <td>
+                                {% if o.retrieval_id.target_retrieval_timestamp_lower or o.retrieval_id.target_retrieval_timestamp %}
+                                    <span class="status-span-green-100">
                                 {{ o.retrieval_id.target_retrieval_timestamp_lower|date:"M-j" }} - {{ o.retrieval_id.target_retrieval_timestamp|date:"M-j" }}
                             </span>
-                            {% else %}
-                            <span class="status-span-red-100">无提柜计划</span>
-                            {% endif %}
-                        </td>
-                        <td>
-                            {% if o.retrieval_id.actual_retrieval_timestamp %}
-                            <span class="status-span-green-100">{{ o.retrieval_id.actual_retrieval_timestamp|date:"M-j" }}</span>
-                            {% elif o.retrieval_id.target_retrieval_timestamp.date > current_date %}
-                            <span class="status-span-blue-100">预计 {{ o.retrieval_id.target_retrieval_timestamp|date:"M-j" }}</span>
-                            {% else %}
-                            <span style="color: #86909c;">未提柜</span>
-                            {% endif %}
-                        </td>
-                        <td class="td">
-                            <form action="" method="post">
-                                {% csrf_token %}
-                                <div class="time-input-container">
-                                    <input type="hidden" name="step" value="get_retrieval_cabinet_arrangement_time">
+                                {% else %}
+                                    <span class="status-span-red-100">无提柜计划</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if o.retrieval_id.actual_retrieval_timestamp %}
+                                    <span class="status-span-green-100">{{ o.retrieval_id.actual_retrieval_timestamp|date:"M-j" }}</span>
+                                {% elif o.retrieval_id.target_retrieval_timestamp.date > current_date %}
+                                    <span class="status-span-blue-100">预计 {{ o.retrieval_id.target_retrieval_timestamp|date:"M-j" }}</span>
+                                {% else %}
+                                    <span style="color: #86909c;">未提柜</span>
+                                {% endif %}
+                            </td>
+                            <td class="td">
+                                <form action="" method="post">
+                                    {% csrf_token %}
+                                    <div class="time-input-container">
+                                        <input type="hidden" name="step" value="get_retrieval_cabinet_arrangement_time">
+                                        <input type="hidden" name="start_date" value="{{ start_date|default:'' }}">
+                                        <input type="hidden" name="end_date" value="{{ end_date|default:'' }}">
+                                        <input type="hidden" name="start_date_eta"
+                                               value="{{ start_date_eta|default:'' }}">
+                                        <input type="hidden" name="end_date_eta" value="{{ end_date_eta|default:'' }}">
+                                        <input type="hidden" name="retrieval_id"
+                                               value="{{ o.retrieval_id.retrieval_id }}">
+                                        <input type="datetime-local"
+                                               value="{% if o.retrieval_id.retrieval_cabinet_arrangement_time %}{{ o.retrieval_id.retrieval_cabinet_arrangement_time|date:'Y-m-d\TH:i' }}{% endif %}"
+                                               class="datetime-input"
+                                               name="retrieval_cabinet_arrangement_time"
+                                               placeholder="选择日期时间">
+                                        <button type="submit" class="custom-btn" style="padding: 6px;">
+                                            确认
+                                        </button>
+                                    </div>
+                                </form>
+                            </td>
+                            <td class="td">
+                                <form action="" method="post">
+                                    {% csrf_token %}
+                                    <div class="time-input-container">
+                                        <input type="hidden" name="step" value="get_offload_at">
+                                        <input type="hidden" name="start_date" value="{{ start_date|default:'' }}">
+                                        <input type="hidden" name="end_date" value="{{ end_date|default:'' }}">
+                                        <input type="hidden" name="start_date_eta"
+                                               value="{{ start_date_eta|default:'' }}">
+                                        <input type="hidden" name="end_date_eta" value="{{ end_date_eta|default:'' }}">
+                                        <input type="hidden" name="offload_id" value="{{ o.offload_id.offload_id }}">
+                                        <input type="datetime-local"
+                                               value="{% if o.offload_id.offload_at %}{{ o.offload_id.offload_at|date:'Y-m-d\TH:i' }}{% endif %}"
+                                               class="datetime-input"
+                                               name="offload_at"
+                                               placeholder="选择日期时间">
+                                        <button type="submit" class="custom-btn" style="padding: 6px;">
+                                            确认
+                                        </button>
+                                    </div>
+                                </form>
+                            </td>
+                            <td>
+                                {% if o.retrieval_id.empty_returned %}
+                                    <span class="status-span-green-100">{{ o.retrieval_id.empty_returned_at|date:"M-j" }}</span>
+                                {% else %}
+                                    <span style="color: #86909c;">未还空</span>
+                                {% endif %}
+                            </td>
+                            <td class="td">
+                                {% if o.retrieval_id.empty_returned %}
+                                    <span class="status-span-green-100"><i class="bi bi-check-square"></i> 已完结</span>
+                                {% else %}
+                                    <span class="status-span-red-100"><i class="bi bi-x-square"></i> 未完结</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <form action="" method="post">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="step" value="get_note_preport_dispatch">
                                     <input type="hidden" name="start_date" value="{{ start_date|default:'' }}">
                                     <input type="hidden" name="end_date" value="{{ end_date|default:'' }}">
                                     <input type="hidden" name="start_date_eta" value="{{ start_date_eta|default:'' }}">
                                     <input type="hidden" name="end_date_eta" value="{{ end_date_eta|default:'' }}">
-                                    <input type="hidden" name="retrieval_id" value="{{ o.retrieval_id.retrieval_id }}">
-                                    <input type="datetime-local"
-                                           value="{% if o.retrieval_id.retrieval_cabinet_arrangement_time %}{{ o.retrieval_id.retrieval_cabinet_arrangement_time|date:'Y-m-d\TH:i' }}{% endif %}"
-                                           class="datetime-input"
-                                           name="retrieval_cabinet_arrangement_time"
-                                           placeholder="选择日期时间">
-                                    <button type="submit" class="custom-btn" style="padding: 6px;">
-                                        确认
-                                    </button>
-                                </div>
-                            </form>
-                        </td>
-                        <td class="td">
-                            <form action="" method="post">
-                                {% csrf_token %}
-                                <div class="time-input-container">
-                                    <input type="hidden" name="step" value="get_offload_at">
-                                    <input type="hidden" name="start_date" value="{{ start_date|default:'' }}">
-                                    <input type="hidden" name="end_date" value="{{ end_date|default:'' }}">
-                                    <input type="hidden" name="start_date_eta" value="{{ start_date_eta|default:'' }}">
-                                    <input type="hidden" name="end_date_eta" value="{{ end_date_eta|default:'' }}">
-                                    <input type="hidden" name="offload_id" value="{{ o.offload_id.offload_id }}">
-                                    <input type="datetime-local"
-                                           value="{% if o.offload_id.offload_at %}{{ o.offload_id.offload_at|date:'Y-m-d\TH:i' }}{% endif %}"
-                                           class="datetime-input"
-                                           name="offload_at"
-                                           placeholder="选择日期时间">
-                                    <button type="submit" class="custom-btn" style="padding: 6px;">
-                                        确认
-                                    </button>
-                                </div>
-                            </form>
-                        </td>
-                        <td>
-                            {% if o.retrieval_id.empty_returned %}
-                            <span class="status-span-green-100">{{ o.retrieval_id.empty_returned_at|date:"M-j" }}</span>
-                            {% else %}
-                            <span style="color: #86909c;">未还空</span>
-                            {% endif %}
-                        </td>
-                        <td class="td">
-                            {% if o.retrieval_id.empty_returned %}
-                            <span class="status-span-green-100"><i class="bi bi-check-square"></i> 已完结</span>
-                            {% else %}
-                            <span class="status-span-red-100"><i class="bi bi-x-square"></i> 未完结</span>
-                            {% endif %}
-                        </td>
-                        <td>
-                            <form action="" method="post">
-                            {% csrf_token %}
-                            <input type="hidden" name="step" value="get_note_preport_dispatch">
-                            <input type="hidden" name="start_date" value="{{ start_date|default:'' }}">
-                            <input type="hidden" name="end_date" value="{{ end_date|default:'' }}">
-                            <input type="hidden" name="start_date_eta" value="{{ start_date_eta|default:'' }}">
-                            <input type="hidden" name="end_date_eta" value="{{ end_date_eta|default:'' }}">
-                            <input type="hidden" name="retrieval_id" value="{{ o.retrieval_id|default:'' }}">
-                            <div style="display: flex; gap: 8px; align-items: flex-end;">
+                                    <input type="hidden" name="retrieval_id" value="{{ o.retrieval_id|default:'' }}">
+                                    <div style="display: flex; gap: 8px; align-items: flex-end;">
                                 <textarea
                                         name="note_preport_dispatch"
                                         style="flex: 1; min-height: 50px;"
                                 >{{ o.retrieval_id.note_preport_dispatch|default:'' }}</textarea>
-                                <button type="submit" class="custom-btn">
-                                    确认
-                                </button>
-                            </div>
-                            </form>
-                        </td>
-                    </tr>
+                                        <button type="submit" class="custom-btn">
+                                            确认
+                                        </button>
+                                    </div>
+                                </form>
+                            </td>
+                        </tr>
                     {% empty %}
-                    <tr>
-                        <td colspan="14" style="text-align: center; padding: 30px; color: #86909c;">
-                            暂无数据
-                        </td>
-                    </tr>
+                        <tr>
+                            <td colspan="14" style="text-align: center; padding: 30px; color: #86909c;">
+                                暂无数据
+                            </td>
+                        </tr>
                     {% endfor %}
-                </tbody>
-            </table>
-        </div>
-        <div id="dispatch-summary-sec" style="display: none;">
+                    </tbody>
+                </table>
+            </div>
+            <div id="dispatch-summary-sec" style="display: none;">
 
+            </div>
         </div>
     </div>
-</div>
 
-<!-- 复制成功提示框 -->
-<div class="copy-toast" id="copyToast">复制成功！</div>
+    <!-- 复制成功提示框 -->
+    <div class="copy-toast" id="copyToast">复制成功！</div>
 
-<script>
-    function showSection(navItem, secId) {
-        const navLinks = document.querySelectorAll('.nav-link');
-        navLinks.forEach(link => {
-            link.classList.remove('active')
-        });
-        navItem.classList.add('active');
+    <!-- 批量设置拆柜时间弹窗 -->
+    <div class="modal-overlay" id="batchOffloadModal">
+        <div class="modal-container">
+            <div class="modal-header">
+                <h3 class="modal-title">批量设置拆柜时间</h3>
+                <button class="modal-close" id="closeModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="batchOffloadForm">
+                    <!-- 时间输入框 -->
+                    <div class="form-group">
+                        <label style="display: block; margin-bottom: 8px; color: #4e5969; font-size: 14px;">
+                            拆柜时间：
+                        </label>
+                        <input type="datetime-local"
+                               class="datetime-input"
+                               id="batchOffloadTime"
+                               required
+                               style="width: 100%; padding: 8px; font-size: 13px;">
+                    </div>
 
-        const sections = document.querySelectorAll('#order-info-sec > div');
-        sections.forEach(section => {
-            section.style.display = section.id === secId ? "" : "none";
-        });
-    };
+                    <div style="margin-top: 15px; color: #86909c; font-size: 12px;">
+                        <span id="selectedContainersCount">0</span> 个柜号将被设置为该拆柜时间
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" id="cancelBatchOffload">取消</button>
+                <button type="button" class="btn btn-primary" id="confirmBatchOffload">确认设置</button>
+            </div>
+        </div>
+    </div>
 
-    function filterTable(filterInput) {
-        var table = filterInput.closest('table');
-        var tbody = table.getElementsByTagName("tbody")[0];
-        var tr = tbody.getElementsByTagName("tr");
+    <script>
+        function showSection(navItem, secId) {
+            const navLinks = document.querySelectorAll('.nav-link');
+            navLinks.forEach(link => {
+                link.classList.remove('active')
+            });
+            navItem.classList.add('active');
 
-        var filters = document.querySelectorAll('thead input[type="text"], thead select');
-        var filterValues = Array.from(filters).map(function(filter) {
-            var colIdx = parseInt(filter.dataset.col, 10);
-            if (colIdx === 1) {  // 柜号列
-                return filter.value.toUpperCase().split(/\s+/).filter(Boolean);
-            } else {
-                return [filter.value.toUpperCase().trim()];
-            }
-        });
+            const sections = document.querySelectorAll('#order-info-sec > div');
+            sections.forEach(section => {
+                section.style.display = section.id === secId ? "" : "none";
+            });
+        };
 
-        for (var i = 0; i < tr.length; i++) {
-            var row = tr[i];
-            var showRow = true;
+        function filterTable(filterInput) {
+            var table = filterInput.closest('table');
+            var tbody = table.getElementsByTagName("tbody")[0];
+            var tr = tbody.getElementsByTagName("tr");
 
-            filters.forEach(function(filter, idx) {
+            var filters = document.querySelectorAll('thead input[type="text"], thead select');
+            var filterValues = Array.from(filters).map(function (filter) {
                 var colIdx = parseInt(filter.dataset.col, 10);
-                var filterValueList = filterValues[idx];
-                var cell = row.getElementsByTagName("td")[colIdx];
-
-                if (cell && filterValueList.length > 0 && filterValueList[0] !== "") {
-                    var cellText = cell.textContent || cell.innerText;
-                    var cellValue = cellText.toUpperCase().trim();
-
-                    if (colIdx === 1) {  // 柜号列特殊处理
-                        var matchFound = filterValueList.some(function(filterValue) {
-                            return cellValue.includes(filterValue) || filterValue.includes(cellValue);
-                        });
-                        if (!matchFound) showRow = false;
-                    } else {
-                        if (cellValue.indexOf(filterValueList[0]) === -1) showRow = false;
-                    }
+                if (colIdx === 1) {  // 柜号列
+                    return filter.value.toUpperCase().split(/\s+/).filter(Boolean);
+                } else {
+                    return [filter.value.toUpperCase().trim()];
                 }
             });
 
-            row.style.display = showRow ? "" : "none";
-        }
+            for (var i = 0; i < tr.length; i++) {
+                var row = tr[i];
+                var showRow = true;
 
-        updateSelectAllStatus();
-    };
+                filters.forEach(function (filter, idx) {
+                    var colIdx = parseInt(filter.dataset.col, 10);
+                    var filterValueList = filterValues[idx];
+                    var cell = row.getElementsByTagName("td")[colIdx];
 
-    document.addEventListener('DOMContentLoaded', function() {
-        const selectAllCheckbox = document.getElementById('selectAll');
-        const rowCheckboxes = document.querySelectorAll('.rowCheckbox');
-        const selectedCountElement = document.getElementById('selectedCount');
-        const batchActionBtn = document.getElementById('batchActionBtn');
-        const exportSelectedBtn = document.getElementById('exportSelectedBtn');
-        const copyContainersBtn = document.getElementById('copyContainersBtn'); // 新增按钮
-        const copyToast = document.getElementById('copyToast'); // 复制提示
+                    if (cell && filterValueList.length > 0 && filterValueList[0] !== "") {
+                        var cellText = cell.textContent || cell.innerText;
+                        var cellValue = cellText.toUpperCase().trim();
 
-        // 全选/取消全选
-        selectAllCheckbox.addEventListener('change', function() {
-            const isChecked = this.checked;
-            document.querySelectorAll('tr:not([style="display: none;"]) .rowCheckbox').forEach(checkbox => {
-                checkbox.checked = isChecked;
-            });
-            updateSelectedCount();
-        });
+                        if (colIdx === 1) {  // 柜号列特殊处理
+                            var matchFound = filterValueList.some(function (filterValue) {
+                                return cellValue.includes(filterValue) || filterValue.includes(cellValue);
+                            });
+                            if (!matchFound) showRow = false;
+                        } else {
+                            if (cellValue.indexOf(filterValueList[0]) === -1) showRow = false;
+                        }
+                    }
+                });
 
-        // 行复选框变化
-        rowCheckboxes.forEach(checkbox => {
-            checkbox.addEventListener('change', function() {
-                updateSelectAllStatus();
+                row.style.display = showRow ? "" : "none";
+            }
+
+            updateSelectAllStatus();
+        };
+
+        document.addEventListener('DOMContentLoaded', function () {
+            const selectAllCheckbox = document.getElementById('selectAll');
+            const rowCheckboxes = document.querySelectorAll('.rowCheckbox');
+            const selectedCountElement = document.getElementById('selectedCount');
+            const batchActionBtn = document.getElementById('batchActionBtn');
+            const exportSelectedBtn = document.getElementById('exportSelectedBtn');
+            const copyContainersBtn = document.getElementById('copyContainersBtn');
+            const copyToast = document.getElementById('copyToast');
+
+            // 批量设置拆柜时间相关元素
+            const batchSetOffloadBtn = document.getElementById('batchSetOffloadBtn');
+            const batchOffloadModal = document.getElementById('batchOffloadModal');
+            const closeModal = document.getElementById('closeModal');
+            const cancelBatchOffload = document.getElementById('cancelBatchOffload');
+            const confirmBatchOffload = document.getElementById('confirmBatchOffload');
+            const batchOffloadTime = document.getElementById('batchOffloadTime');
+            const selectedContainersCount = document.getElementById('selectedContainersCount');
+            let selectedOffloadIds = []; // 存储选中的offload_id
+
+            // 全选/取消全选
+            selectAllCheckbox.addEventListener('change', function () {
+                const isChecked = this.checked;
+                document.querySelectorAll('tr:not([style="display: none;"]) .rowCheckbox').forEach(checkbox => {
+                    checkbox.checked = isChecked;
+                });
                 updateSelectedCount();
             });
-        });
 
-        // 更新已选数量和按钮状态
-        function updateSelectedCount() {
-            const selectedCount = document.querySelectorAll('.rowCheckbox:checked').length;
-            selectedCountElement.textContent = selectedCount;
-
-            // 更新所有批量按钮状态
-            batchActionBtn.disabled = selectedCount === 0;
-            exportSelectedBtn.disabled = selectedCount === 0;
-            copyContainersBtn.disabled = selectedCount === 0; // 新增按钮状态控制
-        }
-
-        // 更新全选状态
-        function updateSelectAllStatus() {
-            const visibleCheckboxes = document.querySelectorAll('tr:not([style="display: none;"]) .rowCheckbox');
-            const checkedCheckboxes = document.querySelectorAll('tr:not([style="display: none;"]) .rowCheckbox:checked');
-            selectAllCheckbox.checked = visibleCheckboxes.length > 0 &&
-                                      visibleCheckboxes.length === checkedCheckboxes.length;
-        }
-
-        // 批量操作按钮
-        batchActionBtn.addEventListener('click', function() {
-            const selectedItems = Array.from(document.querySelectorAll('.rowCheckbox:checked'))
-                .map(checkbox => checkbox.getAttribute('data-container'));
-            if (selectedItems.length > 0) {
-                alert(`已选择 ${selectedItems.length} 个柜号：\n${selectedItems.join(', ')}`);
-            }
-        });
-
-        // 新增：复制柜号到剪贴板功能
-        copyContainersBtn.addEventListener('click', function() {
-            // 获取选中的柜号列表
-            const selectedContainers = Array.from(document.querySelectorAll('.rowCheckbox:checked'))
-                .map(checkbox => checkbox.getAttribute('data-container'));
-
-            if (selectedContainers.length === 0) {
-                alert('请先选择要复制的柜号');
-                return;
-            }
-
-            // 将柜号用换行符分隔，方便粘贴
-            const textToCopy = selectedContainers.join('\n');
-
-            // 复制到剪贴板
-            navigator.clipboard.writeText(textToCopy).then(() => {
-                // 显示成功提示
-                copyToast.classList.add('show');
-                setTimeout(() => {
-                    copyToast.classList.remove('show');
-                }, 2000);
-            }).catch(err => {
-                console.error('复制失败:', err);
-                alert('复制失败，请手动复制');
-            });
-        });
-
-        // 批量跳转港口提柜（GET请求方式）
-        exportSelectedBtn.addEventListener('click', function() {
-            // 获取选中的柜号
-            const selectedContainers = Array.from(document.querySelectorAll('.rowCheckbox:checked'))
-                .map(checkbox => checkbox.getAttribute('data-container'));
-
-            if (selectedContainers.length === 0) {
-                alert('请先选择要操作的柜号');
-                return;
-            }
-
-            // 动态创建表单，用GET方式提交
-            const form = document.createElement('form');
-            form.method = 'GET';  // 改为GET请求
-            form.action = '/terminal_dispatch/';  // 目标URL（step参数会通过表单字段传递）
-
-            // 添加step参数（原URL中的step参数通过表单字段传递）
-            const stepInput = document.createElement('input');
-            stepInput.type = 'hidden';
-            stepInput.name = 'step';
-            stepInput.value = 'batch_confirm_pickup_v1';
-            form.appendChild(stepInput);
-
-            // 添加选中的柜号（多个柜号用数组形式传递）
-            selectedContainers.forEach(container => {
-                const containerInput = document.createElement('input');
-                containerInput.type = 'hidden';
-                containerInput.name = 'containers[]';  // 数组形式，后端用request.GET.getlist获取
-                containerInput.value = container;
-                form.appendChild(containerInput);
+            // 行复选框变化
+            rowCheckboxes.forEach(checkbox => {
+                checkbox.addEventListener('change', function () {
+                    updateSelectAllStatus();
+                    updateSelectedCount();
+                });
             });
 
-            // 添加其他需要传递的参数（如日期筛选条件）
-            const dateParams = ['start_date_eta', 'end_date_eta'];
-            dateParams.forEach(param => {
-                const dateInput = document.createElement('input');
-                dateInput.type = 'hidden';
-                dateInput.name = param;
-                dateInput.value = document.querySelector(`[name="${param}"]`)?.value || '';
-                form.appendChild(dateInput);
+            // 更新已选数量和按钮状态
+            function updateSelectedCount() {
+                const selectedItems = Array.from(document.querySelectorAll('.rowCheckbox:checked'));
+                const selectedCount = selectedItems.length;
+                selectedCountElement.textContent = selectedCount;
+
+                // 存储选中的offload_id
+                selectedOffloadIds = selectedItems.map(checkbox => checkbox.getAttribute('data-offload-id')).filter(Boolean);
+
+                // 更新所有批量按钮状态
+                batchActionBtn.disabled = selectedCount === 0;
+                exportSelectedBtn.disabled = selectedCount === 0;
+                copyContainersBtn.disabled = selectedCount === 0;
+                batchSetOffloadBtn.disabled = selectedCount === 0;
+            }
+
+            // 更新全选状态
+            function updateSelectAllStatus() {
+                const visibleCheckboxes = document.querySelectorAll('tr:not([style="display: none;"]) .rowCheckbox');
+                const checkedCheckboxes = document.querySelectorAll('tr:not([style="display: none;"]) .rowCheckbox:checked');
+                selectAllCheckbox.checked = visibleCheckboxes.length > 0 &&
+                    visibleCheckboxes.length === checkedCheckboxes.length;
+            }
+
+            // 批量操作按钮
+            batchActionBtn.addEventListener('click', function () {
+                const selectedItems = Array.from(document.querySelectorAll('.rowCheckbox:checked'))
+                    .map(checkbox => checkbox.getAttribute('data-container'));
+                if (selectedItems.length > 0) {
+                    alert(`已选择 ${selectedItems.length} 个柜号：\n${selectedItems.join(', ')}`);
+                }
             });
 
-            // 提交表单（实现GET跳转）
-            document.body.appendChild(form);
-            form.submit();
-            document.body.removeChild(form);  // 提交后移除临时表单
-        });
+            // 复制柜号到剪贴板功能
+            copyContainersBtn.addEventListener('click', function () {
+                const selectedContainers = Array.from(document.querySelectorAll('.rowCheckbox:checked'))
+                    .map(checkbox => checkbox.getAttribute('data-container'));
 
-        // 初始化计数
-        updateSelectedCount();
-    });
-</script>
+                if (selectedContainers.length === 0) {
+                    alert('请先选择要复制的柜号');
+                    return;
+                }
+
+                const textToCopy = selectedContainers.join('\n');
+                navigator.clipboard.writeText(textToCopy).then(() => {
+                    copyToast.classList.add('show');
+                    setTimeout(() => {
+                        copyToast.classList.remove('show');
+                    }, 2000);
+                }).catch(err => {
+                    console.error('复制失败:', err);
+                    alert('复制失败，请手动复制');
+                });
+            });
+
+            // 批量跳转港口提柜
+            exportSelectedBtn.addEventListener('click', function () {
+                const selectedContainers = Array.from(document.querySelectorAll('.rowCheckbox:checked'))
+                    .map(checkbox => checkbox.getAttribute('data-container'));
+
+                if (selectedContainers.length === 0) {
+                    alert('请先选择要操作的柜号');
+                    return;
+                }
+
+                const form = document.createElement('form');
+                form.method = 'GET';
+                form.action = '/terminal_dispatch/';
+
+                const stepInput = document.createElement('input');
+                stepInput.type = 'hidden';
+                stepInput.name = 'step';
+                stepInput.value = 'batch_confirm_pickup_v1';
+                form.appendChild(stepInput);
+
+                selectedContainers.forEach(container => {
+                    const containerInput = document.createElement('input');
+                    containerInput.type = 'hidden';
+                    containerInput.name = 'containers[]';
+                    containerInput.value = container;
+                    form.appendChild(containerInput);
+                });
+
+                const dateParams = ['start_date_eta', 'end_date_eta'];
+                dateParams.forEach(param => {
+                    const dateInput = document.createElement('input');
+                    dateInput.type = 'hidden';
+                    dateInput.name = param;
+                    dateInput.value = document.querySelector(`[name="${param}"]`)?.value || '';
+                    form.appendChild(dateInput);
+                });
+
+                document.body.appendChild(form);
+                form.submit();
+                document.body.removeChild(form); // 修复：添加这行移除临时表单
+            });
+
+            // 批量设置拆柜时间 - 打开弹窗
+            batchSetOffloadBtn.addEventListener('click', function () {
+                // 显示选中数量
+                selectedContainersCount.textContent = selectedOffloadIds.length;
+                // 清空之前的时间输入
+                batchOffloadTime.value = '';
+                // 显示弹窗
+                batchOffloadModal.classList.add('show');
+            });
+
+            // 批量设置拆柜时间 - 关闭弹窗
+            function closeBatchOffloadModal() {
+                batchOffloadModal.classList.remove('show');
+            }
+
+            closeModal.addEventListener('click', closeBatchOffloadModal);
+            cancelBatchOffload.addEventListener('click', closeBatchOffloadModal);
+
+            // 点击弹窗外部关闭
+            batchOffloadModal.addEventListener('click', function (e) {
+                if (e.target === batchOffloadModal) {
+                    closeBatchOffloadModal();
+                }
+            });
+
+            // 批量设置拆柜时间 - 确认提交（POST方式）
+            confirmBatchOffload.addEventListener('click', function () {
+                // 验证时间是否选择
+                const offloadTime = batchOffloadTime.value;
+                if (!offloadTime) {
+                    alert('请选择拆柜时间');
+                    return;
+                }
+
+                // 验证是否有选中的offload_id
+                if (selectedOffloadIds.length === 0) {
+                    alert('未选择任何货柜，请先选择');
+                    return;
+                }
+
+                // 创建表单元素
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.action = '/contaier_pre_port_summary_dash/';
+
+                // 添加CSRF令牌（POST请求必须）
+                const csrfInput = document.createElement('input');
+                csrfInput.type = 'hidden';
+                csrfInput.name = 'csrfmiddlewaretoken';
+                csrfInput.value = document.querySelector('[name="csrfmiddlewaretoken"]').value;
+                form.appendChild(csrfInput);
+
+                // 添加操作标识
+                const stepInput = document.createElement('input');
+                stepInput.type = 'hidden';
+                stepInput.name = 'step';
+                stepInput.value = 'batch_get_offload_at';
+                form.appendChild(stepInput);
+
+                // 添加拆柜时间
+                const timeInput = document.createElement('input');
+                timeInput.type = 'hidden';
+                timeInput.name = 'offload_at';
+                timeInput.value = offloadTime;
+                form.appendChild(timeInput);
+
+                // 添加所有选中的offload_id（数组形式）
+                selectedOffloadIds.forEach(id => {
+                    const idInput = document.createElement('input');
+                    idInput.type = 'hidden';
+                    idInput.name = 'offload_ids[]';
+                    idInput.value = id;
+                    form.appendChild(idInput);
+                });
+
+                // 添加筛选条件参数（保持页面状态）
+                const dateParams = ['start_date', 'end_date', 'start_date_eta', 'end_date_eta'];
+                dateParams.forEach(param => {
+                    const value = document.querySelector(`[name="${param}"]`)?.value || '';
+                    if (value) {
+                        const paramInput = document.createElement('input');
+                        paramInput.type = 'hidden';
+                        paramInput.name = param;
+                        paramInput.value = value;
+                        form.appendChild(paramInput);
+                    }
+                });
+
+                // 提交表单
+                document.body.appendChild(form);
+                form.submit();
+                document.body.removeChild(form);
+            });
+
+            // 初始化计数
+            updateSelectedCount();
+        });
+    </script>
 {% endblock %}
