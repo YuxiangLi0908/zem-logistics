@@ -369,6 +369,9 @@ textarea[name="note_preport_dispatch"]:focus {
                     <button id="exportSelectedBtn" class="btn btn-secondary" disabled>
                         批量跳转港口提柜
                     </button>
+                    <button id="exportSelectedBtn"  disabled>
+                        批量设置拆柜时间
+                    </button>
                 </div>
             </div>
 
@@ -387,7 +390,7 @@ textarea[name="note_preport_dispatch"]:focus {
                         <th class="th">预计提柜时间</th>
                         <th class="th">提柜安排</th>
                         <th class="th">实际提柜</th>
-                        <th class="th">拆柜状态</th>
+                        <th class="th">拆柜时间</th>
                         <th class="th">还空状态</th>
                         <th class="th">港前完结</th>
                         <th class="th">货柜备注</th>
@@ -438,14 +441,14 @@ textarea[name="note_preport_dispatch"]:focus {
                                    size="13" style="font-size: 11px;"
                                    data-col="8">
                         </th>
-                        <th class="th" style="width: 237px">
+                        <th class="th" style="width: 237px;">
                             <input type="text" placeholder="搜索实际提柜..."
                                    oninput="filterTable(this)"
                                    size="13" style="font-size: 11px;"
                                    data-col="9">
                         </th>
-                        <th class="th">
-                            <input type="text" placeholder="搜索拆柜状态..."
+                        <th class="th" style="width: 237px;">
+                            <input type="text" placeholder="搜索拆柜时间..."
                                    oninput="filterTable(this)"
                                    size="13" style="font-size: 11px;"
                                    data-col="11">
@@ -532,12 +535,26 @@ textarea[name="note_preport_dispatch"]:focus {
                                 </div>
                             </form>
                         </td>
-                        <td>
-                            {% if o.offload_id.offload_at %}
-                            <span class="status-span-green-100">{{ o.offload_id.offload_at|date:"M-j" }}</span>
-                            {% else %}
-                            <span style="color: #86909c;">未拆柜</span>
-                            {% endif %}
+                        <td class="td">
+                            <form action="" method="post">
+                                {% csrf_token %}
+                                <div class="time-input-container">
+                                    <input type="hidden" name="step" value="get_offload_at">
+                                    <input type="hidden" name="start_date" value="{{ start_date|default:'' }}">
+                                    <input type="hidden" name="end_date" value="{{ end_date|default:'' }}">
+                                    <input type="hidden" name="start_date_eta" value="{{ start_date_eta|default:'' }}">
+                                    <input type="hidden" name="end_date_eta" value="{{ end_date_eta|default:'' }}">
+                                    <input type="hidden" name="offload_id" value="{{ o.offload_id.offload_id }}">
+                                    <input type="datetime-local"
+                                           value="{% if o.offload_id.offload_at %}{{ o.offload_id.offload_at|date:'Y-m-d\TH:i' }}{% endif %}"
+                                           class="datetime-input"
+                                           name="offload_at"
+                                           placeholder="选择日期时间">
+                                    <button type="submit" class="custom-btn" style="padding: 6px;">
+                                        确认
+                                    </button>
+                                </div>
+                            </form>
                         </td>
                         <td>
                             {% if o.retrieval_id.empty_returned %}

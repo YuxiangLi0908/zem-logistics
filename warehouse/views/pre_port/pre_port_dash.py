@@ -11,6 +11,7 @@ from django.utils import timezone
 from django.views import View
 
 from warehouse.models.customer import Customer
+from warehouse.models.offload import Offload
 from warehouse.models.order import Order
 from warehouse.models.retrieval import Retrieval
 
@@ -63,6 +64,10 @@ class PrePortDash(View):
         elif step == "get_retrieval_cabinet_arrangement_time":
             template, context = await self.get_retrieval_cabinet_arrangement_time(request)
             return await sync_to_async(render)(request, template, context)
+        elif step == "get_offload_at":
+            template, context = await self.get_offload_at(request)
+            return await sync_to_async(render)(request, template, context)
+
         else:
             return await sync_to_async(render)(request, self.template_main, {})
 
@@ -231,6 +236,30 @@ class PrePortDash(View):
         else:
             retrieval_obj.retrieval_cabinet_arrangement_time = None
         await retrieval_obj.asave()
+        start_date = request.POST.get("start_date", None)
+        end_date = request.POST.get("end_date", None)
+        start_date_eta = request.POST.get("start_date_eta", None)
+        end_date_eta = request.POST.get("end_date_eta", None)
+        template, context = await self.handle_all_get(
+            start_date=start_date,
+            end_date=end_date,
+            start_date_eta=start_date_eta,
+            end_date_eta=end_date_eta,
+            tab="summary",
+        )
+        return template, context
+
+    async def get_offload_at(self, request: HttpRequest) -> tuple[Any, Any]:
+        time_str = request.POST.get("offload_at")
+        offload_id = request.POST.get("offload_id")
+        offload_obj = await Offload.objects.aget(offload_id=offload_id)
+        if time_str:
+            naive_datetime = datetime.strptime(time_str, "%Y-%m-%dT%H:%M")
+            aware_datetime = timezone.make_aware(naive_datetime)
+            offload_obj.offload_at = aware_datetime
+        else:
+            offload_obj.offload_at = None
+        await offload_obj.asave()
         start_date = request.POST.get("start_date", None)
         end_date = request.POST.get("end_date", None)
         start_date_eta = request.POST.get("start_date_eta", None)
