@@ -2539,6 +2539,8 @@ class PostNsop(View):
         plt_criteria: models.Q | None = None,
         name: str | None = None
     ) -> list[Any]:
+        pl_criteria &= models.Q(container_number__order__cancel_notification=False)
+        plt_criteria &= models.Q(container_number__order__cancel_notification=False)
         def sort_key(item):
             custom_method = item.get("custom_delivery_method")
             if custom_method is None:
