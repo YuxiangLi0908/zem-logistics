@@ -5427,13 +5427,20 @@ class Accounting(View):
             dest_matches = []
             matched = False
             # 遍历所有区域和location
-            
             for region, fee_data_list in combina_fee.items():           
                 for fee_data in fee_data_list:
+                    prices_obj = fee_data["prices"]
+                    price = None
+                    if isinstance(prices_obj, dict):
+                        price = prices_obj.get(container_type)
+                    elif isinstance(prices_obj, (list, tuple)):
+                        # 如果是列表，优先选第一个数字项（而不是随便第一个）
+                        price = next((x for x in prices_obj if isinstance(x, (int, float))), None)
+                    else:
+                        price = prices_obj
+                    
                     # 如果匹配到组合柜仓点，就登记到组合柜集合中
                     if dest in fee_data["location"]:
-                        price = fee_data["prices"][container_type]
-
                         # 初始化
                         if region not in region_price_map:
                             region_price_map[region] = [price]
@@ -5441,9 +5448,14 @@ class Accounting(View):
                             actual_region = region
                         else:
                             # 如果该 region 下已有相同价格 → 不加编号
-                            if price in region_price_map[region]:
-                                actual_region = region
-                            else:
+                            found = None
+                            for r_key, r_val in price_display.items():
+                                if r_key.startswith(region) and r_val["price"] == price:
+                                    found = r_key
+                                    break
+                            if found:
+                                actual_region = found
+                            else:                                
                                 # 新价格 → 需要编号
                                 region_counter[region] += 1
                                 actual_region = f"{region}{region_counter[region]}"
@@ -5467,7 +5479,6 @@ class Accounting(View):
                         else:
                             # 不要覆盖，更新集合
                             price_display[actual_region]["location"].add(dest)
-                        
                         matched = True
             
             if not matched:
