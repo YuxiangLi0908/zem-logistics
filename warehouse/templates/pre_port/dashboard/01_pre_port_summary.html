@@ -124,6 +124,7 @@ body {
     padding: 6px 12px;
     font-size: 13px;
     transition: all 0.2s ease;
+    text-decoration: none;
 }
 
 .batch-actions .btn-primary {
@@ -289,6 +290,48 @@ textarea[name="note_preport_dispatch"]:focus {
     background-color: #c9c9c9;
     border-radius: 3px;
 }
+
+/* 时间输入框样式 */
+.datetime-input {
+    padding: 5px 8px;
+    border: 1px solid #dcdfe6;
+    border-radius: 3px;
+    font-size: 12px;
+    transition: all 0.2s;
+    width: 160px;
+}
+
+.datetime-input:focus {
+    border-color: #4096ff;
+    box-shadow: 0 0 0 2px rgba(64, 150, 255, 0.1);
+    outline: none;
+}
+
+.time-input-container {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* 复制成功提示 */
+.copy-toast {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background-color: #52c41a;
+    color: white;
+    padding: 8px 16px;
+    border-radius: 4px;
+    font-size: 13px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    pointer-events: none;
+}
+
+.copy-toast.show {
+    opacity: 1;
+}
 </style>
 <div style="width: 100%; padding: 15px; box-sizing: border-box;">
     <ul class="nav nav-tabs">
@@ -297,9 +340,6 @@ textarea[name="note_preport_dispatch"]:focus {
                 货柜进度汇总
             </button>
         </li>
-        <!-- <li class="nav-item">
-            <button class="nav-link" onclick="showSection(this, 'dispatch-summary-sec')"></button>
-        </li> -->
     </ul>
 
     <div id="order-info-sec" style="width: 100%;">
@@ -323,8 +363,11 @@ textarea[name="note_preport_dispatch"]:focus {
                     <button id="batchActionBtn" class="btn btn-primary" disabled>
                         批量操作（已选 <span id="selectedCount">0</span> 项）
                     </button>
+                    <button id="copyContainersBtn" class="btn btn-success" disabled>
+                        复制柜号到剪贴板
+                    </button>
                     <button id="exportSelectedBtn" class="btn btn-secondary" disabled>
-                        导出选中项
+                        批量跳转港口提柜
                     </button>
                 </div>
             </div>
@@ -333,7 +376,6 @@ textarea[name="note_preport_dispatch"]:focus {
             <table class="table">
                 <thead>
                     <tr style="position: sticky; top: 0; z-index: 2;">
-                        <!-- 全选复选框列 -->
                         <th class="th checkbox-cell">
                             <input type="checkbox" id="selectAll" style="width: 16px; height: 16px; vertical-align: middle;">
                         </th>
@@ -353,7 +395,6 @@ textarea[name="note_preport_dispatch"]:focus {
                         <th class="th">货柜备注</th>
                     </tr>
                     <tr style="position: sticky; top: 42px; z-index: 1; background-color: #f9fafb;">
-                        <!-- 复选框搜索列（留空） -->
                         <th class="th checkbox-cell"></th>
                         <th class="th">
                             <input type="text" placeholder="搜索柜号..."
@@ -446,7 +487,6 @@ textarea[name="note_preport_dispatch"]:focus {
                 <tbody>
                     {% for o in orders %}
                     <tr>
-                        <!-- 行复选框 -->
                         <td class="td checkbox-cell">
                             <input type="checkbox" class="rowCheckbox" style="width: 16px; height: 16px; vertical-align: middle;"
                                    data-container="{{ o.container_number.container_number }}"
@@ -516,8 +556,7 @@ textarea[name="note_preport_dispatch"]:focus {
                                            class="datetime-input"
                                            name="retrieval_cabinet_arrangement_time"
                                            placeholder="选择日期时间">
-                                    <button type="submit" class="custom-btn"
-                                            style="margin-left:158px;margin-top:-43px;">
+                                    <button type="submit" class="custom-btn" style="padding: 6px;">
                                         确认
                                     </button>
                                 </div>
@@ -581,6 +620,9 @@ textarea[name="note_preport_dispatch"]:focus {
     </div>
 </div>
 
+<!-- 复制成功提示框 -->
+<div class="copy-toast" id="copyToast">复制成功！</div>
+
 <script>
     function showSection(navItem, secId) {
         const navLinks = document.querySelectorAll('.nav-link');
@@ -637,29 +679,28 @@ textarea[name="note_preport_dispatch"]:focus {
             row.style.display = showRow ? "" : "none";
         }
 
-        // 过滤后更新全选状态
         updateSelectAllStatus();
     };
 
-    // 初始化批量选择功能
     document.addEventListener('DOMContentLoaded', function() {
         const selectAllCheckbox = document.getElementById('selectAll');
         const rowCheckboxes = document.querySelectorAll('.rowCheckbox');
         const selectedCountElement = document.getElementById('selectedCount');
         const batchActionBtn = document.getElementById('batchActionBtn');
         const exportSelectedBtn = document.getElementById('exportSelectedBtn');
+        const copyContainersBtn = document.getElementById('copyContainersBtn'); // 新增按钮
+        const copyToast = document.getElementById('copyToast'); // 复制提示
 
-        // 全选/取消全选功能
+        // 全选/取消全选
         selectAllCheckbox.addEventListener('change', function() {
             const isChecked = this.checked;
-            // 只选中可见行
             document.querySelectorAll('tr:not([style="display: none;"]) .rowCheckbox').forEach(checkbox => {
                 checkbox.checked = isChecked;
             });
             updateSelectedCount();
         });
 
-        // 行复选框变化时更新全选状态
+        // 行复选框变化
         rowCheckboxes.forEach(checkbox => {
             checkbox.addEventListener('change', function() {
                 updateSelectAllStatus();
@@ -672,82 +713,102 @@ textarea[name="note_preport_dispatch"]:focus {
             const selectedCount = document.querySelectorAll('.rowCheckbox:checked').length;
             selectedCountElement.textContent = selectedCount;
 
-            // 启用/禁用批量操作按钮
+            // 更新所有批量按钮状态
             batchActionBtn.disabled = selectedCount === 0;
             exportSelectedBtn.disabled = selectedCount === 0;
+            copyContainersBtn.disabled = selectedCount === 0; // 新增按钮状态控制
         }
 
-        // 更新全选框状态
+        // 更新全选状态
         function updateSelectAllStatus() {
-            const visibleRows = document.querySelectorAll('tr:not([style="display: none;"])');
             const visibleCheckboxes = document.querySelectorAll('tr:not([style="display: none;"]) .rowCheckbox');
             const checkedCheckboxes = document.querySelectorAll('tr:not([style="display: none;"]) .rowCheckbox:checked');
-
-            // 只有当所有可见行都被选中时，全选框才选中
             selectAllCheckbox.checked = visibleCheckboxes.length > 0 &&
                                       visibleCheckboxes.length === checkedCheckboxes.length;
         }
 
-        // 批量操作按钮点击事件
+        // 批量操作按钮
         batchActionBtn.addEventListener('click', function() {
             const selectedItems = Array.from(document.querySelectorAll('.rowCheckbox:checked'))
                 .map(checkbox => checkbox.getAttribute('data-container'));
-
             if (selectedItems.length > 0) {
-                alert(`已选择 ${selectedItems.length} 个柜号：\n${selectedItems.join(', ')}\n\n可以在这里添加批量操作逻辑`);
-                // 这里可以添加实际的批量操作逻辑，如打开批量编辑弹窗等
+                alert(`已选择 ${selectedItems.length} 个柜号：\n${selectedItems.join(', ')}`);
             }
         });
 
-        // 导出选中项按钮点击事件
-        exportSelectedBtn.addEventListener('click', function() {
-            const selectedIds = Array.from(document.querySelectorAll('.rowCheckbox:checked'))
-                .map(checkbox => checkbox.getAttribute('data-id'));
+        // 新增：复制柜号到剪贴板功能
+        copyContainersBtn.addEventListener('click', function() {
+            // 获取选中的柜号列表
+            const selectedContainers = Array.from(document.querySelectorAll('.rowCheckbox:checked'))
+                .map(checkbox => checkbox.getAttribute('data-container'));
 
-            if (selectedIds.length > 0) {
-                // 构建导出表单并提交
-                const form = document.createElement('form');
-                form.method = 'post';
-                form.action = '';
-
-                // 添加CSRF令牌
-                const csrfInput = document.createElement('input');
-                csrfInput.type = 'hidden';
-                csrfInput.name = 'csrfmiddlewaretoken';
-                csrfInput.value = document.querySelector('[name="csrfmiddlewaretoken"]').value;
-                form.appendChild(csrfInput);
-
-                // 添加步骤参数
-                const stepInput = document.createElement('input');
-                stepInput.type = 'hidden';
-                stepInput.name = 'step';
-                stepInput.value = 'export_selected';
-                form.appendChild(stepInput);
-
-                // 添加选中的ID
-                selectedIds.forEach(id => {
-                    const idInput = document.createElement('input');
-                    idInput.type = 'hidden';
-                    idInput.name = 'selected_ids[]';
-                    idInput.value = id;
-                    form.appendChild(idInput);
-                });
-
-                // 添加日期参数
-                const dateParams = ['start_date', 'end_date', 'start_date_eta', 'end_date_eta'];
-                dateParams.forEach(param => {
-                    const dateInput = document.createElement('input');
-                    dateInput.type = 'hidden';
-                    dateInput.name = param;
-                    dateInput.value = document.querySelector(`[name="${param}"]`)?.value || '';
-                    form.appendChild(dateInput);
-                });
-
-                // 提交表单
-                document.body.appendChild(form);
-                form.submit();
-                document.body.removeChild(form);
+            if (selectedContainers.length === 0) {
+                alert('请先选择要复制的柜号');
+                return;
             }
+
+            // 将柜号用换行符分隔，方便粘贴
+            const textToCopy = selectedContainers.join('\n');
+
+            // 复制到剪贴板
+            navigator.clipboard.writeText(textToCopy).then(() => {
+                // 显示成功提示
+                copyToast.classList.add('show');
+                setTimeout(() => {
+                    copyToast.classList.remove('show');
+                }, 2000);
+            }).catch(err => {
+                console.error('复制失败:', err);
+                alert('复制失败，请手动复制');
+            });
+        });
+
+        // 批量跳转港口提柜（GET请求方式）
+        exportSelectedBtn.addEventListener('click', function() {
+            // 获取选中的柜号
+            const selectedContainers = Array.from(document.querySelectorAll('.rowCheckbox:checked'))
+                .map(checkbox => checkbox.getAttribute('data-container'));
+
+            if (selectedContainers.length === 0) {
+                alert('请先选择要操作的柜号');
+                return;
+            }
+
+            // 动态创建表单，用GET方式提交
+            const form = document.createElement('form');
+            form.method = 'GET';  // 改为GET请求
+            form.action = '/terminal_dispatch/';  // 目标URL（step参数会通过表单字段传递）
+
+            // 添加step参数（原URL中的step参数通过表单字段传递）
+            const stepInput = document.createElement('input');
+            stepInput.type = 'hidden';
+            stepInput.name = 'step';
+            stepInput.value = 'batch_confirm_pickup_v1';
+            form.appendChild(stepInput);
+
+            // 添加选中的柜号（多个柜号用数组形式传递）
+            selectedContainers.forEach(container => {
+                const containerInput = document.createElement('input');
+                containerInput.type = 'hidden';
+                containerInput.name = 'containers[]';  // 数组形式，后端用request.GET.getlist获取
+                containerInput.value = container;
+                form.appendChild(containerInput);
+            });
+
+            // 添加其他需要传递的参数（如日期筛选条件）
+            const dateParams = ['start_date_eta', 'end_date_eta'];
+            dateParams.forEach(param => {
+                const dateInput = document.createElement('input');
+                dateInput.type = 'hidden';
+                dateInput.name = param;
+                dateInput.value = document.querySelector(`[name="${param}"]`)?.value || '';
+                form.appendChild(dateInput);
+            });
+
+            // 提交表单（实现GET跳转）
+            document.body.appendChild(form);
+            form.submit();
+            document.body.removeChild(form);  // 提交后移除临时表单
         });
 
         // 初始化计数
