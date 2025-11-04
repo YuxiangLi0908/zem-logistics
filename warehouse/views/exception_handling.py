@@ -188,10 +188,8 @@ class ExceptionHandling(View):
             default_start = two_months_ago
             start_date = make_aware(datetime.combine(default_start, datetime.min.time()))
             end_date = make_aware(datetime.combine(default_end, datetime.max.time()))
-            filters &= (Q(shipment_batch_number__shipment_appointment__gte=start_date) | 
-                    Q(shipment_batch_number__arrived_at__gte=start_date))
-            filters &= (Q(shipment_batch_number__shipment_appointment__lte=end_date) | 
-                    Q(shipment_batch_number__arrived_at__lte=end_date))
+            filters &= Q(container_number__order__offload_id__offload_at__gte=start_date) 
+            filters &= Q(container_number__order__offload_id__offload_at__lte=end_date)
         else:
             # 原有的日期范围筛选逻辑
             if start_date_str:
@@ -232,11 +230,42 @@ class ExceptionHandling(View):
             pallets = await sync_to_async(
                 lambda: list(
                     Pallet.objects.filter(filters)
-                    .select_related("shipment_batch_number", "container_number", "transfer_batch_number")
+                    .select_related(
+                        "shipment_batch_number", 
+                        "container_number", 
+                        "transfer_batch_number"
+                    )
                     .order_by("shipment_batch_number__shipment_appointment")
                 )
             )()
+            
+            # 获取所有相关的 container_numbers
+            container_numbers = [p.container_number for p in pallets if p.container_number]
+            
+            # 通过 container_numbers 查询对应的 orders
+            orders = await sync_to_async(
+                lambda: list(
+                    Order.objects.filter(container_number__in=container_numbers)
+                    .select_related('offload_id', 'retrieval_id')
+                )
+            )()
+            
+            # 创建 container_number 到 order 的映射
+            order_map = {}
+            for order in orders:
+                order_map[order.container_number_id] = order
+            
             for p in pallets:
+                offload_time = None
+                actual_retrieval_timestamp = None
+                
+                if p.container_number:
+                    order = order_map.get(p.container_number.id)
+                    if order:
+                        offload_time = order.offload_id.offload_at if order.offload_id else None
+                        actual_retrieval_timestamp = order.retrieval_id.actual_retrieval_timestamp if order.retrieval_id else None
+                        empty_returned_at = order.retrieval_id.empty_returned_at if order and order.retrieval_id else None
+                
                 results.append({
                     "container_number": p.container_number.container_number if p.container_number else "-",
                     "PO_ID": p.PO_ID,
@@ -248,9 +277,9 @@ class ExceptionHandling(View):
                     "weight": p.weight_lbs,
                     "delivery_window_start": p.delivery_window_start,
                     "delivery_window_end": p.delivery_window_end,
-                    "actual_retrieval_timestamp": getattr(p.transfer_batch_number, "scheduled_at", None),
-                    "offload_time": getattr(p.transfer_batch_number, "offload_at", None),
-                    "empty_returned_at": getattr(p.transfer_batch_number, "empty_returned_at", None),
+                    "actual_retrieval_timestamp": actual_retrieval_timestamp,
+                    "offload_time": offload_time,
+                    "empty_returned_at": empty_returned_at,
                     "shipment_appointment": getattr(p.shipment_batch_number, "shipment_appointment", None),
                     "shipped_at": getattr(p.shipment_batch_number, "shipped_at", None),
                     "arrived_at": getattr(p.shipment_batch_number, "arrived_at", None),
@@ -261,24 +290,49 @@ class ExceptionHandling(View):
             packinglists = await sync_to_async(
                 lambda: list(
                     PackingList.objects.filter(filters)
-                    .select_related("shipment_batch_number", "container_number")
+                    .select_related(
+                        "shipment_batch_number", 
+                        "container_number"
+                    )
                     .order_by("shipment_batch_number__shipment_appointment")
                 )
             )()
+
+            # 获取所有相关的 container_ids
+            container_ids = [pl.container_number.id for pl in packinglists if pl.container_number]
+
+            # 批量查询 orders
+            orders = await sync_to_async(
+                lambda: list(
+                    Order.objects.filter(container_number_id__in=container_ids)
+                    .select_related('offload_id', 'retrieval_id')
+                )
+            )()
+
+            # 创建映射
+            order_map = {order.container_number_id: order for order in orders}
+
             for pl in packinglists:
+                container_id = pl.container_number.id if pl.container_number else None
+                order = order_map.get(container_id) if container_id else None
+                
+                offload_time = order.offload_id.offload_at if order and order.offload_id else None
+                actual_retrieval_timestamp = order.retrieval_id.actual_retrieval_timestamp if order and order.retrieval_id else None
+                empty_returned_at = order.retrieval_id.empty_returned_at if order and order.retrieval_id else None  # 新增
+                
                 results.append({
                     "container_number": pl.container_number.container_number if pl.container_number else "-",
                     "PO_ID": pl.PO_ID,
                     "shipment_batch_number": pl.shipment_batch_number.shipment_batch_number if pl.shipment_batch_number else "-",
                     "pcs": pl.pcs,
                     "cbm": pl.cbm,
-                    "destination": p.destination,
+                    "destination": pl.destination,
                     "weight": pl.total_weight_lbs,
                     "delivery_window_start": pl.delivery_window_start,
                     "delivery_window_end": pl.delivery_window_end,
-                    "actual_retrieval_timestamp": getattr(pl.shipment_batch_number, "scheduled_at", None),
-                    "offload_time": getattr(pl.shipment_batch_number, "arrived_at", None),
-                    "empty_returned_at": getattr(pl.shipment_batch_number, "shipped_at", None),
+                    "actual_retrieval_timestamp": actual_retrieval_timestamp,
+                    "offload_time": offload_time,
+                    "empty_returned_at": empty_returned_at,  # 修改为从 retrieval_id 获取
                     "shipment_appointment": getattr(pl.shipment_batch_number, "shipment_appointment", None),
                     "shipped_at": getattr(pl.shipment_batch_number, "shipped_at", None),
                     "arrived_at": getattr(pl.shipment_batch_number, "arrived_at", None),
@@ -328,7 +382,6 @@ class ExceptionHandling(View):
             )
         )()
         warehouse_form = ZemWarehouseForm(initial={"name": warehouse})
-        print('start_date',start_date)
         context = {
             "query_type": query_type,
             "container_number": container_number,
@@ -341,6 +394,8 @@ class ExceptionHandling(View):
             "destination": destination,
         }
         return self.template_query_pallet_packinglist, context
+
+
 
     async def handle_search_data(self, request: HttpRequest):
         context = {}
