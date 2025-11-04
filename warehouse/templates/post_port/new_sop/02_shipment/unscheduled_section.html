@@ -342,7 +342,47 @@
     </div>
     {% endif %}
 </div>
+<!-- 导出PO模态框 -->
+<div id="exportPoModal" class="modal">
+    <div class="modal-content" style="width: 85%; max-width: 900px;">
+        <div class="modal-header">
+            <h3><i class="fas fa-file-export"></i> 导出PO预览</h3>
+            <span class="close" id="closeExportPoModal">&times;</span>
+        </div>
+        <div class="modal-body">
+            <input type="hidden" id="exportSuggestionId">
+            <input type="hidden" id="exportCargoIds">
+            <input type="hidden" id="exportPltIds">
 
+            <h4><i class="fas fa-box"></i> 当前PO列表</h4>
+            <table class="modal-table">
+                <thead>
+                    <tr>
+                        <th style="width: 10px;"><input type="checkbox" id="checkAllExportPo"></th>
+                        <th style="max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">REF ID</th>
+                        <th style="max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">FBA ID</th>
+                        <th>柜号</th>
+                        <th>入仓时间</th>
+                        <th>板数</th>
+                        <th>CBM</th>
+                    </tr>
+                </thead>
+                <tbody id="exportPoTableBody">
+                    <!-- JS 动态填充 -->
+                </tbody>
+            </table>
+
+            <div class="modal-actions">
+                <button class="modal-btn modal-btn-success" id="confirmExportPo">
+                    <i class="fas fa-file-export"></i> 确认导出
+                </button>
+                <button class="modal-btn modal-btn-danger" id="cancelExportPo">
+                    <i class="fas fa-times"></i> 取消
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 <script>
 // 未排约页面特定的JavaScript
 document.addEventListener('DOMContentLoaded', function() {
@@ -350,29 +390,84 @@ document.addEventListener('DOMContentLoaded', function() {
     document.querySelectorAll('.export-group-po').forEach(btn => {
         btn.addEventListener('click', function () {
             const suggestionId = this.getAttribute('data-suggestion-id');
-            const suggestionRow = document.querySelector(`tr[data-suggestion-id="${suggestionId}"]`);
-            if (!suggestionRow) {
+            const groupRows = document.querySelectorAll(`tr[data-suggestion-id="${suggestionId}"]`);
+
+            if (!groupRows.length) {
                 alert('未找到对应的PO数据');
                 return;
             }
 
+            const tbody = document.getElementById('exportPoTableBody');
+            tbody.innerHTML = ''; // 清空旧内容
+
             const cargoIds = [];
             const pltIds = [];
-            const groupRows = document.querySelectorAll(`tr[data-suggestion-id="${suggestionId}"]`);
+
             groupRows.forEach(row => {
-                const cargoId = row.getAttribute('data-cargo-id') || '';
-                const pltId = row.getAttribute('data-plt-id') || '';
-                
-                if (cargoId) cargoIds.push(cargoId);
-                if (pltId) pltIds.push(pltId);
+                const ref = row.querySelector('.ref-ids-col')?.textContent.trim() || '-';
+                const fba = row.querySelector('.fba-ids-col')?.textContent.trim() || '-';
+                const cn = row.querySelector('.container-no-col')?.textContent.trim() || '-';
+                const offload = row.querySelector('.offload-time-col')?.textContent.trim() || '-';
+                const pallets = row.children[7]?.textContent.trim() || '0';
+                const cbm = row.children[8]?.textContent.trim() || '0';
+
+                cargoIds.push(row.dataset.cargoId || '');
+                pltIds.push(row.dataset.pltId || '');
+
+                tbody.insertAdjacentHTML('beforeend', `
+                    <tr>
+                        <td><input type="checkbox" class="export-po-checkbox" style="width:10px;" data-cargo-id="${row.dataset.cargoId}" data-plt-id="${row.dataset.pltId}" checked></td>
+                        <td style="max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${ref}</td>
+                        <td style="max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${fba}</td>
+                        <td>${cn}</td>
+                        <td>${offload}</td>
+                        <td>${pallets}</td>
+                        <td>${cbm}</td>
+                    </tr>
+                `);
             });
 
-            document.getElementById('formStep').value = 'export_virtual_fleet_pos';
-            document.getElementById('formCargoIds').value = cargoIds.join(',');
-            document.getElementById('formPltIds').value = pltIds.join(',');
-            document.getElementById('formSuggestionId').value = suggestionId;
-            document.getElementById('actionForm').submit();
+            document.getElementById('exportSuggestionId').value = suggestionId;
+            document.getElementById('exportCargoIds').value = cargoIds.join(',');
+            document.getElementById('exportPltIds').value = pltIds.join(',');
+
+            openExportPoModal();
         });
+    });
+
+    function openExportPoModal() {
+        const modal = document.getElementById('exportPoModal');
+        modal.style.display = 'block';
+    }
+
+    document.getElementById('closeExportPoModal').addEventListener('click', closeExportPoModal);
+    document.getElementById('cancelExportPo').addEventListener('click', closeExportPoModal);
+
+    function closeExportPoModal() {
+        document.getElementById('exportPoModal').style.display = 'none';
+    }
+
+    // 确认导出逻辑
+    document.getElementById('confirmExportPo').addEventListener('click', function() {
+        const suggestionId = document.getElementById('exportSuggestionId').value;
+
+        // 获取所有勾选的行
+        const checkedBoxes = document.querySelectorAll('.export-po-checkbox:checked');
+        if (checkedBoxes.length === 0) {
+            alert('请至少选择一个PO导出！');
+            return;
+        }
+
+        const cargoIds = Array.from(checkedBoxes).map(cb => cb.dataset.cargoId);
+        const pltIds = Array.from(checkedBoxes).map(cb => cb.dataset.pltId);
+
+        document.getElementById('formStep').value = 'export_virtual_fleet_pos';
+        document.getElementById('formCargoIds').value = cargoIds.join(',');
+        document.getElementById('formPltIds').value = pltIds.join(',');
+        document.getElementById('formSuggestionId').value = suggestionId;
+
+        closeExportPoModal();
+        document.getElementById('actionForm').submit();
     });
 
     // 排序功能
