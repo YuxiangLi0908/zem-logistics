@@ -428,23 +428,6 @@ class OrderCreation(View):
                 & models.Q(offload_id__offload_at__isnull=True)
             )
         )
-        for order_dict in orders:
-            if (order_dict.get('customer_name__zem_name') and
-                    order_dict.get('order_type') and
-                    order_dict.get('created_at') and
-                    order_dict.get('container_number__container_number') and
-                    order_dict.get('vessel_id__master_bill_of_lading') and
-                    order_dict.get('vessel_id__vessel_etd') and
-                    order_dict.get('vessel_id') and
-                    order_dict.get('vessel_id__vessel') and
-                    order_dict.get('vessel_id__shipping_line') and
-                    order_dict.get('vessel_id__destination_port') and
-                    order_dict.get('packing_list_updloaded') and
-                    order_dict.get('container_number__container_type') and
-                    order_dict.get('vessel_id__vessel_eta')):
-                order_instance = await sync_to_async(Order.objects.get)(id=order_dict['id'])
-                order_instance.status = "completed"
-                await sync_to_async(order_instance.save)()
 
         unfinished_orders = [
             o for o in orders
