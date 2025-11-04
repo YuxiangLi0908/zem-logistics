@@ -596,7 +596,7 @@ class PostNsop(View):
         # 如果只有一个 Destination，保持原来返回单 CSV
         if len(grouped_by_dest) == 1:
             df_single = pd.DataFrame.from_records(list(grouped_by_dest.values())[0])
-            df_single["all_id"] = all_id
+            df_single["all_id"] = str(all_id)
             response = HttpResponse(content_type="text/csv")
             response["Content-Disposition"] = f"attachment; filename=PO_virtual_fleet.csv"
             df_single.to_csv(path_or_buf=response, index=False)
