@@ -496,6 +496,7 @@ class OrderCreation(View):
             ("公仓", "public"),
             ("其他", "other"),
         ]
+        context["container_type"] = self.container_type,
         context["packing_list_upload_form"] = UploadFileForm()
         return self.template_order_create_supplement, context
 
@@ -779,6 +780,7 @@ class OrderCreation(View):
         container = order.container_number
         retrieval = order.retrieval_id
         offload = order.offload_id
+        vessel = order.vessel_id
         if input_container_number != original_container_number:
             # check if the input container exists
             new_container = await sync_to_async(list)(
@@ -789,6 +791,7 @@ class OrderCreation(View):
             else:
                 container.container_number = input_container_number
         container.container_type = request.POST.get("container_type")
+        vessel.master_bill_of_lading = request.POST.getlist('mbl')[0]
         weight = request.POST.get("weight")
         if weight:
             weight=float(weight)
@@ -849,6 +852,7 @@ class OrderCreation(View):
         await sync_to_async(offload.save)()
         await sync_to_async(retrieval.save)()
         await sync_to_async(container.save)()
+        await sync_to_async(vessel.save)()
         await sync_to_async(order.save)()
         if is_expiry_guaranteed:
             #如果是保时效的，就重新判断一下优先级
