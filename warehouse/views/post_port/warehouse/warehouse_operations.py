@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
 from django.utils import timezone
+import pytz
 from typing import Any, Coroutine, Tuple
 import os, re
 from io import BytesIO
@@ -860,7 +861,14 @@ class WarehouseOperations(View):
     ) -> tuple[str, dict[str, Any]]:
         warehouse = request.POST.get("warehouse")
         # 获取未来三天的时间范围
-        today = timezone.now().date()
+         #pytz.timezone("America/New_York") 
+        today = timezone.now()
+        if 'LA' in warehouse:
+            local_tz = pytz.timezone("America/Los_Angeles")
+        else:
+            local_tz = pytz.timezone("America/New_York")
+
+        today = timezone.localtime(today, local_tz)
         three_days_later = today + timedelta(days=3)
         one_week_ago = today - timedelta(days=7) 
 

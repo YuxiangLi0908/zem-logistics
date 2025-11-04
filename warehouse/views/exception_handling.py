@@ -8,6 +8,9 @@ from django.utils.decorators import method_decorator
 from django.views import View
 import pandas as pd
 import re, json
+from django.db.models import Q
+from django.utils.timezone import make_aware, now
+from datetime import datetime, timedelta
 from django.contrib import messages
 from warehouse.forms.upload_file import UploadFileForm
 from asgiref.sync import sync_to_async
@@ -34,6 +37,7 @@ from warehouse.models.po_check_eta import PoCheckEtaSeven
 from warehouse.models.quotation_master import QuotationMaster
 from warehouse.models.transfer_location import TransferLocation
 from warehouse.models.vessel import Vessel
+from warehouse.forms.warehouse_form import ZemWarehouseForm
 
 from warehouse.views.terminal49_webhook import T49Webhook
 
@@ -42,7 +46,8 @@ class ExceptionHandling(View):
     template_post_port_status = "exception_handling/post_port_status.html"
     template_delivery_invoice = "exception_handling/delivery_invoice.html"
     template_excel_formula_tool = "exception_handling/excel_formula_tool.html"
-    template_find_all_table = "exception_handling/find_all_table_id.html"
+    template_find_all_table = "exception_handling/find_all_table_id.html"   
+    template_query_pallet_packinglist = "exception_handling/query_pallet_packinglist.html"
     shipment_type_options = {
         "": "",
         "FTL": "FTL",
@@ -69,14 +74,21 @@ class ExceptionHandling(View):
             else:
                 return HttpResponseForbidden(
                     "You are not authenticated to access this page!"
-                )
-            
+                ) 
         elif step == "delivery_invoice":
             return await sync_to_async(render)(request, self.template_delivery_invoice)     
         elif step == "excel_formula_tool":
             return await sync_to_async(render)(request, self.template_excel_formula_tool)   
         elif step == "find_table_id":
             return await sync_to_async(render)(request, self.template_find_all_table)  
+        elif step == "pl_plt_detail":
+            if self._validate_user_exception_handling(request.user):
+                context = {"warehouse_form": ZemWarehouseForm()}
+                return await sync_to_async(render)(request, self.template_query_pallet_packinglist,context)
+            else:
+                return HttpResponseForbidden(
+                    "You are not authenticated to access this page!"
+                ) 
         elif step == "shipment_actual":
             if self._validate_user_exception_handling(request.user):
                 return await sync_to_async(render)(request, self.template_container_pallet)
@@ -87,6 +99,7 @@ class ExceptionHandling(View):
         
     async def post(self, request: HttpRequest) -> HttpResponse:
         step = request.POST.get("step", None)
+        print('step',step)
         #修改约状态相关的
         if step == "search_shipment":
             template, context = await self.handle_search_shipment(request)
@@ -135,10 +148,200 @@ class ExceptionHandling(View):
         elif step == "search_data":
             template, context = await self.handle_search_data(request)
             return await sync_to_async(render)(request, template, context) 
-            
+        elif step == "query_pallet_packinglist":
+            template, context = await self.handle_query_pallet_packinglist(request)
+            return await sync_to_async(render)(request, template, context) 
         else:
             return await sync_to_async(T49Webhook().post)(request)
     
+    async def handle_query_pallet_packinglist(self, request: HttpRequest):
+        warehouse = (
+            request.POST.get("name")
+            if request.POST.get("name")
+            else request.POST.get("warehouse")
+        )
+        query_type = request.POST.get("query_type", "pallet")  # pallet 或 packinglist
+        container_number = request.POST.get("container_number", "").strip()
+        start_date_str = request.POST.get("start_date", "")
+        end_date_str = request.POST.get("end_date", "")
+        month_filter = request.POST.get("month_filter", "")  # 月份筛选
+        destination = request.POST.get("destination", "")
+
+        today = now().date()
+        default_start = today - timedelta(days=30)
+        default_end = today
+        
+        # 构建查询条件
+        filters = Q(container_number__order__cancel_notification=False)
+        if query_type == "pallet":
+            filters &= Q(location=warehouse)
+        else:
+            filters &= Q(container_number__order__retrieval_id__retrieval_destination_area=warehouse)
+        warehouse
+        # 定义日期变量
+        start_date = None
+        end_date = None
+
+        # 如果没有提供任何搜索条件，默认查询前两个月
+        if not container_number and not start_date_str and not end_date_str and not month_filter and not destination:
+            two_months_ago = today - timedelta(days=60)
+            default_start = two_months_ago
+            start_date = make_aware(datetime.combine(default_start, datetime.min.time()))
+            end_date = make_aware(datetime.combine(default_end, datetime.max.time()))
+            filters &= (Q(shipment_batch_number__shipment_appointment__gte=start_date) | 
+                    Q(shipment_batch_number__arrived_at__gte=start_date))
+            filters &= (Q(shipment_batch_number__shipment_appointment__lte=end_date) | 
+                    Q(shipment_batch_number__arrived_at__lte=end_date))
+        else:
+            # 原有的日期范围筛选逻辑
+            if start_date_str:
+                start_date = make_aware(datetime.strptime(start_date_str, "%Y-%m-%d"))
+            else:
+                start_date = make_aware(datetime.combine(default_start, datetime.min.time()))
+
+            if end_date_str:
+                end_date = make_aware(datetime.strptime(end_date_str, "%Y-%m-%d"))
+            else:
+                end_date = make_aware(datetime.combine(default_end, datetime.max.time()))
+
+            # 月份筛选
+            if month_filter:
+                month_date = datetime.strptime(month_filter, "%Y-%m")
+                month_start = make_aware(datetime(month_date.year, month_date.month, 1))
+                next_month = month_date.replace(day=28) + timedelta(days=4)
+                month_end = make_aware(datetime(next_month.year, next_month.month, 1) - timedelta(days=1))
+                filters &= Q(shipment_batch_number__arrived_at__range=(month_start, month_end))
+            else:
+                filters &= (Q(shipment_batch_number__shipment_appointment__gte=start_date) | 
+                        Q(shipment_batch_number__arrived_at__gte=start_date))
+                filters &= (Q(shipment_batch_number__shipment_appointment__lte=end_date) | 
+                        Q(shipment_batch_number__arrived_at__lte=end_date))
+
+        if container_number:
+            filters &= Q(container_number__container_number__icontains=container_number)
+        if destination:
+            destination_clean = destination.strip() 
+            if ' ' in destination_clean:
+                destination_list = destination_clean.split()
+                filters &= Q(destination__in=destination_list)
+            else:
+                filters &= Q(destination=destination_clean)
+        # 查询
+        results = []
+        if query_type == "pallet":
+            pallets = await sync_to_async(
+                lambda: list(
+                    Pallet.objects.filter(filters)
+                    .select_related("shipment_batch_number", "container_number", "transfer_batch_number")
+                    .order_by("shipment_batch_number__shipment_appointment")
+                )
+            )()
+            for p in pallets:
+                results.append({
+                    "container_number": p.container_number.container_number if p.container_number else "-",
+                    "PO_ID": p.PO_ID,
+                    "shipment_batch_number": p.shipment_batch_number.shipment_batch_number if p.shipment_batch_number else "-",
+                    "pallet_id": p.pallet_id,
+                    "pcs": p.pcs,
+                    "cbm": p.cbm,
+                    "destination": p.destination,
+                    "weight": p.weight_lbs,
+                    "delivery_window_start": p.delivery_window_start,
+                    "delivery_window_end": p.delivery_window_end,
+                    "actual_retrieval_timestamp": getattr(p.transfer_batch_number, "scheduled_at", None),
+                    "offload_time": getattr(p.transfer_batch_number, "offload_at", None),
+                    "empty_returned_at": getattr(p.transfer_batch_number, "empty_returned_at", None),
+                    "shipment_appointment": getattr(p.shipment_batch_number, "shipment_appointment", None),
+                    "shipped_at": getattr(p.shipment_batch_number, "shipped_at", None),
+                    "arrived_at": getattr(p.shipment_batch_number, "arrived_at", None),
+                    "pod_uploaded_at": getattr(p.shipment_batch_number, "pod_uploaded_at", None),
+                    "record_type": "pallet"
+                })
+        else:
+            packinglists = await sync_to_async(
+                lambda: list(
+                    PackingList.objects.filter(filters)
+                    .select_related("shipment_batch_number", "container_number")
+                    .order_by("shipment_batch_number__shipment_appointment")
+                )
+            )()
+            for pl in packinglists:
+                results.append({
+                    "container_number": pl.container_number.container_number if pl.container_number else "-",
+                    "PO_ID": pl.PO_ID,
+                    "shipment_batch_number": pl.shipment_batch_number.shipment_batch_number if pl.shipment_batch_number else "-",
+                    "pcs": pl.pcs,
+                    "cbm": pl.cbm,
+                    "destination": p.destination,
+                    "weight": pl.total_weight_lbs,
+                    "delivery_window_start": pl.delivery_window_start,
+                    "delivery_window_end": pl.delivery_window_end,
+                    "actual_retrieval_timestamp": getattr(pl.shipment_batch_number, "scheduled_at", None),
+                    "offload_time": getattr(pl.shipment_batch_number, "arrived_at", None),
+                    "empty_returned_at": getattr(pl.shipment_batch_number, "shipped_at", None),
+                    "shipment_appointment": getattr(pl.shipment_batch_number, "shipment_appointment", None),
+                    "shipped_at": getattr(pl.shipment_batch_number, "shipped_at", None),
+                    "arrived_at": getattr(pl.shipment_batch_number, "arrived_at", None),
+                    "pod_uploaded_at": getattr(pl.shipment_batch_number, "pod_uploaded_at", None),
+                    "record_type": "packinglist"
+                })
+
+        # 分组统计 - 每组作为一行记录
+        grouped_results = []
+        group_dict = {}
+        
+        for r in results:
+            key = (r["PO_ID"], r["shipment_batch_number"], r["container_number"])
+            if key not in group_dict:
+                group_dict[key] = {
+                    "container_number": r["container_number"],
+                    "PO_ID": r["PO_ID"],
+                    "shipment_batch_number": r["shipment_batch_number"],
+                    "total_pcs": 0,
+                    "total_cbm": 0,
+                    "pallet_count": 0,
+                    "destination": r["destination"],
+                    "actual_retrieval_timestamp": r["actual_retrieval_timestamp"],
+                    "offload_time": r["offload_time"],
+                    "empty_returned_at": r["empty_returned_at"],
+                    "shipment_appointment": r["shipment_appointment"],
+                    "shipped_at": r["shipped_at"],
+                    "arrived_at": r["arrived_at"],
+                    "pod_uploaded_at": r["pod_uploaded_at"],
+                    "delivery_window_start": r["delivery_window_start"],
+                    "delivery_window_end": r["delivery_window_end"],
+                }
+            
+            group_dict[key]["total_pcs"] += r.get("pcs") or 0
+            group_dict[key]["total_cbm"] += r.get("cbm") or 0
+            group_dict[key]["pallet_count"] += 1
+
+        # 转换为列表
+        grouped_results = list(group_dict.values())
+
+        # 获取可用的月份用于筛选
+        available_months = await sync_to_async(
+            lambda: list(
+                Pallet.objects.filter(container_number__isnull=False)
+                .dates('shipment_batch_number__arrived_at', 'month')
+                .order_by('-shipment_batch_number__arrived_at')
+            )
+        )()
+        warehouse_form = ZemWarehouseForm(initial={"name": warehouse})
+        print('start_date',start_date)
+        context = {
+            "query_type": query_type,
+            "container_number": container_number,
+            "start_date": start_date,
+            "end_date": end_date,
+            "month_filter": month_filter,
+            "grouped_results": grouped_results,
+            "available_months": available_months,
+            "warehouse_form": warehouse_form,
+            "destination": destination,
+        }
+        return self.template_query_pallet_packinglist, context
+
     async def handle_search_data(self, request: HttpRequest):
         context = {}
         
