@@ -545,7 +545,10 @@
 
             <!-- 复制按钮 -->
             <button type="button" id="copySelectedBtn" class="copy-btn">
-                <i class="layui-icon layui-icon-copy"></i> 复制选中的柜号和MBL
+                <i class="layui-icon layui-icon-copy"></i> 复制选中的柜号
+            </button>
+            <button type="button" id="copySelectedBtnMbl" class="copy-btn">
+                <i class="layui-icon layui-icon-copy"></i> 复制选中的MBL
             </button>
         </div>
 
@@ -558,7 +561,8 @@
                         <thead>
                         <tr>
                             <th>
-                                <input type="checkbox" id="selectAll" lay-skin="primary" title="全选" lay-filter="selectAllFilter" data-fullselect="true">
+                                <input type="checkbox" id="selectAll" lay-skin="primary" title="全选"
+                                       lay-filter="selectAllFilter" data-fullselect="true">
                             </th>
                             <th>下单日期</th>
                             <th>客户</th>
@@ -870,7 +874,6 @@
                 var laydate = layui.laydate;
                 var timeError = document.getElementById('timeError');
                 var columnNoMatch = document.getElementById('columnNoMatch');
-                var batchSetModal; // 批量设置弹窗对象
 
                 // 1. 格式化年月
                 function formatYearMonth(dateStr) {
@@ -1027,6 +1030,7 @@
 
                     const tableRows = Array.from(document.querySelectorAll('#tableBody .table-row'));
                     const searchInputs = document.querySelectorAll('.column-search');
+                    const selectAllCheckbox = document.querySelector('#selectAll');
 
                     searchInputs.forEach((input, index) => {
                         input.addEventListener('input', function () {
@@ -1035,13 +1039,22 @@
 
                             tableRows.forEach(row => {
                                 row.style.display = '';
-                                const cellText = row.cells[index + 1].textContent.trim().toLowerCase(); // +1 因为第一列是复选框
+                                const cellText = row.cells[index + 1].textContent.trim().toLowerCase();
                                 if (keyword && !cellText.includes(keyword)) {
                                     row.style.display = 'none';
                                 } else {
                                     visibleCount++;
                                 }
                             });
+
+                            // 搜索后重置全选框状态
+                            if (selectAllCheckbox) {
+                                selectAllCheckbox.checked = false;
+                                const layuiSelectAll = selectAllCheckbox.nextElementSibling;
+                                if (layuiSelectAll && layuiSelectAll.classList.contains('layui-form-checkbox')) {
+                                    layuiSelectAll.classList.remove('layui-form-checked');
+                                }
+                            }
 
                             columnNoMatch.style.display = (visibleCount === 0 && keyword) ? 'block' : 'none';
                         });
@@ -1060,13 +1073,14 @@
 
                 // 10. 批量导出功能
                 document.getElementById('batchExportBtn').addEventListener('click', async function () {
-                    const checkedBoxes = document.querySelectorAll('.rowCheckbox:checked');
-                    if (checkedBoxes.length === 0) {
+                    const visibleCheckedBoxes = document.querySelectorAll(
+                        '#tableBody .table-row:not([style="display: none"]) .rowCheckbox:checked'
+                    );
+                    if (visibleCheckedBoxes.length === 0) {
                         layer.msg('请先选择要导出的数据', {icon: 2, time: 2000});
                         return;
                     }
 
-                    // 构建表单数据
                     const formData = new FormData();
                     formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
                     formData.append('warehouse', document.querySelector('input[name="warehouse"]').value);
@@ -1077,14 +1091,12 @@
                     formData.append('order_end', document.querySelector('input[name="order_end"]').value || '');
                     formData.append('step', 'batch_export');
 
-                    // 添加选中的ID和柜号
-                    checkedBoxes.forEach(box => {
+                    visibleCheckedBoxes.forEach(box => {
                         formData.append('selected_ids[]', box.getAttribute('data-id'));
                         formData.append('container_numbers[]', box.getAttribute('data-container'));
                     });
 
                     try {
-                        // 发送请求获取文件流
                         const response = await fetch(window.location.href, {
                             method: 'POST',
                             body: formData,
@@ -1096,7 +1108,6 @@
                             return;
                         }
 
-                        // 处理文件下载
                         const blob = await response.blob();
                         const url = URL.createObjectURL(blob);
                         const a = document.createElement('a');
@@ -1107,7 +1118,6 @@
                         document.body.removeChild(a);
                         URL.revokeObjectURL(url);
 
-                        // 下载完成后刷新页面
                         layer.msg('导出成功，即将返回页面', {icon: 1, time: 1500}, function () {
                             window.location.reload();
                         });
@@ -1120,13 +1130,15 @@
 
                 // 11. 批量导出功能V1
                 document.getElementById('batchExportBtnV1').addEventListener('click', async function () {
-                    const checkedBoxes = document.querySelectorAll('.rowCheckbox:checked');
-                    if (checkedBoxes.length === 0) {
+                    const visibleCheckedBoxes = document.querySelectorAll(
+                        '#tableBody .table-row:not([style="display: none"]) .rowCheckbox:checked'
+                    );
+
+                    if (visibleCheckedBoxes.length === 0) {
                         layer.msg('请先选择要导出的数据', {icon: 2, time: 2000});
                         return;
                     }
 
-                    // 构建表单数据
                     const formData = new FormData();
                     formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
                     formData.append('timeRangeType', document.querySelector('input[name="timeRangeType"]').value);
@@ -1136,14 +1148,12 @@
                     formData.append('order_end', document.querySelector('input[name="order_end"]').value || '');
                     formData.append('step', 'batch_export_v1');
 
-                    // 添加选中的ID和柜号
-                    checkedBoxes.forEach(box => {
+                    visibleCheckedBoxes.forEach(box => {
                         formData.append('selected_ids[]', box.getAttribute('data-id'));
                         formData.append('container_numbers[]', box.getAttribute('data-container'));
                     });
 
                     try {
-                        // 发送请求获取文件流
                         const response = await fetch(window.location.href, {
                             method: 'POST',
                             body: formData,
@@ -1155,13 +1165,11 @@
                             return;
                         }
 
-                        // 处理文件下载
                         const blob = await response.blob();
                         const url = URL.createObjectURL(blob);
                         const a = document.createElement('a');
                         a.href = url;
 
-                        // 从响应头中获取后端指定的文件名
                         const contentDisposition = response.headers.get('Content-Disposition');
                         if (contentDisposition) {
                             const fileNameMatch = contentDisposition.match(/filename="(.+)"/);
@@ -1175,7 +1183,6 @@
                         document.body.removeChild(a);
                         URL.revokeObjectURL(url);
 
-                        // 下载完成提示
                         layer.msg('导出成功，文件已下载', {icon: 1, time: 1500});
 
                     } catch (error) {
@@ -1186,130 +1193,216 @@
 
                 // 12. 批量复制柜号和MBL功能
                 document.getElementById('copySelectedBtn').addEventListener('click', function () {
-                    // 获取所有选中的行
-                    const checkedBoxes = document.querySelectorAll('.rowCheckbox:checked');
+                    const visibleCheckedBoxes = document.querySelectorAll(
+                        '#tableBody .table-row:not([style="display: none"]) .rowCheckbox:checked'
+                    );
 
-                    // 验证是否有选中项
-                    if (checkedBoxes.length === 0) {
+                    if (visibleCheckedBoxes.length === 0) {
                         layer.msg('请先勾选需要复制的记录', {icon: 2, time: 2000});
                         return;
                     }
 
-                    // 收集柜号和MBL数据
                     let copyContent = '';
-                    checkedBoxes.forEach((box, index) => {
+                    visibleCheckedBoxes.forEach((box, index) => {
                         const container = box.getAttribute('data-container') || '无柜号';
-                        const mbl = box.getAttribute('data-mbl') || '无MBL';
-                        // 格式：柜号 - MBL（每行一条）
-                        copyContent += `${container} ${mbl}`;
-                        // 最后一条不加换行
-                        if (index < checkedBoxes.length - 1) {
+                        copyContent += `${container}`;
+                        if (index < visibleCheckedBoxes.length - 1) {
                             copyContent += '\n';
                         }
                     });
 
-                    // 复制到剪贴板
                     navigator.clipboard.writeText(copyContent).then(() => {
-                        layer.msg(`已成功复制 ${checkedBoxes.length} 条记录的柜号和MBL`, {icon: 1, time: 2000});
+                        layer.msg(`已成功复制 ${visibleCheckedBoxes.length} 条记录的柜号`, {icon: 1, time: 2000});
                     }).catch(err => {
                         console.error('复制失败:', err);
                         layer.msg('复制失败，请手动复制', {icon: 2, time: 2000});
                     });
                 });
 
-                // 13. 全选/取消全选功能
-                form.on('checkbox(selectAll)', function (data) {
-                    const checkboxes = document.querySelectorAll('.rowCheckbox');
-                    checkboxes.forEach(checkbox => {
-                        checkbox.checked = data.elem.checked;
+                document.getElementById('copySelectedBtnMbl').addEventListener('click', function () {
+                    const visibleCheckedBoxes = document.querySelectorAll(
+                        '#tableBody .table-row:not([style="display: none"]) .rowCheckbox:checked'
+                    );
+
+                    if (visibleCheckedBoxes.length === 0) {
+                        layer.msg('请先勾选需要复制的记录', {icon: 2, time: 2000});
+                        return;
+                    }
+
+                    let copyContent = '';
+                    visibleCheckedBoxes.forEach((box, index) => {
+                        const mbl = box.getAttribute('data-mbl') || '无MBL';
+                        copyContent += `${mbl}`;
+                        if (index < visibleCheckedBoxes.length - 1) {
+                            copyContent += '\n';
+                        }
                     });
-                    form.render('checkbox'); // 重新渲染复选框
+
+                    navigator.clipboard.writeText(copyContent).then(() => {
+                        layer.msg(`已成功复制 ${visibleCheckedBoxes.length} 条记录的MBL`, {icon: 1, time: 2000});
+                    }).catch(err => {
+                        console.error('复制失败:', err);
+                        layer.msg('复制失败，请手动复制', {icon: 2, time: 2000});
+                    });
                 });
 
-                // 14. 新增：批量设置计划提柜供应商功能
-                $(document).ready(function () {
-                    $('#batchSetCarrierBtn').off('click').on('click', function () {
-                        const checkedBoxes = document.querySelectorAll('.rowCheckbox:checked');
-                        if (checkedBoxes.length === 0) {
-                            layer.msg('请先勾选需要设置的记录', {icon: 2, time: 2000});
-                            return;
-                        }
-                        document.getElementById('selectedCount').textContent = checkedBoxes.length;
+                // 13. 全选/取消全选功能（修复版）
+                function initSelectAll() {
+                    const selectAllCheckbox = document.querySelector('#selectAll');
+                    if (!selectAllCheckbox) {
+                        console.error('全选按钮未找到');
+                        return;
+                    }
 
-                        const batchLayerIndex = layer.open({
-                            type: 1,
-                            title: `批量设置计划提柜供应商（${checkedBoxes.length}条记录）`,
-                            content: $('#batchSetCarrierLayer'),
-                            area: ['450px', '260px'],
-                            shade: 0.3,
-                            btnAlign: 'c',
-                            id: 'batchSetLayer',
-                            fixed: true,
-                            resize: false,
-                            success: function (layero, index) {
-                                console.log('弹出层显示成功');
-                                // 关键：在弹出层成功显示后，重新渲染表单
-                                form.render(null, 'batchSetCarrierForm');
-                                $('input[name="batch_carrier"]', layero).focus();
+                    // 先移除可能存在的旧事件
+                    selectAllCheckbox.removeEventListener('click', handleSelectAll);
+                    // 添加新事件
+                    selectAllCheckbox.addEventListener('click', handleSelectAll);
+
+                    function handleSelectAll(e) {
+                        e.stopPropagation();
+                        const isChecked = selectAllCheckbox.checked;
+                        console.log('全选状态:', isChecked);
+
+                        // 关键修复：只选择当前可见的行（排除被搜索隐藏的行）
+                        const allRows = document.querySelectorAll('#tableBody .table-row');
+                        const visibleRows = Array.from(allRows).filter(row => {
+                            // 检查行是否可见（未被搜索隐藏）
+                            return row.style.display !== 'none' &&
+                                getComputedStyle(row).display !== 'none';
+                        });
+                        console.log('可见行数:', visibleRows.length);
+
+                        // 只操作可见行的复选框
+                        visibleRows.forEach(row => {
+                            const checkbox = row.querySelector('.rowCheckbox');
+                            if (checkbox) {
+                                checkbox.checked = isChecked;
+                                // 手动更新Layui样式
+                                const layuiBox = checkbox.nextElementSibling;
+                                if (layuiBox && layuiBox.classList.contains('layui-form-checkbox')) {
+                                    if (isChecked) {
+                                        layuiBox.classList.add('layui-form-checked');
+                                    } else {
+                                        layuiBox.classList.remove('layui-form-checked');
+                                    }
+                                }
                             }
                         });
+                    }
+                }
 
-                        // 清空历史数据（保持不变）
-                        $('#batchSetCarrierForm input[name="selected_ids[]"]').remove();
-                        $('#batchSetCarrierForm input[name="retrieval_ids[]"]').remove();
-
-                        // 绑定选中数据（保持不变）
-                        checkedBoxes.forEach(box => {
-                            $('<input>').attr({
-                                type: 'hidden',
-                                name: 'selected_ids[]',
-                                value: box.getAttribute('data-id')
-                            }).appendTo('#batchSetCarrierForm');
-
-                            $('<input>').attr({
-                                type: 'hidden',
-                                name: 'retrieval_ids[]',
-                                value: box.getAttribute('data-retrieval-id')
-                            }).appendTo('#batchSetCarrierForm');
+                // 14. 行复选框变化时同步全选框状态（修复版）
+                document.addEventListener('change', function (e) {
+                    if (e.target.classList.contains('rowCheckbox')) {
+                        // 只统计可见行
+                        const allRows = document.querySelectorAll('#tableBody .table-row');
+                        const visibleRows = Array.from(allRows).filter(row => {
+                            return row.style.display !== 'none' &&
+                                getComputedStyle(row).display !== 'none';
                         });
 
-                        // 关闭按钮事件（保持不变）
-                        $('#closeBatchLayer').off('click').on('click', function () {
-                            layer.close(batchLayerIndex);
-                        });
+                        const visibleCheckboxes = visibleRows.map(row => row.querySelector('.rowCheckbox'));
+                        const checkedVisible = visibleCheckboxes.filter(cb => cb && cb.checked);
+
+                        const selectAll = document.querySelector('#selectAll');
+                        if (selectAll) {
+                            // 只有当所有可见行都被选中时，全选框才选中
+                            const allChecked = visibleCheckboxes.length > 0 &&
+                                visibleCheckboxes.length === checkedVisible.length;
+                            selectAll.checked = allChecked;
+
+                            // 更新Layui样式
+                            const layuiSelectAll = selectAll.nextElementSibling;
+                            if (layuiSelectAll && layuiSelectAll.classList.contains('layui-form-checkbox')) {
+                                if (allChecked) {
+                                    layuiSelectAll.classList.add('layui-form-checked');
+                                } else {
+                                    layuiSelectAll.classList.remove('layui-form-checked');
+                                }
+                            }
+                        }
+                    }
+                });
+
+                // 15. 批量设置计划提柜供应商功能
+                $('#batchSetCarrierBtn').off('click').on('click', function () {
+                    const visibleCheckedBoxes = document.querySelectorAll(
+                        '#tableBody .table-row:not([style="display: none"]) .rowCheckbox:checked'
+                    );
+
+                    if (visibleCheckedBoxes.length === 0) {
+                        layer.msg('请先勾选需要设置的记录', {icon: 2, time: 2000});
+                        return;
+                    }
+
+                    document.getElementById('selectedCount').textContent = visibleCheckedBoxes.length;
+
+                    const batchLayerIndex = layer.open({
+                        type: 1,
+                        title: `批量设置计划提柜供应商（${visibleCheckedBoxes.length}条记录）`,
+                        content: $('#batchSetCarrierLayer'),
+                        area: ['450px', '260px'],
+                        shade: 0.3,
+                        btnAlign: 'c',
+                        id: 'batchSetLayer',
+                        fixed: true,
+                        resize: false,
+                        success: function (layero, index) {
+                            form.render(null, 'batchSetCarrierForm');
+                            $('input[name="batch_carrier"]', layero).focus();
+                        }
+                    });
+
+                    // 清空历史数据
+                    $('#batchSetCarrierForm input[name="selected_ids[]"]').remove();
+                    $('#batchSetCarrierForm input[name="retrieval_ids[]"]').remove();
+
+                    // 绑定可见行中被选中的数据
+                    visibleCheckedBoxes.forEach(box => {
+                        $('<input>').attr({
+                            type: 'hidden',
+                            name: 'selected_ids[]',
+                            value: box.getAttribute('data-id')
+                        }).appendTo('#batchSetCarrierForm');
+
+                        $('<input>').attr({
+                            type: 'hidden',
+                            name: 'retrieval_ids[]',
+                            value: box.getAttribute('data-retrieval-id')
+                        }).appendTo('#batchSetCarrierForm');
+                    });
+
+                    $('#closeBatchLayer').off('click').on('click', function () {
+                        layer.close(batchLayerIndex);
                     });
                 });
 
-                // 弹出层表单提交处理
+                // 16. 弹出层表单提交处理
                 form.on('submit(batchSetCarrierSubmit)', function (data) {
-                    // 关键：从当前表单域内查找输入框（而非全局查找）
                     const $form = $('#batchSetCarrierForm');
                     const $carrierInput = $form.find('input[name="batch_carrier"]');
                     const carrierValue = $carrierInput.val().trim();
 
-                    // 输入验证
                     if (!carrierValue) {
                         layer.msg('请输入计划提柜供应商', {icon: 2, time: 2000});
-                        $carrierInput.focus(); // 聚焦到弹出层内的输入框
+                        $carrierInput.focus();
                         return false;
                     }
 
-                    // 显示加载层
                     const loadingIndex = layer.load(2, {
                         shade: [0.3, '#fff'],
                         time: 10000
                     });
 
-                    // 构建表单数据（从当前表单中序列化，确保所有字段都被正确获取）
                     const formData = new FormData($form[0]);
 
-                    // AJAX提交（使用表单的action或当前URL）
                     $.ajax({
                         url: $form.attr('action') || window.location.href,
                         type: 'POST',
                         data: formData,
-                        processData: false, // 禁止序列化FormData
-                        contentType: false, // 由浏览器自动设置正确的Content-Type
+                        processData: false,
+                        contentType: false,
                         success: function (response) {
                             layer.close(loadingIndex);
                             if (response.success) {
@@ -1330,16 +1423,10 @@
                     return false;
                 });
 
-
-
-
-                // 初始化所有功能
+                // 初始化所有功能（确保全选最后初始化）
                 initDatePickers();
                 initColumnSearch();
-
-                // 页面加载完成后同步宽度
-                setTimeout(syncTableWidths, 100);
-                // 窗口大小变化时重新同步
+                syncTableWidths();
                 window.addEventListener('resize', syncTableWidths);
 
                 // 显示当前选中的时间范围类型
@@ -1348,62 +1435,13 @@
                     showTimeRange(selectedType);
                 }
 
-                form.render('checkbox', 'selectAllFilter');
+                // 最后渲染表单并初始化全选功能（关键步骤）
+                form.render();
+                setTimeout(initSelectAll, 100); // 延迟确保DOM完全就绪
             });
         }
 
         // 页面加载完成后初始化
         window.addEventListener('load', initAllFeatures);
-        // 等待页面所有元素加载完成（包括动态生成的内容）
-    window.onload = function() {
-        // 强制等待500ms，确保Layui完全初始化
-        setTimeout(function() {
-            // 直接获取全选框DOM元素（无视框架）
-            var selectAll = document.querySelector('input[data-fullselect="true"]');
-            if (!selectAll) {
-                console.error('全选框元素未找到');
-                return;
-            }
-
-            // 手动触发Layui渲染（最后一次）
-            layui.use('form', function(form) {
-                form.render('checkbox');
-            });
-
-            // 绑定原生点击事件（最底层事件，确保执行）
-            selectAll.addEventListener('click', function(e) {
-                e.stopImmediatePropagation(); // 阻止所有上层框架的事件拦截
-
-                // 直接获取当前选中状态（原生DOM属性）
-                var isChecked = this.checked;
-
-                // 暴力获取所有行复选框（包括动态生成的）
-                var rowCheckboxes = document.querySelectorAll('.rowCheckbox');
-                if (rowCheckboxes.length === 0) {
-                    console.error('未找到行复选框');
-                    return;
-                }
-
-                // 逐个设置行复选框状态
-                rowCheckboxes.forEach(function(checkbox) {
-                    // 处理Layui样式的复选框（核心）
-                    var layuiBox = checkbox.nextElementSibling;
-                    if (layuiBox && layuiBox.classList.contains('layui-form-checkbox')) {
-                        checkbox.checked = isChecked;
-                        if (isChecked) {
-                            layuiBox.classList.add('layui-form-checked');
-                        } else {
-                            layuiBox.classList.remove('layui-form-checked');
-                        }
-                    } else {
-                        // 处理原生复选框
-                        checkbox.checked = isChecked;
-                    }
-                });
-            });
-
-            console.log('全选功能初始化完成');
-        }, 500);
-    };
     </script>
 {% endblock %}
