@@ -10,6 +10,7 @@ class Vessel(models.Model):
     origin_port = models.CharField(max_length=255, null=True, blank=True)
     destination_port = models.CharField(max_length=255, null=True, blank=True)
     shipping_line = models.CharField(max_length=255, null=True, blank=True)
+    #2025-11-4起，船名 船次 合并到了船名vessel字段
     vessel = models.CharField(max_length=100, blank=True, null=True)
     voyage = models.CharField(max_length=100, blank=True, null=True)
     vessel_etd = models.DateTimeField(null=True, blank=True)
