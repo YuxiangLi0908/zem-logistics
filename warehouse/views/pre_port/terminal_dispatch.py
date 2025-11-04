@@ -53,6 +53,9 @@ class TerminalDispatch(View):
         elif step == "update_pickup_schedule":
             template, context = await self.hanlde_update_pickup_schedule_get(request)
             return await sync_to_async(render)(request, template, context)
+        elif step == "batch_confirm_pickup_v1":
+            template, context = await self.handle_batch_confirm_pickup_v1_get(request)
+            return await sync_to_async(render)(request, template, context)
         else:
             context = {}
             return await sync_to_async(render)(
@@ -177,6 +180,31 @@ class TerminalDispatch(View):
     
         return self.template_batch_update_container_pickup_schedule, context
 
+    async def handle_batch_confirm_pickup_v1_get(
+            self, request: HttpRequest
+    ) -> tuple[Any, Any]:
+        container_numbers = request.GET.getlist("containers[]")
+        selected_orders = []
+        for cn in container_numbers:
+            try:
+                order = await sync_to_async(
+                    Order.objects.select_related(
+                        "container_number", "customer_name", "vessel_id", "retrieval_id"
+                    ).get
+                )(container_number__container_number=cn)
+                selected_orders.append(order)
+            except Order.DoesNotExist:
+                continue
+
+        _, context = await self.handle_all_get()
+        context["selected_orders"] = selected_orders
+        context["warehouse_options"] = [
+            (k, v) for k, v in WAREHOUSE_OPTIONS if k not in ["N/A(直送)", "Empty"]
+        ]
+        context["carrier_options"] = CONTAINER_PICKUP_CARRIER
+
+        return self.template_batch_update_container_pickup_schedule, context
+
     async def handle_batch_schedule_container_get(
         self, request: HttpRequest
     ) -> tuple[Any, Any]:
@@ -295,6 +323,7 @@ class TerminalDispatch(View):
         retrieval = order.retrieval_id
         retrieval.retrieval_destination_precise = destination
         retrieval.retrieval_carrier = request.POST.get("retrieval_carrier").strip()
+        retrieval.retrieval_delegation_status = True
         tzinfo = self._parse_tzinfo(destination)
         if request.POST.get("target_retrieval_timestamp"):
             ts = request.POST.get("target_retrieval_timestamp")

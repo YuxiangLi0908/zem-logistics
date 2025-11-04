@@ -1,4 +1,6 @@
 import json
+import zipfile
+from io import BytesIO
 from typing import Any
 
 from asgiref.sync import sync_to_async
@@ -8,11 +10,14 @@ from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import redirect, render
 from django.utils import timezone
 from django.views import View
+from openpyxl import Workbook
 from sqlalchemy import values
 
 from warehouse.models.order import Order
 from warehouse.models.pallet import Pallet
+from warehouse.models.retrieval import Retrieval
 from warehouse.utils.constants import PORT_TO_WAREHOUSE_AREA
+from warehouse.views.export_file import export_do, export_do_branch
 
 
 class OctSummaryView(View):
@@ -35,6 +40,18 @@ class OctSummaryView(View):
         elif step == "save_do_sent":
             template, context = await self.save_do_sent(request)
             return render(request, template, context)
+        elif step == "batch_export":
+            # 直接返回 batch_export 生成的文件响应（无需 render）
+            return await self.batch_export(request)
+        elif step == "batch_export_v1":
+            # 直接返回 batch_export 生成的文件响应（无需 render）
+            return await self.batch_export_v1(request)
+        elif step == "save_retrieval_carrier_planned":
+            template, context = await self.save_retrieval_carrier_planned(request)
+            return render(request, template, context)
+        elif step == "batch_save_retrieval_carrier_planned":
+            template, context = await self.batch_save_retrieval_carrier_planned(request)
+            return render(request, template, context)
 
     async def check_disnation(self) -> tuple[Any, Any]:
         context = {"warehouse_options": self.warehouse_options}
@@ -54,9 +71,21 @@ class OctSummaryView(View):
         time_range_type = request.POST.get("timeRangeType", "")
         pallets_list = []
         if eta_start and eta_end:
-            pallets_list = await self._get_pallet(warehouse, eta_start, eta_end)
+            if warehouse == "NJ,SAV,LA,MO,TX":
+                warehouse_list = warehouse.split(",")
+                for w in warehouse_list:
+                    pallets = await self._get_pallet(w, eta_start, eta_end)
+                    pallets_list.extend(pallets)
+            else:
+                pallets_list = await self._get_pallet(warehouse, eta_start, eta_end)
         elif order_start and order_end:
-            pallets_list = await self._get_pallet_by_order_at(warehouse, order_start, order_end)
+            if warehouse == "NJ,SAV,LA,MO,TX":
+                warehouse_list = warehouse.split(",")
+                for w in warehouse_list:
+                    pallets = await self._get_pallet_by_order_at(w, order_start, order_end)
+                    pallets_list.extend(pallets)
+            else:
+                pallets_list = await self._get_pallet_by_order_at(warehouse, order_start, order_end)
 
         # 3. 构建上下文（包含更新提示）
         context = {
@@ -73,12 +102,176 @@ class OctSummaryView(View):
         # 4. 返回模板路径和上下文（与原有调用逻辑兼容）
         return self.main_template, context
 
+    async def batch_export(self, request: HttpRequest):
+        try:
+            container_numbers = request.POST.getlist("container_numbers[]")
+            def sync_process_data():
+                # 1. 同步查询订单数据
+                orders = list(
+                    Order.objects.select_related("container_number", "retrieval_id").filter(
+                        container_number__container_number__in=container_numbers
+                    ).all()
+                )
+
+                if not orders:
+                    return None
+
+                port_stats = {}
+                customer_stats = {}
+                for item in orders:
+                    port = item.retrieval_id.retrieval_destination_area or "未知港口"
+                    customer = getattr(item.customer_name, "zem_name", "未知客户")
+
+                    # 统计港口数据
+                    if port not in port_stats:
+                        port_stats[port] = [0, 0]
+                    port_stats[port][0] += 1
+                    if item.status == "unfinished":
+                        port_stats[port][1] += 1
+
+                    # 统计客户数据
+                    key = (port, customer)
+                    customer_stats[key] = customer_stats.get(key, 0) + 1
+
+                # 港口统计：[(港口1, 总数量1, 未建单数量1), (港口2, 总数量2, 未建单数量2), ...]
+                port_list = [(port, stats[0], stats[1]) for port, stats in port_stats.items()]
+                # 客户统计：[(港口1, 客户1, 数量1), (港口1, 客户2, 数量2), ...]
+                customer_list = [(k[0], k[1], v) for k, v in customer_stats.items()]
+
+                return (port_list, customer_list)
+
+            result = await sync_to_async(sync_process_data)()
+            if not result:
+                return HttpResponse("未查询到数据", status=404)
+            port_list, customer_list = result
+            wb = Workbook()
+
+            # 1. 港口统计表（按港口分组显示）
+            ws1 = wb.active
+            ws1.title = "港口统计"
+            ws1.append(["港口", "预报数量", "未建单数量"])
+            for port_data in port_list:
+                ws1.append(port_data)
+
+            # 2. 客户统计表（按港口+客户分组显示）
+            ws2 = wb.create_sheet(title="客户统计")
+            ws2.append(["港口", "客户", "数量"])
+            for customer_data in customer_list:
+                ws2.append(customer_data)
+
+            buffer = BytesIO()
+            wb.save(buffer)
+            buffer.seek(0)
+
+            response = HttpResponse(
+                buffer.getvalue(),
+                content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
+            response["Content-Disposition"] = 'attachment; filename="港口客户统计.xlsx"'
+            return response
+
+        except Exception as e:
+            return HttpResponse(f"导出失败：{str(e)}", status=500)
+
+    async def batch_export_v1(self, request: HttpRequest):
+        try:
+            container_numbers = request.POST.getlist("container_numbers[]")
+            if not container_numbers:
+                return HttpResponse("未选择任何数据", status=400)
+
+            def sync_process_data():
+                orders = list(
+                    Order.objects.select_related("container_number", "retrieval_id", "vessel_id").filter(
+                        container_number__container_number__in=container_numbers
+                    ).all()
+                )
+                if not orders:
+                    return None
+
+                export_data = []
+                for item in orders:
+                    container = item.container_number.container_number or ""
+                    mbl = getattr(item.vessel_id, "master_bill_of_lading", "")
+                    container_type = item.container_number.container_type or ""
+                    eta = item.vessel_id.vessel_eta.strftime("%Y-%m-%d") if (
+                            item.vessel_id and item.vessel_id.vessel_eta) else ""
+                    terminal = ""
+                    remark = ""
+                    export_data.append([container, mbl, terminal, container_type, eta, remark])
+                return export_data
+
+            export_data = await sync_to_async(sync_process_data)()
+            if not export_data:
+                return HttpResponse("未查询到数据", status=404)
+
+            excel_buffer = BytesIO()
+            wb = Workbook()
+            ws1 = wb.active
+            ws1.title = "选中MBL数据统计"
+            ws1.append(["柜号", "MBL", "码头", "柜型", "ETA", "备注"])
+            for row in export_data:
+                ws1.append(row)
+            wb.save(excel_buffer)
+            excel_buffer.seek(0)  # 重置指针
+            #DO的PDF
+            async def get_do_pdf(container_number):
+                return await sync_to_async(export_do_branch)(container_number)
+
+            # 创建ZIP压缩包（核心：把Excel和PDF都放进ZIP）
+            zip_buffer = BytesIO()
+            with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
+                # 添加Excel文件到ZIP（文件名保持.xlsx后缀）
+                zip_file.writestr("批量导出选中MBL数据.xlsx", excel_buffer.getvalue())
+
+                for container_number in container_numbers:
+                    pdf_response = await get_do_pdf(container_number)
+                    zip_file.writestr(f"DO_{container_number}.pdf", pdf_response.content)
+
+            zip_buffer.seek(0)
+            response = HttpResponse(
+                zip_buffer.getvalue(),
+                content_type="application/zip"
+            )
+            response["Content-Disposition"] = 'attachment; filename="批量导出数据（含Excel和DO）.zip"'
+
+            excel_buffer.close()
+            zip_buffer.close()
+
+            return response
+
+        except Exception as e:
+            return HttpResponse(f"导出失败：{str(e)}", status=500)
+
     async def save_do_sent(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
         order_id = request.POST.get("order_id")
         do_sent = request.POST.get("do_sent")
         await sync_to_async(lambda:Order.objects.filter(id=order_id).update(do_sent=do_sent))()
         template, context = await self.oct_handle_warehouse_post(request)
         return template, context
+
+    async def save_retrieval_carrier_planned(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
+        retrieval_carrier_planned = request.POST.get("retrieval_carrier_planned")
+        retrieval_id = request.POST.get("retrieval_id__retrieval_id")
+        await sync_to_async(lambda:Retrieval.objects.filter(retrieval_id=retrieval_id).update(retrieval_carrier_planned=retrieval_carrier_planned))()
+        template, context = await self.oct_handle_warehouse_post(request)
+        return template, context
+
+    async def batch_save_retrieval_carrier_planned(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
+        batch_carrier = request.POST.get("batch_carrier")
+        if not batch_carrier:
+            return "错误页面", {"error": "请输入计划提柜供应商"}
+        retrieval_ids = request.POST.getlist("retrieval_ids[]")
+        if not retrieval_ids:
+            return "错误页面", {"error": "未选择任何记录"}
+
+        await sync_to_async(
+            lambda: Retrieval.objects.filter(retrieval_id__in=retrieval_ids).update(
+                retrieval_carrier_planned=batch_carrier
+            )
+        )()
+        template, context = await self.oct_handle_warehouse_post(request)
+        return template, context
+
 
     async def _get_pallet(self, warehouse: str, eta_start: str, eta_end: str) -> list[dict]:
         # 时间处理：将年月转换为完整的时间范围（月初到月末最后一秒）
@@ -144,6 +337,8 @@ class OctSummaryView(View):
                     output_field=CharField()
                 ),
                 retrieval_note=F("retrieval_id__note"),
+                retrieval_delegation_status = F("retrieval_id__retrieval_delegation_status"),
+                retrieval_carrier_planned=F("retrieval_id__retrieval_carrier_planned"),
                 mbl=F("vessel_id__master_bill_of_lading"),
                 shipping_line=F("vessel_id__shipping_line"),
                 vessel=F("vessel_id__vessel"),
@@ -190,7 +385,8 @@ class OctSummaryView(View):
                 "retrieval_note", "mbl", "shipping_line", "vessel", "container_type",
                 "vessel_date", "vessel_etd", "vessel_eta", "temp_t49_available_for_pickup",
                 "retrieval_carrier", "ke_destination_num", "si_destination_num", "order_type",
-                "do_sent", "id"
+                "do_sent", "id", "status", "retrieval_carrier_planned", "retrieval_id__retrieval_id",
+                "retrieval_delegation_status"
             )
             # 按创建时间倒序（最新数据优先显示，符合用户习惯）
             .order_by("-created_at")
@@ -258,6 +454,8 @@ class OctSummaryView(View):
                     output_field=CharField()
                 ),
                 retrieval_note=F("retrieval_id__note"),
+                retrieval_delegation_status=F("retrieval_id__retrieval_delegation_status"),
+                retrieval_carrier_planned=F("retrieval_id__retrieval_carrier_planned"),
                 mbl=F("vessel_id__master_bill_of_lading"),
                 shipping_line=F("vessel_id__shipping_line"),
                 vessel=F("vessel_id__vessel"),
@@ -304,14 +502,15 @@ class OctSummaryView(View):
                 "retrieval_note", "mbl", "shipping_line", "vessel", "container_type",
                 "vessel_date", "vessel_etd", "vessel_eta", "temp_t49_available_for_pickup",
                 "retrieval_carrier", "ke_destination_num", "si_destination_num", "order_type",
-                "do_sent", "id"
+                "do_sent", "id", "status", "retrieval_carrier_planned", "retrieval_id__retrieval_id",
+                "retrieval_delegation_status"
             )
             # 按创建时间倒序（最新数据优先显示，符合用户习惯）
             .order_by("-created_at")
         )
 
     warehouse_options = {
-        "": "",
+        "所有仓库": "NJ,SAV,LA,MO,TX",
         "NJ": "NJ",
         "SAV": "SAV",
         "LA": "LA",

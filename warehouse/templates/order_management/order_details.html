@@ -102,6 +102,35 @@
                 <button id="submit-btn-update-basic-info" type="submit" class="btn btn-primary" style="width: 90px; height: 30px; margin-left: 20px; font-size: 13px;">
                 <b>检查仓点</b></button>
             </form>
+            <form method="post" action="" id="checkOrderForm">
+                {% csrf_token %}
+                <input type="hidden" name="step" value="check_order_status">
+                <input type="hidden" name="order_id" value="{{ selected_order.id }}">
+                <!-- 给按钮设置唯一ID：check-status-btn -->
+                <button id="check-status-btn" type="button" class="btn btn-primary"
+                        style="width: 190px; height: 30px; margin-left: 20px; font-size: 13px;">
+                    <b>检查订单状态-已检查</b>
+                </button>
+            </form>
+
+            <!-- 自定义弹窗 (默认隐藏) -->
+            <div id="customModal"
+                 style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center;">
+                <div style="background: white; padding: 20px; border-radius: 5px; width: 300px; text-align: center;">
+                    <h3 style="margin-top: 0;">操作提示</h3>
+                    <p>检查订单完毕</p>
+                    <div style="margin-top: 20px; display: flex; gap: 10px; justify-content: center;">
+                        <button id="modalConfirm"
+                                style="padding: 5px 15px; cursor: pointer; background: #007bff; color: white; border: none; border-radius: 3px;">
+                            确认
+                        </button>
+                        <button id="modalCancel"
+                                style="padding: 5px 15px; cursor: pointer; background: #6c757d; color: white; border: none; border-radius: 3px;">
+                            取消
+                        </button>
+                    </div>
+                </div>
+            </div>
             <form method="post" action="">
                 {% csrf_token %}
                 <input type="hidden" name="step" value="check_order_type_destination">
@@ -205,8 +234,7 @@
             <table class="table" style="margin-top: 10px; font-size: 11px;">
                 <thead>
                     <tr>
-                        <th class="th">船名</th>
-                        <th class="th">船次</th>
+                        <th class="th">船名 船次</th>
                         <th class="th">船司</th>
                         <th class="th">MBL</th>
                         <th class="th">码头</th>
@@ -218,9 +246,6 @@
                     <tr>
                         <td class="td">
                             <input type="text" name="vessel" {%if vessel %}value="{{ vessel.vessel }}"{% endif %} required>
-                        </td>
-                        <td class="td">
-                            <input type="text" name="voyage" {%if vessel %}value="{{ vessel.voyage }}"{% endif %} required>
                         </td>
                         <td class="td">
                             {% if vessel %}
@@ -823,6 +848,29 @@
     
 </style>
 <script>
+    // 只针对当前按钮进行事件绑定，避免影响其他按钮
+    const checkOrderForm = document.getElementById('checkOrderForm');
+    const checkStatusBtn = document.getElementById('check-status-btn'); // 使用唯一ID
+    const customModal = document.getElementById('customModal');
+    const modalConfirm = document.getElementById('modalConfirm');
+    const modalCancel = document.getElementById('modalCancel');
+
+    // 显示弹窗（仅绑定当前按钮）
+    checkStatusBtn.addEventListener('click', function() {
+        customModal.style.display = 'flex';
+    });
+
+    // 确认按钮
+    modalConfirm.addEventListener('click', function() {
+        checkOrderForm.submit();
+        customModal.style.display = 'none';
+    });
+
+    // 取消按钮
+    modalCancel.addEventListener('click', function() {
+        customModal.style.display = 'none';
+    });
+
     function closeModal(modalId) {
         document.getElementById(modalId).style.display = 'none';
     }

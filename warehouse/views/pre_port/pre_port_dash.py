@@ -4,11 +4,14 @@ from typing import Any
 import pandas as pd
 from asgiref.sync import sync_to_async
 from django.db import models
+from django.db.models import Case, When, Value, IntegerField, F
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
+from django.utils import timezone
 from django.views import View
 
 from warehouse.models.customer import Customer
+from warehouse.models.offload import Offload
 from warehouse.models.order import Order
 from warehouse.models.retrieval import Retrieval
 
@@ -58,6 +61,16 @@ class PrePortDash(View):
         elif step == "get_note_preport_dispatch":
             template, context = await self.get_note_preport_dispatch(request)
             return render(request, template, context)
+        elif step == "get_retrieval_cabinet_arrangement_time":
+            template, context = await self.get_retrieval_cabinet_arrangement_time(request)
+            return await sync_to_async(render)(request, template, context)
+        elif step == "get_offload_at":
+            template, context = await self.get_offload_at(request)
+            return await sync_to_async(render)(request, template, context)
+        elif step == "batch_get_offload_at":
+            template, context = await self.batch_get_offload_at(request)
+            return await sync_to_async(render)(request, template, context)
+
         else:
             return await sync_to_async(render)(request, self.template_main, {})
 
@@ -170,7 +183,38 @@ class PrePortDash(View):
                 "warehouse",
             )
             .filter(criteria)
-            .order_by("vessel_id__vessel_eta")
+            # 1. 先通过annotate定义排序优先级和时间
+            .annotate(
+                # 定义优先级：1-已还空，2-已拆未还，3-已提未拆，4-待提
+                priority=Case(
+                    # 情况1：已还空（最高优先级）
+                    When(retrieval_id__empty_returned=True, then=Value(1)),
+                    # 情况2：已拆柜但未还空
+                    When(
+                        offload_id__offload_at__isnull=False,  # 有拆柜时间→已拆柜
+                        retrieval_id__empty_returned=False,  # 未还空
+                        then=Value(2)
+                    ),
+                    # 情况3：已提柜但未拆柜
+                    When(
+                        retrieval_id__actual_retrieval_timestamp__isnull=False,  # 有实际提柜时间→已提
+                        offload_id__offload_at__isnull=True,  # 无拆柜时间→未拆
+                        then=Value(3)
+                    ),
+                    # 情况4：待提柜（默认最低优先级）
+                    default=Value(4),
+                    output_field=IntegerField()
+                ),
+                # 定义排序时间：不同状态对应不同时间字段
+                sort_time=Case(
+                    # 已还空/已拆未还/已提未拆：按实际提柜时间排序
+                    When(priority__in=[1, 2, 3], then=F('retrieval_id__actual_retrieval_timestamp')),
+                    # 待提柜：按预约提柜时间排序
+                    default=F('retrieval_id__target_retrieval_timestamp'),
+                )
+            )
+            # 2. 按优先级→排序时间 升序排列（优先级1最前，同优先级内时间越早越前）
+            .order_by("priority", "sort_time")
         )
         context = {
             "customers": customers,
@@ -183,6 +227,85 @@ class PrePortDash(View):
             "tab": tab,
         }
         return self.template_main, context
+
+    async def get_retrieval_cabinet_arrangement_time(self, request: HttpRequest) -> tuple[Any, Any]:
+        time_str = request.POST.get("retrieval_cabinet_arrangement_time")
+        retrieval_id = request.POST.get("retrieval_id")
+        retrieval_obj = await Retrieval.objects.aget(retrieval_id=retrieval_id)
+        if time_str:
+            naive_datetime = datetime.strptime(time_str, "%Y-%m-%dT%H:%M")
+            aware_datetime = timezone.make_aware(naive_datetime)
+            retrieval_obj.retrieval_cabinet_arrangement_time = aware_datetime
+        else:
+            retrieval_obj.retrieval_cabinet_arrangement_time = None
+        await retrieval_obj.asave()
+        start_date = request.POST.get("start_date", None)
+        end_date = request.POST.get("end_date", None)
+        start_date_eta = request.POST.get("start_date_eta", None)
+        end_date_eta = request.POST.get("end_date_eta", None)
+        template, context = await self.handle_all_get(
+            start_date=start_date,
+            end_date=end_date,
+            start_date_eta=start_date_eta,
+            end_date_eta=end_date_eta,
+            tab="summary",
+        )
+        return template, context
+
+    async def batch_get_offload_at(self, request: HttpRequest) -> tuple[Any, Any]:
+        offload_ids = request.POST.getlist("offload_ids[]")
+        time_str = request.POST.get("offload_at")
+        if offload_ids:
+            for offload_id in offload_ids:
+                try:
+                    offload_obj = await Offload.objects.aget(offload_id=offload_id)
+                    if time_str:
+                        naive_datetime = datetime.strptime(time_str, "%Y-%m-%dT%H:%M")
+                        aware_datetime = timezone.make_aware(naive_datetime)
+                        offload_obj.offload_at = aware_datetime
+                    else:
+                        offload_obj.offload_at = None
+                    await offload_obj.asave()
+                except Offload.DoesNotExist:
+                    continue
+
+        start_date = request.POST.get("start_date", None)
+        end_date = request.POST.get("end_date", None)
+        start_date_eta = request.POST.get("start_date_eta", None)
+        end_date_eta = request.POST.get("end_date_eta", None)
+
+        template, context = await self.handle_all_get(
+            start_date=start_date,
+            end_date=end_date,
+            start_date_eta=start_date_eta,
+            end_date_eta=end_date_eta,
+            tab="summary",
+        )
+        return template, context
+
+    async def get_offload_at(self, request: HttpRequest) -> tuple[Any, Any]:
+        time_str = request.POST.get("offload_at")
+        offload_id = request.POST.get("offload_id")
+        offload_obj = await Offload.objects.aget(offload_id=offload_id)
+        if time_str:
+            naive_datetime = datetime.strptime(time_str, "%Y-%m-%dT%H:%M")
+            aware_datetime = timezone.make_aware(naive_datetime)
+            offload_obj.offload_at = aware_datetime
+        else:
+            offload_obj.offload_at = None
+        await offload_obj.asave()
+        start_date = request.POST.get("start_date", None)
+        end_date = request.POST.get("end_date", None)
+        start_date_eta = request.POST.get("start_date_eta", None)
+        end_date_eta = request.POST.get("end_date_eta", None)
+        template, context = await self.handle_all_get(
+            start_date=start_date,
+            end_date=end_date,
+            start_date_eta=start_date_eta,
+            end_date_eta=end_date_eta,
+            tab="summary",
+        )
+        return template, context
 
     async def get_note_preport_dispatch(self, request: HttpRequest) -> tuple[Any, Any]:
         def process_empty(value):
