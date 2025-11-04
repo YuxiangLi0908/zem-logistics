@@ -6811,7 +6811,8 @@ class Accounting(View):
         
         context["pallet_details"] = pallet_details
         #因为应付10/1之后的报价表格式没整理好，这条费用先按时间写成固定的
-        if act_pick_time and act_pick_time > datetime(2025, 10, 1, tzinfo=timezone.utc):
+        retrieval_destination_precise = order.retrieval_id.retrieval_destination_precise
+        if act_pick_time and act_pick_time > datetime(2025, 10, 1, tzinfo=timezone.utc) and 'LA' in retrieval_destination_precise:
             fees["basic_fee"] = 1450
         # 获取其他费用
         pickup_other_fee, pallet_other_fee = self._get_other_fees(invoice)
