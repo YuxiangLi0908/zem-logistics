@@ -2604,6 +2604,7 @@ class PostNsop(View):
                     "delivery_window_start",
                     "delivery_window_end",
                     "note",
+                    "container_number",
                     "shipment_batch_number__shipment_batch_number",
                     "data_source",  # 包含数据源标识
                     "shipment_batch_number__fleet_number__fleet_number",
@@ -2764,6 +2765,7 @@ class PostNsop(View):
                     "delivery_window_start",
                     "delivery_window_end",
                     "note",
+                    "container_number",
                     "data_source",  # 包含数据源标识
                     "shipment_batch_number__shipment_batch_number",
                     "shipment_batch_number__fleet_number__fleet_number",
