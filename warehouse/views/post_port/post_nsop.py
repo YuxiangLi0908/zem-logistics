@@ -607,9 +607,10 @@ class PostNsop(View):
         with zipfile.ZipFile(zip_buffer, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
             for dest, rows in grouped_by_dest.items():
                 df_dest = pd.DataFrame.from_records(rows)
+                df_dest["all_id"] = str(all_id)
                 csv_buffer = io.StringIO()
                 df_dest.to_csv(csv_buffer, index=False)
-                zf.writestr(f"{all_id}.csv", csv_buffer.getvalue())
+                zf.writestr(f"{dest}.csv", csv_buffer.getvalue())
 
         zip_buffer.seek(0)
         response = HttpResponse(zip_buffer, content_type="application/zip")
