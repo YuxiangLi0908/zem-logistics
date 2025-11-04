@@ -2548,7 +2548,7 @@ class PostNsop(View):
     ) -> list[Any]:
         pl_criteria &= models.Q(container_number__order__cancel_notification=False)
         plt_criteria &= models.Q(container_number__order__cancel_notification=False)
-        if self._validate_user_four_major_whs(user):
+        if await self._validate_user_four_major_whs(user):
             major_whs = ["ONT8","LAX9","LGB8","SBD1"]
             pl_criteria &= models.Q(destination__in=major_whs)
             plt_criteria &= models.Q(destination__in=major_whs)
