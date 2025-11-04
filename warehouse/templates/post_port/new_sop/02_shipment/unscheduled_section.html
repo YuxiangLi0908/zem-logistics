@@ -1,5 +1,43 @@
 {% load custom_filters %}
+<style>
+    .modal-table th:first-child,
+    .modal-table td:first-child {
+        width: 40px !important;
+        min-width: 40px;
+        max-width: 40px;
+        text-align: center;
+        padding: 8px 4px !important;
+    }
 
+    .modal-table th:nth-child(6), /* 板数列 */
+    .modal-table td:nth-child(6),
+    .modal-table th:nth-child(7), /* CBM列 */
+    .modal-table td:nth-child(7) {
+        width: 80px !important;
+        min-width: 80px;
+        max-width: 80px;
+        text-align: center;
+    }
+
+    /* 其他列均分剩余宽度 */
+    .modal-table th:nth-child(2), /* REF ID */
+    .modal-table td:nth-child(2),
+    .modal-table th:nth-child(3), /* FBA ID */
+    .modal-table td:nth-child(3),
+    .modal-table th:nth-child(4), /* 柜号 */
+    .modal-table td:nth-child(4),
+    .modal-table th:nth-child(5), /* 入仓时间 */
+    .modal-table td:nth-child(5) {
+        width: auto;
+        min-width: 100px;
+    }
+
+    .modal-table .export-po-checkbox {
+        width: 16px;
+        height: 16px;
+        margin: 0;
+    }
+</style>
 <!-- 未排约标签页 -->
 <div class="content-section" id="unscheduled-section">
     <div class="search-box">
@@ -112,14 +150,14 @@
                                     -
                                 {% endif %}
                             </td>
-                            <td>
+                            <td class="pallet-col">
                                 {% if cargo.label == 'ACT' %}
                                     {{ cargo.total_n_pallet_act|default:0|floatformat:2 }}
                                 {% else %}
                                     {{ cargo.total_n_pallet_est|default:0|floatformat:2 }}
                                 {% endif %}
                             </td>
-                            <td>{{ cargo.total_cbm|default:0|floatformat:3 }}</td>
+                            <td class="cbm-col">{{ cargo.total_cbm|default:0|floatformat:3 }}</td>
                             
                             <!-- 匹配度 -->
                             {% if forloop.first %}
@@ -253,14 +291,14 @@
                                     -
                                 {% endif %}
                             </td>
-                            <td>
+                            <td class="pallet-col">
                                 {% if cargo.label == 'ACT' %}
                                     {{ cargo.total_n_pallet_act|default:0|floatformat:2 }}
                                 {% else %}
                                     {{ cargo.total_n_pallet_est|default:0|floatformat:2 }}
                                 {% endif %}
                             </td>
-                            <td>{{ cargo.total_cbm|default:0|floatformat:3 }}</td>
+                            <td class="cbm-col">{{ cargo.total_cbm|default:0|floatformat:3 }}</td>
                             
                             <!-- 匹配度 -->
                             {% if forloop.first %}
@@ -408,8 +446,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 const fba = row.querySelector('.fba-ids-col')?.textContent.trim() || '-';
                 const cn = row.querySelector('.container-no-col')?.textContent.trim() || '-';
                 const offload = row.querySelector('.offload-time-col')?.textContent.trim() || '-';
-                const pallets = row.children[7]?.textContent.trim() || '0';
-                const cbm = row.children[8]?.textContent.trim() || '0';
+                const pallets = row.querySelector('.pallet-col')?.textContent.trim() || '-';
+                const cbm = row.querySelector('.cbm-col')?.textContent.trim() || '-';
 
                 if (row.dataset.cargoId) {
                     cargoIds.push(...row.dataset.cargoId.split(',').filter(Boolean));
