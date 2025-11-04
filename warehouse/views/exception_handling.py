@@ -1,5 +1,6 @@
 from typing import Any, Coroutine
 from django.db.models.functions import Trim
+from django.db.models.functions import TruncMonth
 from collections import Counter
 from django.contrib.auth.decorators import login_required
 from django.http import HttpRequest, HttpResponse
@@ -99,7 +100,6 @@ class ExceptionHandling(View):
         
     async def post(self, request: HttpRequest) -> HttpResponse:
         step = request.POST.get("step", None)
-        print('step',step)
         #修改约状态相关的
         if step == "search_shipment":
             template, context = await self.handle_search_shipment(request)
@@ -160,12 +160,13 @@ class ExceptionHandling(View):
             if request.POST.get("name")
             else request.POST.get("warehouse")
         )
-        query_type = request.POST.get("query_type", "pallet")  # pallet 或 packinglist
+        query_type = request.POST.get("query_type", "pallet")
         container_number = request.POST.get("container_number", "").strip()
         start_date_str = request.POST.get("start_date", "")
         end_date_str = request.POST.get("end_date", "")
-        month_filter = request.POST.get("month_filter", "")  # 月份筛选
+        month_filter = request.POST.get("month_filter", "")
         destination = request.POST.get("destination", "")
+        show_complete = request.POST.get("show_complete", "") == "on"  # 新增：是否显示完整记录
 
         today = now().date()
         default_start = today - timedelta(days=30)
@@ -177,7 +178,7 @@ class ExceptionHandling(View):
             filters &= Q(location=warehouse)
         else:
             filters &= Q(container_number__order__retrieval_id__retrieval_destination_area=warehouse)
-        warehouse
+
         # 定义日期变量
         start_date = None
         end_date = None
@@ -191,7 +192,6 @@ class ExceptionHandling(View):
             filters &= Q(container_number__order__offload_id__offload_at__gte=start_date) 
             filters &= Q(container_number__order__offload_id__offload_at__lte=end_date)
         else:
-            # 原有的日期范围筛选逻辑
             if start_date_str:
                 start_date = make_aware(datetime.strptime(start_date_str, "%Y-%m-%d"))
             else:
@@ -202,18 +202,16 @@ class ExceptionHandling(View):
             else:
                 end_date = make_aware(datetime.combine(default_end, datetime.max.time()))
 
-            # 月份筛选
+            # 月份筛选 - 修改为按照 offload_at 时间筛选
             if month_filter:
                 month_date = datetime.strptime(month_filter, "%Y-%m")
                 month_start = make_aware(datetime(month_date.year, month_date.month, 1))
                 next_month = month_date.replace(day=28) + timedelta(days=4)
                 month_end = make_aware(datetime(next_month.year, next_month.month, 1) - timedelta(days=1))
-                filters &= Q(shipment_batch_number__arrived_at__range=(month_start, month_end))
+                filters &= Q(container_number__order__offload_id__offload_at__range=(month_start, month_end))
             else:
-                filters &= (Q(shipment_batch_number__shipment_appointment__gte=start_date) | 
-                        Q(shipment_batch_number__arrived_at__gte=start_date))
-                filters &= (Q(shipment_batch_number__shipment_appointment__lte=end_date) | 
-                        Q(shipment_batch_number__arrived_at__lte=end_date))
+                filters &= Q(container_number__order__offload_id__offload_at__gte=start_date)
+                filters &= Q(container_number__order__offload_id__offload_at__lte=end_date)
 
         if container_number:
             filters &= Q(container_number__container_number__icontains=container_number)
@@ -224,6 +222,7 @@ class ExceptionHandling(View):
                 filters &= Q(destination__in=destination_list)
             else:
                 filters &= Q(destination=destination_clean)
+
         # 查询
         results = []
         if query_type == "pallet":
@@ -235,14 +234,13 @@ class ExceptionHandling(View):
                         "container_number", 
                         "transfer_batch_number"
                     )
+                    .prefetch_related('shipment_batch_number')
                     .order_by("shipment_batch_number__shipment_appointment")
                 )
             )()
             
-            # 获取所有相关的 container_numbers
             container_numbers = [p.container_number for p in pallets if p.container_number]
             
-            # 通过 container_numbers 查询对应的 orders
             orders = await sync_to_async(
                 lambda: list(
                     Order.objects.filter(container_number__in=container_numbers)
@@ -250,7 +248,6 @@ class ExceptionHandling(View):
                 )
             )()
             
-            # 创建 container_number 到 order 的映射
             order_map = {}
             for order in orders:
                 order_map[order.container_number_id] = order
@@ -258,14 +255,14 @@ class ExceptionHandling(View):
             for p in pallets:
                 offload_time = None
                 actual_retrieval_timestamp = None
+                empty_returned_at = None
                 
                 if p.container_number:
                     order = order_map.get(p.container_number.id)
                     if order:
                         offload_time = order.offload_id.offload_at if order.offload_id else None
                         actual_retrieval_timestamp = order.retrieval_id.actual_retrieval_timestamp if order.retrieval_id else None
-                        empty_returned_at = order.retrieval_id.empty_returned_at if order and order.retrieval_id else None
-                
+                        empty_returned_at = order.retrieval_id.empty_returned_at if order.retrieval_id else None
                 results.append({
                     "container_number": p.container_number.container_number if p.container_number else "-",
                     "PO_ID": p.PO_ID,
@@ -294,14 +291,13 @@ class ExceptionHandling(View):
                         "shipment_batch_number", 
                         "container_number"
                     )
+                    .prefetch_related('shipment_batch_number')
                     .order_by("shipment_batch_number__shipment_appointment")
                 )
             )()
 
-            # 获取所有相关的 container_ids
             container_ids = [pl.container_number.id for pl in packinglists if pl.container_number]
 
-            # 批量查询 orders
             orders = await sync_to_async(
                 lambda: list(
                     Order.objects.filter(container_number_id__in=container_ids)
@@ -309,7 +305,6 @@ class ExceptionHandling(View):
                 )
             )()
 
-            # 创建映射
             order_map = {order.container_number_id: order for order in orders}
 
             for pl in packinglists:
@@ -318,8 +313,7 @@ class ExceptionHandling(View):
                 
                 offload_time = order.offload_id.offload_at if order and order.offload_id else None
                 actual_retrieval_timestamp = order.retrieval_id.actual_retrieval_timestamp if order and order.retrieval_id else None
-                empty_returned_at = order.retrieval_id.empty_returned_at if order and order.retrieval_id else None  # 新增
-                
+                empty_returned_at = order.retrieval_id.empty_returned_at if order and order.retrieval_id else None
                 results.append({
                     "container_number": pl.container_number.container_number if pl.container_number else "-",
                     "PO_ID": pl.PO_ID,
@@ -332,7 +326,7 @@ class ExceptionHandling(View):
                     "delivery_window_end": pl.delivery_window_end,
                     "actual_retrieval_timestamp": actual_retrieval_timestamp,
                     "offload_time": offload_time,
-                    "empty_returned_at": empty_returned_at,  # 修改为从 retrieval_id 获取
+                    "empty_returned_at": empty_returned_at,
                     "shipment_appointment": getattr(pl.shipment_batch_number, "shipment_appointment", None),
                     "shipped_at": getattr(pl.shipment_batch_number, "shipped_at", None),
                     "arrived_at": getattr(pl.shipment_batch_number, "arrived_at", None),
@@ -340,7 +334,7 @@ class ExceptionHandling(View):
                     "record_type": "packinglist"
                 })
 
-        # 分组统计 - 每组作为一行记录
+        # 分组统计
         grouped_results = []
         group_dict = {}
         
@@ -358,8 +352,9 @@ class ExceptionHandling(View):
                     "actual_retrieval_timestamp": r["actual_retrieval_timestamp"],
                     "offload_time": r["offload_time"],
                     "empty_returned_at": r["empty_returned_at"],
+                    # 确保这些 shipment 相关字段正确传递
                     "shipment_appointment": r["shipment_appointment"],
-                    "shipped_at": r["shipped_at"],
+                    "shipped_at": r["shipped_at"], 
                     "arrived_at": r["arrived_at"],
                     "pod_uploaded_at": r["pod_uploaded_at"],
                     "delivery_window_start": r["delivery_window_start"],
@@ -369,18 +364,51 @@ class ExceptionHandling(View):
             group_dict[key]["total_pcs"] += r.get("pcs") or 0
             group_dict[key]["total_cbm"] += r.get("cbm") or 0
             group_dict[key]["pallet_count"] += 1
-
         # 转换为列表
         grouped_results = list(group_dict.values())
 
-        # 获取可用的月份用于筛选
+        # 计算记录完整度并排序
+        for group in grouped_results:
+            # 计算时间字段完整度
+            time_fields = [
+                group['actual_retrieval_timestamp'],
+                group['offload_time'], 
+                group['empty_returned_at'],
+                group['shipment_appointment'],
+                group['shipped_at'],
+                group['arrived_at'],
+                group['pod_uploaded_at']
+            ]
+            completed_fields = sum(1 for field in time_fields if field is not None)
+            group['completed_score'] = completed_fields
+            
+            # 标记是否所有时间字段都完整
+            group['is_complete'] = completed_fields == len(time_fields)
+
+        # 根据是否显示完整记录进行筛选
+        if not show_complete:
+            grouped_results = [group for group in grouped_results if not group['is_complete']]
+
+        # 排序：按完整度降序，然后按入仓时间升序
+        grouped_results.sort(key=lambda x: (
+            -x['completed_score'],  # 完整度高的在前
+            x['offload_time'] or datetime.max  # 入仓时间早的在前
+        ))
+
+        # 获取可用的月份用于筛选 - 去重处理
         available_months = await sync_to_async(
             lambda: list(
-                Pallet.objects.filter(container_number__isnull=False)
-                .dates('shipment_batch_number__arrived_at', 'month')
-                .order_by('-shipment_batch_number__arrived_at')
+                Order.objects.filter(offload_id__isnull=False)
+                .annotate(month=TruncMonth('offload_id__offload_at'))
+                .values('month')
+                .distinct()
+                .order_by('-month')
             )
         )()
+        
+        # 转换为日期对象列表
+        available_months = [item['month'] for item in available_months]
+
         warehouse_form = ZemWarehouseForm(initial={"name": warehouse})
         context = {
             "query_type": query_type,
@@ -392,9 +420,9 @@ class ExceptionHandling(View):
             "available_months": available_months,
             "warehouse_form": warehouse_form,
             "destination": destination,
+            "show_complete": show_complete,  # 新增
         }
         return self.template_query_pallet_packinglist, context
-
 
 
     async def handle_search_data(self, request: HttpRequest):
