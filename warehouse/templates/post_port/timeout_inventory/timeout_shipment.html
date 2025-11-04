@@ -100,7 +100,7 @@
                         <span class="status-span-yellow" style="padding-top: 0; padding-bottom: 0;">PO失效</span>
                         {% endif %}
                     </td>
-                    <td class="td">{{ c.warehouse }}</td>
+                    <td class="td">{{ c.location }}</td>
                     <td class="td">{{ c.eta|date:"M-j" }}</td>
                     <td class="td">
                         {% if c.schedule_status == 'past_due' %}
