@@ -358,7 +358,7 @@
             <table class="modal-table">
                 <thead>
                     <tr>
-                        <th style="width: 10px;"><input type="checkbox" id="checkAllExportPo"></th>
+                        <th style="width: 30px;"><input type="checkbox" id="checkAllExportPo"></th>
                         <th style="max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">REF ID</th>
                         <th style="max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">FBA ID</th>
                         <th>柜号</th>
@@ -416,7 +416,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
                 tbody.insertAdjacentHTML('beforeend', `
                     <tr>
-                        <td><input type="checkbox" class="export-po-checkbox" style="width:10px;" data-cargo-id="${row.dataset.cargoId}" data-plt-id="${row.dataset.pltId}" checked></td>
+                        <td><input type="checkbox" class="export-po-checkbox" data-cargo-id="${row.dataset.cargoId}" data-plt-id="${row.dataset.pltId}" checked></td>
                         <td style="max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${ref}</td>
                         <td style="max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${fba}</td>
                         <td>${cn}</td>
@@ -434,7 +434,11 @@ document.addEventListener('DOMContentLoaded', function() {
             openExportPoModal();
         });
     });
-
+    const checkAllBox = document.getElementById('checkAllExportPo');
+    checkAllBox.addEventListener('change', function() {
+        const checkboxes = document.querySelectorAll('.export-po-checkbox');
+        checkboxes.forEach(cb => cb.checked = this.checked);
+    });
     function openExportPoModal() {
         const modal = document.getElementById('exportPoModal');
         modal.style.display = 'block';
@@ -451,15 +455,16 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('confirmExportPo').addEventListener('click', function() {
         const suggestionId = document.getElementById('exportSuggestionId').value;
 
-        // 获取所有勾选的行
         const checkedBoxes = document.querySelectorAll('.export-po-checkbox:checked');
-        if (checkedBoxes.length === 0) {
+        if (!checkedBoxes.length) {
             alert('请至少选择一个PO导出！');
             return;
         }
 
         const cargoIds = Array.from(checkedBoxes).map(cb => cb.dataset.cargoId);
+        console.log('cargoIds',cargoIds);
         const pltIds = Array.from(checkedBoxes).map(cb => cb.dataset.pltId);
+        console.log('pltIds',pltIds);
 
         document.getElementById('formStep').value = 'export_virtual_fleet_pos';
         document.getElementById('formCargoIds').value = cargoIds.join(',');
