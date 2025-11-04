@@ -403,6 +403,7 @@ class OrderCreation(View):
                 "customer_name",
                 "container_number__packinglist",
                 "retrieval_id",
+                "offload_id"
             ).values(
                 "container_number__container_number",
                 "container_number__weight_lbs",
@@ -421,8 +422,9 @@ class OrderCreation(View):
                 "packing_list_updloaded",
                 "cancel_notification",
             ).filter(
-                models.Q(created_at__gte=timezone.make_aware(datetime(2024, 8, 19)))
-                | models.Q(container_number__container_number__in=ADDITIONAL_CONTAINER)
+                (models.Q(created_at__gte=timezone.make_aware(datetime(2024, 8, 19)))
+                 | models.Q(container_number__container_number__in=ADDITIONAL_CONTAINER))
+                & models.Q(offload_id__offload_at__isnull=True)
             )
         )
         unfinished_orders = [
