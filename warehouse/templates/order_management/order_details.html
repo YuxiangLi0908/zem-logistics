@@ -153,7 +153,7 @@
                         <th class="th" id="td-order-area-th" {% if selected_order.order_type == "直送" %}style="display: none;"{% endif %}>所属仓</th>
                         <th class="th" id="dd-order-destination-th" {% if selected_order.order_type == "转运" or selected_order.order_type == "转运组合" %}style="display: none;"{% endif %}>直送地址</th>
                         <th class="th">柜号</th>
-                        <th class="th">柜型</th>
+                        <th class="th">MBL</th>
                         <th class="th">柜重</th>
                         <th class="th">特殊柜型</th>
                         <th class="th" id="special-container-note-th" {% if not selected_order.container_number.is_special_container %}style="display: none;"{% endif %}>备注(特殊柜型)</th>
@@ -190,11 +190,7 @@
                             <input type="text" name="container_number" id="infoContainerNumber" value="{{ selected_order.container_number.container_number }}" required>
                         </td>
                         <td class="td">
-                            <select name="container_type">
-                                {% for k, v in container_type.items %}
-                                <option value="{{ v }}" {% if k == selected_order.container_number.container_type %}selected{% endif %}>{{ k }}</option>
-                                {% endfor %}
-                            </select>
+                            <input type="text" name="mbl" value="{{ selected_order.vessel_id.master_bill_of_lading }}" required>
                         </td>
                         <td class="td">
                             <input type="float" name="weight_lbs" id="infoContainerWeight" step=0.0001 style="width: 80px" value="{{ selected_order.container_number.weight_lbs }}" required> lbs
@@ -217,7 +213,7 @@
                 <input type="hidden" name="original_customer" value="{{ selected_order.customer_name.id }}">
                 <input type="hidden" name="original_order_type" value="{{ selected_order.order_type }}">
                 <input type="hidden" name="original_container_number" value="{{ selected_order.container_number.container_number }}">
-                <input type="hidden" name="original_container_type" value="{{ selected_order.container_number.container_type }}">
+                <input type="hidden" name="mbl" value="{{ selected_order.container_number.container_number }}">
                 <input type="hidden" name="original_container_weight" value="{{ selected_order.container_number.weight_lbs }}">
                 <input type="hidden" name="original_is_special_container" value="{{ selected_order.container_number.is_special_container }}">
                 <input type="hidden" name="original_container_note" value="{{ selected_order.container_number.note }}">
@@ -236,7 +232,7 @@
                     <tr>
                         <th class="th">船名 船次</th>
                         <th class="th">船司</th>
-                        <th class="th">MBL</th>
+                        <th class="th">柜型</th>
                         <th class="th">码头</th>
                         <th class="th">ETA</th>
                         <th class="th">ETD</th>
@@ -263,7 +259,11 @@
                             {% endif %}
                         </td>
                         <td class="td">
-                            <input type="text" name="mbl" {%if vessel %}value="{{ vessel.master_bill_of_lading }}"{% endif %} required>
+                            <select name="container_type">
+                                {% for k, v in container_type.items %}
+                                <option value="{{ v }}" {% if k == selected_order.container_number.container_type %}selected{% endif %}>{{ k }}</option>
+                                {% endfor %}
+                            </select>
                         </td>
                         <td class="td">
                             <input type="text" name="pod" {%if vessel %}value="{{ vessel.destination_port }}"{% endif %} required>
