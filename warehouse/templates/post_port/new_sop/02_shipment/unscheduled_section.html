@@ -59,8 +59,8 @@
                         
                         {% for cargo in suggestion.cargos %}
                         <tr data-suggestion-id="{{ suggestion.suggestion_id }}"
-                            data-cargo-id="{{ cargo.ids|join:',' }}"
-                            data-plt-id="{{ cargo.plt_ids|join:',' }}">
+                            data-cargo-id="{{ cargo.ids|default:'' }}"
+                            data-plt-id="{{ cargo.plt_ids|default:'' }}">
                             <!-- 仓点列 -->
                             {% if forloop.first %}
                             <td rowspan="{{ suggestion.cargos|length }}" style="vertical-align: middle; background-color: #f8f9fa;">
@@ -411,12 +411,18 @@ document.addEventListener('DOMContentLoaded', function() {
                 const pallets = row.children[7]?.textContent.trim() || '0';
                 const cbm = row.children[8]?.textContent.trim() || '0';
 
-                cargoIds.push(row.dataset.cargoId || '');
-                pltIds.push(row.dataset.pltId || '');
+                if (row.dataset.cargoId) {
+                    cargoIds.push(...row.dataset.cargoId.split(',').filter(Boolean));
+                }
+                if (row.dataset.pltId) {
+                    pltIds.push(...row.dataset.pltId.split(',').filter(Boolean));
+                }
 
                 tbody.insertAdjacentHTML('beforeend', `
                     <tr>
-                        <td><input type="checkbox" class="export-po-checkbox" data-cargo-id="${row.dataset.cargoId}" data-plt-id="${row.dataset.pltId}" checked></td>
+                        <td><input type="checkbox" class="export-po-checkbox" 
+                            data-cargo-id="${row.dataset.cargoId}" 
+                            data-plt-id="${row.dataset.pltId}" checked></td>
                         <td style="max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${ref}</td>
                         <td style="max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${fba}</td>
                         <td>${cn}</td>
@@ -426,7 +432,6 @@ document.addEventListener('DOMContentLoaded', function() {
                     </tr>
                 `);
             });
-
             document.getElementById('exportSuggestionId').value = suggestionId;
             document.getElementById('exportCargoIds').value = cargoIds.join(',');
             document.getElementById('exportPltIds').value = pltIds.join(',');
@@ -462,9 +467,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         const cargoIds = Array.from(checkedBoxes).map(cb => cb.dataset.cargoId);
-        console.log('cargoIds',cargoIds);
         const pltIds = Array.from(checkedBoxes).map(cb => cb.dataset.pltId);
-        console.log('pltIds',pltIds);
 
         document.getElementById('formStep').value = 'export_virtual_fleet_pos';
         document.getElementById('formCargoIds').value = cargoIds.join(',');
