@@ -142,6 +142,7 @@
                             {% endif %}
                         </th>
                         <th class="th">供应商</th>
+                        <th class="th">放行时间</th>
                         <th class="th">预约时间范围</th>
                         <th class="th">提柜备注</th>
                     </tr>
@@ -169,6 +170,12 @@
                                 <option value="{{ v }}" {% if k == selected_order.retrieval_id.retrieval_carrier %}selected{% endif %}>{{ k }}</option>
                                 {% endfor %}
                             </select>
+                        </td>
+                        <td class="td">
+                            <input type="datetime-local" name="planned_release_time"
+                                                    {% if selected_order.retrieval_id.planned_release_time %}
+                                                   value="{{ selected_order.retrieval_id.planned_release_time|date:'Y-m-d\TH:i' }}"
+                                                    {% endif %}>
                         </td>
                         <td class="td">
                             <input type="datetime-local" name="target_retrieval_timestamp_lower" value="{{ selected_order.retrieval_id.target_retrieval_timestamp_lower|date:'Y-m-d\\TH:i' }}" style="font-size: 13px;">

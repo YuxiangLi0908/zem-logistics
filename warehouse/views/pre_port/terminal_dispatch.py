@@ -1,6 +1,6 @@
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from typing import Any
-
+from django.utils import timezone
 import pytz,json 
 from asgiref.sync import sync_to_async
 from django.db import models
@@ -112,7 +112,7 @@ class TerminalDispatch(View):
                     & models.Q(retrieval_id__actual_retrieval_timestamp__isnull=True)
                     & models.Q(retrieval_id__retrieval_carrier__isnull=True)
                     & models.Q(
-                        vessel_id__vessel_eta__lte=datetime.now() + timedelta(weeks=2)
+                        vessel_id__vessel_eta__lte=timezone.now() + timedelta(weeks=2)
                     )
                     & models.Q(cancel_notification=False)
                 )
@@ -313,6 +313,18 @@ class TerminalDispatch(View):
         container_number = request.POST.get("container_number")
         destination = request.POST.get("retrieval_destination").upper().strip()
         order_type = request.POST.get("order_type")
+        planned_release_time_str = request.POST.get("planned_release_time")
+        if planned_release_time_str:
+            try:
+                planned_release_time = datetime.strptime(
+                    planned_release_time_str,
+                    "%Y-%m-%dT%H:%M"
+                )
+                planned_release_time = timezone.make_aware(planned_release_time)
+            except ValueError:
+                return "error_template.html", {"error": "无效的时间格式，应为 'YYYY-MM-DDTHH:MM'"}
+        else:
+            planned_release_time = None
         order = await sync_to_async(Order.objects.select_related("retrieval_id").get)(
             models.Q(container_number__container_number=container_number)
         )
@@ -324,6 +336,7 @@ class TerminalDispatch(View):
         retrieval.retrieval_destination_precise = destination
         retrieval.retrieval_carrier = request.POST.get("retrieval_carrier").strip()
         retrieval.retrieval_delegation_status = True
+        retrieval.planned_release_time = planned_release_time
         tzinfo = self._parse_tzinfo(destination)
         if request.POST.get("target_retrieval_timestamp"):
             ts = request.POST.get("target_retrieval_timestamp")
@@ -336,7 +349,7 @@ class TerminalDispatch(View):
         else:
             retrieval.target_retrieval_timestamp_lower = None
         retrieval.note = request.POST.get("note", "").strip()
-        retrieval.scheduled_at = datetime.now()
+        retrieval.scheduled_at = timezone.now()
         if request.POST.get("retrieval_carrier") == "客户自提":
             if request.POST.get("target_retrieval_timestamp"):
                 ts = request.POST.get("target_retrieval_timestamp")

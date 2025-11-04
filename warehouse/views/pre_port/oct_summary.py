@@ -1,5 +1,6 @@
 import json
 import zipfile
+from datetime import datetime
 from io import BytesIO
 from typing import Any
 
@@ -48,6 +49,9 @@ class OctSummaryView(View):
             return await self.batch_export_v1(request)
         elif step == "save_retrieval_carrier_planned":
             template, context = await self.save_retrieval_carrier_planned(request)
+            return render(request, template, context)
+        elif step == "save_planned_release_time":
+            template, context = await self.save_planned_release_time(request)
             return render(request, template, context)
         elif step == "batch_save_retrieval_carrier_planned":
             template, context = await self.batch_save_retrieval_carrier_planned(request)
@@ -256,6 +260,26 @@ class OctSummaryView(View):
         template, context = await self.oct_handle_warehouse_post(request)
         return template, context
 
+    async def save_planned_release_time(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
+        planned_release_time_str = request.POST.get("planned_release_time")
+        retrieval_id = request.POST.get("retrieval_id__retrieval_id")
+        if planned_release_time_str:
+            try:
+                planned_release_time = datetime.strptime(
+                    planned_release_time_str,
+                    "%Y-%m-%dT%H:%M"
+                )
+                planned_release_time = timezone.make_aware(planned_release_time)
+            except ValueError:
+                return "error_template.html", {"error": "无效的时间格式，应为 'YYYY-MM-DDTHH:MM'"}
+        else:
+            planned_release_time = None
+        await sync_to_async(lambda:Retrieval.objects.filter(retrieval_id=retrieval_id).update(
+                                planned_release_time=planned_release_time))()
+
+        template, context = await self.oct_handle_warehouse_post(request)
+        return template, context
+
     async def batch_save_retrieval_carrier_planned(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
         batch_carrier = request.POST.get("batch_carrier")
         if not batch_carrier:
@@ -338,6 +362,7 @@ class OctSummaryView(View):
                 ),
                 retrieval_note=F("retrieval_id__note"),
                 retrieval_delegation_status = F("retrieval_id__retrieval_delegation_status"),
+                planned_release_time = F("retrieval_id__planned_release_time"),
                 retrieval_carrier_planned=F("retrieval_id__retrieval_carrier_planned"),
                 mbl=F("vessel_id__master_bill_of_lading"),
                 shipping_line=F("vessel_id__shipping_line"),
@@ -386,7 +411,7 @@ class OctSummaryView(View):
                 "vessel_date", "vessel_etd", "vessel_eta", "temp_t49_available_for_pickup",
                 "retrieval_carrier", "ke_destination_num", "si_destination_num", "order_type",
                 "do_sent", "id", "status", "retrieval_carrier_planned", "retrieval_id__retrieval_id",
-                "retrieval_delegation_status"
+                "retrieval_delegation_status", "planned_release_time"
             )
             # 按创建时间倒序（最新数据优先显示，符合用户习惯）
             .order_by("-created_at")
@@ -455,6 +480,7 @@ class OctSummaryView(View):
                 ),
                 retrieval_note=F("retrieval_id__note"),
                 retrieval_delegation_status=F("retrieval_id__retrieval_delegation_status"),
+                planned_release_time=F("retrieval_id__planned_release_time"),
                 retrieval_carrier_planned=F("retrieval_id__retrieval_carrier_planned"),
                 mbl=F("vessel_id__master_bill_of_lading"),
                 shipping_line=F("vessel_id__shipping_line"),
@@ -503,7 +529,7 @@ class OctSummaryView(View):
                 "vessel_date", "vessel_etd", "vessel_eta", "temp_t49_available_for_pickup",
                 "retrieval_carrier", "ke_destination_num", "si_destination_num", "order_type",
                 "do_sent", "id", "status", "retrieval_carrier_planned", "retrieval_id__retrieval_id",
-                "retrieval_delegation_status"
+                "retrieval_delegation_status", "planned_release_time"
             )
             # 按创建时间倒序（最新数据优先显示，符合用户习惯）
             .order_by("-created_at")
