@@ -37,6 +37,8 @@ class Retrieval(models.Model):
     arrive_at = models.DateTimeField(null=True, blank=True)
     empty_returned = models.BooleanField(default=False, blank=True)
     empty_returned_at = models.DateTimeField(null=True, blank=True)
+    planned_release_time = models.DateTimeField(null=True, blank=True, verbose_name="计划放行时间")
+    actual_release_status = models.BooleanField(default=False, blank=True, verbose_name="oct页面实际放行状态")
     # temporary fields
     temp_t49_lfd = models.DateTimeField(null=True, blank=True)
     temp_t49_available_for_pickup = models.BooleanField(default=False, blank=True)
