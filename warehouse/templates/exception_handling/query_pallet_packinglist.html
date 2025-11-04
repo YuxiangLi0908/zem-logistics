@@ -43,8 +43,8 @@
     .form-group.action-row {
         grid-column: 1 / -1;
         display: grid;
-        grid-template-columns: 1fr auto auto;
-        gap: 12px;
+        grid-template-columns: 1fr auto auto auto;
+        gap: 16px;
         align-items: end;
     }
 
@@ -102,6 +102,18 @@
         opacity: 0.7;
     }
 
+    .checkbox-group {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 8px;
+    }
+
+    .checkbox-group input[type="checkbox"] {
+        width: 16px;
+        height: 16px;
+    }
+
     .search-btn {
         padding: 12px 24px;
         border: none;
@@ -143,7 +155,6 @@
         transform: translateY(-2px);
     }
 
-
     /* 查询信息样式 */
     .search-info {
         margin: 20px 0;
@@ -159,7 +170,7 @@
         color: #2c3e50;
     }
 
-    /* 表格样式保持不变 */
+    /* 表格样式 */
     .data-table {
         width: 100%;
         border-collapse: collapse;
@@ -216,6 +227,11 @@
         color: #2c3e50;
     }
 
+    .time-cell.missing {
+        color: #e74c3c;
+        font-weight: bold;
+    }
+
     .stat-badge {
         display: inline-block;
         padding: 4px 10px;
@@ -228,10 +244,35 @@
         text-align: center;
     }
 
+    .complete-badge {
+        background: #27ae60;
+    }
+
+    .filter-controls {
+        display: flex;
+        gap: 15px;
+        margin-bottom: 15px;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+
+    .filter-input {
+        padding: 8px 12px;
+        border: 1px solid #bdc3c7;
+        border-radius: 4px;
+        font-size: 14px;
+        min-width: 150px;
+    }
+
     /* 响应式设计 */
     @media (max-width: 1024px) {
         .search-grid {
             grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        }
+        
+        .form-group.action-row {
+            grid-template-columns: 1fr;
+            gap: 12px;
         }
     }
 
@@ -245,21 +286,25 @@
             gap: 16px;
         }
         
-        .form-group.action-row {
-            grid-template-columns: 1fr;
-            gap: 12px;
-        }
-        
         .search-btn {
             min-width: auto;
             width: 100%;
+        }
+        
+        .filter-controls {
+            flex-direction: column;
+            align-items: stretch;
+        }
+        
+        .filter-input {
+            min-width: auto;
         }
     }
 </style>
 
 <!-- 查询表单 -->
 <div class="search-form">
-    <form method="post">
+    <form method="post" id="searchForm">
         {% csrf_token %}
         <input type="hidden" name="step" value="query_pallet_packinglist">
         
@@ -277,7 +322,7 @@
             </div>
             
             <div class="form-group">
-                <label class="form-label">月份筛选</label>
+                <label class="form-label">入仓月份筛选</label>
                 <select name="month_filter" class="form-select">
                     <option value="">全部月份</option>
                     {% for month in available_months %}
@@ -295,37 +340,39 @@
             </div>
             
             <div class="form-group">
-                <label class="form-label">开始日期</label>
+                <label class="form-label">入仓开始日期</label>
                 <input type="date" name="start_date" value="{{ start_date|date:'Y-m-d' }}" 
                        class="form-input" placeholder="开始日期">
             </div>
             
             <div class="form-group">
-                <label class="form-label">结束日期</label>
+                <label class="form-label">入仓结束日期</label>
                 <input type="date" name="end_date" value="{{ end_date|date:'Y-m-d' }}" 
                        class="form-input" placeholder="结束日期">
             </div>
             
-            <div class="form-group">
-                <label class="form-label">柜号搜索</label>
-                <input type="text" name="container_number" value="{{ container_number }}" 
-                       class="form-input" placeholder="输入柜号进行搜索">
-            </div>
-            
             <!-- 柜号搜索和按钮放在同一排 -->
             <div class="form-group action-row">
-                <div class="form-group" style="margin-bottom: 0;">
-                    <label class="form-label">仓点</label>
-                    <input type="text" name="destination" value="{{ destination }}"  style="width:360px;"
-                           class="form-input" placeholder="输入仓点">
+                <div style="display: flex; gap: 12px; align-items: flex-end;">
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label class="form-label">柜号搜索</label>
+                        <input type="text" name="container_number" value="{{ container_number }}" 
+                            class="form-input" placeholder="输入柜号">
+                    </div>
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label class="form-label">仓点</label>
+                        <input type="text" name="destination" value="{{ destination }}" 
+                            class="form-input" placeholder="输入仓点">
+                    </div>
                 </div>
-                
+
+                <div class="checkbox-group" style="margin-top: 10px;">
+                    <input type="checkbox" name="show_complete" id="show_complete" {% if show_complete %}checked{% endif %}>
+                    <label for="show_complete" class="form-label" style="margin-bottom: 0;">显示完整记录</label>
+                </div>
+
                 <button type="submit" class="search-btn primary">
                     <i class="fas fa-search"></i> 开始查询
-                </button>
-                
-                <button type="button" class="search-btn secondary" onclick="this.form.reset()">
-                    <i class="fas fa-redo"></i> 重置
                 </button>
             </div>
         </div>
@@ -349,14 +396,22 @@
     <strong>柜号:</strong> 
     {{ container_number|default:"全部" }}
     | 
+    <strong>仓点:</strong> 
+    {{ destination|default:"全部" }}
+    | 
     <strong>查询结果:</strong> {{ grouped_results|length }} 组记录
 </div>
-{% endif %}
+
+<!-- 前端筛选控件 -->
+<div class="filter-controls">
+    <input type="text" id="filterContainer" class="filter-input" placeholder="筛选柜号...">
+    <input type="text" id="filterDestination" class="filter-input" placeholder="筛选仓点...">
+    <input type="text" id="filterPO" class="filter-input" placeholder="筛选PO ID...">
+</div>
 
 <!-- 结果表格 -->
-{% if grouped_results %}
 <div style="overflow-x: auto;">
-    <table class="data-table">
+    <table class="data-table" id="resultTable">
         <thead>
             <tr>
                 <th>柜号</th>
@@ -377,63 +432,68 @@
         </thead>
         <tbody>
             {% for group in grouped_results %}
-            <tr>
+            <tr class="data-row" 
+                data-container="{{ group.container_number }}"
+                data-destination="{{ group.destination }}"
+                data-po="{{ group.PO_ID }}">
                 <td><strong>{{ group.container_number }}</strong></td>
                 <td>{{ group.PO_ID }}</td>
                 <td>{{ group.destination }}</td>
                 <td>{{ group.shipment_batch_number }}</td>               
                 <td>
-                    <span class="stat-badge">{{ group.pallet_count }}</span>
+                    <span class="stat-badge {% if group.is_complete %}complete-badge{% endif %}">
+                        {{ group.pallet_count }}
+                    </span>
                 </td>
                 <td>{{ group.total_pcs }}</td>
                 <td>{{ group.total_cbm|floatformat:2 }}</td>
-                <td class="time-cell">
+                <td class="time-cell {% if not group.actual_retrieval_timestamp %}missing{% endif %}">
                     {% if group.actual_retrieval_timestamp %}
                         {{ group.actual_retrieval_timestamp|date:"m/d H:i" }}
                     {% else %}
-                        -
+                        --
                     {% endif %}
                 </td>
-                <td class="time-cell">
+                <td class="time-cell {% if not group.offload_time %}missing{% endif %}">
                     {% if group.offload_time %}
                         {{ group.offload_time|date:"m/d H:i" }}
                     {% else %}
-                        -
+                        --
                     {% endif %}
                 </td>
-                <td class="time-cell">
+                <td class="time-cell {% if not group.empty_returned_at %}missing{% endif %}">
                     {% if group.empty_returned_at %}
                         {{ group.empty_returned_at|date:"m/d H:i" }}
                     {% else %}
-                        -
+                        --
                     {% endif %}
                 </td>
-                <td class="time-cell">
+                <td class="time-cell {% if not group.shipment_appointment %}missing{% endif %}">
                     {% if group.shipment_appointment %}
                         {{ group.shipment_appointment|date:"m/d H:i" }}
                     {% else %}
-                        -
+                        --
                     {% endif %}
                 </td>
-                <td class="time-cell">
+                <td class="time-cell {% if not group.shipped_at %}missing{% endif %}">
                     {% if group.shipped_at %}
                         {{ group.shipped_at|date:"m/d H:i" }}
                     {% else %}
-                        -
+                        --
                     {% endif %}
                 </td>
-                <td class="time-cell">
+                <td class="time-cell {% if not group.arrived_at %}missing{% endif %}">
                     {% if group.arrived_at %}
                         {{ group.arrived_at|date:"m/d H:i" }}
                     {% else %}
-                        -
+                        --
                     {% endif %}
                 </td>
-                <td class="time-cell">
+                <td class="time-cell {% if not group.pod_uploaded_at %}missing{% endif %}">
                     {% if group.pod_uploaded_at %}
                         {{ group.pod_uploaded_at|date:"m/d H:i" }}
                     {% else %}
-                        -
+                        --
                     {% endif %}
                 </td>
             </tr>
@@ -451,18 +511,60 @@
 // 自动表单提交
 document.querySelectorAll('.search-select').forEach(element => {
     element.addEventListener('change', function() {
-        this.form.submit();
+        document.getElementById('searchForm').submit();
     });
 });
 
 // 日期输入框失去焦点时提交
 document.querySelectorAll('input[type="date"]').forEach(element => {
     element.addEventListener('change', function() {
-        this.form.submit();
+        document.getElementById('searchForm').submit();
     });
 });
 
+document.getElementById('show_complete').addEventListener('change', function() {
+    document.getElementById('searchForm').submit();
+});
+document.querySelector('select[name="month_filter"]').addEventListener('change', function() {
+    document.getElementById('searchForm').submit();
+});
 // 为仓库选择框添加样式类
 document.querySelector('select[name="name"]').classList.add('form-select');
+
+// 前端筛选功能
+function setupTableFilter() {
+    const filterContainer = document.getElementById('filterContainer');
+    const filterDestination = document.getElementById('filterDestination');
+    const filterPO = document.getElementById('filterPO');
+    const rows = document.querySelectorAll('#resultTable .data-row');
+    
+    function filterTable() {
+        const containerValue = filterContainer.value.toLowerCase();
+        const destinationValue = filterDestination.value.toLowerCase();
+        const poValue = filterPO.value.toLowerCase();
+        
+        rows.forEach(row => {
+            const container = row.getAttribute('data-container').toLowerCase();
+            const destination = row.getAttribute('data-destination').toLowerCase();
+            const po = row.getAttribute('data-po').toLowerCase();
+            
+            const showRow = 
+                container.includes(containerValue) &&
+                destination.includes(destinationValue) &&
+                po.includes(poValue);
+            
+            row.style.display = showRow ? '' : 'none';
+        });
+    }
+    
+    if (filterContainer) filterContainer.addEventListener('input', filterTable);
+    if (filterDestination) filterDestination.addEventListener('input', filterTable);
+    if (filterPO) filterPO.addEventListener('input', filterTable);
+}
+
+// 初始化前端筛选
+if (document.getElementById('resultTable')) {
+    setupTableFilter();
+}
 </script>
 {% endblock %}

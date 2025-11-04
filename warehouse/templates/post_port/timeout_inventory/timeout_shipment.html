@@ -507,9 +507,13 @@
                 if (cell.textContent) {
                     var cellText = cell.textContent || cell.querySelector("input").value;
                     var cellValue = trim ? cellText.toUpperCase().trim() : cellText.toUpperCase();
-                    if (filterValue !== "" && cellValue.indexOf(filterValue) === -1) {
-                        showRow = false;
-                        break;
+                    if (filterValue !== "") {
+                        const keywords = filterValue.split(" ").filter(k => k.trim() !== "");
+                        const matched = keywords.some(keyword => cellValue.includes(keyword));
+                        if (!matched) {
+                            showRow = false;
+                            break;
+                        }
                     }
                 }
             }
