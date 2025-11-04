@@ -234,8 +234,7 @@
             <table class="table" style="margin-top: 10px; font-size: 11px;">
                 <thead>
                     <tr>
-                        <th class="th">船名</th>
-                        <th class="th">船次</th>
+                        <th class="th">船名 船次</th>
                         <th class="th">船司</th>
                         <th class="th">MBL</th>
                         <th class="th">码头</th>
@@ -247,9 +246,6 @@
                     <tr>
                         <td class="td">
                             <input type="text" name="vessel" {%if vessel %}value="{{ vessel.vessel }}"{% endif %} required>
-                        </td>
-                        <td class="td">
-                            <input type="text" name="voyage" {%if vessel %}value="{{ vessel.voyage }}"{% endif %} required>
                         </td>
                         <td class="td">
                             {% if vessel %}
