@@ -165,6 +165,7 @@ class ExceptionHandling(View):
         start_date_str = request.POST.get("start_date", "")
         end_date_str = request.POST.get("end_date", "")
         month_filter = request.POST.get("month_filter", "")  # 月份筛选
+        destination = request.POST.get("destination", "")
 
         today = now().date()
         default_start = today - timedelta(days=30)
@@ -182,7 +183,7 @@ class ExceptionHandling(View):
         end_date = None
 
         # 如果没有提供任何搜索条件，默认查询前两个月
-        if not container_number and not start_date_str and not end_date_str and not month_filter:
+        if not container_number and not start_date_str and not end_date_str and not month_filter and not destination:
             two_months_ago = today - timedelta(days=60)
             default_start = two_months_ago
             start_date = make_aware(datetime.combine(default_start, datetime.min.time()))
@@ -218,7 +219,13 @@ class ExceptionHandling(View):
 
         if container_number:
             filters &= Q(container_number__container_number__icontains=container_number)
-
+        if destination:
+            destination_clean = destination.strip() 
+            if ' ' in destination_clean:
+                destination_list = destination_clean.split()
+                filters &= Q(destination__in=destination_list)
+            else:
+                filters &= Q(destination=destination_clean)
         # 查询
         results = []
         if query_type == "pallet":
