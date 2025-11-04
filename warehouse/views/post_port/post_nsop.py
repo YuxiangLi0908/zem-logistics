@@ -39,7 +39,7 @@ from django.utils import timezone
 from datetime import timedelta
 from dateutil.parser import parse
 from django.core.serializers.json import DjangoJSONEncoder
-
+from django.contrib.auth.models import User
 from warehouse.forms.warehouse_form import ZemWarehouseForm
 from warehouse.models.packing_list import PackingList
 from warehouse.models.pallet import Pallet
@@ -385,7 +385,7 @@ class PostNsop(View):
             destination=destination,
         )
         packing_list_not_scheduled = await self._get_packing_list(
-            pl_criteria, plt_criteria
+            request.user,pl_criteria, plt_criteria
         )
         context.update({
             "warehouse": warehouse,
@@ -413,6 +413,7 @@ class PostNsop(View):
             container_number__order__offload_id__offload_at__isnull=False,
         )
         plt_unshipped = await self._get_packing_list(
+            request.user,
             models.Q(
                 container_number__order__offload_id__offload_at__isnull=False,
             )& models.Q(pk=0),
@@ -1054,6 +1055,7 @@ class PostNsop(View):
         
         if selected or selected_plt:
             packing_list_selected = await self._get_packing_list(
+                request.user,
                 models.Q(id__in=selected)
                 & models.Q(shipment_batch_number__isnull=True),
                 models.Q(id__in=selected_plt)
@@ -1720,13 +1722,13 @@ class PostNsop(View):
 
         # 获取三类数据：未排约、已排约、待出库
         if not matching_suggestions:
-            matching_suggestions = await self.sp_unscheduled_data(warehouse, st_type, max_cbm, max_pallet)
+            matching_suggestions = await self.sp_unscheduled_data(warehouse, st_type, max_cbm, max_pallet,request.user)
 
-        scheduled_data = await self.sp_scheduled_data(warehouse)
+        scheduled_data = await self.sp_scheduled_data(warehouse, request.user)
         #未排车
         unschedule_fleet = await self._fl_unscheduled_data(request, warehouse)
         unschedule_fleet_data = unschedule_fleet['shipment_list']
-        ready_to_ship_data = await self._sp_ready_to_ship_data(warehouse)
+        ready_to_ship_data = await self._sp_ready_to_ship_data(warehouse,request.user)
         
         # 获取可用预约
         available_shipments = await self.sp_available_shipments(warehouse, st_type)
@@ -1762,9 +1764,10 @@ class PostNsop(View):
         context["warehouse_json"] = json.dumps(warehouse, cls=DjangoJSONEncoder)
         return self.template_td_shipment, context
     
-    async def sp_unscheduled_data(self, warehouse: str, st_type: str, max_cbm, max_pallet) -> list:
+    async def sp_unscheduled_data(self, warehouse: str, st_type: str, max_cbm, max_pallet, user) -> list:
         """获取未排约数据"""
         unshipment_pos = await self._get_packing_list(
+            user,
             models.Q(
                 container_number__order__offload_id__offload_at__isnull=False,
             )& models.Q(pk=0),
@@ -1781,7 +1784,7 @@ class PostNsop(View):
         shipments = await self.get_available_shipments(warehouse)
         
         # 生成智能匹配建议
-        matching_suggestions = await self.generate_matching_suggestions(unshipment_pos, shipments, warehouse, max_cbm, max_pallet,st_type)
+        matching_suggestions = await self.generate_matching_suggestions(unshipment_pos, shipments, warehouse, max_cbm, max_pallet,st_type, user)
         
         # 只返回匹配建议，不返回原始未排约数据
         return matching_suggestions
@@ -1800,7 +1803,7 @@ class PostNsop(View):
         )
         return shipments
 
-    async def generate_matching_suggestions(self, unshipment_pos, shipments, warehouse, max_cbm, max_pallet,st_type):
+    async def generate_matching_suggestions(self, unshipment_pos, shipments, warehouse, max_cbm, max_pallet,st_type, user):
         """生成智能匹配建议 - 基于功能A的逻辑但适配shipment匹配"""
         suggestions = []
 
@@ -1883,7 +1886,7 @@ class PostNsop(View):
                 matched_shipment = await self.find_matching_shipment(primary_group, shipments)
 
                 result_intel = await self._find_intelligent_po_for_group(
-                    primary_group, warehouse
+                    primary_group, warehouse, user
                 )
                 
                 intelligent_pos = result_intel['intelligent_pos']
@@ -2005,7 +2008,7 @@ class PostNsop(View):
             # 只存储suggestion_id列表
             current_suggestion['virtual_fleet'] = [group['suggestion_id'] for group in compatible_groups]
 
-    async def _find_intelligent_po_for_group(self, primary_group, warehouse) -> Any:
+    async def _find_intelligent_po_for_group(self, primary_group, warehouse, user) -> Any:
         existing_pl_ids = []
         existing_plt_ids = []
         destination = None
@@ -2035,6 +2038,7 @@ class PostNsop(View):
             )
 
         intelligent_pos = await self._get_packing_list(
+            user,
             models.Q(
                 shipment_batch_number__shipment_batch_number__isnull=True,
                 container_number__order__offload_id__offload_at__isnull=True,
@@ -2169,10 +2173,11 @@ class PostNsop(View):
         
         return True
 
-    async def sp_scheduled_data(self, warehouse: str) -> list:
+    async def sp_scheduled_data(self, warehouse: str, user) -> list:
         """获取已排约数据 - 按shipment_batch_number分组"""
         # 获取有shipment_batch_number但fleet_number为空的货物
         raw_data = await self._get_packing_list(
+            user,
             models.Q(
                 container_number__order__warehouse__name=warehouse,
                 shipment_batch_number__isnull=False,
@@ -2226,7 +2231,7 @@ class PostNsop(View):
         
         return list(grouped_data.values())
 
-    async def _sp_ready_to_ship_data(self, warehouse: str) -> list:
+    async def _sp_ready_to_ship_data(self, warehouse: str, user) -> list:
         """获取待出库数据 - 按fleet_number分组"""
         # 获取指定仓库的未出发且未取消的fleet
         fleets = await sync_to_async(list)(
@@ -2291,6 +2296,7 @@ class PostNsop(View):
                 
                 # 处理packinglists
                 raw_data = await self._get_packing_list(
+                    user,
                     models.Q(
                         shipment_batch_number__shipment_batch_number=batch_number,
                         container_number__order__offload_id__offload_at__isnull=True,
@@ -2453,6 +2459,7 @@ class PostNsop(View):
         two_weeks_later = nowtime + timezone.timedelta(weeks=2)
         #所有没约且两周内到港的货物
         unshipment_pos = await self._get_packing_list(
+            request.user,
             models.Q(
                 shipment_batch_number__shipment_batch_number__isnull=True,
                 container_number__order__offload_id__offload_at__isnull=True,
@@ -2534,13 +2541,18 @@ class PostNsop(View):
         return self.template_main_dash, context
     
     async def _get_packing_list(
-        self,
+        self,user,
         pl_criteria: models.Q | None = None,
         plt_criteria: models.Q | None = None,
         name: str | None = None
     ) -> list[Any]:
         pl_criteria &= models.Q(container_number__order__cancel_notification=False)
         plt_criteria &= models.Q(container_number__order__cancel_notification=False)
+        if self._validate_user_four_major_whs(user):
+            major_whs = ["ONT8","LAX9","LGB8","SBD1"]
+            pl_criteria &= models.Q(destination__in=major_whs)
+            plt_criteria &= models.Q(destination__in=major_whs)
+
         def sort_key(item):
             custom_method = item.get("custom_delivery_method")
             if custom_method is None:
@@ -3282,3 +3294,8 @@ class PostNsop(View):
         if await sync_to_async(lambda: request.user.is_authenticated)():
             return True
         return False
+    
+    async def _validate_user_four_major_whs(self, user: User) -> bool:       
+        return await sync_to_async(
+            lambda: user.groups.filter(name="four_major_whs").exists()
+        )()
