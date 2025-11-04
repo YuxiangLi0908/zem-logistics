@@ -421,17 +421,31 @@ class OrderCreation(View):
                 "retrieval_id__retrieval_destination_area",
                 "packing_list_updloaded",
                 "cancel_notification",
+                "id",
             ).filter(
                 (models.Q(created_at__gte=timezone.make_aware(datetime(2024, 8, 19)))
                  | models.Q(container_number__container_number__in=ADDITIONAL_CONTAINER))
                 & models.Q(offload_id__offload_at__isnull=True)
             )
         )
-        for order in orders:
-            if (order.customer_name__zem_name and order.order_type and order.created_at and order.container_number__container_number and order.vessel_id__master_bill_of_lading and order.vessel_id__vessel_etd and order.vessel_id and order.vessel_id__vessel and
-                    order.vessel_id__shipping_line and order.vessel_id__destination_port and order.packing_list_updloaded and order.container_number__container_type and order.vessel_id__vessel_eta):
-                order.status = "completed"
-                await sync_to_async(order.save)()
+        for order_dict in orders:
+            if (order_dict.get('customer_name__zem_name') and
+                    order_dict.get('order_type') and
+                    order_dict.get('created_at') and
+                    order_dict.get('container_number__container_number') and
+                    order_dict.get('vessel_id__master_bill_of_lading') and
+                    order_dict.get('vessel_id__vessel_etd') and
+                    order_dict.get('vessel_id') and
+                    order_dict.get('vessel_id__vessel') and
+                    order_dict.get('vessel_id__shipping_line') and
+                    order_dict.get('vessel_id__destination_port') and
+                    order_dict.get('packing_list_updloaded') and
+                    order_dict.get('container_number__container_type') and
+                    order_dict.get('vessel_id__vessel_eta')):
+                order_instance = await sync_to_async(Order.objects.get)(id=order_dict['id'])
+                order_instance.status = "completed"
+                await sync_to_async(order_instance.save)()
+
         unfinished_orders = [
             o for o in orders
             if
