@@ -459,7 +459,6 @@ class PostNsop(View):
         plt_ids = [
             int(i.strip()) for i in plt_ids_str.split(",") if i.strip().isdigit()
         ]
-        all_id = pl_ids + plt_ids
         if not pl_ids and not plt_ids:
             raise ValueError("没有获取到任何 ID")
         packinglist_data = await sync_to_async(
@@ -596,7 +595,6 @@ class PostNsop(View):
         # 如果只有一个 Destination，保持原来返回单 CSV
         if len(grouped_by_dest) == 1:
             df_single = pd.DataFrame.from_records(list(grouped_by_dest.values())[0])
-            df_single["all_id"] = str(all_id)
             response = HttpResponse(content_type="text/csv")
             response["Content-Disposition"] = f"attachment; filename=PO_virtual_fleet.csv"
             df_single.to_csv(path_or_buf=response, index=False)
@@ -607,7 +605,6 @@ class PostNsop(View):
         with zipfile.ZipFile(zip_buffer, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
             for dest, rows in grouped_by_dest.items():
                 df_dest = pd.DataFrame.from_records(rows)
-                df_dest["all_id"] = str(all_id)
                 csv_buffer = io.StringIO()
                 df_dest.to_csv(csv_buffer, index=False)
                 zf.writestr(f"{dest}.csv", csv_buffer.getvalue())
