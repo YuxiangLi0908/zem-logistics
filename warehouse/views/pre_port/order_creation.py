@@ -427,6 +427,11 @@ class OrderCreation(View):
                 & models.Q(offload_id__offload_at__isnull=True)
             )
         )
+        for order in orders:
+            if (order.customer_name__zem_name and order.order_type and order.created_at and order.container_number__container_number and order.vessel_id__master_bill_of_lading and order.vessel_id__vessel_etd and order.vessel_id and order.vessel_id__vessel and
+                    order.vessel_id__shipping_line and order.vessel_id__destination_port and order.packing_list_updloaded and order.container_number__container_type and order.vessel_id__vessel_eta):
+                order.status = "completed"
+                await sync_to_async(order.save)()
         unfinished_orders = [
             o for o in orders
             if
@@ -480,7 +485,7 @@ class OrderCreation(View):
             )
         except:
             vessel = []
-        if order.customer_name.zem_name and order.order_type and order.created_at and order.container_number.container_number and vessel.master_bill_of_lading and vessel.vessel_eta and vessel.id and vessel.vessel and vessel.shipping_line and vessel.destination_port and order.packing_list_updloaded and order.container_number.container_type and vessel.vessel_eta:
+        if order.customer_name.zem_name and order.order_type and order.created_at and order.container_number.container_number and vessel.master_bill_of_lading and vessel.vessel_etd and vessel.id and vessel.vessel and vessel.shipping_line and vessel.destination_port and order.packing_list_updloaded and order.container_number.container_type and vessel.vessel_eta:
             order.status = "completed"
             await sync_to_async(order.save)()
             return await self.handle_order_basic_info_get()
