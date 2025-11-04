@@ -207,7 +207,43 @@
     .data-table tr:hover td {
         background-color: #e8f4fc;
     }
+    
+    .data-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 20px;
+        font-size: 14px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        background: white;
+        border-radius: 6px;
+        overflow: hidden;
+    }
 
+    /* 修改表格容器样式 */
+    .data-table-container {
+        overflow: auto;
+        height: 600px;
+        margin-top: 20px;
+        border: 1px solid #bdc3c7;
+        border-radius: 6px;
+        position: relative;
+    }
+
+    .data-table {
+        width: 100%;
+        border-collapse: separate !important;
+        border-spacing: 0;
+        border-radius: 0;
+        overflow: visible;
+    }
+
+    .data-table thead th {
+        position: sticky;
+        top: 0;
+        background-color: #34495e;
+        color: white;
+        z-index: 10;
+    }
     .no-results {
         padding: 30px;
         text-align: center;
@@ -410,7 +446,7 @@
 </div>
 
 <!-- 结果表格 -->
-<div style="overflow-x: auto;">
+<div class="data-table-container">
     <table class="data-table" id="resultTable">
         <thead>
             <tr>
