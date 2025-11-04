@@ -3,111 +3,257 @@
 {% block content %}
 <style>
     .search-form {
-        background: #34495e;
-        padding: 20px;
-        border-radius: 8px;
-        margin-bottom: 20px;
-        color: white;
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        padding: 24px;
+        border-radius: 12px;
+        margin-bottom: 24px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+        border: 1px solid rgba(255, 255, 255, 0.5);
+        backdrop-filter: blur(10px);
     }
 
-    .search-input-group {
+    .search-header {
+        margin-bottom: 24px;
+        text-align: center;
+    }
+
+    .search-header h3 {
+        margin: 0;
+        font-size: 20px;
+        font-weight: 700;
+        color: #2c3e50;
+        text-shadow: 0 1px 2px rgba(0,0,0,0.1);
+    }
+
+    .search-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 20px;
+        align-items: end;
+    }
+
+    .form-group {
         display: flex;
-        gap: 10px;
-        flex-wrap: wrap;
-        align-items: center;
+        flex-direction: column;
     }
 
-    .search-input, .search-select {
-        padding: 8px 12px;
-        border-radius: 4px;
-        border: none;
+    .form-group.full-width {
+        grid-column: 1 / -1;
+    }
+
+    .form-label {
+        font-weight: 600;
+        color: #495057;
+        margin-bottom: 8px;
         font-size: 14px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
     }
 
-    .search-input {
-        min-width: 200px;
+    .form-label:before {
+        content: "•";
+        color: #3498db;
+        font-size: 16px;
     }
 
-    .search-select {
-        min-width: 160px;
+    .form-select, .form-input {
+        padding: 12px 16px;
+        border: 2px solid #dee2e6;
+        border-radius: 8px;
+        font-size: 14px;
+        transition: all 0.3s ease;
+        background: white;
+        color: #2c3e50;
+        height: 46px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+
+    .form-select:focus, .form-input:focus {
+        outline: none;
+        border-color: #3498db;
+        box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.15);
+        transform: translateY(-1px);
+    }
+
+    .form-select:hover, .form-input:hover {
+        border-color: #adb5bd;
+    }
+
+    .form-select {
+        cursor: pointer;
+        background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236c757d' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m6 8 4 4 4-4'/%3e%3c/svg%3e");
+        background-position: right 16px center;
+        background-repeat: no-repeat;
+        background-size: 16px;
+        padding-right: 48px;
+        appearance: none;
+    }
+
+    .form-input::placeholder {
+        color: #6c757d;
+        opacity: 0.7;
+    }
+
+    .search-actions {
+        margin-top: 24px;
+        padding-top: 24px;
+        border-top: 1px solid rgba(0,0,0,0.1);
+        display: flex;
+        gap: 12px;
+        justify-content: center;
     }
 
     .search-btn {
-        padding: 8px 16px;
-        background-color: #27ae60;
-        color: white;
+        padding: 12px 28px;
         border: none;
-        border-radius: 4px;
-        cursor: pointer;
+        border-radius: 8px;
+        font-size: 15px;
         font-weight: 600;
-        transition: all 0.3s;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        height: 48px;
+        min-width: 140px;
+        justify-content: center;
     }
 
-    .search-btn:hover {
-        background-color: #2ecc71;
+    .search-btn.primary {
+        background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+        color: white;
+        box-shadow: 0 4px 12px rgba(52, 152, 219, 0.3);
     }
 
+    .search-btn.primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(52, 152, 219, 0.4);
+    }
+
+    .search-btn.secondary {
+        background: white;
+        color: #6c757d;
+        border: 2px solid #dee2e6;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    .search-btn.secondary:hover {
+        background: #f8f9fa;
+        border-color: #adb5bd;
+        transform: translateY(-2px);
+    }
+
+
+    /* 查询信息样式 */
+    .search-info {
+        margin: 20px 0;
+        padding: 15px 20px;
+        background: #ecf0f1;
+        border-radius: 6px;
+        border-left: 4px solid #3498db;
+        font-size: 14px;
+        color: #2c3e50;
+    }
+
+    .search-info strong {
+        color: #2c3e50;
+    }
+
+    /* 表格样式保持不变 */
     .data-table {
         width: 100%;
         border-collapse: collapse;
-        margin-top: 15px;
-        font-size: 12px;
-    }
-
-    .data-table th, .data-table td {
-        border: 1px solid #bdc3c7;
-        padding: 6px 8px;
-        text-align: left;
+        margin-top: 20px;
+        font-size: 14px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        background: white;
+        border-radius: 6px;
+        overflow: hidden;
     }
 
     .data-table th {
         background-color: #34495e;
         color: white;
         font-weight: 600;
+        padding: 12px 15px;
+        border: 1px solid #2c3e50;
+        font-size: 14px;
         position: sticky;
         top: 0;
     }
 
-    .data-table tr:nth-child(even) {
-        background-color: #ecf0f1;
+    .data-table td {
+        padding: 10px 12px;
+        border: 1px solid #bdc3c7;
+        background: white;
+        color: #2c3e50;
     }
 
-    .data-table tr:hover {
-        background-color: #d0d7de;
+    .data-table tr:nth-child(even) td {
+        background-color: #f8f9fa;
+    }
+
+    .data-table tr:hover td {
+        background-color: #e8f4fc;
     }
 
     .no-results {
-        padding: 20px;
+        padding: 30px;
         text-align: center;
         color: #7f8c8d;
         font-style: italic;
         border: 1px solid #bdc3c7;
-        border-radius: 4px;
-        margin-top: 15px;
-    }
-
-    .search-info {
-        margin-bottom: 15px;
-        padding: 10px;
-        background: #f8f9fa;
-        border-radius: 4px;
-        border-left: 4px solid #3498db;
-        font-size: 14px;
+        border-radius: 6px;
+        margin-top: 20px;
+        background: #ecf0f1;
+        font-size: 16px;
     }
 
     .time-cell {
-        font-size: 11px;
+        font-size: 13px;
         white-space: nowrap;
+        font-family: 'Courier New', monospace;
+        color: #2c3e50;
     }
 
     .stat-badge {
         display: inline-block;
-        padding: 2px 6px;
-        background: #3498db;
+        padding: 4px 10px;
+        background: #e74c3c;
         color: white;
-        border-radius: 3px;
-        font-size: 11px;
+        border-radius: 4px;
+        font-size: 13px;
         font-weight: bold;
+        min-width: 30px;
+        text-align: center;
+    }
+
+    /* 响应式设计 */
+    @media (max-width: 1024px) {
+        .search-grid {
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        }
+    }
+
+    @media (max-width: 768px) {
+        .search-form {
+            padding: 20px;
+        }
+        
+        .search-grid {
+            grid-template-columns: 1fr;
+            gap: 16px;
+        }
+        
+        .search-actions {
+            flex-direction: column;
+            align-items: stretch;
+        }
+        
+        .search-btn {
+            min-width: auto;
+        }
     }
 </style>
 
@@ -116,38 +262,69 @@
     <form method="post">
         {% csrf_token %}
         <input type="hidden" name="step" value="query_pallet_packinglist">
-        <div class="search-input-group">
-            <select name="query_type" class="search-select" required>
-                <option value="pallet" {% if query_type == 'pallet' %}selected{% endif %}>板子查询</option>
-                <option value="packinglist" {% if query_type == 'packinglist' %}selected{% endif %}>packinglist查询</option>
-            </select>
+        
+        <div class="search-header">
+            <h3><i class="fas fa-search"></i> 高级搜索</h3>
+        </div>
+        
+        <div class="search-grid">
+            <div class="form-group">
+                <label class="form-label">查询类型</label>
+                <select name="query_type" class="form-select" required>
+                    <option value="pallet" {% if query_type == 'pallet' %}selected{% endif %}>板子查询</option>
+                    <option value="packinglist" {% if query_type == 'packinglist' %}selected{% endif %}>packinglist查询</option>
+                </select>
+            </div>
             
-            <select name="month_filter" class="search-select">
-                <option value="">全部月份</option>
-                {% for month in available_months %}
-                    <option value="{{ month|date:'Y-m' }}" 
-                            {% if month_filter == month|date:'Y-m' %}selected{% endif %}>
-                        {{ month|date:'Y年m月' }}
-                    </option>
-                {% endfor %}
-            </select>
-            <div>
-            <b style="margin-right: 5px;">选择仓库:</b>
+            <div class="form-group">
+                <label class="form-label">月份筛选</label>
+                <select name="month_filter" class="form-select">
+                    <option value="">全部月份</option>
+                    {% for month in available_months %}
+                        <option value="{{ month|date:'Y-m' }}" 
+                                {% if month_filter == month|date:'Y-m' %}selected{% endif %}>
+                            {{ month|date:'Y年m月' }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">选择仓库</label>
                 {{ warehouse_form.name }}
             </div>
-            <input type="date" name="start_date" value="{{ start_date }}" 
-                   class="search-input" placeholder="开始日期">
             
-            <input type="date" name="end_date" value="{{ end_date }}" 
-                   class="search-input" placeholder="结束日期">
-            <input type="date" name="destination" value="{{ destination }}" 
-                   class="search-input" placeholder="仓点">
+            <div class="form-group">
+                <label class="form-label">开始日期</label>
+                <input type="date" name="start_date" value="{{ start_date|date:'Y-m-d' }}" 
+                       class="form-input" placeholder="开始日期">
+            </div>
             
-            <input type="text" name="container_number" value="{{ container_number }}" 
-                   class="search-input" placeholder="柜号搜索">
+            <div class="form-group">
+                <label class="form-label">结束日期</label>
+                <input type="date" name="end_date" value="{{ end_date|date:'Y-m-d' }}" 
+                       class="form-input" placeholder="结束日期">
+            </div>
             
-            <button type="submit" class="search-btn">
-                <i class="fas fa-search"></i> 查询
+            <div class="form-group">
+                <label class="form-label">仓点</label>
+                <input type="text" name="destination" value="{{ destination }}" 
+                       class="form-input" placeholder="输入仓点">
+            </div>
+            
+            <div class="form-group full-width">
+                <label class="form-label">柜号搜索</label>
+                <input type="text" name="container_number" value="{{ container_number }}" 
+                       class="form-input" placeholder="输入柜号进行搜索">
+            </div>
+        </div>
+        
+        <div class="search-actions">
+            <button type="submit" class="search-btn primary">
+                <i class="fas fa-search"></i> 开始查询
+            </button>
+            <button type="button" class="search-btn secondary" onclick="this.form.reset()">
+                <i class="fas fa-redo"></i> 重置表单
             </button>
         </div>
     </form>
@@ -165,7 +342,7 @@
     {% if month_filter %}{{ month_filter }}{% else %}全部{% endif %}
     | 
     <strong>日期范围:</strong> 
-    {{ start_date|default:"开始" }} 至 {{ end_date|default:"结束" }}
+    {{ start_date|date:"Y-m-d"|default:"开始" }} 至 {{ end_date|date:"Y-m-d"|default:"结束" }}
     | 
     <strong>柜号:</strong> 
     {{ container_number|default:"全部" }}
@@ -182,6 +359,7 @@
             <tr>
                 <th>柜号</th>
                 <th>PO ID</th>
+                <th>仓点</th>
                 <th>批次号</th>
                 <th>板数</th>
                 <th>总件数</th>
@@ -200,7 +378,8 @@
             <tr>
                 <td><strong>{{ group.container_number }}</strong></td>
                 <td>{{ group.PO_ID }}</td>
-                <td>{{ group.shipment_batch_number }}</td>
+                <td>{{ group.destination }}</td>
+                <td>{{ group.shipment_batch_number }}</td>               
                 <td>
                     <span class="stat-badge">{{ group.pallet_count }}</span>
                 </td>
@@ -280,5 +459,8 @@ document.querySelectorAll('input[type="date"]').forEach(element => {
         this.form.submit();
     });
 });
+
+// 为仓库选择框添加样式类
+document.querySelector('select[name="name"]').classList.add('form-select');
 </script>
 {% endblock %}

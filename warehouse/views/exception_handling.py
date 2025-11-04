@@ -244,6 +244,7 @@ class ExceptionHandling(View):
                     "pallet_id": p.pallet_id,
                     "pcs": p.pcs,
                     "cbm": p.cbm,
+                    "destination": p.destination,
                     "weight": p.weight_lbs,
                     "delivery_window_start": p.delivery_window_start,
                     "delivery_window_end": p.delivery_window_end,
@@ -271,6 +272,7 @@ class ExceptionHandling(View):
                     "shipment_batch_number": pl.shipment_batch_number.shipment_batch_number if pl.shipment_batch_number else "-",
                     "pcs": pl.pcs,
                     "cbm": pl.cbm,
+                    "destination": p.destination,
                     "weight": pl.total_weight_lbs,
                     "delivery_window_start": pl.delivery_window_start,
                     "delivery_window_end": pl.delivery_window_end,
@@ -298,6 +300,7 @@ class ExceptionHandling(View):
                     "total_pcs": 0,
                     "total_cbm": 0,
                     "pallet_count": 0,
+                    "destination": r["destination"],
                     "actual_retrieval_timestamp": r["actual_retrieval_timestamp"],
                     "offload_time": r["offload_time"],
                     "empty_returned_at": r["empty_returned_at"],
@@ -325,15 +328,17 @@ class ExceptionHandling(View):
             )
         )()
         warehouse_form = ZemWarehouseForm(initial={"name": warehouse})
+        print('start_date',start_date)
         context = {
             "query_type": query_type,
             "container_number": container_number,
-            "start_date": start_date_str,
-            "end_date": end_date_str,
+            "start_date": start_date,
+            "end_date": end_date,
             "month_filter": month_filter,
             "grouped_results": grouped_results,
             "available_months": available_months,
             "warehouse_form": warehouse_form,
+            "destination": destination,
         }
         return self.template_query_pallet_packinglist, context
 
