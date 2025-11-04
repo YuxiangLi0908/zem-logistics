@@ -1,0 +1,282 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<style>
+    .search-form {
+        background: #34495e;
+        padding: 20px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+        color: white;
+    }
+
+    .search-input-group {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        align-items: center;
+    }
+
+    .search-input, .search-select {
+        padding: 8px 12px;
+        border-radius: 4px;
+        border: none;
+        font-size: 14px;
+    }
+
+    .search-input {
+        min-width: 200px;
+    }
+
+    .search-select {
+        min-width: 160px;
+    }
+
+    .search-btn {
+        padding: 8px 16px;
+        background-color: #27ae60;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-weight: 600;
+        transition: all 0.3s;
+    }
+
+    .search-btn:hover {
+        background-color: #2ecc71;
+    }
+
+    .data-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 15px;
+        font-size: 12px;
+    }
+
+    .data-table th, .data-table td {
+        border: 1px solid #bdc3c7;
+        padding: 6px 8px;
+        text-align: left;
+    }
+
+    .data-table th {
+        background-color: #34495e;
+        color: white;
+        font-weight: 600;
+        position: sticky;
+        top: 0;
+    }
+
+    .data-table tr:nth-child(even) {
+        background-color: #ecf0f1;
+    }
+
+    .data-table tr:hover {
+        background-color: #d0d7de;
+    }
+
+    .no-results {
+        padding: 20px;
+        text-align: center;
+        color: #7f8c8d;
+        font-style: italic;
+        border: 1px solid #bdc3c7;
+        border-radius: 4px;
+        margin-top: 15px;
+    }
+
+    .search-info {
+        margin-bottom: 15px;
+        padding: 10px;
+        background: #f8f9fa;
+        border-radius: 4px;
+        border-left: 4px solid #3498db;
+        font-size: 14px;
+    }
+
+    .time-cell {
+        font-size: 11px;
+        white-space: nowrap;
+    }
+
+    .stat-badge {
+        display: inline-block;
+        padding: 2px 6px;
+        background: #3498db;
+        color: white;
+        border-radius: 3px;
+        font-size: 11px;
+        font-weight: bold;
+    }
+</style>
+
+<!-- 查询表单 -->
+<div class="search-form">
+    <form method="post">
+        {% csrf_token %}
+        <input type="hidden" name="step" value="query_pallet_packinglist">
+        <div class="search-input-group">
+            <select name="query_type" class="search-select" required>
+                <option value="pallet" {% if query_type == 'pallet' %}selected{% endif %}>板子查询</option>
+                <option value="packinglist" {% if query_type == 'packinglist' %}selected{% endif %}>packinglist查询</option>
+            </select>
+            
+            <select name="month_filter" class="search-select">
+                <option value="">全部月份</option>
+                {% for month in available_months %}
+                    <option value="{{ month|date:'Y-m' }}" 
+                            {% if month_filter == month|date:'Y-m' %}selected{% endif %}>
+                        {{ month|date:'Y年m月' }}
+                    </option>
+                {% endfor %}
+            </select>
+            <div>
+            <b style="margin-right: 5px;">选择仓库:</b>
+                {{ warehouse_form.name }}
+            </div>
+            <input type="date" name="start_date" value="{{ start_date }}" 
+                   class="search-input" placeholder="开始日期">
+            
+            <input type="date" name="end_date" value="{{ end_date }}" 
+                   class="search-input" placeholder="结束日期">
+            
+            <input type="text" name="container_number" value="{{ container_number }}" 
+                   class="search-input" placeholder="柜号搜索">
+            
+            <button type="submit" class="search-btn">
+                <i class="fas fa-search"></i> 查询
+            </button>
+        </div>
+    </form>
+</div>
+
+<!-- 查询信息 -->
+{% if grouped_results %}
+<div class="search-info">
+    <strong>查询类型:</strong> 
+    {% if query_type == 'pallet' %}板子查询
+    {% else %}packinglist查询
+    {% endif %}
+    | 
+    <strong>月份:</strong> 
+    {% if month_filter %}{{ month_filter }}{% else %}全部{% endif %}
+    | 
+    <strong>日期范围:</strong> 
+    {{ start_date|default:"开始" }} 至 {{ end_date|default:"结束" }}
+    | 
+    <strong>柜号:</strong> 
+    {{ container_number|default:"全部" }}
+    | 
+    <strong>查询结果:</strong> {{ grouped_results|length }} 组记录
+</div>
+{% endif %}
+
+<!-- 结果表格 -->
+{% if grouped_results %}
+<div style="overflow-x: auto;">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>柜号</th>
+                <th>PO ID</th>
+                <th>批次号</th>
+                <th>板数</th>
+                <th>总件数</th>
+                <th>总体积(CBM)</th>
+                <th>提柜时间</th>
+                <th>入仓时间</th>
+                <th>还空时间</th>
+                <th>预约时间</th>
+                <th>出库时间</th>
+                <th>到达时间</th>
+                <th>POD上传时间</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for group in grouped_results %}
+            <tr>
+                <td><strong>{{ group.container_number }}</strong></td>
+                <td>{{ group.PO_ID }}</td>
+                <td>{{ group.shipment_batch_number }}</td>
+                <td>
+                    <span class="stat-badge">{{ group.pallet_count }}</span>
+                </td>
+                <td>{{ group.total_pcs }}</td>
+                <td>{{ group.total_cbm|floatformat:2 }}</td>
+                <td class="time-cell">
+                    {% if group.actual_retrieval_timestamp %}
+                        {{ group.actual_retrieval_timestamp|date:"m/d H:i" }}
+                    {% else %}
+                        -
+                    {% endif %}
+                </td>
+                <td class="time-cell">
+                    {% if group.offload_time %}
+                        {{ group.offload_time|date:"m/d H:i" }}
+                    {% else %}
+                        -
+                    {% endif %}
+                </td>
+                <td class="time-cell">
+                    {% if group.empty_returned_at %}
+                        {{ group.empty_returned_at|date:"m/d H:i" }}
+                    {% else %}
+                        -
+                    {% endif %}
+                </td>
+                <td class="time-cell">
+                    {% if group.shipment_appointment %}
+                        {{ group.shipment_appointment|date:"m/d H:i" }}
+                    {% else %}
+                        -
+                    {% endif %}
+                </td>
+                <td class="time-cell">
+                    {% if group.shipped_at %}
+                        {{ group.shipped_at|date:"m/d H:i" }}
+                    {% else %}
+                        -
+                    {% endif %}
+                </td>
+                <td class="time-cell">
+                    {% if group.arrived_at %}
+                        {{ group.arrived_at|date:"m/d H:i" }}
+                    {% else %}
+                        -
+                    {% endif %}
+                </td>
+                <td class="time-cell">
+                    {% if group.pod_uploaded_at %}
+                        {{ group.pod_uploaded_at|date:"m/d H:i" }}
+                    {% else %}
+                        -
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% elif container_number or start_date or end_date or month_filter %}
+<div class="no-results">
+    未找到符合条件的记录
+</div>
+{% endif %}
+
+<script>
+// 自动表单提交
+document.querySelectorAll('.search-select').forEach(element => {
+    element.addEventListener('change', function() {
+        this.form.submit();
+    });
+});
+
+// 日期输入框失去焦点时提交
+document.querySelectorAll('input[type="date"]').forEach(element => {
+    element.addEventListener('change', function() {
+        this.form.submit();
+    });
+});
+</script>
+{% endblock %}
