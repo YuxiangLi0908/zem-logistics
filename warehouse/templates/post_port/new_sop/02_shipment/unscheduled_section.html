@@ -462,7 +462,9 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         const cargoIds = Array.from(checkedBoxes).map(cb => cb.dataset.cargoId);
+        console.log('cargoIds',cargoIds);
         const pltIds = Array.from(checkedBoxes).map(cb => cb.dataset.pltId);
+        console.log('pltIds',pltIds);
 
         document.getElementById('formStep').value = 'export_virtual_fleet_pos';
         document.getElementById('formCargoIds').value = cargoIds.join(',');
