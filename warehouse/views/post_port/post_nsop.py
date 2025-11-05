@@ -489,7 +489,7 @@ class PostNsop(View):
         pallet_data = await sync_to_async(
             lambda: list(
                 Pallet.objects.select_related("container_number")
-                .filter(id__in=plt_ids)
+                .filter(id__in=plt_ids,is_dropped_pallet=False)
                 .values(
                     "id",
                     "shipping_mark",
@@ -1228,7 +1228,6 @@ class PostNsop(View):
         return await self.handle_appointment_management_post(request)
 
     async def handle_export_pos(self, request: HttpRequest) -> HttpResponse:
-        print(request.POST)
         cargo_ids_str_list = request.POST.getlist("cargo_ids")
         pl_ids = [
             int(pl_id) 
@@ -1935,6 +1934,7 @@ class PostNsop(View):
                         'total_n_pallet_est': cargo.get('total_n_pallet_est', 0),
                         'total_cbm': cargo.get('total_cbm', 0),
                         'label': cargo.get('label', ''),
+                        'is_dropped_pallet': cargo.get('is_dropped_pallet'),
                     } for cargo in primary_group['cargos']],
                     'intelligent_cargos': intelligent_cargos,
                     'intelligent_pos_stats': intelligent_pos_stats,
@@ -2605,6 +2605,7 @@ class PostNsop(View):
                     "delivery_window_end",
                     "note",
                     "container_number",
+                    "is_dropped_pallet",
                     "shipment_batch_number__shipment_batch_number",
                     "data_source",  # 包含数据源标识
                     "shipment_batch_number__fleet_number__fleet_number",
