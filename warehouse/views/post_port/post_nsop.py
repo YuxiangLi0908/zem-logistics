@@ -60,7 +60,7 @@ from warehouse.utils.constants import (
 class PostNsop(View):
     template_main_dash = "post_port/new_sop/01_appointment/01_appointment_management.html"
     template_td_shipment = "post_port/new_sop/02_shipment/02_td_shipment.html"
-    template_fleet_schedule = "post_port/new_sop/03_fleet_schedule.html"
+    template_fleet_schedule = "post_port/new_sop/03_fleet_schedule/03_fleet_schedule.html"
     area_options = {"NJ": "NJ", "SAV": "SAV", "LA": "LA", "MO": "MO", "TX": "TX"}
     warehouse_options = {"":"", "NJ-07001": "NJ-07001", "SAV-31326": "SAV-31326", "LA-91761": "LA-91761"}
     account_options = {
@@ -435,14 +435,37 @@ class PostNsop(View):
     async def handle_fleet_departure_post(
         self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
-        batch_number = request.POST.getlist('batch_number')
-        new_batch = []
-        for i in batch_number:
-            shipment = await sync_to_async(Shipment.objects.get)(appointment_id=i)
-            new_batch.append(shipment.shipment_batch_number)
+        request.POST = request.POST.copy()
+        if "plt_ids" in request.POST:
+            try:
+                raw_plt = request.POST.get("plt_ids")
+                plt_list = json.loads(raw_plt)  # => [["5022,5023,5024,5025,5026"], ["3343,3344"]]
+                flattened_plt = [",".join(inner) if isinstance(inner, list) else str(inner) for inner in plt_list]
+                request.POST.setlist("plt_ids", flattened_plt)
+            except Exception as e:
+                raise ValueError("⚠️ plt_ids 解析错误:", e)
+
+        for key in ["scheduled_pallet", "actual_shipped_pallet"]:
+            if key in request.POST:
+                raw_value = request.POST.get(key)  # 例如 '5,2'
+                parts = [v.strip() for v in raw_value.split(",") if v.strip()]
+                request.POST.setlist(key, parts)
+        if "batch_number" in request.POST:
+            raw_value = request.POST.get("batch_number")  # 例如 '23487532,43324296'
+            try:
+                parts = [int(v.strip()) for v in raw_value.split(",") if v.strip()]
+                parts = list(set(parts))
+                shipments = await sync_to_async(Shipment.objects.filter)(
+                    appointment_id__in=parts
+                )
+                batch_numbers = await sync_to_async(list)(
+                    shipments.values_list('shipment_batch_number', flat=True)
+                )
+            except ValueError:
+                raise ValueError("⚠️ batch_number 转换为 int 出错，原始值:", raw_value)
 
         request.POST = request.POST.copy()
-        request.POST.setlist('batch_number', new_batch)
+        request.POST.setlist('batch_number', batch_numbers)
         fm = FleetManagement()
         context = await fm.handle_fleet_departure_post(request,'post_nsop')
         return await self.handle_td_shipment_post(request,context)         
@@ -1677,9 +1700,10 @@ class PostNsop(View):
         sp_fl = await self._fl_unscheduled_data(request, warehouse)
         delivery_data = await self._fl_delivery_get(request, warehouse)
         pod_data = await self._fl_pod_get(request, warehouse)
-        #ready_to_ship_data = await self._sp_ready_to_ship_data(warehouse,request.user)
+        ready_to_ship_data = await self._sp_ready_to_ship_data(warehouse,request.user)
         summary = {
             'unscheduled_count': len(sp_fl['shipment_list']),
+            'ready_to_ship_count': len(ready_to_ship_data),
             'scheduled_count': len(sp_fl['fleet_list']),
             'ready_count': len(delivery_data['shipments']),
             'pod_count': len(pod_data['fleet']),
@@ -1691,7 +1715,7 @@ class PostNsop(View):
             'fleet_list': sp_fl['fleet_list'],
             'delivery_shipments': delivery_data['shipments'],
             'pod_shipments': pod_data['fleet'],
-            #ready_to_ship_data: ready_to_ship_data,
+            'ready_to_ship_data': ready_to_ship_data,
             'summary': summary,        
             'warehouse_options': self.warehouse_options,
             "account_options": self.account_options,
