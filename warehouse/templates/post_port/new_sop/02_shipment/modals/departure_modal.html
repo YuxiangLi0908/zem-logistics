@@ -77,7 +77,29 @@
         </div>
     </div>
 </div>
+<style>
+#confirmDepartureModal .modal-table td:nth-child(3),
+#confirmDepartureModal .modal-table td:nth-child(4) {
+    max-width: 160px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+#confirmDepartureModal .modal-table th:nth-child(5) {
+    max-width: 120px;
+    min-width: 160px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
 
+/* 可选：表头宽度也保持一致 */
+#confirmDepartureModal .modal-table th:nth-child(3),
+#confirmDepartureModal .modal-table th:nth-child(4) {
+    max-width: 160px;
+    min-width: 160px;
+}
+</style>
 <script>
 // 出库确认模态框的JavaScript
 function openDepartureModal(fleetNumber, fleetData) {
@@ -86,54 +108,60 @@ function openDepartureModal(fleetNumber, fleetData) {
     const fleetNumberInput = document.getElementById('fleetNumber');
     const modalFleetSpan = document.getElementById('modalFleetNumber');
 
-    if (!modal || !tbody) {
-        console.error('Modal elements not found');
-        return;
-    }
-
-    tbody.innerHTML = '';
-
+    if (!modal || !tbody) return console.error('Modal elements not found');
+    
     if (fleetNumberInput) fleetNumberInput.value = fleetNumber;
     if (modalFleetSpan) modalFleetSpan.textContent = fleetNumber;
+
+    tbody.innerHTML = '';
 
     let totalPlanned = 0;
     let totalActual = 0;
     let hasEst = false;
     let hasUnfilled = false;
+    let hasAnomaly = false; // 标记异常行
 
     fleetData.shipments.forEach(shipment => {
         const appointment = shipment.appointmentId || '-';
         const destination = shipment.destination || '-';
-
         (shipment.cargos || []).forEach(cargo => {
             const tr = document.createElement('tr');
 
+            // 预约号
             const apptTd = document.createElement('td');
             apptTd.textContent = appointment;
             tr.appendChild(apptTd);
 
+            // 目的地
             const destTd = document.createElement('td');
             destTd.textContent = destination;
             tr.appendChild(destTd);
 
+            // REF ID
             const refTd = document.createElement('td');
             refTd.textContent = cargo.refIds || '-';
+            refTd.title = cargo.refIds || '';
             tr.appendChild(refTd);
 
+            // FBA ID
             const fbaTd = document.createElement('td');
             fbaTd.textContent = cargo.fbaIds || '-';
+            fbaTd.title = cargo.fbaIds || '';
             tr.appendChild(fbaTd);
 
+            // 柜号
             const contTd = document.createElement('td');
             contTd.textContent = cargo.containerNo || '-';
             tr.appendChild(contTd);
 
+            // 计划板数
             const planned = (typeof cargo.plannedPallets === 'number') ? cargo.plannedPallets : (parseFloat(cargo.plannedPallets) || 0);
             const labelPart = cargo.palletLabel ? (' ' + cargo.palletLabel) : '';
             const planTd = document.createElement('td');
             planTd.textContent = (planned || planned === 0) ? (planned + labelPart) : '-';
             tr.appendChild(planTd);
 
+            // 实际出库板数（可编辑）
             const actualTd = document.createElement('td');
             const actualInput = document.createElement('input');
             actualInput.type = 'number';
@@ -147,26 +175,48 @@ function openDepartureModal(fleetNumber, fleetData) {
             actualTd.appendChild(actualInput);
             tr.appendChild(actualTd);
 
+            // 状态列（根据 pltId / cargoId 决定）
             const statusTd = document.createElement('td');
-            const status = (parseFloat(actualInput.value || 0) >= parseFloat(planned || 0) && parseFloat(planned || 0) > 0) ? '已打板' : '未打板';
-            statusTd.textContent = status;
+
+            // **关键：明确设置两个 dataset 字段**
+            tr.dataset.pltId = (cargo.pltId || '').toString();
+            tr.dataset.cargoId = (cargo.cargoId || '').toString();
+            tr.dataset.planned = (cargo.plannedPallets || 0).toString();
+            tr.dataset.palletLabel = (cargo.palletLabel || '').toString();
+
+            // 决定状态：只有 cargoId -> 未打板；只有 pltId -> 已打板；两者都有/都没有 -> 异常
+            const hasPlt = Boolean((tr.dataset.pltId || '').trim());
+            console.log('hasPlt',hasPlt,tr.dataset.pltId);
+            const hasCargoId = Boolean((tr.dataset.cargoId || '').trim());
+            console.log('hasCargoId',hasCargoId,tr.dataset.cargoId);
+
+            let statusText = '';
+            if (hasPlt && !hasCargoId) {
+                statusText = '已打板';
+                statusTd.classList.add('status-ok');
+            } else if (!hasPlt && hasCargoId) {
+                statusText = '未打板';
+                statusTd.classList.add('status-warning');
+            } else if (hasPlt && hasCargoId) {
+                statusText = '异常（双ID）';
+                statusTd.classList.add('status-error');
+                hasAnomaly = true;
+            } else { // !hasPlt && !hasCargoId
+                statusText = '异常（无ID）';
+                statusTd.classList.add('status-error');
+                hasAnomaly = true;
+            }
+            statusTd.textContent = statusText;
             tr.appendChild(statusTd);
 
-            if (cargo.pltId) {
-                tr.dataset.pltId = cargo.pltId;
-            } else if (cargo.cargoId) {
-                tr.dataset.pltId = cargo.cargoId;
-            }
+            // 处理 EST 警告
+            if (String(cargo.palletLabel || '').toUpperCase() === 'EST') hasEst = true;
 
-            tr.dataset.planned = planned;
-            if (cargo.palletLabel) {
-                tr.dataset.palletLabel = cargo.palletLabel;
-                if (String(cargo.palletLabel).toUpperCase() === 'EST') hasEst = true;
-            }
-
+            // 统计
             totalPlanned += planned;
-            totalActual += parseFloat(actualInput.value || 0);
-            if (parseFloat(actualInput.value || 0) < planned) hasUnfilled = true;
+            const actualVal = parseFloat(actualInput.value || 0) || 0;
+            totalActual += actualVal;
+            if (actualVal < planned) hasUnfilled = true;
 
             tbody.appendChild(tr);
         });
@@ -180,13 +230,21 @@ function openDepartureModal(fleetNumber, fleetData) {
     if (totalActualElem) totalActualElem.textContent = totalActual;
     if (estWarning) {
         estWarning.style.display = (hasEst || hasUnfilled) ? 'block' : 'none';
+        // 如果存在异常也高亮提示
+        if (hasAnomaly) {
+            estWarning.style.display = 'block';
+            estWarning.textContent = '存在异常 ID 配置（双ID或无ID），请核实！';
+        } else {
+            estWarning.textContent = '存在未打板货物，请核实！';
+        }
     }
 
     function updateTotalsAndWarning() {
         let tp = 0;
         let ta = 0;
         let anyEst = false;
-        let anyUnfilled = false;
+        let anyUnfilledLocal = false;
+        let anyAnomaly = false;
         Array.from(tbody.children).forEach(tr => {
             const plannedNum = parseFloat(tr.dataset.planned || 0) || 0;
             const input = tr.querySelector('input[type="number"]');
@@ -194,17 +252,36 @@ function openDepartureModal(fleetNumber, fleetData) {
             tp += plannedNum;
             ta += actualNum;
             if ((tr.dataset.palletLabel || '').toUpperCase() === 'EST') anyEst = true;
-            if (actualNum < plannedNum) anyUnfilled = true;
+            if (actualNum < plannedNum) anyUnfilledLocal = true;
+
+            // 重新计算状态文字（如果你希望状态随实际板数变化）
+            const hasPlt = Boolean((tr.dataset.pltId || '').trim());
+            const hasCargoId = Boolean((tr.dataset.cargoId || '').trim());
+            console.log('板数内容1是',tr.dataset.pltId);
+            console.log('板数内容2是',tr.dataset.cargoId);
             const statusTd = tr.children[tr.children.length - 1];
             if (statusTd) {
-                const newStatus = (actualNum >= plannedNum && plannedNum > 0) ? '已打板' : '未打板';
-                console.log(`行状态更新: planned=${plannedNum}, actual=${actualNum}, status=${newStatus}`);
+                let newStatus = '';
+                if (hasPlt && !hasCargoId) newStatus = '已打板';
+                
+                else if (!hasPlt && hasCargoId) newStatus = '未打板';
+                else if (hasPlt && hasCargoId) { newStatus = '异常（双ID）'; anyAnomaly = true; }
+                else { newStatus = '异常（无ID）'; anyAnomaly = true; }
                 statusTd.textContent = newStatus;
+                console.log('newStatus',newStatus);
             }
         });
         if (totalScheduledElem) totalScheduledElem.textContent = tp;
         if (totalActualElem) totalActualElem.textContent = ta;
-        if (estWarning) estWarning.style.display = (anyEst || anyUnfilled) ? 'block' : 'none';
+        if (estWarning) {
+            if (anyAnomaly) {
+                estWarning.style.display = 'block';
+                estWarning.textContent = '存在异常 ID 配置（双ID或无ID），请核实！';
+            } else {
+                estWarning.style.display = (anyEst || anyUnfilledLocal) ? 'block' : 'none';
+                estWarning.textContent = '存在未打板货物，请核实！';
+            }
+        }
     }
 
     const closeBtns = modal.querySelectorAll('.close-departure');
@@ -219,7 +296,6 @@ function openDepartureModal(fleetNumber, fleetData) {
     modal.style.display = 'block';
     updateTotalsAndWarning();
 }
-
 function closeDepartureModal() {
     const modal = document.getElementById('confirmDepartureModal');
     if (modal) modal.style.display = 'none';

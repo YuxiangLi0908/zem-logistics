@@ -1,0 +1,606 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<style>
+    .search-form {
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        padding: 24px;
+        border-radius: 12px;
+        margin-bottom: 24px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+        border: 1px solid rgba(255, 255, 255, 0.5);
+    }
+
+    .search-header {
+        margin-bottom: 24px;
+        text-align: center;
+    }
+
+    .search-header h3 {
+        margin: 0;
+        font-size: 20px;
+        font-weight: 700;
+        color: #2c3e50;
+        text-shadow: 0 1px 2px rgba(0,0,0,0.1);
+    }
+
+    .search-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 20px;
+        align-items: end;
+    }
+
+    .form-group {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .form-group.full-width {
+        grid-column: 1 / -1;
+    }
+
+    .form-group.action-row {
+        grid-column: 1 / -1;
+        display: grid;
+        grid-template-columns: 1fr auto auto auto;
+        gap: 16px;
+        align-items: end;
+    }
+
+    .form-label {
+        font-weight: 600;
+        color: #495057;
+        margin-bottom: 8px;
+        font-size: 14px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .form-label:before {
+        content: "•";
+        color: #3498db;
+        font-size: 16px;
+    }
+
+    .form-select, .form-input {
+        padding: 12px 16px;
+        border: 2px solid #dee2e6;
+        border-radius: 8px;
+        font-size: 14px;
+        transition: all 0.3s ease;
+        background: white;
+        color: #2c3e50;
+        height: 46px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+
+    .form-select:focus, .form-input:focus {
+        outline: none;
+        border-color: #3498db;
+        box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.15);
+        transform: translateY(-1px);
+    }
+
+    .form-select:hover, .form-input:hover {
+        border-color: #adb5bd;
+    }
+
+    .form-select {
+        cursor: pointer;
+        background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236c757d' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m6 8 4 4 4-4'/%3e%3c/svg%3e");
+        background-position: right 16px center;
+        background-repeat: no-repeat;
+        background-size: 16px;
+        padding-right: 48px;
+        appearance: none;
+    }
+
+    .form-input::placeholder {
+        color: #6c757d;
+        opacity: 0.7;
+    }
+
+    .checkbox-group {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 8px;
+    }
+
+    .checkbox-group input[type="checkbox"] {
+        width: 16px;
+        height: 16px;
+    }
+
+    .search-btn {
+        padding: 12px 24px;
+        border: none;
+        border-radius: 8px;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        height: 46px;
+        min-width: 120px;
+        justify-content: center;
+        white-space: nowrap;
+    }
+
+    .search-btn.primary {
+        background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+        color: white;
+        box-shadow: 0 4px 12px rgba(52, 152, 219, 0.3);
+    }
+
+    .search-btn.primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(52, 152, 219, 0.4);
+    }
+
+    .search-btn.secondary {
+        background: white;
+        color: #6c757d;
+        border: 2px solid #dee2e6;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    .search-btn.secondary:hover {
+        background: #f8f9fa;
+        border-color: #adb5bd;
+        transform: translateY(-2px);
+    }
+
+    /* 查询信息样式 */
+    .search-info {
+        margin: 20px 0;
+        padding: 15px 20px;
+        background: #ecf0f1;
+        border-radius: 6px;
+        border-left: 4px solid #3498db;
+        font-size: 14px;
+        color: #2c3e50;
+    }
+
+    .search-info strong {
+        color: #2c3e50;
+    }
+
+    /* 表格样式 */
+    .data-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 20px;
+        font-size: 14px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        background: white;
+        border-radius: 6px;
+        overflow: hidden;
+    }
+
+    .data-table th {
+        background-color: #34495e;
+        color: white;
+        font-weight: 600;
+        padding: 12px 15px;
+        border: 1px solid #2c3e50;
+        font-size: 14px;
+        position: sticky;
+        top: 0;
+    }
+
+    .data-table td {
+        padding: 10px 12px;
+        border: 1px solid #bdc3c7;
+        background: white;
+        color: #2c3e50;
+    }
+
+    .data-table tr:nth-child(even) td {
+        background-color: #f8f9fa;
+    }
+
+    .data-table tr:hover td {
+        background-color: #e8f4fc;
+    }
+    
+    .data-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 20px;
+        font-size: 14px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        background: white;
+        border-radius: 6px;
+        overflow: hidden;
+    }
+
+    /* 修改表格容器样式 */
+    .data-table-container {
+        overflow: auto;
+        height: 600px;
+        margin-top: 20px;
+        border: 1px solid #bdc3c7;
+        border-radius: 6px;
+        position: relative;
+    }
+
+    .data-table {
+        width: 100%;
+        border-collapse: separate !important;
+        border-spacing: 0;
+        border-radius: 0;
+        overflow: visible;
+    }
+
+    .data-table thead th {
+        position: sticky;
+        top: 0;
+        background-color: #34495e;
+        color: white;
+        z-index: 10;
+    }
+    .no-results {
+        padding: 30px;
+        text-align: center;
+        color: #7f8c8d;
+        font-style: italic;
+        border: 1px solid #bdc3c7;
+        border-radius: 6px;
+        margin-top: 20px;
+        background: #ecf0f1;
+        font-size: 16px;
+    }
+
+    .time-cell {
+        font-size: 13px;
+        white-space: nowrap;
+        font-family: 'Courier New', monospace;
+        color: #2c3e50;
+    }
+
+    .time-cell.missing {
+        color: #e74c3c;
+        font-weight: bold;
+    }
+
+    .stat-badge {
+        display: inline-block;
+        padding: 4px 10px;
+        background: #e74c3c;
+        color: white;
+        border-radius: 4px;
+        font-size: 13px;
+        font-weight: bold;
+        min-width: 30px;
+        text-align: center;
+    }
+
+    .complete-badge {
+        background: #27ae60;
+    }
+
+    .filter-controls {
+        display: flex;
+        gap: 15px;
+        margin-bottom: 15px;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+
+    .filter-input {
+        padding: 8px 12px;
+        border: 1px solid #bdc3c7;
+        border-radius: 4px;
+        font-size: 14px;
+        min-width: 150px;
+    }
+
+    /* 响应式设计 */
+    @media (max-width: 1024px) {
+        .search-grid {
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        }
+        
+        .form-group.action-row {
+            grid-template-columns: 1fr;
+            gap: 12px;
+        }
+    }
+
+    @media (max-width: 768px) {
+        .search-form {
+            padding: 20px;
+        }
+        
+        .search-grid {
+            grid-template-columns: 1fr;
+            gap: 16px;
+        }
+        
+        .search-btn {
+            min-width: auto;
+            width: 100%;
+        }
+        
+        .filter-controls {
+            flex-direction: column;
+            align-items: stretch;
+        }
+        
+        .filter-input {
+            min-width: auto;
+        }
+    }
+</style>
+
+<!-- 查询表单 -->
+<div class="search-form">
+    <form method="post" id="searchForm">
+        {% csrf_token %}
+        <input type="hidden" name="step" value="query_pallet_packinglist">
+        
+        <div class="search-header">
+            <h3><i class="fas fa-search"></i> 高级搜索</h3>
+        </div>
+        
+        <div class="search-grid">
+            <div class="form-group">
+                <label class="form-label">查询类型</label>
+                <select name="query_type" class="form-select" required>
+                    <option value="pallet" {% if query_type == 'pallet' %}selected{% endif %}>板子查询</option>
+                    <option value="packinglist" {% if query_type == 'packinglist' %}selected{% endif %}>packinglist查询</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">入仓月份筛选</label>
+                <select name="month_filter" class="form-select">
+                    <option value="">全部月份</option>
+                    {% for month in available_months %}
+                        <option value="{{ month|date:'Y-m' }}" 
+                                {% if month_filter == month|date:'Y-m' %}selected{% endif %}>
+                            {{ month|date:'Y年m月' }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">选择仓库</label>
+                {{ warehouse_form.name }}
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">入仓开始日期</label>
+                <input type="date" name="start_date" value="{{ start_date|date:'Y-m-d' }}" 
+                       class="form-input" placeholder="开始日期">
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">入仓结束日期</label>
+                <input type="date" name="end_date" value="{{ end_date|date:'Y-m-d' }}" 
+                       class="form-input" placeholder="结束日期">
+            </div>
+            
+            <!-- 柜号搜索和按钮放在同一排 -->
+            <div class="form-group action-row">
+                <div style="display: flex; gap: 12px; align-items: flex-end;">
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label class="form-label">柜号搜索</label>
+                        <input type="text" name="container_number" value="{{ container_number }}" 
+                            class="form-input" placeholder="输入柜号">
+                    </div>
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label class="form-label">仓点</label>
+                        <input type="text" name="destination" value="{{ destination }}" 
+                            class="form-input" placeholder="输入仓点">
+                    </div>
+                </div>
+
+                <div class="checkbox-group" style="margin-top: 10px;">
+                    <input type="checkbox" name="show_complete" id="show_complete" {% if show_complete %}checked{% endif %}>
+                    <label for="show_complete" class="form-label" style="margin-bottom: 0;">显示完整记录</label>
+                </div>
+
+                <button type="submit" class="search-btn primary">
+                    <i class="fas fa-search"></i> 开始查询
+                </button>
+            </div>
+        </div>
+    </form>
+</div>
+
+<!-- 查询信息 -->
+{% if grouped_results %}
+<div class="search-info">
+    <strong>查询类型:</strong> 
+    {% if query_type == 'pallet' %}板子查询
+    {% else %}packinglist查询
+    {% endif %}
+    | 
+    <strong>月份:</strong> 
+    {% if month_filter %}{{ month_filter }}{% else %}全部{% endif %}
+    | 
+    <strong>日期范围:</strong> 
+    {{ start_date|date:"Y-m-d"|default:"开始" }} 至 {{ end_date|date:"Y-m-d"|default:"结束" }}
+    | 
+    <strong>柜号:</strong> 
+    {{ container_number|default:"全部" }}
+    | 
+    <strong>仓点:</strong> 
+    {{ destination|default:"全部" }}
+    | 
+    <strong>查询结果:</strong> {{ grouped_results|length }} 组记录
+</div>
+
+<!-- 前端筛选控件 -->
+<div class="filter-controls">
+    <input type="text" id="filterContainer" class="filter-input" placeholder="筛选柜号...">
+    <input type="text" id="filterDestination" class="filter-input" placeholder="筛选仓点...">
+    <input type="text" id="filterPO" class="filter-input" placeholder="筛选PO ID...">
+</div>
+
+<!-- 结果表格 -->
+<div class="data-table-container">
+    <table class="data-table" id="resultTable">
+        <thead>
+            <tr>
+                <th>柜号</th>
+                <th>PO ID</th>
+                <th>仓点</th>
+                <th>批次号</th>
+                <th>板数</th>
+                <th>总件数</th>
+                <th>总体积(CBM)</th>
+                <th>提柜时间</th>
+                <th>入仓时间</th>
+                <th>还空时间</th>
+                <th>预约时间</th>
+                <th>出库时间</th>
+                <th>到达时间</th>
+                <th>POD上传时间</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for group in grouped_results %}
+            <tr class="data-row" 
+                data-container="{{ group.container_number }}"
+                data-destination="{{ group.destination }}"
+                data-po="{{ group.PO_ID }}">
+                <td><strong>{{ group.container_number }}</strong></td>
+                <td>{{ group.PO_ID }}</td>
+                <td>{{ group.destination }}</td>
+                <td>{{ group.shipment_batch_number }}</td>               
+                <td>
+                    <span class="stat-badge {% if group.is_complete %}complete-badge{% endif %}">
+                        {{ group.pallet_count }}
+                    </span>
+                </td>
+                <td>{{ group.total_pcs }}</td>
+                <td>{{ group.total_cbm|floatformat:2 }}</td>
+                <td class="time-cell {% if not group.actual_retrieval_timestamp %}missing{% endif %}">
+                    {% if group.actual_retrieval_timestamp %}
+                        {{ group.actual_retrieval_timestamp|date:"m/d H:i" }}
+                    {% else %}
+                        --
+                    {% endif %}
+                </td>
+                <td class="time-cell {% if not group.offload_time %}missing{% endif %}">
+                    {% if group.offload_time %}
+                        {{ group.offload_time|date:"m/d H:i" }}
+                    {% else %}
+                        --
+                    {% endif %}
+                </td>
+                <td class="time-cell {% if not group.empty_returned_at %}missing{% endif %}">
+                    {% if group.empty_returned_at %}
+                        {{ group.empty_returned_at|date:"m/d H:i" }}
+                    {% else %}
+                        --
+                    {% endif %}
+                </td>
+                <td class="time-cell {% if not group.shipment_appointment %}missing{% endif %}">
+                    {% if group.shipment_appointment %}
+                        {{ group.shipment_appointment|date:"m/d H:i" }}
+                    {% else %}
+                        --
+                    {% endif %}
+                </td>
+                <td class="time-cell {% if not group.shipped_at %}missing{% endif %}">
+                    {% if group.shipped_at %}
+                        {{ group.shipped_at|date:"m/d H:i" }}
+                    {% else %}
+                        --
+                    {% endif %}
+                </td>
+                <td class="time-cell {% if not group.arrived_at %}missing{% endif %}">
+                    {% if group.arrived_at %}
+                        {{ group.arrived_at|date:"m/d H:i" }}
+                    {% else %}
+                        --
+                    {% endif %}
+                </td>
+                <td class="time-cell {% if not group.pod_uploaded_at %}missing{% endif %}">
+                    {% if group.pod_uploaded_at %}
+                        {{ group.pod_uploaded_at|date:"m/d H:i" }}
+                    {% else %}
+                        --
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% elif container_number or start_date or end_date or month_filter %}
+<div class="no-results">
+    未找到符合条件的记录
+</div>
+{% endif %}
+
+<script>
+// 自动表单提交
+document.querySelectorAll('.search-select').forEach(element => {
+    element.addEventListener('change', function() {
+        document.getElementById('searchForm').submit();
+    });
+});
+
+// 日期输入框失去焦点时提交
+document.querySelectorAll('input[type="date"]').forEach(element => {
+    element.addEventListener('change', function() {
+        document.getElementById('searchForm').submit();
+    });
+});
+
+document.getElementById('show_complete').addEventListener('change', function() {
+    document.getElementById('searchForm').submit();
+});
+document.querySelector('select[name="month_filter"]').addEventListener('change', function() {
+    document.getElementById('searchForm').submit();
+});
+// 为仓库选择框添加样式类
+document.querySelector('select[name="name"]').classList.add('form-select');
+
+// 前端筛选功能
+function setupTableFilter() {
+    const filterContainer = document.getElementById('filterContainer');
+    const filterDestination = document.getElementById('filterDestination');
+    const filterPO = document.getElementById('filterPO');
+    const rows = document.querySelectorAll('#resultTable .data-row');
+    
+    function filterTable() {
+        const containerValue = filterContainer.value.toLowerCase();
+        const destinationValue = filterDestination.value.toLowerCase();
+        const poValue = filterPO.value.toLowerCase();
+        
+        rows.forEach(row => {
+            const container = row.getAttribute('data-container').toLowerCase();
+            const destination = row.getAttribute('data-destination').toLowerCase();
+            const po = row.getAttribute('data-po').toLowerCase();
+            
+            const showRow = 
+                container.includes(containerValue) &&
+                destination.includes(destinationValue) &&
+                po.includes(poValue);
+            
+            row.style.display = showRow ? '' : 'none';
+        });
+    }
+    
+    if (filterContainer) filterContainer.addEventListener('input', filterTable);
+    if (filterDestination) filterDestination.addEventListener('input', filterTable);
+    if (filterPO) filterPO.addEventListener('input', filterTable);
+}
+
+// 初始化前端筛选
+if (document.getElementById('resultTable')) {
+    setupTableFilter();
+}
+</script>
+{% endblock %}

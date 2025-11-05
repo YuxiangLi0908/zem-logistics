@@ -150,6 +150,7 @@ class PostportDash(View):
             ),
             container_number__order__packing_list_updloaded=True,
             container_number__order__created_at__gte="2024-09-01",
+            container_number__order__cancel_notification=False,
         )
         if (
             shipment_batch_number

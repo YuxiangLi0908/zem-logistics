@@ -38,11 +38,24 @@
             <tbody>
                 {% for fleet_group in ready_to_ship_data %}
                     {% with fleet_rowspan=fleet_group.total_cargos %}
+                        <tr class="group-separator">
+                            <td colspan="11" style="background: linear-gradient(90deg, #3498db, #6c8bc7); 
+                                                height: 2px; padding: 0;"></td>
+                        </tr>
                         {% for shipment_id, shipment in fleet_group.shipments.items %}
                             {% with shipment_rowspan=shipment.cargos|length|default:0 %}
                                 {% if shipment_rowspan == 0 %}
                                     {% with shipment_rowspan=1 %}
-                                        <tr>
+                                        <tr data-plt-id="{{ cargo.plt_ids }}"
+                                            data-cargo-id="{{ cargo.cargo_ids }}"
+                                            data-appointment-id="{{ shipment.appointment_id }}"
+                                            data-destination="{{ shipment.destination }}"
+                                            data-container-no="{{ cargo.cns }}"
+                                            data-ref-ids="{{ cargo.ref_ids|default:'' }}"
+                                            data-fba-ids="{{ cargo.fba_ids|default:'' }}"
+                                            data-planned="{{ cargo.total_n_pallet_act|default:0 }}"
+                                            data-label="{{ cargo.label|default:'' }}"
+                                            data-cbm="{{ cargo.total_cbm|default:0 }}">
                                             {% if forloop.parentloop.first and forloop.first or fleet_rowspan == 1 %}
                                                 <td rowspan="{{ fleet_rowspan }}" style="vertical-align: middle; background-color: #f8f9fa; cursor: pointer;" 
                                                     class="fleet-number-cell" 
@@ -95,7 +108,16 @@
                                     {% endwith %}
                                 {% else %}
                                     {% for cargo in shipment.cargos %}
-                                        <tr data-plt-id="{{ cargo.plt_ids }}" data-cargo-id="{{ cargo.cargo_ids }}">
+                                        <tr data-plt-id="{{ cargo.plt_ids }}"
+                                            data-cargo-id="{{ cargo.cargo_ids }}"
+                                            data-appointment-id="{{ shipment.appointment_id }}"
+                                            data-destination="{{ shipment.destination }}"
+                                            data-container-no="{{ cargo.cns }}"
+                                            data-ref-ids="{{ cargo.ref_ids|default:'' }}"
+                                            data-fba-ids="{{ cargo.fba_ids|default:'' }}"
+                                            data-planned="{{ cargo.total_n_pallet_act|default:0 }}"
+                                            data-label="{{ cargo.label|default:'' }}"
+                                            data-cbm="{{ cargo.total_cbm|default:0 }}">
                                             {% if forloop.first and forloop.parentloop.first %}
                                                 <td rowspan="{{ fleet_rowspan }}" style="vertical-align: middle; background-color: #f8f9fa; cursor: pointer;" 
                                                     class="fleet-number-cell" 
@@ -191,100 +213,76 @@ function confirmFleetDeparture(fleetNumber) {
 }
 
 function collectFleetData(fleetNumber) {
-    const fleetData = { fleetNumber, shipments: [] };
+    const fleetCell = document.querySelector(`#ready-section td.fleet-number-cell[data-fleet-number="${fleetNumber}"]`);
+    if (!fleetCell) {
+        console.error(`未找到车次 ${fleetNumber}`);
+        return null;
+    }
+    const fleetRow = fleetCell.closest('tr');
     const allRows = Array.from(document.querySelectorAll('#ready-section tbody tr'));
+    const startIndex = allRows.indexOf(fleetRow);
+    if (startIndex === -1) return null;
 
-    let collecting = false;
-    let currentShipment = null;
-    let currentAppointmentId = null;
+    let endIndex = allRows.length;
+    for (let i = startIndex + 1; i < allRows.length; i++) {
+        if (allRows[i].querySelector('.fleet-number-cell')) { endIndex = i; break; }
+    }
+    const rows = allRows.slice(startIndex, endIndex);
 
-    allRows.forEach((row, i) => {
-        const tds = Array.from(row.querySelectorAll('td'));
-        const tcount = tds.length;
-        const firstText = (tds[0]?.textContent || '').trim();
+    const fleetData = { fleetNumber, shipments: [] };
+    const shipmentsMap = {};
 
-        if (firstText === fleetNumber) {
-            collecting = true;
-        } else if (collecting && firstText && firstText.startsWith('F') && firstText !== fleetNumber && /^[A-Z]{1,3}\d{4,}$/.test(firstText)) {
-            collecting = false;
+    rows.forEach((row, idx) => {
+        // Read raw dataset values (may be mixed)
+        const rawAppt = row.dataset.appointmentId || '';
+        // If appointment id not in dataset, skip (非货物行或占位行)
+        if (!rawAppt) return;
+        const rawPlt = (row.dataset.pltId || '').toString().trim();
+        const rawCargo = (row.dataset.cargoId || '').toString().trim();
+        const dest = row.dataset.destination || '';
+        const containerNo = row.dataset.containerNo || '';
+        const refIds = row.dataset.refIds || '';
+        const fbaIds = row.dataset.fbaIds || '';
+        const planned = parseFloat(row.dataset.planned || 0) || 0;
+        const label = row.dataset.label || '';
+        const cbm = row.dataset.cbm || '';
+
+        let pltId = '';
+        let cargoId = '';
+
+        if (rawCargo) {
+            cargoId = rawCargo;
+        }
+        if (rawPlt) {
+            if (/^cargo_/i.test(rawPlt)) {
+                if (!cargoId) cargoId = rawPlt;
+            } else {
+                pltId = rawPlt;
+            }
         }
 
-        if (!collecting) return;
-        if (tcount === 0) return;
+        console.log(`[collectFleetData] row ${idx} appointment=${rawAppt} parsed pltId="${pltId}" cargoId="${cargoId}" dataset=`, row.dataset);
 
-        let appointmentId = null;
-        let destination = null;
-        let containerNo = null;
-        let refIds = null;
-        let fbaIds = null;
-        let rawPalletText = '';
-        let cbmText = '0';
-
-        if (tcount >= 8) {
-            appointmentId = (tds[2]?.textContent || '').trim() || currentAppointmentId || '-';
-            destination = (tds[3]?.textContent || '').trim() || (currentShipment?.destination ?? '-');
-            containerNo = (tds[4]?.textContent || '').trim() || '-';
-            refIds = (tds[5]?.textContent || '').trim() || '-';
-            fbaIds = (tds[6]?.textContent || '').trim() || '-';
-            rawPalletText = (tds[7]?.textContent || '').trim() || '';
-            cbmText = (tds[8]?.textContent || '').trim() || '0';
-        } else if (tcount >= 5) {
-            appointmentId = currentAppointmentId || '-';
-            destination = (currentShipment?.destination) || '-';
-            containerNo = (tds[0]?.textContent || '').trim() || '-';
-            refIds = (tds[1]?.textContent || '').trim() || '-';
-            fbaIds = (tds[2]?.textContent || '').trim() || '-';
-            rawPalletText = (tds[3]?.textContent || '').trim() || '';
-            cbmText = (tds[4]?.textContent || '').trim() || '0';
-        } else {
-            return;
+        // Assemble into shipments map
+        if (!shipmentsMap[rawAppt]) {
+            shipmentsMap[rawAppt] = { appointmentId: rawAppt, destination: dest, cargos: [] };
         }
-
-        let plannedPallets = 0;
-        if (rawPalletText) {
-            const cleaned = rawPalletText.replace(/[^\d.\-]/g, '');
-            const num = parseFloat(cleaned);
-            plannedPallets = isNaN(num) ? 0 : num;
-        }
-        let palletLabel = '';
-        if (/ACT/i.test(rawPalletText)) palletLabel = 'ACT';
-        else if (/EST/i.test(rawPalletText)) palletLabel = 'EST';
-
-        if (appointmentId && appointmentId !== currentAppointmentId) {
-            if (currentShipment) fleetData.shipments.push(currentShipment);
-            currentShipment = { appointmentId, destination, cargos: [] };
-            currentAppointmentId = appointmentId;
-        }
-
-        if (!currentShipment) {
-            currentShipment = { appointmentId: (appointmentId || '-'), destination: (destination || '-'), cargos: [] };
-            currentAppointmentId = appointmentId || '-';
-        }
-
-        const pltId = (row.dataset.pltId || '').trim();
-        const cargoIdRaw = (row.dataset.cargoId || '').trim();
-
-        if (!pltId && !cargoIdRaw) {
-            console.warn(`row ${i} has no pltId and no cargoId — will still push but consider fixing template to include data-cargo-id/data-plt-id`);
-        }
-
-        const unifiedId = pltId || cargoIdRaw || '';
-
-        currentShipment.cargos.push({
-            containerNo: containerNo,
-            refIds: refIds,
-            fbaIds: fbaIds,
-            plannedPallets: plannedPallets,
-            palletLabel: palletLabel,
-            actualPallets: plannedPallets,
-            cbm: cbmText || '0',
-            cargoId: unifiedId,
-            pltId: pltId,
-            rawCargoId: cargoIdRaw
+        shipmentsMap[rawAppt].cargos.push({
+            containerNo,
+            refIds,
+            fbaIds,
+            plannedPallets: planned,
+            palletLabel: label,
+            actualPallets: planned,
+            cbm,
+            // keep separate fields
+            pltId: pltId || '',
+            cargoId: cargoId || ''
         });
     });
 
-    if (currentShipment) fleetData.shipments.push(currentShipment);
+    fleetData.shipments = Object.values(shipmentsMap);
+    console.log('[collectFleetData] final fleetData:', fleetData);
     return fleetData;
 }
 </script>

@@ -222,6 +222,7 @@ class TimeoutWarning(View):
                 "container_number__container_number",
                 "container_number__order__customer_name__zem_name",
                 "destination",
+                "location",
                 "address",
                 "delivery_method",
                 "container_number__order__offload_id__offload_at",

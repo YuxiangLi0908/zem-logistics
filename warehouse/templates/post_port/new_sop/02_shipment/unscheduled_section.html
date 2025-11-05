@@ -1,5 +1,43 @@
 {% load custom_filters %}
+<style>
+    .modal-table th:first-child,
+    .modal-table td:first-child {
+        width: 40px !important;
+        min-width: 40px;
+        max-width: 40px;
+        text-align: center;
+        padding: 8px 4px !important;
+    }
 
+    .modal-table th:nth-child(6), /* 板数列 */
+    .modal-table td:nth-child(6),
+    .modal-table th:nth-child(7), /* CBM列 */
+    .modal-table td:nth-child(7) {
+        width: 80px !important;
+        min-width: 80px;
+        max-width: 80px;
+        text-align: center;
+    }
+
+    /* 其他列均分剩余宽度 */
+    .modal-table th:nth-child(2), /* REF ID */
+    .modal-table td:nth-child(2),
+    .modal-table th:nth-child(3), /* FBA ID */
+    .modal-table td:nth-child(3),
+    .modal-table th:nth-child(4), /* 柜号 */
+    .modal-table td:nth-child(4),
+    .modal-table th:nth-child(5), /* 入仓时间 */
+    .modal-table td:nth-child(5) {
+        width: auto;
+        min-width: 100px;
+    }
+
+    .modal-table .export-po-checkbox {
+        width: 16px;
+        height: 16px;
+        margin: 0;
+    }
+</style>
 <!-- 未排约标签页 -->
 <div class="content-section" id="unscheduled-section">
     <div class="search-box">
@@ -43,6 +81,7 @@
                         <th>派送时间</th>
                         <th>板数</th>
                         <th>CBM</th>
+                        <th>是否甩板</th>
                         <th>匹配度</th>
                         <th>操作</th>
                     </tr>
@@ -54,13 +93,13 @@
                         <!-- 添加组间隔行 - 每个组都添加 -->
                         <tr class="group-separator">
                             <td colspan="11" style="background: linear-gradient(90deg, #3498db, #6c8bc7); 
-                                                height: 4px; padding: 0;"></td>
+                                                height: 2px; padding: 0;"></td>
                         </tr>
                         
                         {% for cargo in suggestion.cargos %}
                         <tr data-suggestion-id="{{ suggestion.suggestion_id }}"
-                            data-cargo-id="{{ cargo.ids|join:',' }}"
-                            data-plt-id="{{ cargo.plt_ids|join:',' }}">
+                            data-cargo-id="{{ cargo.ids|default:'' }}"
+                            data-plt-id="{{ cargo.plt_ids|default:'' }}">
                             <!-- 仓点列 -->
                             {% if forloop.first %}
                             <td rowspan="{{ suggestion.cargos|length }}" style="vertical-align: middle; background-color: #f8f9fa;">
@@ -112,15 +151,15 @@
                                     -
                                 {% endif %}
                             </td>
-                            <td>
+                            <td class="pallet-col">
                                 {% if cargo.label == 'ACT' %}
                                     {{ cargo.total_n_pallet_act|default:0|floatformat:2 }}
                                 {% else %}
                                     {{ cargo.total_n_pallet_est|default:0|floatformat:2 }}
                                 {% endif %}
                             </td>
-                            <td>{{ cargo.total_cbm|default:0|floatformat:3 }}</td>
-                            
+                            <td class="cbm-col">{{ cargo.total_cbm|default:0|floatformat:3 }}</td>
+                            <td class="is-dropped">{{ cargo.is_dropped_pallet }}</td>
                             <!-- 匹配度 -->
                             {% if forloop.first %}
                             <td rowspan="{{ suggestion.cargos|length }}" style="vertical-align: middle;">
@@ -206,7 +245,7 @@
                         <!-- 添加组间隔行 -->
                         <tr class="group-separator">
                             <td colspan="11" style="background: linear-gradient(90deg, #f39c12, #e67e22); 
-                                                height: 3px; padding: 0;"></td>
+                                                height: 2px; padding: 0;"></td>
                         </tr>
                         {% for cargo in suggestion.cargos %}
                         <tr data-suggestion-id="{{ suggestion.suggestion_id }}"
@@ -253,15 +292,15 @@
                                     -
                                 {% endif %}
                             </td>
-                            <td>
+                            <td class="pallet-col">
                                 {% if cargo.label == 'ACT' %}
                                     {{ cargo.total_n_pallet_act|default:0|floatformat:2 }}
                                 {% else %}
                                     {{ cargo.total_n_pallet_est|default:0|floatformat:2 }}
                                 {% endif %}
                             </td>
-                            <td>{{ cargo.total_cbm|default:0|floatformat:3 }}</td>
-                            
+                            <td class="cbm-col">{{ cargo.total_cbm|default:0|floatformat:3 }}</td>
+                            <td class="is-dropped">{{ cargo.is_dropped_pallet }}</td>
                             <!-- 匹配度 -->
                             {% if forloop.first %}
                             <td rowspan="{{ suggestion.cargos|length }}" style="vertical-align: middle;">
@@ -342,7 +381,48 @@
     </div>
     {% endif %}
 </div>
+<!-- 导出PO模态框 -->
+<div id="exportPoModal" class="modal">
+    <div class="modal-content" style="width: 85%; max-width: 900px;">
+        <div class="modal-header">
+            <h3><i class="fas fa-file-export"></i> 导出PO预览</h3>
+            <span class="close" id="closeExportPoModal">&times;</span>
+        </div>
+        <div class="modal-body">
+            <input type="hidden" id="exportSuggestionId">
+            <input type="hidden" id="exportCargoIds">
+            <input type="hidden" id="exportPltIds">
 
+            <h4><i class="fas fa-box"></i> 当前PO列表</h4>
+            <table class="modal-table">
+                <thead>
+                    <tr>
+                        <th style="width: 30px;"><input type="checkbox" id="checkAllExportPo"></th>
+                        <th style="max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">REF ID</th>
+                        <th style="max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">FBA ID</th>
+                        <th>柜号</th>
+                        <th>入仓时间</th>
+                        <th>板数</th>
+                        <th>CBM</th>
+                        <th>是否甩板</th>
+                    </tr>
+                </thead>
+                <tbody id="exportPoTableBody">
+                    <!-- JS 动态填充 -->
+                </tbody>
+            </table>
+
+            <div class="modal-actions">
+                <button class="modal-btn modal-btn-success" id="confirmExportPo">
+                    <i class="fas fa-file-export"></i> 确认导出
+                </button>
+                <button class="modal-btn modal-btn-danger" id="cancelExportPo">
+                    <i class="fas fa-times"></i> 取消
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 <script>
 // 未排约页面特定的JavaScript
 document.addEventListener('DOMContentLoaded', function() {
@@ -350,29 +430,93 @@ document.addEventListener('DOMContentLoaded', function() {
     document.querySelectorAll('.export-group-po').forEach(btn => {
         btn.addEventListener('click', function () {
             const suggestionId = this.getAttribute('data-suggestion-id');
-            const suggestionRow = document.querySelector(`tr[data-suggestion-id="${suggestionId}"]`);
-            if (!suggestionRow) {
+            const groupRows = document.querySelectorAll(`tr[data-suggestion-id="${suggestionId}"]`);
+
+            if (!groupRows.length) {
                 alert('未找到对应的PO数据');
                 return;
             }
 
+            const tbody = document.getElementById('exportPoTableBody');
+            tbody.innerHTML = ''; // 清空旧内容
+
             const cargoIds = [];
             const pltIds = [];
-            const groupRows = document.querySelectorAll(`tr[data-suggestion-id="${suggestionId}"]`);
-            groupRows.forEach(row => {
-                const cargoId = row.getAttribute('data-cargo-id') || '';
-                const pltId = row.getAttribute('data-plt-id') || '';
-                
-                if (cargoId) cargoIds.push(cargoId);
-                if (pltId) pltIds.push(pltId);
-            });
 
-            document.getElementById('formStep').value = 'export_virtual_fleet_pos';
-            document.getElementById('formCargoIds').value = cargoIds.join(',');
-            document.getElementById('formPltIds').value = pltIds.join(',');
-            document.getElementById('formSuggestionId').value = suggestionId;
-            document.getElementById('actionForm').submit();
+            groupRows.forEach(row => {
+                const ref = row.querySelector('.ref-ids-col')?.textContent.trim() || '-';
+                const fba = row.querySelector('.fba-ids-col')?.textContent.trim() || '-';
+                const cn = row.querySelector('.container-no-col')?.textContent.trim() || '-';
+                const offload = row.querySelector('.offload-time-col')?.textContent.trim() || '-';
+                const pallets = row.querySelector('.pallet-col')?.textContent.trim() || '-';
+                const cbm = row.querySelector('.cbm-col')?.textContent.trim() || '-';
+                const isdropped = row.querySelector('.is-dropped')?.textContent.trim() || '-';
+                if (row.dataset.cargoId) {
+                    cargoIds.push(...row.dataset.cargoId.split(',').filter(Boolean));
+                }
+                if (row.dataset.pltId) {
+                    pltIds.push(...row.dataset.pltId.split(',').filter(Boolean));
+                }
+
+                tbody.insertAdjacentHTML('beforeend', `
+                    <tr>
+                        <td><input type="checkbox" class="export-po-checkbox" 
+                            data-cargo-id="${row.dataset.cargoId}" 
+                            data-plt-id="${row.dataset.pltId}" checked></td>
+                        <td style="max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${ref}</td>
+                        <td style="max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${fba}</td>
+                        <td>${cn}</td>
+                        <td>${offload}</td>
+                        <td>${pallets}</td>
+                        <td>${cbm}</td>
+                        <td>${isdropped}</td>
+                    </tr>
+                `);
+            });
+            document.getElementById('exportSuggestionId').value = suggestionId;
+            document.getElementById('exportCargoIds').value = cargoIds.join(',');
+            document.getElementById('exportPltIds').value = pltIds.join(',');
+
+            openExportPoModal();
         });
+    });
+    const checkAllBox = document.getElementById('checkAllExportPo');
+    checkAllBox.addEventListener('change', function() {
+        const checkboxes = document.querySelectorAll('.export-po-checkbox');
+        checkboxes.forEach(cb => cb.checked = this.checked);
+    });
+    function openExportPoModal() {
+        const modal = document.getElementById('exportPoModal');
+        modal.style.display = 'block';
+    }
+
+    document.getElementById('closeExportPoModal').addEventListener('click', closeExportPoModal);
+    document.getElementById('cancelExportPo').addEventListener('click', closeExportPoModal);
+
+    function closeExportPoModal() {
+        document.getElementById('exportPoModal').style.display = 'none';
+    }
+
+    // 确认导出逻辑
+    document.getElementById('confirmExportPo').addEventListener('click', function() {
+        const suggestionId = document.getElementById('exportSuggestionId').value;
+
+        const checkedBoxes = document.querySelectorAll('.export-po-checkbox:checked');
+        if (!checkedBoxes.length) {
+            alert('请至少选择一个PO导出！');
+            return;
+        }
+
+        const cargoIds = Array.from(checkedBoxes).map(cb => cb.dataset.cargoId);
+        const pltIds = Array.from(checkedBoxes).map(cb => cb.dataset.pltId);
+
+        document.getElementById('formStep').value = 'export_virtual_fleet_pos';
+        document.getElementById('formCargoIds').value = cargoIds.join(',');
+        document.getElementById('formPltIds').value = pltIds.join(',');
+        document.getElementById('formSuggestionId').value = suggestionId;
+
+        closeExportPoModal();
+        document.getElementById('actionForm').submit();
     });
 
     // 排序功能
