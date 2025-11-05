@@ -2945,7 +2945,7 @@ class PostNsop(View):
         else:
             return "America/New_York"
 
-    async def _now_time_get(warehouse):
+    async def _now_time_get(self, warehouse):
         today = timezone.now()
         if 'LA' in warehouse:
             local_tz = pytz.timezone("America/Los_Angeles")
