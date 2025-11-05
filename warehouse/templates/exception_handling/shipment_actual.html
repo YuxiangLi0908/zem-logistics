@@ -190,8 +190,24 @@
     .toggle-btn:hover {
         background: #7f8c8d;
     }
+    h2 {
+        text-align: center;
+        margin-bottom: 20px;
+        background: linear-gradient(45deg, #ff6b6b, #4ecdc4, #45b7d1, #96ceb4, #feca57);
+        background-size: 400% 400%;
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
+        animation: gradient 3s ease infinite;
+        font-weight: bold;
+    }
+    @keyframes gradient {
+        0% { background-position: 0% 50%; }
+        50% { background-position: 100% 50%; }
+        100% { background-position: 0% 50%; }
+    }
 </style>
-
+<h2> 主约实际约查询修改</h2>
 <!-- 查询表单 -->
 <div class="search-form">
     <form method="post">
