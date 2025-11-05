@@ -51,6 +51,7 @@ from warehouse.utils.constants import (
     WAREHOUSE_OPTIONS,
 )
 from warehouse.views.export_file import export_do
+from warehouse.views.pre_port.pickup_containers_status import ContainerPickupStatus
 
 
 class OrderCreation(View):
@@ -482,6 +483,9 @@ class OrderCreation(View):
             )
         except:
             vessel = []
+        container = await sync_to_async(Container.objects.get)(
+            container_number=container_number
+        )
         if order.customer_name.zem_name and order.order_type and order.created_at and order.container_number.container_number and vessel.master_bill_of_lading and vessel.vessel_etd and vessel.id and vessel.vessel and vessel.shipping_line and vessel.destination_port and order.packing_list_updloaded and order.container_number.container_type and vessel.vessel_eta:
             order.status = "completed"
             await sync_to_async(order.save)()
@@ -496,7 +500,7 @@ class OrderCreation(View):
             ("公仓", "public"),
             ("其他", "other"),
         ]
-        context["container_type"] = self.container_type,
+        context["container_type"] = self.container_type
         context["packing_list_upload_form"] = UploadFileForm()
         return self.template_order_create_supplement, context
 
@@ -797,10 +801,14 @@ class OrderCreation(View):
             weight=float(weight)
             weight *= 2.20462
             container.weight_lbs = weight
-        weight_lbs = request.POST.get("weight_lbs")
-        if weight_lbs:
-            weight_lbs = float(weight_lbs)
-            container.weight_lbs = weight_lbs
+        weight_lbs = request.POST.get("weight_lbs", "").strip()
+        if weight_lbs in ("", "None"):
+            container.weight_lbs = None
+        else:
+            try:
+                container.weight_lbs = float(weight_lbs)
+            except ValueError:
+                container.weight_lbs = None
         container.is_special_container = (
             True if request.POST.get("is_special_container", None) else False
         )
