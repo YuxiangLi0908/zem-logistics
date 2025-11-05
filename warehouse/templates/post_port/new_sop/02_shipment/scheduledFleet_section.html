@@ -1,4 +1,17 @@
 <!-- scheduledFleet_section.html -->
+ <style>
+    .shipment-batch-cell {
+        max-width: 180px;
+        min-width: 150px;
+        width: 180px;
+        word-wrap: break-word;
+        word-break: break-all;
+        white-space: normal;
+        overflow-wrap: break-word;
+        line-height: 1.4;
+        padding: 8px;
+    }
+ </style>
 <div class="content-section active" id="scheduledFleet-section">
     <div class="search-box">
         <div style="display: flex; gap: 10px; flex: 1; align-items: center;">
@@ -55,7 +68,7 @@
                             {{ f.fleet_number }}
                         </span>
                     </td>
-                    <td style="width: 180px; word-wrap: break-word; white-space: normal;">
+                    <td class="shipment-batch-cell">
                         {{ f.shipment_batch_numbers }}
                     </td>
                     <td>{{ f.appointment_ids }}</td>
@@ -99,7 +112,7 @@
         // 添加时间标记
         markScheduledFleetRows();
     });
-    
+
     function markScheduledFleetRows() {
         const rows = document.querySelectorAll('#scheduledFleet-section .data-table tbody tr');
         

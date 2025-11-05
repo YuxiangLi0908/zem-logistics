@@ -598,11 +598,6 @@
         <!-- 统计卡片 -->
         <div class="summary-cards">
             <div class="summary-card scheduled">
-                <div class="card-title">已排车批次</div>
-                <div class="card-value">{{ summary.scheduled_count }}</div>
-                <div class="card-trend">等待出库</div>
-            </div>
-            <div class="summary-card scheduled">
                 <div class="card-title">待出库批次</div>
                 <div class="card-value">{{ summary.ready_to_ship_count }}</div>
                 <div class="card-trend">等待出库</div>
@@ -621,10 +616,6 @@
 
         <!-- 标签导航 -->
         <div class="tab-navigation">
-            <div class="tab active" data-tab="scheduled">
-                已排车批次 <span class="badge">{{ summary.scheduled_count }}</span>
-            </div>
-
             <div class="tab" data-tab="readyShip">
                 待出库批次 <span class="badge">{{ summary.ready_to_ship_count }}</span>
             </div>
@@ -634,101 +625,6 @@
             <div class="tab" data-tab="pod">
                 待传POD批次 <span class="badge">{{ summary.pod_count }}</span>
             </div>         
-        </div>
-        
-        <!-- 已排车批次标签页 -->
-        <div class="content-section active" id="scheduled-section">
-            <div class="search-box">
-                <div style="display: flex; gap: 10px; flex: 1; align-items: center;">
-                    <input type="text" class="search-input" placeholder="搜索出库批次、预约批次、ISA、carrier..." id="scheduledSearch">
-                    <button class="search-btn" id="searchScheduledBtn">
-                        <i class="fas fa-search"></i> 搜索
-                    </button>
-                </div>
-            </div>
-
-            <div class="table-container">
-                <table class="data-table">
-                    <thead>
-                        <tr>
-                            <th>出库批次</th>
-                            <th>预约批次</th>
-                            <th>ISA</th>
-                            <th>carrier</th>
-                            <th>提货时间</th>
-                            <th>总重lbs</th>
-                            <th>总CBM</th>
-                            <th>总卡板数</th>
-                            <th>note</th>
-                            <th>撤销批次</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for f in fleet_list %}
-                        <tr 
-                            data-pickup-number="{{ f.pickup_number|default_if_none:'' }}"
-                            data-third-party-address="{{ f.third_party_address|default_if_none:'' }}"
-                            data-license-plate="{{ f.license_plate|default_if_none:'' }}"
-                            data-motor-carrier-number="{{ f.motor_carrier_number|default_if_none:'' }}"
-                            data-dot-number="{{ f.dot_number|default_if_none:'' }}"
-                            >
-                            <td style="max-width: 120px; word-break: break-all;">
-                                <span 
-                                    class="fleet-link"
-                                    data-fleet-number="{{ f.fleet_number }}"
-                                    data-pickup-number="{{ f.pickup_number|default_if_none:'' }}"
-                                    data-third-party-address="{{ f.third_party_address|default_if_none:'' }}"
-                                    data-license-plate="{{ f.license_plate|default_if_none:'' }}"
-                                    data-motor-carrier-number="{{ f.motor_carrier_number|default_if_none:'' }}"
-                                    data-dot-number="{{ f.dot_number|default_if_none:'' }}"
-                                    data-carrier="{{ f.carrier|default_if_none:'' }}"
-                                    data-appointment-datetime="{{ f.appointment_datetime|date:'Y-m-d H:i' }}"
-                                    data-note="{{ f.note|default_if_none:'' }}"
-                                    data-total-weight="{{ f.total_weight|default_if_none:'' }}"
-                                    data-total-cbm="{{ f.total_cbm|default_if_none:'' }}"
-                                    data-total-pallet="{{ f.total_pallet|default_if_none:'' }}"
-                                    data-shipment-batches="{{ f.shipment_batch_numbers|default_if_none:'' }}"
-                                    data-appointment-ids="{{ f.appointment_ids|default_if_none:'' }}"
-                                    style="color: var(--primary-color); font-weight: 600; cursor: pointer; text-decoration: underline;">
-                                    {{ f.fleet_number }}
-                                </span>
-                            </td>
-                            <td style="width: 180px; word-wrap: break-word; white-space: normal;">
-                                {{ f.shipment_batch_numbers }}
-                            </td>
-                            <td>{{ f.appointment_ids }}</td>
-                            <td>{{ f.carrier }}</td>
-                            <td>
-                                {% if f.departure_status == "past_due" %}
-                                <span class="status-span-red">{{ f.appointment_datetime|date:"Y-m-d" }} {{ f.appointment_datetime|time:"H:i" }}</span>
-                                {% elif f.departure_status == "need_attention" %}
-                                <span class="status-span-yellow">{{ f.appointment_datetime|date:"Y-m-d" }} {{ f.appointment_datetime|time:"H:i" }}</span>
-                                {% else %}
-                                {{ f.appointment_datetime|date:"Y-m-d" }} {{ f.appointment_datetime|time:"H:i" }}
-                                {% endif %}
-                            </td>
-                            <td>{{ f.total_weight|floatformat:2 }}</td>
-                            <td>{{ f.total_cbm|floatformat:2 }}</td>
-                            <td>{{ f.total_pallet }}</td>
-                            <td style="max-width: 120px; word-break: break-all;">{{ f.note|default_if_none:"" }}</td>
-                            <td>
-                                {% if f.fleet_type != 'LTL' %}
-                                <form method="post" action="" onsubmit="showLoadingBar()">
-                                    {% csrf_token %}
-                                    <input type="hidden" name="step" value="cancel_fleet">
-                                    <input type="hidden" name="fleet_number" value="{{ f.fleet_number }}">
-                                    <input type="hidden" name="warehouse" value="{{ warehouse }}">
-                                    <button type="submit" class="action-btn btn-danger">
-                                        <i class="fas fa-times"></i> 撤销
-                                    </button>
-                                </form>
-                                {% endif %}
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
         </div>
 
         <!-- 待出库批次标签页 -->
@@ -1069,54 +965,11 @@
     const CURRENT_TIME = new Date('{{ current_time|date:"Y-m-d H:i" }}' || new Date());
     function addTimeMarkers() {
         
-        // 已排车批次 - 按提货时间  
-        markScheduledRows();
-        
         // 待送达批次 - 按实际发车时间
         markReadyRows();
         
         // 待传POD批次 - 按实际发车时间
         markPodRows();
-    }
-
-
-    // 已排车批次标记
-    function markScheduledRows() {
-        const rows = document.querySelectorAll('#scheduled-section .data-table tbody tr');
-        
-        rows.forEach((row, index) => {
-            const timeCell = row.cells[4]; // 提货时间在第5列
-            let timeText = timeCell.textContent.trim();
-            
-            // 如果有状态span，获取span内的文本
-            const statusSpan = timeCell.querySelector('.status-span-red, .status-span-yellow');
-            if (statusSpan) {
-                timeText = statusSpan.textContent.trim();
-            }
-            
-            
-            if (timeText) {
-                const pickupTime = parseDateTime(timeText);
-                
-                if (pickupTime) {
-                    const diffDays = getDayDiff(CURRENT_TIME, pickupTime); // 当前时间到提货时间的天数
-                    
-                    // 新逻辑：
-                    if (pickupTime < CURRENT_TIME) {
-                        // 早于当前时间 - 深红色
-                        row.style.backgroundColor = '#ffcccc';
-                    } else if (diffDays <= 1) {
-                        // 未来一天内 - 浅红色
-                        row.style.backgroundColor = '#ffe6e6';
-                    } else if (diffDays <= 2) {
-                        // 未来一天到两天内 - 黄色
-                        row.style.backgroundColor = '#fff9e6';
-                    } else {
-                        row.style.backgroundColor = ''; // 清除背景色
-                    }
-                }
-            }
-        });
     }
     // 待送达批次标记
     function markReadyRows() {
@@ -1236,8 +1089,6 @@
             }
         }
         
-        console.log('设置的激活标签页:', activeTab);
-        
         if (activeTab) {
             // 移除所有激活状态
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
@@ -1250,7 +1101,6 @@
             if (targetTab && targetSection) {
                 targetTab.classList.add('active');
                 targetSection.classList.add('active');
-                console.log('成功激活标签页:', activeTab);
             } else {
                 console.warn('未找到对应的标签页或内容区域:', activeTab);
             }
@@ -1263,15 +1113,8 @@
         setActiveTabFromParams();
         addTimeMarkers();
         // 搜索按钮事件监听
-        const searchScheduledBtn = document.getElementById('searchScheduledBtn');
         const searchReadyBtn = document.getElementById('searchReadyBtn');
         const searchPodBtn = document.getElementById('searchPodBtn');
-        
-        if (searchScheduledBtn) {
-            searchScheduledBtn.addEventListener('click', function() {
-                applySearch('scheduled');
-            });
-        }
         
         if (searchReadyBtn) {
             searchReadyBtn.addEventListener('click', function() {
@@ -1286,17 +1129,8 @@
         }
         
         // 添加回车键搜索功能
-        const scheduledSearch = document.getElementById('scheduledSearch');
         const readySearch = document.getElementById('readySearch');
         const podSearch = document.getElementById('podSearch');
-        
-        if (scheduledSearch) {
-            scheduledSearch.addEventListener('keypress', function(e) {
-                if (e.key === 'Enter') {
-                    applySearch('scheduled');
-                }
-            });
-        }
         
         if (readySearch) {
             readySearch.addEventListener('keypress', function(e) {
@@ -1334,8 +1168,7 @@
         
         // 重新添加时间标记
         setTimeout(() => {
-            if (section === 'scheduled') markScheduledRows();
-            else if (section === 'ready') markReadyRows();
+            if (section === 'ready') markReadyRows();
             else if (section === 'pod') markPodRows();
         }, 100);
         
