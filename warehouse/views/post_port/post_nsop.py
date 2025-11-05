@@ -2482,7 +2482,7 @@ class PostNsop(View):
         #未使用的约和异常的约
         shipments = await self.get_shipments_by_warehouse(warehouse)
         
-        summary = await self.calculate_summary(unshipment_pos, shipments)
+        summary = await self.calculate_summary(unshipment_pos, shipments, warehouse)
 
         #智能匹配内容
         st_type = request.POST.get('st_type')
@@ -2944,10 +2944,20 @@ class PostNsop(View):
             return "America/Los_Angeles"
         else:
             return "America/New_York"
-        
-    async def calculate_summary(self, unshipment_pos, shipments):
-        """异步计算统计数据 - 适配新的数据结构"""
+
+    async def _now_time_get(warehouse):
+        today = timezone.now()
+        if 'LA' in warehouse:
+            local_tz = pytz.timezone("America/Los_Angeles")
+        else:
+            local_tz = pytz.timezone("America/New_York")
+
+        today = timezone.localtime(today, local_tz)
+        return today
     
+    async def calculate_summary(self, unshipment_pos, shipments, warehouse):
+        """异步计算统计数据 - 适配新的数据结构"""
+        now = await self._now_time_get(warehouse)
         # 计算预约状态统计
         expired_count = 0
         urgent_count = 0
@@ -2955,9 +2965,6 @@ class PostNsop(View):
         used_count = 0  # 已使用的预约数量
         
         for shipment in shipments:
-            tzinfo = self._parse_tzinfo(shipment.origin)
-            timezone_str = pytz.timezone(tzinfo)
-            now = timezone.now().astimezone(timezone_str)
             # 检查预约是否已过期
             is_expired = (
                 shipment.shipment_appointment_utc and 
@@ -3164,8 +3171,7 @@ class PostNsop(View):
         return suggestions
     
     async def is_shipment_available(self, shipment):
-        """判断预约是否可用"""
-        
+        """判断预约是否可用"""     
         now = timezone.now()
         
         # 已发货的不可用
