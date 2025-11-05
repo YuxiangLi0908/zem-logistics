@@ -1537,7 +1537,7 @@ class PostNsop(View):
     async def _fl_unscheduled_data(
         self, request: HttpRequest, warehouse:str
     ) -> tuple[str, dict[str, Any]]:
-        target_date = datetime.datetime(2025, 10, 10)
+        target_date = datetime(2025, 10, 10)
         shipment = await sync_to_async(list)(
             Shipment.objects.filter(
                 origin=warehouse,
@@ -1677,7 +1677,7 @@ class PostNsop(View):
         sp_fl = await self._fl_unscheduled_data(request, warehouse)
         delivery_data = await self._fl_delivery_get(request, warehouse)
         pod_data = await self._fl_pod_get(request, warehouse)
-
+        #ready_to_ship_data = await self._sp_ready_to_ship_data(warehouse,request.user)
         summary = {
             'unscheduled_count': len(sp_fl['shipment_list']),
             'scheduled_count': len(sp_fl['fleet_list']),
@@ -1691,6 +1691,7 @@ class PostNsop(View):
             'fleet_list': sp_fl['fleet_list'],
             'delivery_shipments': delivery_data['shipments'],
             'pod_shipments': pod_data['fleet'],
+            #ready_to_ship_data: ready_to_ship_data,
             'summary': summary,        
             'warehouse_options': self.warehouse_options,
             "account_options": self.account_options,
@@ -1730,7 +1731,6 @@ class PostNsop(View):
         unschedule_fleet = await self._fl_unscheduled_data(request, warehouse)
         unschedule_fleet_data = unschedule_fleet['shipment_list']
         ready_to_ship_data = await self._sp_ready_to_ship_data(warehouse,request.user)
-        
         # 获取可用预约
         available_shipments = await self.sp_available_shipments(warehouse, st_type)
         
@@ -2178,7 +2178,7 @@ class PostNsop(View):
     async def sp_scheduled_data(self, warehouse: str, user) -> list:
         """获取已排约数据 - 按shipment_batch_number分组"""
         # 获取有shipment_batch_number但fleet_number为空的货物
-        target_date = datetime.datetime(2025, 10, 10)
+        target_date = datetime(2025, 10, 10)
         raw_data = await self._get_packing_list(
             user,
             models.Q(
