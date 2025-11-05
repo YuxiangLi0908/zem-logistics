@@ -959,7 +959,7 @@ class WarehouseOperations(View):
             total_pallets = round(plts_count + round(pls_cbm / 1.8, 2))
 
             is_estimated = plts_count == 0 and total_pallets > 0
-            days_diff = (fleet.appointment_datetime.date() - today).days
+            days_diff = (fleet.appointment_datetime - today).days
             all_details = pls_details + plt_details
             details = {}
             fleet_type = fleet.fleet_type
