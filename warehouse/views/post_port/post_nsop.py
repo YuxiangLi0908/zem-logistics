@@ -169,8 +169,8 @@ class PostNsop(View):
         elif step == "unassign_shipment":
             template, context = await self.handle_cancel_appointment_post(request)
             return render(request, template, context) 
-        elif step == "fleet_departure":
-            template, context = await self.handle_fleet_departure_post(request)
+        elif step == "one_fleet_departure":
+            template, context = await self.handle_one_fleet_departure_post(request)
             return render(request, template, context)
         elif step == "add_pallet":
             template, context = await self.handle_add_pallet_post(request)
@@ -329,7 +329,7 @@ class PostNsop(View):
             shipment = await Shipment.objects.select_related("fleet_number").aget(appointment_id=appointment_id)
         except ObjectDoesNotExist:
             context.update({"error_messages": f"{appointment_id}预约号找不到"})
-            return await self.handle_td_shipment_post(request,context)
+            return await self.handle_fleet_schedule_post(request,context)
         fleet = shipment.fleet_number
         fleet.total_weight += total_weight
         fleet.total_pcs += total_pcs
@@ -350,7 +350,7 @@ class PostNsop(View):
             )
         if 'error_messages' not in context:
             context.update({"success_messages": f"{appointment_id}加塞成功！"})
-        return await self.handle_td_shipment_post(request,context)
+        return await self.handle_fleet_schedule_post(request,context)
     
     async def handle_search_addable_po_post(
         self, request: HttpRequest
@@ -404,7 +404,7 @@ class PostNsop(View):
     ) -> tuple[str, dict[str, Any]]:
         warehouse = request.POST.get("warehouse")
         destination = request.POST.get("destination")
-        tab = request.POST.get("tab")
+        active_tab = request.POST.get("active_tab")
         step = request.POST.get("step")
         criteria_plt = models.Q(
             shipment_batch_number__fleet_number__fleet_number__isnull=True,
@@ -419,22 +419,23 @@ class PostNsop(View):
             )& models.Q(pk=0),
             criteria_plt
         )
-        
         context = {
             "warehouse": warehouse,
             "destination": destination,
             "plt_unshipped": plt_unshipped,
             "step": step,  # ← 前端靠这个判断要不要弹窗
-            "active_tab": tab,          # ← 用来控制前端打开哪个标签页
+            "active_tab": active_tab,          # ← 用来控制前端打开哪个标签页
             "show_add_po_modal": True,   # ← 控制是否直接弹出“添加PO”弹窗
             "add_po_title": "加塞",
             "add_pallet_ISA": request.POST.get('add_pallet_ISA')
         }
-        return await self.handle_td_shipment_post(request, context)
+        return await self.handle_fleet_schedule_post(request, context)
 
-    async def handle_fleet_departure_post(
-        self, request: HttpRequest
+    async def handle_one_fleet_departure_post(
+        self, request: HttpRequest, context
     ) -> tuple[str, dict[str, Any]]:
+        if not context:
+            context = {}
         request.POST = request.POST.copy()
         if "plt_ids" in request.POST:
             try:
@@ -467,7 +468,8 @@ class PostNsop(View):
         request.POST = request.POST.copy()
         request.POST.setlist('batch_number', batch_numbers)
         fm = FleetManagement()
-        context = await fm.handle_fleet_departure_post(request,'post_nsop')
+        context_new = await fm.handle_fleet_departure_post(request,'post_nsop')
+        context.update(context_new)
         return await self.handle_fleet_schedule_post(request,context)         
     
     async def handle_export_virtual_fleet_pos_post(

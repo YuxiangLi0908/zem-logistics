@@ -303,7 +303,7 @@
         <div class="modal-body">
             <form id="confirmDepartureForm" method="post">
                 {% csrf_token %}
-                <input type="hidden" name="step" value="fleet_departure">
+                <input type="hidden" name="step" value="one_fleet_departure">
                 <input type="hidden" name="fleet_number" id="fleetNumber">
                 <input type="hidden" name="warehouse" value="{{ warehouse }}">
                 <input type="hidden" name="debug_info" id="debugInfo">
