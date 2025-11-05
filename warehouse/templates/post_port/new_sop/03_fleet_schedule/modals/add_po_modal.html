@@ -1,0 +1,390 @@
+<!--加塞的弹框-->
+<style>
+    /* 弹框样式 */
+    .modal {
+        display: none;
+        position: fixed;
+        z-index: 1000;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+        animation: fadeIn 0.3s ease;
+    }
+
+    .modal-content {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background-color: white;
+        border-radius: 10px;
+        box-shadow: 0 5px 30px rgba(0, 0, 0, 0.3);
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .modal-header {
+        background: linear-gradient(135deg, var(--secondary-color), #4a6491);
+        color: white;
+        padding: 15px 20px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-bottom: 1px solid #eaecef;
+    }
+
+    .modal-header h3 {
+        margin: 0;
+        font-size: 1.3rem;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .modal-header h3 i {
+        font-size: 1.2rem;
+    }
+
+    .close {
+        color: white;
+        font-size: 28px;
+        font-weight: bold;
+        cursor: pointer;
+        transition: color 0.3s ease;
+        line-height: 1;
+    }
+
+    .close:hover {
+        color: #f8f9fa;
+    }
+
+    .modal-body {
+        flex: 1;
+        overflow-y: auto;
+        padding: 0;
+    }
+
+    .modal-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .modal-table th {
+        background: #f8f9fa;
+        color: var(--secondary-color);
+        padding: 12px 8px;
+        text-align: left;
+        font-weight: 600;
+        font-size: 0.85rem;
+        border-bottom: 2px solid #dee2e6;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+    }
+
+    .modal-table td {
+        padding: 10px 8px;
+        border-bottom: 1px solid #eaecef;
+        font-size: 0.85rem;
+    }
+
+    .modal-table tr:nth-child(even) {
+        background-color: #f9fafb;
+    }
+
+    .modal-table tr:hover {
+        background-color: #edf2f7;
+    }
+
+    .modal-actions {
+        padding: 15px 20px;
+        background: #f8f9fa;
+        border-top: 1px solid #dee2e6;
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+    }
+
+    .modal-btn {
+        padding: 10px 20px;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        font-weight: 600;
+        font-size: 0.9rem;
+        transition: all 0.3s ease;
+        min-width: 100px;
+    }
+
+    .modal-btn-success {
+        background: var(--success-color);
+        color: white;
+    }
+
+    .modal-btn-success:hover {
+        background: #27ae60;
+        transform: translateY(-1px);
+    }
+
+    .modal-btn-danger {
+        background: var(--danger-color);
+        color: white;
+    }
+
+    .modal-btn-danger:hover {
+        background: #c0392b;
+        transform: translateY(-1px);
+    }
+
+    /* 输入框样式 */
+    .modal-table input[type="number"] {
+        padding: 6px 8px;
+        border: 1px solid #dce1e6;
+        border-radius: 4px;
+        font-size: 0.85rem;
+        text-align: center;
+        transition: border-color 0.3s ease;
+    }
+
+    .modal-table input[type="number"]:focus {
+        outline: none;
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+    }
+
+    .modal-table input[type="checkbox"] {
+        width: 16px;
+        height: 16px;
+        cursor: pointer;
+    }
+
+    /* 动画效果 */
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+        }
+        to {
+            opacity: 1;
+        }
+    }
+
+    @keyframes slideIn {
+        from {
+            opacity: 0;
+            transform: translate(-50%, -60%);
+        }
+        to {
+            opacity: 1;
+            transform: translate(-50%, -50%);
+        }
+    }
+
+    /* 确保弹框内容有动画 */
+    .modal-content {
+        animation: slideIn 0.3s ease;
+    }
+
+    /* 响应式设计 */
+    @media (max-width: 768px) {
+        .modal-content {
+            width: 95% !important;
+            max-width: 95% !important;
+            max-height: 90vh !important;
+        }
+        
+        .modal-header {
+            padding: 12px 15px;
+        }
+        
+        .modal-header h3 {
+            font-size: 1.1rem;
+        }
+        
+        .modal-actions {
+            padding: 12px 15px;
+            flex-direction: column;
+        }
+        
+        .modal-btn {
+            width: 100%;
+        }
+    }
+
+    @media (max-width: 576px) {
+        .modal-table {
+            font-size: 0.8rem;
+        }
+        
+        .modal-table th,
+        .modal-table td {
+            padding: 8px 4px;
+        }
+        
+        .modal-table input[type="number"] {
+            width: 60px;
+        }
+    }
+</style>
+<form method="post" id="addPOForm">
+    {% csrf_token %}
+    <input type="hidden" name="tab" id="formTab" value="">
+    <input type="hidden" name="step" value="fleet_add_pallet">
+    <input type="hidden" name="warehouse" value="{{ warehouse }}">
+    <input type="hidden" name="add_pallet_ISA" value="{{ add_pallet_ISA }}">
+
+    <div id="addPOModal" class="modal">
+        <div class="modal-content" style="width: 90%; max-width: 900px; max-height: 700px;">
+            <div class="modal-header">
+                <h3><i class="fas fa-plus"></i> 加塞 - {{ add_pallet_ISA }}</h3>
+                <span class="close" onclick="closeAddPOModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <table class="modal-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 5%; text-align:center;">
+                                <input type="checkbox" id="selectAllPos">
+                            </th>
+                            <th style="width: 20%; word-break: break-word; white-space: normal;">REF ID</th>
+                            <th style="width: 20%; word-break: break-word; white-space: normal;">FBA ID</th>
+                            <th style="width: 15%; word-break: break-word; white-space: normal;">柜号</th>
+                            <th style="width: 20%; word-break: break-word; white-space: normal;">目的地</th>
+                            <th style="width: 10%; text-align:center;">板数</th>
+                            <th style="width: 10%; text-align:center;">加塞板数</th>
+                        </tr>
+                    </thead>
+                    <tbody id="addPOTableBody">
+                        {% if plt_unshipped %}
+                            {% for po in plt_unshipped %}
+                            <tr>
+                                <td style="text-align:center;">
+                                    <input type="checkbox" class="plt-checkbox" value="{{ po.id }}">
+                                    <input type="hidden"  name="plt_ids" value="{{ po.plt_ids }}">
+                                </td>
+                                <td style="word-break: break-word; white-space: normal;">{{ po.ref_ids|default:"-" }}</td>
+                                <td style="word-break: break-word; white-space: normal;">{{ po.fba_ids|default:"-" }}</td>
+                                <td style="word-break: break-word; white-space: normal;">{{ po.cns }}</td>
+                                <td style="word-break: break-word; white-space: normal;">{{ po.destination }}</td>
+                                <td style="text-align:center;">
+                                    {{ po.total_n_pallet_act }}
+                                    <input type="hidden" name="scheduled_pallet" value="{{ po.total_n_pallet_act }}">
+                                </td>
+                                <td class="td">
+                                    <input type="number" 
+                                        name="actual_shipped_pallet" 
+                                        step="1" 
+                                        max="{{ po.total_n_pallet_act }}" 
+                                        value="{{ po.total_n_pallet_act }}" 
+                                        required
+                                        style="width: 80px; max-width: 100%; box-sizing: border-box;">
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr><td colspan="7" style="text-align:center; color:#888; padding: 20px;">暂无可添加的PO</td></tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+            <div class="modal-actions">
+                <button type="submit" class="modal-btn modal-btn-success" onclick="handleAddPOFormSubmit()">确认添加</button>
+                <button type="button" class="modal-btn modal-btn-danger" onclick="closeAddPOModal()" style="padding:10px 20px;">取消</button>
+            </div>
+        </div>
+    </div>
+</form>
+
+<script>
+// 加塞模态框的JavaScript
+function closeAddPOModal() {
+    const modal = document.getElementById('addPOModal');
+    if (modal) modal.style.display = 'none';
+}
+
+function handleAddPOFormSubmit() {
+    const form = document.getElementById('addPOForm');
+    
+    // 收集选中的行数据
+    const selectedRowsData = [];
+    const selectedCheckboxes = document.querySelectorAll('#addPOModal .plt-checkbox:checked');
+    
+    selectedCheckboxes.forEach(checkbox => {
+        const row = checkbox.closest('tr');
+        const pltIdInput = row.querySelector('input[name="plt_ids"]');
+        const scheduledPalletInput = row.querySelector('input[name="scheduled_pallet"]');
+        const actualShippedPalletInput = row.querySelector('input[name="actual_shipped_pallet"]');
+        
+        if (pltIdInput && pltIdInput.value) {
+            selectedRowsData.push({
+                pltId: pltIdInput.value,
+                scheduledPallet: scheduledPalletInput ? scheduledPalletInput.value : '',
+                actualShippedPallet: actualShippedPalletInput ? actualShippedPalletInput.value : ''
+            });
+        }
+    });
+    
+    if (selectedRowsData.length === 0) {
+        alert('请至少选择一个PO！');
+        event.preventDefault();
+        return false;
+    }
+    
+    // 移除原有的所有相关输入
+    const existingInputs = form.querySelectorAll('input[name="plt_ids"], input[name="scheduled_pallet"], input[name="actual_shipped_pallet"]');
+    existingInputs.forEach(input => input.remove());
+    
+    // 添加选中的数据
+    selectedRowsData.forEach(rowData => {
+        // 添加 plt_ids
+        const pltInput = document.createElement('input');
+        pltInput.type = 'hidden';
+        pltInput.name = 'plt_ids';
+        pltInput.value = rowData.pltId;
+        form.appendChild(pltInput);
+        
+        // 添加 scheduled_pallet
+        const scheduledInput = document.createElement('input');
+        scheduledInput.type = 'hidden';
+        scheduledInput.name = 'scheduled_pallet';
+        scheduledInput.value = rowData.scheduledPallet;
+        form.appendChild(scheduledInput);
+        
+        // 添加 actual_shipped_pallet
+        const actualInput = document.createElement('input');
+        actualInput.type = 'hidden';
+        actualInput.name = 'actual_shipped_pallet';
+        actualInput.value = rowData.actualShippedPallet;
+        form.appendChild(actualInput);
+    });
+    
+    // 提交表单
+    form.submit();
+    return true;
+}
+
+// 全选功能
+document.addEventListener('DOMContentLoaded', function() {
+    const selectAll = document.getElementById('selectAllPos');
+    if (selectAll) {
+        selectAll.addEventListener('click', function() {
+            document.querySelectorAll('#addPOModal .plt-checkbox').forEach(cb => {
+                cb.checked = this.checked;
+            });
+        });
+    }
+});
+
+// 关闭模态框事件
+document.querySelector('#addPOModal .close').addEventListener('click', closeAddPOModal);
+
+// 点击外部关闭
+window.addEventListener('click', function(event) {
+    const modal = document.getElementById('addPOModal');
+    if (event.target === modal) {
+        closeAddPOModal();
+    }
+});
+</script>

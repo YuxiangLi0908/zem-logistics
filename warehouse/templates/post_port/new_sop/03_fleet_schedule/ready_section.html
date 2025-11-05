@@ -92,9 +92,7 @@
                                                     <input type="hidden" name="add_pallet_ISA" value="{{ shipment.appointment_id }}">
                                                     <input type="hidden" name="warehouse" value="{{ warehouse }}">
                                                     <input type="hidden" name="step" value="add_pallet">
-                                                    <input type="hidden" name="tab" value="{{ current_tab }}"> 
-
-                                                    <button type="submit" class="action-btn btn-primary">
+                                                    <button type="submit" class="action-btn btn-primary" onclick="handleAddPallet(this)">
                                                         <i class="fas fa-plus"></i> 加塞
                                                     </button>
                                                 </form>
@@ -171,9 +169,7 @@
                                                         <input type="hidden" name="add_pallet_ISA" value="{{ shipment.appointment_id }}">
                                                         <input type="hidden" name="warehouse" value="{{ warehouse }}">
                                                         <input type="hidden" name="step" value="add_pallet">
-                                                        <input type="hidden" name="tab" value="{{ current_tab }}"> 
-
-                                                        <button type="submit" class="action-btn btn-primary">
+                                                        <button type="submit" class="action-btn btn-primary" onclick="handleAddPallet(this)">
                                                             <i class="fas fa-plus"></i> 加塞
                                                         </button>
                                                     </form>
@@ -202,6 +198,36 @@
 </div>
 
 <script>
+    function handleAddPallet(button) {
+        // 获取当前激活的标签页
+        const activeTab = document.querySelector('.tab.active');
+        let tabValue = '';
+        
+        if (activeTab) {
+            // 直接从 data-tab 属性获取值
+            tabValue = activeTab.getAttribute('data-tab');
+            console.log('获取到的标签页 data-tab:', tabValue);
+        }
+        
+        // 获取表单
+        const form = button.closest('form');
+        
+        // 创建或更新 active_tab 输入框
+        let activeTabInput = form.querySelector('input[name="active_tab"]');
+        if (!activeTabInput) {
+            activeTabInput = document.createElement('input');
+            activeTabInput.type = 'hidden';
+            activeTabInput.name = 'active_tab';
+            form.appendChild(activeTabInput);
+        }
+        activeTabInput.value = tabValue;
+        
+        console.log('最终提交的 active_tab:', tabValue);
+        
+        // 提交表单
+        form.submit();
+    }
+    
     document.addEventListener('DOMContentLoaded', function() {
         const searchReadyShipBtn = document.getElementById('searchReadyShipBtn');
         

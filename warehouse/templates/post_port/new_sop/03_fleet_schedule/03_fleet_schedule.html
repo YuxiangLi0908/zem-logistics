@@ -587,6 +587,7 @@
                 <input type="hidden" id="current-warehouse" value="{{ warehouse }}">
                 
                 <input type="hidden" name="step" value="fleet_schedule_warehouse">
+                <input type="hidden" name="active_tab" value="{{ active_tab }}">
                 <button id="confirmWarehouse">
                     <i class="fas fa-check"></i> 确认
                 </button>
@@ -880,7 +881,7 @@
         </div>
     </div>
 </div>
-
+{% include 'post_port/new_sop/03_fleet_schedule/modals/add_po_modal.html' %}
 {% include 'post_port/new_sop/03_fleet_schedule/modals/departure_modal.html' %}
 
 <div id="fleetModal" class="modal">
@@ -1045,27 +1046,6 @@
     </div>
 </div>
 
-<div id="messageModal" class="modal" {% if success_messages or error_messages %}style="display:block;"{% endif %}>
-    <div class="modal-content" style="max-width: 400px; text-align: center;">
-        <div style="font-size: 3rem; margin-bottom: 15px;">
-            {% if success_messages %}
-            <i class="fas fa-check-circle" style="color: var(--success-color);"></i>
-            {% elif error_messages %}
-            <i class="fas fa-exclamation-circle" style="color: var(--danger-color);"></i>
-            {% endif %}
-        </div>
-        <h4 style="margin-bottom: 15px;">
-            {% if success_messages %}操作成功{% elif error_messages %}操作失败{% endif %}
-        </h4>
-        <p style="margin-bottom: 20px; line-height: 1.5;">
-            {{ success_messages }}{{ error_messages }}
-        </p>
-        <button type="button" class="action-btn btn-primary" onclick="closeMessageModal()" style="min-width: 100px;">
-            <i class="fas fa-check"></i> 确认
-        </button>
-    </div>
-</div>
-
 <!-- 隐藏表单需要修改以支持大组匹配 -->
 <form method="post" action="" id="actionForm" style="display: none;">
     {% csrf_token %}
@@ -1078,6 +1058,14 @@
 </form>
 
 <script>
+    // 自动弹出模态框
+    {% if show_add_po_modal %}
+        setTimeout(function () {
+            const modal = document.getElementById('addPOModal');
+            if (modal) modal.style.display = 'block';
+        }, 300);
+    {% endif %}
+
     const CURRENT_TIME = new Date('{{ current_time|date:"Y-m-d H:i" }}' || new Date());
     function addTimeMarkers() {
         
@@ -1238,8 +1226,41 @@
         return Math.floor((d2 - d1) / (1000 * 60 * 60 * 24));
     }
 
+    function setActiveTabFromParams() {     
+        // 方式二：从隐藏字段获取（如果有）
+        let activeTab = null;
+        if (!activeTab) {
+            const activeTabInput = document.querySelector('input[name="active_tab"]');
+            if (activeTabInput && activeTabInput.value) {
+                activeTab = activeTabInput.value;
+            }
+        }
+        
+        console.log('设置的激活标签页:', activeTab);
+        
+        if (activeTab) {
+            // 移除所有激活状态
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.content-section').forEach(s => s.classList.remove('active'));
+            
+            // 设置对应的标签页和内容区域为激活状态
+            const targetTab = document.querySelector(`.tab[data-tab="${activeTab}"]`);
+            const targetSection = document.getElementById(activeTab + '-section');
+            
+            if (targetTab && targetSection) {
+                targetTab.classList.add('active');
+                targetSection.classList.add('active');
+                console.log('成功激活标签页:', activeTab);
+            } else {
+                console.warn('未找到对应的标签页或内容区域:', activeTab);
+            }
+        }
+    }
+
     // 页面加载完成后添加时间标记
     document.addEventListener('DOMContentLoaded', function() {
+        // 设置激活标签页
+        setActiveTabFromParams();
         addTimeMarkers();
         // 搜索按钮事件监听
         const searchScheduledBtn = document.getElementById('searchScheduledBtn');
