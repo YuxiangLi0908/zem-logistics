@@ -1,0 +1,500 @@
+<!-- 待出库标签页 -->
+ <style>
+    .fleet-number-cell:hover {
+        background-color: #e8f4fd !important;
+    }
+
+    .fleet-number-cell:hover strong {
+        color: #2980b9 !important;
+    }
+ </style>
+<div class="content-section" id="readyShip-section">
+    <div class="search-box">
+        <div style="display: flex; gap: 10px; flex: 1; align-items: center;">
+            <input type="text" class="search-input" placeholder="搜索车次号、预约号..." id="readyShipSearch">
+            <button class="search-btn" id="searchReadyShipBtn">
+                <i class="fas fa-search"></i> 搜索
+            </button>
+        </div>
+    </div>
+
+    <div class="table-container">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>车次号</th>
+                    <th>提货时间</th>
+                    <th>预约号</th>
+                    <th>目的地</th>
+                    <th>柜号</th>
+                    <th>REF ID</th>
+                    <th>FBA ID</th>
+                    <th>板数</th>
+                    <th>CBM</th>
+                    <th>加塞</th>
+                    <th>出库</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for fleet_group in ready_to_ship_data %}
+                    {% with fleet_rowspan=fleet_group.total_cargos %}
+                        <tr class="group-separator">
+                            <td colspan="11" style="background: linear-gradient(90deg, #3498db, #6c8bc7); 
+                                                height: 2px; padding: 0;"></td>
+                        </tr>
+                        {% for shipment_id, shipment in fleet_group.shipments.items %}
+                            {% with shipment_rowspan=shipment.cargos|length|default:0 %}
+                                {% if shipment_rowspan == 0 %}
+                                    {% with shipment_rowspan=1 %}
+                                        <tr data-plt-id="{{ cargo.plt_ids }}"
+                                            data-cargo-id="{{ cargo.cargo_ids }}"
+                                            data-appointment-id="{{ shipment.appointment_id }}"
+                                            data-destination="{{ shipment.destination }}"
+                                            data-container-no="{{ cargo.cns }}"
+                                            data-ref-ids="{{ cargo.ref_ids|default:'' }}"
+                                            data-fba-ids="{{ cargo.fba_ids|default:'' }}"
+                                            data-planned="{{ cargo.total_n_pallet_act|default:0 }}"
+                                            data-label="{{ cargo.label|default:'' }}"
+                                            data-cbm="{{ cargo.total_cbm|default:0 }}">
+                                            {% if forloop.parentloop.first and forloop.first or fleet_rowspan == 1 %}
+                                                <td rowspan="{{ fleet_rowspan }}" style="vertical-align: middle; background-color: #f8f9fa; cursor: pointer;" 
+                                                    class="fleet-number-cell" 
+                                                    data-fleet-number="{{ fleet_group.fleet_number }}"
+                                                    data-third-party-address="{{ fleet_group.third_party_address }}"
+                                                    data-pickup-number="{{ fleet_group.pickup_number }}"
+                                                    data-motor-carrier-number="{{ fleet_group.motor_carrier_number }}"
+                                                    data-license-plate="{{ fleet_group.license_plate }}"
+                                                    data-dot-number="{{ fleet_group.dot_number }}"
+                                                    data-appointment-datetime="{{ fleet_group.appointment_datetime }}"
+                                                    data-carrier="{{ fleet_group.carrier }}">
+                                                    <strong style="color: #3498db; text-decoration: underline;">{{ fleet_group.fleet_number }}</strong>
+                                                    <br>
+                                                    {% if fleet_group.is_virtual %}
+                                                    <small style="color: #7f8c8d; font-size: 10px;">虚拟车次待编辑</small>
+                                                    {% endif %}
+                                                </td>
+                                                <td rowspan="{{ fleet_rowspan }}" style="vertical-align: middle; background-color: #f8f9fa;">
+                                                    {{ fleet_group.appointment_datetime|date:"Y-m-d" }}
+                                                </td>                                        
+                                            {% endif %}
+                                            
+                                            <td rowspan="{{ shipment_rowspan }}" style="vertical-align: middle; background-color: #f8f9fa;">
+                                                {{ shipment.appointment_id }}
+                                            </td>
+                                            <td rowspan="{{ shipment_rowspan }}" style="vertical-align: middle; background-color: #f8f9fa;">
+                                                {{ shipment.destination }}
+                                            </td>
+                                            <td colspan="5" style="text-align:center; color:#999;">暂无货物</td>
+                                            <td rowspan="{{ shipment_rowspan }}" style="vertical-align: middle;">
+                                                <form method="post" action="">
+                                                    {% csrf_token %}
+                                                    <input type="hidden" name="destination" value="{{ shipment.destination }}">
+                                                    <input type="hidden" name="add_pallet_ISA" value="{{ shipment.appointment_id }}">
+                                                    <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                                                    <input type="hidden" name="step" value="add_pallet">
+                                                    <input type="hidden" name="tab" value="{{ current_tab }}"> 
+
+                                                    <button type="submit" class="action-btn btn-primary">
+                                                        <i class="fas fa-plus"></i> 加塞
+                                                    </button>
+                                                </form>
+                                            </td>
+                                            {% if forloop.parentloop.first and forloop.first %}
+                                                <td rowspan="{{ fleet_rowspan }}">
+                                                    <button class="action-btn btn-success" onclick="confirmFleetDeparture('{{ fleet_group.fleet_number }}')">出库</button>
+                                                </td>
+                                            {% endif %}
+                                        </tr>
+                                    {% endwith %}
+                                {% else %}
+                                    {% for cargo in shipment.cargos %}
+                                        <tr data-plt-id="{{ cargo.plt_ids }}"
+                                            data-cargo-id="{{ cargo.cargo_ids }}"
+                                            data-appointment-id="{{ shipment.appointment_id }}"
+                                            data-destination="{{ shipment.destination }}"
+                                            data-container-no="{{ cargo.cns }}"
+                                            data-ref-ids="{{ cargo.ref_ids|default:'' }}"
+                                            data-fba-ids="{{ cargo.fba_ids|default:'' }}"
+                                            data-planned="{{ cargo.total_n_pallet_act|default:0 }}"
+                                            data-label="{{ cargo.label|default:'' }}"
+                                            data-cbm="{{ cargo.total_cbm|default:0 }}">
+                                            {% if forloop.first and forloop.parentloop.first %}
+                                                <td rowspan="{{ fleet_rowspan }}" style="vertical-align: middle; background-color: #f8f9fa; cursor: pointer;" 
+                                                    class="fleet-number-cell" 
+                                                    data-fleet-number="{{ fleet_group.fleet_number }}"
+                                                    data-third-party-address="{{ fleet_group.third_party_address }}"
+                                                    data-pickup-number="{{ fleet_group.pickup_number }}"
+                                                    data-motor-carrier-number="{{ fleet_group.motor_carrier_number }}"
+                                                    data-license-plate="{{ fleet_group.license_plate }}"
+                                                    data-dot-number="{{ fleet_group.dot_number }}"
+                                                    data-appointment-datetime="{{ fleet_group.appointment_datetime }}"
+                                                    data-carrier="{{ fleet_group.carrier }}">
+                                                    <strong style="color: #3498db; text-decoration: underline;">{{ fleet_group.fleet_number }}</strong>
+                                                    <br>
+                                                    {% if fleet_group.is_virtual%}
+                                                    <small style="color: #7f8c8d; font-size: 10px;">虚拟车次待编辑</small>
+                                                    {% endif %}
+                                                </td> 
+                                                <td rowspan="{{ fleet_rowspan }}" style="vertical-align: middle; background-color: #f8f9fa;">
+                                                    {{ fleet_group.appointment_datetime|date:"Y-m-d" }}
+                                                </td> 
+                                            {% endif %}
+
+                                            {% if forloop.first %}
+                                                <td rowspan="{{ shipment_rowspan }}" style="vertical-align: middle; background-color: #f8f9fa;">
+                                                    {{ shipment.appointment_id }}
+                                                </td>
+                                                <td rowspan="{{ shipment_rowspan }}" style="vertical-align: middle; background-color: #f8f9fa;">
+                                                    {{ shipment.destination }}
+                                                </td>
+                                            {% endif %}
+
+                                            <td class="cns-col">{{ cargo.cns|linebreaksbr }}</td>
+                                            <td class="ref-ids-col" data-full="{{ cargo.ref_ids|default:'' }}">{{ cargo.ref_ids|default:"-"|truncatechars:20 }}</td>
+                                            <td class="fba-ids-col" data-full="{{ cargo.fba_ids|default:'' }}">{{ cargo.fba_ids|default:"-"|truncatechars:20 }}</td>
+                                            <td>
+                                                {% if cargo.label == "ACT" %}
+                                                    {{ cargo.total_n_pallet_act|default:0 }}
+                                                {% elif cargo.label == "EST" %}
+                                                    {{ cargo.total_n_pallet_est|default:0 }}
+                                                {% else %}
+                                                    0
+                                                {% endif %}
+                                            </td>
+                                            <td>{{ cargo.total_cbm|default:0 }}</td>
+
+                                            {% if forloop.first %}
+                                                <td rowspan="{{ shipment_rowspan }}" style="vertical-align: middle;">
+                                                    <form method="post" action="">
+                                                        {% csrf_token %}
+                                                        <input type="hidden" name="destination" value="{{ shipment.destination }}">
+                                                        <input type="hidden" name="add_pallet_ISA" value="{{ shipment.appointment_id }}">
+                                                        <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                                                        <input type="hidden" name="step" value="add_pallet">
+                                                        <input type="hidden" name="tab" value="{{ current_tab }}"> 
+
+                                                        <button type="submit" class="action-btn btn-primary">
+                                                            <i class="fas fa-plus"></i> 加塞
+                                                        </button>
+                                                    </form>
+                                                </td>
+                                            {% endif %}
+
+                                            {% if forloop.first and forloop.parentloop.first %}
+                                                <td rowspan="{{ fleet_rowspan }}">
+                                                    <button class="action-btn btn-success" onclick="confirmFleetDeparture('{{ fleet_group.fleet_number }}')">出库</button>
+                                                </td>
+                                            {% endif %}
+                                        </tr>
+                                    {% endfor %}
+                                {% endif %}
+                            {% endwith %}
+                        {% endfor %}
+                    {% endwith %}
+                {% empty %}
+                    <tr>
+                        <td colspan="10" style="text-align:center; padding:20px;">暂无待出库货物</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const searchReadyShipBtn = document.getElementById('searchReadyShipBtn');
+        
+        if (searchReadyShipBtn) {
+            searchReadyShipBtn.addEventListener('click', function() {
+                applyReadyShipSearch();
+            });
+        }
+        const readyShipSearch = document.getElementById('readyShipSearch');
+        if (readyShipSearch) {
+            readyShipSearch.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') applyReadyShipSearch();
+            });
+        }
+    });
+
+    function applyReadyShipSearch() {
+        const searchInput = document.getElementById('readyShipSearch');
+        if (!searchInput) return;
+        
+        const searchTerm = searchInput.value.trim().toLowerCase();
+        const sectionElement = document.getElementById('readyShip-section');
+        if (!sectionElement) return;
+        
+        const rows = sectionElement.querySelectorAll('.data-table tbody tr');
+        
+        // 先显示所有行
+        rows.forEach(row => {
+            row.style.display = '';
+            row.querySelectorAll('td[rowspan]').forEach(td => {
+                td.style.display = '';
+            });
+        });
+        
+        if (searchTerm === '') return;
+        
+        handleReadyShipSearch(rows, searchTerm);
+    }
+
+    function handleReadyShipSearch(rows, searchTerm) {
+        // 构建组映射 - 关键修复：正确识别组结构
+        const groupMap = new Map();
+        let currentGroupId = null;
+        let currentGroupRows = [];
+        
+        rows.forEach((row, index) => {
+            // 跳过分隔行
+            if (row.classList.contains('group-separator')) {
+                // 保存前一个组
+                if (currentGroupId && currentGroupRows.length > 0) {
+                    groupMap.set(currentGroupId, [...currentGroupRows]);
+                }
+                // 开始新组
+                currentGroupId = `group-${index}`;
+                currentGroupRows = [row]; // 包含分隔行
+                return;
+            }
+            
+            // 检查是否是车次行的开始（有fleet-number-cell的行）
+            const fleetCell = row.querySelector('.fleet-number-cell');
+            if (fleetCell && currentGroupId) {
+                // 保存前一个组
+                groupMap.set(currentGroupId, [...currentGroupRows]);
+                // 开始新组
+                currentGroupId = `group-${index}`;
+                currentGroupRows = [];
+            }
+            
+            // 添加到当前组
+            if (currentGroupId) {
+                currentGroupRows.push(row);
+            }
+        });
+        
+        // 保存最后一个组
+        if (currentGroupId && currentGroupRows.length > 0) {
+            groupMap.set(currentGroupId, [...currentGroupRows]);
+        }
+        
+        console.log('组映射:', groupMap);
+        
+        // 先隐藏所有行
+        rows.forEach(row => {
+            row.style.display = 'none';
+        });
+        
+        // 查找匹配的组
+        const matchingGroups = new Set();
+        
+        groupMap.forEach((groupRows, groupId) => {
+            let groupMatched = false;
+            
+            // 检查组内是否有任何行匹配搜索条件
+            for (const row of groupRows) {
+                if (isReadyShipRowMatch(row, searchTerm)) {
+                    groupMatched = true;
+                    break;
+                }
+            }
+            
+            if (groupMatched) {
+                matchingGroups.add(groupId);
+            }
+        });
+        
+        console.log('匹配的组:', matchingGroups);
+        
+        // 显示匹配的组的所有行
+        matchingGroups.forEach(groupId => {
+            const groupRows = groupMap.get(groupId);
+            if (groupRows) {
+                groupRows.forEach(row => {
+                    row.style.display = '';
+                    // 确保合并的单元格也显示
+                    row.querySelectorAll('td[rowspan]').forEach(td => {
+                        td.style.display = '';
+                    });
+                });
+            }
+        });
+        
+        // 如果没有匹配的组，尝试单独匹配（处理没有组结构的情况）
+        if (matchingGroups.size === 0) {
+            rows.forEach(row => {
+                if (isReadyShipRowMatch(row, searchTerm)) {
+                    row.style.display = '';
+                    row.querySelectorAll('td[rowspan]').forEach(td => {
+                        td.style.display = '';
+                    });
+                }
+            });
+        }
+    }
+
+    function isReadyShipRowMatch(row, searchTerm) {
+        if (!searchTerm) return true;
+        
+        // 跳过分隔行
+        if (row.classList.contains('group-separator')) {
+            return false;
+        }
+        
+        // 检查车次号
+        const fleetTd = row.querySelector('td:first-child');
+        if (fleetTd) {
+            const fleetText = fleetTd.textContent.toLowerCase();
+            if (fleetText.includes(searchTerm)) return true;
+        }
+        
+        // 检查提货时间
+        const pickupTimeTd = row.querySelector('td:nth-child(2)');
+        if (pickupTimeTd) {
+            const pickupTimeText = pickupTimeTd.textContent.toLowerCase();
+            if (pickupTimeText.includes(searchTerm)) return true;
+        }
+        
+        // 检查预约号
+        const appointmentTd = row.querySelector('td:nth-child(3)');
+        if (appointmentTd) {
+            const appointmentText = appointmentTd.textContent.toLowerCase();
+            if (appointmentText.includes(searchTerm)) return true;
+        }
+        
+        // 检查目的地
+        const destinationTd = row.querySelector('td:nth-child(4)');
+        if (destinationTd) {
+            const destinationText = destinationTd.textContent.toLowerCase();
+            if (destinationText.includes(searchTerm)) return true;
+        }
+        
+        // 检查柜号
+        const containerCell = row.querySelector('.cns-col');
+        if (containerCell) {
+            const containerText = containerCell.textContent.toLowerCase();
+            if (containerText.includes(searchTerm)) return true;
+        }
+        
+        // 检查REF ID
+        const refIdsCell = row.querySelector('.ref-ids-col');
+        if (refIdsCell) {
+            const fullRefIds = refIdsCell.getAttribute('data-full') || refIdsCell.textContent || '';
+            if (fullRefIds.toLowerCase().includes(searchTerm)) return true;
+        }
+        
+        // 检查FBA ID
+        const fbaIdsCell = row.querySelector('.fba-ids-col');
+        if (fbaIdsCell) {
+            const fullFbaIds = fbaIdsCell.getAttribute('data-full') || fbaIdsCell.textContent || '';
+            if (fullFbaIds.toLowerCase().includes(searchTerm)) return true;
+        }
+        
+        // 检查板数
+        const palletTd = row.querySelector('td:nth-child(8)');
+        if (palletTd) {
+            const palletText = palletTd.textContent.toLowerCase();
+            if (palletText.includes(searchTerm)) return true;
+        }
+        
+        // 检查CBM
+        const cbmTd = row.querySelector('td:nth-child(9)');
+        if (cbmTd) {
+            const cbmText = cbmTd.textContent.toLowerCase();
+            if (cbmText.includes(searchTerm)) return true;
+        }
+        
+        // 检查整行文本
+        const rowText = row.textContent.toLowerCase();
+        if (rowText.includes(searchTerm)) return true;
+        
+        return false;
+    }
+
+    // 待出库页面特定的JavaScript
+    function confirmFleetDeparture(fleetNumber) {
+        const fleetData = collectFleetData(fleetNumber);
+        if (!fleetData || !fleetData.shipments || fleetData.shipments.length === 0) {
+            alert('未找到车次数据或车次下没有货物');
+            return;
+        }
+        openDepartureModal(fleetNumber, fleetData);
+    }
+
+    function collectFleetData(fleetNumber) {
+        const fleetCell = document.querySelector(`#readyShip-section td.fleet-number-cell[data-fleet-number="${fleetNumber}"]`);
+        if (!fleetCell) {
+            console.error(`未找到车次 ${fleetNumber}`);
+            return null;
+        }
+        const fleetRow = fleetCell.closest('tr');
+        const allRows = Array.from(document.querySelectorAll('#readyShip-section tbody tr'));
+        const startIndex = allRows.indexOf(fleetRow);
+        if (startIndex === -1) return null;
+
+        let endIndex = allRows.length;
+        for (let i = startIndex + 1; i < allRows.length; i++) {
+            if (allRows[i].querySelector('.fleet-number-cell')) { endIndex = i; break; }
+        }
+        const rows = allRows.slice(startIndex, endIndex);
+
+        const fleetData = { fleetNumber, shipments: [] };
+        const shipmentsMap = {};
+
+        rows.forEach((row, idx) => {
+            // Read raw dataset values (may be mixed)
+            const rawAppt = row.dataset.appointmentId || '';
+            // If appointment id not in dataset, skip (非货物行或占位行)
+            if (!rawAppt) return;
+            const rawPlt = (row.dataset.pltId || '').toString().trim();
+            const rawCargo = (row.dataset.cargoId || '').toString().trim();
+            const dest = row.dataset.destination || '';
+            const containerNo = row.dataset.containerNo || '';
+            const refIds = row.dataset.refIds || '';
+            const fbaIds = row.dataset.fbaIds || '';
+            const planned = parseFloat(row.dataset.planned || 0) || 0;
+            const label = row.dataset.label || '';
+            const cbm = row.dataset.cbm || '';
+
+            let pltId = '';
+            let cargoId = '';
+
+            if (rawCargo) {
+                cargoId = rawCargo;
+            }
+            if (rawPlt) {
+                if (/^cargo_/i.test(rawPlt)) {
+                    if (!cargoId) cargoId = rawPlt;
+                } else {
+                    pltId = rawPlt;
+                }
+            }
+
+            console.log(`[collectFleetData] row ${idx} appointment=${rawAppt} parsed pltId="${pltId}" cargoId="${cargoId}" dataset=`, row.dataset);
+
+            // Assemble into shipments map
+            if (!shipmentsMap[rawAppt]) {
+                shipmentsMap[rawAppt] = { appointmentId: rawAppt, destination: dest, cargos: [] };
+            }
+            shipmentsMap[rawAppt].cargos.push({
+                containerNo,
+                refIds,
+                fbaIds,
+                plannedPallets: planned,
+                palletLabel: label,
+                actualPallets: planned,
+                cbm,
+                // keep separate fields
+                pltId: pltId || '',
+                cargoId: cargoId || ''
+            });
+        });
+
+        fleetData.shipments = Object.values(shipmentsMap);
+        console.log('[collectFleetData] final fleetData:', fleetData);
+        return fleetData;
+    }
+</script>

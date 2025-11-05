@@ -531,32 +531,7 @@
             margin-top: 10px;
         }
     }
-    .modal {
-        display: none;
-        position: fixed;
-        z-index: 3000;
-        left: 0;
-        top: 0;
-        width: 100%;
-        height: 100%;
-        background: rgba(0,0,0,0.5);
-        backdrop-filter: blur(2px);
-    }
 
-    .modal-content {
-        background: #fff;
-        border-radius: 14px;
-        width: 400px; /* 固定宽度 */
-        max-height: 85%;
-        position: absolute; /* 改为绝对定位 */
-        top: 50%; /* 垂直居中 */
-        left: 50%; /* 水平居中 */
-        transform: translate(-50%, -50%); /* 精确居中 */
-        padding: 30px;
-        overflow-y: auto;
-        box-shadow: 0 10px 25px rgba(0,0,0,0.3);
-        animation: modalIn 0.3s ease-out;
-    }
     .message-success {
         color: var(--success-color);
     }
@@ -626,6 +601,11 @@
                 <div class="card-value">{{ summary.scheduled_count }}</div>
                 <div class="card-trend">等待出库</div>
             </div>
+            <div class="summary-card scheduled">
+                <div class="card-title">待出库批次</div>
+                <div class="card-value">{{ summary.ready_to_ship_count }}</div>
+                <div class="card-trend">等待出库</div>
+            </div>
             <div class="summary-card ready">
                 <div class="card-title">待送达批次</div>
                 <div class="card-value">{{ summary.ready_count }}</div>
@@ -643,12 +623,16 @@
             <div class="tab active" data-tab="scheduled">
                 已排车批次 <span class="badge">{{ summary.scheduled_count }}</span>
             </div>
+
+            <div class="tab" data-tab="readyShip">
+                待出库批次 <span class="badge">{{ summary.ready_to_ship_count }}</span>
+            </div>
             <div class="tab" data-tab="ready">
                 待送达批次 <span class="badge">{{ summary.ready_count }}</span>
             </div>
             <div class="tab" data-tab="pod">
                 待传POD批次 <span class="badge">{{ summary.pod_count }}</span>
-            </div>
+            </div>         
         </div>
         
         <!-- 已排车批次标签页 -->
@@ -744,6 +728,9 @@
             </div>
         </div>
 
+        <!-- 待出库批次标签页 -->
+        {% include 'post_port/new_sop/03_fleet_schedule/ready_section.html' %}
+        
         <!-- 待送达批次标签页 -->
         <div class="content-section" id="ready-section">
             <div class="search-box">
@@ -891,6 +878,8 @@
         </div>
     </div>
 </div>
+
+{% include 'post_port/new_sop/03_fleet_schedule/modals/departure_modal.html' %}
 
 <div id="fleetModal" class="modal">
   <div class="modal-content" style="width: 90%; max-width: 1200px; min-width: 800px;">
