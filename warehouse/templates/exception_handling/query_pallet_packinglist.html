@@ -336,17 +336,29 @@
             min-width: auto;
         }
     }
+    h2 {
+        text-align: center;
+        margin-bottom: 20px;
+        background: linear-gradient(45deg, #ff6b6b, #4ecdc4, #45b7d1, #96ceb4, #feca57);
+        background-size: 400% 400%;
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
+        animation: gradient 3s ease infinite;
+        font-weight: bold;
+    }
+    @keyframes gradient {
+        0% { background-position: 0% 50%; }
+        50% { background-position: 100% 50%; }
+        100% { background-position: 0% 50%; }
+    }
 </style>
-
+<h2> 预报/板子查询</h2>
 <!-- 查询表单 -->
 <div class="search-form">
     <form method="post" id="searchForm">
         {% csrf_token %}
         <input type="hidden" name="step" value="query_pallet_packinglist">
-        
-        <div class="search-header">
-            <h3><i class="fas fa-search"></i> 高级搜索</h3>
-        </div>
         
         <div class="search-grid">
             <div class="form-group">
