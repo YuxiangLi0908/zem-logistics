@@ -468,7 +468,7 @@ class PostNsop(View):
         request.POST.setlist('batch_number', batch_numbers)
         fm = FleetManagement()
         context = await fm.handle_fleet_departure_post(request,'post_nsop')
-        return await self.handle_td_shipment_post(request,context)         
+        return await self.handle_fleet_schedule_post(request,context)         
     
     async def handle_export_virtual_fleet_pos_post(
         self, request: HttpRequest
@@ -1227,10 +1227,9 @@ class PostNsop(View):
         context = {}
         if error_message:
             context.update({"error_messages": error_message}) 
-        _, context = await self.handle_fleet_schedule_post(request, context)
-        context.update({"success_messages": f'排车成功!批次号是：{fleet_number}'}) 
-        
-        return await self.handle_fleet_schedule_post(request, context)
+        _, context = await self.handle_td_shipment_post(request, context)
+        context.update({"success_messages": f'排车成功!批次号是：{fleet_number}'})    
+        return await self.handle_td_shipment_post(request, context)
 
     async def handle_appointment_time(
         self, request: HttpRequest
