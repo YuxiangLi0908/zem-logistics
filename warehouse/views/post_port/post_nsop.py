@@ -1537,6 +1537,7 @@ class PostNsop(View):
     async def _fl_unscheduled_data(
         self, request: HttpRequest, warehouse:str
     ) -> tuple[str, dict[str, Any]]:
+        target_date = datetime.datetime(2025, 10, 10)
         shipment = await sync_to_async(list)(
             Shipment.objects.filter(
                 origin=warehouse,
@@ -1551,6 +1552,7 @@ class PostNsop(View):
                 origin=warehouse,
                 departured_at__isnull=True,
                 is_canceled=False,
+                appointment_datetime__gt=target_date,
             )
             .prefetch_related("shipment")
             .annotate(
@@ -2176,18 +2178,21 @@ class PostNsop(View):
     async def sp_scheduled_data(self, warehouse: str, user) -> list:
         """获取已排约数据 - 按shipment_batch_number分组"""
         # 获取有shipment_batch_number但fleet_number为空的货物
+        target_date = datetime.datetime(2025, 10, 10)
         raw_data = await self._get_packing_list(
             user,
             models.Q(
                 container_number__order__warehouse__name=warehouse,
-                shipment_batch_number__isnull=False,
+                shipment_batch_number__isnull=False,             
                 container_number__order__offload_id__offload_at__isnull=True,
                 shipment_batch_number__shipment_batch_number__isnull=False,
+                shipment_batch_number__shipment_appointment__gt=target_date,
                 shipment_batch_number__fleet_number__isnull=True,
                 delivery_type='public',
             ),
             models.Q(
                 shipment_batch_number__shipment_batch_number__isnull=False,
+                shipment_batch_number__shipment_appointment__gt=target_date,
                 container_number__order__offload_id__offload_at__isnull=False,
                 shipment_batch_number__fleet_number__isnull=True,
                 location=warehouse,
