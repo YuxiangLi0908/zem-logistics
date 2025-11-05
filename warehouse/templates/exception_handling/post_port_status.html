@@ -220,6 +220,8 @@
             <th>发货时间</th>
             <th>送达时间</th>
             <th>status</th>
+            <th>预约时间状态</th>
+            <th>发车时间状态</th>
             <th>in_use</th>
             <th>已经取消</th>
             <th>POD链接</th>
@@ -244,6 +246,8 @@
             <td>{{ shipment.shipped_at|default:"-" }}</td>
             <td>{{ shipment.arrived_at|default:"-" }}</td>
             <td>{{ shipment.status }}</td>
+            <td>{{ shipment.appointment_status }}</td>
+            <td>{{ shipment.shipping_status }}</td>
             <td>
                 <form method="post" style="display: inline-block; margin: 2px;">
                     {% csrf_token %}
