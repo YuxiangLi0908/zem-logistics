@@ -142,7 +142,7 @@ class PostNsop(View):
         elif step == "cancel_fleet":
             fm = FleetManagement()
             context = await fm.handle_cancel_fleet_post(request,'post_nsop')
-            template, context = await self.handle_fleet_schedule_post(request)
+            template, context = await self.handle_td_shipment_post(request)
             context.update({"success_messages": '取消批次成功!'})  
             return render(request, template, context)
         elif step == "confirm_delivery":
@@ -1105,6 +1105,8 @@ class PostNsop(View):
             address = request.POST.get('address')
             if not address:
                 address = await self.get_address(destination)
+                if not address:
+                    raise ValueError('没找到地址')
             
             #先去查询一下shipment表，有没有这个记录，就是第一次预约出库，如果有就是修改
             try:
@@ -1159,10 +1161,18 @@ class PostNsop(View):
             }
             request.POST = request.POST.copy()
             request.POST['shipment_data'] = str(shipment_data)
-            request.POST['batch_number'] = shipment_batch_number     
+            request.POST['batch_number'] = shipment_batch_number   
+            request.POST['address'] = address      
             request.POST['pl_ids'] = selected
             request.POST['plt_ids'] = selected_plt
             request.POST['type'] = 'td'
+            request.POST['origin'] = request.POST.get('warehouse')  
+            request.POST['load_type'] = request.POST.get('load_type')  
+            request.POST['note'] = request.POST.get('note')  
+            request.POST['destination'] = destination
+            request.POST['shipment_type'] = request.POST.get('shipment_type')  
+            request.POST['appointment_id'] = request.POST.get('appointment_id')  
+            request.POST['shipment_cargo_id'] = request.POST.get('shipment_cargo_id')  
             
             sm = ShippingManagement()
             info = await sm.handle_appointment_post(request,'post_nsop') 
@@ -1755,12 +1765,13 @@ class PostNsop(View):
         #未排车
         unschedule_fleet = await self._fl_unscheduled_data(request, warehouse)
         unschedule_fleet_data = unschedule_fleet['shipment_list']
-        ready_to_ship_data = await self._sp_ready_to_ship_data(warehouse,request.user)
+        #已排车
+        sp_fl = await self._fl_unscheduled_data(request, warehouse)
         # 获取可用预约
         available_shipments = await self.sp_available_shipments(warehouse, st_type)
         
         # 计算统计数据
-        summary = await self._sp_calculate_summary(matching_suggestions, scheduled_data, ready_to_ship_data, unschedule_fleet_data)       
+        summary = await self._sp_calculate_summary(matching_suggestions, scheduled_data, sp_fl, unschedule_fleet_data)       
 
         if not context:
             context = {}
@@ -1774,8 +1785,8 @@ class PostNsop(View):
             'matching_suggestions': matching_suggestions,
             'scheduled_data': scheduled_data,
             'unschedule_fleet': unschedule_fleet_data,
+            'fleet_list': sp_fl['fleet_list'],   #已排车
             'unscheduled_fl_count': len(unschedule_fleet.get('shipment_list', [])) if unschedule_fleet else 0,
-            'ready_to_ship_data': ready_to_ship_data,
             'available_shipments': available_shipments,
             'summary': summary,
             'max_cbm': max_cbm,
@@ -1785,6 +1796,7 @@ class PostNsop(View):
             "load_type_options": LOAD_TYPE_OPTIONS,
             "shipment_type_options": self.shipment_type_options,
             "carrier_options": self.carrier_options,
+            'active_tab': request.POST.get('active_tab')
         }) 
         context["matching_suggestions_json"] = json.dumps(matching_suggestions, cls=DjangoJSONEncoder)
         context["warehouse_json"] = json.dumps(warehouse, cls=DjangoJSONEncoder)
@@ -2450,12 +2462,12 @@ class PostNsop(View):
         
         return False
 
-    async def _sp_calculate_summary(self, unscheduled: list, scheduled: list, ready: list, unscheduled_fl) -> dict:
+    async def _sp_calculate_summary(self, unscheduled: list, scheduled: list, sp_fl: list, unscheduled_fl) -> dict:
         """计算统计数据"""
         # 计算各类数量
         unscheduled_count = len(unscheduled)
         scheduled_count = len(scheduled)
-        ready_count = len(ready)
+        sp_fl_count = len(sp_fl['fleet_list'])
         unscheduled_fl_count = len(unscheduled_fl)
         # 计算总板数
         total_pallets = 0
@@ -2465,7 +2477,7 @@ class PostNsop(View):
         return {
             'unscheduled_count': unscheduled_count,
             'scheduled_count': scheduled_count,
-            'ready_count': ready_count,
+            'sp_fl_count': sp_fl_count,
             'unscheduled_fl_count': unscheduled_fl_count,
             'total_pallets': int(total_pallets),
         }

@@ -1,0 +1,201 @@
+<!-- scheduledFleet_section.html -->
+<div class="content-section active" id="scheduledFleet-section">
+    <div class="search-box">
+        <div style="display: flex; gap: 10px; flex: 1; align-items: center;">
+            <input type="text" class="search-input" placeholder="搜索出库批次、预约批次、ISA、carrier..." id="scheduledFleetSearch">
+            <button class="search-btn" id="searchScheduledFleetBtn">
+                <i class="fas fa-search"></i> 搜索
+            </button>
+        </div>
+    </div>
+
+    <div class="table-container">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>出库批次</th>
+                    <th>预约批次</th>
+                    <th>ISA</th>
+                    <th>carrier</th>
+                    <th>提货时间</th>
+                    <th>总重lbs</th>
+                    <th>总CBM</th>
+                    <th>总卡板数</th>
+                    <th>note</th>
+                    <th>撤销批次</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for f in fleet_list %}
+                <tr 
+                    data-pickup-number="{{ f.pickup_number|default_if_none:'' }}"
+                    data-third-party-address="{{ f.third_party_address|default_if_none:'' }}"
+                    data-license-plate="{{ f.license_plate|default_if_none:'' }}"
+                    data-motor-carrier-number="{{ f.motor_carrier_number|default_if_none:'' }}"
+                    data-dot-number="{{ f.dot_number|default_if_none:'' }}"
+                    >
+                    <td style="max-width: 120px; word-break: break-all;">
+                        <span 
+                            class="fleet-link"
+                            data-fleet-number="{{ f.fleet_number }}"
+                            data-pickup-number="{{ f.pickup_number|default_if_none:'' }}"
+                            data-third-party-address="{{ f.third_party_address|default_if_none:'' }}"
+                            data-license-plate="{{ f.license_plate|default_if_none:'' }}"
+                            data-motor-carrier-number="{{ f.motor_carrier_number|default_if_none:'' }}"
+                            data-dot-number="{{ f.dot_number|default_if_none:'' }}"
+                            data-carrier="{{ f.carrier|default_if_none:'' }}"
+                            data-appointment-datetime="{{ f.appointment_datetime|date:'Y-m-d H:i' }}"
+                            data-note="{{ f.note|default_if_none:'' }}"
+                            data-total-weight="{{ f.total_weight|default_if_none:'' }}"
+                            data-total-cbm="{{ f.total_cbm|default_if_none:'' }}"
+                            data-total-pallet="{{ f.total_pallet|default_if_none:'' }}"
+                            data-shipment-batches="{{ f.shipment_batch_numbers|default_if_none:'' }}"
+                            data-appointment-ids="{{ f.appointment_ids|default_if_none:'' }}"
+                            style="color: var(--primary-color); font-weight: 600; cursor: pointer; text-decoration: underline;">
+                            {{ f.fleet_number }}
+                        </span>
+                    </td>
+                    <td style="width: 180px; word-wrap: break-word; white-space: normal;">
+                        {{ f.shipment_batch_numbers }}
+                    </td>
+                    <td>{{ f.appointment_ids }}</td>
+                    <td>{{ f.carrier }}</td>
+                    <td>
+                        {% if f.departure_status == "past_due" %}
+                        <span class="status-span-red">{{ f.appointment_datetime|date:"Y-m-d" }} {{ f.appointment_datetime|time:"H:i" }}</span>
+                        {% elif f.departure_status == "need_attention" %}
+                        <span class="status-span-yellow">{{ f.appointment_datetime|date:"Y-m-d" }} {{ f.appointment_datetime|time:"H:i" }}</span>
+                        {% else %}
+                        {{ f.appointment_datetime|date:"Y-m-d" }} {{ f.appointment_datetime|time:"H:i" }}
+                        {% endif %}
+                    </td>
+                    <td>{{ f.total_weight|floatformat:2 }}</td>
+                    <td>{{ f.total_cbm|floatformat:2 }}</td>
+                    <td>{{ f.total_pallet }}</td>
+                    <td style="max-width: 120px; word-break: break-all;">{{ f.note|default_if_none:"" }}</td>
+                    <td>
+                        {% if f.fleet_type != 'LTL' %}
+                        <form method="post" action="" onsubmit="showLoadingBar()">
+                            {% csrf_token %}
+                            <input type="hidden" name="step" value="cancel_fleet">
+                            <input type="hidden" name="fleet_number" value="{{ f.fleet_number }}">
+                            <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                            <input type="hidden" name="active_tab" value="scheduledFleet">
+                            <button type="submit" class="action-btn btn-danger">
+                                <i class="fas fa-times"></i> 撤销
+                            </button>
+                        </form>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // 添加时间标记
+        markScheduledFleetRows();
+    });
+    
+    function markScheduledFleetRows() {
+        const rows = document.querySelectorAll('#scheduledFleet-section .data-table tbody tr');
+        
+        rows.forEach((row, index) => {
+            const timeCell = row.cells[4]; // 提货时间在第5列
+            let timeText = timeCell.textContent.trim();
+            
+            // 如果有状态span，获取span内的文本
+            const statusSpan = timeCell.querySelector('.status-span-red, .status-span-yellow');
+            if (statusSpan) {
+                timeText = statusSpan.textContent.trim();
+            }
+            
+            if (timeText) {
+                const pickupTime = parseDateTime(timeText);
+                
+                if (pickupTime) {
+                    const diffDays = getDayDiff(CURRENT_TIME, pickupTime); // 当前时间到提货时间的天数
+                    
+                    // 新逻辑：
+                    if (pickupTime < CURRENT_TIME) {
+                        // 早于当前时间 - 深红色
+                        row.style.backgroundColor = '#ffcccc';
+                    } else if (diffDays <= 1) {
+                        // 未来一天内 - 浅红色
+                        row.style.backgroundColor = '#ffe6e6';
+                    } else if (diffDays <= 2) {
+                        // 未来一天到两天内 - 黄色
+                        row.style.backgroundColor = '#fff9e6';
+                    } else {
+                        row.style.backgroundColor = ''; // 清除背景色
+                    }
+                }
+            }
+        });
+    }
+
+    // 解析日期时间字符串
+    function parseDateTime(dateTimeStr) {
+        if (!dateTimeStr) return null;
+        
+        // 处理格式如 "2024-07-04 14:30" (未排车和已排车)
+        const standardFormat = /^(\d{4})-(\d{2})-(\d{2})\s+(\d{1,2}):(\d{2})/;
+        // 处理格式如 "Jul-4 14:30" (待送达和POD)
+        const monthFormat = /^(\w{3})-(\d{1,2})\s+(\d{1,2}):(\d{2})/;
+        // 处理格式如 "Jul-4" (POD只有日期)
+        const monthDateOnly = /^(\w{3})-(\d{1,2})$/;
+        
+        let match;
+        
+        // 尝试标准格式 "2024-07-04 14:30"
+        match = dateTimeStr.match(standardFormat);
+        if (match) {
+            const year = parseInt(match[1]);
+            const month = parseInt(match[2]) - 1;
+            const day = parseInt(match[3]);
+            const hour = parseInt(match[4]);
+            const minute = parseInt(match[5]);
+            return new Date(year, month, day, hour, minute);
+        }
+        
+        // 尝试月份格式 "Jul-4 14:30"
+        match = dateTimeStr.match(monthFormat);
+        if (match) {
+            const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
+                            'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            const month = monthNames.indexOf(match[1]);
+            const day = parseInt(match[2]);
+            const hour = parseInt(match[3]);
+            const minute = parseInt(match[4]);
+            const year = CURRENT_TIME.getFullYear();
+            
+            if (month === -1) return null;
+            return new Date(year, month, day, hour, minute);
+        }
+        
+        // 尝试只有日期的格式 "Jul-4"
+        match = dateTimeStr.match(monthDateOnly);
+        if (match) {
+            const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
+                            'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            const month = monthNames.indexOf(match[1]);
+            const day = parseInt(match[2]);
+            const year = CURRENT_TIME.getFullYear();
+            
+            if (month === -1) return null;
+            return new Date(year, month, day, 0, 0); // 设置时间为00:00
+        }
+        
+        return null;
+    }
+
+    // 计算两个日期相差的天数（忽略时间部分）
+    function getDayDiff(date1, date2) {
+        const d1 = new Date(date1.getFullYear(), date1.getMonth(), date1.getDate());
+        const d2 = new Date(date2.getFullYear(), date2.getMonth(), date2.getDate());
+        return Math.floor((d2 - d1) / (1000 * 60 * 60 * 24));
+    }
+</script>
