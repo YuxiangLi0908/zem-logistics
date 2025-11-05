@@ -432,7 +432,7 @@ class PostNsop(View):
         return await self.handle_fleet_schedule_post(request, context)
 
     async def handle_one_fleet_departure_post(
-        self, request: HttpRequest, context
+        self, request: HttpRequest, context: str | None = None
     ) -> tuple[str, dict[str, Any]]:
         if not context:
             context = {}
