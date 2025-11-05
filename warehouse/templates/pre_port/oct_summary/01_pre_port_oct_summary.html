@@ -775,10 +775,10 @@
 
                                 <!-- 实际放行状态-->
                                 <td>
-                                    {% if data.temp_t49_available_for_pickup == True %}
-                                        <span style="color: #28a745;">√</span>
+                                    {% if data.actual_release_status == True %}
+                                        <span style="color: #28a745;">{{ data.planned_release_time|date:'Y-m-d H:i:s' }}</span>
                                     {% else %}
-                                        <span style="color: #dc3545;">{{ data.temp_t49_available_for_pickup|default:"×" }}</span>
+                                        <span style="color: #dc3545;">×</span>
                                     {% endif %}
                                 </td>
                                 <!-- 是否提供Do列 -->

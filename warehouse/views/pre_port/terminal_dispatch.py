@@ -98,6 +98,9 @@ class TerminalDispatch(View):
         elif step == "batch_confirm_pickup_submit_appointment_time":
             template, context = await self.handle_batch_confirm_pickup_submit_post_appointment_time(request)
             return await sync_to_async(render)(request, template, context)
+        elif step == "batch_get_planned_release_time":
+            template, context = await self.batch_get_planned_release_time(request)
+            return await sync_to_async(render)(request, template, context)
 
 
     async def handle_all_get(self) -> tuple[Any, Any]:
@@ -350,6 +353,9 @@ class TerminalDispatch(View):
             retrieval.target_retrieval_timestamp_lower = None
         retrieval.note = request.POST.get("note", "").strip()
         retrieval.scheduled_at = timezone.now()
+        if container_number and destination and planned_release_time and request.POST.get(
+                "target_retrieval_timestamp") and request.POST.get("target_retrieval_timestamp_lower") and request.POST.get("retrieval_carrier").strip():
+            retrieval.actual_release_status = True
         if request.POST.get("retrieval_carrier") == "客户自提":
             if request.POST.get("target_retrieval_timestamp"):
                 ts = request.POST.get("target_retrieval_timestamp")
@@ -446,6 +452,26 @@ class TerminalDispatch(View):
             retrieval.target_retrieval_timestamp = appointment_time_end_ts
             await sync_to_async(retrieval.save)()
         return await self.handle_all_get()
+
+    async def batch_get_planned_release_time(
+            self, request: HttpRequest
+    ) -> tuple[Any, Any]:
+        """待确认提柜-处理批量确认预约时间的请求"""
+        container_numbers = request.POST.getlist("container_numbers")
+        planned_release_time = request.POST.get("planned_release_time")
+        for cn in container_numbers:
+            # 获取retrieval记录
+            retrieval = await sync_to_async(Retrieval.objects.get)(
+                order__container_number__container_number=cn
+            )
+            # 解析时区信息
+            tzinfo = self._parse_tzinfo(retrieval.retrieval_destination_precise)
+            planned_release_time_ts = self._parse_ts(planned_release_time, tzinfo)
+            retrieval.planned_release_time = planned_release_time_ts
+            await sync_to_async(retrieval.save)()
+        return await self.handle_all_get()
+
+
 
     async def handle_confirm_pickup_post(self, request: HttpRequest) -> tuple[Any, Any]:
         container_number = request.POST.get("container_number")
