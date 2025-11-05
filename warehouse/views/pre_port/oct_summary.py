@@ -362,6 +362,7 @@ class OctSummaryView(View):
                 ),
                 retrieval_note=F("retrieval_id__note"),
                 retrieval_delegation_status = F("retrieval_id__retrieval_delegation_status"),
+                actual_release_status = F("retrieval_id__actual_release_status"),
                 planned_release_time = F("retrieval_id__planned_release_time"),
                 retrieval_carrier_planned=F("retrieval_id__retrieval_carrier_planned"),
                 mbl=F("vessel_id__master_bill_of_lading"),
@@ -411,7 +412,7 @@ class OctSummaryView(View):
                 "vessel_date", "vessel_etd", "vessel_eta", "temp_t49_available_for_pickup",
                 "retrieval_carrier", "ke_destination_num", "si_destination_num", "order_type",
                 "do_sent", "id", "status", "retrieval_carrier_planned", "retrieval_id__retrieval_id",
-                "retrieval_delegation_status", "planned_release_time"
+                "retrieval_delegation_status", "planned_release_time", "actual_release_status"
             )
             # 按创建时间倒序（最新数据优先显示，符合用户习惯）
             .order_by("-created_at")
@@ -480,6 +481,7 @@ class OctSummaryView(View):
                 ),
                 retrieval_note=F("retrieval_id__note"),
                 retrieval_delegation_status=F("retrieval_id__retrieval_delegation_status"),
+                actual_release_status=F("retrieval_id__actual_release_status"),
                 planned_release_time=F("retrieval_id__planned_release_time"),
                 retrieval_carrier_planned=F("retrieval_id__retrieval_carrier_planned"),
                 mbl=F("vessel_id__master_bill_of_lading"),
@@ -529,7 +531,7 @@ class OctSummaryView(View):
                 "vessel_date", "vessel_etd", "vessel_eta", "temp_t49_available_for_pickup",
                 "retrieval_carrier", "ke_destination_num", "si_destination_num", "order_type",
                 "do_sent", "id", "status", "retrieval_carrier_planned", "retrieval_id__retrieval_id",
-                "retrieval_delegation_status", "planned_release_time"
+                "retrieval_delegation_status", "planned_release_time", "actual_release_status"
             )
             # 按创建时间倒序（最新数据优先显示，符合用户习惯）
             .order_by("-created_at")

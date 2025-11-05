@@ -1,56 +1,59 @@
 {% extends 'pre_port/vessel_terminal_tracking/02_terminal_dispatch.html' %}
 {% block schedule_pickup %}
-<div style="height: 800px; width: 49%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%; margin-top: .5%;">
-    <div>
-        <b style="background-color: rgb(208, 208, 208); border-radius: 20px; font-size: 11px; display:inline-flex; color: rgb(100, 100, 100); padding: 5px;">
-            批量确认提柜 - {{ selected_orders|length }}个柜子
-        </b>
-    </div>
+    <div style="height: 800px; width: 49%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%; margin-top: .5%;">
+        <div>
+            <b style="background-color: rgb(208, 208, 208); border-radius: 20px; font-size: 11px; display:inline-flex; color: rgb(100, 100, 100); padding: 5px;">
+                批量确认提柜 - {{ selected_orders|length }}个柜子
+            </b>
+        </div>
 
-    <!-- 批量确认提柜表单 -->
-    <div>
-        <form method="post" action="" style="width: 100%;">
-            {% csrf_token %}
-            <table class="table" id="batch-pickup-confirm-table" style="font-size: 11px;">
-                <thead>
+        <!-- 批量确认提柜表单 -->
+        <div>
+            <form method="post" action="" style="width: 100%;">
+                {% csrf_token %}
+                <table class="table" id="batch-pickup-confirm-table" style="font-size: 11px;">
+                    <thead>
                     <tr>
                         <th class="th">实际提柜时间</th>
                         <th class="th">批量确认</th>
                     </tr>
-                </thead>
-                <tbody>
+                    </thead>
+                    <tbody>
                     <tr>
                         <td class="td">
-                            <input type="datetime-local" name="actual_retrieval_timestamp" style="font-size: 13px;" required>
+                            <input type="datetime-local" name="actual_retrieval_timestamp" style="font-size: 13px;"
+                                   required>
                         </td>
                         <td class="td">
                             <input type="hidden" name="step" value="batch_confirm_pickup_submit">
                             <!-- 隐藏字段传递选中的柜号 -->
                             {% for container in selected_orders %}
-                            <input type="hidden" name="container_numbers" value="{{ container.container_number.container_number }}">
+                                <input type="hidden" name="container_numbers"
+                                       value="{{ container.container_number.container_number }}">
                             {% endfor %}
-                            <button type="submit" class="btn btn-primary" style="height: 30px; margin-left: 20px; font-size: 13px;">
+                            <button type="submit" class="btn btn-primary"
+                                    style="height: 30px; margin-left: 20px; font-size: 13px;">
                                 批量确认提柜
                             </button>
                         </td>
                     </tr>
-                </tbody>
-            </table>
-        </form>
-    </div>
+                    </tbody>
+                </table>
+            </form>
+        </div>
 
-    <!-- 批量确认预约时间 -->
-    <div>
-        <form method="post" action="" style="width: 100%;">
-            {% csrf_token %}
-            <table class="table" id="batch-pickup-confirm-table" style="font-size: 11px;">
-                <thead>
+        <!-- 批量确认预约时间 -->
+        <div>
+            <form method="post" action="" style="width: 100%;">
+                {% csrf_token %}
+                <table class="table" id="batch-pickup-confirm-table" style="font-size: 11px;">
+                    <thead>
                     <tr>
                         <th class="th">预约时间</th>
                         <th class="th">批量确认</th>
                     </tr>
-                </thead>
-                <tbody>
+                    </thead>
+                    <tbody>
                     <tr>
                         <td class="td">
                             <input type="datetime-local" name="appointment_time_start" style="font-size: 13px;">
@@ -60,168 +63,231 @@
                             <input type="hidden" name="step" value="batch_confirm_pickup_submit_appointment_time">
                             <!-- 隐藏字段传递选中的柜号 -->
                             {% for container in selected_orders %}
-                            <input type="hidden" name="container_numbers" value="{{ container.container_number.container_number }}">
+                                <input type="hidden" name="container_numbers"
+                                       value="{{ container.container_number.container_number }}">
                             {% endfor %}
-                            <button type="submit" class="btn btn-primary" style="height: 30px; margin-left: 20px; font-size: 13px;">
+                            <button type="submit" class="btn btn-primary"
+                                    style="height: 30px; margin-left: 20px; font-size: 13px;">
                                 批量确认时间
                             </button>
                         </td>
                     </tr>
-                </tbody>
-            </table>
-        </form>
-    </div>
+                    </tbody>
+                </table>
+            </form>
+        </div>
 
-    <!-- 显示所有选中柜子的详细信息 -->
-    <div style="max-height: 1000px; overflow-y: auto; margin-top: 15px;">
-        <h4 style="font-size: 12px; margin: 10px 0;">柜子详细信息：</h4>
-        {% for o in selected_orders %}
-        <table class="table" id="shipment-info-table" style="font-size: 11px;">
-            <thead>
-                <tr style="position: sticky; top: 0;">
-                    <th class="th">客户</th>
-                    <th class="th">柜号</th>
-                    <th class="th">
-                        {% if o.order_type == "直送" %}
-                        直送地址
-                        {% else %}
-                        所属仓
-                        {% endif %}
-                    </th>
-                    <th class="th">MBL</th>
-                    <th class="th">码头</th>
-                    <th class="th">船司</th>
-                    <th class="th">船名航次</th>
-                    <th class="th">柜型</th>
-                    <th class="th">柜重 LBS</th>
-                    {% if o.container_number.is_special_container %}
-                    <th class="th">柜型备注</th>
-                    {% endif %}
-                    <th class="th">ETA</th>
-                    <th class="th">LFD</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr>
-                    <td class="td">{{ o.customer_name.zem_name }}</td>
-                    <td class="td">{{ o.container_number }}</td>
-                    <td class="td">
-                        {% if o.order_type == "直送" %}
-                        {{ packing_list.destination }}
-                        {% else %}
-                        {{ o.retrieval_id.retrieval_destination_area }}
-                        {% endif %}
-                    </td>
-                    <td class="td">{{ o.vessel_id.master_bill_of_lading }}</td>
-                    <td class="td">{{ o.vessel_id.destination_port }}</td>
-                    <td class="td">{{ o.vessel_id.shipping_line }}</td>
-                    <td class="td">{{ o.vessel_id.vessel }} - {{ o.vessel_id.voyage }}</td>
-                    <td class="td">{{ o.container_number.container_type }}</td>
-                    <td class="td">{{ o.container_number.weight_lbs|floatformat:2  }}</td>
-                    {% if o.container_number.is_special_container %}
-                    <td class="td">{{ o.container_number.note }}</td>
-                    {% endif %}
-                    <td class="td">
-                        {% if o.vessel_id.eta_status == "past_due" %}
-                        <span class="status-span-red">{{ o.vessel_id.vessel_eta|date:"M-j" }}</span>
-                        {% elif o.vessel_id.eta_status == "within_one_week" %}
-                        <span class="status-span-yellow">{{ o.vessel_id.vessel_eta|date:"M-j" }}</span>
-                        {% else %}
-                        {{ o.vessel_id.vessel_eta|date:"M-j" }}
-                        {% endif %}
-                    </td>
-                    <td class="td">
-                        {% if o.retrieval_id.lfd_status == "past_due" %}
-                        <span class="status-span-red">{{ o.retrieval_id.temp_t49_lfd|date:"M-j" }}</span>
-                        {% elif o.retrieval_id.lfd_status == "need_attention" %}
-                        <span class="status-span-yellow">{{ o.retrieval_id.temp_t49_lfd|date:"M-j" }}</span>
-                        {% else %}
-                        {{ o.retrieval_id.temp_t49_lfd|date:"M-j" }}
-                        {% endif %}
-                    </td>
-                </tr>
-            </tbody>
-        </table>
-        <form method="post" action="" style="width: 100%;">
-            {% csrf_token %}
-            <table class="table" id="pickup-schedule-table" style="font-size: 11px;">
-                <thead>
-                    <tr style="position: sticky; top: 0;">
-                        <th class="th">
-                            {% if o.order_type == "直送" %}
-                            直送地址(详细)
-                            {% else %}
-                            目的地
-                            {% endif %}
-                        </th>
-                        <th class="th">供应商</th>
-                        <th class="th">预约时间范围</th>
-                        <th class="th">提柜备注</th>
+        <!-- 批量确认放行时间 -->
+        <div>
+            <form method="post" action="" style="width: 100%;">
+                {% csrf_token %}
+                <table class="table" id="batch-pickup-confirm-table" style="font-size: 11px;">
+                    <thead>
+                    <tr>
+                        <th class="th">放行时间</th>
+                        <th class="th">批量确认</th>
                     </tr>
-                </thead>
-                <tbody>
+                    </thead>
+                    <tbody>
                     <tr>
                         <td class="td">
+                            <!-- 只显示一个时间选择器，有值则保留第一条订单的时间作为默认值 -->
+                            <input type="datetime-local" name="planned_release_time"
+                                    {% if selected_orders and selected_orders.0.retrieval_id.planned_release_time %}
+                                   value="{{ selected_orders.0.retrieval_id.planned_release_time|date:'Y-m-d\TH:i' }}"
+                                    {% endif %}
+                                   style="font-size: 13px;">
+                        </td>
+                        <td class="td">
+                            <input type="hidden" name="step" value="batch_get_planned_release_time">
+                            <!-- 传递所有选中的柜号 -->
+                            {% for container in selected_orders %}
+                                <input type="hidden" name="container_numbers"
+                                       value="{{ container.container_number.container_number }}">
+                            {% endfor %}
+                            <button type="submit" class="btn btn-primary"
+                                    style="height: 30px; margin-left: 20px; font-size: 13px;">
+                                批量确认时间
+                            </button>
+                        </td>
+                    </tr>
+                    </tbody>
+                </table>
+            </form>
+        </div>
+
+        <!-- 显示所有选中柜子的详细信息 -->
+        <div style="max-height: 1000px; overflow-y: auto; margin-top: 15px;">
+            <h4 style="font-size: 12px; margin: 10px 0;">柜子详细信息：</h4>
+            {% for o in selected_orders %}
+                <table class="table" id="shipment-info-table" style="font-size: 11px;">
+                    <thead>
+                    <tr style="position: sticky; top: 0;">
+                        <th class="th">客户</th>
+                        <th class="th">柜号</th>
+                        <th class="th">
                             {% if o.order_type == "直送" %}
-                            <input type="text" name="retrieval_destination" value="{{ o.retrieval_id.retrieval_destination_precise }}" style="font-size: 13px;" required>
-                            {% elif o.retrieval_id.assigned_by_appt %}
-                            <input type="text" name="retrieval_destination_assigned" value="{{ o.retrieval_id.retrieval_destination_precise }}" disabled>
-                            <input type="hidden" name="retrieval_destination" value="{{ o.retrieval_id.retrieval_destination_precise }}">
-                            (拿约组指派)
+                                直送地址
                             {% else %}
-                            <select name="retrieval_destination" id="retrieval-destination-select" style="font-size: 13px;">
-                                {% for k, v in warehouse_options %}
-                                <option value="{{ v }}" {% if k == o.warehouse.name %}selected{% endif %}>{{ k }}</option>
-                                {% endfor %}
-                            </select>
+                                所属仓
+                            {% endif %}
+                        </th>
+                        <th class="th">MBL</th>
+                        <th class="th">码头</th>
+                        <th class="th">船司</th>
+                        <th class="th">船名航次</th>
+                        <th class="th">柜型</th>
+                        <th class="th">柜重 LBS</th>
+                        {% if o.container_number.is_special_container %}
+                            <th class="th">柜型备注</th>
+                        {% endif %}
+                        <th class="th">ETA</th>
+                        <th class="th">LFD</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr>
+                        <td class="td">{{ o.customer_name.zem_name }}</td>
+                        <td class="td">{{ o.container_number }}</td>
+                        <td class="td">
+                            {% if o.order_type == "直送" %}
+                                {{ packing_list.destination }}
+                            {% else %}
+                                {{ o.retrieval_id.retrieval_destination_area }}
+                            {% endif %}
+                        </td>
+                        <td class="td">{{ o.vessel_id.master_bill_of_lading }}</td>
+                        <td class="td">{{ o.vessel_id.destination_port }}</td>
+                        <td class="td">{{ o.vessel_id.shipping_line }}</td>
+                        <td class="td">{{ o.vessel_id.vessel }} - {{ o.vessel_id.voyage }}</td>
+                        <td class="td">{{ o.container_number.container_type }}</td>
+                        <td class="td">{{ o.container_number.weight_lbs|floatformat:2 }}</td>
+                        {% if o.container_number.is_special_container %}
+                            <td class="td">{{ o.container_number.note }}</td>
+                        {% endif %}
+                        <td class="td">
+                            {% if o.vessel_id.eta_status == "past_due" %}
+                                <span class="status-span-red">{{ o.vessel_id.vessel_eta|date:"M-j" }}</span>
+                            {% elif o.vessel_id.eta_status == "within_one_week" %}
+                                <span class="status-span-yellow">{{ o.vessel_id.vessel_eta|date:"M-j" }}</span>
+                            {% else %}
+                                {{ o.vessel_id.vessel_eta|date:"M-j" }}
                             {% endif %}
                         </td>
                         <td class="td">
-                            <select name="retrieval_carrier" id="retrieval-carrier-select" style="font-size: 13px;">
-                                {% for k, v in carrier_options %}
-                                <option value="{{ v }}" {% if k == o.retrieval_id.retrieval_carrier %}selected{% endif %}>{{ k }}</option>
-                                {% endfor %}
-                            </select>
+                            {% if o.retrieval_id.lfd_status == "past_due" %}
+                                <span class="status-span-red">{{ o.retrieval_id.temp_t49_lfd|date:"M-j" }}</span>
+                            {% elif o.retrieval_id.lfd_status == "need_attention" %}
+                                <span class="status-span-yellow">{{ o.retrieval_id.temp_t49_lfd|date:"M-j" }}</span>
+                            {% else %}
+                                {{ o.retrieval_id.temp_t49_lfd|date:"M-j" }}
+                            {% endif %}
                         </td>
-                        <td class="td">
-                            <input type="datetime-local" name="target_retrieval_timestamp_lower" value="{{ o.retrieval_id.target_retrieval_timestamp_lower|date:'Y-m-d\\TH:i' }}" style="font-size: 13px;">
-                            <input type="datetime-local" name="target_retrieval_timestamp" value="{{ o.retrieval_id.target_retrieval_timestamp|date:'Y-m-d\\TH:i' }}" style="font-size: 13px;">
-                        </td>
-                        <td class="td"><input type="text" name="note" value="{{ o.retrieval_id.note }}" style="font-size: 13px;"></td>
                     </tr>
-                </tbody>
-            </table>
-            <div class="text-right">
-                <input type="hidden" name="step" value="pickup_schedule_update">
-                <input type="hidden" name="container_number" value="{{ o.container_number }}">
-                <input type="hidden" name="order_type" value="{{ o.order_type }}">
-                <button id="schedule-pickup-btn" type="submit" class="btn btn-primary" style="height: 30px; margin-left: 20px; font-size: 13px;" onclick="checkInput()">
-                    更新提柜计划
-                </button>
-            </div>
-        </form>
-        {% endfor %}
+                    </tbody>
+                </table>
+                <form method="post" action="" style="width: 100%;">
+                    {% csrf_token %}
+                    <table class="table" id="pickup-schedule-table" style="font-size: 11px;">
+                        <thead>
+                        <tr style="position: sticky; top: 0;">
+                            <th class="th">
+                                {% if o.order_type == "直送" %}
+                                    直送地址(详细)
+                                {% else %}
+                                    目的地
+                                {% endif %}
+                            </th>
+                            <th class="th">供应商</th>
+                            <th class="th">放行时间</th>
+                            <th class="th">预约时间范围</th>
+                            <th class="th">提柜备注</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        <tr>
+                            <td class="td">
+                                {% if o.order_type == "直送" %}
+                                    <input type="text" name="retrieval_destination"
+                                           value="{{ o.retrieval_id.retrieval_destination_precise }}"
+                                           style="font-size: 13px;" required>
+                                {% elif o.retrieval_id.assigned_by_appt %}
+                                    <input type="text" name="retrieval_destination_assigned"
+                                           value="{{ o.retrieval_id.retrieval_destination_precise }}" disabled>
+                                    <input type="hidden" name="retrieval_destination"
+                                           value="{{ o.retrieval_id.retrieval_destination_precise }}">
+                                    (拿约组指派)
+                                {% else %}
+                                    <select name="retrieval_destination" id="retrieval-destination-select"
+                                            style="font-size: 13px;">
+                                        {% for k, v in warehouse_options %}
+                                            <option value="{{ v }}"
+                                                    {% if k == o.warehouse.name %}selected{% endif %}>{{ k }}</option>
+                                        {% endfor %}
+                                    </select>
+                                {% endif %}
+                            </td>
+                            <td class="td">
+                                <select name="retrieval_carrier" id="retrieval-carrier-select" style="font-size: 13px;">
+                                    {% for k, v in carrier_options %}
+                                        <option value="{{ v }}"
+                                                {% if k == o.retrieval_id.retrieval_carrier %}selected{% endif %}>{{ k }}</option>
+                                    {% endfor %}
+                                </select>
+                            </td>
+                            <td class="td">
+                                <input type="datetime-local" name="planned_release_time"
+                                        {% if o.retrieval_id.planned_release_time %}
+                                       value="{{ o.retrieval_id.planned_release_time|date:'Y-m-d\TH:i' }}"
+                                        {% endif %}>
+                            </td>
+                            <td class="td">
+                                <input type="datetime-local" name="target_retrieval_timestamp_lower"
+                                       value="{{ o.retrieval_id.target_retrieval_timestamp_lower|date:'Y-m-d\\TH:i' }}"
+                                       style="font-size: 13px;">
+                                <input type="datetime-local" name="target_retrieval_timestamp"
+                                       value="{{ o.retrieval_id.target_retrieval_timestamp|date:'Y-m-d\\TH:i' }}"
+                                       style="font-size: 13px;">
+                            </td>
+                            <td class="td"><input type="text" name="note" value="{{ o.retrieval_id.note }}"
+                                                  style="font-size: 13px;"></td>
+                        </tr>
+                        </tbody>
+                    </table>
+                    <div class="text-right">
+                        <input type="hidden" name="step" value="pickup_schedule_update">
+                        <input type="hidden" name="container_number" value="{{ o.container_number }}">
+                        <input type="hidden" name="order_type" value="{{ o.order_type }}">
+                        <button id="schedule-pickup-btn" type="submit" class="btn btn-primary"
+                                style="height: 30px; margin-left: 20px; font-size: 13px;" onclick="checkInput()">
+                            更新提柜计划
+                        </button>
+                    </div>
+                </form>
+            {% endfor %}
+        </div>
     </div>
-</div>
 
-<script>
-    function checkInput() {
-        var destinationSelect = document.getElementById('retrieval-destination-select');
-        if (destinationSelect) {
-            var destinationOption = destinationSelect.options[destinationSelect.selectedIndex];
-            var destinationValue = destinationOption.value;
-            if (!destinationValue) {
-                alert('请选择仓库!');
+    <script>
+        function checkInput() {
+            var destinationSelect = document.getElementById('retrieval-destination-select');
+            if (destinationSelect) {
+                var destinationOption = destinationSelect.options[destinationSelect.selectedIndex];
+                var destinationValue = destinationOption.value;
+                if (!destinationValue) {
+                    alert('请选择仓库!');
+                    event.preventDefault();
+                }
+            }
+            ;
+            var carrierSelect = document.getElementById('retrieval-carrier-select');
+            var carrierOption = carrierSelect.options[carrierSelect.selectedIndex];
+            var carrierValue = carrierOption.value;
+            if (!carrierValue) {
+                alert('请选择Carrier!');
                 event.preventDefault();
             }
+            ;
         };
-        var carrierSelect = document.getElementById('retrieval-carrier-select');
-        var carrierOption = carrierSelect.options[carrierSelect.selectedIndex];
-        var carrierValue = carrierOption.value;
-        if (!carrierValue) {
-            alert('请选择Carrier!');
-            event.preventDefault();
-        };
-    };
-</script>
+    </script>
 {% endblock %}
