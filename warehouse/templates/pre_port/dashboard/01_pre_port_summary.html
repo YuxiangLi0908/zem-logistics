@@ -5,6 +5,17 @@
         body {
             background-color: #f5f7fa;
             font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+            line-height: 1.5;
+        }
+
+        /* 主容器 */
+        .main-container {
+            width: 102%;
+            padding: 15px;
+            box-sizing: border-box;
+            max-width: 1920px;
+            margin: 0 auto;
+            margin-left: -1%;
         }
 
         /* 按钮样式优化 */
@@ -49,16 +60,24 @@
             padding: 0 15px;
             border-radius: 4px 4px 0 0;
             box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+            display: flex;
+            flex-wrap: wrap;
+        }
+
+        .nav-item {
+            margin-bottom: -1px; /* 解决底部边框重叠问题 */
         }
 
         .nav-item .nav-link {
             color: #4e5969;
             border: none;
-            padding: 10px 15px;
+            padding: 12px 18px;
             margin-right: 5px;
             border-radius: 4px 4px 0 0;
             font-weight: 500;
             transition: all 0.2s ease;
+            display: block;
+            text-decoration: none;
         }
 
         .nav-item .nav-link.active {
@@ -96,11 +115,13 @@
             display: flex;
             align-items: center;
             gap: 10px;
+            flex-wrap: wrap;
         }
 
         .search-group b {
             color: #4e5969;
             font-size: 14px;
+            white-space: nowrap;
         }
 
         .search-group input[type="date"] {
@@ -108,6 +129,7 @@
             border: 1px solid #dcdfe6;
             border-radius: 4px;
             font-size: 13px;
+            min-width: 140px;
         }
 
         /* 批量操作按钮区域 */
@@ -118,6 +140,7 @@
             display: flex;
             gap: 10px;
             align-items: center;
+            flex-wrap: wrap;
         }
 
         .batch-actions .btn {
@@ -125,16 +148,52 @@
             font-size: 13px;
             transition: all 0.2s ease;
             text-decoration: none;
+            border-radius: 4px;
+            border: 1px solid transparent;
+            cursor: pointer;
         }
 
         .batch-actions .btn-primary {
             background-color: #4096ff;
             border-color: #4096ff;
+            color: white;
         }
 
         .batch-actions .btn-primary:hover {
             background-color: #69b1ff;
             border-color: #69b1ff;
+        }
+
+        .batch-actions .btn-success {
+            background-color: #52c41a;
+            border-color: #52c41a;
+            color: white;
+        }
+
+        .batch-actions .btn-success:hover {
+            background-color: #73d13d;
+            border-color: #73d13d;
+        }
+
+        .batch-actions .btn-secondary {
+            background-color: #f0f2f5;
+            border-color: #f0f2f5;
+            color: #4e5969;
+        }
+
+        .batch-actions .btn-secondary:hover {
+            background-color: #e5e6eb;
+        }
+
+        .batch-actions .btn-warning {
+            background-color: #faad14;
+            border-color: #faad14;
+            color: white;
+        }
+
+        .batch-actions .btn-warning:hover {
+            background-color: #ffc53d;
+            border-color: #ffc53d;
         }
 
         /* 表格样式优化 */
@@ -151,9 +210,10 @@
         }
 
         .table th, .table td {
-            padding: 10px 8px;
+            padding: 12px 10px;
             text-align: left;
             border-bottom: 1px solid #e5e6eb;
+            word-break: break-all;
         }
 
         .table th {
@@ -186,6 +246,11 @@
             background-color: #fafbfc;
         }
 
+        /* 表格行高亮效果 */
+        .table tbody tr.highlight {
+            background-color: #fff7e6;
+        }
+
         /* 复选框样式 */
         .checkbox-cell {
             text-align: center !important;
@@ -216,28 +281,33 @@
         }
 
         /* 状态标签样式 */
-        .status-span-green-100 {
+        .status-span {
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 11px;
+            display: inline-block;
+            min-width: 60px;
+            text-align: center;
+        }
+
+        .status-span-green {
             color: #52c41a;
             background-color: rgba(82, 196, 26, 0.1);
-            padding: 2px 6px;
-            border-radius: 3px;
-            font-size: 11px;
         }
 
-        .status-span-red-100 {
+        .status-span-red {
             color: #f5222d;
             background-color: rgba(245, 34, 45, 0.1);
-            padding: 2px 6px;
-            border-radius: 3px;
-            font-size: 11px;
         }
 
-        .status-span-blue-100 {
+        .status-span-blue {
             color: #1890ff;
             background-color: rgba(24, 144, 255, 0.1);
-            padding: 2px 6px;
-            border-radius: 3px;
-            font-size: 11px;
+        }
+
+        .status-span-gray {
+            color: #86909c;
+            background-color: rgba(134, 144, 156, 0.1);
         }
 
         /* 链接样式 */
@@ -273,7 +343,7 @@
         /* 滚动区域美化 */
         #status-summary-sec {
             overflow-y: scroll;
-            max-height: 800px;
+            max-height: calc(100vh - 200px); /* 基于视口高度计算，避免页面溢出 */
             scrollbar-width: thin;
             scrollbar-color: #c9c9c9 #f5f5f5;
         }
@@ -311,6 +381,8 @@
             display: flex;
             align-items: center;
             gap: 8px;
+            flex-wrap: wrap;
+            width: 200px;
         }
 
         /* 复制成功提示 */
@@ -327,10 +399,15 @@
             opacity: 0;
             transition: opacity 0.3s ease;
             pointer-events: none;
+            z-index: 1000;
         }
 
         .copy-toast.show {
             opacity: 1;
+        }
+
+        .copy-toast.error {
+            background-color: #f5222d;
         }
 
         /* 批量操作弹窗样式 */
@@ -391,6 +468,7 @@
             cursor: pointer;
             color: #86909c;
             transition: color 0.2s ease;
+            padding: 0 5px;
         }
 
         .modal-close:hover {
@@ -413,47 +491,152 @@
             padding: 6px 16px;
             font-size: 13px;
         }
+
+        /* 空状态样式 */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #86909c;
+        }
+
+        .empty-state i {
+            font-size: 48px;
+            margin-bottom: 15px;
+            color: #d9d9d9;
+        }
+
+        .empty-state p {
+            margin: 0;
+            font-size: 14px;
+        }
+
+        /* 加载状态 */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(255, 255, 255, 0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .loading-overlay.show {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid rgba(64, 150, 255, 0.2);
+            border-radius: 50%;
+            border-top-color: #4096ff;
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* 响应式调整 */
+        @media (max-width: 768px) {
+            .search-bar {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .search-group {
+                width: 100%;
+            }
+
+            .batch-actions {
+                width: 100%;
+                justify-content: flex-start;
+            }
+
+            .table th, .table td {
+                padding: 8px 5px;
+                font-size: 11px;
+            }
+
+            .datetime-input {
+                width: 130px;
+            }
+
+            .custom-btn {
+                padding: 3px 8px;
+                font-size: 12px;
+                margin-left: 4px;
+            }
+        }
     </style>
-    <div style="width: 100%; padding: 15px; box-sizing: border-box;">
+    <div class="main-container">
         <ul class="nav nav-tabs">
             <li class="nav-item">
-                <button {% if tab == "summary" %}class="nav-link active"{% else %}class="nav-link"{% endif %}
-                        onclick="showSection(this, 'status-summary-sec')">
+                <a {% if tab == "summary" %}class="nav-link active"{% else %}class="nav-link"{% endif %}
+                   href="javascript:showSection(this, 'status-summary-sec')">
                     货柜进度汇总
-                </button>
+                </a>
             </li>
         </ul>
 
-        <div id="order-info-sec" style="width: 100%;">
+        <div id="order-info-sec">
             <div id="status-summary-sec">
                 <!-- 搜索和批量操作区域 -->
                 <div class="search-bar">
-                    <form method="post" action="">
+                    <form method="post" action="" id="searchForm">
                         {% csrf_token %}
                         <div class="search-group">
                             <b>ETA: </b>
-                            <input type="date" name="start_date_eta" value="{{ start_date_eta }}">
+                            <input type="date" name="start_date_eta" value="{{ start_date_eta }}"
+                                   title="开始日期">
                             <span style="color: #86909c;">至</span>
-                            <input type="date" name="end_date_eta" value="{{ end_date_eta }}">
-                            <button type="submit" name="step" value="search_orders" class="btn btn-primary">查询
+                            <input type="date" name="end_date_eta" value="{{ end_date_eta }}"
+                                   title="结束日期">
+                            <button type="submit" name="step" value="search_orders" class="btn btn-primary"
+                                    title="查询数据">查询
                             </button>
-                            <button type="submit" name="step" value="download_eta_file" class="btn btn-secondary">导出
+                            <button type="submit" name="step" value="download_eta_file" class="btn btn-secondary"
+                                    title="导出当前数据">导出
                             </button>
                         </div>
                     </form>
 
+                    <form action="" method="post" style="display: inline; margin-left:-500px;">
+                        {% csrf_token %}
+                        <input type="hidden" name="start_date" value="{{ start_date|default:'' }}">
+                        <input type="hidden" name="end_date" value="{{ end_date|default:'' }}">
+                        <button type="submit" name="step" value="get_is_abnormal_state"
+                                class="btn btn-warning"
+                                style="transition: all 0.2s ease;"
+                                title="筛选所有标记为异常的数据">
+                            <i class="bi bi-exclamation-triangle"></i> 筛选所有异常数据
+                        </button>
+                    </form>
+
                     <!-- 批量操作按钮区域 -->
                     <div class="batch-actions">
-                        <button id="batchActionBtn" class="btn btn-primary" disabled>
+                        <button id="batchActionBtn" class="btn btn-primary" disabled
+                                title="查看已选项详情">
                             批量操作（已选 <span id="selectedCount">0</span> 项）
                         </button>
-                        <button id="copyContainersBtn" class="btn btn-success" disabled>
+                        <button id="copyContainersBtn" class="btn btn-success" disabled
+                                title="复制选中的柜号">
                             复制柜号到剪贴板
                         </button>
-                        <button id="exportSelectedBtn" class="btn btn-secondary" disabled>
+                        <button id="exportSelectedBtn" class="btn btn-secondary" disabled
+                                title="跳转到港口提柜页面">
                             批量跳转港口提柜
                         </button>
-                        <button id="batchSetOffloadBtn" class="btn btn-warning" disabled>
+                        <button id="batchSetOffloadBtn" class="btn btn-warning" disabled
+                                title="统一设置拆柜时间">
                             批量设置拆柜时间
                         </button>
                     </div>
@@ -465,7 +648,8 @@
                     <tr style="position: sticky; top: 0; z-index: 2;">
                         <th class="th checkbox-cell">
                             <input type="checkbox" id="selectAll"
-                                   style="width: 16px; height: 16px; vertical-align: middle;">
+                                   style="width: 16px; height: 16px; vertical-align: middle;"
+                                   title="全选/取消全选">
                         </th>
                         <th class="th">柜号</th>
                         <th class="th">客户</th>
@@ -480,6 +664,7 @@
                         <th class="th">还空状态</th>
                         <th class="th">港前完结</th>
                         <th class="th">货柜备注</th>
+                        <th class="th">异常状态</th>
                     </tr>
                     <tr style="position: sticky; top: 42px; z-index: 1; background-color: #f9fafb;">
                         <th class="th checkbox-cell"></th>
@@ -487,10 +672,12 @@
                             <input type="text" placeholder="搜索柜号..."
                                    oninput="filterTable(this)"
                                    size="13" style="font-size: 11px;"
-                                   data-col="1">
+                                   data-col="1"
+                                   title="输入柜号关键词搜索">
                         </th>
                         <th class="th">
-                            <select name="customer" onchange="filterTable(this)" data-col="2">
+                            <select name="customer" onchange="filterTable(this)" data-col="2"
+                                    title="选择客户筛选">
                                 <option value="" selected></option>
                                 {% for k, v in customers.items %}
                                     <option value="{{ v }}">{{ k }}</option>
@@ -501,84 +688,98 @@
                             <input type="text" placeholder="搜索订单类型..."
                                    oninput="filterTable(this)"
                                    size="13" style="font-size: 11px;"
-                                   data-col="3">
+                                   data-col="3"
+                                   title="输入订单类型关键词搜索">
                         </th>
                         <th class="th">
                             <input type="text" placeholder="搜索仓库..."
                                    oninput="filterTable(this)"
                                    size="13" style="font-size: 11px;"
-                                   data-col="5">
+                                   data-col="4"
+                                   title="输入仓库关键词搜索">
                         </th>
                         <th class="th">
                             <input type="text" placeholder="搜索放行状态..."
                                    oninput="filterTable(this)"
                                    size="13" style="font-size: 11px;"
-                                   data-col="7">
+                                   data-col="5"
+                                   title="输入放行状态关键词搜索">
                         </th>
                         <th class="th">
                             <input type="text" placeholder="搜索计划放行时间..."
                                    oninput="filterTable(this)"
                                    size="13" style="font-size: 11px;"
-                                   data-col="8">
+                                   data-col="6"
+                                   title="输入计划放行时间关键词搜索">
                         </th>
                         <th class="th">
                             <input type="text" placeholder="搜索预计提柜时间..."
                                    oninput="filterTable(this)"
                                    size="13" style="font-size: 11px;"
-                                   data-col="9">
+                                   data-col="7"
+                                   title="输入预计提柜时间关键词搜索">
                         </th>
 
+                        <th class="th">
+                            <input type="text" placeholder="搜索实际提柜..."
+                                   oninput="filterTable(this)"
+                                   size="13" style="font-size: 11px;"
+                                   data-col="8"
+                                   title="输入实际提柜时间关键词搜索">
+                        </th>
                         <th class="th">
                             <input type="text" placeholder="搜索提柜安排..."
                                    oninput="filterTable(this)"
                                    size="13" style="font-size: 11px;"
-                                   data-col="10">
+                                   data-col="9"
+                                   title="输入提柜安排关键词搜索">
                         </th>
-                        <th class="th" style="width: 237px;">
-                            <input type="text" placeholder="搜索实际提柜..."
-                                   oninput="filterTable(this)"
-                                   size="13" style="font-size: 11px;"
-                                   data-col="11">
-                        </th>
-                        <th class="th" style="width: 237px;">
+                        <th class="th">
                             <input type="text" placeholder="搜索拆柜时间..."
                                    oninput="filterTable(this)"
                                    size="13" style="font-size: 11px;"
-                                   data-col="12">
+                                   data-col="10"
+                                   title="输入拆柜时间关键词搜索">
                         </th>
                         <th class="th">
                             <input type="text" placeholder="搜索还空状态..."
                                    oninput="filterTable(this)"
                                    size="13" style="font-size: 11px;"
-                                   data-col="13">
+                                   data-col="11"
+                                   title="输入还空状态关键词搜索">
                         </th>
                         <th class="th">
                             <input type="text" placeholder="搜索港前完结..."
                                    oninput="filterTable(this)"
                                    size="13" style="font-size: 11px;"
-                                   data-col="14">
+                                   data-col="12"
+                                   title="输入港前完结状态关键词搜索">
                         </th>
                         <th class="th">
                             <input type="text" placeholder="搜索货柜备注..."
                                    oninput="filterTable(this)"
                                    size="13" style="font-size: 11px;"
-                                   data-col="15">
+                                   data-col="13"
+                                   title="输入货柜备注关键词搜索">
                         </th>
+                        <th></th>
                     </tr>
                     </thead>
                     <tbody>
                     {% for o in orders %}
-                        <tr>
+                        <tr {% if o.container_number.is_abnormal_state %}class="highlight"{% endif %}>
                             <td class="td checkbox-cell">
                                 <input type="checkbox" class="rowCheckbox"
                                        style="width: 16px; height: 16px; vertical-align: middle;"
                                        data-container="{{ o.container_number.container_number }}"
                                        data-id="{{ o.id }}"
-                                       data-offload-id="{{ o.offload_id.offload_id }}">
+                                       data-offload-id="{{ o.offload_id.offload_id }}"
+                                       title="选择此项">
                             </td>
                             <td class="td">
                                 <a href="/create_order/?step=order_management_container&container_number={{ o.container_number.container_number }}"
-                                   target="_blank">
+                                   target="_blank"
+                                   title="点击查看详情: {{ o.container_number.container_number }}">
                                     {{ o.container_number.container_number }}
                                 </a>
                             </td>
@@ -587,40 +788,41 @@
                             <td class="td">{{ o.retrieval_id.retrieval_destination_area }}</td>
                             <td class="td">
                                 {% if o.retrieval_id.temp_t49_available_for_pickup == True %}
-                                    <span class="status-span-green-100">√ 已放行</span>
+                                    <span class="status-span status-span-green">√ 已放行</span>
                                 {% else %}
-                                    <span class="status-span-red-100">{{ o.retrieval_id.temp_t49_available_for_pickup|default:"× 未放行" }}</span>
+                                    <span class="status-span status-span-red">{{ o.retrieval_id.temp_t49_available_for_pickup|default:"× 未放行" }}</span>
                                 {% endif %}
                             </td>
                             <td>
                                 {% if o.retrieval_id.planned_release_time %}
-                                    <span class="status-span-green-100">
-                                    {{ o.retrieval_id.planned_release_time|date:"Y-M-j" }}
+                                    <span class="status-span status-span-green">
+                                        {{ o.retrieval_id.planned_release_time|date:"Y-M-j" }}
+                                    </span>
                                 {% else %}
-                                    <span class="status-span-red-100">无计划放行时间</span>
+                                    <span class="status-span status-span-red">无计划放行时间</span>
                                 {% endif %}
                             </td>
                             <td>
                                 {% if o.retrieval_id.target_retrieval_timestamp_lower or o.retrieval_id.target_retrieval_timestamp %}
-                                    <span class="status-span-green-100">
-                                {{ o.retrieval_id.target_retrieval_timestamp_lower|date:"M-j" }} - {{ o.retrieval_id.target_retrieval_timestamp|date:"M-j" }}
-                            </span>
+                                    <span class="status-span status-span-green">
+                                        {{ o.retrieval_id.target_retrieval_timestamp_lower|date:"M-j" }} - {{ o.retrieval_id.target_retrieval_timestamp|date:"M-j" }}
+                                    </span>
                                 {% else %}
-                                    <span class="status-span-red-100">无提柜计划</span>
+                                    <span class="status-span status-span-red">无提柜计划</span>
                                 {% endif %}
                             </td>
 
                             <td>
                                 {% if o.retrieval_id.actual_retrieval_timestamp %}
-                                    <span class="status-span-green-100">{{ o.retrieval_id.actual_retrieval_timestamp|date:"M-j" }}</span>
+                                    <span class="status-span status-span-green">{{ o.retrieval_id.actual_retrieval_timestamp|date:"M-j" }}</span>
                                 {% elif o.retrieval_id.target_retrieval_timestamp.date > current_date %}
-                                    <span class="status-span-blue-100">预计 {{ o.retrieval_id.target_retrieval_timestamp|date:"M-j" }}</span>
+                                    <span class="status-span status-span-blue">预计 {{ o.retrieval_id.target_retrieval_timestamp|date:"M-j" }}</span>
                                 {% else %}
-                                    <span style="color: #86909c;">未提柜</span>
+                                    <span class="status-span status-span-gray">未提柜</span>
                                 {% endif %}
                             </td>
                             <td class="td">
-                                <form action="" method="post">
+                                <form action="" method="post" class="inline-form">
                                     {% csrf_token %}
                                     <div class="time-input-container">
                                         <input type="hidden" name="step" value="get_retrieval_cabinet_arrangement_time">
@@ -635,15 +837,17 @@
                                                value="{% if o.retrieval_id.retrieval_cabinet_arrangement_time %}{{ o.retrieval_id.retrieval_cabinet_arrangement_time|date:'Y-m-d\TH:i' }}{% endif %}"
                                                class="datetime-input"
                                                name="retrieval_cabinet_arrangement_time"
-                                               placeholder="选择日期时间">
-                                        <button type="submit" class="custom-btn" style="padding: 6px;">
+                                               placeholder="选择日期时间"
+                                               title="设置提柜安排时间">
+                                        <button type="submit" class="custom-btn" style="padding: 4px;margin-top: -45px;margin-left: 166px;font-size: 13px"
+                                                title="确认提柜安排时间">
                                             确认
                                         </button>
                                     </div>
                                 </form>
                             </td>
                             <td class="td">
-                                <form action="" method="post">
+                                <form action="" method="post" class="inline-form">
                                     {% csrf_token %}
                                     <div class="time-input-container">
                                         <input type="hidden" name="step" value="get_offload_at">
@@ -657,8 +861,10 @@
                                                value="{% if o.offload_id.offload_at %}{{ o.offload_id.offload_at|date:'Y-m-d\TH:i' }}{% endif %}"
                                                class="datetime-input"
                                                name="offload_at"
-                                               placeholder="选择日期时间">
-                                        <button type="submit" class="custom-btn" style="padding: 6px;">
+                                               placeholder="选择日期时间"
+                                               title="设置拆柜时间">
+                                        <button type="submit" class="custom-btn" style="padding: 4px;margin-top: -45px;margin-left: 166px;font-size: 13px"
+                                                title="确认拆柜时间">
                                             确认
                                         </button>
                                     </div>
@@ -666,20 +872,20 @@
                             </td>
                             <td>
                                 {% if o.retrieval_id.empty_returned %}
-                                    <span class="status-span-green-100">{{ o.retrieval_id.empty_returned_at|date:"M-j" }}</span>
+                                    <span class="status-span status-span-green">{{ o.retrieval_id.empty_returned_at|date:"M-j" }}</span>
                                 {% else %}
-                                    <span style="color: #86909c;">未还空</span>
+                                    <span class="status-span status-span-gray">未还空</span>
                                 {% endif %}
                             </td>
                             <td class="td">
                                 {% if o.retrieval_id.empty_returned %}
-                                    <span class="status-span-green-100"><i class="bi bi-check-square"></i> 已完结</span>
+                                    <span class="status-span status-span-green"><i class="bi bi-check-square"></i> 已完结</span>
                                 {% else %}
-                                    <span class="status-span-red-100"><i class="bi bi-x-square"></i> 未完结</span>
+                                    <span class="status-span status-span-red"><i class="bi bi-x-square"></i> 未完结</span>
                                 {% endif %}
                             </td>
                             <td>
-                                <form action="" method="post">
+                                <form action="" method="post" class="inline-form">
                                     {% csrf_token %}
                                     <input type="hidden" name="step" value="get_note_preport_dispatch">
                                     <input type="hidden" name="start_date" value="{{ start_date|default:'' }}">
@@ -688,21 +894,52 @@
                                     <input type="hidden" name="end_date_eta" value="{{ end_date_eta|default:'' }}">
                                     <input type="hidden" name="retrieval_id" value="{{ o.retrieval_id|default:'' }}">
                                     <div style="display: flex; gap: 8px; align-items: flex-end;">
-                                <textarea
-                                        name="note_preport_dispatch"
-                                        style="flex: 1; min-height: 50px;"
-                                >{{ o.retrieval_id.note_preport_dispatch|default:'' }}</textarea>
-                                        <button type="submit" class="custom-btn">
+                                        <textarea
+                                                name="note_preport_dispatch"
+                                                style="flex: 1; min-height: 50px;"
+                                                title="输入货柜备注信息"
+                                        >{{ o.retrieval_id.note_preport_dispatch|default:'' }}</textarea>
+                                        <button type="submit" class="custom-btn" style="font-size: 13px;padding: 4px;"
+                                                title="保存货柜备注">
                                             确认
                                         </button>
                                     </div>
                                 </form>
                             </td>
+                            <td>
+                                <form action="" method="post" class="inline-form">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="container_number" value="{{ o.container_number.container_number }}">
+                                    <input type="hidden" name="step" value="save_is_abnormal_state">
+                                    <input type="hidden" name="start_date_eta" value="{{ start_date_eta|default:'' }}">
+                                    <input type="hidden" name="end_date_eta" value="{{ end_date_eta|default:'' }}">
+                                    <!-- 异常状态单选框：当 is_abnormal_state 为 True 时选中 -->
+                                    <label>
+                                        <input type="radio" name="is_abnormal_state" value="True"
+                                               {% if o.container_number.is_abnormal_state %}checked{% endif %}
+                                               title="标记为异常状态">
+                                        异常
+                                    </label>
+                                    <!-- 正常状态单选框：当 is_abnormal_state 为 False 时选中 -->
+                                    <label style="margin-left: 10px;">
+                                        <input type="radio" name="is_abnormal_state" value="False"
+                                               {% if not o.container_number.is_abnormal_state %}checked{% endif %}
+                                               title="标记为正常状态">
+                                        正常
+                                    </label>
+                                    <button type="submit" class="custom-btn" style="margin-left: 10px;"
+                                            title="确认状态设置">
+                                        确认
+                                    </button>
+                                </form>
+                            </td>
                         </tr>
                     {% empty %}
                         <tr>
-                            <td colspan="14" style="text-align: center; padding: 30px; color: #86909c;">
-                                暂无数据
+                            <td colspan="15" class="empty-state">
+                                <i class="bi bi-box-seam"></i>
+                                <p>暂无符合条件的数据</p>
+                                <p style="margin-top: 10px;">请尝试调整筛选条件或日期范围</p>
                             </td>
                         </tr>
                     {% endfor %}
@@ -736,7 +973,8 @@
                                class="datetime-input"
                                id="batchOffloadTime"
                                required
-                               style="width: 100%; padding: 8px; font-size: 13px;">
+                               style="width: 100%; padding: 8px; font-size: 13px;"
+                               title="选择拆柜时间">
                     </div>
 
                     <div style="margin-top: 15px; color: #86909c; font-size: 12px;">
@@ -751,7 +989,33 @@
         </div>
     </div>
 
+    <!-- 加载状态指示器 -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="spinner"></div>
+    </div>
+
     <script>
+        // 显示加载状态
+        function showLoading() {
+            document.getElementById('loadingOverlay').classList.add('show');
+        }
+
+        // 隐藏加载状态
+        function hideLoading() {
+            document.getElementById('loadingOverlay').classList.remove('show');
+        }
+
+        // 页面加载和表单提交时显示加载状态
+        document.addEventListener('DOMContentLoaded', function() {
+            // 为所有表单添加加载状态
+            const forms = document.querySelectorAll('form');
+            forms.forEach(form => {
+                form.addEventListener('submit', function() {
+                    showLoading();
+                });
+            });
+        });
+
         function showSection(navItem, secId) {
             const navLinks = document.querySelectorAll('.nav-link');
             navLinks.forEach(link => {
@@ -780,6 +1044,7 @@
                 }
             });
 
+            let visibleCount = 0;
             for (var i = 0; i < tr.length; i++) {
                 var row = tr[i];
                 var showRow = true;
@@ -805,6 +1070,15 @@
                 });
 
                 row.style.display = showRow ? "" : "none";
+                if (showRow) visibleCount++;
+            }
+
+            // 处理空状态显示
+            const emptyState = document.querySelector('.empty-state').parentNode.parentNode;
+            if (visibleCount === 0 && tr.length > 0) {
+                emptyState.style.display = "";
+            } else {
+                emptyState.style.display = "none";
             }
 
             updateSelectAllStatus();
@@ -885,21 +1159,33 @@
                     .map(checkbox => checkbox.getAttribute('data-container'));
 
                 if (selectedContainers.length === 0) {
-                    alert('请先选择要复制的柜号');
+                    showToast('请先选择要复制的柜号', 'error');
                     return;
                 }
 
                 const textToCopy = selectedContainers.join('\n');
                 navigator.clipboard.writeText(textToCopy).then(() => {
-                    copyToast.classList.add('show');
-                    setTimeout(() => {
-                        copyToast.classList.remove('show');
-                    }, 2000);
+                    showToast('复制成功！');
                 }).catch(err => {
                     console.error('复制失败:', err);
-                    alert('复制失败，请手动复制');
+                    showToast('复制失败，请手动复制', 'error');
                 });
             });
+
+            // 显示提示消息
+            function showToast(message, type = 'success') {
+                const toast = document.getElementById('copyToast');
+                toast.textContent = message;
+                toast.className = 'copy-toast';
+                if (type === 'error') {
+                    toast.classList.add('error');
+                }
+                toast.classList.add('show');
+
+                setTimeout(() => {
+                    toast.classList.remove('show');
+                }, 2000);
+            }
 
             // 批量跳转港口提柜
             exportSelectedBtn.addEventListener('click', function () {
@@ -907,7 +1193,7 @@
                     .map(checkbox => checkbox.getAttribute('data-container'));
 
                 if (selectedContainers.length === 0) {
-                    alert('请先选择要操作的柜号');
+                    showToast('请先选择要操作的柜号', 'error');
                     return;
                 }
 
@@ -939,8 +1225,8 @@
                 });
 
                 document.body.appendChild(form);
+                showLoading(); // 显示加载状态
                 form.submit();
-                document.body.removeChild(form); // 修复：添加这行移除临时表单
             });
 
             // 批量设置拆柜时间 - 打开弹窗
@@ -951,6 +1237,8 @@
                 batchOffloadTime.value = '';
                 // 显示弹窗
                 batchOffloadModal.classList.add('show');
+                // 设置焦点
+                batchOffloadTime.focus();
             });
 
             // 批量设置拆柜时间 - 关闭弹窗
@@ -973,13 +1261,13 @@
                 // 验证时间是否选择
                 const offloadTime = batchOffloadTime.value;
                 if (!offloadTime) {
-                    alert('请选择拆柜时间');
+                    showToast('请选择拆柜时间', 'error');
                     return;
                 }
 
                 // 验证是否有选中的offload_id
                 if (selectedOffloadIds.length === 0) {
-                    alert('未选择任何货柜，请先选择');
+                    showToast('未选择任何货柜，请先选择', 'error');
                     return;
                 }
 
@@ -1033,12 +1321,27 @@
 
                 // 提交表单
                 document.body.appendChild(form);
+                showLoading(); // 显示加载状态
                 form.submit();
-                document.body.removeChild(form);
             });
 
             // 初始化计数
             updateSelectedCount();
+
+            // 为所有输入框添加回车键提交功能
+            const inputs = document.querySelectorAll('input, select');
+            inputs.forEach(input => {
+                input.addEventListener('keydown', function(e) {
+                    if (e.key === 'Enter') {
+                        // 阻止默认行为避免表单重复提交
+                        e.preventDefault();
+                        // 触发筛选
+                        if (this.hasAttribute('data-col')) {
+                            filterTable(this);
+                        }
+                    }
+                });
+            });
         });
     </script>
 {% endblock %}
