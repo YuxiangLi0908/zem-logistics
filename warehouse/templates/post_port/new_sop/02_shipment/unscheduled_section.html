@@ -202,7 +202,9 @@
                                         data-origin="{{ warehouse }}"
                                         data-note="{{ suggestion.primary_group.matched_shipment.note }}"
                                         data-address-detail="{{ suggestion.primary_group.matched_shipment.address_detail }}"
-                                        data-shipment-cargo-id="{{ suggestion.primary_group.matched_shipment.shipment_cargo_id }}">
+                                        data-shipment-cargo-id="{{ suggestion.primary_group.matched_shipment.shipment_cargo_id }}"
+                                        data-pickup-time="{{ suggestion.primary_group.matched_shipment.pickup_time|date:'Y-m-d H:i' }}"
+                                        data-pickup-number="{{ suggestion.primary_group.matched_shipment.pickup_number }}">
                                     <i class="fas fa-link"></i> 绑定
                                 </button>
                                 <button class="action-btn btn-success export-group-po" 

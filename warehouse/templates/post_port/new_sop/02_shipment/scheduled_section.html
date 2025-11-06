@@ -117,7 +117,9 @@
                                 data-origin="{{ warehouse }}"
                                 data-note=""
                                 data-address-detail="{{ shipment_group.address_detail }}"
-                                data-operation-type="remove_po">
+                                data-operation-type="remove_po"
+                                data-pickup-time="{{ shipment_group.pickup_time|date:'Y-m-d H:i' }}"
+                                data-pickup-number="{{ shipment_group.pickup_number }}">
                             <i class="fas fa-square-minus"></i> 删除PO
                         </button>
                         <button class="action-btn btn-primary open-edit-modal"
@@ -125,7 +127,9 @@
                                 data-destination="{{ shipment_group.destination }}"
                                 data-scheduled-time="{{ shipment_group.shipment_appointment|date:'Y-m-d H:i' }}"
                                 data-load-type="{{ shipment_group.load_type }}"
-                                data-origin="{{ warehouse }}">
+                                data-origin="{{ warehouse }}"
+                                data-pickup-time="{{ shipment_group.pickup_time|date:'Y-m-d H:i' }}"
+                                data-pickup-number="{{ shipment_group.pickup_number }}">
                             <i class="fas fa-edit"></i> 修改约
                         </button>
                     </td>
@@ -147,7 +151,7 @@
     <div class="modal-content" style="width: 600px; max-width: 90%;">
         <div class="modal-header">
             <h3><i class="fas fa-edit"></i> 修改预约</h3>
-            <span class="close">&times;</span>
+            <span class="close" onclick="closeEditModal()">&times;</span>
         </div>
         <div class="modal-body">
             <form id="editAppointmentForm" method="post">
@@ -191,6 +195,14 @@
                                 </select>
                             </td>
                         </tr>
+                        <tr>
+                            <th>Pickup Time</th>
+                            <td><input type="datetime-local" name="pickup_time" id="editModalPickupTime" class="form-input"></td>
+                        </tr>
+                        <tr>
+                            <th>Pickup Number</th>
+                            <td><input type="text" name="pickup_number" id="editModalPickupNumber" class="form-input"></td>
+                        </tr>
                     </tbody>
                 </table>
 
@@ -216,6 +228,8 @@ document.querySelectorAll('.open-edit-modal').forEach(btn => {
     btn.addEventListener('click', function() {
         const appointmentId = this.dataset.appointmentId;
         const scheduledTime = this.dataset.scheduledTime.replace(' ', 'T');
+        const pickupTime = this.dataset.pickupTime ? this.dataset.pickupTime.replace(' ', 'T') : '';
+        const pickupNumber = this.dataset.pickupNumber || '';
         const destination = this.dataset.destination;
         const loadType = this.dataset.loadType;
         const origin = this.dataset.origin;
@@ -223,6 +237,9 @@ document.querySelectorAll('.open-edit-modal').forEach(btn => {
         document.getElementById('editModalAppointmentId').value = appointmentId;
         document.getElementById('editModalAppointmentInput').value = appointmentId;
         document.getElementById('editModalScheduledTime').value = scheduledTime;
+        document.getElementById('editModalPickupTime').value = pickupTime;
+        document.getElementById('editModalPickupNumber').value = pickupNumber;
+        
         document.getElementById('editModalDestination').value = destination;
         document.getElementById('editModalLoadType').value = loadType;
         document.getElementById('editModalOrigin').value = origin;
@@ -235,14 +252,6 @@ document.querySelectorAll('.open-edit-modal').forEach(btn => {
 function closeEditModal() {
     document.getElementById('editAppointmentModal').style.display = 'none';
 }
-
-// 点击空白区域关闭
-window.addEventListener('click', function(event) {
-    const modal = document.getElementById('editAppointmentModal');
-    if (event.target === modal) {
-        closeEditModal();
-    }
-});
 
 // 提交表单
 document.getElementById('editAppointmentForm').addEventListener('submit', function(e) {

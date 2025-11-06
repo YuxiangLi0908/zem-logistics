@@ -290,10 +290,7 @@
     }
 
     // 进入多组预约
-    function proceedToMultiGroupBooking() {
-        console.log('proceedToMultiGroupBooking 被调用');
-        console.log('selectedVirtualGroups:', selectedVirtualGroups);
-        
+    function proceedToMultiGroupBooking() {      
         if (selectedVirtualGroups.length === 0) {
             alert('请至少选择一个大组');
             return;
@@ -322,10 +319,7 @@
     }
 
     // 打开多组预约模态框
-    function openMultiGroupBookingModal() {
-        console.log('openMultiGroupBookingModal 被调用');
-        console.log('selectedVirtualGroups 长度:', selectedVirtualGroups.length);
-        
+    function openMultiGroupBookingModal() {       
         // 生成Tab导航
         const tabsContainer = document.getElementById('multiGroupTabs');
         const contentsContainer = document.getElementById('multiGroupTabContents');
@@ -370,6 +364,7 @@
         if (modal) {
             modal.style.display = 'block';
             console.log('多组预约模态框显示成功');
+            addMultiGroupEventListeners();
         } else {
             console.error('找不到多组预约模态框元素');
         }
@@ -423,6 +418,7 @@
                                 <th>预约账号</th>
                                 <th>预约号</th>
                                 <th>Scheduled Time</th>
+                                <th>Pickup Time</th>
                                 <th>发货仓库</th>
                             </tr>
                         </thead>
@@ -459,6 +455,9 @@
                                     <input type="datetime-local" name="shipment_appointment" class="form-input multi-group-field" required>
                                 </td>
                                 <td>
+                                    <input type="datetime-local" name="pickup_time" class="form-input multi-group-field">
+                                </td>
+                                <td>
                                     <select name="origin" class="form-select multi-group-field">
         `;
         
@@ -473,9 +472,10 @@
                             </tr>
                             <tr>
                                 <th>装车类型</th>
-                                <th>备注</th>
+                                <th>Pickup Number</th>                            
                                 <th>目的地</th>
                                 <th>地址</th>
+                                <th>备注</th>
                                 <th>shipment ID</th>
                             </tr>
                             <tr>
@@ -492,13 +492,16 @@
                                     </select>
                                 </td>
                                 <td>
-                                    <input type="text" name="note" class="form-input multi-group-field">
+                                    <input type="text" name="pickupNumber" class="form-input multi-group-field">
                                 </td>
                                 <td>
                                     <input type="text" name="destination" value="${pg.destination}" class="form-input multi-group-field" required>
                                 </td>
                                 <td>
                                     <input type="text" name="address" class="form-input multi-group-field">
+                                </td>
+                                <td>
+                                    <input type="text" name="note" class="form-input multi-group-field">
                                 </td>
                                 <td>
                                     <input type="text" name="shipment_cargo_id" class="form-input multi-group-field">
@@ -570,7 +573,9 @@
                 origin: pg.matched_shipment.origin,
                 note: pg.matched_shipment.note,
                 address: pg.matched_shipment.address_detail,
-                shipment_cargo_id: pg.matched_shipment.shipment_cargo_id
+                shipment_cargo_id: pg.matched_shipment.shipment_cargo_id,
+                pickup_time: pg.matched_shipment.pickup_time || '',
+                pickupNumber: pg.matched_shipment.pickup_number || ''
             } : {})
         };
         
@@ -586,16 +591,141 @@
                 Object.keys(formData).forEach(key => {
                     const element = form.querySelector(`[name="${key}"]`);
                     if (element && formData[key]) {
-                        element.value = formData[key];
-                        console.log(`设置 ${key} = ${formData[key]}`);
+                        if (key === 'shipment_appointment' || key === 'pickup_time') {
+                            // 格式化时间字段，移除秒和时区信息
+                            const formattedTime = formatDateTimeForInput(formData[key]);
+                            element.value = formattedTime;
+                            console.log(`设置 ${key} = ${formattedTime} (原始值: ${formData[key]})`);
+                        } else {
+                            element.value = formData[key];
+                            console.log(`设置 ${key} = ${formData[key]}`);
+                        }
                     }
                 });
+                // 如果没有 pickupNumber 或者为 None，自动生成
+                const pickupNumberInput = form.querySelector('[name="pickupNumber"]');
+                if (pickupNumberInput && (!formData.pickupNumber || formData.pickupNumber === 'None' || formData.pickupNumber === 'none')) {
+                    generateMultiGroupPickupNumber(index);
+                }
             } else {
                 console.error(`找不到第${index}个大组的表单元素`);
             }
         }, 200);
     }
+    // 格式化日期时间为 datetime-local 输入框需要的格式
+    function formatDateTimeForInput(dateTimeStr) {
+        if (!dateTimeStr) return '';
+        
+        // 移除时区信息并截取到分钟
+        const date = new Date(dateTimeStr);
+        if (isNaN(date)) {
+            // 如果 Date 解析失败，尝试手动处理
+            const cleanedStr = dateTimeStr.replace('Z', '').split('.')[0]; // 移除时区和毫秒
+            const parts = cleanedStr.split('T');
+            if (parts.length === 2) {
+                const timePart = parts[1].substring(0, 5); // 只取小时和分钟
+                return `${parts[0]}T${timePart}`;
+            }
+            return dateTimeStr.substring(0, 16); // 截取前16个字符 (YYYY-MM-DDTHH:mm)
+        }
+        
+        // 使用 Date 对象格式化
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const hours = String(date.getHours()).padStart(2, '0');
+        const minutes = String(date.getMinutes()).padStart(2, '0');
+        
+        return `${year}-${month}-${day}T${hours}:${minutes}`;
+    }
+    // 为多组预约生成 pickupNumber 的函数
+    function generateMultiGroupPickupNumber(index) {
+        const form = document.querySelector(`.multi-group-form[data-index="${index}"]`);
+        if (!form) return;
+        
+        const shipmentAccountSelect = form.querySelector('[name="shipment_account"]');
+        
+        // 获取预约账号
+        const shipmentAccount = shipmentAccountSelect?.options[shipmentAccountSelect.selectedIndex]?.text || '';
+        
+        // 基础前缀
+        const prefix = 'ZEM-RC-';
+        
+        // 获取当天月日（MMDD格式）
+        const today = new Date();
+        const month = String(today.getMonth() + 1).padStart(2, '0');
+        const day = String(today.getDate()).padStart(2, '0');
+        const monthDay = month + day;
+        
+        // 预约账号处理
+        let accountPart = '';
+        if (shipmentAccount.includes('Central') || shipmentAccount.includes('walmart')) {
+            accountPart = 'ASH';
+        } else {
+            // 用 - 分组，取第一个组
+            const parts = shipmentAccount.split('-');
+            accountPart = parts[0] || shipmentAccount;
+        }
+        
+        // 收集所有组的目的地
+        let allDestinations = [];
+        selectedVirtualGroups.forEach((group, groupIndex) => {
+            const groupForm = document.querySelector(`.multi-group-form[data-index="${groupIndex}"]`);
+            if (groupForm) {
+                const destinationInput = groupForm.querySelector('[name="destination"]');
+                let destination = destinationInput?.value || '';
+                
+                // 目的地处理：如果包含 -，取后面的内容
+                if (destination.includes('-')) {
+                    const parts = destination.split('-');
+                    destination = parts.slice(1).join('-').replace(/\s+/g, '');
+                } else {
+                    destination = destination.replace(/\s+/g, '');
+                }
+                
+                if (destination) {
+                    allDestinations.push(destination);
+                }
+            }
+        });
+        
+        // 组合所有目的地
+        const destinationsPart = allDestinations.join('+');
+        
+        // 组别标识（当前组的序号，从1开始）
+        const groupNumber = parseInt(index) + 1;
+        
+        // 组合成完整的 pickupNumber
+        const pickupNumber = `${prefix}${monthDay}${accountPart}-${destinationsPart}-${groupNumber}`;
+        
+        // 设置到输入框
+        const pickupNumberInput = form.querySelector('[name="pickupNumber"]');
+        if (pickupNumberInput) {
+            pickupNumberInput.value = pickupNumber;
+        }
+        
+        console.log(`第${groupNumber}组 pickupNumber 生成:`, pickupNumber);
+        return pickupNumber;
+    }
 
+    // 为多组预约表单添加事件监听
+    function addMultiGroupEventListeners() {
+        document.addEventListener('change', function(e) {
+            if (e.target.matches('.multi-group-field[name="shipment_account"]') || 
+                e.target.matches('.multi-group-field[name="destination"]')) {
+                
+                // 当一个组的信息变化时，更新所有组的 pickupNumber
+                selectedVirtualGroups.forEach((group, index) => {
+                    generateMultiGroupPickupNumber(index);
+                });
+            }
+        });
+    }
+
+    // 在页面加载完成后添加事件监听
+    document.addEventListener('DOMContentLoaded', function() {
+        addMultiGroupEventListeners();
+    });
     // 关闭模态框
     function closeVirtualFleetModal() {
         document.getElementById('virtualFleetModal').style.display = 'none';
