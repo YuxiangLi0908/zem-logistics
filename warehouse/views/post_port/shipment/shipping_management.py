@@ -2578,6 +2578,10 @@ class ShippingManagement(View):
         pickup_time = request.POST.get("pickup_time")
         if pickup_time:
             shipment_data["pickup_time"] = pickup_time
+            pickup_time = request.POST.get("pickup_time")
+        pickup_number = request.POST.get("pickup_number")
+        if pickup_number:
+            shipment_data["pickup_number"] = pickup_number
 
         await sync_to_async(Shipment.objects.create)(**shipment_data)
         if name == "post_nsop":
