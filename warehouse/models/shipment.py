@@ -22,6 +22,8 @@ class Shipment(models.Model):
     shipment_appointment = models.DateTimeField(null=True, blank=True)
     shipment_appointment_tz = models.CharField(max_length=20, null=True, blank=True)
     shipment_appointment_utc = models.DateTimeField(null=True, blank=True)
+    pickup_time = models.DateTimeField(null=True, blank=True)
+    pickup_number = models.CharField(max_length=500, null=True, blank=True)
     is_shipped = models.BooleanField(default=False, null=True, blank=True)
     shipped_at = models.DateTimeField(null=True, blank=True)
     shipped_at_utc = models.DateTimeField(null=True, blank=True)
