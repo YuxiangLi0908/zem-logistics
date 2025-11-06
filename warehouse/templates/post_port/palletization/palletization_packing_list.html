@@ -1,9 +1,12 @@
 {% extends 'base.html' %}
 {% block content %}
+
+
 {% load static custom_filters %}
     <form method="post" style="width: 100%;">
         {% csrf_token %}
         <div class="container mt-3" style="max-width: 100%;">
+            <h4 class="mb-4">拆柜录入</h4>
             {% if status == 'non_palletized' %}
             <div class="text-right">
                 {% if warehouse == "LA-91761" %}
@@ -179,6 +182,7 @@
                     <button type="submit" class="btn btn-primary" style="width: 100px; height: 35px;">返回</button>
                 {% else %}
                     <input type="hidden" name="step" value="palletize">
+                    <input type="datetime-local" name="offload_time" class="form-input" style="height: 35px; padding: 0 8px;">
                     <button type="submit" class="btn btn-primary" style="width: 100px; height: 35px;" onclick="processForm()">确认</button>
                 {% endif %}
             </div>
