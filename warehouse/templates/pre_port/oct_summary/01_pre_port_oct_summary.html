@@ -92,16 +92,16 @@
             color: #6c757d;
         }
 
-        /* 表格核心样式：确保表头与表体宽度完全对齐 */
+        /* 表格核心样式 */
         .table-container {
             width: 100%;
-            overflow-x: auto; /* 外层负责横向滚动，表头表体同步 */
+            overflow-x: auto;
             position: relative;
             height: 630px;
         }
 
         .table-wrapper {
-            width: 100%; /* 包裹层占满容器，避免宽度溢出 */
+            width: 100%;
         }
 
         .fixed-header {
@@ -112,237 +112,177 @@
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
         }
 
-        /* 表头表格样式 */
-        .fixed-header .layui-table {
-            width: 100%;
-            border-collapse: collapse;
-            table-layout: auto; /* 取消固定列宽，随内容自适应 */
-            margin: 0;
-            border: none;
-        }
-
-        /* 表体表格样式（与表头完全一致） */
+        .fixed-header .layui-table,
         .scroll-body .layui-table {
             width: 100%;
             border-collapse: collapse;
-            table-layout: auto; /* 关键：与表头保持同一宽度规则 */
+            table-layout: fixed; /* 固定布局确保列结构稳定 */
             margin: 0;
             border: none;
         }
 
-        /* 表头单元格样式 */
-        .fixed-header th {
-            padding: 9px 8px;
-            text-align: left;
-            border: 1px solid #e6e6e6;
-            white-space: nowrap; /* 禁止换行，保证列宽稳定 */
-            overflow: hidden;
-            text-overflow: ellipsis;
-            min-width: 80px; /* 最小宽度，避免内容挤在一起 */
-        }
-
-        /* 表体单元格样式（与表头完全对齐） */
+        .fixed-header th,
         .scroll-body td {
             padding: 9px 8px;
             text-align: left;
             border: 1px solid #e6e6e6;
-            white-space: nowrap; /* 与表头一致，禁止换行 */
+            white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
-            min-width: 80px; /* 与表头最小宽度完全相同 */
+            transition: all 0.3s;
         }
 
-        /* 表头搜索列样式（不影响宽度） */
-        .fixed-header th.search-th {
-            padding: 5px 8px;
-        }
-
-        /* 关键列宽度设置（确保核心列宽合理，新增字段自动适配） */
-        /* 固定复选框列 - 关键修改 */
-        .fixed-header th:nth-child(1),
-        .scroll-body td:nth-child(1) {
-            width: 50px;
-            min-width: 50px;
+        /* 固定复选框列 */
+        [data-column="checkbox"] {
+            width: 50px !important;
+            min-width: 50px !important;
+            max-width: 50px !important; /* 新增最大宽度限制 */
             text-align: center;
             position: sticky;
             left: 0;
             background-color: #fff;
-            z-index: 2; /* 确保在滚动时显示在最上层 */
+            z-index: 2;
         }
 
-        /* 下单日期 */
-        .fixed-header th:nth-child(2),
-        .scroll-body td:nth-child(2) {
-            width: 100px;
-            min-width: 100px;
+        /* 按列名定义宽度 */
+        [data-column="order_date"] {
+            width: 160px !important;
+            min-width: 160px !important;
         }
 
-        /* 客户 */
-        .fixed-header th:nth-child(3),
-        .scroll-body td:nth-child(3) {
-            width: 120px;
-            min-width: 120px;
+        [data-column="customer"] {
+            width: 120px !important;
+            min-width: 120px !important;
         }
 
-        /* 所属仓/直送地址 */
-        .fixed-header th:nth-child(4),
-        .scroll-body td:nth-child(4) {
-            width: 160px;
-            min-width: 160px;
+        [data-column="warehouse"] {
+            width: 180px !important;
+            min-width: 180px !important;
         }
 
-        /* 调度备注 */
-        .fixed-header th:nth-child(5), .scroll-body td:nth-child(5) {
-            width: 234px;
-            min-width: 234px;
+        [data-column="dispatch_note"] {
+            width: 234px !important;
+            min-width: 234px !important;
         }
 
-        /* 柜号 */
-        .fixed-header th:nth-child(6),
-        .scroll-body td:nth-child(6) {
-            width: 176px;
-            min-width: 176px;
+        [data-column="container"] {
+            width: 176px !important;
+            min-width: 176px !important;
         }
 
-        /* MBL */
-        .fixed-header th:nth-child(7),
-        .scroll-body td:nth-child(7) {
-            width: 176px;
-            min-width: 176px;
+        [data-column="mbl"] {
+            width: 176px !important;
+            min-width: 176px !important;
         }
 
-        /* 船司 */
-        .fixed-header th:nth-child(8),
-        .scroll-body td:nth-child(8) {
-            width: 176px;
-            min-width: 176px;
+        [data-column="shipping_line"] {
+            width: 176px !important;
+            min-width: 176px !important;
         }
 
-        /* 船名航次 */
-        .fixed-header th:nth-child(9), .scroll-body td:nth-child(9) {
-            width: 275px;
-            min-width: 275px;
+        [data-column="vessel"] {
+            width: 275px !important;
+            min-width: 275px !important;
         }
 
-        /* 柜型 */
-        .fixed-header th:nth-child(10),
-        .scroll-body td:nth-child(10) {
-            width: 176px;
-            min-width: 176px;
+        [data-column="container_type"] {
+            width: 176px !important;
+            min-width: 176px !important;
         }
 
-        /* 船期 */
-        .fixed-header th:nth-child(11),
-        .scroll-body td:nth-child(11) {
-            width: 176px;
-            min-width: 176px;
+        [data-column="vessel_date"] {
+            width: 176px !important;
+            min-width: 176px !important;
         }
 
-        /* ETD */
-        .fixed-header th:nth-child(12),
-        .scroll-body td:nth-child(12) {
-            width: 176px;
-            min-width: 176px;
+        [data-column="etd"] {
+            width: 176px !important;
+            min-width: 176px !important;
         }
 
-        /* ETA */
-        .fixed-header th:nth-child(13),
-        .scroll-body td:nth-child(13) {
-            width: 176px;
-            min-width: 176px;
+        [data-column="eta"] {
+            width: 176px !important;
+            min-width: 176px !important;
         }
 
-        /* 放行状态(t49) */
-        .fixed-header th:nth-child(14),
-        .scroll-body td:nth-child(14) {
-            width: 176px;
-            min-width: 176px;
+        [data-column="release_status_t49"] {
+            width: 200px !important;
+            min-width: 176px !important;
         }
 
-        /* 实际提柜供应商 */
-        .fixed-header th:nth-child(15),
-        .scroll-body td:nth-child(15) {
-            width: 250px;
-            min-width: 250px;
+        [data-column="actual_carrier"] {
+            width: 250px !important;
+            min-width: 250px !important;
         }
 
-        /* 调度委托 */
-        .fixed-header th:nth-child(16),
-        .scroll-body td:nth-child(16) {
-            width: 176px;
-            min-width: 176px;
+        [data-column="dispatch_delegation"] {
+            width: 176px !important;
+            min-width: 176px !important;
         }
 
-        /* 私仓数量 */
-        .fixed-header th:nth-child(17),
-        .scroll-body td:nth-child(17) {
-            width: 176px;
-            min-width: 176px;
+        [data-column="private_warehouse"] {
+            width: 176px !important;
+            min-width: 176px !important;
         }
 
-        /* 计划放行时间 */
-        .fixed-header th:nth-child(18),
-        .scroll-body td:nth-child(18) {
-            width: 250px;
-            min-width: 250px;
+        [data-column="planned_release_time"] {
+            width: 250px !important;
+            min-width: 250px !important;
         }
 
-        /* 放行状态(实际) */
-        .fixed-header th:nth-child(19),
-        .scroll-body td:nth-child(19) {
-            width: 176px;
-            min-width: 176px;
+        [data-column="actual_release_status"] {
+            width: 210px !important;
+            min-width: 176px !important;
         }
 
-        /* 是否提供Do */
-        .fixed-header th:nth-child(20),
-        .scroll-body td:nth-child(20) {
-            width: 176px;
-            min-width: 176px;
+        [data-column="do_provided"] {
+            width: 190px !important;
+            min-width: 176px !important;
         }
 
-        /* 新增：计划提柜供应商 */
-        .fixed-header th:nth-child(21),
-        .scroll-body td:nth-child(21) {
-            width: 250px;
-            min-width: 250px;
+        [data-column="planned_carrier"] {
+            width: 250px !important;
+            min-width: 250px !important;
         }
 
-        /* 建单进度 */
-        .fixed-header th:nth-child(22),
-        .scroll-body td:nth-child(22) {
-            width: 176px;
-            min-width: 176px;
+        [data-column="order_progress"] {
+            width: 176px !important;
+            min-width: 176px !important;
         }
 
-        /* 滚动条样式优化 */
+        /* 替换原有的.column-hidden样式 */
+        .column-hidden {
+            display: none !important; /* 完全隐藏，不占用宽度 */
+            width: 0 !important;
+            padding: 0 !important;
+            border: none !important;
+        }
+
+        /* 滚动条样式 */
         .table-container::-webkit-scrollbar {
-            height: 10px; /* 横向滚动条高度 */
+            height: 10px;
         }
 
         .scroll-body::-webkit-scrollbar {
-            width: 8px; /* 纵向滚动条宽度 */
+            width: 8px;
         }
 
-        .table-container::-webkit-scrollbar-track,
-        .scroll-body::-webkit-scrollbar-track {
+        .table-container::-webkit-scrollbar-track, .scroll-body::-webkit-scrollbar-track {
             background: #f1f3f5;
             border-radius: 5px;
         }
 
-        .table-container::-webkit-scrollbar-thumb,
-        .scroll-body::-webkit-scrollbar-thumb {
+        .table-container::-webkit-scrollbar-thumb, .scroll-body::-webkit-scrollbar-thumb {
             background: #adb5bd;
             border-radius: 5px;
         }
 
-        .table-container::-webkit-scrollbar-thumb:hover,
-        .scroll-body::-webkit-scrollbar-thumb:hover {
+        .table-container::-webkit-scrollbar-thumb:hover, .scroll-body::-webkit-scrollbar-thumb:hover {
             background: #868e96;
         }
 
         .scroll-body thead {
-            display: none; /* 隐藏表体表头，避免重复 */
+            display: none;
         }
 
         .do-column-content, .retrieval-carrier-content {
@@ -360,7 +300,6 @@
             font-size: 12px !important;
         }
 
-        /* 计划提柜供应商输入框样式 */
         .retrieval-carrier-input {
             flex: 1;
             padding: 3px 6px;
@@ -375,8 +314,8 @@
             box-shadow: 0 0 0 2px rgba(87, 197, 247, 0.2);
         }
 
-        /* 批量操作按钮样式 */
-        .batch-operation-btn {
+        /* 按钮样式 */
+        .batch-operation-btn, .column-control-btn {
             padding: 6px 15px;
             background-color: #16baaa;
             color: white;
@@ -389,21 +328,18 @@
             gap: 5px;
         }
 
-        .batch-operation-btn:hover {
+        .batch-operation-btn:hover, .column-control-btn:hover {
             background-color: #0088cc;
         }
 
-        /* 导出按钮容器：四个按钮同一行 */
         .export-buttons-wrap {
             margin: 15px 0;
-            text-align: right;
-            display: flex; /* Flex布局实现同行 */
-            justify-content: flex-end; /* 按钮靠右对齐 */
-            align-items: center; /* 垂直居中 */
-            gap: 12px; /* 按钮间距，可调整 */
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            gap: 12px;
         }
 
-        /* 单个按钮样式（统一风格，复制按钮用蓝色区分） */
         .batch-export-btn {
             padding: 6px 15px;
             background-color: #16baaa;
@@ -421,10 +357,9 @@
             background-color: #00796b;
         }
 
-        /* 复制按钮单独样式（蓝色，与导出按钮区分） */
         .copy-btn {
             padding: 8px 15px;
-            background-color: #16baaa; /* 蓝色主题 */
+            background-color: #16baaa;
             color: white;
             border: none;
             border-radius: 3px;
@@ -436,11 +371,62 @@
         }
 
         .copy-btn:hover {
-            background-color: #0088cc; /* hover加深 */
+            background-color: #0088cc;
         }
 
         .layui-select option[value=""] {
-            display: block !important; /* 确保空值选项可见 */
+            display: block !important;
+        }
+
+        /* 列显示控制按钮样式 */
+        .column-visibility-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+            color: #666;
+            margin-left: 5px;
+            padding: 0 3px;
+            vertical-align: middle;
+            opacity: 0.7;
+            transition: all 0.2s;
+        }
+
+        .column-visibility-btn:hover {
+            opacity: 1;
+            color: #16baaa;
+        }
+
+        .column-visibility-btn.hidden {
+            color: #ff4d4f;
+        }
+
+        .header-content {
+            display: inline-flex;
+            align-items: self-start;
+        }
+
+        .header-content {
+            display: inline-flex;
+            align-items: center;
+            /* 新增：确保按钮优先显示，文字溢出时省略 */
+            width: 100%;
+        }
+        /* 隐藏按钮固定在最前，文字自适应剩余空间 */
+        .column-visibility-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+            color: #666;
+            margin-right: 5px; /* 改为右margin，按钮在左，文字在右 */
+            margin-left: 0; /* 清除左margin */
+            padding: 0 3px;
+            vertical-align: middle;
+            opacity: 0.7;
+            transition: all 0.2s;
+            /* 新增：按钮固定大小，不被挤压 */
+            min-width: 18px;
         }
     </style>
 
@@ -518,11 +504,16 @@
             <div class="error提示" id="timeError"></div>
         </form>
 
-        <!-- 导出按钮统一容器：新增批量设置按钮 -->
+        <!-- 导出按钮统一容器 -->
         <div class="export-buttons-wrap">
             <!-- 批量设置计划提柜供应商按钮 -->
             <button type="button" id="batchSetCarrierBtn" class="batch-operation-btn">
                 <i class="layui-icon layui-icon-edit"></i> 批量设置计划提柜供应商
+            </button>
+
+            <!-- 新增：恢复所有列按钮 -->
+            <button type="button" id="resetColumnsBtn" class="batch-operation-btn">
+                <i class="layui-icon layui-icon-refresh"></i> 恢复所有列
             </button>
 
             <!-- 第一个导出按钮 -->
@@ -564,7 +555,7 @@
             </button>
         </div>
 
-        <!-- 表格容器：横向滚动功能已修复 -->
+        <!-- 表格容器 -->
         <div class="table-container">
             <div class="table-wrapper">
                 <!-- 固定表头 -->
@@ -572,76 +563,279 @@
                     <table class="layui-table">
                         <thead>
                         <tr>
-                            <th>
+                            <th data-column="checkbox">
                                 <input type="checkbox" id="selectAll" lay-skin="primary" title="全选"
                                        lay-filter="selectAllFilter" data-fullselect="true">
                             </th>
-                            <th>下单日期</th>
-                            <th>客户</th>
-                            <th>所属仓/直送地址</th>
-                            <th>调度备注</th>
-                            <th>柜号</th>
-                            <th>MBL</th>
-                            <th>船司</th>
-                            <th>船名航次</th>
-                            <th>柜型</th>
-                            <th>船期</th>
-                            <th>ETD</th>
-                            <th>ETA</th>
-                            <th>放行状态(t49)</th>
-                            <th>实际提柜供应商</th>
-                            <th>调度委托</th>
-                            <th>私仓数量</th>
-                            <th>计划放行时间</th>
-                            <th>放行状态(实际)</th>
-                            <th>是否提供Do</th>
-                            <th>计划提柜供应商</th> <!-- 新增列 -->
-                            <th>建单进度</th>
+                            <th data-column="order_date">
+                                <div class="header-content">
+                                    下单日期
+                                    <button type="button" class="column-visibility-btn" data-column="order_date"
+                                            title="隐藏列">
+                                        <i class="layui-icon layui-icon-eye"></i>
+                                    </button>
+                                </div>
+                            </th>
+                            <th data-column="customer">
+                                <div class="header-content">
+                                    客户
+                                    <button type="button" class="column-visibility-btn" data-column="customer"
+                                            title="隐藏列">
+                                        <i class="layui-icon layui-icon-eye"></i>
+                                    </button>
+                                </div>
+                            </th>
+                            <th data-column="warehouse">
+                                <div class="header-content">
+                                    所属仓
+                                    <button type="button" class="column-visibility-btn" data-column="warehouse"
+                                            title="隐藏列">
+                                        <i class="layui-icon layui-icon-eye"></i>
+                                    </button>
+                                </div>
+                            </th>
+                            <th data-column="dispatch_note">
+                                <div class="header-content">
+                                    调度备注
+                                    <button type="button" class="column-visibility-btn" data-column="dispatch_note"
+                                            title="隐藏列">
+                                        <i class="layui-icon layui-icon-eye"></i>
+                                    </button>
+                                </div>
+                            </th>
+                            <th data-column="container">
+                                <div class="header-content">
+                                    柜号
+                                    <button type="button" class="column-visibility-btn" data-column="container"
+                                            title="隐藏列">
+                                        <i class="layui-icon layui-icon-eye"></i>
+                                    </button>
+                                </div>
+                            </th>
+                            <th data-column="mbl">
+                                <div class="header-content">
+                                    MBL
+                                    <button type="button" class="column-visibility-btn" data-column="mbl"
+                                            title="隐藏列">
+                                        <i class="layui-icon layui-icon-eye"></i>
+                                    </button>
+                                </div>
+                            </th>
+                            <th data-column="shipping_line">
+                                <div class="header-content">
+                                    船司
+                                    <button type="button" class="column-visibility-btn" data-column="shipping_line"
+                                            title="隐藏列">
+                                        <i class="layui-icon layui-icon-eye"></i>
+                                    </button>
+                                </div>
+                            </th>
+                            <th data-column="vessel">
+                                <div class="header-content">
+                                    船名航次
+                                    <button type="button" class="column-visibility-btn" data-column="vessel"
+                                            title="隐藏列">
+                                        <i class="layui-icon layui-icon-eye"></i>
+                                    </button>
+                                </div>
+                            </th>
+                            <th data-column="container_type">
+                                <div class="header-content">
+                                    柜型
+                                    <button type="button" class="column-visibility-btn" data-column="container_type"
+                                            title="隐藏列">
+                                        <i class="layui-icon layui-icon-eye"></i>
+                                    </button>
+                                </div>
+                            </th>
+                            <th data-column="vessel_date">
+                                <div class="header-content">
+                                    船期
+                                    <button type="button" class="column-visibility-btn" data-column="vessel_date"
+                                            title="隐藏列">
+                                        <i class="layui-icon layui-icon-eye"></i>
+                                    </button>
+                                </div>
+                            </th>
+                            <th data-column="etd">
+                                <div class="header-content">
+                                    ETD
+                                    <button type="button" class="column-visibility-btn" data-column="etd"
+                                            title="隐藏列">
+                                        <i class="layui-icon layui-icon-eye"></i>
+                                    </button>
+                                </div>
+                            </th>
+                            <th data-column="eta">
+                                <div class="header-content">
+                                    ETA
+                                    <button type="button" class="column-visibility-btn" data-column="eta"
+                                            title="隐藏列">
+                                        <i class="layui-icon layui-icon-eye"></i>
+                                    </button>
+                                </div>
+                            </th>
+                            <th data-column="release_status_t49">
+                                <div class="header-content">
+                                    放行状态(t49)
+                                    <button type="button" class="column-visibility-btn" data-column="release_status_t49"
+                                            title="隐藏列">
+                                        <i class="layui-icon layui-icon-eye"></i>
+                                    </button>
+                                </div>
+                            </th>
+                            <th data-column="actual_carrier">
+                                <div class="header-content">
+                                    实际提柜供应商
+                                    <button type="button" class="column-visibility-btn" data-column="actual_carrier"
+                                            title="隐藏列">
+                                        <i class="layui-icon layui-icon-eye"></i>
+                                    </button>
+                                </div>
+                            </th>
+                            <th data-column="dispatch_delegation">
+                                <div class="header-content">
+                                    调度委托
+                                    <button type="button" class="column-visibility-btn"
+                                            data-column="dispatch_delegation" title="隐藏列">
+                                        <i class="layui-icon layui-icon-eye"></i>
+                                    </button>
+                                </div>
+                            </th>
+                            <th data-column="private_warehouse">
+                                <div class="header-content">
+                                    私仓数量
+                                    <button type="button" class="column-visibility-btn" data-column="private_warehouse"
+                                            title="隐藏列">
+                                        <i class="layui-icon layui-icon-eye"></i>
+                                    </button>
+                                </div>
+                            </th>
+                            <th data-column="planned_release_time">
+                                <div class="header-content">
+                                    计划放行时间
+                                    <button type="button" class="column-visibility-btn"
+                                            data-column="planned_release_time" title="隐藏列">
+                                        <i class="layui-icon layui-icon-eye"></i>
+                                    </button>
+                                </div>
+                            </th>
+                            <th data-column="actual_release_status">
+                                <div class="header-content">
+                                    放行状态(实际)
+                                    <button type="button" class="column-visibility-btn"
+                                            data-column="actual_release_status" title="隐藏列">
+                                        <i class="layui-icon layui-icon-eye"></i>
+                                    </button>
+                                </div>
+                            </th>
+                            <th data-column="do_provided">
+                                <div class="header-content">
+                                    是否提供Do
+                                    <button type="button" class="column-visibility-btn" data-column="do_provided"
+                                            title="隐藏列">
+                                        <i class="layui-icon layui-icon-eye"></i>
+                                    </button>
+                                </div>
+                            </th>
+                            <th data-column="planned_carrier">
+                                <div class="header-content">
+                                    计划提柜供应商
+                                    <button type="button" class="column-visibility-btn" data-column="planned_carrier"
+                                            title="隐藏列">
+                                        <i class="layui-icon layui-icon-eye"></i>
+                                    </button>
+                                </div>
+                            </th>
+                            <th data-column="order_progress">
+                                <div class="header-content">
+                                    建单进度
+                                    <button type="button" class="column-visibility-btn" data-column="order_progress"
+                                            title="隐藏列">
+                                        <i class="layui-icon layui-icon-eye"></i>
+                                    </button>
+                                </div>
+                            </th>
                         </tr>
                         <tr>
-                            <th class="search-th"></th>
-                            <th class="search-th"><input type="text" class="column-search" data-index="1"
-                                                         placeholder="搜索日期..."></th>
-                            <th class="search-th"><input type="text" class="column-search" data-index="2"
-                                                         placeholder="搜索客户..."></th>
-                            <th class="search-th"><input type="text" class="column-search" data-index="3"
-                                                         placeholder="搜索仓/地址..."></th>
-                            <th class="search-th"><input type="text" class="column-search" data-index="4"
-                                                         placeholder="搜索备注..."></th>
-                            <th class="search-th"><input type="text" class="column-search" data-index="5"
-                                                         placeholder="搜索柜号..."></th>
-                            <th class="search-th"><input type="text" class="column-search" data-index="6"
-                                                         placeholder="搜索MBL..."></th>
-                            <th class="search-th"><input type="text" class="column-search" data-index="7"
-                                                         placeholder="搜索船司..."></th>
-                            <th class="search-th"><input type="text" class="column-search" data-index="8"
-                                                         placeholder="搜索船名航次..."></th>
-                            <th class="search-th"><input type="text" class="column-search" data-index="9"
-                                                         placeholder="搜索柜型..."></th>
-                            <th class="search-th"><input type="text" class="column-search" data-index="10"
-                                                         placeholder="搜索船期..."></th>
-                            <th class="search-th"><input type="text" class="column-search" data-index="11"
-                                                         placeholder="搜索ETD..."></th>
-                            <th class="search-th"><input type="text" class="column-search" data-index="12"
-                                                         placeholder="搜索ETA..."></th>
-                            <th class="search-th"><input type="text" class="column-search" data-index="13"
-                                                         placeholder="搜索放行状态(t49)..."></th>
-                            <th class="search-th"><input type="text" class="column-search" data-index="14"
-                                                         placeholder="搜索实际提柜供应商..."></th>
-                            <th class="search-th"><input type="text" class="column-search" data-index="15"
-                                                         placeholder="搜索调度委托..."></th>
-                            <th class="search-th"><input type="text" class="column-search" data-index="16"
-                                                         placeholder="搜索私仓数量..."></th>
-                            <th class="search-th"><input type="text" class="column-search" data-index="17"
-                                                         placeholder="搜索计划放行时间..."></th>
-                            <th class="search-th"><input type="text" class="column-search" data-index="18"
-                                                         placeholder="搜索放行状态(实际)..."></th>
-                            <th class="search-th"><input type="text" class="column-search" data-index="19"
-                                                         placeholder="搜索Do..."></th>
-                            <th class="search-th"><input type="text" class="column-search" data-index="20"
-                                                         placeholder="搜索计划提柜供应商..."></th> <!-- 新增搜索列 -->
-                            <th class="search-th"><input type="text" class="column-search" data-index="21"
-                                                         placeholder="搜索建单进度..."></th>
+                            <th data-column="checkbox" class="search-th"></th>
+                            <th data-column="order_date" class="search-th"><input type="text" class="column-search"
+                                                                                  data-column="order_date"
+                                                                                  placeholder="搜索日期..."></th>
+                            <th data-column="customer" class="search-th"><input type="text" class="column-search"
+                                                                                data-column="customer"
+                                                                                placeholder="搜索客户..."></th>
+                            <th data-column="warehouse" class="search-th"><input type="text" class="column-search"
+                                                                                 data-column="warehouse"
+                                                                                 placeholder="搜索仓/地址..."></th>
+                            <th data-column="dispatch_note" class="search-th"><input type="text" class="column-search"
+                                                                                     data-column="dispatch_note"
+                                                                                     placeholder="搜索备注..."></th>
+                            <th data-column="container" class="search-th"><input type="text" class="column-search"
+                                                                                 data-column="container"
+                                                                                 placeholder="搜索柜号...（多个柜号用空格分隔）">
+                            </th>
+                            <th data-column="mbl" class="search-th"><input type="text" class="column-search"
+                                                                           data-column="mbl"
+                                                                           placeholder="搜索MBL..."></th>
+                            <th data-column="shipping_line" class="search-th"><input type="text" class="column-search"
+                                                                                     data-column="shipping_line"
+                                                                                     placeholder="搜索船司..."></th>
+                            <th data-column="vessel" class="search-th"><input type="text" class="column-search"
+                                                                              data-column="vessel"
+                                                                              placeholder="搜索船名航次..."></th>
+                            <th data-column="container_type" class="search-th"><input type="text" class="column-search"
+                                                                                      data-column="container_type"
+                                                                                      placeholder="搜索柜型..."></th>
+                            <th data-column="vessel_date" class="search-th"><input type="text" class="column-search"
+                                                                                   data-column="vessel_date"
+                                                                                   placeholder="搜索船期..."></th>
+                            <th data-column="etd" class="search-th"><input type="text" class="column-search"
+                                                                           data-column="etd"
+                                                                           placeholder="搜索ETD..."></th>
+                            <th data-column="eta" class="search-th"><input type="text" class="column-search"
+                                                                           data-column="eta"
+                                                                           placeholder="搜索ETA..."></th>
+                            <th data-column="release_status_t49" class="search-th"><input type="text"
+                                                                                          class="column-search"
+                                                                                          data-column="release_status_t49"
+                                                                                          placeholder="搜索放行状态(t49)...">
+                            </th>
+                            <th data-column="actual_carrier" class="search-th"><input type="text" class="column-search"
+                                                                                      data-column="actual_carrier"
+                                                                                      placeholder="搜索实际提柜供应商...">
+                            </th>
+                            <th data-column="dispatch_delegation" class="search-th"><input type="text"
+                                                                                           class="column-search"
+                                                                                           data-column="dispatch_delegation"
+                                                                                           placeholder="搜索调度委托...">
+                            </th>
+                            <th data-column="private_warehouse" class="search-th"><input type="text"
+                                                                                         class="column-search"
+                                                                                         data-column="private_warehouse"
+                                                                                         placeholder="搜索私仓数量...">
+                            </th>
+                            <th data-column="planned_release_time" class="search-th"><input type="text"
+                                                                                            class="column-search"
+                                                                                            data-column="planned_release_time"
+                                                                                            placeholder="搜索计划放行时间...">
+                            </th>
+                            <th data-column="actual_release_status" class="search-th"><input type="text"
+                                                                                             class="column-search"
+                                                                                             data-column="actual_release_status"
+                                                                                             placeholder="搜索放行状态(实际)...">
+                            </th>
+                            <th data-column="do_provided" class="search-th"><input type="text" class="column-search"
+                                                                                   data-column="do_provided"
+                                                                                   placeholder="搜索Do..."></th>
+                            <th data-column="planned_carrier" class="search-th"><input type="text" class="column-search"
+                                                                                       data-column="planned_carrier"
+                                                                                       placeholder="搜索计划提柜供应商...">
+                            </th>
+                            <th data-column="order_progress" class="search-th"><input type="text" class="column-search"
+                                                                                      data-column="order_progress"
+                                                                                      placeholder="搜索建单进度...">
+                            </th>
                         </tr>
                         </thead>
                     </table>
@@ -652,43 +846,43 @@
                     <table class="layui-table">
                         <thead>
                         <tr>
-                            <th></th> <!-- 复选框列表头 -->
-                            <th>下单日期</th>
-                            <th>客户</th>
-                            <th>所属仓/直送地址</th>
-                            <th>调度备注</th>
-                            <th>柜号</th>
-                            <th>MBL</th>
-                            <th>船司</th>
-                            <th>船名航次</th>
-                            <th>柜型</th>
-                            <th>船期</th>
-                            <th>ETD</th>
-                            <th>ETA</th>
-                            <th>放行状态(t49)</th>
-                            <th>供应商</th>
-                            <th>调度委托</th>
-                            <th>私仓数量</th>
-                            <th>计划放行时间</th>
-                            <th>放行状态(实际)</th>
-                            <th>是否提供Do</th>
-                            <th>计划提柜供应商</th> <!-- 新增列 -->
-                            <th>建单进度</th>
+                            <th data-column="checkbox"></th>
+                            <th data-column="order_date">下单日期</th>
+                            <th data-column="customer">客户</th>
+                            <th data-column="warehouse">所属仓</th>
+                            <th data-column="dispatch_note">调度备注</th>
+                            <th data-column="container">柜号</th>
+                            <th data-column="mbl">MBL</th>
+                            <th data-column="shipping_line">船司</th>
+                            <th data-column="vessel">船名航次</th>
+                            <th data-column="container_type">柜型</th>
+                            <th data-column="vessel_date">船期</th>
+                            <th data-column="etd">ETD</th>
+                            <th data-column="eta">ETA</th>
+                            <th data-column="release_status_t49">放行状态(t49)</th>
+                            <th data-column="actual_carrier">供应商</th>
+                            <th data-column="dispatch_delegation">调度委托</th>
+                            <th data-column="private_warehouse">私仓数量</th>
+                            <th data-column="planned_release_time">计划放行时间</th>
+                            <th data-column="actual_release_status">放行状态(实际)</th>
+                            <th data-column="do_provided">是否提供Do</th>
+                            <th data-column="planned_carrier">计划提柜供应商</th>
+                            <th data-column="order_progress">建单进度</th>
                         </tr>
                         </thead>
                         <tbody id="tableBody">
                         {% for data in datas %}
                             <tr class="table-row">
-                                <td style="text-align: center;">
+                                <td data-column="checkbox" style="text-align: center;">
                                     <input type="checkbox" class="rowCheckbox" lay-skin="primary"
                                            data-id="{{ data.id }}"
                                            data-container="{{ data.container }}"
                                            data-mbl="{{ data.mbl|default:'' }}"
                                            data-retrieval-id="{{ data.retrieval_id__retrieval_id }}">
                                 </td>
-                                <td>{{ data.created_at|date:"Y-m-d" }}</td>
-                                <td>{{ data.customer_name }}</td>
-                                <td>
+                                <td data-column="order_date">{{ data.created_at|date:"Y-m-d" }}</td>
+                                <td data-column="customer">{{ data.customer_name }}</td>
+                                <td data-column="warehouse">
                                     {% if data.order_type == "转运" %}
                                         {{ data.retrieval_destination_area }}
                                     {% elif data.order_type == "直送" %}
@@ -697,41 +891,41 @@
                                         {{ data.retrieval_destination_area }}组合柜
                                     {% endif %}
                                 </td>
-                                <td>{{ data.retrieval_note|default:"空" }}</td>
-                                <td>
+                                <td data-column="dispatch_note">{{ data.retrieval_note|default:"空" }}</td>
+                                <td data-column="container">
                                     <a href="/terminal_dispatch/?step=update_pickup_schedule&container_number={{ data.container }}"
                                        style="color: #0066cc;" target="_blank">{{ data.container }}</a>
                                 </td>
-                                <td>{{ data.mbl|default:'-' }}</td>
-                                <td>{{ data.shipping_line|default:'-' }}</td>
-                                <td>{{ data.vessel|default:'-' }}</td>
-                                <td>{{ data.container_type|default:'-' }}</td>
-                                <td>
+                                <td data-column="mbl">{{ data.mbl|default:'-' }}</td>
+                                <td data-column="shipping_line">{{ data.shipping_line|default:'-' }}</td>
+                                <td data-column="vessel">{{ data.vessel|default:'-' }}</td>
+                                <td data-column="container_type">{{ data.container_type|default:'-' }}</td>
+                                <td data-column="vessel_date">
                                     {% if data.vessel_date|default:'-' %}
                                         {{ data.vessel_date.days }}天
                                     {% else %}
                                         -
                                     {% endif %}
                                 </td>
-                                <td>{{ data.vessel_etd|date:"Y-m-d H:i"|default:'-' }}</td>
-                                <td>{{ data.vessel_eta|date:"Y-m-d H:i"|default:'-' }}</td>
-                                <td>
+                                <td data-column="etd">{{ data.vessel_etd|date:"Y-m-d H:i"|default:'-' }}</td>
+                                <td data-column="eta">{{ data.vessel_eta|date:"Y-m-d H:i"|default:'-' }}</td>
+                                <td data-column="release_status_t49">
                                     {% if data.temp_t49_available_for_pickup == True %}
                                         <span style="color: #28a745;">√</span>
                                     {% else %}
                                         <span style="color: #dc3545;">{{ data.temp_t49_available_for_pickup|default:"×" }}</span>
                                     {% endif %}
                                 </td>
-                                <td>{{ data.retrieval_carrier }}</td>
+                                <td data-column="actual_carrier">{{ data.retrieval_carrier }}</td>
                                 <!--调度委托-->
-                                <td>
+                                <td data-column="dispatch_delegation">
                                     {% if data.retrieval_delegation_status %}
                                         <span style="color: #28a745;">√</span>
                                     {% else %}
                                         <span style="color: #dc3545;">×</span>
                                     {% endif %}
                                 </td>
-                                <td>
+                                <td data-column="private_warehouse">
                                     {% with ke=data.ke_destination_num|default:0 si=data.si_destination_num|default:0 %}
                                         {% if ke > 0 %}
                                             客{{ ke }}
@@ -743,7 +937,7 @@
                                     {% endwith %}
                                 </td>
                                 <!-- 计划放行时间 -->
-                                <td>
+                                <td data-column="planned_release_time">
                                     <form action="" method="post" class="retrieval-carrier-form" style="margin: 0;">
                                         {% csrf_token %}
                                         <input type="hidden" name="step" value="save_planned_release_time">
@@ -758,7 +952,6 @@
                                                value="{{ data.retrieval_id__retrieval_id }}">
 
                                         <div class="retrieval-carrier-content">
-                                            <!-- 关键修复：格式化 datetime 为 datetime-local 支持的格式 -->
                                             <input type="datetime-local" name="planned_release_time"
                                                    class="retrieval-carrier-input"
                                                     {% if data.planned_release_time %}
@@ -774,7 +967,7 @@
                                 </td>
 
                                 <!-- 实际放行状态-->
-                                <td>
+                                <td data-column="actual_release_status">
                                     {% if data.actual_release_status == True %}
                                         <span style="color: #28a745;">{{ data.planned_release_time|date:'Y-m-d H:i:s' }}</span>
                                     {% else %}
@@ -782,7 +975,7 @@
                                     {% endif %}
                                 </td>
                                 <!-- 是否提供Do列 -->
-                                <td>
+                                <td data-column="do_provided">
                                     <form action="" method="post" style="margin: 0;">
                                         {% csrf_token %}
                                         <input type="hidden" name="step" value="save_do_sent">
@@ -821,8 +1014,8 @@
                                     </form>
                                 </td>
 
-                                <!-- 新增：计划提柜供应商列 -->
-                                <td>
+                                <!-- 计划提柜供应商列 -->
+                                <td data-column="planned_carrier">
                                     <form action="" method="post" class="retrieval-carrier-form" style="margin: 0;">
                                         {% csrf_token %}
                                         <input type="hidden" name="step" value="save_retrieval_carrier_planned">
@@ -853,19 +1046,17 @@
                                 </td>
 
                                 <!--建单状态-->
-                                {% if data.status == "unfinished" %}
-                                    <td>
+                                <td data-column="order_progress">
+                                    {% if data.status == "unfinished" %}
                                         <a href="/create_order/?step=container_info_supplement&container_number={{ data.container }}"
                                            style="color: #3875d7">未完成</a>
-                                    </td>
-                                {% elif data.status == "completed" %}
-                                    <td>
+                                    {% elif data.status == "completed" %}
                                         <a href="/create_order/?step=order_management_container&container_number={{ data.container }}"
                                            style="color: #3875d7">已完成</a>
-                                    </td>
-                                {% elif data.status == "checked" %}
-                                    <td>已检查</td>
-                                {% endif %}
+                                    {% elif data.status == "checked" %}
+                                        <td>已检查</td>
+                                    {% endif %}
+                                </td>
                             </tr>
                         {% empty %}
                             <tr>
@@ -886,7 +1077,7 @@
         </div>
     </div>
 
-    <!-- 批量设置计划提柜供应商弹出层（核心容器） -->
+    <!-- 批量设置计划提柜供应商弹出层 -->
     <div id="batchSetCarrierLayer" style="display: none; padding: 20px;">
         <form id="batchSetCarrierForm" method="post" class="layui-form">
             {% csrf_token %}
@@ -926,6 +1117,10 @@
     </div>
 
     <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            initAllFeatures();
+        });
+
         function initAllFeatures() {
             layui.use(['form', 'laydate', 'layer'], function () {
                 var form = layui.form;
@@ -934,7 +1129,111 @@
                 var timeError = document.getElementById('timeError');
                 var columnNoMatch = document.getElementById('columnNoMatch');
 
-                // 1. 格式化年月
+                // 初始化列可见性状态（使用列名而非索引）
+                let columnVisible = JSON.parse(localStorage.getItem('tableColumnVisible')) || {};
+
+                // 列显示/隐藏控制功能
+                function initColumnVisibility() {
+                    // 初始化所有列状态
+                    document.querySelectorAll('.column-visibility-btn').forEach(btn => {
+                        const column = btn.getAttribute('data-column');
+                        // 如果本地存储中没有记录，默认为显示
+                        if (columnVisible[column] === undefined) {
+                            columnVisible[column] = true;
+                        } else {
+                            // 应用保存的状态
+                            if (!columnVisible[column]) {
+                                toggleColumnVisibility(column);
+                                btn.classList.add('hidden');
+                                btn.innerHTML = '<i class="layui-icon layui-icon-eye-slash"></i>';
+                                btn.title = "显示列";
+                            }
+                        }
+                    });
+
+                    // 保存状态到本地存储
+                    function saveColumnVisibility() {
+                        localStorage.setItem('tableColumnVisible', JSON.stringify(columnVisible));
+                    }
+
+                    // 切换列显示/隐藏（关键改进：使用透明化而非移除）
+                    function toggleColumnVisibility(column) {
+                        // 表头单元格
+                        document.querySelectorAll(`.fixed-header th[data-column="${column}"]`).forEach(th => {
+                            th.classList.toggle('column-hidden', !columnVisible[column]);
+                        });
+
+                        // 搜索框行对应的单元格
+                        document.querySelectorAll(`.fixed-header tr:nth-child(2) th[data-column="${column}"]`).forEach(th => {
+                            th.classList.toggle('column-hidden', !columnVisible[column]);
+                        });
+
+                        // 表体数据单元格
+                        document.querySelectorAll(`.scroll-body td[data-column="${column}"]`).forEach(td => {
+                            td.classList.toggle('column-hidden', !columnVisible[column]);
+                        });
+
+                        syncTableWidths();
+                    }
+
+                    // 绑定点击事件
+                    document.querySelectorAll('.column-visibility-btn').forEach(btn => {
+                        btn.addEventListener('click', function () {
+                            const column = this.getAttribute('data-column');
+                            // 切换状态
+                            columnVisible[column] = !columnVisible[column];
+                            // 应用切换
+                            toggleColumnVisibility(column);
+
+                            // 更新按钮样式和图标
+                            if (columnVisible[column]) {
+                                this.classList.remove('hidden');
+                                this.innerHTML = '<i class="layui-icon layui-icon-eye"></i>';
+                                this.title = "隐藏列";
+                            } else {
+                                this.classList.add('hidden');
+                                this.innerHTML = '<i class="layui-icon layui-icon-eye-slash"></i>';
+                                this.title = "显示列";
+                            }
+
+                            // 保存状态
+                            saveColumnVisibility();
+                        });
+                    });
+
+                    // 恢复所有列按钮功能
+                    document.getElementById('resetColumnsBtn').addEventListener('click', function () {
+                        // 重置所有列可见性为true
+                        document.querySelectorAll('.column-visibility-btn').forEach(btn => {
+                            const column = btn.getAttribute('data-column');
+                            columnVisible[column] = true;
+
+                            // 显示所有列
+                            document.querySelectorAll(`.fixed-header th[data-column="${column}"]`).forEach(th => {
+                                th.classList.remove('column-hidden');
+                            });
+
+                            document.querySelectorAll(`.fixed-header tr:nth-child(2) th[data-column="${column}"]`).forEach(th => {
+                                th.classList.remove('column-hidden');
+                            });
+
+                            document.querySelectorAll(`.scroll-body td[data-column="${column}"]`).forEach(td => {
+                                td.classList.remove('column-hidden');
+                            });
+
+                            // 重置按钮样式
+                            btn.classList.remove('hidden');
+                            btn.innerHTML = '<i class="layui-icon layui-icon-eye"></i>';
+                            btn.title = "隐藏列";
+                        });
+
+                        // 保存重置后的状态
+                        saveColumnVisibility();
+                        layer.msg('已恢复所有列的显示', {icon: 1, time: 1500});
+                    });
+                }
+
+                // 其他原有功能...
                 function formatYearMonth(dateStr) {
                     if (!dateStr || dateStr.trim() === '') return '';
                     const normalized = dateStr.replace(/[年/]/g, '-').slice(0, 7);
@@ -945,7 +1244,6 @@
                     return `${year}-${month}`;
                 }
 
-                // 2. 默认年月范围
                 function getDefaultMonthRange() {
                     const today = new Date();
                     const currentYear = today.getFullYear();
@@ -964,7 +1262,6 @@
                     };
                 }
 
-                // 3. 渲染时间选择器
                 function renderDatePicker(elemId, value) {
                     if (window[`${elemId}Instance`]) {
                         window[`${elemId}Instance`].destroy();
@@ -988,11 +1285,9 @@
                     });
                 }
 
-                // 4. 初始化时间选择器
                 function initDatePickers() {
                     const defaultRange = getDefaultMonthRange();
 
-                    // ETA时间
                     const etaStart = document.getElementById('etaStartDate');
                     const etaEnd = document.getElementById('etaEndDate');
                     const etaStartVal = formatYearMonth(etaStart.value) || defaultRange.start;
@@ -1002,7 +1297,6 @@
                     renderDatePicker('etaStartDate', etaStartVal);
                     renderDatePicker('etaEndDate', etaEndVal);
 
-                    // 下单时间
                     const orderStart = document.getElementById('orderStartDate');
                     const orderEnd = document.getElementById('orderEndDate');
                     const orderStartVal = formatYearMonth(orderStart.value) || defaultRange.start;
@@ -1013,7 +1307,6 @@
                     renderDatePicker('orderEndDate', orderEndVal);
                 }
 
-                // 5. 切换时间范围显示
                 function showTimeRange(type) {
                     document.getElementById('etaTimeRange').style.display = 'none';
                     document.getElementById('orderTimeRange').style.display = 'none';
@@ -1025,12 +1318,10 @@
                     }
                 }
 
-                // 6. 监听时间范围类型变化
                 form.on('select(timeRangeType)', function (data) {
                     showTimeRange(data.value);
                 });
 
-                // 7. 表单提交校验
                 form.on('submit(formSubmit)', function (data) {
                     const timeType = data.field.timeRangeType;
                     let startVal, endVal, startElem, endElem;
@@ -1080,57 +1371,76 @@
                     return isValid;
                 });
 
-                // 8. 初始化列搜索
                 function initColumnSearch() {
                     document.querySelectorAll('.column-search').forEach(input => {
-                        const newInput = input.cloneNode(true);
-                        input.parentNode.replaceChild(newInput, input);
-                    });
+                        if (input.getAttribute('data-column') !== 'container') {
+                            const newInput = input.cloneNode(true);
+                            input.parentNode.replaceChild(newInput, input);
 
-                    const tableRows = Array.from(document.querySelectorAll('#tableBody .table-row'));
-                    const searchInputs = document.querySelectorAll('.column-search');
-                    const selectAllCheckbox = document.querySelector('#selectAll');
+                            newInput.addEventListener('input', function () {
+                                const keyword = this.value.trim().toLowerCase();
+                                const column = this.getAttribute('data-column');
+                                let visibleCount = 0;
 
-                    searchInputs.forEach((input, index) => {
-                        input.addEventListener('input', function () {
-                            const keyword = this.value.trim().toLowerCase();
-                            let visibleCount = 0;
+                                const tableRows = document.querySelectorAll('#tableBody .table-row');
+                                tableRows.forEach(row => {
+                                    row.style.display = '';
+                                    // 搜索时忽略隐藏列的数据
+                                    const cell = row.querySelector(`td[data-column="${column}"]`);
+                                    if (!cell) {
+                                        row.style.display = 'none';
+                                        return;
+                                    }
 
-                            tableRows.forEach(row => {
-                                row.style.display = '';
-                                const cellText = row.cells[index + 1].textContent.trim().toLowerCase();
-                                if (keyword && !cellText.includes(keyword)) {
-                                    row.style.display = 'none';
-                                } else {
-                                    visibleCount++;
+                                    const cellText = cell.textContent.trim().toLowerCase();
+                                    if (keyword && !cellText.includes(keyword)) {
+                                        row.style.display = 'none';
+                                    } else {
+                                        visibleCount++;
+                                    }
+                                });
+
+                                const selectAllCheckbox = document.querySelector('#selectAll');
+                                if (selectAllCheckbox) {
+                                    selectAllCheckbox.checked = false;
+                                    const layuiSelectAll = selectAllCheckbox.nextElementSibling;
+                                    if (layuiSelectAll && layuiSelectAll.classList.contains('layui-form-checkbox')) {
+                                        layuiSelectAll.classList.remove('layui-form-checked');
+                                    }
                                 }
+
+                                columnNoMatch.style.display = (visibleCount === 0 && keyword) ? 'block' : 'none';
+                                syncTableWidths();
                             });
-
-                            // 搜索后重置全选框状态
-                            if (selectAllCheckbox) {
-                                selectAllCheckbox.checked = false;
-                                const layuiSelectAll = selectAllCheckbox.nextElementSibling;
-                                if (layuiSelectAll && layuiSelectAll.classList.contains('layui-form-checkbox')) {
-                                    layuiSelectAll.classList.remove('layui-form-checked');
-                                }
-                            }
-
-                            columnNoMatch.style.display = (visibleCount === 0 && keyword) ? 'block' : 'none';
-                        });
+                        }
                     });
                     form.render('radio');
                 }
 
-                // 9. 强制表头表体宽度同步
                 function syncTableWidths() {
+                    const headerCells = document.querySelectorAll('.fixed-header th');
+                    const bodyCells = document.querySelectorAll('.scroll-body tr:first-child td'); // 取第一行数据列
+
+                    // 逐个同步列宽（关键修复）
+                    if (headerCells.length === bodyCells.length) {
+                        headerCells.forEach((headerCell, index) => {
+                            const bodyCell = bodyCells[index];
+                            if (bodyCell) {
+                                // 强制设置内容列宽度与表头一致
+                                bodyCell.style.width = `${headerCell.offsetWidth}px`;
+                                bodyCell.style.minWidth = `${headerCell.offsetWidth}px`;
+                            }
+                        });
+                    }
+
+                    // 同步表格总宽度
                     const headerTable = document.querySelector('.fixed-header .layui-table');
                     const bodyTable = document.querySelector('.scroll-body .layui-table');
                     if (headerTable && bodyTable) {
-                        bodyTable.style.width = headerTable.offsetWidth + 'px';
+                        bodyTable.style.width = `${headerTable.offsetWidth}px`;
                     }
                 }
 
-                // 10. 批量导出功能
                 document.getElementById('batchExportBtn').addEventListener('click', async function () {
                     const visibleCheckedBoxes = document.querySelectorAll(
                         '#tableBody .table-row:not([style="display: none"]) .rowCheckbox:checked'
@@ -1187,7 +1497,6 @@
                     }
                 });
 
-                // 11. 批量导出功能V1
                 document.getElementById('batchExportBtnV1').addEventListener('click', async function () {
                     const visibleCheckedBoxes = document.querySelectorAll(
                         '#tableBody .table-row:not([style="display: none"]) .rowCheckbox:checked'
@@ -1250,7 +1559,6 @@
                     }
                 });
 
-                // 12. 批量复制柜号和MBL功能
                 document.getElementById('copySelectedBtn').addEventListener('click', function () {
                     const visibleCheckedBoxes = document.querySelectorAll(
                         '#tableBody .table-row:not([style="display: none"]) .rowCheckbox:checked'
@@ -1305,7 +1613,6 @@
                     });
                 });
 
-                // 13. 全选/取消全选功能（修复版）
                 function initSelectAll() {
                     const selectAllCheckbox = document.querySelector('#selectAll');
                     if (!selectAllCheckbox) {
@@ -1313,31 +1620,23 @@
                         return;
                     }
 
-                    // 先移除可能存在的旧事件
                     selectAllCheckbox.removeEventListener('click', handleSelectAll);
-                    // 添加新事件
                     selectAllCheckbox.addEventListener('click', handleSelectAll);
 
                     function handleSelectAll(e) {
                         e.stopPropagation();
                         const isChecked = selectAllCheckbox.checked;
-                        console.log('全选状态:', isChecked);
 
-                        // 关键修复：只选择当前可见的行（排除被搜索隐藏的行）
                         const allRows = document.querySelectorAll('#tableBody .table-row');
                         const visibleRows = Array.from(allRows).filter(row => {
-                            // 检查行是否可见（未被搜索隐藏）
                             return row.style.display !== 'none' &&
                                 getComputedStyle(row).display !== 'none';
                         });
-                        console.log('可见行数:', visibleRows.length);
 
-                        // 只操作可见行的复选框
                         visibleRows.forEach(row => {
                             const checkbox = row.querySelector('.rowCheckbox');
                             if (checkbox) {
                                 checkbox.checked = isChecked;
-                                // 手动更新Layui样式
                                 const layuiBox = checkbox.nextElementSibling;
                                 if (layuiBox && layuiBox.classList.contains('layui-form-checkbox')) {
                                     if (isChecked) {
@@ -1351,10 +1650,8 @@
                     }
                 }
 
-                // 14. 行复选框变化时同步全选框状态（修复版）
                 document.addEventListener('change', function (e) {
                     if (e.target.classList.contains('rowCheckbox')) {
-                        // 只统计可见行
                         const allRows = document.querySelectorAll('#tableBody .table-row');
                         const visibleRows = Array.from(allRows).filter(row => {
                             return row.style.display !== 'none' &&
@@ -1366,12 +1663,10 @@
 
                         const selectAll = document.querySelector('#selectAll');
                         if (selectAll) {
-                            // 只有当所有可见行都被选中时，全选框才选中
                             const allChecked = visibleCheckboxes.length > 0 &&
                                 visibleCheckboxes.length === checkedVisible.length;
                             selectAll.checked = allChecked;
 
-                            // 更新Layui样式
                             const layuiSelectAll = selectAll.nextElementSibling;
                             if (layuiSelectAll && layuiSelectAll.classList.contains('layui-form-checkbox')) {
                                 if (allChecked) {
@@ -1384,7 +1679,6 @@
                     }
                 });
 
-                // 15. 批量设置计划提柜供应商功能
                 $('#batchSetCarrierBtn').off('click').on('click', function () {
                     const visibleCheckedBoxes = document.querySelectorAll(
                         '#tableBody .table-row:not([style="display: none"]) .rowCheckbox:checked'
@@ -1413,11 +1707,9 @@
                         }
                     });
 
-                    // 清空历史数据
                     $('#batchSetCarrierForm input[name="selected_ids[]"]').remove();
                     $('#batchSetCarrierForm input[name="retrieval_ids[]"]').remove();
 
-                    // 绑定可见行中被选中的数据
                     visibleCheckedBoxes.forEach(box => {
                         $('<input>').attr({
                             type: 'hidden',
@@ -1437,7 +1729,6 @@
                     });
                 });
 
-                // 16. 弹出层表单提交处理
                 form.on('submit(batchSetCarrierSubmit)', function (data) {
                     const $form = $('#batchSetCarrierForm');
                     const $carrierInput = $form.find('input[name="batch_carrier"]');
@@ -1482,25 +1773,87 @@
                     return false;
                 });
 
-                // 初始化所有功能（确保全选最后初始化）
+                function enhanceContainerMultiSearch() {
+                    const containerSearch = document.querySelector('.column-search[data-column="container"]');
+                    if (!containerSearch) {
+                        console.warn('柜号搜索框未找到');
+                        return;
+                    }
+
+                    containerSearch.placeholder = "搜索柜号...（多个柜号用空格分隔）";
+
+                    const newInput = containerSearch.cloneNode(true);
+                    containerSearch.parentNode.replaceChild(newInput, containerSearch);
+
+                    newInput.addEventListener('input', function () {
+                        const inputValue = this.value.trim();
+                        const searchTerms = inputValue ? inputValue.split(/\s+/).filter(term => term.trim() !== '') : [];
+                        let visibleCount = 0;
+
+                        const tableRows = document.querySelectorAll('#tableBody .table-row');
+
+                        tableRows.forEach(row => {
+                            row.style.display = '';
+
+                            if (searchTerms.length === 0) {
+                                visibleCount++;
+                                return;
+                            }
+
+                            const containerCell = row.querySelector('td[data-column="container"]');
+                            if (!containerCell) {
+                                row.style.display = 'none';
+                                return;
+                            }
+
+                            const containerNumber = containerCell.textContent.trim().toLowerCase();
+
+                            const isMatch = searchTerms.some(term => {
+                                return containerNumber.includes(term.toLowerCase());
+                            });
+
+                            if (isMatch) {
+                                visibleCount++;
+                            } else {
+                                row.style.display = 'none';
+                            }
+                        });
+
+                        const selectAllCheckbox = document.querySelector('#selectAll');
+                        if (selectAllCheckbox) {
+                            selectAllCheckbox.checked = false;
+                            const layuiCheckbox = selectAllCheckbox.nextElementSibling;
+                            if (layuiCheckbox && layuiCheckbox.classList.contains('layui-form-checkbox')) {
+                                layuiCheckbox.classList.remove('layui-form-checked');
+                            }
+                        }
+
+                        const noMatchTip = document.getElementById('columnNoMatch');
+                        noMatchTip.style.display = (visibleCount === 0 && searchTerms.length > 0) ? 'block' : 'none';
+                    });
+                }
+
+                // 初始化所有功能
                 initDatePickers();
                 initColumnSearch();
+                enhanceContainerMultiSearch();
                 syncTableWidths();
+                window.addEventListener('load', function () {
+                    syncTableWidths();
+                });
                 window.addEventListener('resize', syncTableWidths);
 
-                // 显示当前选中的时间范围类型
                 const selectedType = "{{ time_range_type|default:'' }}";
                 if (selectedType) {
                     showTimeRange(selectedType);
                 }
 
-                // 最后渲染表单并初始化全选功能（关键步骤）
                 form.render();
-                setTimeout(initSelectAll, 100); // 延迟确保DOM完全就绪
+
+                // 初始化列显示/隐藏控制
+                initColumnVisibility();
+                initSelectAll();
             });
         }
-
-        // 页面加载完成后初始化
-        window.addEventListener('load', initAllFeatures);
     </script>
 {% endblock %}
