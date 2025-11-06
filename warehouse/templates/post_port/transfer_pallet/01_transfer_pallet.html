@@ -151,7 +151,7 @@
 <div class="inventory-container">
     <div class="header-section">
         <div class="title-section">
-            <b>库存管理</b>
+            <b>卡板转仓</b>
             <form method="post" action="" onsubmit="showLoadingBar()" class="warehouse-selector">
                 {% csrf_token %}
                 <b style="margin-right: 5px;">仓库:</b>
@@ -200,8 +200,8 @@
                 <tr class="filter-row">
                     <th class="th"></th>
                     <th class="th"></th>
-                    <th class="th"><input type="text" class="filter-input" placeholder="搜索柜号..." oninput="filterTable(this, 2)"></th>
-                    <th class="th"><input type="text" class="filter-input" placeholder="目的地..." oninput="filterTable(this, 3)"></th>
+                    <th class="th"><input type="text" class="filter-input" placeholder="柜号1 柜号2..." oninput="filterTable(this, 2)"></th>
+                    <th class="th"><input type="text" class="filter-input" placeholder="目的地1 2..." oninput="filterTable(this, 3)"></th>
                     <th class="th"><input type="text" class="filter-input" placeholder="派送方式..." oninput="filterTable(this, 4)"></th>
                     <th class="th"><input type="text" class="filter-input" placeholder="搜索唛头..." oninput="filterTable(this, 5)"></th>
                     <th class="th"><input type="text" class="filter-input" placeholder="搜索FBA..." oninput="filterTable(this, 6)"></th>
@@ -365,15 +365,47 @@
     
     // 表格筛选
     function filterTable(input, columnIndex) {
-        const filter = input.value.toLowerCase();
         const rows = document.querySelectorAll('#warehouse-trans tr');
+        const filterInputs = document.querySelectorAll('.filter-input');
+        
+        // 收集所有筛选条件
+        const filters = {};
+        filterInputs.forEach((input, index) => {
+            const filterText = input.value.trim().toLowerCase();
+            if (filterText) {
+                // 列索引对应：柜号=2, 目的地=3, 派送方式=4, 唛头=5, FBA=6, REF=7
+                filters[index + 2] = filterText.split(' ').filter(val => val.length > 0);
+            }
+        });
+        
+        // 如果没有筛选条件，显示所有行
+        if (Object.keys(filters).length === 0) {
+            rows.forEach(row => {
+                row.style.display = '';
+            });
+            return;
+        }
         
         rows.forEach(row => {
-            const cell = row.cells[columnIndex];
-            if (cell) {
-                const text = cell.textContent.toLowerCase();
-                row.style.display = text.includes(filter) ? '' : 'none';
+            let shouldShow = true;
+            
+            // 检查每一行的每个筛选条件
+            for (const [columnIndex, searchValues] of Object.entries(filters)) {
+                const cell = row.cells[parseInt(columnIndex)];
+                if (cell) {
+                    const cellText = cell.textContent.toLowerCase();
+                    
+                    // 检查单元格文本是否包含任意一个搜索值
+                    const matches = searchValues.some(value => cellText.includes(value));
+                    
+                    if (!matches) {
+                        shouldShow = false;
+                        break; // 如果任一条件不满足，就跳出循环
+                    }
+                }
             }
+            
+            row.style.display = shouldShow ? '' : 'none';
         });
     }
     

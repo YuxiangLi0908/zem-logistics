@@ -133,8 +133,8 @@ class PostNsop(View):
         elif step == "update_fleet":
             fm = FleetManagement()
             context = await fm.handle_update_fleet_post(request,'post_nsop')
-            template, context = await self.handle_fleet_schedule_post(request)
-            context.update({"success_messages": "更新出库成功!"}) 
+            template, context = await self.handle_td_shipment_post(request)
+            context.update({"success_messages": "更新出库车次成功!"}) 
             return render(request, template, context)
         elif step == "fleet_confirmation":
             template, context = await self.handle_fleet_confirmation_post(request)
@@ -775,7 +775,6 @@ class PostNsop(View):
         return await self.handle_td_shipment_post(request, context)
 
     async def _add_appointments_to_fleet(self,appointment_ids):
-        print('appointment_ids',appointment_ids)
         current_time = datetime.now()
         fleet_number = (
             "F"
@@ -787,12 +786,9 @@ class PostNsop(View):
             .values('id', 'shipment_type', 'origin')
             .distinct()
         )
-        print('shipment_info',shipment_info)
         shipment_ids = [item['id'] for item in shipment_info]
         shipment_types = list(set(item['shipment_type'] for item in shipment_info))
         origins = list(set(item['origin'] for item in shipment_info))
-        print('shipment_types',shipment_types)
-        print('origins',origins)
 
         total_weight, total_cbm, total_pcs, total_pallet = 0.0, 0.0, 0, 0
         #记录总数

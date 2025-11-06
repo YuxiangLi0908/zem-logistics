@@ -11,6 +11,43 @@
         line-height: 1.4;
         padding: 8px;
     }
+    
+    /* 添加模态框基础样式 */
+    .modal {
+        display: none;
+        position: fixed;
+        z-index: 1000;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0,0,0,0.5);
+    }
+    
+    .modal-content {
+        position: relative;
+        background-color: #fefefe;
+        margin: 5% auto;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    
+    .close-btn {
+        
+        right: 15px;
+        top: 15px;
+        font-size: 28px;
+        font-weight: bold;
+        cursor: pointer;
+        z-index: 1001;
+        color: #aaa;
+        line-height: 1;
+    }
+    
+    .close-btn:hover {
+        color: #000;
+    }
  </style>
 <div class="content-section active" id="scheduledFleet-section">
     <div class="search-box">
@@ -107,10 +144,213 @@
     </div>
 </div>
 
+<div id="fleetModaLModify" class="modal">
+  <div class="modal-content" style="width: 90%; max-width: 1200px; min-width: 800px;">
+    <span class="close-btn" onclick="closeFleetModalModify()">&times;</span>
+
+    <div id="fleetModalBody" style="padding-top: 10px;">
+        <div style="border-radius: 12px; padding: 20px; margin-top: 10px;">
+            <form method="post" action="" style="width: 100%;" onsubmit="showLoadingBar()">
+                {% csrf_token %}
+                <!-- 添加隐藏字段 -->
+                <input type="hidden" name="step" id="fleetModalStep" value="update_fleet">
+                <input type="hidden" name="fleet_number" id="fleetModalModifyFleetNumber">
+                <input type="hidden" name="selected_ids" id="fleetModalSelectedIds">        
+                <input type="hidden" name="active_tab" value="scheduledFleet">
+                <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h4 style="color: var(--secondary-color); margin: 0;">
+                        <i class="fas fa-truck-loading"></i> 出库批次信息 - <span id="fleetNumberDisplay"></span>
+                    </h4>
+                    <div>
+                        <button type="submit" class="action-btn btn-success" id="fleetModalConfirmBtn">
+                            <i class="fas fa-check"></i> 确认出库
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 合并所有表单字段到一个表格 -->
+                <div class="table-container" style="margin-bottom: 20px;">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th colspan="3" style="text-align: center;">车辆信息</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td style="width: 33%;">
+                                    <label style="font-size: 0.8rem; font-weight: 600; color: var(--secondary-color); display: block; margin-bottom: 5px;">carrier</label>
+                                    <select name="carrier" id="fleetModalCarrier" style="font-size: 13px; width: 100%; padding: 5px;">
+                                        {% for k, v in carrier_options.items %}
+                                        <option value="{{ v }}">{{ k }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </td>
+                                <td style="width: 33%;">
+                                    <label style="font-size: 0.8rem; font-weight: 600; color: var(--secondary-color); display: block; margin-bottom: 5px;">3rd Party Address</label>
+                                    <input type="text" name="third_party_address" id="fleetModalThirdPartyAddress" class="table-input" style="width: 100%;">
+                                </td>
+                                <td style="width: 33%;">
+                                    <label style="font-size: 0.8rem; font-weight: 600; color: var(--secondary-color); display: block; margin-bottom: 5px;">PickUp Number</label>
+                                    <input type="text" name="pickup_number" id="fleetModalPickupNumber" class="table-input" style="width: 100%;">
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    <label style="font-size: 0.8rem; font-weight: 600; color: var(--secondary-color); display: block; margin-bottom: 5px;">车牌号</label>
+                                    <input type="text" name="license_plate" id="fleetModalLicensePlate" class="table-input" style="width: 100%;">
+                                </td>
+                                <td>
+                                    <label style="font-size: 0.8rem; font-weight: 600; color: var(--secondary-color); display: block; margin-bottom: 5px;">MC Number</label>
+                                    <input type="text" name="motor_carrier_number" id="fleetModalMotorCarrierNumber" class="table-input" style="width: 100%;">
+                                </td>
+                                <td>
+                                    <label style="font-size: 0.8rem; font-weight: 600; color: var(--secondary-color); display: block; margin-bottom: 5px;">DOT Number</label>
+                                    <input type="text" name="dot_number" id="fleetModalDotNumber" class="table-input" style="width: 100%;">
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    <label style="font-size: 0.8rem; font-weight: 600; color: var(--secondary-color); display: block; margin-bottom: 5px;">提货时间</label>
+                                    <input type="datetime-local" name="appointment_datetime" id="fleetModalAppointmentDatetime" class="table-input" style="width: 100%;" required>
+                                </td>
+                                <td colspan="2">
+                                    <label style="font-size: 0.8rem; font-weight: 600; color: var(--secondary-color); display: block; margin-bottom: 5px;">备注</label>
+                                    <input type="text" name="note" id="fleetModalNote" class="table-input" style="width: 100%;">
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </form>
+
+            <div style="display: flex; justify-content: space-between; align-items: center; margin: 25px 0 15px 0;">
+                <h4 style="color: var(--secondary-color); margin: 0;">
+                    <i class="fas fa-list-alt"></i> 预约批次
+                </h4>
+            </div>
+
+            <div class="table-container" style="max-height: 300px;">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>预约批次</th>
+                            <th>目的地</th>
+                            <th>预约号</th>
+                            <th>Scheduled Time</th>
+                            <th>备注</th>
+                            <th>总重lbs</th>
+                            <th>总CBM</th>
+                            <th>总卡板数</th>
+                        </tr>
+                    </thead>
+                    <tbody id="fleetShipmentTableBody">
+                        <!-- 这里用JS动态插入选中的批次 -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+  </div>
+</div>
+
 <script>
+    // 打开车次模态框函数
+    document.querySelectorAll('.fleet-link').forEach(link => {
+        link.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+
+            const modal = document.getElementById("fleetModaLModify");
+            modal.style.display = "block";
+
+            const data = this.dataset;
+            document.getElementById('fleetModalModifyFleetNumber').value = data.fleetNumber; 
+            document.getElementById('fleetNumberDisplay').textContent = data.fleetNumber;
+            console.log('车次信息', data.fleetNumber)
+            const safeSetValueById = (id, value) => {
+                const input = document.getElementById(id);
+                if (!input) return;
+                input.value = value || '';
+            };
+
+            safeSetValueById('fleetModalPickupNumber', data.pickupNumber);
+            safeSetValueById('fleetModalThirdPartyAddress', data.thirdPartyAddress);
+            safeSetValueById('fleetModalLicensePlate', data.licensePlate);
+            safeSetValueById('fleetModalMotorCarrierNumber', data.motorCarrierNumber);
+            safeSetValueById('fleetModalDotNumber', data.dotNumber);
+            safeSetValueById('fleetModalNote', data.note);
+
+            if (data.appointmentDatetime) {
+                const formatted = formatDateForInput(data.appointmentDatetime.replace(' ', 'T'));
+                safeSetValueById('fleetModalAppointmentDatetime', formatted);
+            }
+
+            if (data.carrier) {
+                const carrierSelect = document.getElementById('fleetModalCarrier');
+                for (let opt of carrierSelect.options) {
+                    if (opt.text.trim() === data.carrier || opt.value.trim() === data.carrier) {
+                        opt.selected = true;
+                        break;
+                    }
+                }
+            }
+
+            // 填充下方表格
+            const tbody = document.getElementById("fleetShipmentTableBody");
+            tbody.innerHTML = "";
+            const newRow = document.createElement("tr");
+            newRow.innerHTML = `
+                <td>${data.shipmentBatches || ''}</td>
+                <td>-</td>
+                <td>${data.appointmentIds || ''}</td>
+                <td>${data.appointmentDatetime || ''}</td>
+                <td>${data.note || ''}</td>
+                <td>${data.totalWeight || ''}</td>
+                <td>${data.totalCbm || ''}</td>
+                <td>${data.totalPallet || ''}</td>
+            `;
+            tbody.appendChild(newRow);
+
+            const confirmBtn = document.getElementById('fleetModalConfirmBtn');
+            confirmBtn.innerHTML = '<i class="fas fa-check"></i> 更新出库';
+        });
+    });
+
+    // 关闭车队模态框函数
+    function closeFleetModalModify() {
+        console.log('关闭模态框函数被调用'); // 调试信息
+        const modal = document.getElementById("fleetModaLModify");
+        if (modal) {
+            modal.style.display = "none";
+            console.log('模态框已关闭'); // 调试信息
+        }
+    }
+    // 格式化日期函数
+    function formatDateForInput(datetimeStr) {
+        if (!datetimeStr) return '';
+        const date = new Date(datetimeStr);
+        if (isNaN(date)) return '';
+        const yyyy = date.getFullYear();
+        const MM = String(date.getMonth() + 1).padStart(2, '0');
+        const dd = String(date.getDate()).padStart(2, '0');
+        const hh = String(date.getHours()).padStart(2, '0');
+        const mm = String(date.getMinutes()).padStart(2, '0');
+        return `${yyyy}-${MM}-${dd}T${hh}:${mm}`;
+    }
     document.addEventListener('DOMContentLoaded', function() {
         // 添加时间标记
         markScheduledFleetRows();
+        const closeBtn = document.querySelector('#fleetModaLModify .close-btn');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                closeFleetModalModify();
+            });
+        }
     });
 
     function markScheduledFleetRows() {
