@@ -3588,7 +3588,10 @@ class Accounting(View):
             row_data["提柜时间"] = (
                 order.retrieval_id.actual_retrieval_timestamp.strftime("%Y-%m-%d")
             )
-            row_data["仓库"] = order.warehouse.name
+            try:
+                row_data["仓库"] = order.warehouse.name
+            except Exception:
+                row_data["仓库"] = "直送"
             row_data["柜型"] = order.container_number.container_type
             other_fees_dict = {}
 
