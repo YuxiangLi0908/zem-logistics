@@ -50,6 +50,7 @@
                     <thead>
                     <tr>
                         <th class="th">预约时间</th>
+                        <th class="th">放行时间</th>
                         <th class="th">批量确认</th>
                     </tr>
                     </thead>
@@ -60,47 +61,12 @@
                             <input type="datetime-local" name="appointment_time_end" style="font-size: 13px;">
                         </td>
                         <td class="td">
+                            <!-- 只显示一个时间选择器，有值则保留第一条订单的时间作为默认值 -->
+                            <input type="datetime-local" name="planned_release_time" style="font-size: 13px;">
+                        </td>
+                        <td class="td">
                             <input type="hidden" name="step" value="batch_confirm_pickup_submit_appointment_time">
                             <!-- 隐藏字段传递选中的柜号 -->
-                            {% for container in selected_orders %}
-                                <input type="hidden" name="container_numbers"
-                                       value="{{ container.container_number.container_number }}">
-                            {% endfor %}
-                            <button type="submit" class="btn btn-primary"
-                                    style="height: 30px; margin-left: 20px; font-size: 13px;">
-                                批量确认时间
-                            </button>
-                        </td>
-                    </tr>
-                    </tbody>
-                </table>
-            </form>
-        </div>
-
-        <!-- 批量确认放行时间 -->
-        <div>
-            <form method="post" action="" style="width: 100%;">
-                {% csrf_token %}
-                <table class="table" id="batch-pickup-confirm-table" style="font-size: 11px;">
-                    <thead>
-                    <tr>
-                        <th class="th">放行时间</th>
-                        <th class="th">批量确认</th>
-                    </tr>
-                    </thead>
-                    <tbody>
-                    <tr>
-                        <td class="td">
-                            <!-- 只显示一个时间选择器，有值则保留第一条订单的时间作为默认值 -->
-                            <input type="datetime-local" name="planned_release_time"
-                                    {% if selected_orders and selected_orders.0.retrieval_id.planned_release_time %}
-                                   value="{{ selected_orders.0.retrieval_id.planned_release_time|date:'Y-m-d\TH:i' }}"
-                                    {% endif %}
-                                   style="font-size: 13px;">
-                        </td>
-                        <td class="td">
-                            <input type="hidden" name="step" value="batch_get_planned_release_time">
-                            <!-- 传递所有选中的柜号 -->
                             {% for container in selected_orders %}
                                 <input type="hidden" name="container_numbers"
                                        value="{{ container.container_number.container_number }}">
