@@ -1871,8 +1871,10 @@ class PostNsop(View):
         unshipment_pos = await self._get_packing_list(
             user,
             models.Q(
-                container_number__order__offload_id__offload_at__isnull=False,
-            )& models.Q(pk=0),
+                models.Q(container_number__order__retrieval_id__target_retrieval_timestamp__isnull=False) | 
+                models.Q(container_number__order__retrieval_id__target_retrieval_timestamp_lower__isnull=False) | 
+                models.Q(container_number__order__retrieval_id__actual_retrieval_timestamp__isnull=False)
+            ) & ~models.Q(delivery_method__contains='暂扣'),
             models.Q(
                 shipment_batch_number__shipment_batch_number__isnull=True,
                 container_number__order__offload_id__offload_at__gt=datetime(2025, 1, 1),
@@ -2983,19 +2985,19 @@ class PostNsop(View):
                 if pallet and id(pallet) not in processed_pallets:
                     retrieval_destination = pallet.get('retrieval_destination_precise')
                     
-                    if transfer_record and transfer_record.arrival_time:
+                    if transfer_record:
                         # 提取原始仓名称（retrieval_destination_precise以-分组，取前面的值）
                         original_warehouse = retrieval_destination.split('-')[0] if '-' in retrieval_destination else retrieval_destination
-                        
-                        # 格式化到达时间
-                        arrival_time_str = transfer_record.arrival_time.strftime('%m-%d')
-                        
+                        if transfer_record.arrival_time:              
+                            # 格式化到达时间
+                            arrival_time_str = transfer_record.arrival_time.strftime('%m-%d')
+                        elif transfer_record.ETA: 
+                            # 格式化到达时间
+                            arrival_time_str = transfer_record.ETA.strftime('%m-%d')
+                        else:
+                            arrival_time_str = "转仓中"                     
                         # 修改offload_time
                         pallet['offload_time'] = f"{original_warehouse}-{arrival_time_str}"
-                    else:
-                        # 如果没有到达时间，使用原始仓名称
-                        original_warehouse = retrieval_destination.split('-')[0] if '-' in retrieval_destination else retrieval_destination
-                        pallet['offload_time'] = f"{original_warehouse}-转仓中"
                     
                     processed_pallets.add(id(pallet))
             
