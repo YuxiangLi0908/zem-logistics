@@ -1047,6 +1047,8 @@ class PostNsop(View):
 
         appointment_id_new = request.POST.get('appointment_id_input', '').strip()
         shipment_appointment = request.POST.get('shipment_appointment')
+        pickup_time = request.POST.get('pickup_time')
+        pickup_number = request.POST.get('pickup_number')
         destination = request.POST.get('destination')
         load_type = request.POST.get('load_type')
         origin = request.POST.get('origin')
@@ -1056,6 +1058,8 @@ class PostNsop(View):
             old_shipment.destination = destination
             old_shipment.load_type = load_type
             old_shipment.origin = origin
+            old_shipment.pickup_time = pickup_time
+            old_shipment.pickup_number = pickup_number
             await sync_to_async(old_shipment.save)()
             context.update({'success_messages':'预约信息修改成功!'})
             return await self.handle_td_shipment_post(request)
@@ -2329,7 +2333,9 @@ class PostNsop(View):
                     'shipment_account': shipment.shipment_account,
                     'address': shipment.address,
                     'address_detail': address,
-                    'cargos': []
+                    'cargos': [],
+                    'pickup_time': shipment.pickup_time,
+                    'pickup_number': shipment.pickup_number,
                 }
             grouped_data[batch_number]['cargos'].append(item)
         
