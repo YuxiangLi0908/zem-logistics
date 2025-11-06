@@ -2846,7 +2846,7 @@ class PostNsop(View):
                     offload_time=Value("", output_field=CharField()),
                     total_pcs=Sum("pcs", output_field=FloatField()),
                     total_cbm = Round(Sum("cbm", output_field=FloatField()), 3),
-                    total_n_pallet_est= Round(Sum("cbm", output_field=FloatField()) / 2, 2),
+                    total_n_pallet_est= Round(Sum("cbm", output_field=FloatField()) / 2, 0),
                     label=Value("EST"),
                     note_sp=StringAgg("note_sp", delimiter=",", distinct=True)
                 )
