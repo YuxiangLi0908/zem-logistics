@@ -8,11 +8,12 @@
         color: #2980b9 !important;
     }
  </style>
-<div class="content-section" id="ready-section">
+ 
+<div class="content-section" id="readyShip-section">
     <div class="search-box">
         <div style="display: flex; gap: 10px; flex: 1; align-items: center;">
-            <input type="text" class="search-input" placeholder="搜索车次号、预约号..." id="readySearch">
-            <button class="search-btn" id="searchReadyBtn">
+            <input type="text" class="search-input" placeholder="搜索车次号、预约号..." id="readyShipSearch">
+            <button class="search-btn" id="searchReadyShipBtn">
                 <i class="fas fa-search"></i> 搜索
             </button>
         </div>
@@ -92,9 +93,7 @@
                                                     <input type="hidden" name="add_pallet_ISA" value="{{ shipment.appointment_id }}">
                                                     <input type="hidden" name="warehouse" value="{{ warehouse }}">
                                                     <input type="hidden" name="step" value="add_pallet">
-                                                    <input type="hidden" name="tab" value="{{ current_tab }}"> 
-
-                                                    <button type="submit" class="action-btn btn-primary">
+                                                    <button type="submit" class="action-btn btn-primary" onclick="handleAddPallet(this)">
                                                         <i class="fas fa-plus"></i> 加塞
                                                     </button>
                                                 </form>
@@ -171,9 +170,7 @@
                                                         <input type="hidden" name="add_pallet_ISA" value="{{ shipment.appointment_id }}">
                                                         <input type="hidden" name="warehouse" value="{{ warehouse }}">
                                                         <input type="hidden" name="step" value="add_pallet">
-                                                        <input type="hidden" name="tab" value="{{ current_tab }}"> 
-
-                                                        <button type="submit" class="action-btn btn-primary">
+                                                        <button type="submit" class="action-btn btn-primary" onclick="handleAddPallet(this)">
                                                             <i class="fas fa-plus"></i> 加塞
                                                         </button>
                                                     </form>
@@ -202,87 +199,329 @@
 </div>
 
 <script>
-// 待出库页面特定的JavaScript
-function confirmFleetDeparture(fleetNumber) {
-    const fleetData = collectFleetData(fleetNumber);
-    if (!fleetData || !fleetData.shipments || fleetData.shipments.length === 0) {
-        alert('未找到车次数据或车次下没有货物');
-        return;
-    }
-    openDepartureModal(fleetNumber, fleetData);
-}
-
-function collectFleetData(fleetNumber) {
-    const fleetCell = document.querySelector(`#ready-section td.fleet-number-cell[data-fleet-number="${fleetNumber}"]`);
-    if (!fleetCell) {
-        console.error(`未找到车次 ${fleetNumber}`);
-        return null;
-    }
-    const fleetRow = fleetCell.closest('tr');
-    const allRows = Array.from(document.querySelectorAll('#ready-section tbody tr'));
-    const startIndex = allRows.indexOf(fleetRow);
-    if (startIndex === -1) return null;
-
-    let endIndex = allRows.length;
-    for (let i = startIndex + 1; i < allRows.length; i++) {
-        if (allRows[i].querySelector('.fleet-number-cell')) { endIndex = i; break; }
-    }
-    const rows = allRows.slice(startIndex, endIndex);
-
-    const fleetData = { fleetNumber, shipments: [] };
-    const shipmentsMap = {};
-
-    rows.forEach((row, idx) => {
-        // Read raw dataset values (may be mixed)
-        const rawAppt = row.dataset.appointmentId || '';
-        // If appointment id not in dataset, skip (非货物行或占位行)
-        if (!rawAppt) return;
-        const rawPlt = (row.dataset.pltId || '').toString().trim();
-        const rawCargo = (row.dataset.cargoId || '').toString().trim();
-        const dest = row.dataset.destination || '';
-        const containerNo = row.dataset.containerNo || '';
-        const refIds = row.dataset.refIds || '';
-        const fbaIds = row.dataset.fbaIds || '';
-        const planned = parseFloat(row.dataset.planned || 0) || 0;
-        const label = row.dataset.label || '';
-        const cbm = row.dataset.cbm || '';
-
-        let pltId = '';
-        let cargoId = '';
-
-        if (rawCargo) {
-            cargoId = rawCargo;
+    function handleAddPallet(button) {
+        // 获取当前激活的标签页
+        const activeTab = document.querySelector('.tab.active');
+        let tabValue = '';
+        
+        if (activeTab) {
+            // 直接从 data-tab 属性获取值
+            tabValue = activeTab.getAttribute('data-tab');
+            console.log('获取到的标签页 data-tab:', tabValue);
         }
-        if (rawPlt) {
-            if (/^cargo_/i.test(rawPlt)) {
-                if (!cargoId) cargoId = rawPlt;
-            } else {
-                pltId = rawPlt;
-            }
+        
+        // 获取表单
+        const form = button.closest('form');
+        
+        // 创建或更新 active_tab 输入框
+        let activeTabInput = form.querySelector('input[name="active_tab"]');
+        if (!activeTabInput) {
+            activeTabInput = document.createElement('input');
+            activeTabInput.type = 'hidden';
+            activeTabInput.name = 'active_tab';
+            form.appendChild(activeTabInput);
         }
+        activeTabInput.value = tabValue;
+        
+        console.log('最终提交的 active_tab:', tabValue);
+        
+        // 提交表单
+        form.submit();
+    }
 
-        console.log(`[collectFleetData] row ${idx} appointment=${rawAppt} parsed pltId="${pltId}" cargoId="${cargoId}" dataset=`, row.dataset);
-
-        // Assemble into shipments map
-        if (!shipmentsMap[rawAppt]) {
-            shipmentsMap[rawAppt] = { appointmentId: rawAppt, destination: dest, cargos: [] };
+    document.addEventListener('DOMContentLoaded', function() {
+        const searchReadyShipBtn = document.getElementById('searchReadyShipBtn');
+        
+        if (searchReadyShipBtn) {
+            searchReadyShipBtn.addEventListener('click', function() {
+                applyReadyShipSearch();
+            });
         }
-        shipmentsMap[rawAppt].cargos.push({
-            containerNo,
-            refIds,
-            fbaIds,
-            plannedPallets: planned,
-            palletLabel: label,
-            actualPallets: planned,
-            cbm,
-            // keep separate fields
-            pltId: pltId || '',
-            cargoId: cargoId || ''
-        });
+        const readyShipSearch = document.getElementById('readyShipSearch');
+        if (readyShipSearch) {
+            readyShipSearch.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') applyReadyShipSearch();
+            });
+        }
     });
 
-    fleetData.shipments = Object.values(shipmentsMap);
-    console.log('[collectFleetData] final fleetData:', fleetData);
-    return fleetData;
-}
+    function applyReadyShipSearch() {
+        const searchInput = document.getElementById('readyShipSearch');
+        if (!searchInput) return;
+        
+        const searchTerm = searchInput.value.trim().toLowerCase();
+        const sectionElement = document.getElementById('readyShip-section');
+        if (!sectionElement) return;
+        
+        const rows = sectionElement.querySelectorAll('.data-table tbody tr');
+        
+        // 先显示所有行
+        rows.forEach(row => {
+            row.style.display = '';
+            row.querySelectorAll('td[rowspan]').forEach(td => {
+                td.style.display = '';
+            });
+        });
+        
+        if (searchTerm === '') return;
+        
+        handleReadyShipSearch(rows, searchTerm);
+    }
+
+    function handleReadyShipSearch(rows, searchTerm) {
+        // 构建组映射 - 关键修复：正确识别组结构
+        const groupMap = new Map();
+        let currentGroupId = null;
+        let currentGroupRows = [];
+        
+        rows.forEach((row, index) => {
+            // 跳过分隔行
+            if (row.classList.contains('group-separator')) {
+                // 保存前一个组
+                if (currentGroupId && currentGroupRows.length > 0) {
+                    groupMap.set(currentGroupId, [...currentGroupRows]);
+                }
+                // 开始新组
+                currentGroupId = `group-${index}`;
+                currentGroupRows = [row]; // 包含分隔行
+                return;
+            }
+            
+            // 检查是否是车次行的开始（有fleet-number-cell的行）
+            const fleetCell = row.querySelector('.fleet-number-cell');
+            if (fleetCell && currentGroupId) {
+                // 保存前一个组
+                groupMap.set(currentGroupId, [...currentGroupRows]);
+                // 开始新组
+                currentGroupId = `group-${index}`;
+                currentGroupRows = [];
+            }
+            
+            // 添加到当前组
+            if (currentGroupId) {
+                currentGroupRows.push(row);
+            }
+        });
+        
+        // 保存最后一个组
+        if (currentGroupId && currentGroupRows.length > 0) {
+            groupMap.set(currentGroupId, [...currentGroupRows]);
+        }
+        
+        console.log('组映射:', groupMap);
+        
+        // 先隐藏所有行
+        rows.forEach(row => {
+            row.style.display = 'none';
+        });
+        
+        // 查找匹配的组
+        const matchingGroups = new Set();
+        
+        groupMap.forEach((groupRows, groupId) => {
+            let groupMatched = false;
+            
+            // 检查组内是否有任何行匹配搜索条件
+            for (const row of groupRows) {
+                if (isReadyShipRowMatch(row, searchTerm)) {
+                    groupMatched = true;
+                    break;
+                }
+            }
+            
+            if (groupMatched) {
+                matchingGroups.add(groupId);
+            }
+        });
+        
+        console.log('匹配的组:', matchingGroups);
+        
+        // 显示匹配的组的所有行
+        matchingGroups.forEach(groupId => {
+            const groupRows = groupMap.get(groupId);
+            if (groupRows) {
+                groupRows.forEach(row => {
+                    row.style.display = '';
+                    // 确保合并的单元格也显示
+                    row.querySelectorAll('td[rowspan]').forEach(td => {
+                        td.style.display = '';
+                    });
+                });
+            }
+        });
+        
+        // 如果没有匹配的组，尝试单独匹配（处理没有组结构的情况）
+        if (matchingGroups.size === 0) {
+            rows.forEach(row => {
+                if (isReadyShipRowMatch(row, searchTerm)) {
+                    row.style.display = '';
+                    row.querySelectorAll('td[rowspan]').forEach(td => {
+                        td.style.display = '';
+                    });
+                }
+            });
+        }
+    }
+
+    function isReadyShipRowMatch(row, searchTerm) {
+        if (!searchTerm) return true;
+        
+        // 跳过分隔行
+        if (row.classList.contains('group-separator')) {
+            return false;
+        }
+        
+        // 检查车次号
+        const fleetTd = row.querySelector('td:first-child');
+        if (fleetTd) {
+            const fleetText = fleetTd.textContent.toLowerCase();
+            if (fleetText.includes(searchTerm)) return true;
+        }
+        
+        // 检查提货时间
+        const pickupTimeTd = row.querySelector('td:nth-child(2)');
+        if (pickupTimeTd) {
+            const pickupTimeText = pickupTimeTd.textContent.toLowerCase();
+            if (pickupTimeText.includes(searchTerm)) return true;
+        }
+        
+        // 检查预约号
+        const appointmentTd = row.querySelector('td:nth-child(3)');
+        if (appointmentTd) {
+            const appointmentText = appointmentTd.textContent.toLowerCase();
+            if (appointmentText.includes(searchTerm)) return true;
+        }
+        
+        // 检查目的地
+        const destinationTd = row.querySelector('td:nth-child(4)');
+        if (destinationTd) {
+            const destinationText = destinationTd.textContent.toLowerCase();
+            if (destinationText.includes(searchTerm)) return true;
+        }
+        
+        // 检查柜号
+        const containerCell = row.querySelector('.cns-col');
+        if (containerCell) {
+            const containerText = containerCell.textContent.toLowerCase();
+            if (containerText.includes(searchTerm)) return true;
+        }
+        
+        // 检查REF ID
+        const refIdsCell = row.querySelector('.ref-ids-col');
+        if (refIdsCell) {
+            const fullRefIds = refIdsCell.getAttribute('data-full') || refIdsCell.textContent || '';
+            if (fullRefIds.toLowerCase().includes(searchTerm)) return true;
+        }
+        
+        // 检查FBA ID
+        const fbaIdsCell = row.querySelector('.fba-ids-col');
+        if (fbaIdsCell) {
+            const fullFbaIds = fbaIdsCell.getAttribute('data-full') || fbaIdsCell.textContent || '';
+            if (fullFbaIds.toLowerCase().includes(searchTerm)) return true;
+        }
+        
+        // 检查板数
+        const palletTd = row.querySelector('td:nth-child(8)');
+        if (palletTd) {
+            const palletText = palletTd.textContent.toLowerCase();
+            if (palletText.includes(searchTerm)) return true;
+        }
+        
+        // 检查CBM
+        const cbmTd = row.querySelector('td:nth-child(9)');
+        if (cbmTd) {
+            const cbmText = cbmTd.textContent.toLowerCase();
+            if (cbmText.includes(searchTerm)) return true;
+        }
+        
+        // 检查整行文本
+        const rowText = row.textContent.toLowerCase();
+        if (rowText.includes(searchTerm)) return true;
+        
+        return false;
+    }
+
+    // 待出库页面特定的JavaScript
+    function confirmFleetDeparture(fleetNumber) {
+        const fleetData = collectFleetData(fleetNumber);
+        if (!fleetData || !fleetData.shipments || fleetData.shipments.length === 0) {
+            alert('未找到车次数据或车次下没有货物');
+            return;
+        }
+        openDepartureModal(fleetNumber, fleetData);
+    }
+
+    function collectFleetData(fleetNumber) {
+        const fleetCell = document.querySelector(`#readyShip-section td.fleet-number-cell[data-fleet-number="${fleetNumber}"]`);
+        if (!fleetCell) {
+            console.error(`未找到车次 ${fleetNumber}`);
+            return null;
+        }
+        const fleetRow = fleetCell.closest('tr');
+        const allRows = Array.from(document.querySelectorAll('#readyShip-section tbody tr'));
+        const startIndex = allRows.indexOf(fleetRow);
+        if (startIndex === -1) return null;
+
+        let endIndex = allRows.length;
+        for (let i = startIndex + 1; i < allRows.length; i++) {
+            if (allRows[i].querySelector('.fleet-number-cell')) { endIndex = i; break; }
+        }
+        const rows = allRows.slice(startIndex, endIndex);
+
+        const fleetData = { fleetNumber, shipments: [] };
+        const shipmentsMap = {};
+
+        rows.forEach((row, idx) => {
+            // Read raw dataset values (may be mixed)
+            const rawAppt = row.dataset.appointmentId || '';
+            // If appointment id not in dataset, skip (非货物行或占位行)
+            if (!rawAppt) return;
+            const rawPlt = (row.dataset.pltId || '').toString().trim();
+            const rawCargo = (row.dataset.cargoId || '').toString().trim();
+            const dest = row.dataset.destination || '';
+            const containerNo = row.dataset.containerNo || '';
+            const refIds = row.dataset.refIds || '';
+            const fbaIds = row.dataset.fbaIds || '';
+            const planned = parseFloat(row.dataset.planned || 0) || 0;
+            const label = row.dataset.label || '';
+            const cbm = row.dataset.cbm || '';
+
+            let pltId = '';
+            let cargoId = '';
+
+            if (rawCargo) {
+                cargoId = rawCargo;
+            }
+            if (rawPlt) {
+                if (/^cargo_/i.test(rawPlt)) {
+                    if (!cargoId) cargoId = rawPlt;
+                } else {
+                    pltId = rawPlt;
+                }
+            }
+
+            console.log(`[collectFleetData] row ${idx} appointment=${rawAppt} parsed pltId="${pltId}" cargoId="${cargoId}" dataset=`, row.dataset);
+
+            // Assemble into shipments map
+            if (!shipmentsMap[rawAppt]) {
+                shipmentsMap[rawAppt] = { appointmentId: rawAppt, destination: dest, cargos: [] };
+            }
+            shipmentsMap[rawAppt].cargos.push({
+                containerNo,
+                refIds,
+                fbaIds,
+                plannedPallets: planned,
+                palletLabel: label,
+                actualPallets: planned,
+                cbm,
+                // keep separate fields
+                pltId: pltId || '',
+                cargoId: cargoId || ''
+            });
+        });
+
+        fleetData.shipments = Object.values(shipmentsMap);
+        console.log('[collectFleetData] final fleetData:', fleetData);
+        return fleetData;
+    }
 </script>

@@ -526,22 +526,18 @@
             <div class="summary-card unscheduled">
                 <div class="card-title">未排约货物</div>
                 <div class="card-value">{{ summary.unscheduled_count }}</div>
-                <div class="card-trend">待安排预约</div>
             </div>
             <div class="summary-card scheduled">
                 <div class="card-title">已排约货物</div>
                 <div class="card-value">{{ summary.scheduled_count }}</div>
-                <div class="card-trend">等待出库</div>
             </div>
             <div class="summary-card ready">
-                <div class="card-title">待出库货物</div>
-                <div class="card-value">{{ summary.ready_count }}</div>
-                <div class="card-trend">已安排车次</div>
+                <div class="card-title">已排车</div>
+                <div class="card-value">{{ summary.sp_fl_count }}</div>
             </div>
             <div class="summary-card pallets">
                 <div class="card-title">总板数</div>
                 <div class="card-value">{{ summary.total_pallets }}</div>
-                <div class="card-trend">当前仓库</div>
             </div>
         </div>
 
@@ -556,8 +552,8 @@
             <div class="tab" data-tab="unscheduled-fleet">
                 未排车 <span class="badge">{{ summary.unscheduled_fl_count }}</span>
             </div>
-            <div class="tab" data-tab="ready">
-                待出库 <span class="badge">{{ summary.ready_count }}</span>
+            <div class="tab" data-tab="scheduledFleet">
+                已排车 <span class="badge">{{ summary.sp_fl_count }}</span>
             </div>
         </div>
 
@@ -565,7 +561,7 @@
         {% include 'post_port/new_sop/02_shipment/unscheduled_section.html' %}
         {% include 'post_port/new_sop/02_shipment/scheduled_section.html' %}
         {% include 'post_port/new_sop/02_shipment/unscheduled_fleet.html' %}
-        {% include 'post_port/new_sop/02_shipment/ready_section.html' %}
+        {% include 'post_port/new_sop/02_shipment/scheduledFleet_section.html' %}
     </div>
 </div>
 
@@ -584,7 +580,6 @@
 <!-- 包含模态框 -->
 {% include 'post_port/new_sop/02_shipment/modals/bind_shipment_modal.html' %}
 {% include 'post_port/new_sop/02_shipment/modals/departure_modal.html' %}
-{% include 'post_port/new_sop/02_shipment/modals/add_po_modal.html' %}
 {% include 'post_port/new_sop/02_shipment/modals/addable_po_modal.html' %}
 {% include 'post_port/new_sop/02_shipment/modals/message_modal.html' %}
 {% include 'post_port/new_sop/02_shipment/02_1_intelligent_po_modal.html' %}
@@ -634,7 +629,9 @@ document.addEventListener('DOMContentLoaded', function() {
             'ready': 'ready-section',
             'unscheduled': 'unscheduled-section',
             'scheduled': 'scheduled-section',
-            'ready_ship': 'ready-section'
+            'ready_ship': 'ready-section',
+            'scheduledFleet': 'scheduledFleet-section',  // 添加这一行
+            'scheduled-fleet': 'scheduledFleet-section'
         };
         if (aliasMap[tabName]) candidates.unshift(aliasMap[tabName]);
 
@@ -831,432 +828,497 @@ function initializeTooltips() {
     });
 
     document.addEventListener('keydown', function(e) {
-        if (e.key === 'Escape') {
-            tooltip.style.display = 'none';
-            tooltip.innerText = '';
-            activeCell = null;
-            if (hideTimeout) {
-                clearTimeout(hideTimeout);
-                hideTimeout = null;
-            }
-        }
-    });
-}
-
-// 搜索功能
-function applySearch(section) {
-    const searchInput = document.getElementById(section + 'Search');
-    if (!searchInput) return;
-    
-    const searchTerm = searchInput.value.trim().toLowerCase();
-    const sectionElement = document.getElementById(section + '-section');
-    if (!sectionElement) return;
-    
-    const rows = sectionElement.querySelectorAll('.data-table tbody tr');
-    
-    rows.forEach(row => {
-        row.style.display = '';
-        row.querySelectorAll('td[rowspan]').forEach(td => {
-            td.style.display = '';
-        });
-    });
-    
-    if (searchTerm === '') return;
-    
-    if (section === 'unscheduled') {
-        handleGroupedSearch(rows, searchTerm);
-    } else if (section === 'ready') {
-        handleReadySectionSearch(rows, searchTerm);
-    } else if (section === 'scheduled') {
-        handleScheduledSearch(rows, searchTerm);
-}   else {
-        handleNormalSearch(rows, searchTerm);
-    }
-}
-
-function handleScheduledSearch(rows, searchTerm) {
-    const groups = new Set();
-    rows.forEach(tr => {
-        const groupId = tr.dataset.shipmentGroup;
-        if (!groupId) return;
-
-        const firstRow = document.querySelector(`tr[data-shipment-group="${groupId}"]`);
-        if (!firstRow) return;
-
-        const text = firstRow.innerText.toLowerCase();
-        if (text.includes(searchTerm)) groups.add(groupId);
-    });
-
-    rows.forEach(tr => {
-        const groupId = tr.dataset.shipmentGroup;
-        if (!groups.has(groupId)) tr.style.display = 'none';
-    });
-}
-
-function handleGroupedSearch(rows, searchTerm) {
-    const groupMap = new Map();
-
-    // 遍历每行，按 suggestionId 分组
-    rows.forEach(row => {
-        const suggestionId = row.getAttribute('data-suggestion-id');
-        if (!suggestionId) {
-            // 非组行，按普通行搜索
-            row.style.display = isRowMatch(row, searchTerm) ? '' : 'none';
-            return;
-        }
-
-        if (!groupMap.has(suggestionId)) {
-            groupMap.set(suggestionId, []);
-        }
-
-        groupMap.get(suggestionId).push(row);
-    });
-
-    // 遍历每个组，判断是否整组显示
-    groupMap.forEach(groupRows => {
-        if (groupRows.length === 0) return;
-
-        const firstRow = groupRows[0]; // 取组第一行
-        const firstCol = firstRow.querySelector('td[rowspan]'); // 仓点列
-        const appointmentCell = firstRow.querySelector('td:nth-child(2)'); // 预约号列
-
-        // 仓点或预约号匹配
-        const isMatch = (firstCol && firstCol.textContent.toLowerCase().includes(searchTerm)) ||
-                        (appointmentCell && appointmentCell.textContent.toLowerCase().includes(searchTerm));
-
-        groupRows.forEach(row => {
-            row.style.display = isMatch ? '' : 'none';
-            if (isMatch) {
-                // 确保 rowspan td 也显示
-                row.querySelectorAll('td[rowspan]').forEach(td => td.style.display = '');
-            }
-        });
-    });
-}
-
-// 备用：普通行搜索
-function isRowMatch(row, searchTerm) {
-    return Array.from(row.querySelectorAll('td')).some(td => 
-        td.textContent.toLowerCase().includes(searchTerm)
-    );
-}
-
-function handleReadySectionSearch(rows, searchTerm) {
-    const fleetMap = new Map();
-    const appointmentMap = new Map();
-    
-    let currentFleetNumber = '';
-    let currentAppointmentId = '';
-    
-    rows.forEach((row, index) => {
-        const fleetTd = row.querySelector('td:first-child');
-        if (fleetTd && fleetTd.hasAttribute('rowspan')) {
-            const fleetText = fleetTd.textContent.trim();
-            if (fleetText.startsWith('F')) {
-                const newFleetNumber = fleetText;
-                if (newFleetNumber !== currentFleetNumber) {
-                    currentFleetNumber = newFleetNumber;
-                    currentAppointmentId = '';
+            if (e.key === 'Escape') {
+                tooltip.style.display = 'none';
+                tooltip.innerText = '';
+                activeCell = null;
+                if (hideTimeout) {
+                    clearTimeout(hideTimeout);
+                    hideTimeout = null;
                 }
             }
-        }
-        
-        const appointmentTd = row.querySelector('td:nth-child(2)');
-        if (appointmentTd && appointmentTd.hasAttribute('rowspan')) {
-            const newAppointmentId = appointmentTd.textContent.trim();
-            if (newAppointmentId !== currentAppointmentId) {
-                currentAppointmentId = newAppointmentId;
-            }
-        }
-        
-        if (currentFleetNumber) {
-            if (!fleetMap.has(currentFleetNumber)) {
-                fleetMap.set(currentFleetNumber, []);
-            }
-            fleetMap.get(currentFleetNumber).push(row);
-        }
-        
-        if (currentAppointmentId) {
-            if (!appointmentMap.has(currentAppointmentId)) {
-                appointmentMap.set(currentAppointmentId, []);
-            }
-            appointmentMap.get(currentAppointmentId).push(row);
-        }
-    });
-    
-    let hasAnyMatch = false;
-    rows.forEach(row => {
-        row.style.display = 'none';
-    });
-    
-    const matchingFleets = Array.from(fleetMap.keys()).filter(fleet => {
-        return fleet.toLowerCase().includes(searchTerm);
-    });
-    
-    const matchingAppointments = Array.from(appointmentMap.keys()).filter(appointment => {
-        return appointment.toLowerCase().includes(searchTerm);
-    });
-    
-    const matchingRows = [];
-    rows.forEach((row, index) => {
-        if (isReadyRowMatch(row, searchTerm)) {
-            matchingRows.push(row);
-        }
-    });
-    
-    if (matchingFleets.length > 0 || matchingAppointments.length > 0 || matchingRows.length > 0) {
-        hasAnyMatch = true;
-        
-        if (matchingFleets.length > 0) {
-            matchingFleets.forEach(fleet => {
-                const fleetRows = fleetMap.get(fleet);
-                fleetRows.forEach(row => {
-                    row.style.display = '';
-                });
-            });
-        }
-        
-        if (matchingAppointments.length > 0) {
-            matchingAppointments.forEach(appointment => {
-                const appointmentRows = appointmentMap.get(appointment);
-                appointmentRows.forEach(row => {
-                    row.style.display = '';
-                });
-            });
-        }
-        
-        if (matchingRows.length > 0) {
-            matchingRows.forEach(row => {
-                const fleetNumber = getFleetNumberForRow(row, fleetMap);
-                if (fleetNumber && fleetMap.has(fleetNumber)) {
-                    fleetMap.get(fleetNumber).forEach(fleetRow => {
-                        fleetRow.style.display = '';
-                    });
-                } else {
-                    row.style.display = '';
-                }
-            });
-        }
+        });
     }
-}
 
-function getFleetNumberForRow(row, fleetMap) {
-    for (let [fleetNumber, rows] of fleetMap.entries()) {
-        if (rows.includes(row)) {
-            return fleetNumber;
-        }
-    }
-    return null;
-}
-
-function isReadyRowMatch(row, searchTerm) {
-    if (!searchTerm) return true;
-    
-    const fleetTd = row.querySelector('td:first-child');
-    if (fleetTd) {
-        const fleetText = fleetTd.textContent.toLowerCase();
-        if (fleetText.includes(searchTerm)) return true;
-    }
-    
-    const appointmentTd = row.querySelector('td:nth-child(2)');
-    if (appointmentTd) {
-        const appointmentText = appointmentTd.textContent.toLowerCase();
-        if (appointmentText.includes(searchTerm)) return true;
-    }
-    
-    const destinationTd = row.querySelector('td:nth-child(3)');
-    if (destinationTd) {
-        const destinationText = destinationTd.textContent.toLowerCase();
-        if (destinationText.includes(searchTerm)) return true;
-    }
-    
-    const containerCell = row.querySelector('.cns-col');
-    if (containerCell) {
-        const containerText = containerCell.textContent.toLowerCase();
-        if (containerText.includes(searchTerm)) return true;
-    }
-    
-    const refIdsCell = row.querySelector('.ref-ids-col');
-    if (refIdsCell) {
-        const fullRefIds = refIdsCell.getAttribute('data-full') || refIdsCell.textContent || '';
-        if (fullRefIds.toLowerCase().includes(searchTerm)) return true;
-    }
-    
-    const fbaIdsCell = row.querySelector('.fba-ids-col');
-    if (fbaIdsCell) {
-        const fullFbaIds = fbaIdsCell.getAttribute('data-full') || fbaIdsCell.textContent || '';
-        if (fullFbaIds.toLowerCase().includes(searchTerm)) return true;
-    }
-    
-    const palletTd = row.querySelector('td:nth-child(7)');
-    if (palletTd) {
-        const palletText = palletTd.textContent.toLowerCase();
-        if (palletText.includes(searchTerm)) return true;
-    }
-    
-    const cbmTd = row.querySelector('td:nth-child(8)');
-    if (cbmTd) {
-        const cbmText = cbmTd.textContent.toLowerCase();
-        if (cbmText.includes(searchTerm)) return true;
-    }
-    
-    const rowText = row.textContent.toLowerCase();
-    if (rowText.includes(searchTerm)) return true;
-    
-    return false;
-}
-
-function handleNormalSearch(rows, searchTerm) {
-    rows.forEach(row => {
-        const isMatch = isRowMatch(row, searchTerm);
-        row.style.display = isMatch ? '' : 'none';
+    // 搜索功能
+    function applySearch(section) {
+        const searchInput = document.getElementById(section + 'Search');
+        if (!searchInput) return;
         
-        if (isMatch) {
+        const searchTerm = searchInput.value.trim().toLowerCase();
+        const sectionElement = document.getElementById(section + '-section');
+        if (!sectionElement) return;
+        
+        const rows = sectionElement.querySelectorAll('.data-table tbody tr');
+        
+        rows.forEach(row => {
+            row.style.display = '';
             row.querySelectorAll('td[rowspan]').forEach(td => {
                 td.style.display = '';
             });
+        });
+        
+        if (searchTerm === '') return;
+        
+        if (section === 'unscheduled') {
+            handleGroupedSearch(rows, searchTerm);
+        } else if (section === 'ready') {
+            handleReadySectionSearch(rows, searchTerm);
+        } else if (section === 'scheduledFleet') {  // 添加这一部分
+            handleScheduledFleetSearch(rows, searchTerm);
+        } else if (section === 'scheduled') {
+            handleScheduledSearch(rows, searchTerm);
+        }  else {
+            handleNormalSearch(rows, searchTerm);
+        }
+    }
+        function handleScheduledFleetSearch(rows, searchTerm) {
+            rows.forEach(row => {
+                const isMatch = isScheduledFleetRowMatch(row, searchTerm);
+                row.style.display = isMatch ? '' : 'none';
+            });
+        }
+
+        function isScheduledFleetRowMatch(row, searchTerm) {
+            if (!searchTerm) return true;
+            
+            // 检查出库批次
+            const fleetNumberCell = row.querySelector('td:first-child');
+            if (fleetNumberCell) {
+                const fleetNumber = fleetNumberCell.textContent.toLowerCase();
+                if (fleetNumber.includes(searchTerm)) return true;
+            }
+            
+            // 检查预约批次
+            const shipmentBatchCell = row.querySelector('td:nth-child(2)');
+            if (shipmentBatchCell) {
+                const shipmentBatch = shipmentBatchCell.textContent.toLowerCase();
+                if (shipmentBatch.includes(searchTerm)) return true;
+            }
+            
+            // 检查 ISA
+            const isaCell = row.querySelector('td:nth-child(3)');
+            if (isaCell) {
+                const isa = isaCell.textContent.toLowerCase();
+                if (isa.includes(searchTerm)) return true;
+            }
+            
+            // 检查 carrier
+            const carrierCell = row.querySelector('td:nth-child(4)');
+            if (carrierCell) {
+                const carrier = carrierCell.textContent.toLowerCase();
+                if (carrier.includes(searchTerm)) return true;
+            }
+            
+            // 检查备注
+            const noteCell = row.querySelector('td:nth-child(9)');
+            if (noteCell) {
+                const note = noteCell.textContent.toLowerCase();
+                if (note.includes(searchTerm)) return true;
+            }
+            
+            // 检查所有文本内容
+            const rowText = row.textContent.toLowerCase();
+            if (rowText.includes(searchTerm)) return true;
+            
+            return false;
+        }
+    function handleScheduledSearch(rows, searchTerm) {
+        const groups = new Set();
+        rows.forEach(tr => {
+            const groupId = tr.dataset.shipmentGroup;
+            if (!groupId) return;
+
+            const firstRow = document.querySelector(`tr[data-shipment-group="${groupId}"]`);
+            if (!firstRow) return;
+
+            const text = firstRow.innerText.toLowerCase();
+            if (text.includes(searchTerm)) groups.add(groupId);
+        });
+
+        rows.forEach(tr => {
+            const groupId = tr.dataset.shipmentGroup;
+            if (!groups.has(groupId)) tr.style.display = 'none';
+        });
+    }
+
+    function handleGroupedSearch(rows, searchTerm) {
+        const groupMap = new Map();
+
+        // 遍历每行，按 suggestionId 分组
+        rows.forEach(row => {
+            const suggestionId = row.getAttribute('data-suggestion-id');
+            if (!suggestionId) {
+                // 非组行，按普通行搜索
+                row.style.display = isRowMatch(row, searchTerm) ? '' : 'none';
+                return;
+            }
+
+            if (!groupMap.has(suggestionId)) {
+                groupMap.set(suggestionId, []);
+            }
+
+            groupMap.get(suggestionId).push(row);
+        });
+
+        // 遍历每个组，判断是否整组显示
+        groupMap.forEach(groupRows => {
+            if (groupRows.length === 0) return;
+
+            const firstRow = groupRows[0]; // 取组第一行
+            const firstCol = firstRow.querySelector('td[rowspan]'); // 仓点列
+            const appointmentCell = firstRow.querySelector('td:nth-child(2)'); // 预约号列
+
+            // 仓点或预约号匹配
+            const isMatch = (firstCol && firstCol.textContent.toLowerCase().includes(searchTerm)) ||
+                            (appointmentCell && appointmentCell.textContent.toLowerCase().includes(searchTerm));
+
+            groupRows.forEach(row => {
+                row.style.display = isMatch ? '' : 'none';
+                if (isMatch) {
+                    // 确保 rowspan td 也显示
+                    row.querySelectorAll('td[rowspan]').forEach(td => td.style.display = '');
+                }
+            });
+        });
+    }
+
+    // 备用：普通行搜索
+    function isRowMatch(row, searchTerm) {
+        return Array.from(row.querySelectorAll('td')).some(td => 
+            td.textContent.toLowerCase().includes(searchTerm)
+        );
+    }
+
+    function handleReadySectionSearch(rows, searchTerm) {
+        const fleetMap = new Map();
+        const appointmentMap = new Map();
+        
+        let currentFleetNumber = '';
+        let currentAppointmentId = '';
+        
+        rows.forEach((row, index) => {
+            const fleetTd = row.querySelector('td:first-child');
+            if (fleetTd && fleetTd.hasAttribute('rowspan')) {
+                const fleetText = fleetTd.textContent.trim();
+                if (fleetText.startsWith('F')) {
+                    const newFleetNumber = fleetText;
+                    if (newFleetNumber !== currentFleetNumber) {
+                        currentFleetNumber = newFleetNumber;
+                        currentAppointmentId = '';
+                    }
+                }
+            }
+            
+            const appointmentTd = row.querySelector('td:nth-child(2)');
+            if (appointmentTd && appointmentTd.hasAttribute('rowspan')) {
+                const newAppointmentId = appointmentTd.textContent.trim();
+                if (newAppointmentId !== currentAppointmentId) {
+                    currentAppointmentId = newAppointmentId;
+                }
+            }
+            
+            if (currentFleetNumber) {
+                if (!fleetMap.has(currentFleetNumber)) {
+                    fleetMap.set(currentFleetNumber, []);
+                }
+                fleetMap.get(currentFleetNumber).push(row);
+            }
+            
+            if (currentAppointmentId) {
+                if (!appointmentMap.has(currentAppointmentId)) {
+                    appointmentMap.set(currentAppointmentId, []);
+                }
+                appointmentMap.get(currentAppointmentId).push(row);
+            }
+        });
+        
+        let hasAnyMatch = false;
+        rows.forEach(row => {
+            row.style.display = 'none';
+        });
+        
+        const matchingFleets = Array.from(fleetMap.keys()).filter(fleet => {
+            return fleet.toLowerCase().includes(searchTerm);
+        });
+        
+        const matchingAppointments = Array.from(appointmentMap.keys()).filter(appointment => {
+            return appointment.toLowerCase().includes(searchTerm);
+        });
+        
+        const matchingRows = [];
+        rows.forEach((row, index) => {
+            if (isReadyRowMatch(row, searchTerm)) {
+                matchingRows.push(row);
+            }
+        });
+        
+        if (matchingFleets.length > 0 || matchingAppointments.length > 0 || matchingRows.length > 0) {
+            hasAnyMatch = true;
+            
+            if (matchingFleets.length > 0) {
+                matchingFleets.forEach(fleet => {
+                    const fleetRows = fleetMap.get(fleet);
+                    fleetRows.forEach(row => {
+                        row.style.display = '';
+                    });
+                });
+            }
+            
+            if (matchingAppointments.length > 0) {
+                matchingAppointments.forEach(appointment => {
+                    const appointmentRows = appointmentMap.get(appointment);
+                    appointmentRows.forEach(row => {
+                        row.style.display = '';
+                    });
+                });
+            }
+            
+            if (matchingRows.length > 0) {
+                matchingRows.forEach(row => {
+                    const fleetNumber = getFleetNumberForRow(row, fleetMap);
+                    if (fleetNumber && fleetMap.has(fleetNumber)) {
+                        fleetMap.get(fleetNumber).forEach(fleetRow => {
+                            fleetRow.style.display = '';
+                        });
+                    } else {
+                        row.style.display = '';
+                    }
+                });
+            }
+        }
+    }
+
+    function getFleetNumberForRow(row, fleetMap) {
+        for (let [fleetNumber, rows] of fleetMap.entries()) {
+            if (rows.includes(row)) {
+                return fleetNumber;
+            }
+        }
+        return null;
+    }
+
+    function isReadyRowMatch(row, searchTerm) {
+        if (!searchTerm) return true;
+        
+        const fleetTd = row.querySelector('td:first-child');
+        if (fleetTd) {
+            const fleetText = fleetTd.textContent.toLowerCase();
+            if (fleetText.includes(searchTerm)) return true;
+        }
+        
+        const appointmentTd = row.querySelector('td:nth-child(2)');
+        if (appointmentTd) {
+            const appointmentText = appointmentTd.textContent.toLowerCase();
+            if (appointmentText.includes(searchTerm)) return true;
+        }
+        
+        const destinationTd = row.querySelector('td:nth-child(3)');
+        if (destinationTd) {
+            const destinationText = destinationTd.textContent.toLowerCase();
+            if (destinationText.includes(searchTerm)) return true;
+        }
+        
+        const containerCell = row.querySelector('.cns-col');
+        if (containerCell) {
+            const containerText = containerCell.textContent.toLowerCase();
+            if (containerText.includes(searchTerm)) return true;
+        }
+        
+        const refIdsCell = row.querySelector('.ref-ids-col');
+        if (refIdsCell) {
+            const fullRefIds = refIdsCell.getAttribute('data-full') || refIdsCell.textContent || '';
+            if (fullRefIds.toLowerCase().includes(searchTerm)) return true;
+        }
+        
+        const fbaIdsCell = row.querySelector('.fba-ids-col');
+        if (fbaIdsCell) {
+            const fullFbaIds = fbaIdsCell.getAttribute('data-full') || fbaIdsCell.textContent || '';
+            if (fullFbaIds.toLowerCase().includes(searchTerm)) return true;
+        }
+        
+        const palletTd = row.querySelector('td:nth-child(7)');
+        if (palletTd) {
+            const palletText = palletTd.textContent.toLowerCase();
+            if (palletText.includes(searchTerm)) return true;
+        }
+        
+        const cbmTd = row.querySelector('td:nth-child(8)');
+        if (cbmTd) {
+            const cbmText = cbmTd.textContent.toLowerCase();
+            if (cbmText.includes(searchTerm)) return true;
+        }
+        
+        const rowText = row.textContent.toLowerCase();
+        if (rowText.includes(searchTerm)) return true;
+        
+        return false;
+    }
+
+    function handleNormalSearch(rows, searchTerm) {
+        rows.forEach(row => {
+            const isMatch = isRowMatch(row, searchTerm);
+            row.style.display = isMatch ? '' : 'none';
+            
+            if (isMatch) {
+                row.querySelectorAll('td[rowspan]').forEach(td => {
+                    td.style.display = '';
+                });
+            }
+        });
+    }
+
+    function handleNormalRowSearch(row, searchTerm) {
+        const isMatch = isRowMatch(row, searchTerm);
+        row.style.display = isMatch ? '' : 'none';
+    }
+
+    function isRowMatch(row, searchTerm) {
+        if (!searchTerm) return true;
+        
+        const rowText = row.textContent.toLowerCase();
+        if (rowText.includes(searchTerm)) return true;
+        
+        const refIdsCell = row.querySelector('.ref-ids-col');
+        const fbaIdsCell = row.querySelector('.fba-ids-col');
+        const containerCell = row.querySelector('.container-no-col');
+        
+        if (refIdsCell) {
+            const fullRefIds = refIdsCell.getAttribute('data-full') || refIdsCell.textContent || '';
+            if (fullRefIds.toLowerCase().includes(searchTerm)) return true;
+        }
+        
+        if (fbaIdsCell) {
+            const fullFbaIds = fbaIdsCell.getAttribute('data-full') || fbaIdsCell.textContent || '';
+            if (fullFbaIds.toLowerCase().includes(searchTerm)) return true;
+        }
+        
+        if (containerCell) {
+            const containerText = containerCell.textContent || '';
+            if (containerText.toLowerCase().includes(searchTerm)) return true;
+        }
+        
+        const destination = row.getAttribute('data-destination') || '';
+        if (destination.toLowerCase().includes(searchTerm)) return true;
+        
+        return false;
+    }
+
+    // 搜索按钮事件绑定
+    document.addEventListener('DOMContentLoaded', function() {
+        const searchUnscheduledBtn = document.getElementById('searchUnscheduledBtn');
+        const searchScheduledBtn = document.getElementById('searchScheduledBtn');
+        const searchReadyBtn = document.getElementById('searchReadyBtn');
+        const searchScheduledFleetBtn = document.getElementById('searchScheduledFleetBtn');
+        
+        if (searchUnscheduledBtn) {
+            searchUnscheduledBtn.addEventListener('click', function() {
+                applySearch('unscheduled');
+            });
+        }
+        
+        if (searchScheduledBtn) {
+            searchScheduledBtn.addEventListener('click', function() {
+                applySearch('scheduled');
+            });
+        }
+        
+        if (searchReadyBtn) {
+            searchReadyBtn.addEventListener('click', function() {
+                applySearch('ready');
+            });
+        }
+
+        if (searchScheduledFleetBtn) {
+            searchScheduledFleetBtn.addEventListener('click', function() {
+                applySearch('scheduledFleet');
+            });
+        }
+        // 回车键搜索
+        const unscheduledSearch = document.getElementById('unscheduledSearch');
+        const scheduledSearch = document.getElementById('scheduledSearch');
+        const readySearch = document.getElementById('readySearch');
+        const scheduledFleetSearch = document.getElementById('scheduledFleetSearch');
+        
+        if (unscheduledSearch) {
+            unscheduledSearch.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') applySearch('unscheduled');
+            });
+        }
+        
+        if (scheduledSearch) {
+            scheduledSearch.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') applySearch('scheduled');
+            });
+        }
+        
+        if (readySearch) {
+            readySearch.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') applySearch('ready');
+            });
+        }
+
+        if (scheduledFleetSearch) {
+            scheduledFleetSearch.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') applySearch('scheduledFleet');
+            });
         }
     });
-}
 
-function handleNormalRowSearch(row, searchTerm) {
-    const isMatch = isRowMatch(row, searchTerm);
-    row.style.display = isMatch ? '' : 'none';
-}
+    // 其他通用功能
+    function showLoadingBar() {
+        const buttons = document.querySelectorAll('button');
+        buttons.forEach(btn => {
+            if (btn.innerHTML.includes('fa-check')) {
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 处理中...';
+                btn.disabled = true;
+            }
+        });
+    }
 
-function isRowMatch(row, searchTerm) {
-    if (!searchTerm) return true;
-    
-    const rowText = row.textContent.toLowerCase();
-    if (rowText.includes(searchTerm)) return true;
-    
-    const refIdsCell = row.querySelector('.ref-ids-col');
-    const fbaIdsCell = row.querySelector('.fba-ids-col');
-    const containerCell = row.querySelector('.container-no-col');
-    
-    if (refIdsCell) {
-        const fullRefIds = refIdsCell.getAttribute('data-full') || refIdsCell.textContent || '';
-        if (fullRefIds.toLowerCase().includes(searchTerm)) return true;
-    }
-    
-    if (fbaIdsCell) {
-        const fullFbaIds = fbaIdsCell.getAttribute('data-full') || fbaIdsCell.textContent || '';
-        if (fullFbaIds.toLowerCase().includes(searchTerm)) return true;
-    }
-    
-    if (containerCell) {
-        const containerText = containerCell.textContent || '';
-        if (containerText.toLowerCase().includes(searchTerm)) return true;
-    }
-    
-    const destination = row.getAttribute('data-destination') || '';
-    if (destination.toLowerCase().includes(searchTerm)) return true;
-    
-    return false;
-}
-
-// 搜索按钮事件绑定
-document.addEventListener('DOMContentLoaded', function() {
-    const searchUnscheduledBtn = document.getElementById('searchUnscheduledBtn');
-    const searchScheduledBtn = document.getElementById('searchScheduledBtn');
-    const searchReadyBtn = document.getElementById('searchReadyBtn');
-    
-    if (searchUnscheduledBtn) {
-        searchUnscheduledBtn.addEventListener('click', function() {
-            applySearch('unscheduled');
-        });
-    }
-    
-    if (searchScheduledBtn) {
-        searchScheduledBtn.addEventListener('click', function() {
-            applySearch('scheduled');
-        });
-    }
-    
-    if (searchReadyBtn) {
-        searchReadyBtn.addEventListener('click', function() {
-            applySearch('ready');
-        });
-    }
-    
-    // 回车键搜索
-    const unscheduledSearch = document.getElementById('unscheduledSearch');
-    const scheduledSearch = document.getElementById('scheduledSearch');
-    const readySearch = document.getElementById('readySearch');
-    
-    if (unscheduledSearch) {
-        unscheduledSearch.addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') applySearch('unscheduled');
-        });
-    }
-    
-    if (scheduledSearch) {
-        scheduledSearch.addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') applySearch('scheduled');
-        });
-    }
-    
-    if (readySearch) {
-        readySearch.addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') applySearch('ready');
-        });
-    }
-});
-
-// 其他通用功能
-function showLoadingBar() {
-    const buttons = document.querySelectorAll('button');
-    buttons.forEach(btn => {
-        if (btn.innerHTML.includes('fa-check')) {
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 处理中...';
-            btn.disabled = true;
+    function unassignShipment(appointmentId) {
+        if (confirm('确定要取消这个预约的所有排约吗？')) {
+            document.getElementById('formStep').value = 'unassign_shipment';
+            document.getElementById('formAppointmentId').value = appointmentId;
+            document.getElementById('actionForm').submit();
         }
-    });
-}
+    }
 
-function unassignShipment(appointmentId) {
-    if (confirm('确定要取消这个预约的所有排约吗？')) {
-        document.getElementById('formStep').value = 'unassign_shipment';
-        document.getElementById('formAppointmentId').value = appointmentId;
+    function matchSingleCargo(cargoIds) {
+        document.getElementById('formStep').value = 'match_single_cargo';
+        document.getElementById('formCargoIds').value = cargoIds;
         document.getElementById('actionForm').submit();
     }
-}
 
-function matchSingleCargo(cargoIds) {
-    document.getElementById('formStep').value = 'match_single_cargo';
-    document.getElementById('formCargoIds').value = cargoIds;
-    document.getElementById('actionForm').submit();
-}
+    function matchSelectedCargos() {
+        const selectedCheckboxes = document.querySelectorAll('.unscheduled-checkbox:checked');
+        if (selectedCheckboxes.length === 0) {
+            alert('请先选择要匹配的PO');
+            return;
+        }
 
-function matchSelectedCargos() {
-    const selectedCheckboxes = document.querySelectorAll('.unscheduled-checkbox:checked');
-    if (selectedCheckboxes.length === 0) {
-        alert('请先选择要匹配的PO');
-        return;
-    }
-
-    const cargoIds = Array.from(selectedCheckboxes).map(checkbox => checkbox.value).join(',');
-    document.getElementById('formStep').value = 'match_selected_cargos';
-    document.getElementById('formCargoIds').value = cargoIds;
-    document.getElementById('actionForm').submit();
-}
-
-function applyGroupMatch(suggestionId) {
-    if (confirm('确定要将这些PO匹配到此预约吗？')) {
-        document.getElementById('formStep').value = 'apply_group_match';
-        document.getElementById('formSuggestionId').value = suggestionId;
+        const cargoIds = Array.from(selectedCheckboxes).map(checkbox => checkbox.value).join(',');
+        document.getElementById('formStep').value = 'match_selected_cargos';
+        document.getElementById('formCargoIds').value = cargoIds;
         document.getElementById('actionForm').submit();
     }
-}
 
-function selectGroupAppointment(select, groupKey) {
-    const appointmentId = select.value;
-    if (appointmentId) {
-        document.getElementById('formStep').value = 'assign_group_appointment';
-        document.getElementById('formAppointmentId').value = appointmentId;
-        document.getElementById('formGroupKey').value = groupKey;
-        document.getElementById('actionForm').submit();
+    function applyGroupMatch(suggestionId) {
+        if (confirm('确定要将这些PO匹配到此预约吗？')) {
+            document.getElementById('formStep').value = 'apply_group_match';
+            document.getElementById('formSuggestionId').value = suggestionId;
+            document.getElementById('actionForm').submit();
+        }
     }
-}
+
+    function selectGroupAppointment(select, groupKey) {
+        const appointmentId = select.value;
+        if (appointmentId) {
+            document.getElementById('formStep').value = 'assign_group_appointment';
+            document.getElementById('formAppointmentId').value = appointmentId;
+            document.getElementById('formGroupKey').value = groupKey;
+            document.getElementById('actionForm').submit();
+        }
+    }
 </script>
 {% endblock %}

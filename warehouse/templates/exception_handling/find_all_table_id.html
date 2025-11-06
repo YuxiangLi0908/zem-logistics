@@ -154,11 +154,27 @@
         color: #7f8c8d;
         margin-top: 5px;
     }
+    h2 {
+        text-align: center;
+        margin-bottom: 20px;
+        background: linear-gradient(45deg, #ff6b6b, #4ecdc4, #45b7d1, #96ceb4, #feca57);
+        background-size: 400% 400%;
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
+        animation: gradient 3s ease infinite;
+        font-weight: bold;
+    }
+    @keyframes gradient {
+        0% { background-position: 0% 50%; }
+        50% { background-position: 100% 50%; }
+        100% { background-position: 0% 50%; }
+    }
 </style>
 
 <!-- 页面标题 -->
-<div class="page-title">
-    <h2>🔍 统一数据查询系统</h2>
+<h2> 统一数据表查询</h2>
+<div class="page-title"> 
     <p>通过ID或其他字段查询所有表的数据记录 - 支持多表多字段查询</p>
 </div>
 

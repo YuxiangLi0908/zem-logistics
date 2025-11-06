@@ -1776,7 +1776,6 @@ class FleetManagement(View):
                 id__in=unshipped_pallet_ids
             )
         )
-
         # 把出库的板子的slot改为空    
         await sync_to_async(
             lambda: Pallet.objects.filter(id__in=shipped_pallet_ids)

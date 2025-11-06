@@ -60,7 +60,7 @@ from warehouse.utils.constants import (
 class PostNsop(View):
     template_main_dash = "post_port/new_sop/01_appointment/01_appointment_management.html"
     template_td_shipment = "post_port/new_sop/02_shipment/02_td_shipment.html"
-    template_fleet_schedule = "post_port/new_sop/03_fleet_schedule.html"
+    template_fleet_schedule = "post_port/new_sop/03_fleet_schedule/03_fleet_schedule.html"
     area_options = {"NJ": "NJ", "SAV": "SAV", "LA": "LA", "MO": "MO", "TX": "TX"}
     warehouse_options = {"":"", "NJ-07001": "NJ-07001", "SAV-31326": "SAV-31326", "LA-91761": "LA-91761"}
     account_options = {
@@ -133,8 +133,8 @@ class PostNsop(View):
         elif step == "update_fleet":
             fm = FleetManagement()
             context = await fm.handle_update_fleet_post(request,'post_nsop')
-            template, context = await self.handle_fleet_schedule_post(request)
-            context.update({"success_messages": "更新出库成功!"}) 
+            template, context = await self.handle_td_shipment_post(request)
+            context.update({"success_messages": "更新出库车次成功!"}) 
             return render(request, template, context)
         elif step == "fleet_confirmation":
             template, context = await self.handle_fleet_confirmation_post(request)
@@ -142,7 +142,7 @@ class PostNsop(View):
         elif step == "cancel_fleet":
             fm = FleetManagement()
             context = await fm.handle_cancel_fleet_post(request,'post_nsop')
-            template, context = await self.handle_fleet_schedule_post(request)
+            template, context = await self.handle_td_shipment_post(request)
             context.update({"success_messages": '取消批次成功!'})  
             return render(request, template, context)
         elif step == "confirm_delivery":
@@ -169,8 +169,8 @@ class PostNsop(View):
         elif step == "unassign_shipment":
             template, context = await self.handle_cancel_appointment_post(request)
             return render(request, template, context) 
-        elif step == "fleet_departure":
-            template, context = await self.handle_fleet_departure_post(request)
+        elif step == "one_fleet_departure":
+            template, context = await self.handle_one_fleet_departure_post(request)
             return render(request, template, context)
         elif step == "add_pallet":
             template, context = await self.handle_add_pallet_post(request)
@@ -329,7 +329,7 @@ class PostNsop(View):
             shipment = await Shipment.objects.select_related("fleet_number").aget(appointment_id=appointment_id)
         except ObjectDoesNotExist:
             context.update({"error_messages": f"{appointment_id}预约号找不到"})
-            return await self.handle_td_shipment_post(request,context)
+            return await self.handle_fleet_schedule_post(request,context)
         fleet = shipment.fleet_number
         fleet.total_weight += total_weight
         fleet.total_pcs += total_pcs
@@ -350,7 +350,7 @@ class PostNsop(View):
             )
         if 'error_messages' not in context:
             context.update({"success_messages": f"{appointment_id}加塞成功！"})
-        return await self.handle_td_shipment_post(request,context)
+        return await self.handle_fleet_schedule_post(request,context)
     
     async def handle_search_addable_po_post(
         self, request: HttpRequest
@@ -404,7 +404,7 @@ class PostNsop(View):
     ) -> tuple[str, dict[str, Any]]:
         warehouse = request.POST.get("warehouse")
         destination = request.POST.get("destination")
-        tab = request.POST.get("tab")
+        active_tab = request.POST.get("active_tab")
         step = request.POST.get("step")
         criteria_plt = models.Q(
             shipment_batch_number__fleet_number__fleet_number__isnull=True,
@@ -419,33 +419,58 @@ class PostNsop(View):
             )& models.Q(pk=0),
             criteria_plt
         )
-        
         context = {
             "warehouse": warehouse,
             "destination": destination,
             "plt_unshipped": plt_unshipped,
             "step": step,  # ← 前端靠这个判断要不要弹窗
-            "active_tab": tab,          # ← 用来控制前端打开哪个标签页
+            "active_tab": active_tab,          # ← 用来控制前端打开哪个标签页
             "show_add_po_modal": True,   # ← 控制是否直接弹出“添加PO”弹窗
             "add_po_title": "加塞",
             "add_pallet_ISA": request.POST.get('add_pallet_ISA')
         }
-        return await self.handle_td_shipment_post(request, context)
+        return await self.handle_fleet_schedule_post(request, context)
 
-    async def handle_fleet_departure_post(
-        self, request: HttpRequest
+    async def handle_one_fleet_departure_post(
+        self, request: HttpRequest, context: str | None = None
     ) -> tuple[str, dict[str, Any]]:
-        batch_number = request.POST.getlist('batch_number')
-        new_batch = []
-        for i in batch_number:
-            shipment = await sync_to_async(Shipment.objects.get)(appointment_id=i)
-            new_batch.append(shipment.shipment_batch_number)
+        if not context:
+            context = {}
+        request.POST = request.POST.copy()
+        if "plt_ids" in request.POST:
+            try:
+                raw_plt = request.POST.get("plt_ids")
+                plt_list = json.loads(raw_plt)  # => [["5022,5023,5024,5025,5026"], ["3343,3344"]]
+                flattened_plt = [",".join(inner) if isinstance(inner, list) else str(inner) for inner in plt_list]
+                request.POST.setlist("plt_ids", flattened_plt)
+            except Exception as e:
+                raise ValueError("⚠️ plt_ids 解析错误:", e)
+
+        for key in ["scheduled_pallet", "actual_shipped_pallet"]:
+            if key in request.POST:
+                raw_value = request.POST.get(key)  # 例如 '5,2'
+                parts = [v.strip() for v in raw_value.split(",") if v.strip()]
+                request.POST.setlist(key, parts)
+        if "batch_number" in request.POST:
+            raw_value = request.POST.get("batch_number")  # 例如 '23487532,43324296'
+            try:
+                parts = [int(v.strip()) for v in raw_value.split(",") if v.strip()]
+                parts = list(set(parts))
+                shipments = await sync_to_async(Shipment.objects.filter)(
+                    appointment_id__in=parts
+                )
+                batch_numbers = await sync_to_async(list)(
+                    shipments.values_list('shipment_batch_number', flat=True)
+                )
+            except ValueError:
+                raise ValueError("⚠️ batch_number 转换为 int 出错，原始值:", raw_value)
 
         request.POST = request.POST.copy()
-        request.POST.setlist('batch_number', new_batch)
+        request.POST.setlist('batch_number', batch_numbers)
         fm = FleetManagement()
-        context = await fm.handle_fleet_departure_post(request,'post_nsop')
-        return await self.handle_td_shipment_post(request,context)         
+        context_new = await fm.handle_fleet_departure_post(request,'post_nsop')
+        context.update(context_new)
+        return await self.handle_fleet_schedule_post(request,context)         
     
     async def handle_export_virtual_fleet_pos_post(
         self, request: HttpRequest
@@ -750,7 +775,6 @@ class PostNsop(View):
         return await self.handle_td_shipment_post(request, context)
 
     async def _add_appointments_to_fleet(self,appointment_ids):
-        print('appointment_ids',appointment_ids)
         current_time = datetime.now()
         fleet_number = (
             "F"
@@ -762,12 +786,9 @@ class PostNsop(View):
             .values('id', 'shipment_type', 'origin')
             .distinct()
         )
-        print('shipment_info',shipment_info)
         shipment_ids = [item['id'] for item in shipment_info]
         shipment_types = list(set(item['shipment_type'] for item in shipment_info))
         origins = list(set(item['origin'] for item in shipment_info))
-        print('shipment_types',shipment_types)
-        print('origins',origins)
 
         total_weight, total_cbm, total_pcs, total_pallet = 0.0, 0.0, 0, 0
         #记录总数
@@ -1080,6 +1101,8 @@ class PostNsop(View):
             address = request.POST.get('address')
             if not address:
                 address = await self.get_address(destination)
+                if not address:
+                    raise ValueError('没找到地址')
             
             #先去查询一下shipment表，有没有这个记录，就是第一次预约出库，如果有就是修改
             try:
@@ -1134,10 +1157,18 @@ class PostNsop(View):
             }
             request.POST = request.POST.copy()
             request.POST['shipment_data'] = str(shipment_data)
-            request.POST['batch_number'] = shipment_batch_number     
+            request.POST['batch_number'] = shipment_batch_number   
+            request.POST['address'] = address      
             request.POST['pl_ids'] = selected
             request.POST['plt_ids'] = selected_plt
             request.POST['type'] = 'td'
+            request.POST['origin'] = request.POST.get('warehouse')  
+            request.POST['load_type'] = request.POST.get('load_type')  
+            request.POST['note'] = request.POST.get('note')  
+            request.POST['destination'] = destination
+            request.POST['shipment_type'] = request.POST.get('shipment_type')  
+            request.POST['appointment_id'] = request.POST.get('appointment_id')  
+            request.POST['shipment_cargo_id'] = request.POST.get('shipment_cargo_id')  
             
             sm = ShippingManagement()
             info = await sm.handle_appointment_post(request,'post_nsop') 
@@ -1204,10 +1235,9 @@ class PostNsop(View):
         context = {}
         if error_message:
             context.update({"error_messages": error_message}) 
-        _, context = await self.handle_fleet_schedule_post(request, context)
-        context.update({"success_messages": f'排车成功!批次号是：{fleet_number}'}) 
-        
-        return await self.handle_fleet_schedule_post(request, context)
+        _, context = await self.handle_td_shipment_post(request, context)
+        context.update({"success_messages": f'排车成功!批次号是：{fleet_number}'})    
+        return await self.handle_td_shipment_post(request, context)
 
     async def handle_appointment_time(
         self, request: HttpRequest
@@ -1537,6 +1567,7 @@ class PostNsop(View):
     async def _fl_unscheduled_data(
         self, request: HttpRequest, warehouse:str
     ) -> tuple[str, dict[str, Any]]:
+        target_date = datetime(2025, 10, 10)
         shipment = await sync_to_async(list)(
             Shipment.objects.filter(
                 origin=warehouse,
@@ -1551,6 +1582,7 @@ class PostNsop(View):
                 origin=warehouse,
                 departured_at__isnull=True,
                 is_canceled=False,
+                appointment_datetime__gt=target_date,
             )
             .prefetch_related("shipment")
             .annotate(
@@ -1675,9 +1707,10 @@ class PostNsop(View):
         sp_fl = await self._fl_unscheduled_data(request, warehouse)
         delivery_data = await self._fl_delivery_get(request, warehouse)
         pod_data = await self._fl_pod_get(request, warehouse)
-
+        ready_to_ship_data = await self._sp_ready_to_ship_data(warehouse,request.user)
         summary = {
             'unscheduled_count': len(sp_fl['shipment_list']),
+            'ready_to_ship_count': len(ready_to_ship_data),
             'scheduled_count': len(sp_fl['fleet_list']),
             'ready_count': len(delivery_data['shipments']),
             'pod_count': len(pod_data['fleet']),
@@ -1689,6 +1722,7 @@ class PostNsop(View):
             'fleet_list': sp_fl['fleet_list'],
             'delivery_shipments': delivery_data['shipments'],
             'pod_shipments': pod_data['fleet'],
+            'ready_to_ship_data': ready_to_ship_data,
             'summary': summary,        
             'warehouse_options': self.warehouse_options,
             "account_options": self.account_options,
@@ -1727,13 +1761,13 @@ class PostNsop(View):
         #未排车
         unschedule_fleet = await self._fl_unscheduled_data(request, warehouse)
         unschedule_fleet_data = unschedule_fleet['shipment_list']
-        ready_to_ship_data = await self._sp_ready_to_ship_data(warehouse,request.user)
-        
+        #已排车
+        sp_fl = await self._fl_unscheduled_data(request, warehouse)
         # 获取可用预约
         available_shipments = await self.sp_available_shipments(warehouse, st_type)
         
         # 计算统计数据
-        summary = await self._sp_calculate_summary(matching_suggestions, scheduled_data, ready_to_ship_data, unschedule_fleet_data)       
+        summary = await self._sp_calculate_summary(matching_suggestions, scheduled_data, sp_fl, unschedule_fleet_data)       
 
         if not context:
             context = {}
@@ -1747,8 +1781,8 @@ class PostNsop(View):
             'matching_suggestions': matching_suggestions,
             'scheduled_data': scheduled_data,
             'unschedule_fleet': unschedule_fleet_data,
+            'fleet_list': sp_fl['fleet_list'],   #已排车
             'unscheduled_fl_count': len(unschedule_fleet.get('shipment_list', [])) if unschedule_fleet else 0,
-            'ready_to_ship_data': ready_to_ship_data,
             'available_shipments': available_shipments,
             'summary': summary,
             'max_cbm': max_cbm,
@@ -1758,6 +1792,7 @@ class PostNsop(View):
             "load_type_options": LOAD_TYPE_OPTIONS,
             "shipment_type_options": self.shipment_type_options,
             "carrier_options": self.carrier_options,
+            'active_tab': request.POST.get('active_tab')
         }) 
         context["matching_suggestions_json"] = json.dumps(matching_suggestions, cls=DjangoJSONEncoder)
         context["warehouse_json"] = json.dumps(warehouse, cls=DjangoJSONEncoder)
@@ -2176,18 +2211,21 @@ class PostNsop(View):
     async def sp_scheduled_data(self, warehouse: str, user) -> list:
         """获取已排约数据 - 按shipment_batch_number分组"""
         # 获取有shipment_batch_number但fleet_number为空的货物
+        target_date = datetime(2025, 10, 10)
         raw_data = await self._get_packing_list(
             user,
             models.Q(
                 container_number__order__warehouse__name=warehouse,
-                shipment_batch_number__isnull=False,
+                shipment_batch_number__isnull=False,             
                 container_number__order__offload_id__offload_at__isnull=True,
                 shipment_batch_number__shipment_batch_number__isnull=False,
+                shipment_batch_number__shipment_appointment__gt=target_date,
                 shipment_batch_number__fleet_number__isnull=True,
                 delivery_type='public',
             ),
             models.Q(
                 shipment_batch_number__shipment_batch_number__isnull=False,
+                shipment_batch_number__shipment_appointment__gt=target_date,
                 container_number__order__offload_id__offload_at__isnull=False,
                 shipment_batch_number__fleet_number__isnull=True,
                 location=warehouse,
@@ -2420,12 +2458,12 @@ class PostNsop(View):
         
         return False
 
-    async def _sp_calculate_summary(self, unscheduled: list, scheduled: list, ready: list, unscheduled_fl) -> dict:
+    async def _sp_calculate_summary(self, unscheduled: list, scheduled: list, sp_fl: list, unscheduled_fl) -> dict:
         """计算统计数据"""
         # 计算各类数量
         unscheduled_count = len(unscheduled)
         scheduled_count = len(scheduled)
-        ready_count = len(ready)
+        sp_fl_count = len(sp_fl['fleet_list'])
         unscheduled_fl_count = len(unscheduled_fl)
         # 计算总板数
         total_pallets = 0
@@ -2435,7 +2473,7 @@ class PostNsop(View):
         return {
             'unscheduled_count': unscheduled_count,
             'scheduled_count': scheduled_count,
-            'ready_count': ready_count,
+            'sp_fl_count': sp_fl_count,
             'unscheduled_fl_count': unscheduled_fl_count,
             'total_pallets': int(total_pallets),
         }
