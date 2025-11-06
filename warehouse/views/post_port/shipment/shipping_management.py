@@ -2558,18 +2558,23 @@ class ShippingManagement(View):
         )
         if appointment:
             raise RuntimeError(f"预约号 {appointment_id} 已经录过了!")
-        await sync_to_async(Shipment.objects.create)(
-            **{
-                "appointment_id": appointment_id,
-                "destination": request.POST.get("destination").upper(),
-                "shipment_appointment": request.POST.get("shipment_appointment"),
-                "load_type": request.POST.get("load_type"),
-                "origin": request.POST.get("origin", None),
-                "shipment_account": request.POST.get("shipment_account", None),
-                "in_use": False,
-                "shipment_cargo_id": shipment_cargo_id,
-            }
-        )
+        shipment_data = {
+            "appointment_id": appointment_id,
+            "destination": request.POST.get("destination", "").upper(),
+            "shipment_appointment": request.POST.get("shipment_appointment"),
+            "load_type": request.POST.get("load_type"),
+            "origin": request.POST.get("origin"),
+            "shipment_account": request.POST.get("shipment_account"),
+            "in_use": False,
+            "shipment_cargo_id": shipment_cargo_id,
+        }
+
+        # 只有 pickup_time 存在时才添加到字典
+        pickup_time = request.POST.get("pickup_time")
+        if pickup_time:
+            shipment_data["pickup_time"] = pickup_time
+
+        await sync_to_async(Shipment.objects.create)(**shipment_data)
         if name == "post_nsop":
             return True
         warehouse = request.POST.get("warehouse", "")
@@ -2612,6 +2617,7 @@ class ShippingManagement(View):
                 warehouse = row["warehouse"]
                 load_type = row["load_type"]
                 shipment_account = row["shipment_account"]
+                pickup_time = row["pickup_time"]
                 row_num = idx + 2  # Excel 行号从 1 开始，表头占 1 行
 
                 # 1. 校验不为空
@@ -2665,6 +2671,7 @@ class ShippingManagement(View):
                     "in_use": False,
                     "load_type": d["load_type"].strip(),
                     "shipment_account": d["shipment_account"].strip(),
+                    "pickup_time": d.get("pickup_time")
                 }
                 for d in data
             ]
