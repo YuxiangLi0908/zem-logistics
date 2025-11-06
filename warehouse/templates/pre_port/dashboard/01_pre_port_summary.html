@@ -593,7 +593,12 @@
                                 {% endif %}
                             </td>
                             <td>
-                                {{ o.retrieval_id.planned_release_time|date:"Y-M-j" }}
+                                {% if o.retrieval_id.planned_release_time %}
+                                    <span class="status-span-green-100">
+                                    {{ o.retrieval_id.planned_release_time|date:"Y-M-j" }}
+                                {% else %}
+                                    <span class="status-span-red-100">无计划放行时间</span>
+                                {% endif %}
                             </td>
                             <td>
                                 {% if o.retrieval_id.target_retrieval_timestamp_lower or o.retrieval_id.target_retrieval_timestamp %}

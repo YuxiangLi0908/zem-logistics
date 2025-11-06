@@ -38,25 +38,19 @@ class PrePortDash(View):
         step = request.POST.get("step", None)
         # 根据建单时间和ETA进行筛选
         if step == "search_orders":
-            start_date = request.POST.get("start_date")
-            end_date = request.POST.get("end_date")
             start_date_eta = request.POST.get("start_date_eta")
             end_date_eta = request.POST.get("end_date_eta")
             template, context = await self.handle_all_get(
-                start_date=start_date,
-                end_date=end_date,
                 start_date_eta=start_date_eta,
                 end_date_eta=end_date_eta,
                 tab="summary",
             )
             return await sync_to_async(render)(request, template, context)
         elif step == "download_eta_file":
-            start_date = request.POST.get("start_date")
-            end_date = request.POST.get("end_date")
             start_date_eta = request.POST.get("start_date_eta")
             end_date_eta = request.POST.get("end_date_eta")
             return await self.download_eta_file(
-                start_date, end_date, start_date_eta, end_date_eta
+                start_date_eta, end_date_eta
             )
         elif step == "get_note_preport_dispatch":
             template, context = await self.get_note_preport_dispatch(request)
@@ -75,7 +69,7 @@ class PrePortDash(View):
             return await sync_to_async(render)(request, self.template_main, {})
 
     async def download_eta_file(
-        self, start_date, end_date, start_date_eta, end_date_eta
+        self, start_date_eta, end_date_eta
     ) -> HttpResponse:
         current_date = datetime.now().date()
         start_date_eta = (
@@ -98,17 +92,11 @@ class PrePortDash(View):
                 "warehouse",
             )
             .filter(
-                models.Q(
-                    created_at__gte=start_date,
-                    created_at__lte=end_date,
-                )
-                & (
                     models.Q(
                         vessel_id__vessel_eta__gte=start_date_eta,
                         vessel_id__vessel_eta__lte=end_date_eta,
                     )
                     | models.Q(eta__gte=start_date_eta, eta__lte=end_date_eta)
-                )
             )
             .values(
                 "container_number__container_number",
@@ -140,37 +128,40 @@ class PrePortDash(View):
         return response
 
     async def handle_all_get(
-        self,
-        start_date: str = None,
-        end_date: str = None,
-        start_date_eta: str = None,
-        end_date_eta: str = None,
-        tab: str = None,
+            self,
+            start_date_eta: str = None,
+            end_date_eta: str = None,
+            tab: str = None,
     ) -> tuple[Any, Any]:
         current_date = datetime.now().date()
-        start_date = (
-            (datetime.now().date() + timedelta(days=-7)).strftime("%Y-%m-%d")
-            if not start_date
-            else start_date
-        )
-        end_date = (
-            (datetime.now().date() + timedelta(days=7)).strftime("%Y-%m-%d")
-            if not end_date
-            else end_date
-        )
         criteria = models.Q(
-            created_at__gte=start_date,
-            created_at__lte=end_date,
             cancel_notification=False,
         )
-        if start_date_eta:
-            criteria &= models.Q(vessel_id__vessel_eta__gte=start_date_eta) | models.Q(
-                eta__gte=start_date_eta
+
+        # 处理ETA日期条件
+        def parse_eta_date(date_str):
+            if not date_str:
+                return None
+            date_obj = datetime.strptime(date_str, "%Y-%m-%d")
+            # 转换为带时区的datetime（当天0点）
+            naive_datetime = datetime.combine(date_obj, datetime.min.time())
+            return timezone.make_aware(naive_datetime)  # 关键：添加时区信息
+
+        start_eta = parse_eta_date(start_date_eta)
+        end_eta = parse_eta_date(end_date_eta)
+
+        if start_eta:
+            criteria &= models.Q(vessel_id__vessel_eta__gte=start_eta) | models.Q(
+                eta__gte=start_eta
             )
-        if end_date_eta:
-            criteria &= models.Q(vessel_id__vessel_eta__lte=end_date_eta) | models.Q(
-                eta__lte=end_date_eta
+        if end_eta:
+            # 结束日期设置为当天23:59:59
+            end_eta = end_eta.replace(hour=23, minute=59, second=59)
+            criteria &= models.Q(vessel_id__vessel_eta__lte=end_eta) | models.Q(
+                eta__lte=end_eta
             )
+
+        # 后续查询代码不变...
         customers = await sync_to_async(list)(Customer.objects.all())
         customers = {c.zem_name: c.zem_name for c in customers}
         orders = await sync_to_async(list)(
@@ -187,13 +178,13 @@ class PrePortDash(View):
                 priority=Case(
                     When(retrieval_id__empty_returned=True, then=Value(1)),
                     When(
-                        offload_id__offload_at__isnull=False,  # 有拆柜时间→已拆柜
-                        retrieval_id__empty_returned=False,  # 未还空
+                        offload_id__offload_at__isnull=False,
+                        retrieval_id__empty_returned=False,
                         then=Value(2)
                     ),
                     When(
-                        retrieval_id__actual_retrieval_timestamp__isnull=False,  # 有实际提柜时间→已提
-                        offload_id__offload_at__isnull=True,  # 无拆柜时间→未拆
+                        retrieval_id__actual_retrieval_timestamp__isnull=False,
+                        offload_id__offload_at__isnull=True,
                         then=Value(3)
                     ),
                     default=Value(4),
@@ -206,11 +197,11 @@ class PrePortDash(View):
             )
             .order_by("priority", "sort_time")
         )
+
+        # 转换回字符串格式供前端使用
         context = {
             "customers": customers,
             "orders": orders,
-            "start_date": start_date,
-            "end_date": end_date,
             "start_date_eta": start_date_eta,
             "end_date_eta": end_date_eta,
             "current_date": current_date,
@@ -229,13 +220,9 @@ class PrePortDash(View):
         else:
             retrieval_obj.retrieval_cabinet_arrangement_time = None
         await retrieval_obj.asave()
-        start_date = request.POST.get("start_date", None)
-        end_date = request.POST.get("end_date", None)
         start_date_eta = request.POST.get("start_date_eta", None)
         end_date_eta = request.POST.get("end_date_eta", None)
         template, context = await self.handle_all_get(
-            start_date=start_date,
-            end_date=end_date,
             start_date_eta=start_date_eta,
             end_date_eta=end_date_eta,
             tab="summary",
@@ -259,14 +246,10 @@ class PrePortDash(View):
                 except Offload.DoesNotExist:
                     continue
 
-        start_date = request.POST.get("start_date", None)
-        end_date = request.POST.get("end_date", None)
         start_date_eta = request.POST.get("start_date_eta", None)
         end_date_eta = request.POST.get("end_date_eta", None)
 
         template, context = await self.handle_all_get(
-            start_date=start_date,
-            end_date=end_date,
             start_date_eta=start_date_eta,
             end_date_eta=end_date_eta,
             tab="summary",
@@ -284,13 +267,9 @@ class PrePortDash(View):
         else:
             offload_obj.offload_at = None
         await offload_obj.asave()
-        start_date = request.POST.get("start_date", None)
-        end_date = request.POST.get("end_date", None)
         start_date_eta = request.POST.get("start_date_eta", None)
         end_date_eta = request.POST.get("end_date_eta", None)
         template, context = await self.handle_all_get(
-            start_date=start_date,
-            end_date=end_date,
             start_date_eta=start_date_eta,
             end_date_eta=end_date_eta,
             tab="summary",
@@ -303,8 +282,6 @@ class PrePortDash(View):
                 return None
             return value
         note_preport_dispatch = request.POST.get("note_preport_dispatch")
-        start_date = process_empty(request.POST.get("start_date"))
-        end_date = process_empty(request.POST.get("end_date"))
         start_date_eta = process_empty(request.POST.get("start_date_eta"))  # 处理后为None
         end_date_eta = process_empty(request.POST.get("end_date_eta"))
         retrieval_id = request.POST.get("retrieval_id")
@@ -313,7 +290,7 @@ class PrePortDash(View):
                     note_preport_dispatch=note_preport_dispatch
                 )
             )()
-        template_main, context = await self.handle_all_get(start_date, end_date, start_date_eta, end_date_eta)
+        template_main, context = await self.handle_all_get(start_date_eta, end_date_eta)
         return template_main, context
 
 
