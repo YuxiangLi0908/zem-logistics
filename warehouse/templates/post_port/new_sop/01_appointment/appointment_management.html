@@ -217,6 +217,7 @@
                         <th>shipment ID</th>
                         <th>预约号</th>
                         <th>目的地</th>
+                        <th>Pickup Time</th>
                         <th>Scheduled Time</th>
                         <th>装车类型</th>
                         <th>发货仓库</th>
@@ -234,6 +235,7 @@
                         <td><input type="number" name="shipment_cargo_id"></td>
                         <td><input type="number" name="appointment_id" required></td>
                         <td><input type="text" name="destination" required></td>
+                        <td><input type="datetime-local" name="pickup_time"></td>
                         <td><input type="datetime-local" name="shipment_appointment" required></td>
                         <td>
                             <select name="load_type" id="load-type-select">
@@ -290,6 +292,7 @@
                 <th>预约号</th>
                 <th>shipment ID</th>
                 <th>目的地</th>
+                <th>Pickup Time</th>
                 <th>Scheduled Time</th>
                 <th>装车类型</th>
                 <th>发货仓库</th>
@@ -304,6 +307,7 @@
                 <td>{{ s.appointment_id }}</td>
                 <td>{{ s.shipment_cargo_id|default_if_none:'' }}</td>
                 <td>{{ s.destination }}</td>
+                <td style="width:50px;">{{ s.pickup_time|default_if_none:''|date:'Y-m-d' }}</td>
                 <td>
                     {% if s.status == 'expired' %}
                     <span class="status-span-red">已过期</span>
