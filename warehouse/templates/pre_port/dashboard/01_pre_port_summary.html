@@ -472,6 +472,7 @@
                         <th class="th">订单类型</th>
                         <th class="th">所属仓/直送地址</th>
                         <th class="th">放行状态</th>
+                        <th class="th">计划放行时间</th>
                         <th class="th">预计提柜时间</th>
                         <th class="th">实际提柜</th>
                         <th class="th">提柜安排</th>
@@ -515,46 +516,53 @@
                                    data-col="7">
                         </th>
                         <th class="th">
-                            <input type="text" placeholder="搜索预计提柜时间..."
+                            <input type="text" placeholder="搜索计划放行时间..."
                                    oninput="filterTable(this)"
                                    size="13" style="font-size: 11px;"
                                    data-col="8">
                         </th>
                         <th class="th">
+                            <input type="text" placeholder="搜索预计提柜时间..."
+                                   oninput="filterTable(this)"
+                                   size="13" style="font-size: 11px;"
+                                   data-col="9">
+                        </th>
+
+                        <th class="th">
                             <input type="text" placeholder="搜索提柜安排..."
                                    oninput="filterTable(this)"
                                    size="13" style="font-size: 11px;"
-                                   data-col="8">
+                                   data-col="10">
                         </th>
                         <th class="th" style="width: 237px;">
                             <input type="text" placeholder="搜索实际提柜..."
                                    oninput="filterTable(this)"
                                    size="13" style="font-size: 11px;"
-                                   data-col="9">
+                                   data-col="11">
                         </th>
                         <th class="th" style="width: 237px;">
                             <input type="text" placeholder="搜索拆柜时间..."
                                    oninput="filterTable(this)"
                                    size="13" style="font-size: 11px;"
-                                   data-col="11">
+                                   data-col="12">
                         </th>
                         <th class="th">
                             <input type="text" placeholder="搜索还空状态..."
                                    oninput="filterTable(this)"
                                    size="13" style="font-size: 11px;"
-                                   data-col="12">
+                                   data-col="13">
                         </th>
                         <th class="th">
                             <input type="text" placeholder="搜索港前完结..."
                                    oninput="filterTable(this)"
                                    size="13" style="font-size: 11px;"
-                                   data-col="4">
+                                   data-col="14">
                         </th>
                         <th class="th">
                             <input type="text" placeholder="搜索货柜备注..."
                                    oninput="filterTable(this)"
                                    size="13" style="font-size: 11px;"
-                                   data-col="13">
+                                   data-col="15">
                         </th>
                     </tr>
                     </thead>
@@ -585,6 +593,9 @@
                                 {% endif %}
                             </td>
                             <td>
+                                {{ o.retrieval_id.planned_release_time|date:"Y-M-j" }}
+                            </td>
+                            <td>
                                 {% if o.retrieval_id.target_retrieval_timestamp_lower or o.retrieval_id.target_retrieval_timestamp %}
                                     <span class="status-span-green-100">
                                 {{ o.retrieval_id.target_retrieval_timestamp_lower|date:"M-j" }} - {{ o.retrieval_id.target_retrieval_timestamp|date:"M-j" }}
@@ -593,6 +604,7 @@
                                     <span class="status-span-red-100">无提柜计划</span>
                                 {% endif %}
                             </td>
+
                             <td>
                                 {% if o.retrieval_id.actual_retrieval_timestamp %}
                                     <span class="status-span-green-100">{{ o.retrieval_id.actual_retrieval_timestamp|date:"M-j" }}</span>

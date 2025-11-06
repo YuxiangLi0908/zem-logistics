@@ -183,37 +183,27 @@ class PrePortDash(View):
                 "warehouse",
             )
             .filter(criteria)
-            # 1. 先通过annotate定义排序优先级和时间
             .annotate(
-                # 定义优先级：1-已还空，2-已拆未还，3-已提未拆，4-待提
                 priority=Case(
-                    # 情况1：已还空（最高优先级）
                     When(retrieval_id__empty_returned=True, then=Value(1)),
-                    # 情况2：已拆柜但未还空
                     When(
                         offload_id__offload_at__isnull=False,  # 有拆柜时间→已拆柜
                         retrieval_id__empty_returned=False,  # 未还空
                         then=Value(2)
                     ),
-                    # 情况3：已提柜但未拆柜
                     When(
                         retrieval_id__actual_retrieval_timestamp__isnull=False,  # 有实际提柜时间→已提
                         offload_id__offload_at__isnull=True,  # 无拆柜时间→未拆
                         then=Value(3)
                     ),
-                    # 情况4：待提柜（默认最低优先级）
                     default=Value(4),
                     output_field=IntegerField()
                 ),
-                # 定义排序时间：不同状态对应不同时间字段
                 sort_time=Case(
-                    # 已还空/已拆未还/已提未拆：按实际提柜时间排序
                     When(priority__in=[1, 2, 3], then=F('retrieval_id__actual_retrieval_timestamp')),
-                    # 待提柜：按预约提柜时间排序
                     default=F('retrieval_id__target_retrieval_timestamp'),
                 )
             )
-            # 2. 按优先级→排序时间 升序排列（优先级1最前，同优先级内时间越早越前）
             .order_by("priority", "sort_time")
         )
         context = {
