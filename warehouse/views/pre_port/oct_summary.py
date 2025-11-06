@@ -307,14 +307,12 @@ class OctSummaryView(View):
         eta_start_datetime = timezone.make_aware(eta_start_datetime)
         eta_end_datetime = timezone.make_aware(eta_end_last_second)
 
-        # 构建Q对象用于条件过滤，区分不同订单类型的仓点过滤逻辑
-        filter_conditions = Q(
+        filter_conditions = (Q(
             container_number__order__vessel_id__vessel_eta__gte=eta_start_datetime,
             container_number__order__vessel_id__vessel_eta__lte=eta_end_datetime,
-            cancel_notification__isnull=False,
-        )|Q(
+        )& ~Q(cancel_notification=True)) | (Q(
             container_number__order__vessel_id__isnull=True,
-            cancel_notification__isnull=False)
+        )& ~Q(cancel_notification=True))
 
         # 组合条件：直送订单通过港口映射获取仓点，其他订单直接匹配仓点
         filter_conditions &= Q(
@@ -369,8 +367,7 @@ class OctSummaryView(View):
                 shipping_line=F("vessel_id__shipping_line"),
                 vessel=F("vessel_id__vessel"),
                 container_type=F("container_number__container_type"),
-                vessel_date=F("vessel_id__vessel_eta") -
-                            F("vessel_id__vessel_etd"),
+                vessel_date=F("vessel_id__vessel_eta") - F("vessel_id__vessel_etd"),
                 vessel_etd=F("vessel_id__vessel_etd"),
                 vessel_eta=F("vessel_id__vessel_eta"),
                 temp_t49_available_for_pickup=F("retrieval_id__temp_t49_available_for_pickup"),
@@ -414,8 +411,16 @@ class OctSummaryView(View):
                 "do_sent", "id", "status", "retrieval_carrier_planned", "retrieval_id__retrieval_id",
                 "retrieval_delegation_status", "planned_release_time", "actual_release_status"
             )
-            # 按创建时间倒序（最新数据优先显示，符合用户习惯）
-            .order_by("-created_at")
+            # 排序规则修改：先按已放行（True）优先，再按ETA升序（越早越前）
+            .order_by(
+                Case(
+                    When(actual_release_status=True, then=0),  # 已放行排前面
+                    When(actual_release_status=False, then=1),  # 未放行排后面
+                    default=2,  # 其他状态最后
+                    output_field=IntegerField()
+                ),
+                "vessel_eta"  # ETA越早越靠前
+            )
         )
 
     async def _get_pallet_by_order_at(self, warehouse: str, order_start: str, order_end: str) -> list[dict]:
@@ -433,7 +438,7 @@ class OctSummaryView(View):
             created_at__gte=order_start_datetime,
             created_at__lte=order_end_datetime,
             cancel_notification__isnull=False,
-        )
+        )& ~Q(cancel_notification=True)
 
         # 组合条件：直送订单通过港口映射获取仓点，其他订单直接匹配仓点
         filter_conditions &= Q(
@@ -533,8 +538,16 @@ class OctSummaryView(View):
                 "do_sent", "id", "status", "retrieval_carrier_planned", "retrieval_id__retrieval_id",
                 "retrieval_delegation_status", "planned_release_time", "actual_release_status"
             )
-            # 按创建时间倒序（最新数据优先显示，符合用户习惯）
-            .order_by("-created_at")
+            # 排序规则修改：先按已放行（True）优先，再按ETA升序（越早越前）
+            .order_by(
+                Case(
+                    When(actual_release_status=True, then=0),  # 已放行排前面
+                    When(actual_release_status=False, then=1),  # 未放行排后面
+                    default=2,  # 其他状态最后
+                    output_field=IntegerField()
+                ),
+                "vessel_eta"  # ETA越早越靠前
+            )
         )
 
     warehouse_options = {
