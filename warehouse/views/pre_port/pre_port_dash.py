@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
 from typing import Any
+from urllib import request
 
 import pandas as pd
 from asgiref.sync import sync_to_async
@@ -10,6 +11,7 @@ from django.shortcuts import redirect, render
 from django.utils import timezone
 from django.views import View
 
+from warehouse.models.container import Container
 from warehouse.models.customer import Customer
 from warehouse.models.offload import Offload
 from warehouse.models.order import Order
@@ -63,6 +65,12 @@ class PrePortDash(View):
             return await sync_to_async(render)(request, template, context)
         elif step == "batch_get_offload_at":
             template, context = await self.batch_get_offload_at(request)
+            return await sync_to_async(render)(request, template, context)
+        elif step == "save_is_abnormal_state":
+            template, context = await self.save_is_abnormal_state(request)
+            return await sync_to_async(render)(request, template, context)
+        elif step == "get_is_abnormal_state":
+            template, context = await self.get_is_abnormal_state(request)
             return await sync_to_async(render)(request, template, context)
 
         else:
@@ -127,6 +135,76 @@ class PrePortDash(View):
         df.to_csv(path_or_buf=response, index=False, encoding="utf-8-sig")
         return response
 
+    async def save_is_abnormal_state(self, request):
+        is_abnormal_state = request.POST.get("is_abnormal_state")
+        container_number = request.POST.get("container_number")
+        start_date_eta = request.POST.get("start_date_eta")
+        end_date_eta = request.POST.get("end_date_eta")
+        await sync_to_async(
+            lambda: Container.objects.filter(container_number=container_number).update(
+                is_abnormal_state=is_abnormal_state
+            )
+        )()
+        template, context = await self.handle_all_get(
+            start_date_eta=start_date_eta,
+            end_date_eta=end_date_eta,
+            tab="summary",
+        )
+        return template, context
+
+    async def get_is_abnormal_state(self, request: HttpRequest) -> tuple[Any, Any]:
+        current_date = datetime.now().date()
+        criteria = models.Q(
+            cancel_notification=False,
+            container_number__is_abnormal_state=True
+        )
+
+
+        customers = await sync_to_async(list)(Customer.objects.all())
+        customers = {c.zem_name: c.zem_name for c in customers}
+        orders = await sync_to_async(list)(
+            Order.objects.select_related(
+                "vessel_id",
+                "container_number",
+                "customer_name",
+                "retrieval_id",
+                "offload_id",
+                "warehouse",
+            )
+            .filter(criteria)
+            .annotate(
+                priority=Case(
+                    When(retrieval_id__empty_returned=True, then=Value(1)),
+                    When(
+                        offload_id__offload_at__isnull=False,
+                        retrieval_id__empty_returned=False,
+                        then=Value(2)
+                    ),
+                    When(
+                        retrieval_id__actual_retrieval_timestamp__isnull=False,
+                        offload_id__offload_at__isnull=True,
+                        then=Value(3)
+                    ),
+                    default=Value(4),
+                    output_field=IntegerField()
+                ),
+                sort_time=Case(
+                    When(priority__in=[1, 2, 3], then=F('retrieval_id__actual_retrieval_timestamp')),
+                    default=F('retrieval_id__target_retrieval_timestamp'),
+                )
+            )
+            .order_by("priority", "sort_time")
+        )
+
+        # 转换回字符串格式供前端使用
+        context = {
+            "customers": customers,
+            "orders": orders,
+            "current_date": current_date,
+            "tab": "summary",
+        }
+        return self.template_main, context
+
     async def handle_all_get(
             self,
             start_date_eta: str = None,
@@ -161,7 +239,7 @@ class PrePortDash(View):
                 eta__lte=end_eta
             )
 
-        # 后续查询代码不变...
+
         customers = await sync_to_async(list)(Customer.objects.all())
         customers = {c.zem_name: c.zem_name for c in customers}
         orders = await sync_to_async(list)(

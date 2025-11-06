@@ -8,6 +8,7 @@ class Container(models.Model):
     container_type = models.CharField(max_length=255, null=True, blank=True)
     weight_lbs = models.FloatField(null=True, blank=True)
     is_special_container = models.BooleanField(default=False, null=True, blank=True)
+    is_abnormal_state = models.BooleanField(default=False, null=True, blank=True, verbose_name="是否为异常状态")
     is_expiry_guaranteed = models.BooleanField(
         default=False, null=True, blank=True
     )  # 是否保时效
