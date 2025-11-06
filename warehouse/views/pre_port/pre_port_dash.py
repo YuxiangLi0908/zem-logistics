@@ -212,6 +212,20 @@ class PrePortDash(View):
             tab: str = None,
     ) -> tuple[Any, Any]:
         current_date = datetime.now().date()
+
+        # 首次进入时设置默认时间为当前月份
+        if not start_date_eta and not end_date_eta:
+            first_day_of_month = current_date.replace(day=1)
+            start_date_eta = first_day_of_month.strftime("%Y-%m-%d")
+
+            # 当前月份的最后一天
+            if current_date.month == 12:
+                next_month_first_day = current_date.replace(year=current_date.year + 1, month=1, day=1)
+            else:
+                next_month_first_day = current_date.replace(month=current_date.month + 1, day=1)
+            last_day_of_month = (next_month_first_day - timedelta(days=1)).strftime("%Y-%m-%d")
+            end_date_eta = last_day_of_month
+
         criteria = models.Q(
             cancel_notification=False,
         )
@@ -238,7 +252,6 @@ class PrePortDash(View):
             criteria &= models.Q(vessel_id__vessel_eta__lte=end_eta) | models.Q(
                 eta__lte=end_eta
             )
-
 
         customers = await sync_to_async(list)(Customer.objects.all())
         customers = {c.zem_name: c.zem_name for c in customers}
