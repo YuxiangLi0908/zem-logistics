@@ -117,7 +117,9 @@
                                 data-origin="{{ warehouse }}"
                                 data-note=""
                                 data-address-detail="{{ shipment_group.address_detail }}"
-                                data-operation-type="remove_po">
+                                data-operation-type="remove_po"
+                                data-pickup-time="{{ suggestion.primary_group.matched_shipment.pickup_time|date:'Y-m-d H:i' }}"
+                                data-pickup-number="{{ suggestion.primary_group.matched_shipment.pickup_number }}">
                             <i class="fas fa-square-minus"></i> 删除PO
                         </button>
                         <button class="action-btn btn-primary open-edit-modal"

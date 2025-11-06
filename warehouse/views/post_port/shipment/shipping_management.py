@@ -1333,6 +1333,8 @@ class ShippingManagement(View):
         appointment_type = request.POST.get("type")
         shipment_cargo_id = request.POST.get("shipment_cargo_id")
         shipment_type = request.POST.get("shipment_type", "").strip()
+        pickupNumber = request.POST.get('pickup_number', None)  
+        pickup_time = request.POST.get('pickup_time', None)  
         if not shipment_type:
             raise ValueError("shipment_type 不能为空!")
         is_print_label = request.POST.get("is_print_label")  #仅LTL和客提的有值
@@ -1351,6 +1353,7 @@ class ShippingManagement(View):
                 )
             except:
                 existed_appointment = None
+            #使用中的约、取消的约、预计送达时间早于当前时间、约的原来地址和现在地址不同都不能用
             if existed_appointment: #如果是修改PO，就不验证约的情况了
                 if existed_appointment.in_use:
                     raise RuntimeError(f"ISA {appointment_id} 已经登记过了!")
@@ -1422,6 +1425,8 @@ class ShippingManagement(View):
                         ].strip()
                     except:
                         pass
+                    shipment.pickup_number = pickupNumber
+                    shipment.pickup_time = pickup_time
                     await sync_to_async(shipment.save)() 
             else:
                 if await self._shipment_exist(shipment_data["shipment_batch_number"]):
@@ -1516,6 +1521,8 @@ class ShippingManagement(View):
                 if is_print_label:
                     shipment_data["is_print_label"] = (is_print_label == "是")
                 shipment_data["in_use"] = True
+                shipment_data["pickup_number"] = pickupNumber
+                shipment_data["pickup_time"] = pickup_time
                 if shipment_type != "FTL": #非FTL的要自动排车
                     appointment_datetime = request.POST.get(
                         "shipment_appointment", None
@@ -1580,10 +1587,6 @@ class ShippingManagement(View):
             if not existed_appointment:
                 shipment = Shipment(**shipment_data)
                 await sync_to_async(shipment.save)()
-            #else: #新sop用到的，修改PO时，约变了也修改
-                # await sync_to_async(Shipment.objects.filter(id=shipment.id).update)(
-                #     **shipment_data
-                # )
                 
             
             # 上面更新完约的信息，下面要更新packinglist绑定的约,这是未打板的，所有不用管板子
@@ -1734,6 +1737,8 @@ class ShippingManagement(View):
                 request.POST.get("arm_pro") if request.POST.get("arm_bol") else ""
             )
             shipment.in_use = True
+            shipment.pickup_number = pickupNumber
+            shipment.pickup_time = pickup_time
             await sync_to_async(shipment.save)() 
             mutable_post = request.POST.copy()
             mutable_post["area"] = warehouse

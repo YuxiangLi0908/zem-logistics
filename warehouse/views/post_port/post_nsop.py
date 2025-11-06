@@ -709,6 +709,17 @@ class PostNsop(View):
             context.update({"error_messages": "预约数据为空或格式不正确"})
             return await self.handle_td_shipment_post(request, context)
         
+        # 验证每组的id，如果有问题，直接报错给前端
+        appointment_ids = [group.get('appointment_id', '') for group in booking_data if group.get('appointment_id')]
+        
+        # 批量验证所有预约号
+        error_messages = await self._batch_validate_appointments(appointment_ids, booking_data)
+        
+        # 如果有验证错误，直接返回
+        if error_messages:
+            context.update({"error_messages": mark_safe("<br>".join(error_messages))})
+            return await self.handle_td_shipment_post(request, context)
+        
         # 存储处理结果
         success_groups = []
         failed_groups = []
@@ -728,8 +739,10 @@ class PostNsop(View):
             origin = group_data.get('origin', '')
             note = group_data.get('note', '')
             suggestion_id = group_data.get('suggestion_id')
+            pickup_time = group_data.get('pickup_time')
+            pickup_number = group_data.get('pickupNumber')
             result = await self._process_single_group_booking(request, suggestion_id, cargo_ids, plt_ids, destination, appointment_id,shipment_cargo_id,shipment_type,
-                                                              shipment_account,shipment_appointment,load_type,origin,note)
+                                                              shipment_account,shipment_appointment,load_type,origin,note,pickup_time,pickup_number)
             
             if result['success']:
                 success_groups.append({
@@ -774,6 +787,51 @@ class PostNsop(View):
     
         return await self.handle_td_shipment_post(request, context)
 
+    async def _batch_validate_appointments(self, appointment_ids: list, booking_data: list) -> list[str]:
+        """批量验证所有预约号"""
+        error_messages = []
+        
+        if not appointment_ids:
+            return error_messages
+        
+        try:
+            # 批量查询所有预约号
+            existed_appointments = await sync_to_async(list)(
+                Shipment.objects.filter(appointment_id__in=appointment_ids)
+            )
+            
+            # 创建映射字典便于查找
+            appointment_dict = {appt.appointment_id: appt for appt in existed_appointments}
+            
+            # 验证每个预约号
+            for appointment_id in appointment_ids:
+                existed_appointment = appointment_dict.get(appointment_id)
+                if not existed_appointment:
+                    continue  # 预约号不存在，验证通过
+                
+                # 找到对应的组数据
+                group_data = next((group for group in booking_data if group.get('appointment_id') == appointment_id), None)
+                if not group_data:
+                    continue
+                    
+                destination = group_data.get('destination', '')
+                
+                # 验证预约状态
+                if existed_appointment.in_use:
+                    error_messages.append(f"ISA {appointment_id} 已经被使用!")
+                elif existed_appointment.is_canceled:
+                    error_messages.append(f"ISA {appointment_id} 已经取消!")
+                elif (existed_appointment.shipment_appointment.replace(tzinfo=pytz.UTC) < timezone.now()):
+                    error_messages.append(f"ISA {appointment_id} 预约时间小于当前时间，已过期!")
+                elif (existed_appointment.destination.replace("Walmart", "").replace("WALMART", "").replace("-", "") != 
+                    destination.replace("Walmart", "").replace("WALMART", "").replace("-", "")):
+                    error_messages.append(f"ISA {appointment_id} 登记的目的地是 {existed_appointment.destination}，此次登记的目的地是 {destination}!")
+                    
+        except Exception as e:
+            error_messages.append(f"验证预约号时出错: {str(e)}")
+        
+        return error_messages
+    
     async def _add_appointments_to_fleet(self,appointment_ids):
         current_time = datetime.now()
         fleet_number = (
@@ -843,8 +901,8 @@ class PostNsop(View):
         return fleet_number
 
     async def _process_single_group_booking(self, request: HttpRequest, suggestion_id, cargo_ids, plt_ids,destination, appointment_id,shipment_cargo_id,shipment_type,
-                                                              shipment_account,shipment_appointment,load_type,origin,note) -> dict:
-        """处理单个大组的预约出库"""
+                                                              shipment_account,shipment_appointment,load_type,origin,note,pickup_time,pickup_number) -> dict:
+        """处理单个大组的预约出库"""       
         new_post = {}
         cargo_id_list = []
         if cargo_ids and cargo_ids.strip():
@@ -902,6 +960,8 @@ class PostNsop(View):
             'origin': origin,
             'note': note,
             'address': address,
+            'pickup_time': pickup_time,
+            'pickup_number': pickup_number,
         }
         new_post = {**new_post, **shipment_data}
         new_post['shipment_data'] = str(shipment_data)
@@ -1046,7 +1106,7 @@ class PostNsop(View):
     
     async def handle_appointment_post(
         self, request: HttpRequest
-    ) -> tuple[str, dict[str, Any]]:
+    ) -> tuple[str, dict[str, Any]]:    
         appointment_id = request.POST.get('appointment_id')
         ids = request.POST.get("cargo_ids")
         plt_ids = request.POST.get("plt_ids")
@@ -1066,7 +1126,7 @@ class PostNsop(View):
             request.POST['alter_type'] = 'remove'
             request.POST['pl_ids'] = selected
             request.POST['plt_ids'] = selected_plt
-            request.POST['shipment_batch_number'] = shipment_batch_number           
+            request.POST['shipment_batch_number'] = shipment_batch_number    
             sm = ShippingManagement()
             info = await sm.handle_alter_po_shipment_post(request,'post_nsop') 
             context.update({"success_messages": f"删除成功，批次号是{shipment_batch_number}"})
@@ -1154,6 +1214,8 @@ class PostNsop(View):
                 'origin': request.POST.get('warehouse'),
                 'note': request.POST.get('note'),
                 'address': address,
+                'pickup_number': request.POST.get('pickupNumber'),
+                'pickup_time': request.POST.get('pickup_time'),
             }
             request.POST = request.POST.copy()
             request.POST['shipment_data'] = str(shipment_data)
@@ -1169,6 +1231,8 @@ class PostNsop(View):
             request.POST['shipment_type'] = request.POST.get('shipment_type')  
             request.POST['appointment_id'] = request.POST.get('appointment_id')  
             request.POST['shipment_cargo_id'] = request.POST.get('shipment_cargo_id')  
+            request.POST['pickup_number'] = request.POST.get('pickupNumber')  
+            request.POST['pickup_time'] = request.POST.get('pickup_time') 
             
             sm = ShippingManagement()
             info = await sm.handle_appointment_post(request,'post_nsop') 
@@ -2166,6 +2230,8 @@ class PostNsop(View):
                 'shipment_cargo_id': matched.shipment_cargo_id,
                 'shipment_type': matched.shipment_type,
                 'shipment_appointment': matched.shipment_appointment,
+                'pickup_time': matched.pickup_time,
+                'pickup_number': matched.pickup_number,
                 'origin': matched.origin,
                 'load_type': matched.load_type,
                 'shipment_account': matched.shipment_account,
