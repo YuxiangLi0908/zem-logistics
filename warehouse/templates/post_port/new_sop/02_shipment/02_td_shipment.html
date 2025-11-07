@@ -1277,7 +1277,7 @@ function initializeTooltips() {
     }
 
     function unassignShipment(appointmentId) {
-        if (confirm('确定要取消这个预约的所有排约吗？')) {
+        if (confirm('确定要取消这个预约吗？取消后预约号不可用，po可以重新预约出库')) {
             document.getElementById('formStep').value = 'unassign_shipment';
             document.getElementById('formAppointmentId').value = appointmentId;
             document.getElementById('actionForm').submit();
