@@ -334,7 +334,7 @@ class ExceptionHandling(View):
             logger.error(f"查询shipment失败: {str(e)}")
             raise
 
-    async def update_packinglist_records(container_number, destination, shipment, processing_logs, row_number):
+    async def update_packinglist_records(self,container_number, destination, shipment, processing_logs, row_number):
         """更新packinglist记录"""
         #try:
         result = {'updated': 0, 'message': ''}
