@@ -286,7 +286,7 @@ class ExceptionHandling(View):
                             'row': row_number,
                             'type': 'warning',
                             'message': '两个表都未找到需要更新的记录',
-                            'details': f'柜号: {container_number}, 仓点: {warehouse}'
+                            'details': f'柜号: {container_number}, 仓点: {destination}'
                         })
                         
                 except Exception as e:
