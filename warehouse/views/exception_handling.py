@@ -182,7 +182,6 @@ class ExceptionHandling(View):
             missing_columns = [col for col in required_columns if col not in df.columns]
             
             if missing_columns:
-                # 使用异步方式添加消息
                 await sync_to_async(messages.error)(request, f'Excel文件缺少必要的列: {", ".join(missing_columns)}')
                 return self.template_temporary_function, {}
             
@@ -216,8 +215,7 @@ class ExceptionHandling(View):
                         processing_logs.append({
                             'row': row_number,
                             'type': 'error',
-                            'message': f'ISA值格式错误: {isa_value}',
-                            'details': 'ISA值必须为数字'
+                            'message': f'ISA值格式错误: {isa_value}'
                         })
                         error_count += 1
                         continue
@@ -229,73 +227,71 @@ class ExceptionHandling(View):
                             processing_logs.append({
                                 'row': row_number,
                                 'type': 'warning',
-                                'message': f'未找到对应的shipment记录: appointment_id={isa_int}',
-                                'details': '跳过此条记录'
+                                'message': f'未找到对应的shipment记录: appointment_id={isa_int}'
                             })
                             skipped_count += 1
                             continue
+                        else:
+                            processing_logs.append({
+                                'row': row_number,
+                                'type': 'info',
+                                'message': f'找到shipment记录: ID={shipment.id}, appointment_id={shipment.appointment_id}'
+                            })
                     except Exception as e:
                         processing_logs.append({
                             'row': row_number,
                             'type': 'error',
-                            'message': f'查询shipment失败: {str(e)}',
-                            'details':''
+                            'message': f'查询shipment失败: {str(e)}'
                         })
                         error_count += 1
                         continue
                     
-                    # 查找pallet记录
-                    pallet_updated = await self.update_pallet_records(
+                    # 查找并更新pallet记录
+                    pallet_result = await self.update_pallet_records(
                         container_number, destination, shipment, processing_logs, row_number
                     )
                     
-                    # 查找packinglist记录  
-                    packinglist_updated = await self.update_packinglist_records(
+                    # 查找并更新packinglist记录  
+                    packinglist_result = await self.update_packinglist_records(
                         container_number, destination, shipment, processing_logs, row_number
                     )
                     
                     # 分别记录每个表的更新结果
-                    if pallet_updated > 0 and packinglist_updated > 0:
-                        # 两个表都更新成功
+                    if pallet_result['updated'] > 0 and packinglist_result['updated'] > 0:
                         success_count += 1
                         processing_logs.append({
                             'row': row_number,
                             'type': 'success', 
-                            'message': f'处理成功! Pallet更新: {pallet_updated}条, PackingList更新: {packinglist_updated}条'
+                            'message': f'处理成功! Pallet更新: {pallet_result["updated"]}条, PackingList更新: {packinglist_result["updated"]}条'
                         })
-                    elif pallet_updated > 0 and packinglist_updated == 0:
-                        # 只有Pallet更新成功
+                    elif pallet_result['updated'] > 0 and packinglist_result['updated'] == 0:
                         success_count += 1
                         processing_logs.append({
                             'row': row_number,
                             'type': 'success',
-                            'message': f'Pallet更新成功: {pallet_updated}条, PackingList未找到需要更新的记录'
+                            'message': f'Pallet更新成功: {pallet_result["updated"]}条, PackingList: {packinglist_result["message"]}'
                         })
-                    elif pallet_updated == 0 and packinglist_updated > 0:
-                        # 只有PackingList更新成功
+                    elif pallet_result['updated'] == 0 and packinglist_result['updated'] > 0:
                         success_count += 1
                         processing_logs.append({
                             'row': row_number,
                             'type': 'success',
-                            'message': f'PackingList更新成功: {packinglist_updated}条, Pallet未找到需要更新的记录'
+                            'message': f'PackingList更新成功: {packinglist_result["updated"]}条, Pallet: {pallet_result["message"]}'
                         })
                     else:
-                        # 两个表都没有更新
                         skipped_count += 1
                         processing_logs.append({
                             'row': row_number,
                             'type': 'warning',
-                            'message': '两个表都未找到需要更新的记录',
-                            'details': f'柜号: {container_number}, 仓点: {destination}'
+                            'message': f'两个表都未更新: Pallet-{pallet_result["message"]}, PackingList-{packinglist_result["message"]}'
                         })
-                        
+                            
                 except Exception as e:
                     error_count += 1
                     processing_logs.append({
                         'row': row_number,
                         'type': 'error',
-                        'message': f'处理行数据时发生错误: {str(e)}',
-                        'details': ''
+                        'message': f'处理行数据时发生错误: {str(e)}'
                     })
                     logger.error(f"处理Excel行 {row_number} 时出错: {str(e)}")
             
@@ -317,7 +313,7 @@ class ExceptionHandling(View):
                 messages.error(request, f'处理失败 {error_count} 条记录')
             if skipped_count > 0:
                 messages.warning(request, f'跳过 {skipped_count} 条记录')
-                
+                    
         except Exception as e:
             messages.error(request, f'处理Excel文件时发生错误: {str(e)}')
             logger.error(f"处理Excel文件时出错: {str(e)}")
@@ -327,7 +323,7 @@ class ExceptionHandling(View):
 
     async def get_shipment_by_appointment_id(self, appointment_id):
         """根据appointment_id查找shipment记录"""
-        try:
+        try:          
             shipment = await Shipment.objects.aget(
                 appointment_id=appointment_id,
                 # 可以添加其他过滤条件
@@ -341,76 +337,207 @@ class ExceptionHandling(View):
 
     async def update_pallet_records(self, container_number, destination, shipment, processing_logs, row_number):
         """更新pallet记录"""
-        try:           
-            # 查找符合条件的pallet记录
-            pallets = Pallet.objects.filter(
+        try:
+            result = {'updated': 0, 'message': ''}
+            
+            # 1. 先查找已经有约的记录
+            existing_pallets = Pallet.objects.filter(
                 container_number__container_number=container_number,
                 destination=destination,
-                shipment_batch_number__isnull=True  # shipment_batch_number不为空
+                shipment_batch_number__isnull=False
+            )
+            
+            existing_count = 0
+            master_updated_count = 0
+            async for pallet in existing_pallets:
+                existing_count += 1
+                # 记录已有约的信息
+                existing_appointment_id = pallet.shipment_batch_number.appointment_id if pallet.shipment_batch_number else '未知'
+                processing_logs.append({
+                    'row': row_number,
+                    'type': 'info',
+                    'message': f'Pallet已有约: ID={pallet.id}, 当前约={existing_appointment_id}, 目标约={shipment.appointment_id}'
+                })
+                
+                # 如果master_shipment_batch_number为空，就更新它
+                if not pallet.master_shipment_batch_number:
+                    try:
+                        pallet.master_shipment_batch_number = shipment
+                        await pallet.asave()
+                        master_updated_count += 1
+                        processing_logs.append({
+                            'row': row_number,
+                            'type': 'info',
+                            'message': f'Pallet更新master_shipment: ID={pallet.id}'
+                        })
+                    except Exception as e:
+                        processing_logs.append({
+                            'row': row_number,
+                            'type': 'error',
+                            'message': f'更新Pallet master_shipment失败: ID={pallet.id}, 错误: {str(e)}'
+                        })
+            
+            if existing_count > 0:
+                result['message'] += f'已有约{existing_count}条(更新master{master_updated_count}条) '
+            
+            # 2. 查找需要更新的空记录
+            empty_pallets = Pallet.objects.filter(
+                container_number__container_number=container_number,
+                destination=destination,
+                shipment_batch_number__isnull=True
             )
             
             updated_count = 0
-            async for pallet in pallets:
+            empty_count = 0
+            
+            # 批量更新
+            pallets_to_update = []
+            async for pallet in empty_pallets:
+                empty_count += 1
+                pallet.shipment_batch_number = shipment
+                pallet.master_shipment_batch_number = shipment
+                pallets_to_update.append(pallet)
+            
+            if pallets_to_update:
                 try:
-                    # 绑定shipment_batch_number
-                    pallet.shipment_batch_number = shipment
-                    await pallet.asave()
-                    updated_count += 1
+                    # 批量保存
+                    await Pallet.objects.abulk_update(
+                        pallets_to_update, 
+                        ['shipment_batch_number', 'master_shipment_batch_number']
+                    )
+                    updated_count = len(pallets_to_update)
+                    processing_logs.append({
+                        'row': row_number,
+                        'type': 'info',
+                        'message': f'Pallet批量更新: 找到{empty_count}条空记录, 成功更新{updated_count}条'
+                    })
                 except Exception as e:
                     processing_logs.append({
                         'row': row_number,
                         'type': 'error',
-                        'message': f'更新pallet记录失败: {pallet.id}',
-                        'details': str(e)
+                        'message': f'Pallet批量更新失败: {str(e)}'
                     })
             
-            return updated_count
+            result['updated'] = updated_count
+            
+            if empty_count == 0 and existing_count == 0:
+                result['message'] += '未找到任何记录'
+            elif empty_count == 0 and existing_count > 0:
+                result['message'] += '无空记录可更新'
+            else:
+                result['message'] += f'更新空记录{updated_count}条'
+                
+            return result
             
         except Exception as e:
             processing_logs.append({
                 'row': row_number,
                 'type': 'error',
-                'message': f'查询pallet记录失败',
-                'details': str(e)
+                'message': f'查询pallet记录失败: {str(e)}'
             })
-            return 0
+            return {'updated': 0, 'message': f'查询失败: {str(e)}'}
 
     async def update_packinglist_records(self, container_number, destination, shipment, processing_logs, row_number):
         """更新packinglist记录"""
         try:
+            result = {'updated': 0, 'message': ''}
             
-            # 查找符合条件的packinglist记录
-            packinglists = PackingList.objects.filter(
+            # 1. 先查找已经有约的记录
+            existing_packinglists = PackingList.objects.filter(
                 container_number__container_number=container_number,
                 destination=destination,
-                shipment_batch_number__isnull=True  # shipment_batch_number不为空
+                shipment_batch_number__isnull=False
+            )
+            
+            existing_count = 0
+            master_updated_count = 0
+            async for packinglist in existing_packinglists:
+                existing_count += 1
+                # 记录已有约的信息
+                existing_appointment_id = packinglist.shipment_batch_number.appointment_id if packinglist.shipment_batch_number else '未知'
+                processing_logs.append({
+                    'row': row_number,
+                    'type': 'info',
+                    'message': f'PackingList已有约: ID={packinglist.id}, 当前约={existing_appointment_id}, 目标约={shipment.appointment_id}'
+                })
+                
+                # 如果master_shipment_batch_number为空，就更新它
+                if not packinglist.master_shipment_batch_number:
+                    try:
+                        packinglist.master_shipment_batch_number = shipment
+                        await packinglist.asave()
+                        master_updated_count += 1
+                        processing_logs.append({
+                            'row': row_number,
+                            'type': 'info',
+                            'message': f'PackingList更新master_shipment: ID={packinglist.id}'
+                        })
+                    except Exception as e:
+                        processing_logs.append({
+                            'row': row_number,
+                            'type': 'error',
+                            'message': f'更新PackingList master_shipment失败: ID={packinglist.id}, 错误: {str(e)}'
+                        })
+            
+            if existing_count > 0:
+                result['message'] += f'已有约{existing_count}条(更新master{master_updated_count}条) '
+            
+            # 2. 查找需要更新的空记录
+            empty_packinglists = PackingList.objects.filter(
+                container_number__container_number=container_number,
+                destination=destination,
+                shipment_batch_number__isnull=True
             )
             
             updated_count = 0
-            async for packinglist in packinglists:
+            empty_count = 0
+            
+            # 批量更新
+            packinglists_to_update = []
+            async for packinglist in empty_packinglists:
+                empty_count += 1
+                packinglist.shipment_batch_number = shipment
+                packinglist.master_shipment_batch_number = shipment
+                packinglists_to_update.append(packinglist)
+            
+            if packinglists_to_update:
                 try:
-                    # 绑定shipment_batch_number
-                    packinglist.shipment_batch_number = shipment
-                    await packinglist.asave()
-                    updated_count += 1
+                    # 批量保存
+                    await PackingList.objects.abulk_update(
+                        packinglists_to_update, 
+                        ['shipment_batch_number', 'master_shipment_batch_number']
+                    )
+                    updated_count = len(packinglists_to_update)
+                    processing_logs.append({
+                        'row': row_number,
+                        'type': 'info',
+                        'message': f'PackingList批量更新: 找到{empty_count}条空记录, 成功更新{updated_count}条'
+                    })
                 except Exception as e:
                     processing_logs.append({
                         'row': row_number,
                         'type': 'error',
-                        'message': f'更新packinglist记录失败: {packinglist.id}',
-                        'details': str(e)
+                        'message': f'PackingList批量更新失败: {str(e)}'
                     })
             
-            return updated_count
+            result['updated'] = updated_count
+            
+            if empty_count == 0 and existing_count == 0:
+                result['message'] += '未找到任何记录'
+            elif empty_count == 0 and existing_count > 0:
+                result['message'] += '无空记录可更新'
+            else:
+                result['message'] += f'更新空记录{updated_count}条'
+                
+            return result
             
         except Exception as e:
             processing_logs.append({
                 'row': row_number,
                 'type': 'error',
-                'message': f'查询packinglist记录失败',
-                'details': str(e)
+                'message': f'查询packinglist记录失败: {str(e)}'
             })
-            return 0
+            return {'updated': 0, 'message': f'查询失败: {str(e)}'}
     
     async def handle_query_pallet_packinglist(self, request: HttpRequest):
         warehouse = (
