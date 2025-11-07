@@ -644,11 +644,12 @@
         </div>
 
         <div class="search-box" style="display: flex; gap: 15px; margin-bottom: 20px; align-items: center;">
-            <div style="display: flex; gap: 10px; flex: 1;">
+            <div style="display: flex; gap: 10px; flex: 1; align-items: center;">
                 <input type="text" class="search-input" placeholder="搜索pickupNumber..." id="fleetSearch">
                 <button class="search-btn" id="searchBtn">
                     <i class="fas fa-search"></i> 搜索
                 </button>
+                <span style="font-size: 14px; color: #555;">当前时间: {{ today|date:'Y-m-d H:i:s' }}</span>
             </div>
 
             <div class="type-summary" style="margin-top: 6px;">

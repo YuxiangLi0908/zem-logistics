@@ -245,27 +245,31 @@
 
 <!-- 查询结果 -->
 {% if search_info %}
-<div class="search-info">
-    <strong>查询表:</strong> {{ table_name }} | 
-    <strong>查询字段:</strong> {{ search_field }} | 
-    <strong>查询值:</strong> {{ search_value }} | 
-    <strong>查询结果:</strong> {{ record_count }} 条记录
-</div>
+    <div class="search-info">
+        <strong>查询表:</strong> {{ table_name }} | 
+        <strong>查询字段:</strong> {{ search_field }} | 
+        <strong>查询值:</strong> {{ search_value }} | 
+        <strong>查询结果:</strong> {{ record_count }} 条记录
+    </div>
 {% endif %}
 
-{% if record_data %}
+{% if records_list %}
+<!-- 显示所有记录的表格 -->
 <div style="overflow-x: auto; max-height: 600px;">
     <table class="data-table">
         <thead>
             <tr>
-                <th style="width: 200px;">字段名</th>
-                <th>字段值</th>
+                <th style="width: 50px;">#</th>
+                {% for field in records_list.0.keys %}
+                <th>{{ field }}</th>
+                {% endfor %}
             </tr>
         </thead>
         <tbody>
-            {% for field, value in record_data.items %}
+            {% for record in records_list %}
             <tr>
-                <td class="field-name">{{ field }}</td>
+                <td style="text-align: center; font-weight: bold;">{{ forloop.counter }}</td>
+                {% for field, value in record.items %}
                 <td class="field-value">
                     {% if value == None %}
                         <span style="color: #95a5a6; font-style: italic;">null</span>
@@ -274,163 +278,172 @@
                     {% elif value == False %}
                         <span style="color: #e74c3c;">False</span>
                     {% else %}
-                        {{ value|default:"" }}
+                        {{ value|default:""|truncatechars:50 }}
                     {% endif %}
                 </td>
+                {% endfor %}
             </tr>
             {% endfor %}
         </tbody>
     </table>
 </div>
-{% elif search_value and not record_data %}
+
+{% elif search_value and not records_list %}
 <div class="no-results">
     未找到相关数据
 </div>
 {% endif %}
 
 <script>
-// 动态更新查询字段选项
-document.querySelector('select[name="table_name"]').addEventListener('change', function() {
-    const tableName = this.value;
-    const searchFieldSelect = document.querySelector('select[name="search_field"]');
-    const queryHint = document.getElementById('query-hint');
-    
-    // 清空现有选项
-    searchFieldSelect.innerHTML = '<option value="">选择查询字段</option>';
-    queryHint.innerHTML = '';
-    
-    if (tableName) {
-        // 根据选择的表设置可查询字段
-        const fieldOptions = getFieldOptions(tableName);
+    // 动态更新查询字段选项
+    document.querySelector('select[name="table_name"]').addEventListener('change', function() {
+        const tableName = this.value;
+        const searchFieldSelect = document.querySelector('select[name="search_field"]');
+        const queryHint = document.getElementById('query-hint');
         
-        // 设置默认选中字段（优先container_number，否则第一个字段）
-        let defaultField = '';
-        if (fieldOptions.some(field => field[0] === 'container_number')) {
-            defaultField = 'container_number';
-        } else if (fieldOptions.length > 0) {
-            defaultField = fieldOptions[0][0];
-        }
+        // 清空现有选项
+        searchFieldSelect.innerHTML = '<option value="">选择查询字段</option>';
+        queryHint.innerHTML = '';
         
-        fieldOptions.forEach(field => {
-            const option = document.createElement('option');
-            option.value = field[0];
-            option.textContent = field[1];
-            if (field[0] === defaultField) {
-                option.selected = true;
+        if (tableName) {
+            // 根据选择的表设置可查询字段
+            const fieldOptions = getFieldOptions(tableName);
+            
+            // 设置默认选中字段（优先container_number，否则第一个字段）
+            let defaultField = '';
+            if (fieldOptions.some(field => field[0] === 'container_number')) {
+                defaultField = 'container_number';
+            } else if (fieldOptions.length > 0) {
+                defaultField = fieldOptions[0][0];
             }
-            searchFieldSelect.appendChild(option);
-        });
-        
-        // 更新查询提示
-        queryHint.innerHTML = `当前表支持查询字段: ${fieldOptions.map(f => f[1]).join(', ')}`;
-        
-        // 如果有默认字段，自动聚焦到查询值输入框
-        if (defaultField) {
-            document.querySelector('input[name="search_value"]').focus();
+            
+            fieldOptions.forEach(field => {
+                const option = document.createElement('option');
+                option.value = field[0];
+                option.textContent = field[1];
+                if (field[0] === defaultField) {
+                    option.selected = true;
+                }
+                searchFieldSelect.appendChild(option);
+            });
+            
+            // 更新查询提示
+            queryHint.innerHTML = `当前表支持查询字段: ${fieldOptions.map(f => f[1]).join(', ')}`;
+            
+            // 如果有默认字段，自动聚焦到查询值输入框
+            if (defaultField) {
+                document.querySelector('input[name="search_value"]').focus();
+            }
         }
-    }
-});
+    });
 
-function getFieldOptions(tableName) {
-    const fieldMap = {
-        'Container': [
-            ['id', 'ID'],
-            ['container_number', 'container_number']
-        ],
-        'Customer': [
-            ['id', 'ID'],
-            ['zem_name', 'zem_name']
-        ],
-        'FeeDetail': [
-            ['id', 'ID'],
-            ['quotation_id', 'quotation_id']
-        ],
-        'FleetShipmentPallet': [
-            ['id', 'ID'],
-            ['fleet_number', 'fleet_number'],
-            ['pickup_number', 'pickup_number'],
-            ['shipment_batch_number', 'shipment_batch_number']
-        ],
-        'Fleet': [
-            ['id', 'ID'],
-            ['fleet_number', 'fleet_number'],
-            ['pickup_number', 'pickup_number']
-        ],
-        'InvoicePreport': [
-            ['id', 'ID'],
-            ['invoice_number', 'invoice_number']
-        ],
-        'InvoiceWarehouse': [
-            ['id', 'ID'],
-            ['invoice_number', 'invoice_number']
-        ],
-        'InvoiceDelivery': [
-            ['id', 'ID'],
-            ['invoice_number', 'invoice_number']
-        ],
-        'Invoice': [
-            ['id', 'ID'],
-            ['invoice_number', 'invoice_number'],
-            ['container_number', 'container_number']
-        ],
-        'InvoiceStatus': [
-            ['id', 'ID'],
-            ['container_number', 'container_number']
-        ],
-        'AbnormalOffloadStatus': [
-            ['id', 'ID'],
-            ['container_number', 'container_number']
-        ],
-        'Order': [
-            ['id', 'ID'],
-            ['container_number', 'container_number']
-        ],
-        'PackingList': [
-            ['id', 'ID'],
-            ['container_number', 'container_number'],
-            ['PO_ID', 'PO_ID']
-        ],
-        'PalletDestroyed': [
-            ['id', 'ID'],
-            ['container_number', 'container_number']
-        ],
-        'Pallet': [
-            ['id', 'ID'],
-            ['container_number', 'container_number'],
-            ['PO_ID', 'PO_ID'],
-            ['slot', 'slot']
-        ],
-        'PoCheckEtaSeven': [
-            ['id', 'ID'],
-            ['container_number', 'container_number']
-        ],
-        'QuotationMaster': [
-            ['id', 'ID'],
-            ['exclusive_user', 'exclusive_user'],
-            ['quote_type', 'quote_type']
-        ],
-        'TransferLocation': [
-            ['id', 'ID'],
-            ['fleet_number', 'fleet_number'],
-            ['container_number', 'container_number']
-        ],
-        'Vessel': [
-            ['id', 'ID'],
-            ['vessel', 'vessel']
-        ]
-    };
-    
-    return fieldMap[tableName] || [['id', 'ID']];
-}
-
-// 页面加载时初始化
-document.addEventListener('DOMContentLoaded', function() {
-    const tableSelect = document.querySelector('select[name="table_name"]');
-    // 如果没有选择表，默认选择Container
-    if (!tableSelect.value) {
-        tableSelect.value = 'Container';
+    function getFieldOptions(tableName) {
+        const fieldMap = {
+            'Container': [
+                ['id', 'ID'],
+                ['container_number', '柜号']
+            ],
+            'Customer': [
+                ['id', 'ID'], 
+                ['zem_name', '客户名称']
+            ],
+            'FeeDetail': [
+                ['id', 'ID'],
+                ['quotation_id', '报价ID']
+            ],
+            'FleetShipmentPallet': [
+                ['id', 'ID'],
+                ['fleet_number', '车队编号'],
+                ['pickup_number', '提货号'],
+                ['shipment_batch_number', '发货批次号']
+            ],
+            'Fleet': [
+                ['id', 'ID'],
+                ['fleet_number', '车队编号'],
+                ['pickup_number', '提货号']
+            ],
+            'InvoicePreport': [
+                ['id', 'ID'],
+                ['invoice_number', '发票号码']
+            ],
+            'InvoiceWarehouse': [
+                ['id', 'ID'],
+                ['invoice_number', '发票号码']
+            ],
+            'InvoiceDelivery': [
+                ['id', 'ID'],
+                ['invoice_number', '发票号码']
+            ],
+            'Invoice': [
+                ['id', 'ID'],
+                ['invoice_number', '发票号码'],
+                ['container_number', '柜号']
+            ],
+            'InvoiceStatus': [
+                ['id', 'ID'],
+                ['container_number', '柜号']
+            ],
+            'AbnormalOffloadStatus': [
+                ['id', 'ID'],
+                ['container_number', '柜号']
+            ],
+            'Order': [
+                ['id', 'ID'],
+                ['container_number', '柜号']
+            ],
+            'PackingList': [
+                ['id', 'ID'],
+                ['container_number', '柜号'],
+                ['PO_ID', 'PO编号']
+            ],
+            'PalletDestroyed': [
+                ['id', 'ID'],
+                ['container_number', '柜号']
+            ],
+            'Pallet': [
+                ['id', 'ID'],
+                ['container_number', '柜号'],
+                ['PO_ID', 'PO编号'],
+                ['slot', '槽位']
+            ],
+            'PoCheckEtaSeven': [
+                ['id', 'ID'],
+                ['container_number', '柜号']
+            ],
+            'QuotationMaster': [
+                ['id', 'ID'],
+                ['exclusive_user', '专属用户'],
+                ['quote_type', '报价类型']
+            ],
+            'TransferLocation': [
+                ['id', 'ID'],
+                ['fleet_number', '车队编号'],
+                ['container_number', '柜号']
+            ],
+            'Vessel': [
+                ['id', 'ID'],
+                ['vessel', '船名']
+            ]
+        };
+        
+        return fieldMap[tableName] || [['id', 'ID']];
     }
-    tableSelect.dispatchEvent(new Event('change'));
-});
+
+    // 页面加载时初始化
+    document.addEventListener('DOMContentLoaded', function() {
+        const tableSelect = document.querySelector('select[name="table_name"]');
+        // 如果没有选择表，默认选择Container
+        if (!tableSelect.value) {
+            tableSelect.value = 'Container';
+        }
+        tableSelect.dispatchEvent(new Event('change'));
+    });
+    // 记录切换功能
+    function switchRecord() {
+        const navigator = document.getElementById('recordNavigator');
+        const recordIndex = navigator.value;
+        // 这里可以通过AJAX加载其他记录，或者在前端存储所有记录数据
+        alert(`切换到记录 ${parseInt(recordIndex) + 1}，需要后端支持加载特定记录`);
+    }
 </script>
 {% endblock %}

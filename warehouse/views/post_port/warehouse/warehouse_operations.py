@@ -856,19 +856,23 @@ class WarehouseOperations(View):
             .order_by("-container_number__order__offload_id__offload_at")
         )
     
+    def get_local_time(self, warehouse):
+        now_utc = timezone.now()
+
+        if 'LA' in warehouse:
+            local_tz = pytz.timezone("America/Los_Angeles")
+        else:
+            local_tz = pytz.timezone("America/New_York")
+        timezone.activate(local_tz)
+        return timezone.localtime(now_utc, local_tz)
+    
     async def handle_upcoming_fleet_post(
         self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
         warehouse = request.POST.get("warehouse")
         # 获取未来三天的时间范围
          #pytz.timezone("America/New_York") 
-        today = timezone.now()
-        if 'LA' in warehouse:
-            local_tz = pytz.timezone("America/Los_Angeles")
-        else:
-            local_tz = pytz.timezone("America/New_York")
-
-        today = timezone.localtime(today, local_tz)
+        today = self.get_local_time(warehouse)
         three_days_later = today + timedelta(days=3)
         one_week_ago = today - timedelta(days=7) 
 
@@ -1189,4 +1193,5 @@ class WarehouseOperations(View):
                 g['completion_rate'] = round((g['completed_count'] / normal) * 100) if normal > 0 else 0
             day_type_stats[day] = grouped
         context["day_type_stats"] = day_type_stats
+        context["today"] = today
         return self.template_upcoming_fleet, context

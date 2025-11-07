@@ -416,7 +416,7 @@
 
                 <div class="checkbox-group" style="margin-top: 10px;">
                     <input type="checkbox" name="show_complete" id="show_complete" {% if show_complete %}checked{% endif %}>
-                    <label for="show_complete" class="form-label" style="margin-bottom: 0;">显示完整记录</label>
+                    <label for="show_complete" class="form-label" style="margin-bottom: 0;">显示时间线完整的po</label>
                 </div>
 
                 <button type="submit" class="search-btn primary">
@@ -556,63 +556,63 @@
 {% endif %}
 
 <script>
-// 自动表单提交
-document.querySelectorAll('.search-select').forEach(element => {
-    element.addEventListener('change', function() {
-        document.getElementById('searchForm').submit();
-    });
-});
-
-// 日期输入框失去焦点时提交
-document.querySelectorAll('input[type="date"]').forEach(element => {
-    element.addEventListener('change', function() {
-        document.getElementById('searchForm').submit();
-    });
-});
-
-document.getElementById('show_complete').addEventListener('change', function() {
-    document.getElementById('searchForm').submit();
-});
-document.querySelector('select[name="month_filter"]').addEventListener('change', function() {
-    document.getElementById('searchForm').submit();
-});
-// 为仓库选择框添加样式类
-document.querySelector('select[name="name"]').classList.add('form-select');
-
-// 前端筛选功能
-function setupTableFilter() {
-    const filterContainer = document.getElementById('filterContainer');
-    const filterDestination = document.getElementById('filterDestination');
-    const filterPO = document.getElementById('filterPO');
-    const rows = document.querySelectorAll('#resultTable .data-row');
-    
-    function filterTable() {
-        const containerValue = filterContainer.value.toLowerCase();
-        const destinationValue = filterDestination.value.toLowerCase();
-        const poValue = filterPO.value.toLowerCase();
-        
-        rows.forEach(row => {
-            const container = row.getAttribute('data-container').toLowerCase();
-            const destination = row.getAttribute('data-destination').toLowerCase();
-            const po = row.getAttribute('data-po').toLowerCase();
-            
-            const showRow = 
-                container.includes(containerValue) &&
-                destination.includes(destinationValue) &&
-                po.includes(poValue);
-            
-            row.style.display = showRow ? '' : 'none';
+    // 自动表单提交
+    document.querySelectorAll('.search-select').forEach(element => {
+        element.addEventListener('change', function() {
+            document.getElementById('searchForm').submit();
         });
-    }
-    
-    if (filterContainer) filterContainer.addEventListener('input', filterTable);
-    if (filterDestination) filterDestination.addEventListener('input', filterTable);
-    if (filterPO) filterPO.addEventListener('input', filterTable);
-}
+    });
 
-// 初始化前端筛选
-if (document.getElementById('resultTable')) {
-    setupTableFilter();
-}
+    // 日期输入框失去焦点时提交
+    document.querySelectorAll('input[type="date"]').forEach(element => {
+        element.addEventListener('change', function() {
+            document.getElementById('searchForm').submit();
+        });
+    });
+
+    document.getElementById('show_complete').addEventListener('change', function() {
+        document.getElementById('searchForm').submit();
+    });
+    document.querySelector('select[name="month_filter"]').addEventListener('change', function() {
+        document.getElementById('searchForm').submit();
+    });
+    // 为仓库选择框添加样式类
+    document.querySelector('select[name="name"]').classList.add('form-select');
+
+    // 前端筛选功能
+    function setupTableFilter() {
+        const filterContainer = document.getElementById('filterContainer');
+        const filterDestination = document.getElementById('filterDestination');
+        const filterPO = document.getElementById('filterPO');
+        const rows = document.querySelectorAll('#resultTable .data-row');
+        
+        function filterTable() {
+            const containerValue = filterContainer.value.toLowerCase();
+            const destinationValue = filterDestination.value.toLowerCase();
+            const poValue = filterPO.value.toLowerCase();
+            
+            rows.forEach(row => {
+                const container = row.getAttribute('data-container').toLowerCase();
+                const destination = row.getAttribute('data-destination').toLowerCase();
+                const po = row.getAttribute('data-po').toLowerCase();
+                
+                const showRow = 
+                    container.includes(containerValue) &&
+                    destination.includes(destinationValue) &&
+                    po.includes(poValue);
+                
+                row.style.display = showRow ? '' : 'none';
+            });
+        }
+        
+        if (filterContainer) filterContainer.addEventListener('input', filterTable);
+        if (filterDestination) filterDestination.addEventListener('input', filterTable);
+        if (filterPO) filterPO.addEventListener('input', filterTable);
+    }
+
+    // 初始化前端筛选
+    if (document.getElementById('resultTable')) {
+        setupTableFilter();
+    }
 </script>
 {% endblock %}

@@ -6,6 +6,8 @@ from django.contrib.auth.decorators import login_required
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render
 from django.utils.decorators import method_decorator
+from django.db import models
+from django.core.exceptions import FieldDoesNotExist
 from django.views import View
 import pandas as pd
 import re, json
@@ -119,7 +121,8 @@ class ExceptionHandling(View):
                 )
         elif step == "temporary_function":
             if self._validate_super_user(request.user):
-                return await sync_to_async(render)(request, self.template_temporary_function)
+                context = {"warehouse_form": ZemWarehouseForm()}
+                return await sync_to_async(render)(request, self.template_temporary_function, context)
             else:
                 return HttpResponseForbidden(
                     "You are not authenticated to access this page!"
@@ -195,11 +198,13 @@ class ExceptionHandling(View):
 
         search_date = datetime.fromisoformat(search_date_str)      
         search_date_lower = datetime.fromisoformat(search_date_lower_str)   
+        warehouse = request.POST.get('name')
         # 查询条件：指定时间之前，shipment_batch_number为空
         base_criteria = Q(
             shipment_batch_number__isnull=True,
             container_number__order__offload_id__offload_at__gte=search_date_lower,
-            container_number__order__offload_id__offload_at__lte=search_date
+            container_number__order__offload_id__offload_at__lte=search_date,
+            container_number__order__retrieval_id__retrieval_destination_precise=warehouse
         )
         
         # 查询 Pallet 数据
@@ -211,7 +216,9 @@ class ExceptionHandling(View):
         context.update({
             'pallet_data': pal_list,
             'packinglist_data': pl_list,
-            'search_date': search_date_str
+            'search_date': search_date_str,
+            "warehouse_form": ZemWarehouseForm(initial={"name": warehouse}),
+            "warehouse": warehouse,
         })
         
         return self.template_temporary_function, context
@@ -483,6 +490,7 @@ class ExceptionHandling(View):
 
         # 如果没有提供任何搜索条件，默认查询前两个月
         if not container_number and not start_date_str and not end_date_str and not month_filter and not destination:
+            print('需要给定时间')
             two_months_ago = today - timedelta(days=60)
             default_start = two_months_ago
             start_date = make_aware(datetime.combine(default_start, datetime.min.time()))
@@ -492,13 +500,11 @@ class ExceptionHandling(View):
         else:
             if start_date_str:
                 start_date = make_aware(datetime.strptime(start_date_str, "%Y-%m-%d"))
-            else:
-                start_date = make_aware(datetime.combine(default_start, datetime.min.time()))
+                filters &= Q(container_number__order__offload_id__offload_at__gte=start_date) 
 
             if end_date_str:
                 end_date = make_aware(datetime.strptime(end_date_str, "%Y-%m-%d"))
-            else:
-                end_date = make_aware(datetime.combine(default_end, datetime.max.time()))
+                filters &= Q(container_number__order__offload_id__offload_at__lte=end_date)
 
             # 月份筛选 - 修改为按照 offload_at 时间筛选
             if month_filter:
@@ -507,9 +513,6 @@ class ExceptionHandling(View):
                 next_month = month_date.replace(day=28) + timedelta(days=4)
                 month_end = make_aware(datetime(next_month.year, next_month.month, 1) - timedelta(days=1))
                 filters &= Q(container_number__order__offload_id__offload_at__range=(month_start, month_end))
-            else:
-                filters &= Q(container_number__order__offload_id__offload_at__gte=start_date)
-                filters &= Q(container_number__order__offload_id__offload_at__lte=end_date)
 
         if container_number:
             filters &= Q(container_number__container_number__icontains=container_number)
@@ -924,14 +927,6 @@ class ExceptionHandling(View):
             result['message'] += f'更新空记录{updated_count}条'
             
         return result
-            
-        # except Exception as e:
-        #     processing_logs.append({
-        #         'row': row_number,
-        #         'type': 'error',
-        #         'message': f'查询pallet记录失败: {str(e)}'
-        #     })
-        return {'updated': 0, 'message': f'查询失败: {str(e)}'}
     
     async def handle_search_data(self, request: HttpRequest):
         context = {}
@@ -953,32 +948,107 @@ class ExceptionHandling(View):
             'default_search_field': search_field,
         })
         
-        #try:
-            # 根据表名执行查询
-        record_data = await self.query_table_data(table_name, search_field, search_value)
+        # 根据表名执行查询 - 返回所有记录
+        records_data = await self.query_table_data_all(table_name, search_field, search_value)
         
-        if record_data:
+        if records_data:
+            record_count = len(records_data)
             context.update({
-                'record_data': record_data,
-                'record_count': 1,
+                'record_data': records_data[0] if record_count > 0 else None,  # 第一条记录用于详细显示
+                'records_list': records_data,  # 所有记录
+                'record_count': record_count,
                 'search_info': True,
             })
-            await sync_to_async(messages.success)(request, "查询成功")
+            if record_count > 1:
+                await sync_to_async(messages.success)(request, f"找到 {record_count} 条记录")
+            else:
+                await sync_to_async(messages.success)(request, "查询成功")
         else:
             context.update({
                 'record_data': None,
+                'records_list': [],
                 'record_count': 0,
                 'search_info': True,
             })
             await sync_to_async(messages.warning)(request, "未找到匹配的记录")
-                
-        # except Exception as e:
-        #     await sync_to_async(messages.error)(request, f"查询失败: {str(e)}")
         
         # 设置可用的查询字段
         context['available_fields'] = await self.get_available_fields(table_name)
         
         return self.template_find_all_table, context
+
+    async def get_model_by_name(self, table_name: str):
+        """根据表名获取对应的Django模型"""
+        model_map = {
+            'Container': Container,
+            'Customer': Customer,
+            'FeeDetail': FeeDetail,
+            'FleetShipmentPallet': FleetShipmentPallet,
+            'Fleet': Fleet,
+            'InvoicePreport': InvoicePreport,
+            'InvoiceWarehouse': InvoiceWarehouse,
+            'InvoiceDelivery': InvoiceDelivery,
+            'Invoice': Invoice,
+            'InvoiceStatus': InvoiceStatus,
+            'AbnormalOffloadStatus': AbnormalOffloadStatus,
+            'Order': Order,
+            'PackingList': PackingList,
+            'PalletDestroyed': PalletDestroyed,
+            'Pallet': Pallet,
+            'PoCheckEtaSeven': PoCheckEtaSeven,
+            'QuotationMaster': QuotationMaster,
+            'TransferLocation': TransferLocation,
+            'Vessel': Vessel,
+        }
+        
+        return model_map.get(table_name)
+    
+    async def query_table_data_all(self, table_name: str, search_field: str, search_value: str):
+        """查询表数据 - 返回所有匹配的记录"""
+        try:
+            # 根据表名获取模型
+            model = await self.get_model_by_name(table_name)
+            if not model:
+                return None
+            
+            # 构建查询条件
+            filter_kwargs = {f"{search_field}__icontains": search_value}
+            
+            # 使用 sync_to_async 执行查询
+            def get_records():
+                # 检查字段是否是外键
+                model_field = model._meta.get_field(search_field)
+                if model_field.is_relation:
+                    # 是外键，自动拼接常用字段名
+                    related_model = model_field.related_model
+
+                    # 假设外键关联的模型里有一个明显的标识字段，比如 number、name 或 container_number
+                    candidate_fields = ["container_number", "name", "number", "fleet_number", "shipment_batch_number"]
+                    target_field = None
+                    for c in candidate_fields:
+                        if any(f.name == c for f in related_model._meta.fields):
+                            target_field = c
+                            break
+
+                    if target_field:
+                        filter_key = f"{search_field}__{target_field}__icontains"
+                    else:
+                        # 实在找不到就退回 id 匹配
+                        filter_key = f"{search_field}__id__icontains"
+                else:
+                    # 普通字段
+                    filter_key = f"{search_field}__icontains"
+
+                filter_kwargs = {filter_key: search_value}
+
+                return list(model.objects.filter(**filter_kwargs).values())
+            
+            records = await sync_to_async(get_records)()
+            return records
+            
+        except Exception as e:
+            logger.error(f"查询表数据失败: {str(e)}")
+            return None
 
     async def query_table_data(self, table_name, search_field, search_value):
         """异步查询表数据"""
