@@ -952,11 +952,13 @@
                                 <td data-column="eta">{{ data.vessel_eta|date:"Y-m-d H:i"|default:'-' }}</td>
                                 <td data-column="reference_status_t49">
                                     {% if data.t49_empty_returned_at %}
-                                        T49还空{{ data.t49_empty_returned_at }}
+                                        T49还空 {{ data.t49_empty_returned_at|date:'Y-m-d H:i:s' }}
                                     {% elif data.t49_pod_full_out_at %}
-                                        T49提柜{{ data.t49_pod_full_out_at }}
+                                        T49提柜 {{ data.t49_pod_full_out_at|date:'Y-m-d H:i:s' }}
                                     {% elif data.temp_t49_available_for_pickup %}
-                                        放行状态{{ data.temp_t49_available_for_pickup }}
+                                        放行状态 {{ data.temp_t49_available_for_pickup }}
+                                    {% else %}
+                                        <span style="color: #dc3545;">放行状态 ×</span>
                                     {% endif %}
                                 </td>
                                 <td data-column="release_status_t49">
