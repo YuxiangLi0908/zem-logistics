@@ -231,7 +231,7 @@ class ExceptionHandling(View):
                                 'message': f'未找到对应的shipment记录: appointment_id={isa_int}'
                             })
                             skipped_count += 1
-                            continue
+                            #continue
                         else:
                             processing_logs.append({
                                 'row': row_number,
@@ -327,7 +327,6 @@ class ExceptionHandling(View):
         try:          
             shipment = await Shipment.objects.aget(
                 appointment_id=appointment_id,
-                # 可以添加其他过滤条件
             )
             return shipment
         except Shipment.DoesNotExist:
@@ -336,7 +335,7 @@ class ExceptionHandling(View):
             logger.error(f"查询shipment失败: {str(e)}")
             raise
 
-    
+    async def update_packinglist_records(container_number, warehouse, shipment, processing_logs, row_number):
         """更新packinglist记录"""
         try:
             result = {'updated': 0, 'message': ''}
@@ -530,9 +529,9 @@ class ExceptionHandling(View):
             result['updated'] = updated_count
             
             if empty_count == 0 and existing_count == 0:
-                result['message'] += '未找到任何记录'
+                result['message'] += '已有约和没有约都未找到任何记录'
             elif empty_count == 0 and existing_count > 0:
-                result['message'] += '无空记录可更新'
+                result['message'] += '都有约了，不更新了'
             else:
                 result['message'] += f'更新空记录{updated_count}条'
                 
