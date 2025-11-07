@@ -174,151 +174,150 @@ class ExceptionHandling(View):
         excel_file = request.FILES['excel_file']
         processing_logs = []
         
-        try:
-            # 读取Excel文件
-            df = pd.read_excel(excel_file)
+        #try:
+        # 读取Excel文件
+        df = pd.read_excel(excel_file)
+        
+        # 验证列名
+        required_columns = ['柜号', '仓点', '时间', 'ISA']
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        
+        if missing_columns:
+            await sync_to_async(messages.error)(request, f'Excel文件缺少必要的列: {", ".join(missing_columns)}')
+            return self.template_temporary_function, {}
+        
+        total_rows = len(df)
+        success_count = 0
+        error_count = 0
+        skipped_count = 0
+        
+        # 逐行处理数据
+        for index, row in df.iterrows():
+            row_number = index + 2  # Excel行号（包含标题行）
             
-            # 验证列名
-            required_columns = ['柜号', '仓点', '时间', 'ISA']
-            missing_columns = [col for col in required_columns if col not in df.columns]
+            #try:
+            # 提取数据
+            container_number = str(row['柜号']).strip()
+            destination = str(row['仓点']).strip()
+            time_value = row['时间']
+            isa_value = str(row['ISA']).strip()
             
-            if missing_columns:
-                await sync_to_async(messages.error)(request, f'Excel文件缺少必要的列: {", ".join(missing_columns)}')
-                return self.template_temporary_function, {}
+            # 记录开始处理
+            processing_logs.append({
+                'row': row_number,
+                'type': 'info',
+                'message': f'开始处理: 柜号={container_number}, 仓点={destination}, ISA={isa_value}'
+            })
             
-            total_rows = len(df)
-            success_count = 0
-            error_count = 0
-            skipped_count = 0
+            # 处理ISA值（去空格取整数）
+            try:
+                isa_int = int(isa_value.strip())
+            except (ValueError, AttributeError):
+                processing_logs.append({
+                    'row': row_number,
+                    'type': 'error',
+                    'message': f'ISA值格式错误: {isa_value}'
+                })
+                error_count += 1
+                continue
             
-            # 逐行处理数据
-            for index, row in df.iterrows():
-                row_number = index + 2  # Excel行号（包含标题行）
-                
-                try:
-                    # 提取数据
-                    container_number = str(row['柜号']).strip()
-                    destination = str(row['仓点']).strip()
-                    time_value = row['时间']
-                    isa_value = str(row['ISA']).strip()
-                    
-                    # 记录开始处理
+            # 查找shipment记录
+            try:
+                shipment = await self.get_shipment_by_appointment_id(isa_int)
+                if not shipment:
+                    processing_logs.append({
+                        'row': row_number,
+                        'type': 'warning',
+                        'message': f'未找到对应的shipment记录: appointment_id={isa_int}'
+                    })
+                    skipped_count += 1
+                    #continue
+                else:
                     processing_logs.append({
                         'row': row_number,
                         'type': 'info',
-                        'message': f'开始处理: 柜号={container_number}, 仓点={destination}, ISA={isa_value}'
+                        'message': f'找到shipment记录: ID={shipment.id}, appointment_id={shipment.appointment_id}'
                     })
-                    
-                    # 处理ISA值（去空格取整数）
-                    try:
-                        isa_int = int(isa_value.strip())
-                    except (ValueError, AttributeError):
-                        processing_logs.append({
-                            'row': row_number,
-                            'type': 'error',
-                            'message': f'ISA值格式错误: {isa_value}'
-                        })
-                        error_count += 1
-                        continue
-                    
-                    # 查找shipment记录
-                    try:
-                        shipment = await self.get_shipment_by_appointment_id(isa_int)
-                        if not shipment:
-                            processing_logs.append({
-                                'row': row_number,
-                                'type': 'warning',
-                                'message': f'未找到对应的shipment记录: appointment_id={isa_int}'
-                            })
-                            skipped_count += 1
-                            #continue
-                        else:
-                            processing_logs.append({
-                                'row': row_number,
-                                'type': 'info',
-                                'message': f'找到shipment记录: ID={shipment.id}, appointment_id={shipment.appointment_id}'
-                            })
-                    except Exception as e:
-                        processing_logs.append({
-                            'row': row_number,
-                            'type': 'error',
-                            'message': f'查询shipment失败: {str(e)}'
-                        })
-                        error_count += 1
-                        continue
-                    
-                    # 查找并更新pallet记录
-                    pallet_result = await self.update_pallet_records(
-                        container_number, destination, shipment, processing_logs, row_number
-                    )
-                    
-                    # 查找并更新packinglist记录  
-                    packinglist_result = await self.update_packinglist_records(
-                        container_number, destination, shipment, processing_logs, row_number
-                    )
-                    
-                    # 分别记录每个表的更新结果
-                    if pallet_result['updated'] > 0 and packinglist_result['updated'] > 0:
-                        success_count += 1
-                        processing_logs.append({
-                            'row': row_number,
-                            'type': 'success', 
-                            'message': f'处理成功! Pallet更新: {pallet_result["updated"]}条, PackingList更新: {packinglist_result["updated"]}条'
-                        })
-                    elif pallet_result['updated'] > 0 and packinglist_result['updated'] == 0:
-                        success_count += 1
-                        processing_logs.append({
-                            'row': row_number,
-                            'type': 'success',
-                            'message': f'Pallet更新成功: {pallet_result["updated"]}条, PackingList: {packinglist_result["message"]}'
-                        })
-                    elif pallet_result['updated'] == 0 and packinglist_result['updated'] > 0:
-                        success_count += 1
-                        processing_logs.append({
-                            'row': row_number,
-                            'type': 'success',
-                            'message': f'PackingList更新成功: {packinglist_result["updated"]}条, Pallet: {pallet_result["message"]}'
-                        })
-                    else:
-                        skipped_count += 1
-                        processing_logs.append({
-                            'row': row_number,
-                            'type': 'warning',
-                            'message': f'两个表都未更新: Pallet-{pallet_result["message"]}, PackingList-{packinglist_result["message"]}'
-                        })
-                            
-                except Exception as e:
-                    error_count += 1
-                    processing_logs.append({
-                        'row': row_number,
-                        'type': 'error',
-                        'message': f'处理行数据时发生错误: {str(e)}'
-                    })
-                    logger.error(f"处理Excel行 {row_number} 时出错: {str(e)}")
+            except Exception as e:
+                processing_logs.append({
+                    'row': row_number,
+                    'type': 'error',
+                    'message': f'查询shipment失败: {str(e)}'
+                })
+                error_count += 1
+                continue
             
-            # 准备结果上下文
-            context = {
-                'processing_result': {
-                    'total_rows': total_rows,
-                    'success_count': success_count,
-                    'error_count': error_count,
-                    'skipped_count': skipped_count,
-                    'logs': processing_logs
-                }
+            # 查找并更新pallet记录
+            pallet_result = await self.update_pallet_records(
+                container_number, destination, shipment, processing_logs, row_number
+            )
+            
+            # 查找并更新packinglist记录  
+            packinglist_result = await self.update_packinglist_records(
+                container_number, destination, shipment, processing_logs, row_number
+            )
+            
+            # 分别记录每个表的更新结果
+            if pallet_result['updated'] > 0 and packinglist_result['updated'] > 0:
+                success_count += 1
+                processing_logs.append({
+                    'row': row_number,
+                    'type': 'success', 
+                    'message': f'处理成功! Pallet更新: {pallet_result["updated"]}条, PackingList更新: {packinglist_result["updated"]}条'
+                })
+            elif pallet_result['updated'] > 0 and packinglist_result['updated'] == 0:
+                success_count += 1
+                processing_logs.append({
+                    'row': row_number,
+                    'type': 'success',
+                    'message': f'Pallet更新成功: {pallet_result["updated"]}条, PackingList: {packinglist_result["message"]}'
+                })
+            elif pallet_result['updated'] == 0 and packinglist_result['updated'] > 0:
+                success_count += 1
+                processing_logs.append({
+                    'row': row_number,
+                    'type': 'success',
+                    'message': f'PackingList更新成功: {packinglist_result["updated"]}条, Pallet: {pallet_result["message"]}'
+                })
+            else:
+                skipped_count += 1
+                processing_logs.append({
+                    'row': row_number,
+                    'type': 'warning',
+                    'message': f'两个表都未更新: Pallet-{pallet_result["message"]}, PackingList-{packinglist_result["message"]}'
+                })
+                        
+            # except Exception as e:
+            #     error_count += 1
+            #     processing_logs.append({
+            #         'row': row_number,
+            #         'type': 'error',
+            #         'message': f'处理行数据时发生错误: {str(e)}'
+            #     })
+            #     logger.error(f"处理Excel行 {row_number} 时出错: {str(e)}")
+        
+        # 准备结果上下文
+        context = {
+            'processing_result': {
+                'total_rows': total_rows,
+                'success_count': success_count,
+                'error_count': error_count,
+                'skipped_count': skipped_count,
+                'logs': processing_logs
             }
-            
-            # 添加汇总消息
-            if success_count > 0:
-                messages.success(request, f'成功处理 {success_count} 条记录')
-            if error_count > 0:
-                messages.error(request, f'处理失败 {error_count} 条记录')
-            if skipped_count > 0:
-                messages.warning(request, f'跳过 {skipped_count} 条记录')
+        }
+        
+        # 添加汇总消息
+        if success_count > 0:
+            messages.success(request, f'成功处理 {success_count} 条记录')
+        if error_count > 0:
+            messages.error(request, f'处理失败 {error_count} 条记录')
+        if skipped_count > 0:
+            messages.warning(request, f'跳过 {skipped_count} 条记录')
                     
-        except Exception as e:
-            messages.error(request, f'处理Excel文件时发生错误: {str(e)}')
-            logger.error(f"处理Excel文件时出错: {str(e)}")
-            return self.template_temporary_function, {}
+        # except Exception as e:
+        #     messages.error(request, f'处理Excel文件时发生错误: {str(e)}')
+        #     logger.error(f"处理Excel文件时出错: {str(e)}")
         
         return self.template_temporary_function, context
 
@@ -345,7 +344,7 @@ class ExceptionHandling(View):
             container_number__container_number=container_number,
             destination=destination,
             shipment_batch_number__isnull=False
-        )
+        ).select_related('shipment_batch_number', 'master_shipment_batch_number')
         
         existing_count = 0
         master_updated_count = 0
@@ -385,7 +384,7 @@ class ExceptionHandling(View):
             container_number__container_number=container_number,
             destination=destination,
             shipment_batch_number__isnull=True
-        )
+        ).select_related('shipment_batch_number', 'master_shipment_batch_number')
         
         updated_count = 0
         empty_count = 0
@@ -448,7 +447,7 @@ class ExceptionHandling(View):
             container_number__container_number=container_number,
             destination=destination,
             shipment_batch_number__isnull=False
-        )
+        ).select_related('shipment_batch_number', 'master_shipment_batch_number')
         
         existing_pallets = await sync_to_async(list)(existing_pallets_query)
         
@@ -490,7 +489,7 @@ class ExceptionHandling(View):
             container_number__container_number=container_number,
             destination=destination,
             shipment_batch_number__isnull=True
-        )
+        ).select_related('shipment_batch_number', 'master_shipment_batch_number')
         
         empty_pallets = await sync_to_async(list)(empty_pallets_query)
         
