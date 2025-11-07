@@ -191,8 +191,8 @@ class ExceptionHandling(View):
         """查询未绑定的出库记录"""
         context = {}
         search_date_str = request.POST.get('search_date')
-        search_date_lower_str = request.POST.get('search_date')
-        
+        search_date_lower_str = request.POST.get('search_date_lower')
+
         search_date = datetime.fromisoformat(search_date_str)      
         search_date_lower = datetime.fromisoformat(search_date_lower_str)   
         # 查询条件：指定时间之前，shipment_batch_number为空
