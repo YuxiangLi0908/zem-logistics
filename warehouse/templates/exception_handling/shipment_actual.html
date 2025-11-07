@@ -332,11 +332,6 @@
 {% endif %}
 
 <script>
-// 自动隐藏消息提示
-setTimeout(() => {
-    document.querySelectorAll('.message').forEach(m => m.style.display='none');
-}, 5000);
-
 // 切换编辑表单显示
 function toggleEditForm(formId) {
     const form = document.getElementById(formId);
