@@ -15,6 +15,7 @@ class Vessel(models.Model):
     voyage = models.CharField(max_length=100, blank=True, null=True)
     vessel_etd = models.DateTimeField(null=True, blank=True)
     vessel_eta = models.DateTimeField(null=True, blank=True)
+    vessel_imo = models.CharField(max_length=100, blank=True, null=True)
     history = HistoricalRecords()
 
     class Meta:
