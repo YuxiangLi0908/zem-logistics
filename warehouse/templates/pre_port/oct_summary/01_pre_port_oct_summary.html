@@ -175,6 +175,11 @@
             min-width: 176px !important;
         }
 
+        [data-column="destination_port"] {
+            width: 176px !important;
+            min-width: 176px !important;
+        }
+
         [data-column="shipping_line"] {
             width: 176px !important;
             min-width: 176px !important;
@@ -202,6 +207,12 @@
 
         [data-column="eta"] {
             width: 176px !important;
+            min-width: 176px !important;
+        }
+
+
+        [data-column="reference_status_t49"] {
+            width: 220px !important;
             min-width: 176px !important;
         }
 
@@ -621,6 +632,15 @@
                                     </button>
                                 </div>
                             </th>
+                            <th data-column="destination_port">
+                                <div class="header-content">
+                                    码头
+                                    <button type="button" class="column-visibility-btn" data-column="destination_port"
+                                            title="隐藏列">
+                                        <i class="layui-icon layui-icon-eye"></i>
+                                    </button>
+                                </div>
+                            </th>
                             <th data-column="shipping_line">
                                 <div class="header-content">
                                     船司
@@ -670,6 +690,15 @@
                                 <div class="header-content">
                                     ETA
                                     <button type="button" class="column-visibility-btn" data-column="eta"
+                                            title="隐藏列">
+                                        <i class="layui-icon layui-icon-eye"></i>
+                                    </button>
+                                </div>
+                            </th>
+                            <th data-column="reference_status_t49">
+                                <div class="header-content">
+                                    T49参考状态
+                                    <button type="button" class="column-visibility-btn" data-column="reference_status_t49"
                                             title="隐藏列">
                                         <i class="layui-icon layui-icon-eye"></i>
                                     </button>
@@ -778,6 +807,9 @@
                             <th data-column="mbl" class="search-th"><input type="text" class="column-search"
                                                                            data-column="mbl"
                                                                            placeholder="搜索MBL..."></th>
+                            <th data-column="destination_port" class="search-th"><input type="text" class="column-search"
+                                                                                     data-column="destination_port"
+                                                                                     placeholder="搜索码头..."></th>
                             <th data-column="shipping_line" class="search-th"><input type="text" class="column-search"
                                                                                      data-column="shipping_line"
                                                                                      placeholder="搜索船司..."></th>
@@ -796,11 +828,17 @@
                             <th data-column="eta" class="search-th"><input type="text" class="column-search"
                                                                            data-column="eta"
                                                                            placeholder="搜索ETA..."></th>
+                            <th data-column="reference_status_t49" class="search-th"><input type="text"
+                                                                                          class="column-search"
+                                                                                          data-column="reference_status_t49"
+                                                                                          placeholder="T49参考状态...">
+                            </th>
                             <th data-column="release_status_t49" class="search-th"><input type="text"
                                                                                           class="column-search"
                                                                                           data-column="release_status_t49"
                                                                                           placeholder="搜索放行状态(t49)...">
                             </th>
+
                             <th data-column="actual_carrier" class="search-th"><input type="text" class="column-search"
                                                                                       data-column="actual_carrier"
                                                                                       placeholder="搜索实际提柜供应商...">
@@ -853,12 +891,14 @@
                             <th data-column="dispatch_note">调度备注</th>
                             <th data-column="container">柜号</th>
                             <th data-column="mbl">MBL</th>
+                            <th data-column="destination_port">码头</th>
                             <th data-column="shipping_line">船司</th>
                             <th data-column="vessel">船名航次</th>
                             <th data-column="container_type">柜型</th>
                             <th data-column="vessel_date">船期</th>
                             <th data-column="etd">ETD</th>
                             <th data-column="eta">ETA</th>
+                            <th data-column="reference_status_t49">T49参考状态</th>
                             <th data-column="release_status_t49">放行状态(t49)</th>
                             <th data-column="actual_carrier">供应商</th>
                             <th data-column="dispatch_delegation">调度委托</th>
@@ -897,6 +937,7 @@
                                        style="color: #0066cc;" target="_blank">{{ data.container }}</a>
                                 </td>
                                 <td data-column="mbl">{{ data.mbl|default:'-' }}</td>
+                                <td data-column="destination_port">{{ data.destination_port|default:'-' }}</td>
                                 <td data-column="shipping_line">{{ data.shipping_line|default:'-' }}</td>
                                 <td data-column="vessel">{{ data.vessel|default:'-' }}</td>
                                 <td data-column="container_type">{{ data.container_type|default:'-' }}</td>
@@ -909,6 +950,17 @@
                                 </td>
                                 <td data-column="etd">{{ data.vessel_etd|date:"Y-m-d H:i"|default:'-' }}</td>
                                 <td data-column="eta">{{ data.vessel_eta|date:"Y-m-d H:i"|default:'-' }}</td>
+                                <td data-column="reference_status_t49">
+                                    {% if data.t49_empty_returned_at %}
+                                        T49还空 {{ data.t49_empty_returned_at|date:'Y-m-d H:i:s' }}
+                                    {% elif data.t49_pod_full_out_at %}
+                                        T49提柜 {{ data.t49_pod_full_out_at|date:'Y-m-d H:i:s' }}
+                                    {% elif data.temp_t49_available_for_pickup %}
+                                        放行状态 {{ data.temp_t49_available_for_pickup }}
+                                    {% else %}
+                                        <span style="color: #dc3545;">放行状态 ×</span>
+                                    {% endif %}
+                                </td>
                                 <td data-column="release_status_t49">
                                     {% if data.temp_t49_available_for_pickup == True %}
                                         <span style="color: #28a745;">√</span>
