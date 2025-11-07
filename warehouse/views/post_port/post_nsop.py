@@ -2919,7 +2919,74 @@ class PostNsop(View):
                     cns=StringAgg(
                         "str_container_number", delimiter="\n", distinct=True, ordering="str_container_number"
                     ),
-                    offload_time=Value("", output_field=CharField()),
+                    offload_time = Case(
+                        # 有实际提柜时间
+                        When(
+                            container_number__order__retrieval_id__actual_retrieval_timestamp__isnull=False,
+                            then=Concat(
+                                Value("实际提柜："),
+                                Func(
+                                    F('container_number__order__retrieval_id__actual_retrieval_timestamp'),
+                                    Value('YYYY-MM-DD'),
+                                    function='to_char'
+                                ),
+                                output_field=CharField()
+                            )
+                        ),
+
+                        # 同时有上下限 → 范围
+                        When(
+                            Q(container_number__order__retrieval_id__target_retrieval_timestamp_lower__isnull=False)
+                            & Q(container_number__order__retrieval_id__target_retrieval_timestamp__isnull=False),
+                            then=Concat(
+                                Value("预计提柜："),
+                                Func(
+                                    F('container_number__order__retrieval_id__target_retrieval_timestamp_lower'),
+                                    Value('YYYY-MM-DD'),
+                                    function='to_char'
+                                ),
+                                Value("~"),
+                                Func(
+                                    F('container_number__order__retrieval_id__target_retrieval_timestamp'),
+                                    Value('YYYY-MM-DD'),
+                                    function='to_char'
+                                ),
+                                output_field=CharField()
+                            )
+                        ),
+
+                        # 只有下限
+                        When(
+                            container_number__order__retrieval_id__target_retrieval_timestamp_lower__isnull=False,
+                            then=Concat(
+                                Value("预计提柜："),
+                                Func(
+                                    F('container_number__order__retrieval_id__target_retrieval_timestamp_lower'),
+                                    Value('YYYY-MM-DD'),
+                                    function='to_char'
+                                ),
+                                output_field=CharField()
+                            )
+                        ),
+
+                        # 只有上限
+                        When(
+                            container_number__order__retrieval_id__target_retrieval_timestamp__isnull=False,
+                            then=Concat(
+                                Value("预计提柜："),
+                                Func(
+                                    F('container_number__order__retrieval_id__target_retrieval_timestamp'),
+                                    Value('YYYY-MM-DD'),
+                                    function='to_char'
+                                ),
+                                output_field=CharField()
+                            )
+                        ),
+
+                        # 都没有
+                        default=Value("无预计提柜"),
+                        output_field=CharField()
+                    ),
                     total_pcs=Sum("pcs", output_field=FloatField()),
                     total_cbm = Round(Sum("cbm", output_field=FloatField()), 3),
                     total_n_pallet_est= Round(Sum("cbm", output_field=FloatField()) / 2, 0),
