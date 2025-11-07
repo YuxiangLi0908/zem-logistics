@@ -192,8 +192,7 @@ class ExceptionHandling(View):
         context = {}
         search_date_str = request.POST.get('search_date')
         
-        search_date = datetime.fromisoformat(search_date_str)
-        
+        search_date = datetime.fromisoformat(search_date_str)      
         # 查询条件：指定时间之前，shipment_batch_number为空
         base_criteria = Q(
             shipment_batch_number__isnull=True,
@@ -246,7 +245,7 @@ class ExceptionHandling(View):
                 total_pcs=Sum("pcs", output_field=IntegerField()),
                 total_cbm=Sum("cbm", output_field=FloatField()),
                 total_weight_lbs=Sum("weight_lbs", output_field=FloatField()),
-                total_pallet=Count("id", distinct=True),
+                total_pallet=Count("pallet_id", distinct=True),
             )
             .order_by("container_number__order__offload_id__offload_at")
         )
@@ -270,7 +269,7 @@ class ExceptionHandling(View):
                 calculated_pallets=Case(
                     When(
                         cbm__isnull=False,
-                        then=F("cbm") / 1.8
+                        then=Round(F("cbm") / 1.8)
                     ),
                     default=Value(0),
                     output_field=FloatField()
