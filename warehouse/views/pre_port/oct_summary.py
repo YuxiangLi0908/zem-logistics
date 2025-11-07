@@ -370,6 +370,9 @@ class OctSummaryView(View):
                 vessel_date=F("vessel_id__vessel_eta") - F("vessel_id__vessel_etd"),
                 vessel_etd=F("vessel_id__vessel_etd"),
                 vessel_eta=F("vessel_id__vessel_eta"),
+                destination_port=F("vessel_id__destination_port"),
+                t49_empty_returned_at=F("retrieval_id__t49_empty_returned_at"),
+                t49_pod_full_out_at=F("retrieval_id__t49_pod_full_out_at"),
                 temp_t49_available_for_pickup=F("retrieval_id__temp_t49_available_for_pickup"),
                 retrieval_carrier=F("retrieval_id__retrieval_carrier"),
                 ke_destination_num=Sum(
@@ -409,7 +412,8 @@ class OctSummaryView(View):
                 "vessel_date", "vessel_etd", "vessel_eta", "temp_t49_available_for_pickup",
                 "retrieval_carrier", "ke_destination_num", "si_destination_num", "order_type",
                 "do_sent", "id", "status", "retrieval_carrier_planned", "retrieval_id__retrieval_id",
-                "retrieval_delegation_status", "planned_release_time", "actual_release_status"
+                "retrieval_delegation_status", "planned_release_time", "actual_release_status", "destination_port",
+                "t49_empty_returned_at", "t49_pod_full_out_at"
             )
             # 排序规则修改：先按已放行（True）优先，再按ETA升序（越早越前）
             .order_by(
@@ -497,6 +501,9 @@ class OctSummaryView(View):
                             F("vessel_id__vessel_etd"),
                 vessel_etd=F("vessel_id__vessel_etd"),
                 vessel_eta=F("vessel_id__vessel_eta"),
+                destination_port=F("vessel_id__destination_port"),
+                t49_empty_returned_at=F("retrieval_id__t49_empty_returned_at"),
+                t49_pod_full_out_at=F("retrieval_id__t49_pod_full_out_at"),
                 temp_t49_available_for_pickup=F("retrieval_id__temp_t49_available_for_pickup"),
                 retrieval_carrier=F("retrieval_id__retrieval_carrier"),
                 ke_destination_num=Sum(
@@ -536,7 +543,8 @@ class OctSummaryView(View):
                 "vessel_date", "vessel_etd", "vessel_eta", "temp_t49_available_for_pickup",
                 "retrieval_carrier", "ke_destination_num", "si_destination_num", "order_type",
                 "do_sent", "id", "status", "retrieval_carrier_planned", "retrieval_id__retrieval_id",
-                "retrieval_delegation_status", "planned_release_time", "actual_release_status"
+                "retrieval_delegation_status", "planned_release_time", "actual_release_status", "destination_port",
+                "t49_empty_returned_at", "t49_pod_full_out_at"
             )
             # 排序规则修改：先按已放行（True）优先，再按ETA升序（越早越前）
             .order_by(
