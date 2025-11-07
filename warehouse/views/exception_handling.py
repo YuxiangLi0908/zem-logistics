@@ -45,7 +45,22 @@ from warehouse.views.terminal49_webhook import T49Webhook
 import logging
 
 logger = logging.getLogger(__name__)
-
+from django.contrib.postgres.aggregates import StringAgg
+from django.db.models.functions import Round, Cast, Coalesce
+from django.db.models import (
+    Case,
+    CharField,
+    Count,
+    F,
+    Func,
+    FloatField,
+    IntegerField,
+    Max,
+    Q,
+    Sum,
+    Value,
+    When,
+)
 class ExceptionHandling(View):
     template_container_pallet = "exception_handling/shipment_actual.html"
     template_post_port_status = "exception_handling/post_port_status.html"
@@ -166,16 +181,131 @@ class ExceptionHandling(View):
         elif step == "process_excel":
             template, context = await self.handle_process_excel(request)
             return await sync_to_async(render)(request, template, context) 
+        elif step == "search_outbound_pos":
+            template, context = await self.handle_search_outbound_pos(request)
+            return await sync_to_async(render)(request, template, context) 
         else:
             return await sync_to_async(T49Webhook().post)(request)
+    
+    async def handle_search_outbound_pos(self, request):
+        """查询未绑定的出库记录"""
+        context = {}
+        search_date_str = request.POST.get('search_date')
+        
+        search_date = datetime.fromisoformat(search_date_str)
+        
+        # 查询条件：指定时间之前，shipment_batch_number为空
+        base_criteria = Q(
+            shipment_batch_number__isnull=True,
+            container_number__order__offload_id__offload_at__lte=search_date
+        )
+        
+        # 查询 Pallet 数据
+        pal_list = await self.get_pallet_data(base_criteria)
+        
+        # 查询 PackingList 数据
+        pl_list = await self.get_packinglist_data(base_criteria)
+        
+        context.update({
+            'pallet_data': pal_list,
+            'packinglist_data': pl_list,
+            'search_date': search_date_str
+        })
+        
+        return self.template_temporary_function, context
+
+    async def get_pallet_data(self, base_criteria):
+        """获取Pallet数据"""
+        pal_list = await sync_to_async(list)(
+            Pallet.objects.prefetch_related(
+                "container_number",
+                "container_number__order",
+                "container_number__order__warehouse",
+                "shipment_batch_number",
+                "container_number__order__offload_id",
+                "container_number__order__customer_name",
+                "container_number__order__retrieval_id",
+            )
+            .filter(base_criteria)
+            .annotate(
+                str_id=Cast("id", CharField()),
+            )
+            .values(
+                "container_number__container_number",
+                "container_number__order__customer_name__zem_name",
+                "destination",
+                "delivery_method",
+                "container_number__order__offload_id__offload_at",
+                "PO_ID",
+            )
+            .annotate(
+                custom_delivery_method=F("delivery_method"),
+                plt_ids=StringAgg(
+                    "str_id", delimiter=",", distinct=True, ordering="str_id"
+                ),
+                total_pcs=Sum("pcs", output_field=IntegerField()),
+                total_cbm=Sum("cbm", output_field=FloatField()),
+                total_weight_lbs=Sum("weight_lbs", output_field=FloatField()),
+                total_pallet=Count("id", distinct=True),
+            )
+            .order_by("container_number__order__offload_id__offload_at")
+        )
+        return pal_list
+
+    async def get_packinglist_data(self, base_criteria):
+        """获取PackingList数据"""
+        pl_list = await sync_to_async(list)(
+            PackingList.objects.prefetch_related(
+                "container_number",
+                "container_number__order",
+                "container_number__order__warehouse",
+                "shipment_batch_number",
+                "container_number__order__offload_id",
+                "container_number__order__customer_name",
+                "container_number__order__retrieval_id",
+            )
+            .filter(base_criteria)
+            .annotate(
+                str_id=Cast("id", CharField()),
+                calculated_pallets=Case(
+                    When(
+                        cbm__isnull=False,
+                        then=F("cbm") / 1.8
+                    ),
+                    default=Value(0),
+                    output_field=FloatField()
+                )
+            )
+            .values(
+                "container_number__container_number",
+                "container_number__order__customer_name__zem_name",
+                "destination",
+                "delivery_method",
+                "container_number__order__offload_id__offload_at",
+                "PO_ID",
+                "calculated_pallets",
+            )
+            .annotate(
+                custom_delivery_method=F("delivery_method"),
+                fba_ids=F("fba_id"),
+                ref_ids=F("ref_id"),
+                shipping_marks=F("shipping_mark"),
+                plt_ids=StringAgg(
+                    "str_id", delimiter=",", distinct=True, ordering="str_id"
+                ),
+                total_pcs=Sum("pcs", output_field=IntegerField()),
+                total_cbm=Sum("cbm", output_field=FloatField()),
+                total_weight_lbs=Sum("total_weight_lbs", output_field=FloatField()),
+            )
+            .order_by("container_number__order__offload_id__offload_at")
+        )
+        return pl_list
     
     async def handle_process_excel(self, request):
         """处理上传的Excel文件"""
         excel_file = request.FILES['excel_file']
         processing_logs = []
         
-        #try:
-        # 读取Excel文件
         df = pd.read_excel(excel_file)
         
         # 验证列名
@@ -286,17 +416,7 @@ class ExceptionHandling(View):
                     'type': 'warning',
                     'message': f'两个表都未更新: Pallet-{pallet_result["message"]}, PackingList-{packinglist_result["message"]}'
                 })
-                        
-            # except Exception as e:
-            #     error_count += 1
-            #     processing_logs.append({
-            #         'row': row_number,
-            #         'type': 'error',
-            #         'message': f'处理行数据时发生错误: {str(e)}'
-            #     })
-            #     logger.error(f"处理Excel行 {row_number} 时出错: {str(e)}")
-        
-        # 准备结果上下文
+ 
         context = {
             'processing_result': {
                 'total_rows': total_rows,
@@ -315,10 +435,6 @@ class ExceptionHandling(View):
         if skipped_count > 0:
             messages.warning(request, f'跳过 {skipped_count} 条记录')
                     
-        # except Exception as e:
-        #     messages.error(request, f'处理Excel文件时发生错误: {str(e)}')
-        #     logger.error(f"处理Excel文件时出错: {str(e)}")
-        
         return self.template_temporary_function, context
 
     async def get_shipment_by_appointment_id(self, appointment_id):
@@ -333,6 +449,277 @@ class ExceptionHandling(View):
         except Exception as e:
             logger.error(f"查询shipment失败: {str(e)}")
             raise
+    
+    async def handle_query_pallet_packinglist(self, request: HttpRequest):
+        warehouse = (
+            request.POST.get("name")
+            if request.POST.get("name")
+            else request.POST.get("warehouse")
+        )
+        query_type = request.POST.get("query_type", "pallet")
+        container_number = request.POST.get("container_number", "").strip()
+        start_date_str = request.POST.get("start_date", "")
+        end_date_str = request.POST.get("end_date", "")
+        month_filter = request.POST.get("month_filter", "")
+        destination = request.POST.get("destination", "")
+        show_complete = request.POST.get("show_complete", "") == "on"  # 新增：是否显示完整记录
+
+        today = now().date()
+        default_start = today - timedelta(days=30)
+        default_end = today
+        
+        # 构建查询条件
+        filters = Q(container_number__order__cancel_notification=False)
+        if query_type == "pallet":
+            filters &= Q(location=warehouse)
+        else:
+            filters &= Q(container_number__order__retrieval_id__retrieval_destination_area=warehouse)
+
+        # 定义日期变量
+        start_date = None
+        end_date = None
+
+        # 如果没有提供任何搜索条件，默认查询前两个月
+        if not container_number and not start_date_str and not end_date_str and not month_filter and not destination:
+            two_months_ago = today - timedelta(days=60)
+            default_start = two_months_ago
+            start_date = make_aware(datetime.combine(default_start, datetime.min.time()))
+            end_date = make_aware(datetime.combine(default_end, datetime.max.time()))
+            filters &= Q(container_number__order__offload_id__offload_at__gte=start_date) 
+            filters &= Q(container_number__order__offload_id__offload_at__lte=end_date)
+        else:
+            if start_date_str:
+                start_date = make_aware(datetime.strptime(start_date_str, "%Y-%m-%d"))
+            else:
+                start_date = make_aware(datetime.combine(default_start, datetime.min.time()))
+
+            if end_date_str:
+                end_date = make_aware(datetime.strptime(end_date_str, "%Y-%m-%d"))
+            else:
+                end_date = make_aware(datetime.combine(default_end, datetime.max.time()))
+
+            # 月份筛选 - 修改为按照 offload_at 时间筛选
+            if month_filter:
+                month_date = datetime.strptime(month_filter, "%Y-%m")
+                month_start = make_aware(datetime(month_date.year, month_date.month, 1))
+                next_month = month_date.replace(day=28) + timedelta(days=4)
+                month_end = make_aware(datetime(next_month.year, next_month.month, 1) - timedelta(days=1))
+                filters &= Q(container_number__order__offload_id__offload_at__range=(month_start, month_end))
+            else:
+                filters &= Q(container_number__order__offload_id__offload_at__gte=start_date)
+                filters &= Q(container_number__order__offload_id__offload_at__lte=end_date)
+
+        if container_number:
+            filters &= Q(container_number__container_number__icontains=container_number)
+        if destination:
+            destination_clean = destination.strip() 
+            if ' ' in destination_clean:
+                destination_list = destination_clean.split()
+                filters &= Q(destination__in=destination_list)
+            else:
+                filters &= Q(destination=destination_clean)
+
+        # 查询
+        results = []
+        if query_type == "pallet":
+            pallets = await sync_to_async(
+                lambda: list(
+                    Pallet.objects.filter(filters)
+                    .select_related(
+                        "shipment_batch_number", 
+                        "container_number", 
+                        "transfer_batch_number"
+                    )
+                    .prefetch_related('shipment_batch_number')
+                    .order_by("shipment_batch_number__shipment_appointment")
+                )
+            )()
+            
+            container_numbers = [p.container_number for p in pallets if p.container_number]
+            
+            orders = await sync_to_async(
+                lambda: list(
+                    Order.objects.filter(container_number__in=container_numbers)
+                    .select_related('offload_id', 'retrieval_id')
+                )
+            )()
+            
+            order_map = {}
+            for order in orders:
+                order_map[order.container_number_id] = order
+            
+            for p in pallets:
+                offload_time = None
+                actual_retrieval_timestamp = None
+                empty_returned_at = None
+                
+                if p.container_number:
+                    order = order_map.get(p.container_number.id)
+                    if order:
+                        offload_time = order.offload_id.offload_at if order.offload_id else None
+                        actual_retrieval_timestamp = order.retrieval_id.actual_retrieval_timestamp if order.retrieval_id else None
+                        empty_returned_at = order.retrieval_id.empty_returned_at if order.retrieval_id else None
+                results.append({
+                    "container_number": p.container_number.container_number if p.container_number else "-",
+                    "PO_ID": p.PO_ID,
+                    "shipment_batch_number": p.shipment_batch_number.shipment_batch_number if p.shipment_batch_number else "-",
+                    "pallet_id": p.pallet_id,
+                    "pcs": p.pcs,
+                    "cbm": p.cbm,
+                    "destination": p.destination,
+                    "weight": p.weight_lbs,
+                    "delivery_window_start": p.delivery_window_start,
+                    "delivery_window_end": p.delivery_window_end,
+                    "actual_retrieval_timestamp": actual_retrieval_timestamp,
+                    "offload_time": offload_time,
+                    "empty_returned_at": empty_returned_at,
+                    "shipment_appointment": getattr(p.shipment_batch_number, "shipment_appointment", None),
+                    "shipped_at": getattr(p.shipment_batch_number, "shipped_at", None),
+                    "arrived_at": getattr(p.shipment_batch_number, "arrived_at", None),
+                    "pod_uploaded_at": getattr(p.shipment_batch_number, "pod_uploaded_at", None),
+                    "record_type": "pallet"
+                })
+        else:
+            packinglists = await sync_to_async(
+                lambda: list(
+                    PackingList.objects.filter(filters)
+                    .select_related(
+                        "shipment_batch_number", 
+                        "container_number"
+                    )
+                    .prefetch_related('shipment_batch_number')
+                    .order_by("shipment_batch_number__shipment_appointment")
+                )
+            )()
+
+            container_ids = [pl.container_number.id for pl in packinglists if pl.container_number]
+
+            orders = await sync_to_async(
+                lambda: list(
+                    Order.objects.filter(container_number_id__in=container_ids)
+                    .select_related('offload_id', 'retrieval_id')
+                )
+            )()
+
+            order_map = {order.container_number_id: order for order in orders}
+
+            for pl in packinglists:
+                container_id = pl.container_number.id if pl.container_number else None
+                order = order_map.get(container_id) if container_id else None
+                
+                offload_time = order.offload_id.offload_at if order and order.offload_id else None
+                actual_retrieval_timestamp = order.retrieval_id.actual_retrieval_timestamp if order and order.retrieval_id else None
+                empty_returned_at = order.retrieval_id.empty_returned_at if order and order.retrieval_id else None
+                results.append({
+                    "container_number": pl.container_number.container_number if pl.container_number else "-",
+                    "PO_ID": pl.PO_ID,
+                    "shipment_batch_number": pl.shipment_batch_number.shipment_batch_number if pl.shipment_batch_number else "-",
+                    "pcs": pl.pcs,
+                    "cbm": pl.cbm,
+                    "destination": pl.destination,
+                    "weight": pl.total_weight_lbs,
+                    "delivery_window_start": pl.delivery_window_start,
+                    "delivery_window_end": pl.delivery_window_end,
+                    "actual_retrieval_timestamp": actual_retrieval_timestamp,
+                    "offload_time": offload_time,
+                    "empty_returned_at": empty_returned_at,
+                    "shipment_appointment": getattr(pl.shipment_batch_number, "shipment_appointment", None),
+                    "shipped_at": getattr(pl.shipment_batch_number, "shipped_at", None),
+                    "arrived_at": getattr(pl.shipment_batch_number, "arrived_at", None),
+                    "pod_uploaded_at": getattr(pl.shipment_batch_number, "pod_uploaded_at", None),
+                    "record_type": "packinglist"
+                })
+
+        # 分组统计
+        grouped_results = []
+        group_dict = {}
+        
+        for r in results:
+            key = (r["PO_ID"], r["shipment_batch_number"], r["container_number"])
+            if key not in group_dict:
+                group_dict[key] = {
+                    "container_number": r["container_number"],
+                    "PO_ID": r["PO_ID"],
+                    "shipment_batch_number": r["shipment_batch_number"],
+                    "total_pcs": 0,
+                    "total_cbm": 0,
+                    "pallet_count": 0,
+                    "destination": r["destination"],
+                    "actual_retrieval_timestamp": r["actual_retrieval_timestamp"],
+                    "offload_time": r["offload_time"],
+                    "empty_returned_at": r["empty_returned_at"],
+                    # 确保这些 shipment 相关字段正确传递
+                    "shipment_appointment": r["shipment_appointment"],
+                    "shipped_at": r["shipped_at"], 
+                    "arrived_at": r["arrived_at"],
+                    "pod_uploaded_at": r["pod_uploaded_at"],
+                    "delivery_window_start": r["delivery_window_start"],
+                    "delivery_window_end": r["delivery_window_end"],
+                }
+            
+            group_dict[key]["total_pcs"] += r.get("pcs") or 0
+            group_dict[key]["total_cbm"] += r.get("cbm") or 0
+            group_dict[key]["pallet_count"] += 1
+        # 转换为列表
+        grouped_results = list(group_dict.values())
+
+        # 计算记录完整度并排序
+        for group in grouped_results:
+            # 计算时间字段完整度
+            time_fields = [
+                group['actual_retrieval_timestamp'],
+                group['offload_time'], 
+                group['empty_returned_at'],
+                group['shipment_appointment'],
+                group['shipped_at'],
+                group['arrived_at'],
+                group['pod_uploaded_at']
+            ]
+            completed_fields = sum(1 for field in time_fields if field is not None)
+            group['completed_score'] = completed_fields
+            
+            # 标记是否所有时间字段都完整
+            group['is_complete'] = completed_fields == len(time_fields)
+
+        # 根据是否显示完整记录进行筛选
+        if not show_complete:
+            grouped_results = [group for group in grouped_results if not group['is_complete']]
+
+        # 排序：按完整度降序，然后按入仓时间升序
+        grouped_results.sort(key=lambda x: (
+            -x['completed_score'],  # 完整度高的在前
+            x['offload_time'] or datetime.max  # 入仓时间早的在前
+        ))
+
+        # 获取可用的月份用于筛选 - 去重处理
+        available_months = await sync_to_async(
+            lambda: list(
+                Order.objects.filter(offload_id__isnull=False)
+                .annotate(month=TruncMonth('offload_id__offload_at'))
+                .values('month')
+                .distinct()
+                .order_by('-month')
+            )
+        )()
+        
+        # 转换为日期对象列表
+        available_months = [item['month'] for item in available_months]
+
+        warehouse_form = ZemWarehouseForm(initial={"name": warehouse})
+        context = {
+            "query_type": query_type,
+            "container_number": container_number,
+            "start_date": start_date,
+            "end_date": end_date,
+            "month_filter": month_filter,
+            "grouped_results": grouped_results,
+            "available_months": available_months,
+            "warehouse_form": warehouse_form,
+            "destination": destination,
+            "show_complete": show_complete,  # 新增
+        }
+        return self.template_query_pallet_packinglist, context
+
 
     async def update_packinglist_records(self,container_number, destination, shipment, processing_logs, row_number):
         """更新packinglist记录"""

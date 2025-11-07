@@ -223,7 +223,7 @@ class PostNsop(View):
             return render(request, template, context) 
         elif step == "update_fleet_info":
             template, context = await self.handle_update_fleet_info(request)
-            return render(request, template, context) 
+            return render(request, template, context)       
         else:
             raise ValueError('输入错误',step)
     
