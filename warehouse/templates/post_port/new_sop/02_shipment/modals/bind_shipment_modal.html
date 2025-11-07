@@ -111,6 +111,8 @@
                                 <th>REF ID</th>
                                 <th>FBA ID</th>
                                 <th>柜号</th>
+                                <th>板数</th>
+                                <th>CBM</th>
                                 <th>入仓时间</th>
                             </tr>
                         </thead>
@@ -357,6 +359,8 @@
                     ref_ids: row.querySelector('.ref-ids-col')?.innerText.trim() || '-',
                     fba_ids: row.querySelector('.fba-ids-col')?.innerText.trim() || '-',
                     container_no: containerTd?.textContent.trim().replace(/\s+/g, '\n') || '-',
+                    total_pallet: row.querySelector('.pallet-col')?.innerText.trim() || '-',
+                    total_cbm: row.querySelector('.cbm-col')?.innerText.trim() || '-',
                     offload_time: offload_timeTd ? offload_timeTd.textContent.trim() : '无入仓时间',
                 });
             });
@@ -560,6 +564,8 @@
                 <td>${c.ref_ids}</td>
                 <td>${c.fba_ids}</td>
                 <td>${c.container_no}</td>
+                <td>${c.total_pallet}</td>
+                <td>${c.total_cbm}</td>
                 <td>${c.offload_time}</td>
             `;
             tbody.appendChild(tr);
