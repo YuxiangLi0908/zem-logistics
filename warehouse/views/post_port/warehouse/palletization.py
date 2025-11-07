@@ -809,7 +809,7 @@ class Palletization(View):
                         {
                             "offload": offload,
                             "container_number": container,
-                            "created_at": current_time,
+                            "created_at": offload_time,
                             "is_resolved": False,
                             "destination": dest,
                             "delivery_method": d_m,
@@ -931,7 +931,7 @@ class Palletization(View):
                         {
                             "offload": offload,
                             "container_number": container,
-                            "created_at": current_time,
+                            "created_at": offload_time,
                             "is_resolved": False,
                             "destination": dest,
                             "delivery_method": d_m,
