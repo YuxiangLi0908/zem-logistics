@@ -31,8 +31,8 @@ from warehouse.views.post_port.shipment.fleet_management import FleetManagement
 
 class PostportDash(View):
     template_main_dash = "post_port//01_summary_table.html"
-    area_options = {"NJ": "NJ", "SAV": "SAV", "LA": "LA", "MO": "MO", "TX": "TX"}
-    warehouse_mapping = {"NJ": "NJ-07001", "SAV": "SAV-31326", "LA": "LA-91761"}
+    area_options = {"NJ": "NJ", "SAV": "SAV", "LA": "LA", "MO": "MO", "TX": "TX", "CA": "CA"}
+    warehouse_mapping = {"NJ": "NJ-07001", "SAV": "SAV-31326", "LA": "LA-91761", "CA-91789": "CA-91789"}
 
     async def get(self, request: HttpRequest) -> HttpResponse:
         if not await self._user_authenticate(request):

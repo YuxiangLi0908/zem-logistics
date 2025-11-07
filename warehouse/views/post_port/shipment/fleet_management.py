@@ -95,7 +95,7 @@ class FleetManagement(View):
     template_abnormal_fleet_warehouse_search = (
         "post_port/shipment/abnormal/01_fleet_management_main.html"
     )
-    area_options = {"NJ": "NJ", "SAV": "SAV", "LA": "LA", "MO": "MO", "TX": "TX"}
+    area_options = {"NJ": "NJ", "SAV": "SAV", "LA": "LA", "MO": "MO", "TX": "TX", "CA": "CA"}
     warehouse_options = {
         "": "",
         "NJ-07001": "NJ-07001",
@@ -104,6 +104,7 @@ class FleetManagement(View):
         "LA-91761": "LA-91761",
         "MO-62025": "MO-62025",
         "TX-77503": "TX-77503",
+        "CA-91789": "CA-91789",
     }
     shipment_type_options = {
         "": "",

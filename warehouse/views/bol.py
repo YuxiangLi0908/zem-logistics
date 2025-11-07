@@ -38,7 +38,7 @@ from warehouse.views.post_port.shipment.fleet_management import FleetManagement
 class BOL(View):
     template_main = "bol.html"
     template_summary = "summary_table.html"
-    area_options = {"NJ": "NJ", "SAV": "SAV", "LA": "LA", "MO": "MO", "TX": "TX"}
+    area_options = {"NJ": "NJ", "SAV": "SAV", "LA": "LA", "MO": "MO", "TX": "TX", "CA": "CA"}
 
     def get(self, request: HttpRequest) -> HttpResponse:
         step = request.GET.get("step", None)
