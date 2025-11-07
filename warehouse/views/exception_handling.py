@@ -346,7 +346,7 @@ class ExceptionHandling(View):
             pallets = Pallet.objects.filter(
                 container_number__container_number=container_number,
                 destination=destination,
-                shipment_batch_number__isnull=False  # shipment_batch_number不为空
+                shipment_batch_number__isnull=True  # shipment_batch_number不为空
             )
             
             updated_count = 0
@@ -383,7 +383,7 @@ class ExceptionHandling(View):
             packinglists = PackingList.objects.filter(
                 container_number__container_number=container_number,
                 destination=destination,
-                shipment_batch_number__isnull=False  # shipment_batch_number不为空
+                shipment_batch_number__isnull=True  # shipment_batch_number不为空
             )
             
             updated_count = 0
