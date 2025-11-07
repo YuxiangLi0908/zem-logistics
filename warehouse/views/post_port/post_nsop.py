@@ -823,8 +823,8 @@ class PostNsop(View):
                     error_messages.append(f"ISA {appointment_id} 已经取消!")
                 elif (existed_appointment.shipment_appointment.replace(tzinfo=pytz.UTC) < timezone.now()):
                     error_messages.append(f"ISA {appointment_id} 预约时间小于当前时间，已过期!")
-                elif (existed_appointment.destination.replace("Walmart", "").replace("WALMART", "").replace("-", "") != 
-                    destination.replace("Walmart", "").replace("WALMART", "").replace("-", "")):
+                elif (existed_appointment.destination.replace("Walmart", "").replace("WALMART", "").replace("-", "").upper() != 
+                    destination.replace("Walmart", "").replace("WALMART", "").replace("-", "").upper()):
                     error_messages.append(f"ISA {appointment_id} 登记的目的地是 {existed_appointment.destination}，此次登记的目的地是 {destination}!")
                     
         except Exception as e:
