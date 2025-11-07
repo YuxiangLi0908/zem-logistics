@@ -231,7 +231,7 @@ class ExceptionHandling(View):
                         'message': f'未找到对应的shipment记录: appointment_id={isa_int}'
                     })
                     skipped_count += 1
-                    #continue
+                    continue
                 else:
                     processing_logs.append({
                         'row': row_number,
