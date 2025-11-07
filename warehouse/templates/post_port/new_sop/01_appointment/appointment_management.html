@@ -218,6 +218,7 @@
                         <th>预约号</th>
                         <th>目的地</th>
                         <th>Pickup Time</th>
+                        <th>Pickup Number</th>
                         <th>Scheduled Time</th>
                         <th>装车类型</th>
                         <th>发货仓库</th>
@@ -236,6 +237,7 @@
                         <td><input type="number" name="appointment_id" required></td>
                         <td><input type="text" name="destination" required></td>
                         <td><input type="datetime-local" name="pickup_time"></td>
+                         <td><input type="text" name="pickup_number" ></td>
                         <td><input type="datetime-local" name="shipment_appointment" required></td>
                         <td>
                             <select name="load_type" id="load-type-select">
@@ -293,6 +295,7 @@
                 <th>shipment ID</th>
                 <th>目的地</th>
                 <th>Pickup Time</th>
+                <th>Pickup Number</th>
                 <th>Scheduled Time</th>
                 <th>装车类型</th>
                 <th>发货仓库</th>
@@ -308,6 +311,7 @@
                 <td>{{ s.shipment_cargo_id|default_if_none:'' }}</td>
                 <td>{{ s.destination }}</td>
                 <td style="width:50px;">{{ s.pickup_time|default_if_none:''|date:'Y-m-d' }}</td>
+                <td>{{ s.pickup_number }}</td>
                 <td>
                     {% if s.status == 'expired' %}
                     <span class="status-span-red">已过期</span>
@@ -362,6 +366,92 @@
 </form>
 
 <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        addAppointmentFormEventListeners();
+    });
+    // 自动生成 pickup number 的函数
+    function generateAppointmentPickupNumber() {
+        const shipmentAccountSelect = document.getElementById('shipment-account-select');
+        const destinationInput = document.querySelector('input[name="destination"]');
+        const pickupNumberInput = document.querySelector('input[name="pickup_number"]');
+        
+        // 获取各部分值
+        const shipmentAccount = shipmentAccountSelect?.options[shipmentAccountSelect.selectedIndex]?.text || '';
+        const destination = destinationInput?.value || '';
+        
+        if (!shipmentAccount || !destination) {
+            return;
+        }
+        
+        // 基础前缀
+        const prefix = 'ZEM-RC-';
+        
+        // 获取当天月日（MMDD格式）
+        const today = new Date();
+        const month = String(today.getMonth() + 1).padStart(2, '0');
+        const day = String(today.getDate()).padStart(2, '0');
+        const monthDay = month + day;
+        
+        // 预约账号处理
+        let accountPart = '';
+        if (shipmentAccount.includes('Central') || shipmentAccount.includes('walmart')) {
+            accountPart = 'ASH';
+        } else {
+            // 用 - 分组，取第一个组
+            const parts = shipmentAccount.split('-');
+            accountPart = parts[0] || shipmentAccount;
+        }
+        accountPart = accountPart.replace(/\s+/g, '');
+        
+        // 目的地处理
+        let destinationPart = '';
+        if (destination.includes('-')) {
+            // 如果包含 -，取 - 后面的内容
+            const parts = destination.split('-');
+            destinationPart = parts.slice(1).join('-').replace(/\s+/g, '');
+        } else {
+            // 如果不包含 -，使用整个目的地
+            destinationPart = destination.replace(/\s+/g, '');
+        }
+        
+        // 生成随机码
+        const randomCode = generateRandomCode();
+        
+        // 组合成完整的 pickupNumber
+        const pickupNumber = `${prefix}${monthDay}${accountPart}-${destinationPart}-${randomCode}`;
+        
+        // 设置到输入框
+        if (pickupNumberInput) {
+            pickupNumberInput.value = pickupNumber;
+        }
+        
+        return pickupNumber;
+    }
+
+    // 生成随机码函数
+    function generateRandomCode() {
+        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+        let result = '';
+        for (let i = 0; i < 3; i++) {
+            result += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        return result;
+    }
+
+    // 为添加备约表单添加事件监听
+    function addAppointmentFormEventListeners() {
+        const shipmentAccountSelect = document.getElementById('shipment-account-select');
+        const destinationInput = document.querySelector('input[name="destination"]');
+        
+        if (shipmentAccountSelect) {
+            shipmentAccountSelect.addEventListener('change', generateAppointmentPickupNumber);
+        }
+        
+        if (destinationInput) {
+            destinationInput.addEventListener('input', generateAppointmentPickupNumber);
+        }
+    }
+
     // 工具：把 Date -> "YYYY-MM-DDTHH:MM"（本地时间，不含秒）
     function formatDateToLocalNoSeconds(d) {
         const pad = (n) => n.toString().padStart(2, '0');

@@ -118,6 +118,7 @@ class Palletization(View):
         if not await self._user_authenticate(request):
             return redirect("login")
         step = request.POST.get("step")
+        print('step',step)
         if step == "warehouse":
             template, context = await self.handle_warehouse_post(request)
             return render(request, template, context)
@@ -676,8 +677,10 @@ class Palletization(View):
         container = order_selected.container_number
         additional_pallets = request.POST.getlist("new_destinations")
         warehouse = order_selected.warehouse.name
-        if not offload.offload_at:
-            current_time = datetime.now()
+        if not offload.offload_at:           
+            offload_time = request.POST.get("offload_time")
+            if not offload_time:
+                offload_time = datetime.now()
             ids = request.POST.getlist("ids")
             ids = [i.split(",") for i in ids]
             n_pallet = [int(n) for n in request.POST.getlist("n_pallet")]
@@ -806,7 +809,7 @@ class Palletization(View):
                         {
                             "offload": offload,
                             "container_number": container,
-                            "created_at": current_time,
+                            "created_at": offload_time,
                             "is_resolved": False,
                             "destination": dest,
                             "delivery_method": d_m,
@@ -928,7 +931,7 @@ class Palletization(View):
                         {
                             "offload": offload,
                             "container_number": container,
-                            "created_at": current_time,
+                            "created_at": offload_time,
                             "is_resolved": False,
                             "destination": dest,
                             "delivery_method": d_m,
@@ -939,7 +942,7 @@ class Palletization(View):
                         }
                     )
             offload.total_pallet = total_pallet
-            offload.offload_at = current_time
+            offload.offload_at = offload_time
             await sync_to_async(offload.save)()
             pallet_instances = [Pallet(**d) for d in pallet_data]
             await sync_to_async(bulk_create_with_history)(pallet_instances, Pallet)
