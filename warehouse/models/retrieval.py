@@ -45,6 +45,8 @@ class Retrieval(models.Model):
     temp_t49_pod_arrive_at = models.DateTimeField(null=True, blank=True)
     temp_t49_pod_discharge_at = models.DateTimeField(null=True, blank=True)
     temp_t49_hold_status = models.BooleanField(default=False, blank=True)
+    t49_pod_full_out_at = models.DateTimeField(null=True, blank=True)
+    t49_empty_returned_at = models.DateTimeField(null=True, blank=True)
     history = HistoricalRecords()
 
     class Meta:
