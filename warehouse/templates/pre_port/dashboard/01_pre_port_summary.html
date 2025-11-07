@@ -865,9 +865,16 @@
                                 <td class="td">{{ o.retrieval_id.retrieval_destination_area }}</td>
                                 <td data-column="reference_status_t49">
                                     {% if o.retrieval_id.t49_empty_returned_at %}
-                                        T49还空 {{ o.retrieval_id.t49_empty_returned_at|date:'Y-m-d H:i:s' }}
+                                        <!-- 存储UTC时间戳到data属性，用于前端转换 -->
+                                        <span class="utc-time"
+                                              data-utc="{{ o.retrieval_id.t49_empty_returned_at|date:'c' }}">
+                                            T49还空 {{ o.retrieval_id.t49_empty_returned_at|date:'Y-m-d H:i:s' }}
+                                        </span>
                                     {% elif o.retrieval_id.t49_pod_full_out_at %}
-                                        T49提柜 {{ o.retrieval_id.t49_pod_full_out_at|date:'Y-m-d H:i:s' }}
+                                        <span class="utc-time"
+                                              data-utc="{{ o.retrieval_id.t49_pod_full_out_at|date:'c' }}">
+                                            T49提柜 {{ o.retrieval_id.t49_pod_full_out_at|date:'Y-m-d H:i:s' }}
+                                        </span>
                                     {% elif o.retrieval_id.temp_t49_available_for_pickup %}
                                         放行状态 {{ o.retrieval_id.temp_t49_available_for_pickup }}
                                     {% else %}
@@ -917,7 +924,9 @@
                                             <input type="hidden" name="retrieval_id"
                                                    value="{{ o.retrieval_id.retrieval_id }}">
                                             <input type="datetime-local"
-                                                   value="{% if o.retrieval_id.retrieval_cabinet_arrangement_time %}{{ o.retrieval_id.retrieval_cabinet_arrangement_time|date:'Y-m-d\TH:i' }}{% endif %}"
+                                                   value="
+
+                                                           {% if o.retrieval_id.retrieval_cabinet_arrangement_time %}{{ o.retrieval_id.retrieval_cabinet_arrangement_time|date:'Y-m-d\TH:i' }}{% endif %}"
                                                    class="datetime-input"
                                                    name="retrieval_cabinet_arrangement_time"
                                                    placeholder="选择日期时间"
@@ -944,7 +953,9 @@
                                             <input type="hidden" name="offload_id"
                                                    value="{{ o.offload_id.offload_id }}">
                                             <input type="datetime-local"
-                                                   value="{% if o.offload_id.offload_at %}{{ o.offload_id.offload_at|date:'Y-m-d\TH:i' }}{% endif %}"
+                                                   value="
+
+                                                           {% if o.offload_id.offload_at %}{{ o.offload_id.offload_at|date:'Y-m-d\TH:i' }}{% endif %}"
                                                    class="datetime-input"
                                                    name="offload_at"
                                                    placeholder="选择日期时间"
@@ -1027,7 +1038,11 @@
                                 </td>
                                 <td>
                                     {% if o.retrieval_id.temp_t49_lfd %}
-                                        <span class="status-span status-span-green">{{ o.retrieval_id.temp_t49_lfd|date:'Y-m-d H:i:s' }}</span>
+                                        <!-- 添加utc-time类和data-utc属性存储原始UTC时间 -->
+                                        <span class="status-span status-span-green utc-time"
+                                              data-utc="{{ o.retrieval_id.temp_t49_lfd|date:'c' }}">
+                                            {{ o.retrieval_id.temp_t49_lfd|date:'Y-m-d H:i:s' }}
+                                        </span>
                                     {% else %}
                                         <span class="status-span status-span-gray">-</span>
                                     {% endif %}
@@ -1443,5 +1458,33 @@
                 });
             });
         });
+        // 页面加载完成后执行时间转换
+        document.addEventListener('DOMContentLoaded', function () {
+            // 转换所有带utc-time类的元素
+            document.querySelectorAll('.utc-time').forEach(function (element) {
+                const utcTimeStr = element.getAttribute('data-utc');
+                if (utcTimeStr) {
+                    // 解析UTC时间
+                    const utcDate = new Date(utcTimeStr);
+                    // 转换为本地时间并格式化
+                    const localTimeStr = formatLocalTime(utcDate);
+                    // 更新显示内容（保留前缀，只替换时间部分）
+                    const originalText = element.textContent;
+                    const prefix = originalText.replace(/\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}/, '');
+                    element.textContent = prefix + localTimeStr;
+                }
+            });
+        });
+
+        // 格式化本地时间为 "YYYY-MM-DD HH:MM:SS"
+        function formatLocalTime(date) {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0'); // 月份从0开始
+            const day = String(date.getDate()).padStart(2, '0');
+            const hours = String(date.getHours()).padStart(2, '0');
+            const minutes = String(date.getMinutes()).padStart(2, '0');
+            const seconds = String(date.getSeconds()).padStart(2, '0');
+            return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+        }
     </script>
 {% endblock %}

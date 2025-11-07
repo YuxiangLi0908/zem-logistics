@@ -423,6 +423,7 @@
             /* 新增：确保按钮优先显示，文字溢出时省略 */
             width: 100%;
         }
+
         /* 隐藏按钮固定在最前，文字自适应剩余空间 */
         .column-visibility-btn {
             background: none;
@@ -698,7 +699,8 @@
                             <th data-column="reference_status_t49">
                                 <div class="header-content">
                                     T49参考状态
-                                    <button type="button" class="column-visibility-btn" data-column="reference_status_t49"
+                                    <button type="button" class="column-visibility-btn"
+                                            data-column="reference_status_t49"
                                             title="隐藏列">
                                         <i class="layui-icon layui-icon-eye"></i>
                                     </button>
@@ -807,9 +809,10 @@
                             <th data-column="mbl" class="search-th"><input type="text" class="column-search"
                                                                            data-column="mbl"
                                                                            placeholder="搜索MBL..."></th>
-                            <th data-column="destination_port" class="search-th"><input type="text" class="column-search"
-                                                                                     data-column="destination_port"
-                                                                                     placeholder="搜索码头..."></th>
+                            <th data-column="destination_port" class="search-th"><input type="text"
+                                                                                        class="column-search"
+                                                                                        data-column="destination_port"
+                                                                                        placeholder="搜索码头..."></th>
                             <th data-column="shipping_line" class="search-th"><input type="text" class="column-search"
                                                                                      data-column="shipping_line"
                                                                                      placeholder="搜索船司..."></th>
@@ -829,9 +832,9 @@
                                                                            data-column="eta"
                                                                            placeholder="搜索ETA..."></th>
                             <th data-column="reference_status_t49" class="search-th"><input type="text"
-                                                                                          class="column-search"
-                                                                                          data-column="reference_status_t49"
-                                                                                          placeholder="T49参考状态...">
+                                                                                            class="column-search"
+                                                                                            data-column="reference_status_t49"
+                                                                                            placeholder="T49参考状态...">
                             </th>
                             <th data-column="release_status_t49" class="search-th"><input type="text"
                                                                                           class="column-search"
@@ -950,11 +953,17 @@
                                 </td>
                                 <td data-column="etd">{{ data.vessel_etd|date:"Y-m-d H:i"|default:'-' }}</td>
                                 <td data-column="eta">{{ data.vessel_eta|date:"Y-m-d H:i"|default:'-' }}</td>
+
                                 <td data-column="reference_status_t49">
                                     {% if data.t49_empty_returned_at %}
+                                        <!-- 添加utc-time类和存储UTC时间戳 -->
+                                        <span class="utc-time" data-utc="{{ data.t49_empty_returned_at|date:'c' }}">
                                         T49还空 {{ data.t49_empty_returned_at|date:'Y-m-d H:i:s' }}
+                                    </span>
                                     {% elif data.t49_pod_full_out_at %}
+                                        <span class="utc-time" data-utc="{{ data.t49_pod_full_out_at|date:'c' }}">
                                         T49提柜 {{ data.t49_pod_full_out_at|date:'Y-m-d H:i:s' }}
+                                    </span>
                                     {% elif data.temp_t49_available_for_pickup %}
                                         放行状态 {{ data.temp_t49_available_for_pickup }}
                                     {% else %}
@@ -1906,6 +1915,35 @@
                 initColumnVisibility();
                 initSelectAll();
             });
+        }
+
+        // 页面加载完成后执行时间转换
+        document.addEventListener('DOMContentLoaded', function () {
+            // 转换所有带utc-time类的元素
+            document.querySelectorAll('.utc-time').forEach(function (element) {
+                const utcTimeStr = element.getAttribute('data-utc');
+                if (utcTimeStr) {
+                    // 解析UTC时间
+                    const utcDate = new Date(utcTimeStr);
+                    // 转换为本地时间并格式化
+                    const localTimeStr = formatLocalTime(utcDate);
+                    // 更新显示内容（保留前缀，只替换时间部分）
+                    const originalText = element.textContent;
+                    const prefix = originalText.replace(/\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}/, '');
+                    element.textContent = prefix + localTimeStr;
+                }
+            });
+        });
+
+        // 格式化本地时间为 "YYYY-MM-DD HH:MM:SS"
+        function formatLocalTime(date) {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0'); // 月份从0开始
+            const day = String(date.getDate()).padStart(2, '0');
+            const hours = String(date.getHours()).padStart(2, '0');
+            const minutes = String(date.getMinutes()).padStart(2, '0');
+            const seconds = String(date.getSeconds()).padStart(2, '0');
+            return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
         }
     </script>
 {% endblock %}
