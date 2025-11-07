@@ -335,6 +335,8 @@
         {% csrf_token %}
         <input type="hidden" name="step" value="search_outbound_pos">
         <div class="search-input-group">
+            <input type="datetime-local" name="search_date_lower" class="search-input" 
+                   value="{{ search_date|default:'' }}" required>
             <input type="datetime-local" name="search_date" class="search-input" 
                    value="{{ search_date|default:'' }}" required>
             <button type="submit" class="search-btn">查询</button>
