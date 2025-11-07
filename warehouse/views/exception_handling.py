@@ -41,6 +41,9 @@ from warehouse.models.vessel import Vessel
 from warehouse.forms.warehouse_form import ZemWarehouseForm
 
 from warehouse.views.terminal49_webhook import T49Webhook
+import logging
+
+logger = logging.getLogger(__name__)
 
 class ExceptionHandling(View):
     template_container_pallet = "exception_handling/shipment_actual.html"
@@ -49,6 +52,7 @@ class ExceptionHandling(View):
     template_excel_formula_tool = "exception_handling/excel_formula_tool.html"
     template_find_all_table = "exception_handling/find_all_table_id.html"   
     template_query_pallet_packinglist = "exception_handling/query_pallet_packinglist.html"
+    template_temporary_function = "exception_handling/temporary_function.html"
     shipment_type_options = {
         "": "",
         "FTL": "FTL",
@@ -93,6 +97,13 @@ class ExceptionHandling(View):
         elif step == "shipment_actual":
             if self._validate_user_exception_handling(request.user):
                 return await sync_to_async(render)(request, self.template_container_pallet)
+            else:
+                return HttpResponseForbidden(
+                    "You are not authenticated to access this page!"
+                )
+        elif step == "temporary_function":
+            if self._validate_super_user(request.user):
+                return await sync_to_async(render)(request, self.template_temporary_function)
             else:
                 return HttpResponseForbidden(
                     "You are not authenticated to access this page!"
@@ -151,8 +162,255 @@ class ExceptionHandling(View):
         elif step == "query_pallet_packinglist":
             template, context = await self.handle_query_pallet_packinglist(request)
             return await sync_to_async(render)(request, template, context) 
+        elif step == "process_excel":
+            template, context = await self.handle_process_excel(request)
+            return await sync_to_async(render)(request, template, context) 
         else:
             return await sync_to_async(T49Webhook().post)(request)
+    
+    async def handle_process_excel(self, request):
+        """处理上传的Excel文件"""
+        excel_file = request.FILES['excel_file']
+        processing_logs = []
+        
+        try:
+            # 读取Excel文件
+            df = pd.read_excel(excel_file)
+            
+            # 验证列名
+            required_columns = ['柜号', '仓点', '时间', 'ISA']
+            missing_columns = [col for col in required_columns if col not in df.columns]
+            
+            if missing_columns:
+                # 使用异步方式添加消息
+                await sync_to_async(messages.error)(request, f'Excel文件缺少必要的列: {", ".join(missing_columns)}')
+                return self.template_temporary_function, {}
+            
+            total_rows = len(df)
+            success_count = 0
+            error_count = 0
+            skipped_count = 0
+            
+            # 逐行处理数据
+            for index, row in df.iterrows():
+                row_number = index + 2  # Excel行号（包含标题行）
+                
+                try:
+                    # 提取数据
+                    container_number = str(row['柜号']).strip()
+                    destination = str(row['仓点']).strip()
+                    time_value = row['时间']
+                    isa_value = str(row['ISA']).strip()
+                    
+                    # 记录开始处理
+                    processing_logs.append({
+                        'row': row_number,
+                        'type': 'info',
+                        'message': f'开始处理: 柜号={container_number}, 仓点={destination}, ISA={isa_value}'
+                    })
+                    
+                    # 处理ISA值（去空格取整数）
+                    try:
+                        isa_int = int(isa_value.strip())
+                    except (ValueError, AttributeError):
+                        processing_logs.append({
+                            'row': row_number,
+                            'type': 'error',
+                            'message': f'ISA值格式错误: {isa_value}',
+                            'details': 'ISA值必须为数字'
+                        })
+                        error_count += 1
+                        continue
+                    
+                    # 查找shipment记录
+                    try:
+                        shipment = await self.get_shipment_by_appointment_id(isa_int)
+                        if not shipment:
+                            processing_logs.append({
+                                'row': row_number,
+                                'type': 'warning',
+                                'message': f'未找到对应的shipment记录: appointment_id={isa_int}',
+                                'details': '跳过此条记录'
+                            })
+                            skipped_count += 1
+                            continue
+                    except Exception as e:
+                        processing_logs.append({
+                            'row': row_number,
+                            'type': 'error',
+                            'message': f'查询shipment失败: {str(e)}',
+                            'details':''
+                        })
+                        error_count += 1
+                        continue
+                    
+                    # 查找pallet记录
+                    pallet_updated = await self.update_pallet_records(
+                        container_number, destination, shipment, processing_logs, row_number
+                    )
+                    
+                    # 查找packinglist记录  
+                    packinglist_updated = await self.update_packinglist_records(
+                        container_number, destination, shipment, processing_logs, row_number
+                    )
+                    
+                    # 分别记录每个表的更新结果
+                    if pallet_updated > 0 and packinglist_updated > 0:
+                        # 两个表都更新成功
+                        success_count += 1
+                        processing_logs.append({
+                            'row': row_number,
+                            'type': 'success', 
+                            'message': f'处理成功! Pallet更新: {pallet_updated}条, PackingList更新: {packinglist_updated}条'
+                        })
+                    elif pallet_updated > 0 and packinglist_updated == 0:
+                        # 只有Pallet更新成功
+                        success_count += 1
+                        processing_logs.append({
+                            'row': row_number,
+                            'type': 'success',
+                            'message': f'Pallet更新成功: {pallet_updated}条, PackingList未找到需要更新的记录'
+                        })
+                    elif pallet_updated == 0 and packinglist_updated > 0:
+                        # 只有PackingList更新成功
+                        success_count += 1
+                        processing_logs.append({
+                            'row': row_number,
+                            'type': 'success',
+                            'message': f'PackingList更新成功: {packinglist_updated}条, Pallet未找到需要更新的记录'
+                        })
+                    else:
+                        # 两个表都没有更新
+                        skipped_count += 1
+                        processing_logs.append({
+                            'row': row_number,
+                            'type': 'warning',
+                            'message': '两个表都未找到需要更新的记录',
+                            'details': f'柜号: {container_number}, 仓点: {warehouse}'
+                        })
+                        
+                except Exception as e:
+                    error_count += 1
+                    processing_logs.append({
+                        'row': row_number,
+                        'type': 'error',
+                        'message': f'处理行数据时发生错误: {str(e)}',
+                        'details': ''
+                    })
+                    logger.error(f"处理Excel行 {row_number} 时出错: {str(e)}")
+            
+            # 准备结果上下文
+            context = {
+                'processing_result': {
+                    'total_rows': total_rows,
+                    'success_count': success_count,
+                    'error_count': error_count,
+                    'skipped_count': skipped_count,
+                    'logs': processing_logs
+                }
+            }
+            
+            # 添加汇总消息
+            if success_count > 0:
+                messages.success(request, f'成功处理 {success_count} 条记录')
+            if error_count > 0:
+                messages.error(request, f'处理失败 {error_count} 条记录')
+            if skipped_count > 0:
+                messages.warning(request, f'跳过 {skipped_count} 条记录')
+                
+        except Exception as e:
+            messages.error(request, f'处理Excel文件时发生错误: {str(e)}')
+            logger.error(f"处理Excel文件时出错: {str(e)}")
+            return self.template_temporary_function, {}
+        
+        return self.template_temporary_function, context
+
+    async def get_shipment_by_appointment_id(self, appointment_id):
+        """根据appointment_id查找shipment记录"""
+        try:
+            shipment = await Shipment.objects.aget(
+                appointment_id=appointment_id,
+                # 可以添加其他过滤条件
+            )
+            return shipment
+        except Shipment.DoesNotExist:
+            return None
+        except Exception as e:
+            logger.error(f"查询shipment失败: {str(e)}")
+            raise
+
+    async def update_pallet_records(self, container_number, destination, shipment, processing_logs, row_number):
+        """更新pallet记录"""
+        try:           
+            # 查找符合条件的pallet记录
+            pallets = Pallet.objects.filter(
+                container_number__container_number=container_number,
+                destination=destination,
+                shipment_batch_number__isnull=False  # shipment_batch_number不为空
+            )
+            
+            updated_count = 0
+            async for pallet in pallets:
+                try:
+                    # 绑定shipment_batch_number
+                    pallet.shipment_batch_number = shipment
+                    await pallet.asave()
+                    updated_count += 1
+                except Exception as e:
+                    processing_logs.append({
+                        'row': row_number,
+                        'type': 'error',
+                        'message': f'更新pallet记录失败: {pallet.id}',
+                        'details': str(e)
+                    })
+            
+            return updated_count
+            
+        except Exception as e:
+            processing_logs.append({
+                'row': row_number,
+                'type': 'error',
+                'message': f'查询pallet记录失败',
+                'details': str(e)
+            })
+            return 0
+
+    async def update_packinglist_records(self, container_number, destination, shipment, processing_logs, row_number):
+        """更新packinglist记录"""
+        try:
+            
+            # 查找符合条件的packinglist记录
+            packinglists = PackingList.objects.filter(
+                container_number__container_number=container_number,
+                destination=destination,
+                shipment_batch_number__isnull=False  # shipment_batch_number不为空
+            )
+            
+            updated_count = 0
+            async for packinglist in packinglists:
+                try:
+                    # 绑定shipment_batch_number
+                    packinglist.shipment_batch_number = shipment
+                    await packinglist.asave()
+                    updated_count += 1
+                except Exception as e:
+                    processing_logs.append({
+                        'row': row_number,
+                        'type': 'error',
+                        'message': f'更新packinglist记录失败: {packinglist.id}',
+                        'details': str(e)
+                    })
+            
+            return updated_count
+            
+        except Exception as e:
+            processing_logs.append({
+                'row': row_number,
+                'type': 'error',
+                'message': f'查询packinglist记录失败',
+                'details': str(e)
+            })
+            return 0
     
     async def handle_query_pallet_packinglist(self, request: HttpRequest):
         warehouse = (
@@ -435,7 +693,7 @@ class ExceptionHandling(View):
         if not all([table_name, search_field, search_value]):
             await sync_to_async(messages.error)(request, "请填写完整的查询条件")
             context['available_fields'] = await self.get_available_fields(None)
-            return 'data_query.html', context
+            return self.template_find_all_table, context
         
         # 设置上下文
         context.update({
@@ -1524,3 +1782,9 @@ class ExceptionHandling(View):
         return await sync_to_async(
             lambda: user.groups.filter(name="exception_handling").exists()
         )()
+    
+    async def _validate_super_user(self, user: User) -> bool:
+        if user.is_staff:
+            return True
+        else:
+            return False

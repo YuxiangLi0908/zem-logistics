@@ -1,0 +1,300 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<style>
+/* 沿用之前的样式 */
+body {
+    font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+    color: #2c3e50;
+}
+
+.upload-form {
+    background: #34495e;
+    padding: 25px;
+    border-radius: 8px;
+    margin-bottom: 25px;
+    color: white;
+}
+
+.upload-area {
+    border: 2px dashed #27ae60;
+    border-radius: 8px;
+    padding: 30px;
+    text-align: center;
+    margin: 15px 0;
+    background: rgba(39, 174, 96, 0.1);
+    transition: all 0.3s;
+}
+
+.upload-area:hover {
+    background: rgba(39, 174, 96, 0.2);
+}
+
+.upload-btn {
+    padding: 12px 24px;
+    background-color: #27ae60;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 16px;
+    transition: all 0.3s;
+    display: inline-block;
+    margin-top: 15px;
+}
+
+.upload-btn:hover {
+    background-color: #2ecc71;
+    transform: translateY(-2px);
+}
+
+.upload-btn:disabled {
+    background-color: #95a5a6;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.file-input {
+    margin: 15px 0;
+}
+
+.file-name {
+    margin-top: 10px;
+    font-style: italic;
+    color: #ecf0f1;
+}
+
+.message {
+    padding: 12px;
+    border-radius: 4px;
+    margin-bottom: 12px;
+}
+
+.message.success {
+    background: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+}
+
+.message.error {
+    background: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+}
+
+.message.warning {
+    background: #fff3cd;
+    color: #856404;
+    border: 1px solid #ffeeba;
+}
+
+.message.info {
+    background: #d1ecf1;
+    color: #0c5460;
+    border: 1px solid #bee5eb;
+}
+
+.processing-info {
+    background: #e8f4fd;
+    border: 1px solid #b3d9ff;
+    border-radius: 6px;
+    padding: 15px;
+    margin: 15px 0;
+}
+
+.processing-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+    margin-top: 15px;
+}
+
+.stat-item {
+    background: white;
+    padding: 12px;
+    border-radius: 6px;
+    text-align: center;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.stat-value {
+    font-size: 24px;
+    font-weight: bold;
+    color: #2c3e50;
+}
+
+.stat-label {
+    font-size: 14px;
+    color: #7f8c8d;
+    margin-top: 5px;
+}
+
+.process-log {
+    background: #4a5568;
+    color: white;
+    padding: 15px;
+    border-radius: 6px;
+    margin-top: 20px;
+    max-height: 400px;
+    overflow-y: auto;
+    font-family: 'Courier New', monospace;
+    font-size: 14px;
+}
+
+.log-entry {
+    padding: 5px 0;
+    border-bottom: 1px solid #4a5568; 
+}
+
+.log-success { color: #2ecc71; }
+.log-error { color: #e74c3c; }
+.log-warning { color: #f39c12; }
+.log-info { color: #3498db; }
+
+h2 {
+    text-align: center;
+    margin-bottom: 20px;
+    background: linear-gradient(45deg, #ff6b6b, #4ecdc4, #45b7d1, #96ceb4, #feca57);
+    background-size: 400% 400%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: gradient 3s ease infinite;
+    font-weight: bold;
+}
+
+@keyframes gradient {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+}
+
+/* 表格样式沿用之前的 */
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 15px;
+}
+
+.data-table th, .data-table td {
+    border: 1px solid #bdc3c7;
+    padding: 8px 10px;
+    text-align: left;
+    font-size: 13px;
+}
+
+.data-table th {
+    background-color: #34495e;
+    color: white;
+    font-weight: 600;
+}
+
+.data-table tr:nth-child(even) {
+    background-color: #ecf0f1;
+}
+
+.data-table tr:hover {
+    background-color: #d0d7de;
+}
+</style>
+
+<h2>Excel 数据处理</h2>
+
+<!-- 上传表单 -->
+<div class="upload-form">
+    <form method="post" enctype="multipart/form-data" id="uploadForm">
+        {% csrf_token %}
+        <input type="hidden" name="step" value="process_excel">
+        
+        <div class="upload-area">
+            <h3>📊 上传 Excel 文件</h3>
+            <p>支持 .xlsx 格式文件，包含以下列：柜号、仓点、时间、ISA</p>
+            
+            <div class="file-input">
+                <input type="file" name="excel_file" id="excelFile" accept=".xlsx,.xls" required 
+                       style="display: none;" onchange="updateFileName()">
+                <button type="button" class="upload-btn" onclick="document.getElementById('excelFile').click()">
+                    📁 选择文件
+                </button>
+                <div class="file-name" id="fileName">未选择文件</div>
+            </div>
+            
+            <button type="submit" class="upload-btn" id="processBtn" disabled>
+                ⚡ 开始处理数据
+            </button>
+        </div>
+    </form>
+</div>
+
+<!-- 处理结果展示 -->
+{% if processing_result %}
+<div class="processing-info">
+    <h3>📋 处理结果统计</h3>
+    <div class="processing-stats">
+        <div class="stat-item">
+            <div class="stat-value">{{ processing_result.total_rows }}</div>
+            <div class="stat-label">总行数</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-value" style="color:#27ae60;">{{ processing_result.success_count }}</div>
+            <div class="stat-label">成功</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-value" style="color:#e74c3c;">{{ processing_result.error_count }}</div>
+            <div class="stat-label">失败</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-value" style="color:#f39c12;">{{ processing_result.skipped_count }}</div>
+            <div class="stat-label">跳过</div>
+        </div>
+    </div>
+</div>
+
+{% if processing_result.logs %}
+<div class="process-log">
+    <h4>📝 处理日志</h4>
+    {% for log in processing_result.logs %}
+    <div class="log-entry log-{{ log.type }}">
+        <strong>行 {{ log.row }}:</strong> {{ log.message }}
+        {% if log.details %}
+        <br><small>详情: {{ log.details }}</small>
+        {% endif %}
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+{% endif %}
+
+<!-- 消息提示 -->
+{% if messages %}
+    {% for message in messages %}
+        <div class="message {% if message.tags %}{{ message.tags }}{% endif %}">
+            {{ message }}
+        </div>
+    {% endfor %}
+{% endif %}
+
+<script>
+    function updateFileName() {
+        const fileInput = document.getElementById('excelFile');
+        const fileName = document.getElementById('fileName');
+        const processBtn = document.getElementById('processBtn');
+        
+        if (fileInput.files.length > 0) {
+            fileName.textContent = '已选择: ' + fileInput.files[0].name;
+            processBtn.disabled = false;
+        } else {
+            fileName.textContent = '未选择文件';
+            processBtn.disabled = true;
+        }
+    }
+
+    // 表单提交时显示加载状态
+    document.getElementById('uploadForm').addEventListener('submit', function() {
+        const btn = document.getElementById('processBtn');
+        btn.innerHTML = '⏳ 处理中...';
+        btn.disabled = true;
+    });
+</script>
+{% endblock %}
