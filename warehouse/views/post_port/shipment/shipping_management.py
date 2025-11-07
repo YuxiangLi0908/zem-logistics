@@ -1370,13 +1370,13 @@ class ShippingManagement(View):
                     )
                 elif existed_appointment.destination.replace("Walmart", "").replace(
                     "WALMART", ""
-                ).replace("-", "") != request.POST.get("destination", None).replace(
+                ).replace("-", "").upper() != request.POST.get("destination", None).replace(
                     "Walmart", ""
                 ).replace(
                     "WALMART", ""
                 ).replace(
                     "-", ""
-                ):
+                ).upper():
                     raise ValueError(
                         f"ISA {appointment_id} 登记的目的地是 {existed_appointment.destination} ，此次登记的目的地是 {request.POST.get('destination', None)}!"
                     )
