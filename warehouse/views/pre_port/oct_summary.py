@@ -565,4 +565,5 @@ class OctSummaryView(View):
         "LA": "LA",
         "MO": "MO",
         "TX": "TX",
+        "CA": "CA"
     }
