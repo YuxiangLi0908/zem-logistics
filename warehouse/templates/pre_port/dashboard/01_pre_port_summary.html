@@ -769,14 +769,14 @@
                             <th class="th">
                                 <input type="text" placeholder="搜索T49状态参考..."
                                        oninput="filterTable(this)"
-                                       size="13" style="font-size: 11px;"
+                                       size="13" style="font-size: 11px; width: 200px;"
                                        data-col="5"
                                        title="输入T49状态参考关键词搜索">
                             </th>
                             <th class="th">
                                 <input type="text" placeholder="搜索计划放行时间..."
                                        oninput="filterTable(this)"
-                                       size="13" style="font-size: 11px;"
+                                       size="13" style="font-size: 11px; width: 150px;"
                                        data-col="6"
                                        title="输入计划放行时间关键词搜索">
                             </th>
@@ -836,7 +836,7 @@
                             <th class="th">
                                 <input type="text" placeholder="搜索LFD..."
                                        oninput="filterTable(this)"
-                                       size="13" style="font-size: 11px; width: 150px;"
+                                       size="13" style="font-size: 11px; width: 100px;"
                                        data-col="15"
                                        title="输入LFD关键词搜索">
                             </th>
@@ -877,7 +877,7 @@
                                 <td>
                                     {% if o.retrieval_id.planned_release_time %}
                                         <span class="status-span status-span-green">
-                                        {{ o.retrieval_id.planned_release_time|date:"Y-M-j" }}
+                                        {{ o.retrieval_id.planned_release_time|date:"Y-m-d" }}
                                     </span>
                                     {% else %}
                                         <span class="status-span status-span-red">无计划放行时间</span>
