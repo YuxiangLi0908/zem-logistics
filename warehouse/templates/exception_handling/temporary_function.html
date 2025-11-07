@@ -19,29 +19,46 @@
     .upload-area {
         border: 2px dashed #27ae60;
         border-radius: 8px;
-        padding: 30px;
+        padding: 20px; /* 减少内边距 */
         text-align: center;
-        margin: 15px 0;
+        margin: 10px 0; /* 减少外边距 */
         background: rgba(39, 174, 96, 0.1);
         transition: all 0.3s;
     }
 
-    .upload-area:hover {
-        background: rgba(39, 174, 96, 0.2);
+    .upload-area h3 {
+        margin: 0 0 10px 0; /* 减少标题下边距 */
+        font-size: 18px; /* 稍微减小字体 */
+    }
+
+    .upload-area p {
+        margin: 0 0 15px 0; /* 减少段落下边距 */
+        font-size: 14px; /* 稍微减小字体 */
+    }
+
+    .file-input {
+        margin: 10px 0; /* 减少文件输入区域的外边距 */
+    }
+
+    .file-name {
+        margin-top: 8px;
+        font-style: italic;
+        color: #ecf0f1;
+        font-size: 13px;
     }
 
     .upload-btn {
-        padding: 12px 24px;
+        padding: 10px 20px; /* 减小按钮内边距 */
         background-color: #27ae60;
         color: white;
         border: none;
         border-radius: 6px;
         cursor: pointer;
         font-weight: 600;
-        font-size: 16px;
+        font-size: 14px; /* 稍微减小字体 */
         transition: all 0.3s;
         display: inline-block;
-        margin-top: 15px;
+        margin-top: 10px; /* 减少上边距 */
     }
 
     .upload-btn:hover {
@@ -334,12 +351,37 @@
     <form method="post">
         {% csrf_token %}
         <input type="hidden" name="step" value="search_outbound_pos">
-        <div class="search-input-group">
-            <input type="datetime-local" name="search_date_lower" class="search-input" 
-                   value="{{ search_date|default:'' }}" required>
-            <input type="datetime-local" name="search_date" class="search-input" 
-                   value="{{ search_date|default:'' }}" required>
-            <button type="submit" class="search-btn">查询</button>
+        <div class="search-input-group" style="display: flex; align-items: center; gap: 15px; flex-wrap: wrap;">
+            <div style="display: flex; align-items: center; gap: 5px;">
+                <b>开始时间:</b>
+                <input type="datetime-local" name="search_date_lower" class="search-input" 
+                       value="{{ search_date_lower|default:'' }}" required>
+            </div>
+            <div style="display: flex; align-items: center; gap: 5px;">
+                <b>结束时间:</b>
+                <input type="datetime-local" name="search_date" class="search-input" 
+                       value="{{ search_date|default:'' }}" required>
+            </div>
+            <div style="display: flex; align-items: center; gap: 5px;">
+                <b>选择仓库:</b>
+                {{ warehouse_form.name }}
+            </div>
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <button type="submit" class="upload-btn" >
+                    🔍 查询未预约PO
+                </button>
+                <div style="
+                    font-size: 12px;
+                    color: #6c757d;
+                    background: #f8f9fa;
+                    padding: 8px 12px;
+                    border-radius: 4px;
+                    border-left: 3px solid #667eea;
+                    max-width: 200px;
+                ">
+                    <strong>说明：</strong>查找在选定时间段内打板但尚未预约出库的PO记录
+                </div>
+            </div>
         </div>
     </form>
 </div>
