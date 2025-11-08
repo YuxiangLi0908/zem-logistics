@@ -5,7 +5,9 @@
     <div class="spinner"></div>
     <p>Loading, please wait...</p>
 </div>
-
+<div style="text-align: center; margin-bottom: 15px;">
+    <h3>库存管理——PO更新</h3>
+</div>
 <form method="post" action="" onsubmit="showLoadingBar()">
     {% csrf_token %}
     <input type="hidden" name="step" value="update_po">
@@ -56,8 +58,8 @@
                 </select>
             </td>
             <td class="td">{{ pallet.weight }}</td>
-            <td class="td">{{ pallet.pcs }}</td>
-            <td class="td">{{ pallet.cbm }}</td>
+            <td class="td"><input name="pcs" value="{{ pallet.pcs }}"></td>
+            <td class="td"><input name="cbm" value="{{ pallet.cbm }}"></td>
             <td class="td">{{ pallet.n_pallet }}</td>
             <td class="td"><input name="location" value="{{ pallet.location }}"></td>
             <td class="td"><input name="note" value="{{ pallet.note }}"></td>
