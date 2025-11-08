@@ -407,7 +407,12 @@ class PostNsop(View):
         active_tab = request.POST.get("active_tab")
         step = request.POST.get("step")
         criteria_plt = models.Q(
-            shipment_batch_number__fleet_number__fleet_number__isnull=True,
+            models.Q(
+                shipment_batch_number__fleet_number__fleet_number__isnull=True
+            ) | models.Q(
+                shipment_batch_number__fleet_number__fleet_number__isnull=False,
+                shipment_batch_number__fleet_number__departured_at__isnull=True
+            ),
             location=warehouse,
             destination=destination,
             container_number__order__offload_id__offload_at__isnull=False,
