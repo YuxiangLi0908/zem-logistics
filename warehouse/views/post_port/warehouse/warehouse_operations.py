@@ -874,7 +874,7 @@ class WarehouseOperations(View):
          #pytz.timezone("America/New_York") 
         today = self.get_local_time(warehouse)
         three_days_later = today + timedelta(days=3)
-        one_week_ago = today - timedelta(days=7) 
+        one_week_ago = today - timedelta(days=3) 
 
         criteria1 = models.Q(appointment_datetime__date__range=[today, three_days_later])
         criteria2 = models.Q(
