@@ -1,0 +1,734 @@
+<!-- post_port/new_sop/02_shipment/modals/virtual_fleet_modal.html -->
+<div id="virtualFleetModal" class="modal">
+    <div class="modal-content" style="width: 80%; max-width: 1200px; max-height: 700px;">
+        <div class="modal-header">
+            <h3><i class="fas fa-truck-loading"></i> 选择合并装车的大组</h3>
+            <span class="close" onclick="closeVirtualFleetModal()">&times;</span>
+        </div>
+        <div class="modal-body">
+            <div class="info-section" style="margin-bottom: 20px; padding: 15px; background: #f8f9fa; border-radius: 6px;">
+                <h4 style="margin: 0 0 10px 0; color: var(--secondary-color);">
+                    <i class="fas fa-info-circle"></i> 当前大组信息
+                </h4>
+                <div id="currentGroupInfo"></div>
+            </div>
+            
+            <!-- 实时统计信息 -->
+            <div class="stats-section" style="margin-bottom: 20px; padding: 15px; background: #e8f5e8; border-radius: 6px; border-left: 4px solid #28a745;">
+                <h4 style="margin: 0 0 10px 0; color: var(--secondary-color);">
+                    <i class="fas fa-calculator"></i> 容量统计
+                </h4>
+                <div id="capacityStats" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px;">
+                    <!-- JS动态更新 -->
+                </div>
+            </div>
+            
+            <h4 style="margin-bottom: 15px; color: var(--secondary-color);">可选合并大组</h4>
+            <div class="table-container">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 50px;">选择</th>
+                            <th>大组ID</th>
+                            <th>仓点</th>
+                            <th>派送方式</th>
+                            <th>总板数</th>
+                            <th>总CBM</th>
+                            <th>状态</th>
+                        </tr>
+                    </thead>
+                    <tbody id="virtualFleetTableBody">
+                        <!-- JS动态生成 -->
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="modal-actions">
+                <button type="button" class="modal-btn modal-btn-primary" onclick="exportVirtualFleetPO()">
+                    <i class="fas fa-file-export"></i> 导出选中PO
+                </button>
+                <button type="button" class="modal-btn modal-btn-success" onclick="proceedToMultiGroupBooking()">
+                    <i class="fas fa-arrow-right"></i> 下一步预约
+                </button>
+                <button type="button" class="modal-btn modal-btn-danger" onclick="closeVirtualFleetModal()">
+                    <i class="fas fa-times"></i> 取消
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 隐藏表单用于导出 -->
+<form id="virtualFleetExportForm" method="post" style="display: none;">
+    {% csrf_token %}
+    <input type="hidden" name="step" value="export_virtual_fleet_pos">
+    <input type="hidden" name="cargo_ids" id="virtualFleetCargoIds">
+    <input type="hidden" name="plt_ids" id="virtualFleetPltIds">
+    <input type="hidden" name="warehouse" value="{{ warehouse }}">
+    <input type="hidden" name="st_type" value="{{ st_type }}">
+    <input type="hidden" name="suggestion_ids" id="virtualFleetSuggestionIds">
+</form>
+
+<script>
+    // 一提多卸相关变量
+    let currentVirtualFleetData = null;
+    let selectedVirtualGroups = [];
+    let multiGroupForms = {};
+
+    // 打开一提多卸选择模态框
+    function openVirtualFleetModal(suggestionId) {
+        // 获取当前大组数据
+        const scriptElement = document.getElementById(`suggestion_${suggestionId}`);
+        if (!scriptElement) {
+            alert('未找到大组数据');
+            return;
+        }
+        
+        const currentSuggestion = JSON.parse(scriptElement.textContent);
+        currentVirtualFleetData = {
+            suggestionId: suggestionId,
+            suggestion: currentSuggestion
+        };
+        
+        // 显示当前大组信息
+        const currentGroupInfo = document.getElementById('currentGroupInfo');
+        const pg = currentSuggestion.primary_group;
+        currentGroupInfo.innerHTML = `
+            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;">
+                <div><strong>大组ID:</strong> ${suggestionId}</div>
+                <div><strong>目的地:</strong> ${pg.destination}</div>
+                <div><strong>派送方式:</strong> ${pg.delivery_method}</div>
+                <div><strong>状态:</strong> ${pg.matched_shipment ? '已匹配' : '未匹配'}</div>
+                <div><strong>总板数:</strong> ${pg.total_pallets}</div>
+                <div><strong>总CBM:</strong> ${pg.total_cbm.toFixed(2)}</div>
+            </div>
+        `;
+        
+        // 显示可选大组
+        displayVirtualFleetOptions(currentSuggestion);
+        
+        // 更新容量统计
+        updateCapacityStats();
+        
+        // 显示模态框
+        document.getElementById('virtualFleetModal').style.display = 'block';
+    }
+
+    // 显示可选合并大组
+    function displayVirtualFleetOptions(currentSuggestion) {
+        const tbody = document.getElementById('virtualFleetTableBody');
+        tbody.innerHTML = '';
+        
+        const virtualFleet = currentSuggestion.virtual_fleet || [];
+        
+        if (virtualFleet.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="7" style="text-align: center; color: #6c757d; padding: 20px;">
+                        <i class="fas fa-info-circle"></i> 暂无可以合并装车的大组
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+        
+        // 收集所有可选大组的数据
+        selectedVirtualGroups = [currentVirtualFleetData]; // 默认包含当前大组
+        
+        virtualFleet.forEach(suggestionId => {
+            const scriptElement = document.getElementById(`suggestion_${suggestionId}`);
+            if (scriptElement) {
+                const suggestion = JSON.parse(scriptElement.textContent);
+                const pg = suggestion.primary_group;
+                
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>
+                        <input type="checkbox" class="virtual-group-checkbox" 
+                            data-suggestion-id="${suggestionId}" 
+                            data-pallets="${pg.total_pallets}"
+                            data-cbm="${pg.total_cbm}"
+                            onchange="toggleVirtualGroup(this)">
+                    </td>
+                    <td>${suggestionId}</td>
+                    <td>${pg.destination}</td>
+                    <td>${pg.delivery_method}</td>
+                    <td>${pg.total_pallets}</td>
+                    <td>${pg.total_cbm.toFixed(2)}</td>
+                    <td>${pg.matched_shipment ? '<span style="color: #28a745;">已匹配</span>' : '<span style="color: #f39c12;">未匹配</span>'}</td>
+                `;
+                tbody.appendChild(row);
+            }
+        });
+    }
+
+    // 切换选择大组
+    function toggleVirtualGroup(checkbox) {
+        const suggestionId = checkbox.dataset.suggestionId;
+        const pallets = parseFloat(checkbox.dataset.pallets);
+        const cbm = parseFloat(checkbox.dataset.cbm);
+        const scriptElement = document.getElementById(`suggestion_${suggestionId}`);
+        
+        if (!scriptElement) return;
+        
+        const suggestion = JSON.parse(scriptElement.textContent);
+        
+        if (checkbox.checked) {
+            // 添加到大组列表
+            if (!selectedVirtualGroups.find(g => g.suggestionId === suggestionId)) {
+                selectedVirtualGroups.push({
+                    suggestionId: suggestionId,
+                    suggestion: suggestion,
+                    pallets: pallets,
+                    cbm: cbm
+                });
+            }
+        } else {
+            // 从大组列表中移除（但不能移除当前大组）
+            if (suggestionId !== currentVirtualFleetData.suggestionId) {
+                selectedVirtualGroups = selectedVirtualGroups.filter(g => g.suggestionId !== suggestionId);
+            }
+        }
+        
+        // 更新容量统计
+        updateCapacityStats();
+    }
+
+    // 更新容量统计
+    function updateCapacityStats() {
+        const statsContainer = document.getElementById('capacityStats');
+        
+        // 计算总板数和总CBM
+        let totalPallets = 0;
+        let totalCbm = 0;
+        
+        selectedVirtualGroups.forEach(group => {
+            totalPallets += group.suggestion.primary_group.total_pallets;
+            totalCbm += group.suggestion.primary_group.total_cbm;
+        });
+        
+        // 获取容量限制（从页面中获取）
+        const maxPallets = {{ max_pallet|default:35 }};
+        const maxCbm = {{ max_cbm|default:72 }};
+        
+        // 计算利用率（仅用于显示，不显示进度条）
+        const palletsPercentage = ((totalPallets / maxPallets) * 100).toFixed(1);
+        const cbmPercentage = ((totalCbm / maxCbm) * 100).toFixed(1);
+        
+        statsContainer.innerHTML = `
+            <div style="text-align: center;">
+                <div style="font-size: 1.2rem; font-weight: bold; color: #28a745;">${totalPallets}</div>
+                <div style="font-size: 0.9rem; color: #666;">总板数</div>
+                <div style="font-size: 0.8rem; color: #999;">${palletsPercentage}% 利用率</div>
+            </div>
+            <div style="text-align: center;">
+                <div style="font-size: 1.2rem; font-weight: bold; color: #007bff;">${totalCbm.toFixed(1)}</div>
+                <div style="font-size: 0.9rem; color: #666;">总CBM</div>
+                <div style="font-size: 0.8rem; color: #999;">${cbmPercentage}% 利用率</div>
+            </div>
+            <div style="text-align: center;">
+                <div style="font-size: 1.2rem; font-weight: bold; color: #6c757d;">${selectedVirtualGroups.length}</div>
+                <div style="font-size: 0.9rem; color: #666;">大组数量</div>
+            </div>
+            <div style="text-align: center;">
+                <div style="font-size: 1.2rem; font-weight: bold; color: ${totalPallets <= maxPallets && totalCbm <= maxCbm ? '#28a745' : '#dc3545'}">
+                    ${totalPallets <= maxPallets && totalCbm <= maxCbm ? '✓' : '⚠'}
+                </div>
+                <div style="font-size: 0.9rem; color: #666;">容量状态</div>
+                <div style="font-size: 0.8rem; color: #999;">${maxPallets}板/${maxCbm}CBM</div>
+            </div>
+        `;
+        
+        // 如果超容量，显示警告
+        if (totalPallets > maxPallets || totalCbm > maxCbm) {
+            statsContainer.style.background = '#ffe6e6';
+            statsContainer.style.borderLeftColor = '#dc3545';
+        } else {
+            statsContainer.style.background = '#e8f5e8';
+            statsContainer.style.borderLeftColor = '#28a745';
+        }
+    }
+
+    // 导出选中PO
+    function exportVirtualFleetPO() {
+        if (selectedVirtualGroups.length === 0) {
+            alert('请至少选择一个大组');
+            return;
+        }
+        
+        // 收集所有选中的货物ID和plt ID
+        const allCargoIds = [];
+        const allPltIds = [];
+        const allSuggestionIds = [];
+        
+        selectedVirtualGroups.forEach(group => {
+            const suggestion = group.suggestion;
+            
+            // 收集cargo IDs
+            suggestion.cargos.forEach(cargo => {
+                if (cargo.ids) {
+                    allCargoIds.push(...cargo.ids.split(',').map(id => id.trim()).filter(id => id));
+                }
+            });
+            
+            // 收集plt IDs
+            suggestion.cargos.forEach(cargo => {
+                if (cargo.plt_ids) {
+                    allPltIds.push(...cargo.plt_ids.split(',').map(id => id.trim()).filter(id => id));
+                }
+            });
+            
+            allSuggestionIds.push(group.suggestionId);
+        });
+        
+        // 设置表单数据并提交
+        document.getElementById('virtualFleetCargoIds').value = allCargoIds.join(',');
+        document.getElementById('virtualFleetPltIds').value = allPltIds.join(',');
+        document.getElementById('virtualFleetSuggestionIds').value = allSuggestionIds.join(',');
+        
+        document.getElementById('virtualFleetExportForm').submit();
+    }
+
+    // 进入多组预约
+    function proceedToMultiGroupBooking() {      
+        if (selectedVirtualGroups.length === 0) {
+            alert('请至少选择一个大组');
+            return;
+        }
+        
+        // 检查容量是否超限
+        const maxPallets = {{ max_pallet|default:35 }};
+        const maxCbm = {{ max_cbm|default:72 }};
+        let totalPallets = 0;
+        let totalCbm = 0;
+        
+        selectedVirtualGroups.forEach(group => {
+            totalPallets += group.suggestion.primary_group.total_pallets;
+            totalCbm += group.suggestion.primary_group.total_cbm;
+        });
+        
+        if (totalPallets > maxPallets || totalCbm > maxCbm) {
+            const confirmMessage = `警告：总容量已超限！\n总板数: ${totalPallets}/${maxPallets}\n总CBM: ${totalCbm.toFixed(1)}/${maxCbm}\n\n是否继续？`;
+            if (!confirm(confirmMessage)) {
+                return;
+            }
+        }
+        
+        closeVirtualFleetModal();
+        openMultiGroupBookingModal();
+    }
+
+    // 打开多组预约模态框
+    function openMultiGroupBookingModal() {       
+        // 生成Tab导航
+        const tabsContainer = document.getElementById('multiGroupTabs');
+        const contentsContainer = document.getElementById('multiGroupTabContents');
+        
+        if (!tabsContainer || !contentsContainer) {
+            console.error('找不到Tab容器元素');
+            alert('页面元素加载异常，请刷新页面重试');
+            return;
+        }
+        
+        tabsContainer.innerHTML = '';
+        contentsContainer.innerHTML = '';
+        multiGroupForms = {};
+        
+        console.log('开始生成Tab，大组数量:', selectedVirtualGroups.length);
+        
+        selectedVirtualGroups.forEach((group, index) => {
+            console.log(`处理第${index}个大组:`, group.suggestionId);
+            const suggestion = group.suggestion;
+            const pg = suggestion.primary_group;
+            
+            // 创建Tab
+            const tabButton = document.createElement('button');
+            tabButton.className = `tab-button ${index === 0 ? 'active' : ''}`;
+            tabButton.textContent = `大组 ${index + 1} (${pg.destination})`;
+            tabButton.onclick = () => switchMultiGroupTab(index);
+            tabsContainer.appendChild(tabButton);
+            
+            // 创建Tab内容
+            const tabContent = document.createElement('div');
+            tabContent.className = `tab-content ${index === 0 ? 'active' : ''}`;
+            tabContent.id = `multiGroupTab${index}`;
+            tabContent.innerHTML = generateBookingForm(group, index);
+            contentsContainer.appendChild(tabContent);
+            
+            // 初始化表单数据
+            initializeMultiGroupForm(group, index);
+        });
+        
+        // 显示模态框
+        const modal = document.getElementById('multiGroupBookingModal');
+        if (modal) {
+            modal.style.display = 'block';
+            console.log('多组预约模态框显示成功');
+            addMultiGroupEventListeners();
+        } else {
+            console.error('找不到多组预约模态框元素');
+        }
+    }
+
+    // 生成预约表单
+    function generateBookingForm(group, index) {
+        console.log(`生成第${index}个大组的表单:`, group.suggestionId);
+        
+        const pg = group.suggestion.primary_group;
+        const hasAppointment = !!pg.matched_shipment;
+        
+        let formHTML = `
+            <form class="multi-group-form" data-index="${index}">
+                <div class="form-section">
+                    <h4><i class="fas fa-info-circle"></i> 大组信息</h4>
+                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 20px;">
+                        <div>
+                            <label>大组ID:</label>
+                            <input type="text" value="${group.suggestionId}" readonly class="form-input">
+                        </div>
+                        <div>
+                            <label>目的地:</label>
+                            <input type="text" value="${pg.destination}" readonly class="form-input">
+                        </div>
+                        <div>
+                            <label>派送方式:</label>
+                            <input type="text" value="${pg.delivery_method}" readonly class="form-input">
+                        </div>
+                        <div>
+                            <label>总板数:</label>
+                            <input type="text" value="${pg.total_pallets}" readonly class="form-input">
+                        </div>
+                        <div>
+                            <label>总CBM:</label>
+                            <input type="text" value="${pg.total_cbm.toFixed(2)}" readonly class="form-input">
+                        </div>
+                        <div>
+                            <label>状态:</label>
+                            <input type="text" value="${hasAppointment ? '已匹配' : '未匹配'}" readonly class="form-input">
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="form-section">
+                    <h4><i class="fas fa-truck"></i> 预约信息</h4>
+                    <table class="modal-table">
+                        <thead>
+                            <tr>
+                                <th>预约类型</th>
+                                <th>预约账号</th>
+                                <th>预约号</th>
+                                <th>Scheduled Time</th>
+                                <th>Pickup Time</th>
+                                <th>发货仓库</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>
+                                    <select name="shipment_type" class="form-select multi-group-field">
+        `;
+        
+        // 添加预约类型选项
+        {% for k, v in shipment_type_options.items %}
+            formHTML += `<option value="{{ v }}">{{ k }}</option>`;
+        {% endfor %}
+        
+        formHTML += `
+                                    </select>
+                                </td>
+                                <td>
+                                    <select name="shipment_account" class="form-select multi-group-field">
+        `;
+        
+        // 添加预约账号选项
+        {% for k, v in account_options.items %}
+            formHTML += `<option value="{{ v }}">{{ k }}</option>`;
+        {% endfor %}
+        
+        formHTML += `
+                                    </select>
+                                </td>
+                                <td>
+                                    <input type="text" name="appointment_id" class="form-input multi-group-field" required>
+                                </td>
+                                <td>
+                                    <input type="datetime-local" name="shipment_appointment" class="form-input multi-group-field" required>
+                                </td>
+                                <td>
+                                    <input type="datetime-local" name="pickup_time" class="form-input multi-group-field">
+                                </td>
+                                <td>
+                                    <select name="origin" class="form-select multi-group-field">
+        `;
+        
+        // 添加仓库选项
+        {% for k, v in warehouse_options.items %}
+            formHTML += `<option value="{{ v }}">{{ k }}</option>`;
+        {% endfor %}
+        
+        formHTML += `
+                                    </select>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th>装车类型</th>
+                                <th>Pickup Number</th>                            
+                                <th>目的地</th>
+                                <th>地址</th>
+                                <th>备注</th>
+                                <th>shipment ID</th>
+                            </tr>
+                            <tr>
+                                <td>
+                                    <select name="load_type" class="form-select multi-group-field">
+        `;
+        
+        // 添加装车类型选项
+        {% for k, v in load_type_options %}
+            formHTML += `<option value="{{ v }}">{{ k }}</option>`;
+        {% endfor %}
+        
+        formHTML += `
+                                    </select>
+                                </td>
+                                <td>
+                                    <input type="text" name="pickupNumber" class="form-input multi-group-field">
+                                </td>
+                                <td>
+                                    <input type="text" name="destination" value="${pg.destination}" class="form-input multi-group-field" required>
+                                </td>
+                                <td>
+                                    <input type="text" name="address" class="form-input multi-group-field">
+                                </td>
+                                <td>
+                                    <input type="text" name="note" class="form-input multi-group-field">
+                                </td>
+                                <td>
+                                    <input type="text" name="shipment_cargo_id" class="form-input multi-group-field">
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div class="form-section">
+                    <h4><i class="fas fa-box"></i> 货物列表 (${group.suggestion.cargos.length}个货物)</h4>
+                    <table class="modal-table">
+                        <thead>
+                            <tr>
+                                <th>REF ID</th>
+                                <th>FBA ID</th>
+                                <th>柜号</th>
+                                <th>入仓时间</th>
+                                <th>板数</th>
+                                <th>CBM</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+        `;
+        
+        // 添加货物列表
+        group.suggestion.cargos.forEach(cargo => {
+            formHTML += `
+                            <tr>
+                                <td>${cargo.ref_ids || '-'}</td>
+                                <td>${cargo.fba_ids || '-'}</td>
+                                <td style="max-width: 150px; white-space: pre-line; font-size: 0.8rem;">${cargo.cns || '-'}</td>
+                                <td>${cargo.offload_time || '-'}</td>
+                                <td>${cargo.label === 'ACT' ? (cargo.total_n_pallet_act || 0) : (cargo.total_n_pallet_est || 0)}</td>
+                                <td>${cargo.total_cbm || 0}</td>
+                            </tr>
+            `;
+        });
+        
+        formHTML += `
+                        </tbody>
+                    </table>
+                </div>
+            </form>
+        `;
+        
+        console.log(`第${index}个大组表单生成完成，货物数量:`, group.suggestion.cargos.length);
+        return formHTML;
+    }
+    // 初始化多组表单数据
+    function initializeMultiGroupForm(group, index) {
+        console.log(`初始化第${index}个大组表单数据:`, group.suggestionId);
+        
+        const pg = group.suggestion.primary_group;
+        
+        multiGroupForms[index] = {
+            suggestion_id: group.suggestionId,
+            cargo_ids: group.suggestion.cargos.map(c => c.ids).filter(id => id).join(','),
+            plt_ids: group.suggestion.cargos.map(c => c.plt_ids).filter(id => id).join(','),
+            destination: pg.destination,
+            delivery_method: pg.delivery_method,
+            // 如果有匹配的shipment，使用匹配的数据
+            ...(pg.matched_shipment ? {
+                appointment_id: pg.matched_shipment.appointment_id,
+                shipment_type: pg.matched_shipment.shipment_type,
+                load_type: pg.matched_shipment.load_type,
+                shipment_appointment: pg.matched_shipment.shipment_appointment,
+                shipment_account: pg.matched_shipment.shipment_account,
+                origin: pg.matched_shipment.origin,
+                note: pg.matched_shipment.note,
+                address: pg.matched_shipment.address_detail,
+                shipment_cargo_id: pg.matched_shipment.shipment_cargo_id,
+                pickup_time: pg.matched_shipment.pickup_time || '',
+                pickupNumber: pg.matched_shipment.pickup_number || ''
+            } : {})
+        };
+        
+        console.log(`第${index}个大组表单数据:`, multiGroupForms[index]);
+        
+        // 设置表单默认值
+        setTimeout(() => {
+            const form = document.querySelector(`.multi-group-form[data-index="${index}"]`);
+            if (form && multiGroupForms[index]) {
+                const formData = multiGroupForms[index];
+                console.log(`设置第${index}个大组表单默认值:`, formData);
+                
+                Object.keys(formData).forEach(key => {
+                    const element = form.querySelector(`[name="${key}"]`);
+                    if (element && formData[key]) {
+                        if (key === 'shipment_appointment' || key === 'pickup_time') {
+                            // 格式化时间字段，移除秒和时区信息
+                            const formattedTime = formatDateTimeForInput(formData[key]);
+                            element.value = formattedTime;
+                            console.log(`设置 ${key} = ${formattedTime} (原始值: ${formData[key]})`);
+                        } else {
+                            element.value = formData[key];
+                            console.log(`设置 ${key} = ${formData[key]}`);
+                        }
+                    }
+                });
+                // 如果没有 pickupNumber 或者为 None，自动生成
+                const pickupNumberInput = form.querySelector('[name="pickupNumber"]');
+                if (pickupNumberInput && (!formData.pickupNumber || formData.pickupNumber === 'None' || formData.pickupNumber === 'none')) {
+                    generateMultiGroupPickupNumber(index);
+                }
+            } else {
+                console.error(`找不到第${index}个大组的表单元素`);
+            }
+        }, 200);
+    }
+    // 格式化日期时间为 datetime-local 输入框需要的格式
+    function formatDateTimeForInput(dateTimeStr) {
+        if (!dateTimeStr) return '';
+        
+        // 移除时区信息并截取到分钟
+        const date = new Date(dateTimeStr);
+        if (isNaN(date)) {
+            // 如果 Date 解析失败，尝试手动处理
+            const cleanedStr = dateTimeStr.replace('Z', '').split('.')[0]; // 移除时区和毫秒
+            const parts = cleanedStr.split('T');
+            if (parts.length === 2) {
+                const timePart = parts[1].substring(0, 5); // 只取小时和分钟
+                return `${parts[0]}T${timePart}`;
+            }
+            return dateTimeStr.substring(0, 16); // 截取前16个字符 (YYYY-MM-DDTHH:mm)
+        }
+        
+        // 使用 Date 对象格式化
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const hours = String(date.getHours()).padStart(2, '0');
+        const minutes = String(date.getMinutes()).padStart(2, '0');
+        
+        return `${year}-${month}-${day}T${hours}:${minutes}`;
+    }
+    // 为多组预约生成 pickupNumber 的函数
+    function generateMultiGroupPickupNumber(index) {
+        const form = document.querySelector(`.multi-group-form[data-index="${index}"]`);
+        if (!form) return;
+        
+        const shipmentAccountSelect = form.querySelector('[name="shipment_account"]');
+        
+        // 获取预约账号
+        const shipmentAccount = shipmentAccountSelect?.options[shipmentAccountSelect.selectedIndex]?.text || '';
+        
+        // 基础前缀
+        const prefix = 'ZEM-RC-';
+        
+        // 获取当天月日（MMDD格式）
+        const today = new Date();
+        const month = String(today.getMonth() + 1).padStart(2, '0');
+        const day = String(today.getDate()).padStart(2, '0');
+        const monthDay = month + day;
+        
+        // 预约账号处理
+        let accountPart = '';
+        if (shipmentAccount.includes('Central') || shipmentAccount.includes('walmart')) {
+            accountPart = 'ASH';
+        } else {
+            // 用 - 分组，取第一个组
+            const parts = shipmentAccount.split('-');
+            accountPart = parts[0] || shipmentAccount;
+        }
+        
+        // 收集所有组的目的地
+        let allDestinations = [];
+        selectedVirtualGroups.forEach((group, groupIndex) => {
+            const groupForm = document.querySelector(`.multi-group-form[data-index="${groupIndex}"]`);
+            if (groupForm) {
+                const destinationInput = groupForm.querySelector('[name="destination"]');
+                let destination = destinationInput?.value || '';
+                
+                // 目的地处理：如果包含 -，取后面的内容
+                if (destination.includes('-')) {
+                    const parts = destination.split('-');
+                    destination = parts.slice(1).join('-').replace(/\s+/g, '');
+                } else {
+                    destination = destination.replace(/\s+/g, '');
+                }
+                
+                if (destination) {
+                    allDestinations.push(destination);
+                }
+            }
+        });
+        
+        // 组合所有目的地
+        const destinationsPart = allDestinations.join('+');
+        
+        // 组别标识（当前组的序号，从1开始）
+        const groupNumber = parseInt(index) + 1;
+        
+        // 组合成完整的 pickupNumber
+        const pickupNumber = `${prefix}${monthDay}${accountPart}-${destinationsPart}-${groupNumber}`;
+        
+        // 设置到输入框
+        const pickupNumberInput = form.querySelector('[name="pickupNumber"]');
+        if (pickupNumberInput) {
+            pickupNumberInput.value = pickupNumber;
+        }
+        
+        console.log(`第${groupNumber}组 pickupNumber 生成:`, pickupNumber);
+        return pickupNumber;
+    }
+
+    // 为多组预约表单添加事件监听
+    function addMultiGroupEventListeners() {
+        document.addEventListener('change', function(e) {
+            if (e.target.matches('.multi-group-field[name="shipment_account"]') || 
+                e.target.matches('.multi-group-field[name="destination"]')) {
+                
+                // 当一个组的信息变化时，更新所有组的 pickupNumber
+                selectedVirtualGroups.forEach((group, index) => {
+                    generateMultiGroupPickupNumber(index);
+                });
+            }
+        });
+    }
+
+    // 在页面加载完成后添加事件监听
+    document.addEventListener('DOMContentLoaded', function() {
+        addMultiGroupEventListeners();
+    });
+    // 关闭模态框
+    function closeVirtualFleetModal() {
+        document.getElementById('virtualFleetModal').style.display = 'none';
+        
+    }
+</script>
