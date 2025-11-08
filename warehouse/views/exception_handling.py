@@ -121,7 +121,7 @@ class ExceptionHandling(View):
                     "You are not authenticated to access this page!"
                 )
         elif step == "temporary_function":
-            if self._validate_super_user(request.user):
+            if self._validate_user_exception_handling(request.user):
                 context = {"warehouse_form": ZemWarehouseForm()}
                 return await sync_to_async(render)(request, self.template_temporary_function, context)
             else:
