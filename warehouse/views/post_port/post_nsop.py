@@ -60,6 +60,7 @@ from warehouse.utils.constants import (
 class PostNsop(View):
     template_main_dash = "post_port/new_sop/01_appointment/01_appointment_management.html"
     template_td_shipment = "post_port/new_sop/02_shipment/02_td_shipment.html"
+    template_td_unshipment = "post_port/new_sop/02_1_shipment/unscheduled_section.html"
     template_fleet_schedule = "post_port/new_sop/03_fleet_schedule/03_fleet_schedule.html"
     area_options = {"NJ": "NJ", "SAV": "SAV", "LA": "LA", "MO": "MO", "TX": "TX"}
     warehouse_options = {"":"", "NJ-07001": "NJ-07001", "SAV-31326": "SAV-31326", "LA-91761": "LA-91761"}
@@ -105,6 +106,9 @@ class PostNsop(View):
         elif step == "schedule_shipment":
             template, context = await self.handle_td_shipment_get(request)
             return render(request, template, context)
+        elif step == "schedule_unshipment":
+            template, context = await self.handle_td_unshipment_get(request)
+            return render(request, template, context)
         elif step == "fleet_management":
             template, context = await self.handle_fleet_management_get(request)
             return render(request, template, context)
@@ -121,6 +125,9 @@ class PostNsop(View):
             return render(request, template, context)
         elif step == "td_shipment_warehouse":
             template, context = await self.handle_td_shipment_post(request)
+            return render(request, template, context)
+        elif step == "td_unshipment_warehouse":
+            template, context = await self.handle_td_unshipment_post(request)
             return render(request, template, context)
         elif step == "fleet_schedule_warehouse":
             template, context = await self.handle_fleet_schedule_post(request)
@@ -287,7 +294,7 @@ class PostNsop(View):
             if s['suggestion_id'] == suggestion_id:
                 all_suggestions[i] = suggestion_data
                 break
-        return await self.handle_td_shipment_post(request,{},all_suggestions)
+        return await self.handle_td_unshipment_post(request,{},all_suggestions)
 
     async def handle_fleet_add_pallet_post(
         self, request: HttpRequest
@@ -789,7 +796,10 @@ class PostNsop(View):
             messages.append(success_msg)
         if messages:
             context.update({"success_messages": mark_safe("<br>".join(messages))})
-    
+            
+        template_name = request.POST.get('template_name')
+        if template_name and template_name == "unshipment":
+            return await self.handle_td_unshipment_post(request,context)
         return await self.handle_td_shipment_post(request, context)
 
     async def _batch_validate_appointments(self, appointment_ids: list, booking_data: list) -> list[str]:
@@ -1124,6 +1134,7 @@ class PostNsop(View):
         context = {}
         operation_type = request.POST.get('operation_type')
         shipment_cargo_id = request.POST.get('shipment_cargo_id')
+
         if operation_type == "remove_po":            
             shipment = await sync_to_async(Shipment.objects.get)(
                 appointment_id=appointment_id
@@ -1248,7 +1259,9 @@ class PostNsop(View):
             context.update({"success_messages": f"绑定成功，批次号是{shipment_batch_number}"})
         else:
             context.update({"error_messages": f"没有选择PO！"}) 
-        
+        template_name = request.POST.get('template_name')
+        if template_name and template_name == "unshipment":
+            return await self.handle_td_unshipment_post(request,context)
         return await self.handle_td_shipment_post(request,context)
     
     async def handle_fleet_confirmation_post(
@@ -1625,6 +1638,12 @@ class PostNsop(View):
         context = {"warehouse_options": self.warehouse_options}
         return self.template_main_dash, context
 
+    async def handle_td_unshipment_get(    
+        self, request: HttpRequest
+    ) -> tuple[str, dict[str, Any]]:
+        context = {"warehouse_options": self.warehouse_options}
+        return self.template_td_unshipment, context
+
     async def handle_td_shipment_get(
         self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
@@ -1805,7 +1824,54 @@ class PostNsop(View):
             'current_time': timezone.now(),
         })     
         return self.template_fleet_schedule, context
-    
+
+    async def handle_td_unshipment_post(
+        self, request: HttpRequest, context: dict| None = None, matching_suggestions: dict | None = None,
+    ) -> tuple[str, dict[str, Any]]:
+        warehouse = request.POST.get("warehouse")
+        if not warehouse:
+            if context:
+                context.update({
+                    "error_messages": "未选择仓库!",
+                    'warehouse_options': self.warehouse_options
+                })
+            else:
+                context = {
+                    "error_messages":"未选择仓库!",
+                    'warehouse_options': self.warehouse_options,
+                }
+            return self.template_td_shipment, context
+        st_type = request.POST.get("st_type", "pallet")
+        # 生成匹配建议
+        max_cbm, max_pallet = await self.get_capacity_limits(st_type)
+
+        # 获取三类数据：未排约、已排约、待出库
+        if not matching_suggestions:
+            matching_suggestions = await self.sp_unscheduled_data(warehouse, st_type, max_cbm, max_pallet,request.user)  
+
+        if not context:
+            context = {}
+        else:
+            # 防止传入的 context 被意外修改
+            context = context.copy()
+
+        context.update({
+            'warehouse': warehouse,
+            'st_type': st_type,
+            'matching_suggestions': matching_suggestions,
+            'max_cbm': max_cbm,
+            'max_pallet': max_pallet,
+            'warehouse_options': self.warehouse_options,
+            "account_options": self.account_options,
+            "load_type_options": LOAD_TYPE_OPTIONS,
+            "shipment_type_options": self.shipment_type_options,
+            "carrier_options": self.carrier_options,
+            'active_tab': request.POST.get('active_tab')
+        }) 
+        context["matching_suggestions_json"] = json.dumps(matching_suggestions, cls=DjangoJSONEncoder)
+        context["warehouse_json"] = json.dumps(warehouse, cls=DjangoJSONEncoder)
+        return self.template_td_unshipment, context
+        
     async def handle_td_shipment_post(
         self, request: HttpRequest, context: dict| None = None, matching_suggestions: dict | None = None,
     ) -> tuple[str, dict[str, Any]]:
