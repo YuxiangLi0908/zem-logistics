@@ -327,7 +327,20 @@ function markUnscheduledFleetRows() {
 
 // 搜索功能
 function applyFleetSearch(section) {
-    const searchTerm = document.getElementById(section + 'Search').value.trim().toLowerCase();
+    let searchInput;
+    if (section === 'unscheduled-fleet') {
+        searchInput = document.getElementById('unscheduledFleetSearch');
+    } else {
+        // 其他section的搜索框
+        searchInput = document.getElementById(section + 'Search');
+    }
+    
+    if (!searchInput) {
+        console.error('Search input not found for section:', section);
+        return;
+    }
+    
+    const searchTerm = searchInput.value.trim().toLowerCase();
     const rows = document.querySelectorAll('#' + section + '-section .data-table tbody tr');
     
     rows.forEach(row => {
