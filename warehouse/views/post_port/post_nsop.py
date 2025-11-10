@@ -383,12 +383,12 @@ class PostNsop(View):
         pl_criteria = criteria_p & models.Q(
             container_number__order__offload_id__offload_at__isnull=True,
             container_number__order__retrieval_id__retrieval_destination_area=warehouse,
-            destination=destination,
+            #destination=destination,
         )
         plt_criteria = criteria_p & models.Q(
             container_number__order__offload_id__offload_at__isnull=False,
             location__startswith=warehouse,
-            destination=destination,
+            #destination=destination,
         )
         packing_list_not_scheduled = await self._get_packing_list(
             request.user,pl_criteria, plt_criteria
