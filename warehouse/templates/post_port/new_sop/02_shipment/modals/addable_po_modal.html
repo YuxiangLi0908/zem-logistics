@@ -24,7 +24,6 @@
                             <th style="width: 15%; word-break: break-word; white-space: normal;">柜号</th>
                             <th style="width: 20%; word-break: break-word; white-space: normal;">目的地</th>
                             <th style="width: 10%; text-align:center;">板数</th>
-                            <th style="width: 10%; text-align:center;">加塞板数</th>
                         </tr>
                     </thead>
                     <tbody id="addablePOTableBody">
@@ -43,15 +42,6 @@
                                 <td style="text-align:center;">
                                     {{ po.total_n_pallet_act }}
                                     <input type="hidden" name="scheduled_pallet" value="{{ po.total_n_pallet_act }}">
-                                </td>
-                                <td class="td">
-                                    <input type="number" 
-                                        name="actual_shipped_pallet" 
-                                        step="1" 
-                                        max="{{ po.total_n_pallet_act }}" 
-                                        value="{{ po.total_n_pallet_act }}" 
-                                        required
-                                        style="width: 80px; max-width: 100%; box-sizing: border-box;">
                                 </td>
                             </tr>
                             {% endfor %}
@@ -87,8 +77,6 @@ function handleAddablePOFormSubmit() {
         const row = checkbox.closest('tr');
         const pltIdInput = row.querySelector('input[name="plt_ids"]');
         const cargoIdInput = row.querySelector('input[name="cargo_ids"]');
-        const scheduledPalletInput = row.querySelector('input[name="scheduled_pallet"]');
-        const actualShippedPalletInput = row.querySelector('input[name="actual_shipped_pallet"]');
         
         // 判断是 plt_ids 还是 cargo_ids
         const idType = pltIdInput && pltIdInput.value ? 'plt_ids' : 'cargo_ids';
@@ -99,8 +87,6 @@ function handleAddablePOFormSubmit() {
             selectedRowsData.push({
                 idType: idType,
                 idValue: idValue,
-                scheduledPallet: scheduledPalletInput ? scheduledPalletInput.value : '',
-                actualShippedPallet: actualShippedPalletInput ? actualShippedPalletInput.value : ''
             });
         }
     });
@@ -122,20 +108,6 @@ function handleAddablePOFormSubmit() {
         idInput.name = rowData.idType;
         idInput.value = rowData.idValue;
         form.appendChild(idInput);
-        
-        // 添加 scheduled_pallet
-        const scheduledInput = document.createElement('input');
-        scheduledInput.type = 'hidden';
-        scheduledInput.name = 'scheduled_pallet';
-        scheduledInput.value = rowData.scheduledPallet;
-        form.appendChild(scheduledInput);
-        
-        // 添加 actual_shipped_pallet
-        const actualInput = document.createElement('input');
-        actualInput.type = 'hidden';
-        actualInput.name = 'actual_shipped_pallet';
-        actualInput.value = rowData.actualShippedPallet;
-        form.appendChild(actualInput);
     });
     
     // 提交表单

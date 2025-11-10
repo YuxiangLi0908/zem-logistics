@@ -371,7 +371,6 @@ class PostNsop(View):
                 'error_messages':'ISA为空！',
                 "show_add_po_inventory_modal": False,
             })
-        tab = request.POST.get("tab")
         criteria_p = models.Q(
             (
                 models.Q(container_number__order__order_type="转运")
@@ -399,8 +398,7 @@ class PostNsop(View):
             "destination": destination,
             "appointment_id": request.POST.get("appointment_id"),
             "packing_list_not_scheduled": packing_list_not_scheduled,
-            #"step": step,  # ← 前端靠这个判断要不要弹窗
-            "active_tab": tab,          # ← 用来控制前端打开哪个标签页    
+            "active_tab": request.POST.get("active_tab"),       
         })
         if 'show_add_po_inventory_modal' not in context:
             context.update({"show_add_po_inventory_modal": True})# ← 控制是否直接弹出“添加PO”弹窗
@@ -1103,10 +1101,24 @@ class PostNsop(View):
     ) -> tuple[str, dict[str, Any]]:
         context = {}
         appointment_id = request.POST.get("appointment_id")
-        selected = request.POST.getlist("cargo_ids")
-        selected_plt = request.POST.getlist("plt_ids")
-        
-        context = {}
+        pl_ids_str = request.POST.getlist("cargo_ids")
+        selected = []
+        if pl_ids_str:
+            for id_str in pl_ids_str:
+                if id_str.strip():
+                    selected.extend([int(x.strip()) for x in id_str.split(',') if x.strip().isdigit()])
+
+        plt_ids_str = request.POST.getlist("plt_ids")
+        selected_plt = []
+        if plt_ids_str:
+            for id_str in plt_ids_str: 
+                if id_str.strip():
+                    selected_plt.extend([int(x.strip()) for x in id_str.split(',') if x.strip().isdigit()])
+
+        if not selected and not selected_plt:
+            context.update({"error_messages": f"{appointment_id}没有找到要添加po的id！"})
+            return await self.handle_td_shipment_post(request,context)
+
         shipment = await sync_to_async(Shipment.objects.get)(
             appointment_id=appointment_id
         )
@@ -1840,7 +1852,7 @@ class PostNsop(View):
                     "error_messages":"未选择仓库!",
                     'warehouse_options': self.warehouse_options,
                 }
-            return self.template_td_shipment, context
+            return self.template_td_unshipment, context
         st_type = request.POST.get("st_type", "pallet")
         # 生成匹配建议
         max_cbm, max_pallet = await self.get_capacity_limits(st_type)
@@ -2335,6 +2347,7 @@ class PostNsop(View):
             address = f"{fba['location']}, {fba['city']} {fba['state']}, {fba['zipcode']}"
             return address
         else:
+            return None
             raise ValueError('找不到这个目的地的地址，请核实')
         
     async def check_time_window_match(self, primary_group, shipment):
@@ -2386,6 +2399,8 @@ class PostNsop(View):
         grouped_data = {}
         for item in raw_data:           
             batch_number = item.get('shipment_batch_number__shipment_batch_number')
+            if "CLT21106" in batch_number:
+                print('item',item)
             if "库存盘点" in batch_number:
                 continue
             if batch_number not in grouped_data:
