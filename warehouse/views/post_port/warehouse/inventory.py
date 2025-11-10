@@ -645,12 +645,35 @@ class Inventory(View):
         shipping_mark_new = request.POST.getlist("shipping_mark_new")
         fba_id_new = request.POST.getlist("fba_id_new")
         ref_id_new = request.POST.getlist("ref_id_new")
+
+        total_pcs_new = int(request.POST.get("pcs", 0))
+        total_cbm_new = round(float(request.POST.get("cbm", 0)), 2)
         pallet = await sync_to_async(list)(Pallet.objects.filter(id__in=plt_ids))
 
         packing_list = await sync_to_async(list)(
             PackingList.objects.filter(id__in=pl_ids)
         )
-
+        # 计算每个pallet的pcs和cbm（平分）
+        pallet_count = len(pallet)
+        if pallet_count > 0:
+            # 计算平均值（向下取整）
+            avg_pcs = total_pcs_new // pallet_count
+            avg_cbm = round(total_cbm_new / pallet_count, 2)
+            
+            # 计算余数
+            remainder_pcs = total_pcs_new % pallet_count
+            remainder_cbm = total_cbm_new - (avg_cbm * pallet_count)
+            
+            # 为每个pallet分配pcs和cbm
+            for i, p in enumerate(pallet):
+                # 基本值
+                p.pcs = avg_pcs
+                p.cbm = avg_cbm
+                
+                # 第一个pallet承担余数
+                if i == 0:
+                    p.pcs += remainder_pcs
+                    p.cbm = round(p.cbm + remainder_cbm, 2) 
         data_old = [
             pallet[0].destination,
             pallet[0].address,
@@ -658,6 +681,8 @@ class Inventory(View):
             pallet[0].delivery_method,
             pallet[0].location,
             pallet[0].note,
+            sum(p.pcs for p in pallet),  # 总pcs
+            sum(p.cbm for p in pallet),  # 总cbm
         ]
         data_new = [
             destination_new,
@@ -667,6 +692,8 @@ class Inventory(View):
             delivery_type_new,
             location_new,
             note_new,
+            total_pcs_new,
+            total_cbm_new,
         ]
 
         if any(old != new for old, new in zip(data_old, data_new)):
@@ -708,6 +735,8 @@ class Inventory(View):
                     "delivery_type",
                     "location",
                     "note",
+                    "pcs",  # 新增pcs字段
+                    "cbm",  # 新增cbm字段
                 ],
             )
             await sync_to_async(bulk_update_with_history)(

@@ -875,7 +875,7 @@ class WarehouseOperations(View):
          #pytz.timezone("America/New_York") 
         today = self.get_local_time(warehouse)
         three_days_later = today + timedelta(days=3)
-        one_week_ago = today - timedelta(days=7) 
+        one_week_ago = today - timedelta(days=3) 
 
         criteria1 = models.Q(appointment_datetime__date__range=[today, three_days_later])
         criteria2 = models.Q(
@@ -964,7 +964,7 @@ class WarehouseOperations(View):
             total_pallets = round(plts_count + round(pls_cbm / 1.8, 2))
 
             is_estimated = plts_count == 0 and total_pallets > 0
-            days_diff = (fleet.appointment_datetime - today).days
+            days_diff = (fleet.appointment_datetime.date() - today.date()).days
             all_details = pls_details + plt_details
             details = {}
             fleet_type = fleet.fleet_type

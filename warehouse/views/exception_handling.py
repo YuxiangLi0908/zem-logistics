@@ -121,7 +121,7 @@ class ExceptionHandling(View):
                     "You are not authenticated to access this page!"
                 )
         elif step == "temporary_function":
-            if self._validate_super_user(request.user):
+            if self._validate_user_exception_handling(request.user):
                 context = {"warehouse_form": ZemWarehouseForm()}
                 return await sync_to_async(render)(request, self.template_temporary_function, context)
             else:
@@ -491,7 +491,6 @@ class ExceptionHandling(View):
 
         # 如果没有提供任何搜索条件，默认查询前两个月
         if not container_number and not start_date_str and not end_date_str and not month_filter and not destination:
-            print('需要给定时间')
             two_months_ago = today - timedelta(days=60)
             default_start = two_months_ago
             start_date = make_aware(datetime.combine(default_start, datetime.min.time()))

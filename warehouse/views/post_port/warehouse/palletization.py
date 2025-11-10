@@ -8,7 +8,8 @@ import string
 import uuid
 from datetime import date, datetime
 from typing import Any, Dict, List, Optional, Tuple
-
+from django.utils import timezone
+from datetime import timedelta
 import barcode
 import pandas as pd
 import pytz
@@ -1884,6 +1885,7 @@ class Palletization(View):
                     offload_id__offload_required=True,
                     offload_id__offload_at__isnull=False,
                     cancel_notification=False,
+                    created_at__gte=timezone.now() - timedelta(days=90),  #最近3个月的柜子
                     # retrieval_id__actual_retrieval_timestamp__isnull=False,
                 )
             )
