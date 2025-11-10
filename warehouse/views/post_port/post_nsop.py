@@ -1681,7 +1681,7 @@ class PostNsop(View):
                 in_use=True,
                 is_canceled=False,
                 shipment_type="FTL",
-            ).order_by("-batch", "shipment_appointment")
+            ).order_by("pickup_time", "shipment_appointment")
         )
         fleet = await sync_to_async(list)(
             Fleet.objects.filter(
@@ -2401,8 +2401,6 @@ class PostNsop(View):
         grouped_data = {}
         for item in raw_data:           
             batch_number = item.get('shipment_batch_number__shipment_batch_number')
-            if "CLT21106" in batch_number:
-                print('item',item)
             if "库存盘点" in batch_number:
                 continue
             if batch_number not in grouped_data:

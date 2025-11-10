@@ -25,6 +25,7 @@
                         <th>目的仓库</th>
                         <th>预约号</th>
                         <th>Scheduled Time</th>
+                        <th>Pickup Time</th>
                         <th>总重lbs</th>
                         <th>总CBM</th>
                         <th>总卡板数</th>
@@ -64,6 +65,9 @@
                             {{ s.shipment_appointment|date:"Y-m-d" }} {{ s.shipment_appointment|time:"H:i" }}
                             {% endif %}
                         </td>
+                        <td>
+                            {{ s.pickup_time|date:"Y-m-d" }} {{ s.pickup_time|time:"H:i" }}
+                        </td>
                         <td>{{ s.total_weight|floatformat:2 }}</td>
                         <td>{{ s.total_cbm|floatformat:2 }}</td>
                         <td>{{ s.total_pallet }}</td>
@@ -85,7 +89,7 @@
 <!-- 排车模态框 -->
 <div id="fleetModal" class="modal">
   <div class="modal-content" style="width: 90%; max-width: 1200px; min-width: 800px;">
-    <span class="close-btn" onclick="closeFleetModal()" style="
+    <span class="close-btn" onclick="closeUnscheduledFleetModal()" style="
         font-size: 28px;
         font-weight: bold;
         color: #2c3e50;
@@ -100,8 +104,8 @@
         transition: all 0.3s ease;
         position: absolute;
         top: 20px;
-        left: 20px;  /* 改为 left */
-        z-index: 1000;
+        left: 20px;  /* 改为左上角显示 */
+        z-index: 9999;
         border: 2px solid #e9ecef;
         box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         line-height: 1;
@@ -365,17 +369,9 @@ function toggleRowBackground(checkbox) {
 }
 
 // 关闭模态框
-function closeFleetModal() {
+function closeUnscheduledFleetModal() {
     document.getElementById("fleetModal").style.display = "none";
 }
-
-// 点击模态框外部关闭
-window.addEventListener('click', function(event) {
-    const modal = document.getElementById("fleetModal");
-    if (event.target === modal) {
-        closeFleetModal();
-    }
-});
 
 // 加载状态显示
 function showLoadingBar() {
