@@ -642,6 +642,7 @@ class OrderCreation(View):
             context["check_destination"] = True
             context["non_combina_region"] = non_combina_region 
             context["combina_region"] = combina_region
+            context["quotation_file"] = getattr(request, "quotation_file")
         else:
             context["check_destination"] = False
             context["non_combina_region"] = non_combina_region
@@ -1879,6 +1880,7 @@ class OrderCreation(View):
         # 组合柜区域
         request.combina_region = matched_regions["combina_dests"]
         request.is_combina = matched_regions["is_combina"]
+        request.quotation_file = matched_regions["quotation_file"]
         return await self.handle_order_management_container_get(request)
 
     async def _is_combina(self, container_number: str) -> bool:
@@ -1936,6 +1938,7 @@ class OrderCreation(View):
                 quote_type='receivable',
             ).order_by("-effective_date").first()
         )()
+        
         if not matching_quotation:
             matching_quotation = await sync_to_async(
                 lambda: QuotationMaster.objects.filter(
@@ -1944,6 +1947,10 @@ class OrderCreation(View):
                     quote_type='receivable',
                 ).order_by("-effective_date").first()
             )()
+        if matching_quotation:
+            quotation_file = matching_quotation.filename
+        else:
+            quotation_file = '未找到对应报价表'
         
         # 获取费用详情
         stipulate = await sync_to_async(
@@ -2023,6 +2030,7 @@ class OrderCreation(View):
             "combina_dests": combina_region_count,
             "non_combina_dests": non_combina_region_count,
             "is_combina": is_combina,
+            "quotation_file": quotation_file,
         }
     
     async def is_mixed_region(self, matched_regions, warehouse, vessel_etd) -> bool:

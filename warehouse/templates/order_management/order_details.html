@@ -676,25 +676,12 @@
             <span class="reason-tooltip" title="非组合原因">{{ non_combina_reason }}</span>
             {% endif %}
         </h3>
-        <!--
-        <form method="post" action="">
-            {% csrf_token %}
-            <input type="hidden" name="step" value="modify_is_combina">
-            <input type="hidden" name="container_number" value="{{ selected_order.container_number.container_number }}">
-            <div class="combina-selection">
-                <h4>请选择计费方式:</h4>
-                <div class="radio-group">
-                    <label class="radio-option">
-                        <input type="radio" name="is_combina" value="true" {% if is_combina %}checked{% endif %}>
-                        <span class="radio-label">组合柜</span>
-                    </label>
-                    <label class="radio-option">
-                        <input type="radio" name="is_combina" value="false" {% if not is_combina %}checked{% endif %}>
-                        <span class="radio-label">非组合柜</span>
-                    </label>
-                </div>
-            </div>
-        </form>-->
+        <div style="text-align: center; margin-bottom: 15px; padding: 8px 12px; background: #f8f9fa; border-radius: 4px;">
+            <small style="color: #666; font-size: 0.9em;">
+                <i class="fas fa-file-alt"></i> 读取文件: 
+                <strong>{{ quotation_file }}</strong>
+            </small>
+        </div>
         <div class="form-grid">
             <div class="form-group">
                 <label class="form-label">组合柜区域</label>
