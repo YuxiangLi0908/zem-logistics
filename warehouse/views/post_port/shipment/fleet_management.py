@@ -3,6 +3,7 @@ import base64
 import io
 import json
 import os
+import platform
 import re
 import uuid
 from datetime import datetime, timedelta
@@ -2419,19 +2420,35 @@ class FleetManagement(View):
 
         files = request.FILES.getlist("files")
         if files:
-             # ✅ 注册中文字体
-            try:
-                # Windows 通常有微软雅黑
-                zh_font_path = "C:/Windows/Fonts/msyh.ttc"
-                zh_font = fm.FontProperties(fname=zh_font_path)
-            except Exception:
-                # Linux / Mac 可改为 Noto 或思源黑体
-                zh_font_path = "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc"
-                zh_font = fm.FontProperties(fname=zh_font_path)
+            system_name = platform.system()
+            zh_font_path = None
 
-            # 设置全局字体（这一行非常关键）
-            plt.rcParams['font.family'] = zh_font.get_name()
-            plt.rcParams['axes.unicode_minus'] = False  # 防止负号乱码
+            # ✅ 按系统类型设置默认路径
+            if system_name == "Windows":
+                zh_font_path = "C:/Windows/Fonts/msyh.ttc"  # 微软雅黑
+            else:  # Linux
+                # Linux 通常用 Noto 或思源黑体字体
+                possible_fonts = [
+                    "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc",
+                    "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+                    "/usr/share/fonts/truetype/arphic/uming.ttc",  # 备用
+                    "/usr/share/fonts/truetype/wqy/wqy-microhei.ttc",  # 文泉驿微米黑
+                ]
+                for path in possible_fonts:
+                    if os.path.exists(path):
+                        zh_font_path = path
+                        break
+
+            # ✅ 检查字体文件是否存在，否则退回默认英文字体
+            if zh_font_path and os.path.exists(zh_font_path):
+                zh_font = fm.FontProperties(fname=zh_font_path)
+                plt.rcParams["font.family"] = zh_font.get_name()
+                print(f"✅ 中文字体已加载: {zh_font_path}")
+            else:
+                plt.rcParams["font.family"] = "DejaVu Sans"
+                print("⚠️ 未找到中文字体，使用默认英文字体。")
+
+            plt.rcParams["axes.unicode_minus"] = False  # 防止负号乱码
 
             for file in files:
                 # 设置通用字体避免警告
