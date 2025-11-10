@@ -3563,6 +3563,7 @@ class Accounting(View):
         ws = wb.active
         ws.title = f"{select_carrier}_{select_month}账单"
 
+        #应付拆柜费
         pallet_name = str(
             InvoiceWarehouse._meta.get_field("palletization_fee").verbose_name
         )
@@ -3570,6 +3571,14 @@ class Accounting(View):
         fixed_fee_types = []
         if select_carrier in ["BBR", "KNO"]:
             fixed_fee_types = [pallet_name, arrive_name, "总费用"]
+        elif select_carrier in ["GM", "Kars", "东海岸"]:
+            fixed_fee_types = [
+                "基本费用",
+                "超重费",
+                "车架费",
+                arrive_name,
+                "总费用",
+            ]
         else:
             fixed_fee_types = [
                 "基本费用",
