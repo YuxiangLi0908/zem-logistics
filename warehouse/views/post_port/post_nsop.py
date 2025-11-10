@@ -2335,7 +2335,7 @@ class PostNsop(View):
             address = f"{fba['location']}, {fba['city']} {fba['state']}, {fba['zipcode']}"
             return address
         else:
-            return None
+            raise ValueError('找不到这个目的地的地址，请核实')
         
     async def check_time_window_match(self, primary_group, shipment):
         """检查时间窗口是否匹配"""
