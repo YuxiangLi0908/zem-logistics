@@ -2401,8 +2401,6 @@ class PostNsop(View):
         grouped_data = {}
         for item in raw_data:           
             batch_number = item.get('shipment_batch_number__shipment_batch_number')
-            if "CLT21106" in batch_number:
-                print('item',item)
             if "库存盘点" in batch_number:
                 continue
             if batch_number not in grouped_data:
