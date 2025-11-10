@@ -697,10 +697,6 @@
                                 title="复制选中的柜号">
                             复制柜号到剪贴板
                         </button>
-                        <button id="exportSelectedBtn" class="btn btn-secondary" disabled
-                                title="跳转到港口提柜页面">
-                            批量跳转港口提柜
-                        </button>
                         <button id="batchSetOffloadBtn" class="btn btn-warning" disabled
                                 title="统一设置拆柜时间">
                             批量设置拆柜时间
@@ -1204,7 +1200,6 @@
             const rowCheckboxes = document.querySelectorAll('.rowCheckbox');
             const selectedCountElement = document.getElementById('selectedCount');
             const batchActionBtn = document.getElementById('batchActionBtn');
-            const exportSelectedBtn = document.getElementById('exportSelectedBtn');
             const copyContainersBtn = document.getElementById('copyContainersBtn');
             const copyToast = document.getElementById('copyToast');
 
@@ -1246,7 +1241,6 @@
 
                 // 更新所有批量按钮状态
                 batchActionBtn.disabled = selectedCount === 0;
-                exportSelectedBtn.disabled = selectedCount === 0;
                 copyContainersBtn.disabled = selectedCount === 0;
                 batchSetOffloadBtn.disabled = selectedCount === 0;
             }
@@ -1301,48 +1295,6 @@
                     toast.classList.remove('show');
                 }, 2000);
             }
-
-            // 批量跳转港口提柜
-            exportSelectedBtn.addEventListener('click', function () {
-                const selectedContainers = Array.from(document.querySelectorAll('.rowCheckbox:checked'))
-                    .map(checkbox => checkbox.getAttribute('data-container'));
-
-                if (selectedContainers.length === 0) {
-                    showToast('请先选择要操作的柜号', 'error');
-                    return;
-                }
-
-                const form = document.createElement('form');
-                form.method = 'GET';
-                form.action = '/terminal_dispatch/';
-
-                const stepInput = document.createElement('input');
-                stepInput.type = 'hidden';
-                stepInput.name = 'step';
-                stepInput.value = 'batch_confirm_pickup_v1';
-                form.appendChild(stepInput);
-
-                selectedContainers.forEach(container => {
-                    const containerInput = document.createElement('input');
-                    containerInput.type = 'hidden';
-                    containerInput.name = 'containers[]';
-                    containerInput.value = container;
-                    form.appendChild(containerInput);
-                });
-
-                const dateParams = ['start_date_eta', 'end_date_eta'];
-                dateParams.forEach(param => {
-                    const dateInput = document.createElement('input');
-                    dateInput.type = 'hidden';
-                    dateInput.name = param;
-                    dateInput.value = document.querySelector(`[name="${param}"]`)?.value || '';
-                    form.appendChild(dateInput);
-                });
-
-                document.body.appendChild(form);
-                showLoading(); // 显示加载状态
-                form.submit();
-            });
 
             // 批量设置拆柜时间 - 打开弹窗
             batchSetOffloadBtn.addEventListener('click', function () {

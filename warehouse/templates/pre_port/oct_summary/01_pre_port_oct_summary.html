@@ -511,6 +511,11 @@
 
         <!-- 导出按钮统一容器 -->
         <div class="export-buttons-wrap">
+            <button id="exportSelectedBtn" class="btn btn-secondary batch-operation-btn"
+                    title="跳转到港口提柜页面">
+                <i class="layui-icon layui-icon-link"></i> 批量跳转港口提柜
+            </button>
+
             <!-- 批量设置计划提柜供应商按钮 -->
             <button type="button" id="batchSetCarrierBtn" class="batch-operation-btn">
                 <i class="layui-icon layui-icon-edit"></i> 批量设置计划提柜供应商
@@ -942,7 +947,7 @@
                                         <span style="color: #dc3545;">放行状态 ×</span>
                                     {% endif %}
                                 </td>
-                            <!-- 实际放行时间 -->
+                                <!-- 实际放行时间 -->
                                 <td data-column="planned_release_time">
                                     <form action="" method="post" class="retrieval-carrier-form" style="margin: 0;">
                                         {% csrf_token %}
@@ -971,7 +976,7 @@
                                         </div>
                                     </form>
                                 </td>
-                            <!-- 是否提供Do列 -->
+                                <!-- 是否提供Do列 -->
                                 <td data-column="do_provided">
                                     <form action="" method="post" style="margin: 0;">
                                         {% csrf_token %}
@@ -1011,7 +1016,7 @@
                                     </form>
                                 </td>
 
-                            <!-- 计划提柜供应商列 -->
+                                <!-- 计划提柜供应商列 -->
                                 <td data-column="planned_carrier">
                                     <form action="" method="post" class="retrieval-carrier-form" style="margin: 0;">
                                         {% csrf_token %}
@@ -1633,6 +1638,76 @@
                         console.error('复制失败:', err);
                         layer.msg('复制失败，请手动复制', {icon: 2, time: 2000});
                     });
+                });
+
+                // 批量跳转港口提柜功能
+                document.getElementById('exportSelectedBtn').addEventListener('click', function () {
+                    // 获取所有可见且被选中的柜号
+                    const selectedContainers = Array.from(
+                        document.querySelectorAll('#tableBody .table-row:not([style="display: none"]) .rowCheckbox:checked')
+                    ).map(checkbox => checkbox.getAttribute('data-container'));
+
+                    if (selectedContainers.length === 0) {
+                        layer.msg('请先选择要操作的柜号', {icon: 2, time: 2000});
+                        return;
+                    }
+
+                    // 创建表单并提交
+                    const form = document.createElement('form');
+                    form.method = 'GET';
+                    form.action = '/terminal_dispatch/';
+                    form.target = '_blank';
+
+                    // 添加步骤参数
+                    const stepInput = document.createElement('input');
+                    stepInput.type = 'hidden';
+                    stepInput.name = 'step';
+                    stepInput.value = 'batch_confirm_pickup_v1';
+                    form.appendChild(stepInput);
+
+                    // 添加选中的柜号
+                    selectedContainers.forEach(container => {
+                        const containerInput = document.createElement('input');
+                        containerInput.type = 'hidden';
+                        containerInput.name = 'containers[]';
+                        containerInput.value = container;
+                        form.appendChild(containerInput);
+                    });
+
+                    // 添加日期参数（从搜索表单中获取）
+                    const dateParams = ['start_date_eta', 'end_date_eta', 'eta_start', 'eta_end', 'order_start', 'order_end'];
+                    dateParams.forEach(param => {
+                        const dateInput = document.createElement('input');
+                        dateInput.type = 'hidden';
+                        dateInput.name = param;
+                        // 从页面现有表单中获取参数值
+                        dateInput.value = document.querySelector(`[name="${param}"]`)?.value || '';
+                        form.appendChild(dateInput);
+                    });
+
+                    // 添加仓库参数
+                    const warehouseInput = document.createElement('input');
+                    warehouseInput.type = 'hidden';
+                    warehouseInput.name = 'warehouse';
+                    warehouseInput.value = document.querySelector('select[name="warehouse"]')?.value || '';
+                    form.appendChild(warehouseInput);
+
+                    // 添加时间范围类型参数
+                    const timeTypeInput = document.createElement('input');
+                    timeTypeInput.type = 'hidden';
+                    timeTypeInput.name = 'timeRangeType';
+                    timeTypeInput.value = document.querySelector('select[name="timeRangeType"]')?.value || '';
+                    form.appendChild(timeTypeInput);
+
+                    // 提交表单
+                    document.body.appendChild(form);
+                    // 显示加载状态
+                    const loadingIndex = layer.load(2, {shade: [0.3, '#fff']});
+                    form.submit();
+                    // 防止重复提交
+                    setTimeout(() => {
+                        layer.close(loadingIndex);
+                    }, 1000);
                 });
 
                 function initSelectAll() {
