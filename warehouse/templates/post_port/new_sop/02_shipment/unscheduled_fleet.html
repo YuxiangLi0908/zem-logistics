@@ -25,6 +25,7 @@
                         <th>目的仓库</th>
                         <th>预约号</th>
                         <th>Scheduled Time</th>
+                        <th>Pickup Time</th>
                         <th>总重lbs</th>
                         <th>总CBM</th>
                         <th>总卡板数</th>
@@ -63,6 +64,9 @@
                             {% else %}
                             {{ s.shipment_appointment|date:"Y-m-d" }} {{ s.shipment_appointment|time:"H:i" }}
                             {% endif %}
+                        </td>
+                        <td>
+                            {{ s.pickup_time|date:"Y-m-d" }} {{ s.pickup_time|time:"H:i" }}
                         </td>
                         <td>{{ s.total_weight|floatformat:2 }}</td>
                         <td>{{ s.total_cbm|floatformat:2 }}</td>

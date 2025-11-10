@@ -1681,7 +1681,7 @@ class PostNsop(View):
                 in_use=True,
                 is_canceled=False,
                 shipment_type="FTL",
-            ).order_by("-batch", "shipment_appointment")
+            ).order_by("pickup_time", "shipment_appointment")
         )
         fleet = await sync_to_async(list)(
             Fleet.objects.filter(
