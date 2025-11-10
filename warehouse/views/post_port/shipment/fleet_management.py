@@ -7,11 +7,16 @@ import re
 import uuid
 from datetime import datetime, timedelta
 from typing import Any
-
+import os
+from reportlab.lib.pagesizes import A4
+from reportlab.pdfgen import canvas
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
 import barcode
 import chardet
 import matplotlib
 import matplotlib.pyplot as plt
+import matplotlib.font_manager as fm
 import openpyxl
 import pandas as pd
 import pytz
@@ -2393,29 +2398,97 @@ class FleetManagement(View):
         # BOL需要在后面加一个拣货单
         df = pd.DataFrame(arm_pickup[1:], columns=arm_pickup[0])
 
+        # 添加换行函数
+        def wrap_text(text, max_length=11):
+            """将文本按最大长度换行"""
+            if not isinstance(text, str):
+                text = str(text)
+            
+            if len(text) <= max_length:
+                return text
+            
+            # 按最大长度分割文本
+            wrapped_lines = []
+            for i in range(0, len(text), max_length):
+                wrapped_lines.append(text[i:i+max_length])
+            return '\n'.join(wrapped_lines)
+
+        # 对DataFrame应用换行处理
+        df_wrapped = df.applymap(wrap_text)
+
         files = request.FILES.getlist("files")
         if files:
+             # ✅ 注册中文字体
+            try:
+                # Windows 通常有微软雅黑
+                zh_font_path = "C:/Windows/Fonts/msyh.ttc"
+                zh_font = fm.FontProperties(fname=zh_font_path)
+            except Exception:
+                # Linux / Mac 可改为 Noto 或思源黑体
+                zh_font_path = "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc"
+                zh_font = fm.FontProperties(fname=zh_font_path)
+
+            # 设置全局字体（这一行非常关键）
+            plt.rcParams['font.family'] = zh_font.get_name()
+            plt.rcParams['axes.unicode_minus'] = False  # 防止负号乱码
+
             for file in files:
+                # 设置通用字体避免警告
+                # plt.rcParams['font.family'] = ['sans-serif']
+                # plt.rcParams['font.sans-serif'] = ['DejaVu Sans', 'Arial', 'Helvetica']
+                
+                # 保持原来的A4尺寸
                 fig, ax = plt.subplots(figsize=(10.4, 8.5))
                 ax.axis("tight")
                 ax.axis("off")
-                fig.subplots_adjust(top=1.5)
+                # 稍微减小顶部边距，为标题留出一点空间
+                fig.subplots_adjust(top=1.45)  # 从1.5微调到1.45
 
-                # 创建表格
-                the_table = ax.table(
-                    cellText=df.values,
-                    colLabels=df.columns,
-                    loc="upper center",
-                    cellLoc="center",
+                # 在表格上方添加标题
+                ax.text(
+                    0.5,  # 水平居中
+                    0.9,  # 非常靠近顶部，在表格上方
+                    "Pickup List",
+                    fontdict={"size": 12, "weight": "bold"},
+                    va="top",
+                    ha="center",
+                    transform=ax.transAxes,
+                )
+                
+                # 在标题下方添加Pickup Number
+                ax.text(
+                    0.5,  # 水平居中
+                    0.85,  # 紧挨着标题
+                    f"Pickup Number: {pickup_number}",
+                    fontdict={"size": 10},
+                    va="top",
+                    ha="center",
+                    transform=ax.transAxes,
                 )
 
-                # 设置表格样式
+                # 创建表格 - 保持原来的位置和设置
+                the_table = ax.table(
+                    cellText=df_wrapped.values,
+                    colLabels=df_wrapped.columns,
+                    loc="upper center",
+                    cellLoc="center",
+                    bbox=[0.12, 0.7, 0.8, 0.12]  # [x0, y0, width, height]
+                )
+
+                # 设置表格样式 - 保持原来的设置，只增加行高
                 for pos, cell in the_table.get_celld().items():
-                    cell.set_fontsize(50)
-                    if pos[0] != 1:
-                        cell.set_height(0.03)
-                    else:
-                        cell.set_height(0.02)
+                    cell.set_fontsize(10)  # 保持原来的字体大小
+                    
+                    # 启用文本换行功能
+                    cell.set_text_props(wrap=True)
+                    
+                    # 增加行高以容纳换行文本
+                    if pos[0] != 1:  # 数据行
+                        cell.set_height(0.04)  # 从0.03增加到0.04
+                    else:  # 表头行
+                        cell.set_height(0.025)  # 从0.02增加到0.025
+                        
+                    # 列宽设置保持不变
                     if pos[1] == 0 or pos[1] == 1 or pos[1] == 2:
                         cell.set_width(0.15)
                     elif pos[1] == 3 or pos[1] == 4:
@@ -2428,28 +2501,28 @@ class FleetManagement(View):
                 )
                 table_bbox = table_bbox.transformed(
                     ax.transAxes.inverted()
-                )  # 转换为相对坐标
-                table_bottom = table_bbox.y0  # 表格底部的y坐标
+                )
+                table_bottom = table_bbox.y0
 
-                # 1. 绘制Notes（位置在上）
-                notes_y = table_bottom - 0.03  # 距离表格底部有一定距离
+                # 1. 绘制Notes
+                notes_y = table_bottom - 0.04  # 稍微增加间距
                 ax.text(
-                    0.05,  # 左侧对齐
+                    0.05,
                     notes_y,
                     f"Notes: {notes}",
-                    fontdict={"family": "STSong-Light", "size": 12},
-                    va="top",  # 顶部对齐
+                    fontdict={"size": 10},
+                    va="top",
                     ha="left",
                     transform=ax.transAxes,
                 )
 
-                # 2. 绘制pickup_number（在Notes正下方，y坐标再减0.03避免重叠）
-                pickup_y = notes_y - 0.03  # 比Notes低一行
+                # 2. 绘制pickup_number
+                pickup_y = notes_y - 0.03
                 ax.text(
-                    0.05,  # 与Notes左对齐
+                    0.05,
                     pickup_y,
                     f"pickup_number: {pickup_number}",
-                    fontdict={"family": "STSong-Light", "size": 12},
+                    fontdict={"size": 10},
                     va="top",
                     ha="left",
                     transform=ax.transAxes,
