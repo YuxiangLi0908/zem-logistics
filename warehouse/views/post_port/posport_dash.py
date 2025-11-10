@@ -78,10 +78,12 @@ class PostportDash(View):
                 shipment_batch_number=shipment_batch_number
             )
         )()
+        if shipment.shipment_type == '客户自提':
+            raise ValueError("该预约批次预约类型为客户自提，不支持客提的BOL下载！")
         if shipment.fleet_number:
             mutable_post["fleet_number"] = shipment.fleet_number
         else:
-            raise ValueError("该预约批次尚未排约")
+            raise ValueError("该预约批次尚未排车")
         request.POST = mutable_post
         return await fm.handle_export_bol_post(request)
 
