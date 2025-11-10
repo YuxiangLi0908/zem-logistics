@@ -6,7 +6,7 @@ from typing import Any
 
 from asgiref.sync import sync_to_async
 from dateutil.relativedelta import relativedelta
-from django.db.models import F, Sum, Case, When, IntegerField, Max, CharField, Value, Q
+from django.db.models import F, Sum, Case, When, IntegerField, Max, CharField, Value, Q, DateTimeField
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import redirect, render
 from django.utils import timezone
@@ -415,15 +415,26 @@ class OctSummaryView(View):
                 "retrieval_delegation_status", "planned_release_time", "actual_release_status", "destination_port",
                 "t49_empty_returned_at", "t49_pod_full_out_at"
             )
-            # 排序规则修改：先按已放行（True）优先，再按ETA升序（越早越前）
             .order_by(
+                # 第一优先级：区分"有/无实际放行时间"（有则排前面）
                 Case(
-                    When(actual_release_status=True, then=0),  # 已放行排前面
-                    When(actual_release_status=False, then=1),  # 未放行排后面
-                    default=2,  # 其他状态最后
+                    When(planned_release_time__isnull=False, then=0),  # 有实际放行时间
+                    When(planned_release_time__isnull=True, then=1),  # 无实际放行时间
+                    default=2,
                     output_field=IntegerField()
                 ),
-                "vessel_eta"  # ETA越早越靠前
+                # 第二优先级：有实际放行时间的按放行时间升序
+                Case(
+                    When(planned_release_time__isnull=False, then=F('planned_release_time')),
+                    default=None
+                ),
+                # 第三优先级：无实际放行时间的按ETA升序
+                Case(
+                    When(planned_release_time__isnull=True, then=F('vessel_eta')),
+                    default=None
+                ),
+                # 兜底排序
+                'vessel_eta'
             )
         )
 
@@ -546,15 +557,26 @@ class OctSummaryView(View):
                 "retrieval_delegation_status", "planned_release_time", "actual_release_status", "destination_port",
                 "t49_empty_returned_at", "t49_pod_full_out_at"
             )
-            # 排序规则修改：先按已放行（True）优先，再按ETA升序（越早越前）
             .order_by(
+                # 第一优先级：区分"有/无实际放行时间"（有则排前面）
                 Case(
-                    When(actual_release_status=True, then=0),  # 已放行排前面
-                    When(actual_release_status=False, then=1),  # 未放行排后面
-                    default=2,  # 其他状态最后
+                    When(planned_release_time__isnull=False, then=0),  # 有实际放行时间
+                    When(planned_release_time__isnull=True, then=1),  # 无实际放行时间
+                    default=2,
                     output_field=IntegerField()
                 ),
-                "vessel_eta"  # ETA越早越靠前
+                # 第二优先级：有实际放行时间的按放行时间升序
+                Case(
+                    When(planned_release_time__isnull=False, then=F('planned_release_time')),
+                    default=None
+                ),
+                # 第三优先级：无实际放行时间的按ETA升序
+                Case(
+                    When(planned_release_time__isnull=True, then=F('vessel_eta')),
+                    default=None
+                ),
+                # 兜底排序
+                'vessel_eta'
             )
         )
 

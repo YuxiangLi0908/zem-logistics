@@ -216,10 +216,6 @@
             min-width: 176px !important;
         }
 
-        [data-column="release_status_t49"] {
-            width: 200px !important;
-            min-width: 176px !important;
-        }
 
         [data-column="actual_carrier"] {
             width: 250px !important;
@@ -231,20 +227,12 @@
             min-width: 176px !important;
         }
 
-        [data-column="private_warehouse"] {
-            width: 176px !important;
-            min-width: 176px !important;
-        }
 
         [data-column="planned_release_time"] {
             width: 250px !important;
             min-width: 250px !important;
         }
 
-        [data-column="actual_release_status"] {
-            width: 210px !important;
-            min-width: 176px !important;
-        }
 
         [data-column="do_provided"] {
             width: 190px !important;
@@ -257,6 +245,11 @@
         }
 
         [data-column="order_progress"] {
+            width: 176px !important;
+            min-width: 176px !important;
+        }
+
+        [data-column="private_warehouse"] {
             width: 176px !important;
             min-width: 176px !important;
         }
@@ -539,7 +532,7 @@
                 <input type="hidden" name="order_end" value="{{ order_end|default:'' }}">
                 <input type="hidden" name="step" value="batch_export">
                 <button type="button" id="batchExportBtn" class="batch-export-btn">
-                    <i class="layui-icon layui-icon-download-circle"></i> 批量导出选中仓库数据
+                    <i class="layui-icon layui-icon-download-circle"></i> 数据统计
                 </button>
             </form>
 
@@ -554,7 +547,7 @@
                 <input type="hidden" name="order_end" value="{{ order_end|default:'' }}">
                 <input type="hidden" name="step" value="batch_export_v1">
                 <button type="button" id="batchExportBtnV1" class="batch-export-btn">
-                    <i class="layui-icon layui-icon-download-circle"></i> 批量导出选中MBL数据（DO）
+                    <i class="layui-icon layui-icon-download-circle"></i> 委托文件导出
                 </button>
             </form>
 
@@ -706,56 +699,11 @@
                                     </button>
                                 </div>
                             </th>
-                            <th data-column="release_status_t49">
-                                <div class="header-content">
-                                    放行状态(t49)
-                                    <button type="button" class="column-visibility-btn" data-column="release_status_t49"
-                                            title="隐藏列">
-                                        <i class="layui-icon layui-icon-eye"></i>
-                                    </button>
-                                </div>
-                            </th>
-                            <th data-column="actual_carrier">
-                                <div class="header-content">
-                                    实际提柜供应商
-                                    <button type="button" class="column-visibility-btn" data-column="actual_carrier"
-                                            title="隐藏列">
-                                        <i class="layui-icon layui-icon-eye"></i>
-                                    </button>
-                                </div>
-                            </th>
-                            <th data-column="dispatch_delegation">
-                                <div class="header-content">
-                                    调度委托
-                                    <button type="button" class="column-visibility-btn"
-                                            data-column="dispatch_delegation" title="隐藏列">
-                                        <i class="layui-icon layui-icon-eye"></i>
-                                    </button>
-                                </div>
-                            </th>
-                            <th data-column="private_warehouse">
-                                <div class="header-content">
-                                    私仓数量
-                                    <button type="button" class="column-visibility-btn" data-column="private_warehouse"
-                                            title="隐藏列">
-                                        <i class="layui-icon layui-icon-eye"></i>
-                                    </button>
-                                </div>
-                            </th>
                             <th data-column="planned_release_time">
                                 <div class="header-content">
-                                    计划放行时间
+                                    实际放行时间
                                     <button type="button" class="column-visibility-btn"
                                             data-column="planned_release_time" title="隐藏列">
-                                        <i class="layui-icon layui-icon-eye"></i>
-                                    </button>
-                                </div>
-                            </th>
-                            <th data-column="actual_release_status">
-                                <div class="header-content">
-                                    放行状态(实际)
-                                    <button type="button" class="column-visibility-btn"
-                                            data-column="actual_release_status" title="隐藏列">
                                         <i class="layui-icon layui-icon-eye"></i>
                                     </button>
                                 </div>
@@ -769,6 +717,7 @@
                                     </button>
                                 </div>
                             </th>
+
                             <th data-column="planned_carrier">
                                 <div class="header-content">
                                     计划提柜供应商
@@ -778,10 +727,40 @@
                                     </button>
                                 </div>
                             </th>
+
+                            <th data-column="dispatch_delegation">
+                                <div class="header-content">
+                                    调度委托
+                                    <button type="button" class="column-visibility-btn"
+                                            data-column="dispatch_delegation" title="隐藏列">
+                                        <i class="layui-icon layui-icon-eye"></i>
+                                    </button>
+                                </div>
+                            </th>
+
+                            <th data-column="actual_carrier">
+                                <div class="header-content">
+                                    实际提柜供应商
+                                    <button type="button" class="column-visibility-btn" data-column="actual_carrier"
+                                            title="隐藏列">
+                                        <i class="layui-icon layui-icon-eye"></i>
+                                    </button>
+                                </div>
+                            </th>
+
                             <th data-column="order_progress">
                                 <div class="header-content">
                                     建单进度
                                     <button type="button" class="column-visibility-btn" data-column="order_progress"
+                                            title="隐藏列">
+                                        <i class="layui-icon layui-icon-eye"></i>
+                                    </button>
+                                </div>
+                            </th>
+                            <th data-column="private_warehouse">
+                                <div class="header-content">
+                                    私仓数量
+                                    <button type="button" class="column-visibility-btn" data-column="private_warehouse"
                                             title="隐藏列">
                                         <i class="layui-icon layui-icon-eye"></i>
                                     </button>
@@ -836,46 +815,41 @@
                                                                                             data-column="reference_status_t49"
                                                                                             placeholder="T49参考状态...">
                             </th>
-                            <th data-column="release_status_t49" class="search-th"><input type="text"
-                                                                                          class="column-search"
-                                                                                          data-column="release_status_t49"
-                                                                                          placeholder="搜索放行状态(t49)...">
+                            <th data-column="planned_release_time" class="search-th"><input type="text"
+                                                                                            class="column-search"
+                                                                                            data-column="planned_release_time"
+                                                                                            placeholder="搜索实际放行时间...">
+                            </th>
+
+                            <th data-column="do_provided" class="search-th"><input type="text" class="column-search"
+                                                                                   data-column="do_provided"
+                                                                                   placeholder="搜索Do..."></th>
+
+                            <th data-column="planned_carrier" class="search-th"><input type="text" class="column-search"
+                                                                                       data-column="planned_carrier"
+                                                                                       placeholder="搜索计划提柜供应商...">
+                            </th>
+
+                            <th data-column="dispatch_delegation" class="search-th"><input type="text"
+                                                                                           class="column-search"
+                                                                                           data-column="dispatch_delegation"
+                                                                                           placeholder="搜索调度委托...">
                             </th>
 
                             <th data-column="actual_carrier" class="search-th"><input type="text" class="column-search"
                                                                                       data-column="actual_carrier"
                                                                                       placeholder="搜索实际提柜供应商...">
                             </th>
-                            <th data-column="dispatch_delegation" class="search-th"><input type="text"
-                                                                                           class="column-search"
-                                                                                           data-column="dispatch_delegation"
-                                                                                           placeholder="搜索调度委托...">
+
+
+                            <th data-column="order_progress" class="search-th"><input type="text" class="column-search"
+                                                                                      data-column="order_progress"
+                                                                                      placeholder="搜索建单进度...">
                             </th>
                             <th data-column="private_warehouse" class="search-th"><input type="text"
                                                                                          class="column-search"
                                                                                          data-column="private_warehouse"
                                                                                          placeholder="搜索私仓数量...">
-                            </th>
-                            <th data-column="planned_release_time" class="search-th"><input type="text"
-                                                                                            class="column-search"
-                                                                                            data-column="planned_release_time"
-                                                                                            placeholder="搜索计划放行时间...">
-                            </th>
-                            <th data-column="actual_release_status" class="search-th"><input type="text"
-                                                                                             class="column-search"
-                                                                                             data-column="actual_release_status"
-                                                                                             placeholder="搜索放行状态(实际)...">
-                            </th>
-                            <th data-column="do_provided" class="search-th"><input type="text" class="column-search"
-                                                                                   data-column="do_provided"
-                                                                                   placeholder="搜索Do..."></th>
-                            <th data-column="planned_carrier" class="search-th"><input type="text" class="column-search"
-                                                                                       data-column="planned_carrier"
-                                                                                       placeholder="搜索计划提柜供应商...">
-                            </th>
-                            <th data-column="order_progress" class="search-th"><input type="text" class="column-search"
-                                                                                      data-column="order_progress"
-                                                                                      placeholder="搜索建单进度...">
                             </th>
                         </tr>
                         </thead>
@@ -902,15 +876,13 @@
                             <th data-column="etd">ETD</th>
                             <th data-column="eta">ETA</th>
                             <th data-column="reference_status_t49">T49参考状态</th>
-                            <th data-column="release_status_t49">放行状态(t49)</th>
-                            <th data-column="actual_carrier">供应商</th>
-                            <th data-column="dispatch_delegation">调度委托</th>
-                            <th data-column="private_warehouse">私仓数量</th>
-                            <th data-column="planned_release_time">计划放行时间</th>
-                            <th data-column="actual_release_status">放行状态(实际)</th>
+                            <th data-column="planned_release_time">实际放行时间</th>
                             <th data-column="do_provided">是否提供Do</th>
                             <th data-column="planned_carrier">计划提柜供应商</th>
+                            <th data-column="dispatch_delegation">调度委托</th>
+                            <th data-column="actual_carrier">实际提柜供应商</th>
                             <th data-column="order_progress">建单进度</th>
+                            <th data-column="private_warehouse">私仓数量</th>
                         </tr>
                         </thead>
                         <tbody id="tableBody">
@@ -970,34 +942,7 @@
                                         <span style="color: #dc3545;">放行状态 ×</span>
                                     {% endif %}
                                 </td>
-                                <td data-column="release_status_t49">
-                                    {% if data.temp_t49_available_for_pickup == True %}
-                                        <span style="color: #28a745;">√</span>
-                                    {% else %}
-                                        <span style="color: #dc3545;">{{ data.temp_t49_available_for_pickup|default:"×" }}</span>
-                                    {% endif %}
-                                </td>
-                                <td data-column="actual_carrier">{{ data.retrieval_carrier }}</td>
-                                <!--调度委托-->
-                                <td data-column="dispatch_delegation">
-                                    {% if data.retrieval_delegation_status %}
-                                        <span style="color: #28a745;">√</span>
-                                    {% else %}
-                                        <span style="color: #dc3545;">×</span>
-                                    {% endif %}
-                                </td>
-                                <td data-column="private_warehouse">
-                                    {% with ke=data.ke_destination_num|default:0 si=data.si_destination_num|default:0 %}
-                                        {% if ke > 0 %}
-                                            客{{ ke }}
-                                        {% elif si > 0 %}
-                                            私{{ si }}
-                                        {% else %}
-                                            无
-                                        {% endif %}
-                                    {% endwith %}
-                                </td>
-                                <!-- 计划放行时间 -->
+                            <!-- 实际放行时间 -->
                                 <td data-column="planned_release_time">
                                     <form action="" method="post" class="retrieval-carrier-form" style="margin: 0;">
                                         {% csrf_token %}
@@ -1026,16 +971,7 @@
                                         </div>
                                     </form>
                                 </td>
-
-                                <!-- 实际放行状态-->
-                                <td data-column="actual_release_status">
-                                    {% if data.actual_release_status == True %}
-                                        <span style="color: #28a745;">{{ data.planned_release_time|date:'Y-m-d H:i:s' }}</span>
-                                    {% else %}
-                                        <span style="color: #dc3545;">×</span>
-                                    {% endif %}
-                                </td>
-                                <!-- 是否提供Do列 -->
+                            <!-- 是否提供Do列 -->
                                 <td data-column="do_provided">
                                     <form action="" method="post" style="margin: 0;">
                                         {% csrf_token %}
@@ -1075,7 +1011,7 @@
                                     </form>
                                 </td>
 
-                                <!-- 计划提柜供应商列 -->
+                            <!-- 计划提柜供应商列 -->
                                 <td data-column="planned_carrier">
                                     <form action="" method="post" class="retrieval-carrier-form" style="margin: 0;">
                                         {% csrf_token %}
@@ -1106,17 +1042,42 @@
                                     </form>
                                 </td>
 
+                                <!--调度委托-->
+                                <td data-column="dispatch_delegation">
+                                    {% if data.retrieval_delegation_status %}
+                                        <span style="color: #28a745;">√</span>
+                                    {% else %}
+                                        <span style="color: #dc3545;">×</span>
+                                    {% endif %}
+                                </td>
+
+                                <td data-column="actual_carrier">{{ data.retrieval_carrier }}</td>
+
                                 <!--建单状态-->
                                 <td data-column="order_progress">
                                     {% if data.status == "unfinished" %}
                                         <a href="/create_order/?step=container_info_supplement&container_number={{ data.container }}"
+                                           target="_blank"
                                            style="color: #3875d7">未完成</a>
                                     {% elif data.status == "completed" %}
                                         <a href="/create_order/?step=order_management_container&container_number={{ data.container }}"
+                                           target="_blank"
                                            style="color: #3875d7">已完成</a>
                                     {% elif data.status == "checked" %}
                                         <td>已检查</td>
                                     {% endif %}
+                                </td>
+                                <!-- 私仓数量-->
+                                <td data-column="private_warehouse">
+                                    {% with ke=data.ke_destination_num|default:0 si=data.si_destination_num|default:0 %}
+                                        {% if ke > 0 %}
+                                            客{{ ke }}
+                                        {% elif si > 0 %}
+                                            私{{ si }}
+                                        {% else %}
+                                            无
+                                        {% endif %}
+                                    {% endwith %}
                                 </td>
                             </tr>
                         {% empty %}
