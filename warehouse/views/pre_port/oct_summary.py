@@ -199,7 +199,7 @@ class OctSummaryView(View):
                     container_type = item.container_number.container_type or ""
                     eta = item.vessel_id.vessel_eta.strftime("%Y-%m-%d") if (
                             item.vessel_id and item.vessel_id.vessel_eta) else ""
-                    terminal = ""
+                    terminal = item.vessel_id.destination_port
                     remark = ""
                     export_data.append([container, mbl, terminal, container_type, eta, remark])
                 return export_data
