@@ -307,12 +307,10 @@ class OctSummaryView(View):
         eta_start_datetime = timezone.make_aware(eta_start_datetime)
         eta_end_datetime = timezone.make_aware(eta_end_last_second)
 
-        filter_conditions = (Q(
+        filter_conditions = Q(
             container_number__order__vessel_id__vessel_eta__gte=eta_start_datetime,
             container_number__order__vessel_id__vessel_eta__lte=eta_end_datetime,
-        )& ~Q(cancel_notification=True)) | (Q(
-            container_number__order__vessel_id__isnull=True,
-        )& ~Q(cancel_notification=True))
+        )& ~Q(cancel_notification=True)
 
         # 组合条件：直送订单通过港口映射获取仓点，其他订单直接匹配仓点
         filter_conditions &= Q(
@@ -453,7 +451,7 @@ class OctSummaryView(View):
             created_at__gte=order_start_datetime,
             created_at__lte=order_end_datetime,
             cancel_notification__isnull=False,
-        )& ~Q(cancel_notification=True)
+        )
 
         # 组合条件：直送订单通过港口映射获取仓点，其他订单直接匹配仓点
         filter_conditions &= Q(
