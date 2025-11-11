@@ -32,7 +32,7 @@ from warehouse.models.shipment import Shipment
 
 class TimeoutWarning(View):
     template_shipment = "post_port/timeout_inventory/timeout_shipment.html"
-    area_options = {"NJ": "NJ", "SAV": "SAV", "LA": "LA", "MO": "MO", "TX": "TX", "CA":"CA"}
+    area_options = {"NJ": "NJ", "SAV": "SAV", "LA": "LA", "MO": "MO", "TX": "TX"}
     warehouse_options = {
         "": "",
         "NJ-07001": "NJ-07001",
@@ -41,7 +41,7 @@ class TimeoutWarning(View):
         "LA-91761": "LA-91761",
         "MO-62025": "MO-62025",
         "TX-77503": "TX-77503",
-        "CA-91789": "CA-91789",
+        "LA-91789": "LA-91789",
     }
 
     async def get(self, request: HttpRequest, **kwargs) -> HttpResponse:

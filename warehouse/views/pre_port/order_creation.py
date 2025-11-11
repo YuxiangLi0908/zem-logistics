@@ -70,7 +70,7 @@ class OrderCreation(View):
     template_order_details = "order_management/order_details.html"
     template_order_details_pl = "order_management/order_details_pl_tab.html"
     order_type = {"": "", "转运": "转运", "直送": "直送", "转运组合": "转运组合"}
-    area = {"NJ": "NJ", "SAV": "SAV", "LA": "LA", "MO": "MO", "TX": "TX", "CA":"CA"}
+    area = {"NJ": "NJ", "SAV": "SAV", "LA": "LA", "MO": "MO", "TX": "TX"}
     container_type = {
         "": "",
         "40HQ/GP": "40HQ/GP",
