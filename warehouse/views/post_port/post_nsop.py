@@ -1,13 +1,14 @@
 from datetime import datetime, timedelta
 from typing import Any
 from django.db.models import Prefetch
-
+from collections import OrderedDict
 import pandas as pd
 import json
 import uuid
 import pytz
 import io
 import zipfile
+from django.db.models.functions import Ceil
 from django.utils.safestring import mark_safe
 from asgiref.sync import sync_to_async
 from django.contrib.postgres.aggregates import StringAgg
@@ -18,6 +19,7 @@ from django.db import models
 from django.db.models import (
     Case,
     CharField,
+    BooleanField,
     Count,
     F,
     Func,
@@ -2788,6 +2790,7 @@ class PostNsop(View):
                 container_number__order__vessel_id__vessel_eta__lte=two_weeks_later, 
                 container_number__order__retrieval_id__retrieval_destination_area=warehouse_name,
                 delivery_type='public',
+                container_number__is_abnormal_state=False,
                 #container_number__order__warehouse__name=warehouse,
             )&
             ~(
@@ -2824,8 +2827,9 @@ class PostNsop(View):
         auto_matches = await self.get_auto_matches(unshipment_pos, shipments)
         
         vessel_names = []
-        vessel_dict = {} 
+        vessel_dict = OrderedDict()
         destination_list = []
+        vessel_eta_dict = {}
         for item in unshipment_pos:
             destination = item.get('destination')
             destination_list.append(destination)
@@ -2834,9 +2838,14 @@ class PostNsop(View):
             vessel_eta = item.get('vessel_eta')
 
             if vessel_name and vessel_name not in vessel_names:
+                eta_date = vessel_eta
+                vessel_eta_dict[vessel_name] = eta_date
+                display_text = f"{vessel_name} / {vessel_voyage} → {str(vessel_eta).split()[0] if vessel_eta else '未知'}"
+                vessel_dict[vessel_name] = display_text
                 vessel_names.append(vessel_name)
-                eta_date = str(vessel_eta).split()[0] if vessel_eta else "未知"
-                vessel_dict[vessel_name] = f"{vessel_name} / {vessel_voyage} → {eta_date}"
+        vessel_dict = OrderedDict(
+            sorted(vessel_dict.items(), key=lambda x: vessel_eta_dict[x[0]])
+        )        
         destination_list = list(set(destination_list))
         if not context:
             context = {}
@@ -2881,6 +2890,28 @@ class PostNsop(View):
                 custom_method = ""
             keywords = ["暂扣", "HOLD", "留仓"]
             return (any(k in custom_method for k in keywords),)
+        
+        def sort_key_pl(item):
+            # 优先级1: 按提柜状态和时间排序
+            if item['has_actual_retrieval']:
+                actual_time = item.get('container_number__order__retrieval_id__actual_retrieval_timestamp')
+                priority1 = (0, actual_time or datetime.min)  # 有实际提柜的排最前，按时间排序
+            elif item['has_appointment_retrieval']:
+                appointment_time = item.get('container_number__order__retrieval_id__generous_and_wide_target_retrieval_timestamp')
+                priority1 = (1, appointment_time or datetime.min)  # 有提柜约的排第二，按时间排序
+            elif item['has_estimated_retrieval']:
+                estimated_time = item.get('container_number__order__retrieval_id__target_retrieval_timestamp')
+                priority1 = (2, estimated_time or datetime.min)  # 有预计提柜的排第三，按时间排序
+            else:
+                priority1 = (3, datetime.min)  # 其他的排最后
+            
+            # 优先级2: 把包含暂扣的放最后面
+            custom_method = item.get("custom_delivery_method", "")
+            keywords = ["暂扣", "HOLD", "留仓"]
+            has_hold_keyword = any(k in custom_method for k in keywords)
+            priority2 = has_hold_keyword  # True的排后面，False的排前面
+            
+            return (priority1[0], priority1[1], priority2)
         
         data = []
         if plt_criteria:
@@ -2987,6 +3018,26 @@ class PostNsop(View):
                 )
                 .filter(pl_criteria)
                 .annotate(
+                    #方便后续排序
+                    has_actual_retrieval=Case(
+                        When(container_number__order__retrieval_id__actual_retrieval_timestamp__isnull=False, then=Value(1)),
+                        default=Value(0),
+                        output_field=IntegerField()
+                    ),
+                    has_appointment_retrieval=Case(
+                        When(container_number__order__retrieval_id__generous_and_wide_target_retrieval_timestamp__isnull=False, then=Value(1)),
+                        default=Value(0),
+                        output_field=IntegerField()
+                    ),
+                    has_estimated_retrieval=Case(
+                        When(
+                            Q(container_number__order__retrieval_id__target_retrieval_timestamp_lower__isnull=False) |
+                            Q(container_number__order__retrieval_id__target_retrieval_timestamp__isnull=False),
+                            then=Value(1)
+                        ),
+                        default=Value(0),
+                        output_field=IntegerField()
+                    ),
                     custom_delivery_method=Case(
                         When(
                             Q(delivery_method="暂扣留仓(HOLD)")
@@ -3081,6 +3132,21 @@ class PostNsop(View):
                     str_ref_id=Cast("ref_id", CharField()),
                     str_shipping_mark=Cast("shipping_mark", CharField()),
                     data_source=Value("PACKINGLIST", output_field=CharField()),  # 添加数据源标识
+                    is_pass=Case(
+                        # 1. 先看 planned_release_time 是否有值
+                        When(
+                            container_number__order__retrieval_id__planned_release_time__isnull=False,
+                            then=Value(True)
+                        ),
+                        # 2. 如果没有 planned_release_time，看 temp_t49_available_for_pickup 是否为 True
+                        When(
+                            container_number__order__retrieval_id__temp_t49_available_for_pickup=True,
+                            then=Value(True)
+                        ),
+                        # 3. 都不满足则为 False
+                        default=Value(False),
+                        output_field=BooleanField()
+                    ),
                 )
                 .values(
                     "destination",
@@ -3092,12 +3158,21 @@ class PostNsop(View):
                     "data_source",  # 包含数据源标识
                     "shipment_batch_number__shipment_batch_number",
                     "shipment_batch_number__fleet_number__fleet_number",
+                    # 排序字段
+                    "has_actual_retrieval",
+                    "has_appointment_retrieval", 
+                    "has_estimated_retrieval",
                     warehouse=F(
                         "container_number__order__retrieval_id__retrieval_destination_precise"
                     ),
                     vessel_name=F("container_number__order__vessel_id__vessel"),
                     vessel_voyage=F("container_number__order__vessel_id__voyage"),
                     vessel_eta=F("container_number__order__vessel_id__vessel_eta"),
+                    is_pass=F("is_pass"),
+                    # 添加时间字段用于排序
+                    actual_retrieval_time=F("container_number__order__retrieval_id__actual_retrieval_timestamp"),
+                    appointment_time=F("container_number__order__retrieval_id__generous_and_wide_target_retrieval_timestamp"),
+                    estimated_time=F("container_number__order__retrieval_id__target_retrieval_timestamp"),                  
                 )
                 .annotate(
                     fba_ids=StringAgg(
@@ -3197,13 +3272,13 @@ class PostNsop(View):
                     ),
                     total_pcs=Sum("pcs", output_field=FloatField()),
                     total_cbm = Round(Sum("cbm", output_field=FloatField()), 3),
-                    total_n_pallet_est= Round(Sum("cbm", output_field=FloatField()) / 2, 0),
+                    total_n_pallet_est= Ceil(Sum("cbm", output_field=FloatField()) / 2),
                     label=Value("EST"),
                     note_sp=StringAgg("note_sp", delimiter=",", distinct=True)
                 )
                 .distinct()
             )
-            pl_list_sorted = sorted(pl_list, key=sort_key)
+            pl_list_sorted = sorted(pl_list, key=sort_key_pl)
             data += pl_list_sorted      
         return data
 

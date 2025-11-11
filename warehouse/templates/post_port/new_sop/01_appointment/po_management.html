@@ -72,6 +72,7 @@
         border-radius: 8px;
         align-items: center;
         border: 1px solid #e9ecef;
+        flex-wrap: wrap;
     }
 
     .selected-count {
@@ -194,6 +195,26 @@
         color: #c62828;
         border: 1px solid #ffcdd2;
     }
+    .selected-stats {
+        display: flex; 
+        align-items: center;
+        gap: 15px;
+        padding: 8px 15px;
+        background: #e8f5e9;
+        border-radius: 6px;
+        border: 1px solid #c8e6c9;
+        font-size: 0.9rem;
+    }
+
+    .selected-stats.pallets {
+        color: #2e7d32;
+        font-weight: 600;
+    }
+
+    .selected-stats.cbm {
+        color: #1565c0;
+        font-weight: 600;
+    }
 </style>
 
 <div class="search-box">
@@ -215,50 +236,6 @@
         <button class="sort-btn" data-sort="pallets">板数</button>
         <button class="sort-btn" data-sort="eta">ETA</button>
         <small style="color: #666; margin-left: 8px; white-space: nowrap;">（排序方式）</small>
-    </div>
-</div>
-
-<div class="batch-actions">
-    <span class="selected-count">已选择 <span id="selectedCount">0</span> 组PO</span>
-    
-    <button class="action-btn btn-primary" onclick="exportSelectedCargos()">
-        <i class="fas fa-file-export"></i> 导出选PO
-    </button>
-    <button class="action-btn btn-success" onclick="openUploadModal()">
-        <i class="fas fa-file-upload"></i> 上传文件
-    </button>
-</div>
-<div id="uploadModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; justify-content: center; align-items: center;">
-    <div style="background: white; padding: 30px; border-radius: 10px; width: 500px; max-width: 90%;">
-        <h3 style="margin-bottom: 20px; color: var(--secondary-color);">
-            <i class="fas fa-file-upload"></i> 上传文件
-        </h3>
-        
-        <form method="post" action="" enctype="multipart/form-data" id="uploadForm">
-            {% csrf_token %}
-            <input type="hidden" name="step" value="upload_check_po">
-            <input type="hidden" name="warehouse" value="{{ warehouse }}">
-            <input type="hidden" name="st_type" value="{{ st_type }}">
-            <div style="margin-bottom: 20px;">
-                <label style="display: block; margin-bottom: 8px; font-weight: 600; color: var(--secondary-color);">
-                    选择文件:
-                </label>
-                <input type="file" name="file" id="upload_file" 
-                       accept=".xlsx,.xls,.csv," 
-                       style="width: 100%; padding: 10px; border: 2px dashed #ddd; border-radius: 5px;"
-                       onchange="updateFileName(this)">
-                <div id="fileName" style="margin-top: 10px; font-size: 0.9rem; color: var(--primary-color);"></div>
-            </div>
-            
-            <div style="display: flex; gap: 10px; justify-content: flex-end;">
-                <button type="button" class="action-btn btn-secondary" onclick="closeUploadModal()">
-                    <i class="fas fa-times"></i> 取消
-                </button>
-                <button type="submit" class="action-btn btn-success" id="uploadSubmitBtn">
-                    <i class="fas fa-upload"></i> 上传
-                </button>
-            </div>
-        </form>
     </div>
 </div>
 <!-- 船名筛选区域 -->
@@ -326,6 +303,58 @@
         </div>
     </div>
 </div>
+<div class="batch-actions">
+    <span class="selected-count">已选择 <span id="selectedCount">0</span> 组PO</span>
+
+    <div id="selectedStats" class="selected-stats">
+        <span style="font-weight: 600; color: #2e7d32;">
+            选中总板数: <span id="selectedPalletsCount">0</span>
+        </span>
+        <span style="font-weight: 600; color: #1565c0;">
+            选中总CBM: <span id="selectedCbmCount">0.00</span>
+        </span>
+    </div>
+    <button class="action-btn btn-primary" onclick="exportSelectedCargos()">
+        <i class="fas fa-file-export"></i> 导出选PO
+    </button>
+    <button class="action-btn btn-success" onclick="openUploadModal()">
+        <i class="fas fa-file-upload"></i> 上传文件
+    </button>
+</div>
+<div id="uploadModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; justify-content: center; align-items: center;">
+    <div style="background: white; padding: 30px; border-radius: 10px; width: 500px; max-width: 90%;">
+        <h3 style="margin-bottom: 20px; color: var(--secondary-color);">
+            <i class="fas fa-file-upload"></i> 上传文件
+        </h3>
+        
+        <form method="post" action="" enctype="multipart/form-data" id="uploadForm">
+            {% csrf_token %}
+            <input type="hidden" name="step" value="upload_check_po">
+            <input type="hidden" name="warehouse" value="{{ warehouse }}">
+            <input type="hidden" name="st_type" value="{{ st_type }}">
+            <div style="margin-bottom: 20px;">
+                <label style="display: block; margin-bottom: 8px; font-weight: 600; color: var(--secondary-color);">
+                    选择文件:
+                </label>
+                <input type="file" name="file" id="upload_file" 
+                       accept=".xlsx,.xls,.csv," 
+                       style="width: 100%; padding: 10px; border: 2px dashed #ddd; border-radius: 5px;"
+                       onchange="updateFileName(this)">
+                <div id="fileName" style="margin-top: 10px; font-size: 0.9rem; color: var(--primary-color);"></div>
+            </div>
+            
+            <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                <button type="button" class="action-btn btn-secondary" onclick="closeUploadModal()">
+                    <i class="fas fa-times"></i> 取消
+                </button>
+                <button type="submit" class="action-btn btn-success" id="uploadSubmitBtn">
+                    <i class="fas fa-upload"></i> 上传
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
 
 <!-- 导PO的表单 -->
 <form method="post" action="" id="exportForm" style="display: none;">
@@ -346,6 +375,7 @@
                 <th data-sort="ref_ids">REF ID</th>
                 <th data-sort="fba_ids">FBA ID</th>
                 <th data-sort="destination">目的地</th>
+                <th data-sort="destination">放行状态</th>
                 <th class="delivery-method-col" data-sort="delivery_method">派送方式</th>
                 <th class="vessel-col" data-sort="vessels">船名</th>
                 <th class="container-col" data-sort="containers">柜号</th>
@@ -387,6 +417,13 @@
                     {% endif %}
                 </td>
                 <td>{{ cargo.destination|default:"-" }}</td>
+                <td style="text-align: center;">
+                    {% if cargo.is_pass %}
+                        <i class="fas fa-check-circle" style="color: #28a745; font-size: 1.2rem;" title="已放行"></i>
+                    {% else %}
+                        <i class="fas fa-times-circle" style="color: #dc3545; font-size: 1.2rem;" title="未放行"></i>
+                    {% endif %}
+                </td>              
                 <td class="delivery-method-col">{{ cargo.custom_delivery_method|default:"-" }}</td>
                 <td class="container-col" style="white-space: pre-line;" id="container-{{ forloop.counter }}">
                     {{ cargo.vessel_name }}
@@ -753,6 +790,36 @@
         if (!selectedCountEl) return;
         const selected = document.querySelectorAll('.cargo-checkbox:checked').length;
         selectedCountEl.textContent = selected;
+
+        const selectedCheckboxes = Array.from(document.querySelectorAll('.cargo-checkbox:checked'))
+        .filter(checkbox => checkbox.closest('tr').style.display !== 'none');
+    
+        const selectedCount = selectedCheckboxes.length;
+        selectedCountEl.textContent = selectedCount;
+
+        // 计算选中PO的总板数和总CBM
+        let totalSelectedPallets = 0;
+        let totalSelectedCbm = 0;
+        
+        selectedCheckboxes.forEach(checkbox => {
+            const row = checkbox.closest('tr');
+            const pallets = parseFloat(row.getAttribute('data-pallets')) || 0;
+            const cbm = parseFloat(row.getAttribute('data-cbm')) || 0;
+            
+            totalSelectedPallets += pallets;
+            totalSelectedCbm += cbm;
+        });
+        
+        // 更新选中统计显示 - 确保这部分代码存在
+        const selectedPalletsCountEl = document.getElementById('selectedPalletsCount');
+        const selectedCbmCountEl = document.getElementById('selectedCbmCount');
+        
+        if (selectedPalletsCountEl) {
+            selectedPalletsCountEl.textContent = Math.round(totalSelectedPallets);
+        }
+        if (selectedCbmCountEl) {
+            selectedCbmCountEl.textContent = totalSelectedCbm.toFixed(2);
+        }
         // 更新全选框的状态
         updateSelectAllCheckbox();
     }
