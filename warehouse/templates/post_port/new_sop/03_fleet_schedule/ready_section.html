@@ -12,7 +12,7 @@
 <div class="content-section" id="readyShip-section">
     <div class="search-box">
         <div style="display: flex; gap: 10px; flex: 1; align-items: center;">
-            <input type="text" class="search-input" placeholder="搜索车次号、预约号..." id="readyShipSearch">
+            <input type="text" class="search-input" placeholder="搜索车次号、预约号、预约批次..." id="readyShipSearch">
             <button class="search-btn" id="searchReadyShipBtn">
                 <i class="fas fa-search"></i> 搜索
             </button>
@@ -25,6 +25,7 @@
                 <tr>
                     <th>车次号</th>
                     <th>提货时间</th>
+                    <th>预约批次</th>
                     <th>预约号</th>
                     <th>目的地</th>
                     <th>柜号</th>
@@ -78,7 +79,9 @@
                                                     {{ fleet_group.appointment_datetime|date:"Y-m-d" }}
                                                 </td>                                        
                                             {% endif %}
-                                            
+                                            <td rowspan="{{ shipment_rowspan }}" style="vertical-align: middle; background-color: #f8f9fa;">
+                                                {{ shipment.shipment_batch_number }}
+                                            </td>
                                             <td rowspan="{{ shipment_rowspan }}" style="vertical-align: middle; background-color: #f8f9fa;">
                                                 {{ shipment.appointment_id }}
                                             </td>
@@ -140,6 +143,9 @@
                                             {% endif %}
 
                                             {% if forloop.first %}
+                                                <td rowspan="{{ shipment_rowspan }}" style="vertical-align: middle; background-color: #f8f9fa;">
+                                                    {{ shipment.shipment_batch_number }}
+                                                </td>
                                                 <td rowspan="{{ shipment_rowspan }}" style="vertical-align: middle; background-color: #f8f9fa;">
                                                     {{ shipment.appointment_id }}
                                                 </td>
@@ -384,16 +390,21 @@
             const pickupTimeText = pickupTimeTd.textContent.toLowerCase();
             if (pickupTimeText.includes(searchTerm)) return true;
         }
-        
+        // 检查预约批次 - 新增的搜索条件
+        const batchTd = row.querySelector('td:nth-child(3)');
+        if (batchTd) {
+            const batchText = batchTd.textContent.toLowerCase();
+            if (batchText.includes(searchTerm)) return true;
+        }
         // 检查预约号
-        const appointmentTd = row.querySelector('td:nth-child(3)');
+        const appointmentTd = row.querySelector('td:nth-child(4)');
         if (appointmentTd) {
             const appointmentText = appointmentTd.textContent.toLowerCase();
             if (appointmentText.includes(searchTerm)) return true;
         }
         
         // 检查目的地
-        const destinationTd = row.querySelector('td:nth-child(4)');
+        const destinationTd = row.querySelector('td:nth-child(5)');
         if (destinationTd) {
             const destinationText = destinationTd.textContent.toLowerCase();
             if (destinationText.includes(searchTerm)) return true;
@@ -418,20 +429,6 @@
         if (fbaIdsCell) {
             const fullFbaIds = fbaIdsCell.getAttribute('data-full') || fbaIdsCell.textContent || '';
             if (fullFbaIds.toLowerCase().includes(searchTerm)) return true;
-        }
-        
-        // 检查板数
-        const palletTd = row.querySelector('td:nth-child(8)');
-        if (palletTd) {
-            const palletText = palletTd.textContent.toLowerCase();
-            if (palletText.includes(searchTerm)) return true;
-        }
-        
-        // 检查CBM
-        const cbmTd = row.querySelector('td:nth-child(9)');
-        if (cbmTd) {
-            const cbmText = cbmTd.textContent.toLowerCase();
-            if (cbmText.includes(searchTerm)) return true;
         }
         
         // 检查整行文本
