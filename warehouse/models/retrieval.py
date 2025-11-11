@@ -26,6 +26,7 @@ class Retrieval(models.Model):
     target_retrieval_timestamp = models.DateTimeField(null=True, blank=True)
     target_retrieval_timestamp_lower = models.DateTimeField(null=True, blank=True)
     actual_retrieval_timestamp = models.DateTimeField(null=True, blank=True)
+    generous_and_wide_target_retrieval_timestamp = models.DateTimeField(null=True, blank=True, verbose_name="大方广预计提柜时间")
     trucking_fee = models.FloatField(null=True, blank=True)
     chassis_fee = models.FloatField(null=True, blank=True)
     is_trucking_fee_paid = models.BooleanField(default=False, blank=True)

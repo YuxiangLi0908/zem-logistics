@@ -6,6 +6,7 @@ from asgiref.sync import sync_to_async
 from django.db import models
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
+from django.utils.dateparse import parse_datetime
 from django.views import View
 
 from warehouse.models.order import Order
@@ -37,6 +38,9 @@ class TerminalDispatch(View):
     template_batch_update_container_pickup_schedule = (
         "pre_port/vessel_terminal_tracking/04_batch_update_container_pickup_schedule.html"
     )
+    template_handle_generous_and_wide_planted = (
+        "pre_port/vessel_terminal_tracking/05_handle_generous_and_wide_planted.html"
+    )
     
 
     async def get(self, request: HttpRequest) -> HttpResponse:
@@ -55,6 +59,9 @@ class TerminalDispatch(View):
             return await sync_to_async(render)(request, template, context)
         elif step == "batch_confirm_pickup_v1":
             template, context = await self.handle_batch_confirm_pickup_v1_get(request)
+            return await sync_to_async(render)(request, template, context)
+        elif step == "handle_generous_and_wide_planted":
+            template, context = await self.handle_generous_and_wide_planted(request)
             return await sync_to_async(render)(request, template, context)
         else:
             context = {}
@@ -97,6 +104,9 @@ class TerminalDispatch(View):
             return await sync_to_async(render)(request, template, context)
         elif step == "batch_confirm_pickup_submit_appointment_time":
             template, context = await self.handle_batch_confirm_pickup_submit_post_appointment_time(request)
+            return await sync_to_async(render)(request, template, context)
+        elif step == "generous_and_wide_target_retrieval_timestamp_save":
+            template, context = await self.handle_generous_and_wide_target_retrieval_timestamp_save(request)
             return await sync_to_async(render)(request, template, context)
 
 
@@ -258,6 +268,33 @@ class TerminalDispatch(View):
     ) -> tuple[Any, Any]:
         _, context = await self.handle_schedule_container_pickup_get(request)
         return self.template_update_container_pickup_schedule, context
+
+    async def handle_generous_and_wide_planted(self, request: HttpRequest) -> tuple[Any, Any]:
+        def get_orders():
+            return Order.objects.select_related(
+                "container_number", "retrieval_id"
+            ).filter(
+                retrieval_id__retrieval_destination_area="LA"
+            ).all()
+        orders = await sync_to_async(get_orders)()
+        context = {"orders": orders}
+        return self.template_handle_generous_and_wide_planted, context
+
+    async def handle_generous_and_wide_target_retrieval_timestamp_save(self, request: HttpRequest) -> tuple[Any, Any]:
+        time_str = request.POST.get("generous_and_wide_target_retrieval_timestamp")
+        retrieval_id = request.POST.get("retrieval_id")
+        try:
+            target_datetime = parse_datetime(time_str)
+        except ValueError:
+            target_datetime = None
+        def update_retrieval_time():
+            Retrieval.objects.filter(retrieval_id=retrieval_id).update(
+                generous_and_wide_target_retrieval_timestamp=target_datetime
+            )
+        await sync_to_async(update_retrieval_time)()
+        template, context = await self.handle_generous_and_wide_planted(request)
+        return template, context
+
 
     async def handle_batch_pickup_schedule_confirmation(
         self, request: HttpRequest
