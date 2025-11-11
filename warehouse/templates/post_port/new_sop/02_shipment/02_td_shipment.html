@@ -525,35 +525,35 @@
         <div class="summary-cards">
             <div class="summary-card unscheduled">
                 <div class="card-title">未排约货物</div>
-                <div class="card-value">{{ summary.unscheduled_count }}</div>
+                <div class="card-value">{{ summary.unscheduled_sp_count }}</div>
             </div>
             <div class="summary-card scheduled">
                 <div class="card-title">已排约货物</div>
-                <div class="card-value">{{ summary.scheduled_count }}</div>
+                <div class="card-value">{{ summary.scheduled_sp_count }}</div>
+            </div>
+            <div class="summary-card ready">
+                <div class="card-title">未排车</div>
+                <div class="card-value">{{ summary.unscheduled_fl_count }}</div>
             </div>
             <div class="summary-card ready">
                 <div class="card-title">已排车</div>
-                <div class="card-value">{{ summary.sp_fl_count }}</div>
-            </div>
-            <div class="summary-card pallets">
-                <div class="card-title">总板数</div>
-                <div class="card-value">{{ summary.total_pallets }}</div>
+                <div class="card-value">{{ summary.schedule_fl_count }}</div>
             </div>
         </div>
 
         <!-- 标签导航 -->
         <div class="tab-navigation">
             <div class="tab active" data-tab="unscheduled">
-                未排约 <span class="badge">{{ summary.unscheduled_count }}</span>
+                未排约 <span class="badge">{{ summary.unscheduled_sp_count }}</span>
             </div>
             <div class="tab" data-tab="scheduled">
-                已排约 <span class="badge">{{ summary.scheduled_count }}</span>
+                已排约 <span class="badge">{{ summary.scheduled_sp_count }}</span>
             </div>
             <div class="tab" data-tab="unscheduled-fleet">
                 未排车 <span class="badge">{{ summary.unscheduled_fl_count }}</span>
             </div>
             <div class="tab" data-tab="scheduledFleet">
-                已排车 <span class="badge">{{ summary.sp_fl_count }}</span>
+                已排车 <span class="badge">{{ summary.schedule_fl_count }}</span>
             </div>
         </div>
 

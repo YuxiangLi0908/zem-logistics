@@ -1,0 +1,148 @@
+<!-- exception_section.html -->
+<div class="content-section" id="exception-section">
+    <div class="search-box">
+        <div style="display: flex; gap: 10px; flex: 1; align-items: center;">
+            <input type="text" class="search-input" placeholder="搜索预约批次、Appointment ID、异常车次、目的仓库..." id="exceptionSearch">
+            <button class="search-btn" id="searchExceptionBtn">
+                <i class="fas fa-search"></i> 搜索
+            </button>
+        </div>
+    </div>
+
+    <div class="table-container">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>预约批次</th>
+                    <th>Appointment ID</th>
+                    <th>异常车次</th>
+                    <th>目的仓库</th>
+                    <th>预约时间</th>
+                    <th>出库时间</th>
+                    <th>CBM</th>
+                    <th>卡板数</th>
+                    <th>总重lbs</th>
+                    <th>异常说明</th>
+                    <th>处理操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for s in exception_shipments %}
+                <tr>
+                    <td style="max-width: 120px; word-break: break-all;">{{ s.shipment_batch_number }}</td>
+                    <td style="max-width: 120px; word-break: break-all;">{{ s.appointment_id }}</td>
+                    <td style="max-width: 120px; word-break: break-all;">{{ s.previous_fleets }}</td>
+                    <td>{{ s.destination }}</td>
+                    <td>
+                        {% if s.shipping_status == 'past_due' %}
+                        <span class="status-span-red">{{ s.shipment_appointment|date:"M-j H:i" }}</span>
+                        {% else %}
+                        {{ s.shipment_appointment|date:"M-j H:i" }}
+                        {% endif %}
+                    </td>
+                    <td>{{ s.shipped_at|date:"M-j H:i" }}</td>
+                    <td>{{ s.shipped_cbm|floatformat:2 }}</td>
+                    <td>{{ s.shipped_pallet|floatformat:0 }}</td>
+                    <td>{{ s.shipped_weight|floatformat:2 }}</td>
+                    <td style="max-width: 150px; word-break: break-all;">{{ s.status_description }}</td>
+                    <td>
+                        <div style="display: flex; gap: 5px; flex-wrap: wrap;">
+                            <button type="button" class="table-btn btn-primary" onclick="openRescheduleModal('{{ s.shipment_batch_number }}')">
+                                <i class="fas fa-exchange-alt"></i> 换约
+                            </button>
+                            <form method="post" action="" style="display: inline;">
+                                {% csrf_token %}
+                                <input type="hidden" name="step" value="fix_shipment_exceptions">
+                                <input type="hidden" name="shipment_batch_number" value="{{ s.shipment_batch_number }}">
+                                <input type="hidden" name="solution" value="keep_old">
+                                <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                                <button type="submit" class="table-btn btn-success-small" onclick="return confirm('确定要恢复这个异常预约吗？')">
+                                    <i class="fas fa-check"></i> 正常
+                                </button>
+                            </form>
+                            <form method="post" action="" style="display: inline;">
+                                {% csrf_token %}
+                                <input type="hidden" name="step" value="cancel_abnormal_appointment">
+                                <input type="hidden" name="batch_number" value="{{ s.shipment_batch_number }}">
+                                <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                                <button type="submit" class="table-btn btn-danger-small" onclick="return confirm('确定要取消这个异常预约吗？')">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    // 异常预约搜索功能
+    document.addEventListener('DOMContentLoaded', function() {
+        const searchExceptionBtn = document.getElementById('searchExceptionBtn');
+        const exceptionSearch = document.getElementById('exceptionSearch');
+        
+        if (searchExceptionBtn) {
+            searchExceptionBtn.addEventListener('click', function() {
+                applyExceptionSearch();
+            });
+        }
+        
+        if (exceptionSearch) {
+            exceptionSearch.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    applyExceptionSearch();
+                }
+            });
+        }
+    });
+
+    function applyExceptionSearch() {
+        const searchTerm = document.getElementById('exceptionSearch').value.trim().toLowerCase();
+        const rows = document.querySelectorAll('#exception-section .data-table tbody tr');
+        
+        let hasResults = false;
+        
+        rows.forEach(row => {
+            const text = row.textContent.toLowerCase();
+            const shouldShow = text.includes(searchTerm);
+            row.style.display = shouldShow ? '' : 'none';
+            
+            if (shouldShow) {
+                hasResults = true;
+            }
+        });
+        
+        if (!hasResults && searchTerm) {
+            console.log('没有找到匹配的异常预约');
+        }
+    }
+
+    // 打开换约模态框
+    function openRescheduleModal(shipmentBatchNumber) {
+        // 设置模态框中的批次号
+        document.getElementById('modalShipmentBatchNumber').value = shipmentBatchNumber;
+        
+        // 获取该批次的详细信息并填充表单
+        const shipmentInfo = exceptionShipmentData[shipmentBatchNumber];
+        if (shipmentInfo) {
+            document.getElementById('reschedule-destination').value = shipmentInfo.destination || '';
+            document.getElementById('reschedule-address').value = shipmentInfo.address || '';
+            document.getElementById('reschedule-note').value = shipmentInfo.note || '';
+            
+            // 根据类型填充对应的表单
+            document.getElementById('ltl-destination').value = shipmentInfo.destination || '';
+            document.getElementById('ltl-address').value = shipmentInfo.address || '';
+            document.getElementById('ltl-note').value = shipmentInfo.note || '';
+            
+            document.getElementById('other-destination').value = shipmentInfo.destination || '';
+            document.getElementById('other-address').value = shipmentInfo.address || '';
+            document.getElementById('other-note').value = shipmentInfo.note || '';
+        }
+        
+        // 显示模态框
+        document.getElementById('rescheduleModal').style.display = 'block';
+    }
+</script>

@@ -598,6 +598,11 @@
         <!-- 统计卡片 -->
         <div class="summary-cards">
             <div class="summary-card scheduled">
+                <div class="card-title">异常批次</div>
+                <div class="card-value">{{ summary.exception_count }}</div>
+                <div class="card-trend">等待出库</div>
+            </div>
+            <div class="summary-card scheduled">
                 <div class="card-title">待出库批次</div>
                 <div class="card-value">{{ summary.ready_to_ship_count }}</div>
                 <div class="card-trend">等待出库</div>
@@ -616,6 +621,9 @@
 
         <!-- 标签导航 -->
         <div class="tab-navigation">
+            <div class="tab" data-tab="exception">
+                异常预约 <span class="badge">{{ summary.exception_count }}</span>
+            </div>
             <div class="tab" data-tab="readyShip">
                 待出库批次 <span class="badge">{{ summary.ready_to_ship_count }}</span>
             </div>
@@ -626,6 +634,8 @@
                 待传POD批次 <span class="badge">{{ summary.pod_count }}</span>
             </div>         
         </div>
+        
+        {% include 'post_port/new_sop/03_fleet_schedule/exception_section.html' %}
 
         <!-- 待出库批次标签页 -->
         {% include 'post_port/new_sop/03_fleet_schedule/ready_section.html' %}
@@ -779,6 +789,8 @@
 </div>
 {% include 'post_port/new_sop/03_fleet_schedule/modals/add_po_modal.html' %}
 {% include 'post_port/new_sop/03_fleet_schedule/modals/departure_modal.html' %}
+{% include 'post_port/new_sop/03_fleet_schedule/modals/reschedule_modal.html' %}
+{% include 'post_port/new_sop/03_fleet_schedule/modals/message_modal.html' %}
 
 <div id="abnormalModal" class="modal">
     <div class="modal-content" style="max-width: 500px;">
