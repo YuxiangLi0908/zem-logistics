@@ -1197,7 +1197,7 @@ class Palletization(View):
         else:
             customer_name = request.POST.get("customer_name")
             status = request.POST.get("status")
-            n_label = 3
+            n_label = int(request.POST.get("n_label"))
             retrieval = await sync_to_async(Retrieval.objects.get)(
                 order__container_number__container_number=container_number
             )
