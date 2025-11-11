@@ -1,58 +1,73 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="container_main" style="padding: 20px; max-width: 1200px; margin: 60px auto;">
-    <div class="page-header" style="margin-bottom: 30px; padding-bottom: 15px; border-bottom: 1px solid #f0f0f0;">
-        <h3 style="margin: 0 0 20px; color: #333; font-weight: 600;">
-            <i class="layui-icon layui-icon-clock" style="margin-right: 8px; color: #1E9FFF;"></i>
-            大方广提柜时间管理
-        </h3>
-        <p style="margin: 8px 0 15px; color: #666; font-size: 14px;">
-            管理LA区域柜号的预计提柜时间，精确到秒级
-        </p>
-
-        <div style="display: flex; align-items: center; max-width: 600px;">
-            <input type="text"
-                   id="containerSearch"
-                   placeholder="搜索柜号（多个柜号用空格分隔）"
-                   style="flex: 1; padding: 10px 15px; height: 38px; border-radius: 4px 0 0 4px; border: 1px solid #e6e6e6; outline: none; transition: border-color 0.2s;">
-            <button id="searchBtn"
-                    style="background-color: #1E9FFF; color: white; border: none; padding: 0 20px; height: 38px; border-radius: 0 4px 4px 0; cursor: pointer; transition: background-color 0.2s;">
-                <i class="layui-icon layui-icon-search"></i> 搜索
-            </button>
-            <button id="resetBtn"
-                    style="margin-left: 10px; background-color: #f5f5f5; color: #666; border: 1px solid #e6e6e6; padding: 0 15px; height: 38px; border-radius: 4px; cursor: pointer; transition: all 0.2s;">
-                <i class="layui-icon layui-icon-refresh"></i> 重置
-            </button>
-        </div>
-        <p style="margin: 8px 0 0; color: #999; font-size: 12px;">
-            示例：输入 "CSNU8205429 MSCU1234567" 可同时搜索多个柜号
-        </p>
-    </div>
-
-    {% if messages %}
-    {% for message in messages %}
-    <div style="
-        margin-bottom: 20px;
-        padding: 12px 15px;
-        border-radius: 4px;
-        {% if message.tags == 'success' %}
-            background-color: #f6ffed;
-            border: 1px solid #b7eb8f;
-            color: #52c41a;
-        {% else %}
-            background-color: #fff2f0;
-            border: 1px solid #ffccc7;
-            color: #f5222d;
-        {% endif %}
+    <div class="sticky-header" style="
+        position: sticky;
+        top: 0;
+        z-index: 100;
+        background: white;
+        padding: 15px 0;
+        margin: -20px -20px 20px;
+        padding: 20px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
     ">
-        <i class="layui-icon {% if message.tags == 'success' %}layui-icon-ok-circle{% else %}layui-icon-error-circle{% endif %}"></i>
-        {{ message }}
-    </div>
-    {% endfor %}
-    {% endif %}
+        <div class="page-header" style="margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid #f0f0f0;">
+            <h3 style="margin: 0 0 10px; color: #333; font-weight: 600;">
+                <i class="layui-icon layui-icon-clock" style="margin-right: 8px; color: #1E9FFF;"></i>
+                大方广提柜时间管理
+            </h3>
+            <p style="margin: 8px 0 15px; color: #666; font-size: 14px;">
+                管理LA区域柜号的预计提柜时间，精确到秒级
+                <!-- 柜号总数统计 -->
+                <span style="margin-left: 10px; color: #1E9FFF;">
+                    （共 <span id="totalCountDisplay">{{ orders|length }}</span> 个柜号）
+                </span>
+            </p>
 
-    <div id="searchStats" style="margin-bottom: 15px; color: #666; font-size: 13px; display: none;">
-        找到 <span id="matchCount" style="color: #1E9FFF; font-weight: 600;">0</span> 个匹配结果（共 <span id="totalCount">0</span> 个柜号）
+            <div style="display: flex; align-items: center; max-width: 600px;">
+                <input type="text"
+                       id="containerSearch"
+                       placeholder="搜索柜号（多个柜号用空格分隔）"
+                       style="flex: 1; padding: 10px 15px; height: 38px; border-radius: 4px 0 0 4px; border: 1px solid #e6e6e6; outline: none; transition: border-color 0.2s;">
+                <button id="searchBtn"
+                        style="background-color: #1E9FFF; color: white; border: none; padding: 0 20px; height: 38px; border-radius: 0 4px 4px 0; cursor: pointer; transition: background-color 0.2s;">
+                    <i class="layui-icon layui-icon-search"></i> 搜索
+                </button>
+                <button id="resetBtn"
+                        style="margin-left: 10px; background-color: #f5f5f5; color: #666; border: 1px solid #e6e6e6; padding: 0 15px; height: 38px; border-radius: 4px; cursor: pointer; transition: all 0.2s;">
+                    <i class="layui-icon layui-icon-refresh"></i> 重置
+                </button>
+            </div>
+            <p style="margin: 8px 0 0; color: #999; font-size: 12px;">
+                示例：输入 "CSNU8205429 MSCU1234567" 可同时搜索多个柜号
+            </p>
+        </div>
+
+        {% if messages %}
+        {% for message in messages %}
+        <div style="
+            margin-bottom: 15px;
+            padding: 12px 15px;
+            border-radius: 4px;
+            {% if message.tags == 'success' %}
+                background-color: #f6ffed;
+                border: 1px solid #b7eb8f;
+                color: #52c41a;
+            {% else %}
+                background-color: #fff2f0;
+                border: 1px solid #ffccc7;
+                color: #f5222d;
+            {% endif %}
+        ">
+            <i class="layui-icon {% if message.tags == 'success' %}layui-icon-ok-circle{% else %}layui-icon-error-circle{% endif %}"></i>
+            {{ message }}
+        </div>
+        {% endfor %}
+        {% endif %}
+
+        <div id="searchStats" style="margin-bottom: 10px; color: #666; font-size: 13px; display: none;">
+            找到 <span id="matchCount" style="color: #1E9FFF; font-weight: 600;">0</span> 个匹配结果
+        </div>
     </div>
 
     <div class="table-container" style="background: #fff; border-radius: 4px; box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05); overflow: hidden;">
@@ -153,48 +168,30 @@
         const noResult = document.getElementById('noResult');
         const searchStats = document.getElementById('searchStats');
         const matchCountEl = document.getElementById('matchCount');
-        const totalCountEl = document.getElementById('totalCount');
-
-        // 统计总柜号数量（排除空数据行）
-        const totalCount = emptyRow ? tableRows.length : tableRows.length;
-        totalCountEl.textContent = totalCount;
+        // 总柜数从模板直接获取（orders的长度）
+        const totalCount = {{ orders|length }};
 
         // 搜索功能
         function performSearch() {
             const searchText = searchInput.value.trim();
-            // 多个柜号用空格分隔，分割后去重并过滤空值
             const searchTerms = searchText ? [...new Set(searchText.split(/\s+/).filter(t => t))] : [];
             let matchCount = 0;
 
-            // 隐藏空数据行和无结果提示
             if (emptyRow) emptyRow.style.display = 'none';
             noResult.style.display = 'none';
 
-            // 遍历所有柜号行进行匹配
             tableRows.forEach(row => {
                 const containerNumber = row.querySelector('.container-number').textContent.trim();
-                let isMatch = false;
+                let isMatch = searchTerms.length === 0 ? true :
+                              searchTerms.some(term => containerNumber.includes(term));
 
-                if (searchTerms.length === 0) {
-                    // 无搜索条件时显示所有行
-                    isMatch = true;
-                } else {
-                    // 匹配任何一个搜索词即视为匹配
-                    isMatch = searchTerms.some(term =>
-                        containerNumber.includes(term)
-                    );
-                }
-
-                // 显示或隐藏行
                 row.style.display = isMatch ? '' : 'none';
                 if (isMatch) matchCount++;
             });
 
-            // 显示统计信息
             searchStats.style.display = searchTerms.length > 0 ? 'block' : 'none';
             matchCountEl.textContent = matchCount;
 
-            // 无匹配结果时显示提示
             if (searchTerms.length > 0 && matchCount === 0) {
                 noResult.style.display = 'block';
             }
@@ -202,23 +199,18 @@
 
         // 绑定事件
         searchBtn.addEventListener('click', performSearch);
-        resetBtn.addEventListener('click', function() {
+        resetBtn.addEventListener('click', () => {
             searchInput.value = '';
-            performSearch(); // 重置后显示所有
+            performSearch();
         });
-        // 支持回车键搜索
-        searchInput.addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') {
-                performSearch();
-            }
+        searchInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') performSearch();
         });
-        // 输入框焦点样式
-        searchInput.addEventListener('focus', function() {
-            this.style.borderColor = '#1E9FFF';
-        });
-        searchInput.addEventListener('blur', function() {
-            this.style.borderColor = '#e6e6e6';
-        });
+        searchInput.addEventListener('focus', () => searchInput.style.borderColor = '#1E9FFF');
+        searchInput.addEventListener('blur', () => searchInput.style.borderColor = '#e6e6e6');
+
+        // 初始化搜索状态
+        performSearch();
     });
 </script>
 {% endblock %}
