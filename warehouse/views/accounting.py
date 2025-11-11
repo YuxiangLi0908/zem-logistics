@@ -84,6 +84,7 @@ from warehouse.models.order import Order
 from warehouse.models.packing_list import PackingList
 from warehouse.models.pallet import Pallet
 from warehouse.models.quotation_master import QuotationMaster
+from warehouse.models.retrieval import Retrieval
 from warehouse.models.transaction import Transaction
 from warehouse.utils.constants import (
     ACCT_ACH_ROUTING_NUMBER,
@@ -3568,16 +3569,27 @@ class Accounting(View):
             InvoiceWarehouse._meta.get_field("palletization_fee").verbose_name
         )
         arrive_name = str(InvoiceWarehouse._meta.get_field("arrive_fee").verbose_name)
+        # 还空时间
+        empty_returned_at = Retrieval.empty_returned_at
         fixed_fee_types = []
         if select_carrier in ["BBR", "KNO"]:
             fixed_fee_types = [pallet_name, arrive_name, "总费用"]
-        elif select_carrier in ["GM", "Kars", "东海岸"]:
+        elif select_carrier in ["GM", "Kars"]:
             fixed_fee_types = [
                 "基本费用",
                 "超重费",
                 "车架费",
                 arrive_name,
                 "总费用",
+            ]
+        elif select_carrier in ["东海岸"]:
+            fixed_fee_types = [
+                "基本费用",
+                "超重费",
+                "车架费",
+                arrive_name,
+                "总费用",
+                "还空时间"
             ]
         else:
             fixed_fee_types = [
@@ -3598,6 +3610,7 @@ class Accounting(View):
             row_data["提柜时间"] = (
                 order.retrieval_id.actual_retrieval_timestamp.strftime("%Y-%m-%d")
             )
+            row_data["还空时间"] = order.retrieval_id.empty_returned_at.strftime("%Y-%m-%d")
             try:
                 row_data["仓库"] = order.warehouse.name
             except Exception:
