@@ -400,7 +400,6 @@ class PostNsop(View):
                 models.Q(container_number__order__order_type="转运")
                 | models.Q(container_number__order__order_type="转运组合")
             ),
-            container_number__order__packing_list_updloaded=True,
             shipment_batch_number__isnull=True,
             container_number__order__created_at__gte="2024-09-01",
         )
