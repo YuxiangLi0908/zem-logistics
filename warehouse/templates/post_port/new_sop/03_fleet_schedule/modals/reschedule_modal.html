@@ -1,0 +1,326 @@
+<!-- reschedule_modal.html -->
+<!-- 换约模态框 -->
+<div id="rescheduleModal" class="modal">
+    <div class="modal-content" style="width: 90%; max-width: 800px; max-height: 600px;">
+        <div class="modal-header">
+            <h3><i class="fas fa-exchange-alt"></i> 换约</h3>
+            <span class="close" onclick="closeRescheduleModal()">&times;</span>
+        </div>
+        <div class="modal-body">
+            <form id="rescheduleForm" method="post">
+                {% csrf_token %}
+                <input type="hidden" name="step" value="fix_shipment_exceptions">
+                <input type="hidden" name="shipment_batch_number" id="modalShipmentBatchNumber">
+                <input type="hidden" name="solution" value="create_new">
+                <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                <input type="hidden" name="shipment_type" value="FTL">
+
+                <!-- FTL 表单 -->
+                <div class="modal-form-section">
+                    <h4><i class="fas fa-truck"></i> FTL 预约信息</h4>
+                    
+                    <table class="modal-table">
+                        <thead>
+                            <tr>
+                                <th>预约账号</th>
+                                <th>预约号</th>
+                                <th>Scheduled Time</th>
+                                <th>Pickup Time</th>
+                                <th>发货仓库</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>
+                                    <select name="shipment_account" id="shipment-account-select" class="form-select">
+                                        {% for k, v in account_options.items %}
+                                        <option value="{{ v }}">{{ k }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </td>
+                                <td><input type="text" name="appointment_id" class="form-input"></td>
+                                <td><input type="datetime-local" name="shipment_appointment" class="form-input" required></td>
+                                <td>
+                                    <input type="datetime-local" id="pickup-time-input" name="pickup_time" class="form-input">
+                                </td>
+                                <td>
+                                    <select name="origin" id="origin-select-1" class="form-select">
+                                        {% for k, v in warehouse_options.items %}
+                                        <option value="{{ v }}">{{ k }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    
+                    <table class="modal-table">
+                        <thead>
+                            <tr>
+                                <th>装车类型</th>
+                                <th>Pickup Number</th>                             
+                                <th>目的地</th>
+                                <th>备注</th>
+                                <th>地址</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>
+                                    <select name="load_type" id="load-type-select" class="form-select">
+                                        {% for k, v in load_type_options %}
+                                        <option value="{{ v }}">{{ k }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </td>
+                                <td>
+                                    <input type="text" name="pickup_number" id="pickup_number" class="form-input">                                   
+                                </td>                
+                                <td><input type="text" name="destination" id="reschedule-destination" class="form-input" required></td>
+                                <td><input type="text" name="note" id="reschedule-note" class="form-input"></td>
+                                <td><input type="text" name="address" id="reschedule-address" class="form-input" size="40"></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="modal-actions">
+                    <button type="submit" class="modal-btn modal-btn-success" onclick="return checkRescheduleOrigin()">
+                        <i class="fas fa-check"></i> 确认换约
+                    </button>
+                    <button type="button" class="modal-btn modal-btn-danger" onclick="closeRescheduleModal()">
+                        <i class="fas fa-times"></i> 取消
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<style>
+    .modal {
+        display: none;
+        position: fixed;
+        z-index: 1000;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0,0,0,0.5);
+        backdrop-filter: blur(2px);
+    }
+
+    .modal-content {
+        background-color: #fefefe;
+        margin: auto;
+        padding: 0;
+        border: none;
+        border-radius: 12px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        max-height: 85vh;
+        overflow-y: auto;
+        animation: modalSlideIn 0.3s ease-out;
+    }
+
+    @keyframes modalSlideIn {
+        from {
+            opacity: 0;
+            transform: translate(-50%, -60%);
+        }
+        to {
+            opacity: 1;
+            transform: translate(-50%, -50%);
+        }
+    }
+
+    .modal-header {
+        background: linear-gradient(135deg, var(--secondary-color), #4a6491);
+        color: white;
+        padding: 20px 25px;
+        border-radius: 12px 12px 0 0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .modal-header h3 {
+        margin: 0;
+        font-size: 1.3rem;
+        font-weight: 600;
+    }
+
+    .modal-header .close {
+        color: white;
+        font-size: 28px;
+        font-weight: bold;
+        cursor: pointer;
+        opacity: 0.8;
+        transition: opacity 0.3s;
+    }
+
+    .modal-header .close:hover {
+        opacity: 1;
+    }
+
+    .modal-body {
+        padding: 25px;
+    }
+
+    .modal-form-section {
+        margin-bottom: 20px;
+    }
+
+    .modal-form-section h4 {
+        color: var(--secondary-color);
+        margin-bottom: 15px;
+        font-size: 1.1rem;
+        border-bottom: 2px solid var(--light-color);
+        padding-bottom: 8px;
+    }
+
+    .modal-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 15px 0;
+        font-size: 0.9rem;
+    }
+
+    .modal-table th {
+        background-color: #f8f9fa;
+        padding: 12px 8px;
+        text-align: left;
+        font-weight: 600;
+        color: var(--secondary-color);
+        border-bottom: 2px solid #e9ecef;
+    }
+
+    .modal-table td {
+        padding: 10px 8px;
+        border-bottom: 1px solid #f1f3f4;
+    }
+
+    .modal-table tr:hover {
+        background-color: #f8f9fa;
+    }
+
+    .modal-actions {
+        display: flex;
+        justify-content: center;
+        gap: 15px;
+        margin-top: 25px;
+        padding-top: 20px;
+        border-top: 1px solid #e9ecef;
+    }
+
+    .modal-btn {
+        padding: 12px 25px;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-weight: 600;
+        font-size: 0.95rem;
+        transition: all 0.3s ease;
+        min-width: 120px;
+    }
+
+    .modal-btn-success {
+        background: var(--success-color);
+        color: white;
+    }
+
+    .modal-btn-success:hover {
+        background: #27ae60;
+        transform: translateY(-1px);
+    }
+
+    .modal-btn-danger {
+        background: var(--danger-color);
+        color: white;
+    }
+
+    .modal-btn-danger:hover {
+        background: #c0392b;
+        transform: translateY(-1px);
+    }
+
+    .form-select, .form-input {
+        width: 100%;
+        padding: 8px 12px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 0.9rem;
+    }
+
+    .form-select:focus, .form-input:focus {
+        outline: none;
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+    }
+</style>
+
+<script>
+    // 全局变量，存储异常预约数据
+    const exceptionShipmentData = JSON.parse('{{ shipment_data|safe }}');
+
+    // 打开换约模态框
+    function openRescheduleModal(shipmentBatchNumber) {
+        // 设置模态框中的批次号
+        document.getElementById('modalShipmentBatchNumber').value = shipmentBatchNumber;
+        
+        // 获取该批次的详细信息并填充表单
+        const shipmentInfo = exceptionShipmentData[shipmentBatchNumber];
+        if (shipmentInfo) {
+            document.getElementById('reschedule-destination').value = shipmentInfo.destination || '';
+            document.getElementById('reschedule-address').value = shipmentInfo.address || '';
+            document.getElementById('reschedule-note').value = shipmentInfo.note || '';
+            
+            // 设置默认的发货仓库
+            const originSelect = document.getElementById('origin-select-1');
+            if (originSelect && shipmentInfo.origin) {
+                for (let i = 0; i < originSelect.options.length; i++) {
+                    if (originSelect.options[i].value === shipmentInfo.origin) {
+                        originSelect.selectedIndex = i;
+                        break;
+                    }
+                }
+            }
+        }
+        
+        // 显示模态框
+        document.getElementById('rescheduleModal').style.display = 'block';
+    }
+
+    // 检查发货仓库是否选择
+    function checkRescheduleOrigin() {
+        const selectedValue = document.getElementById('origin-select-1').value;
+        if (!selectedValue) {
+            alert('请选择发货仓库！');
+            return false;
+        }
+        
+        const destinationValue = document.getElementById('reschedule-destination').value;
+        if (!destinationValue) {
+            alert('请填写目的地！');
+            return false;
+        }
+        
+        return true;
+    }
+
+    // 关闭模态框
+    function closeRescheduleModal() {
+        document.getElementById('rescheduleModal').style.display = 'none';
+    }
+
+    // 点击模态框外部关闭
+    window.addEventListener('click', function(event) {
+        const modal = document.getElementById('rescheduleModal');
+        if (event.target === modal) {
+            closeRescheduleModal();
+        }
+    });
+</script>

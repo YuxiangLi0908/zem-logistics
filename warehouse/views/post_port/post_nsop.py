@@ -230,7 +230,29 @@ class PostNsop(View):
             return render(request, template, context) 
         elif step == "update_fleet_info":
             template, context = await self.handle_update_fleet_info(request)
-            return render(request, template, context)       
+            return render(request, template, context)      
+        elif step == "fix_shipment_exceptions":
+            solution = request.POST.get("solution")
+            if solution != "keep_old":
+                template, context = await self.handle_edit_appointment_post(request,"fleet_departure")
+                return render(request, template, context) 
+            sm = ShippingManagement()
+            info = await sm.handle_fix_shipment_exceptions_post(request,'post_nsop')  
+            shipment_batch_number = request.POST.get("shipment_batch_number")
+            
+            if solution == "keep_old":
+                context = {"success_messages": f"{shipment_batch_number}已改为正常状态！"}
+            else:
+                context = {"success_messages": f"{shipment_batch_number}约已修改，可以正常使用！"}
+            template, context = await self.handle_fleet_schedule_post(request,context)
+            return render(request, template, context) 
+        elif step == "cancel_abnormal_appointment":
+            shipment_batch_number = request.POST.get("batch_number")
+            sm = ShippingManagement()
+            info = await sm.handle_cancel_abnormal_appointment_post(request,'post_nsop')     
+            context = {"success_messages": f"{shipment_batch_number}约已取消不可用，所有po已解绑！"}
+            template, context = await self.handle_fleet_schedule_post(request,context)
+            return render(request, template, context) 
         else:
             raise ValueError('输入错误',step)
     
@@ -1046,25 +1068,34 @@ class PostNsop(View):
 
 
     async def handle_edit_appointment_post(
-        self, request: HttpRequest
+        self, request: HttpRequest, name: str | None = None
     ) -> tuple[str, dict[str, Any]]:
         context = {}
-        appointment_id_old = request.POST.get('appointment_id', '').strip()
-        old_shipments = await sync_to_async(list)(
-            Shipment.objects.filter(appointment_id=appointment_id_old)
-        )      
+        if name == "fleet_departure":
+            shipment_batch_number = request.POST.get('shipment_batch_number', '').strip()
+            old_shipments = await sync_to_async(list)(
+                Shipment.objects.filter(shipment_batch_number=shipment_batch_number)
+            ) 
+            appointment_id_new = request.POST.get('appointment_id', '').strip()
+        else:
+            appointment_id_old = request.POST.get('appointment_id', '').strip()
+            old_shipments = await sync_to_async(list)(
+                Shipment.objects.filter(appointment_id=appointment_id_old)
+            )      
+            appointment_id_new = request.POST.get('appointment_id_input', '').strip()
         if not old_shipments:
             context.update({'error_messages':f"未找到 ISA={appointment_id_old}!"})     
         if len(old_shipments) > 1:
             context.update({'error_messages':f"找到多条相同 ISA={appointment_id_old}的记录，请检查数据!"})   
         
         old_shipment = old_shipments[0]
-
-        appointment_id_new = request.POST.get('appointment_id_input', '').strip()
+        if name == "fleet_departure":
+            appointment_id_old = old_shipments[0].appointment_id
+    
         shipment_appointment = request.POST.get('shipment_appointment')
         pickup_time = request.POST.get('pickup_time')
         pickup_number = request.POST.get('pickup_number')
-        destination = request.POST.get('destination')
+        destination = request.POST.get('destination').strip()
         load_type = request.POST.get('load_type')
         origin = request.POST.get('origin')
 
@@ -1075,12 +1106,51 @@ class PostNsop(View):
             old_shipment.origin = origin
             old_shipment.pickup_time = pickup_time
             old_shipment.pickup_number = pickup_number
+            old_shipment.in_use = True
+            old_shipment.is_canceled = False
+            old_shipment.status = ""
             await sync_to_async(old_shipment.save)()
             context.update({'success_messages':'预约信息修改成功!'})
-            return await self.handle_td_shipment_post(request)
-        else:
-            context.update({'error_messages':f"ISA不能修改"}) 
+            if name == "fleet_departure":
+                return await self.handle_fleet_schedule_post(request,context)
             return await self.handle_td_shipment_post(request,context)
+        else:
+            context = await self._check_ISA_is_repetition(appointment_id_new,destination)
+            old_shipment.destination = destination
+            old_shipment.load_type = load_type
+            old_shipment.origin = origin
+            old_shipment.pickup_time = pickup_time
+            old_shipment.pickup_number = pickup_number
+            old_shipment.in_use = True
+            old_shipment.is_canceled = False
+            old_shipment.status = ""
+            await sync_to_async(old_shipment.save)()
+            if name == "fleet_departure":
+                return await self.handle_fleet_schedule_post(request,context)
+            return await self.handle_td_shipment_post(request,context)
+    
+    async def _check_ISA_is_repetition(self,appointment_id,destination):
+        context = {}
+        try:
+            existed_appointment = await sync_to_async(Shipment.objects.get)(
+                appointment_id=appointment_id
+            )
+            if existed_appointment:
+                if existed_appointment.in_use:             
+                    context.update({'error_messages': f"{appointment_id}已经在使用中！"})
+                elif existed_appointment.is_canceled:
+                    context.update({'error_messages': f"{appointment_id}已经被取消！"})
+                elif (
+                    existed_appointment.shipment_appointment.replace(tzinfo=pytz.UTC)
+                    < timezone.now()
+                ):
+                    context.update({'error_messages': f"{appointment_id}在备约中登记的时间早于当前时间，请先修改备约！"})
+                elif existed_appointment.destination != destination:
+                    context.update({'error_messages': f"{appointment_id}在备约中登记的目的地和本次修改的目的地不同！"})
+        except Shipment.DoesNotExist:
+            # 如果查不到记录，直接返回成功消息
+            context.update({'success_messages':f"已更换为新的{appointment_id}！"})
+        return context
     
     async def handle_cancel_appointment_post(
         self, request: HttpRequest
@@ -1706,8 +1776,8 @@ class PostNsop(View):
         return context
 
     async def _fl_delivery_get(
-        self, request: HttpRequest, warehouse:str
-    ) -> tuple[str, dict[str, Any]]:
+        self, warehouse:str
+    ) -> dict[str, Any]:
         criteria = models.Q(
             is_arrived=False,
             is_canceled=False,
@@ -1760,8 +1830,8 @@ class PostNsop(View):
         return context
     
     async def _fl_pod_get(
-        self, request: HttpRequest, warehouse:str
-    ) -> tuple[str, dict[str, Any]]:
+        self, warehouse:str
+    ) -> dict[str, Any]: 
 
         criteria = models.Q(
             models.Q(models.Q(pod_link__isnull=True) | models.Q(pod_link="")),
@@ -1804,29 +1874,68 @@ class PostNsop(View):
         }
         return context
     
-    async def handle_fleet_schedule_post(
+    async def _shipment_exceptions_data(
+        self, warehouse:str
+    ) -> dict[str, Any]:
+        shipment = await sync_to_async(list)(
+            Shipment.objects.filter(
+                status="Exception",
+                is_canceled=False,
+                origin=warehouse,
+            ).order_by("shipment_appointment")
+        )
+        shipment_data = {
+            s.shipment_batch_number: {
+                "origin": s.origin,
+                "load_type": s.load_type,
+                "note": s.note if s.note and s.note != 'NaN' else '',
+                "destination": s.destination,
+                "address": s.address,
+                "origin": s.origin,
+            }
+            for s in shipment
+        }
+        unused_appointment = await sync_to_async(list)(
+            Shipment.objects.filter(in_use=False, is_canceled=False)
+        )
+        unused_appointment = {
+            s.appointment_id: {
+                "destination": s.destination.strip(),
+                "shipment_appointment": s.shipment_appointment.replace(
+                    microsecond=0
+                ).isoformat(),
+            }
+            for s in unused_appointment
+        }
+        context = {
+            "exception_shipments": shipment,           
+            "unused_appointment": json.dumps(unused_appointment),
+            "shipment_data": json.dumps(shipment_data),          
+        }
+        return context
+    
+    async def  handle_fleet_schedule_post(
         self, request: HttpRequest, context: dict| None = None
     ) -> tuple[str, dict[str, Any]]:
         warehouse = request.POST.get("warehouse")
-
-        # 获取三类数据：未排车、待送达、待传POD
-        sp_fl = await self._fl_unscheduled_data(request, warehouse)
-        delivery_data = await self._fl_delivery_get(request, warehouse)
-        pod_data = await self._fl_pod_get(request, warehouse)
+        #异常约
+        exception_sp = await self._shipment_exceptions_data(warehouse)
         #待出库
         ready_to_ship_data = await self._sp_ready_to_ship_data(warehouse,request.user)
+        # 待送达
+        delivery_data = await self._fl_delivery_get(warehouse)
+        #待传POD
+        pod_data = await self._fl_pod_get(warehouse)
+        
         summary = {
-            'unscheduled_count': len(sp_fl['shipment_list']),
+            'exception_count': len(exception_sp["exception_shipments"]),
             'ready_to_ship_count': len(ready_to_ship_data),
-            'scheduled_count': len(sp_fl['fleet_list']),
             'ready_count': len(delivery_data['shipments']),
             'pod_count': len(pod_data['fleet']),
         }
         if not context:
             context = {}
         context.update({
-            'shipment_list': sp_fl['shipment_list'],
-            'fleet_list': sp_fl['fleet_list'],
             'delivery_shipments': delivery_data['shipments'],
             'pod_shipments': pod_data['fleet'],
             'ready_to_ship_data': ready_to_ship_data,
@@ -1836,7 +1945,13 @@ class PostNsop(View):
             "warehouse": warehouse,
             "carrier_options": self.carrier_options,
             "abnormal_fleet_options": self.abnormal_fleet_options,
+            "exception_shipments": exception_sp["exception_shipments"],
+            "shipment_data": exception_sp["shipment_data"],
+            "unused_appointment": exception_sp["unused_appointment"],
             'current_time': timezone.now(),
+            "load_type_options": LOAD_TYPE_OPTIONS,
+            "account_options": self.account_options,
+            "shipment_type_options": self.shipment_type_options
         })     
         return self.template_fleet_schedule, context
 
@@ -1912,16 +2027,18 @@ class PostNsop(View):
             matching_suggestions = await self.sp_unscheduled_data(warehouse, st_type, max_cbm, max_pallet,request.user)
 
         scheduled_data = await self.sp_scheduled_data(warehouse, request.user)
+
+        #未排车+已排车
+        fleets = await self._fl_unscheduled_data(request, warehouse)
         #未排车
-        unschedule_fleet = await self._fl_unscheduled_data(request, warehouse)
-        unschedule_fleet_data = unschedule_fleet['shipment_list']
+        unschedule_fleet_data = fleets['shipment_list']
         #已排车
-        sp_fl = await self._fl_unscheduled_data(request, warehouse)
+        schedule_fleet_data = fleets['fleet_list']
         # 获取可用预约
         available_shipments = await self.sp_available_shipments(warehouse, st_type)
         
         # 计算统计数据
-        summary = await self._sp_calculate_summary(matching_suggestions, scheduled_data, sp_fl, unschedule_fleet_data)       
+        summary = await self._sp_calculate_summary(matching_suggestions, scheduled_data, schedule_fleet_data, unschedule_fleet_data)       
 
         if not context:
             context = {}
@@ -1935,8 +2052,8 @@ class PostNsop(View):
             'matching_suggestions': matching_suggestions,
             'scheduled_data': scheduled_data,
             'unschedule_fleet': unschedule_fleet_data,
-            'fleet_list': sp_fl['fleet_list'],   #已排车
-            'unscheduled_fl_count': len(unschedule_fleet.get('shipment_list', [])) if unschedule_fleet else 0,
+            'fleet_list': schedule_fleet_data,   #已排车
+            'unscheduled_fl_count': len(unschedule_fleet_data),
             'available_shipments': available_shipments,
             'summary': summary,
             'max_cbm': max_cbm,
@@ -2350,7 +2467,6 @@ class PostNsop(View):
             address = f"{fba['location']}, {fba['city']} {fba['state']}, {fba['zipcode']}"
             return address
         else:
-            return None
             raise ValueError('找不到这个目的地的地址，请核实')
         
     async def check_time_window_match(self, primary_group, shipment):
@@ -2626,12 +2742,12 @@ class PostNsop(View):
         
         return False
 
-    async def _sp_calculate_summary(self, unscheduled: list, scheduled: list, sp_fl: list, unscheduled_fl) -> dict:
+    async def _sp_calculate_summary(self, unscheduled: list, scheduled: list, schedule_fleet_data: list, unscheduled_fl) -> dict:
         """计算统计数据"""
         # 计算各类数量
-        unscheduled_count = len(unscheduled)
-        scheduled_count = len(scheduled)
-        sp_fl_count = len(sp_fl['fleet_list'])
+        unscheduled_sp_count = len(unscheduled)
+        scheduled_sp_count = len(scheduled)
+        schedule_fl_count = len(schedule_fleet_data)
         unscheduled_fl_count = len(unscheduled_fl)
         # 计算总板数
         total_pallets = 0
@@ -2639,9 +2755,9 @@ class PostNsop(View):
             total_pallets += cargo.get('total_n_pallet_act', 0) or cargo.get('total_n_pallet_est', 0) or 0
         
         return {
-            'unscheduled_count': unscheduled_count,
-            'scheduled_count': scheduled_count,
-            'sp_fl_count': sp_fl_count,
+            'unscheduled_sp_count': unscheduled_sp_count,
+            'scheduled_sp_count': scheduled_sp_count,
+            'schedule_fl_count': schedule_fl_count,
             'unscheduled_fl_count': unscheduled_fl_count,
             'total_pallets': int(total_pallets),
         }

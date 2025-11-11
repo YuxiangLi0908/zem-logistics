@@ -2720,8 +2720,9 @@ class ShippingManagement(View):
         return self.template_shipment_list, context
 
     async def handle_fix_shipment_exceptions_post(
-        self, request: HttpRequest
+        self, request: HttpRequest, name: str | None = None
     ) -> tuple[str, dict[str, Any]]:
+        print(request.POST)
         solution = request.POST.get("solution")
         shipment_batch_number = request.POST.get("shipment_batch_number")
         if solution == "keep_old":
@@ -2737,6 +2738,7 @@ class ShippingManagement(View):
             old_shipment = await sync_to_async(Shipment.objects.get)(
                 shipment_batch_number=shipment_batch_number
             )
+            
             shipment_type = request.POST.get("shipment_type")
             appointment_id = request.POST.get("appointment_id", None)
             appointment_id = appointment_id.strip() if appointment_id else None
@@ -2781,6 +2783,13 @@ class ShippingManagement(View):
                     shipment.note = request.POST.get("note", "").strip()
                     shipment.shipment_schduled_at = timezone.now()
                     shipment.is_shipment_schduled = True
+                    if request.POST.get("pickup_time"):
+                        try:
+                            shipment.pickup_time = parse(request.POST["pickup_time"]).replace(tzinfo=None)
+                        except (ValueError, TypeError):
+                            pass
+                    if request.POST.get("pickup_number"):
+                        shipment_data["pickup_number"] = request.POST["pickup_number"]    
                     shipment.destination = (
                         request.POST.get("destination", "")
                         .replace("WALMART", "Walmart")
@@ -2845,6 +2854,14 @@ class ShippingManagement(View):
                 shipmentappointment = request.POST.get("shipment_appointment")
                 shipment_appointment = parse(shipmentappointment).replace(tzinfo=None)
                 shipment_data = {}
+                if request.POST.get("pickup_time"):
+                    try:
+                        shipment_data["pickup_time"] = parse(request.POST["pickup_time"]).replace(tzinfo=None)
+                    except (ValueError, TypeError):
+                        pass
+                if request.POST.get("pickup_number"):
+                    shipment_data["pickup_number"] = request.POST["pickup_number"]
+
                 shipment_data["appointment_id"] = request.POST.get(
                     "appointment_id", ""
                 ).strip()
@@ -3005,10 +3022,12 @@ class ShippingManagement(View):
             )
             old_shipment.is_canceled = True
             await sync_to_async(old_shipment.save)()
+        if name == "post_nsop":
+            return "success", {"message": f"{shipment_batch_number} 已恢复正常"}
         return await self.handle_shipment_exceptions_get(request)
 
     async def handle_cancel_abnormal_appointment_post(
-        self, request: HttpRequest
+        self, request: HttpRequest, name: str | None = None
     ) -> tuple[str, dict[str, Any]]:
         shipment_batch_number = request.POST.get("batch_number")
         shipment = await sync_to_async(Shipment.objects.get)(
@@ -3093,6 +3112,8 @@ class ShippingManagement(View):
         )
         shipment.is_canceled = True
         await sync_to_async(shipment.save)()
+        if name == "post_nsop":
+            return "success", {"message": f"{shipment_batch_number} 已恢复正常"}
         return await self.handle_shipment_exceptions_get(request)
 
     async def _get_packing_list(
