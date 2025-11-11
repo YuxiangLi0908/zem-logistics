@@ -922,9 +922,11 @@
                                             <input type="hidden" name="retrieval_id"
                                                    value="{{ o.retrieval_id.retrieval_id }}">
                                             <input type="datetime-local"
-                                                   value="
-
-                                                           {% if o.retrieval_id.retrieval_cabinet_arrangement_time %}{{ o.retrieval_id.retrieval_cabinet_arrangement_time|date:'Y-m-d\TH:i' }}{% endif %}"
+                                                   value=" {% if o.retrieval_id.generous_and_wide_target_retrieval_timestamp%}
+                                                            {{ o.retrieval_id.generous_and_wide_target_retrieval_timestamp|date:'Y-m-d\TH:i' }}
+                                                            {% elif o.retrieval_id.retrieval_cabinet_arrangement_time %}
+                                                            {{ o.retrieval_id.retrieval_cabinet_arrangement_time|date:'Y-m-d\TH:i' }}
+                                                            {% endif %}"
                                                    class="datetime-input"
                                                    name="retrieval_cabinet_arrangement_time"
                                                    placeholder="选择日期时间"
