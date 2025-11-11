@@ -1955,31 +1955,102 @@
 
         // 页面加载完成后执行时间转换
         document.addEventListener('DOMContentLoaded', function () {
-            // 转换所有带utc-time类的元素
+            // 转换所有带utc-time类的元素（按所属仓时区）
             document.querySelectorAll('.utc-time').forEach(function (element) {
                 const utcTimeStr = element.getAttribute('data-utc');
-                if (utcTimeStr) {
-                    // 解析UTC时间
-                    const utcDate = new Date(utcTimeStr);
-                    // 转换为本地时间并格式化
-                    const localTimeStr = formatLocalTime(utcDate);
-                    // 更新显示内容（保留前缀，只替换时间部分）
-                    const originalText = element.textContent;
-                    const prefix = originalText.replace(/\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}/, '');
-                    element.textContent = prefix + localTimeStr;
+                if (!utcTimeStr) return;
+
+                // 解析UTC时间
+                const utcDate = new Date(utcTimeStr);
+                if (isNaN(utcDate.getTime())) return; // 无效时间不处理
+
+                // 获取当前行的所属仓信息
+                const warehouseInfo = getWarehouseInfo(element);
+                if (!warehouseInfo) {
+                    // 无法获取仓库信息时默认显示UTC时间
+                    const utcTimeStr = formatUTCTime(utcDate);
+                    updateElementTime(element, utcTimeStr);
+                    return;
                 }
+
+                // 根据仓库信息获取对应的时区偏移（小时）
+                const timeZoneOffset = getTimeZoneOffsetByWarehouse(warehouseInfo);
+
+                // 计算对应时区的当地时间
+                const localDate = new Date(utcDate.getTime() + timeZoneOffset * 3600 * 1000);
+                const localTimeStr = formatLocalTime(localDate);
+
+                // 更新显示内容
+                updateElementTime(element, localTimeStr);
             });
         });
 
-        // 格式化本地时间为 "YYYY-MM-DD HH:MM:SS"
+        // 获取元素所在行的所属仓信息
+        function getWarehouseInfo(element) {
+            // 查找当前元素所在的行
+            const row = element.closest('.table-row');
+            if (!row) return null;
+
+            // 查找当前行的所属仓单元格
+            const warehouseCell = row.querySelector('td[data-column="warehouse"]');
+            if (!warehouseCell) return null;
+
+            // 返回所属仓文本（转为大写便于匹配）
+            return warehouseCell.textContent.trim().toUpperCase();
+        }
+
+        // 根据仓库信息获取时区偏移（小时，UTC+偏移值）
+        function getTimeZoneOffsetByWarehouse(warehouseInfo) {
+            // 偏移值为：当地时间 = UTC时间 + 偏移小时数
+            const timeZoneMap = {
+                'NJ': -5,    // 纽约：UTC-5（标准时间）/ UTC-4（夏令时），此处简化为标准时间
+                'LA': -8,    // 洛杉矶：UTC-8（标准时间）/ UTC-7（夏令时）
+                'SAV': -5,   // 萨凡纳：UTC-5（标准时间）/ UTC-4（夏令时）
+                'MO': -6,    // 圣路易斯：UTC-6（标准时间）/ UTC-5（夏令时）
+                'TX': -6,    // 圣路易斯：UTC-6（标准时间）/ UTC-5（夏令时）
+                'TH': -6,    // 休斯顿：UTC-6（标准时间）/ UTC-5（夏令时）
+                'CA': -8,   // 洛杉矶：UTC-8（标准时间）/ UTC-7（夏令时）
+            };
+
+            // 检查仓库信息中是否包含关键词
+            for (const [keyword, offset] of Object.entries(timeZoneMap)) {
+                if (warehouseInfo.includes(keyword)) {
+                    return offset;
+                }
+            }
+
+            // 未匹配到任何关键词时默认返回UTC时间（偏移0）
+            return 0;
+        }
+
+        // 格式化时间为 "YYYY-MM-DD HH:MM:SS"
         function formatLocalTime(date) {
             const year = date.getFullYear();
-            const month = String(date.getMonth() + 1).padStart(2, '0'); // 月份从0开始
+            const month = String(date.getMonth() + 1).padStart(2, '0');
             const day = String(date.getDate()).padStart(2, '0');
             const hours = String(date.getHours()).padStart(2, '0');
             const minutes = String(date.getMinutes()).padStart(2, '0');
             const seconds = String(date.getSeconds()).padStart(2, '0');
             return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+        }
+
+        // 格式化UTC时间（用于默认显示）
+        function formatUTCTime(date) {
+            const year = date.getUTCFullYear();
+            const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+            const day = String(date.getUTCDate()).padStart(2, '0');
+            const hours = String(date.getUTCHours()).padStart(2, '0');
+            const minutes = String(date.getUTCMinutes()).padStart(2, '0');
+            const seconds = String(date.getUTCSeconds()).padStart(2, '0');
+            return `${year}-${month}-${day} ${hours}:${minutes}:${seconds} (UTC)`;
+        }
+
+        // 更新元素显示的时间文本
+        function updateElementTime(element, timeStr) {
+            const originalText = element.textContent;
+            // 保留前缀（如"T49还空 "、"T49提柜 "），只替换时间部分
+            const prefix = originalText.replace(/\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}( \(\w+\))?/, '');
+            element.textContent = prefix + timeStr;
         }
     </script>
 {% endblock %}
