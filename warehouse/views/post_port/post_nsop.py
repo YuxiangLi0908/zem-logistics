@@ -1813,6 +1813,7 @@ class PostNsop(View):
         sp_fl = await self._fl_unscheduled_data(request, warehouse)
         delivery_data = await self._fl_delivery_get(request, warehouse)
         pod_data = await self._fl_pod_get(request, warehouse)
+        #待出库
         ready_to_ship_data = await self._sp_ready_to_ship_data(warehouse,request.user)
         summary = {
             'unscheduled_count': len(sp_fl['shipment_list']),
@@ -2493,6 +2494,7 @@ class PostNsop(View):
                 # 初始化shipment数据
                 if batch_number not in fleet_group['shipments']:
                     fleet_group['shipments'][batch_number] = {
+                        'shipment_batch_number': shipment.shipment_batch_number or '-',
                         'appointment_id': shipment.appointment_id or '-',
                         'destination': shipment.destination or '-',
                         'cargos': []
