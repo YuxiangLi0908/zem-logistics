@@ -7,7 +7,7 @@
         {% if user.is_authenticated %}
             <ul class="navbar-nav">
                 <!-- 非大方广权限用户可见：所有原有导航项（移除原大方广入口） -->
-                {% if not user_has_dafangguang_perm %}
+                {% if not generous_and_wide %}
                     <li class="nav-item">
                         <div class="dropdown">
                             <a class="nav-link">港前操作</a>
@@ -264,7 +264,7 @@
                 {% endif %}
 
                 <!-- 大方广权限用户可见：仅显示“大方广LA提柜” -->
-                {% if user_has_dafangguang_perm %}
+                {% if generous_and_wide %}
                     <li class="nav-item">
                         <div class="dropdown">
                             <a class="nav-link">港前操作</a>
