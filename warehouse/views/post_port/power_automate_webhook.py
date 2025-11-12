@@ -24,7 +24,7 @@ from warehouse.utils.constants import (
 
 @method_decorator(csrf_exempt, name="dispatch")
 class PowerAutomateWebhook(View):
-    EXPECTED_IDENTIFIER = "zem-power-automate-ltl-bol-test"
+    EXPECTED_IDENTIFIER = "zem-power-automate-ltl-bol-label"
 
     def get(self, request: HttpRequest) -> Any:
         return HttpResponse("GET request received")
