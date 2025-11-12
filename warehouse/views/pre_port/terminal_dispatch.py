@@ -383,7 +383,8 @@ class TerminalDispatch(View):
         retrieval = order.retrieval_id
         retrieval.retrieval_destination_precise = destination
         retrieval.retrieval_carrier = request.POST.get("retrieval_carrier").strip()
-        retrieval.retrieval_delegation_status = True
+        if destination and request.POST.get("retrieval_carrier").strip():
+            retrieval.retrieval_delegation_status = True
         retrieval.planned_release_time = planned_release_time
         tzinfo = self._parse_tzinfo(destination)
         if request.POST.get("target_retrieval_timestamp"):
