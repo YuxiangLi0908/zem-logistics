@@ -140,7 +140,6 @@ class PowerAutomateWebhook(View):
         
         # Get the file
         file = conn.web.get_file_by_server_relative_url(full_path)
-        file.load().execute_query()
         
         # Generate anonymous shareable link
         share_link = file.share_link(SharingLinkKind.AnonymousView).execute_query()
