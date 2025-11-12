@@ -3518,8 +3518,16 @@ class PostNsop(View):
         pre_groups = {}
         for cargo in unshipment_pos:
             if not await self.has_appointment(cargo):
-                dest = cargo.get('destination')
-                delivery_method = cargo.get('custom_delivery_method')
+                dest = (cargo.get('destination') or '').strip().upper()
+                raw_method = (cargo.get('custom_delivery_method') or '').strip()
+                if '卡车派送' in raw_method:
+                    delivery_method = '卡派'
+                elif '暂扣' in raw_method:
+                    delivery_method = '暂扣'
+                elif '客户自提' in raw_method:
+                    delivery_method = '客提'
+                else:
+                    delivery_method = raw_method.upper()
                 if not dest or not delivery_method:
                     continue
                     
