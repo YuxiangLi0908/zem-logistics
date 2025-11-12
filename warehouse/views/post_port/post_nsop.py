@@ -1760,6 +1760,7 @@ class PostNsop(View):
                 departured_at__isnull=True,
                 is_canceled=False,
                 appointment_datetime__gt=target_date,
+                fleet_type="FTL",
             )
             .prefetch_related("shipment")
             .annotate(
