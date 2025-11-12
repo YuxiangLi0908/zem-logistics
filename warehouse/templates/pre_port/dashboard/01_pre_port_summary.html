@@ -6,53 +6,111 @@
             background-color: #f5f7fa;
             font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
             line-height: 1.5;
+            margin: 0;
+            padding: 0;
+            color: #1f2329;
         }
 
-        /* 主容器 */
+        /* 主容器 - 优化布局稳定性 */
         .main-container {
-            width: 102%;
+            width: 100%;
             padding: 15px;
             box-sizing: border-box;
             max-width: 1920px;
             margin: 0 auto;
-            margin-left: -1%;
         }
 
-        /* 按钮样式优化 */
-        .custom-btn {
-            padding: 4px 12px;
-            border: none;
+        /* 按钮样式系统 - 统一交互体验 */
+        .btn {
+            padding: 6px 12px;
             border-radius: 4px;
-            background-color: #4096ff;
-            color: #fff;
             font-size: 13px;
             cursor: pointer;
-            vertical-align: middle;
-            margin-left: 8px;
             transition: all 0.2s ease;
-            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+            border: 1px solid transparent;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+            text-decoration: none;
         }
 
-        .custom-btn:hover {
+        .btn i {
+            font-size: 14px;
+        }
+
+        .btn-primary {
+            background-color: #4096ff;
+            border-color: #4096ff;
+            color: white;
+        }
+
+        .btn-primary:hover {
             background-color: #69b1ff;
+            border-color: #69b1ff;
             box-shadow: 0 2px 8px rgba(64, 150, 255, 0.3);
             transform: translateY(-1px);
         }
 
-        .custom-btn:active {
-            background-color: #3385ff;
+        .btn-primary:active {
             transform: translateY(0);
-            box-shadow: none;
         }
 
-        .custom-btn:disabled {
-            background-color: #c9c9c9;
+        .btn-secondary {
+            background-color: #f0f2f5;
+            border-color: #f0f2f5;
+            color: #4e5969;
+        }
+
+        .btn-secondary:hover {
+            background-color: #e5e6eb;
+            transform: translateY(-1px);
+        }
+
+        .btn-secondary:active {
+            transform: translateY(0);
+        }
+
+        .btn-success {
+            background-color: #52c41a;
+            border-color: #52c41a;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background-color: #73d13d;
+            box-shadow: 0 2px 8px rgba(82, 196, 26, 0.3);
+            transform: translateY(-1px);
+        }
+
+        .btn-success:active {
+            transform: translateY(0);
+        }
+
+        .btn-warning {
+            background-color: #faad14;
+            border-color: #faad14;
+            color: white;
+        }
+
+        .btn-warning:hover {
+            background-color: #ffc53d;
+            box-shadow: 0 2px 8px rgba(250, 173, 20, 0.3);
+            transform: translateY(-1px);
+        }
+
+        .btn-warning:active {
+            transform: translateY(0);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
             cursor: not-allowed;
-            transform: none;
             box-shadow: none;
+            transform: none;
         }
 
-        /* 导航栏样式 */
+        /* 导航栏样式 - 增强选中状态 */
         .nav-tabs {
             border-bottom: 1px solid #e5e6eb;
             margin-bottom: 15px;
@@ -71,6 +129,7 @@
         .nav-item .nav-link {
             color: #4e5969;
             border: none;
+            padding: 12px 15px;
             margin-right: 5px;
             border-radius: 4px 4px 0 0;
             font-weight: 500;
@@ -90,17 +149,17 @@
             color: #4096ff;
         }
 
-        /* 内容区域容器 */
+        /* 内容区域容器 - 优化阴影层次 */
         #order-info-sec {
             background-color: #fff;
             border-radius: 4px;
-            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
             overflow: hidden;
         }
 
-        /* 搜索和批量操作区域 */
+        /* 搜索和批量操作区域 - 增强空间感 */
         .search-bar {
-            padding: 15px;
+            padding: 15px 20px;
             border-bottom: 1px solid #e5e6eb;
             display: flex;
             justify-content: space-between;
@@ -113,22 +172,53 @@
         .search-group {
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 15px;
             flex-wrap: wrap;
         }
 
-        .search-group b {
+        .search-group b,
+        .search-group label {
             color: #4e5969;
             font-size: 14px;
             white-space: nowrap;
+            font-weight: 500;
         }
 
-        .search-group input[type="date"] {
-            padding: 6px 8px;
+        /* 表单元素统一样式 */
+        .layui-select,
+        input[type="date"],
+        input[type="text"],
+        select {
+            padding: 8px 10px;
             border: 1px solid #dcdfe6;
             border-radius: 4px;
             font-size: 13px;
+            transition: all 0.2s ease;
+            box-sizing: border-box;
+        }
+
+        .layui-select:focus,
+        input[type="date"]:focus,
+        input[type="text"]:focus,
+        select:focus {
+            border-color: #4096ff;
+            outline: none;
+            box-shadow: 0 0 0 2px rgba(64, 150, 255, 0.2);
+        }
+
+        .layui-input-inline {
+            margin: 0 !important;
+        }
+
+        .layui-select {
+            width: 100%;
+            height: 38px;
+            line-height: 38px;
+        }
+
+        input[type="date"] {
             min-width: 140px;
+            height: 38px;
         }
 
         /* 批量操作按钮区域 */
@@ -142,62 +232,9 @@
             flex-wrap: wrap;
         }
 
-        .batch-actions .btn {
-            padding: 6px 12px;
-            font-size: 13px;
-            transition: all 0.2s ease;
-            text-decoration: none;
-            border-radius: 4px;
-            border: 1px solid transparent;
-            cursor: pointer;
-        }
-
-        .batch-actions .btn-primary {
-            background-color: #4096ff;
-            border-color: #4096ff;
-            color: white;
-        }
-
-        .batch-actions .btn-primary:hover {
-            background-color: #69b1ff;
-            border-color: #69b1ff;
-        }
-
-        .batch-actions .btn-success {
-            background-color: #52c41a;
-            border-color: #52c41a;
-            color: white;
-        }
-
-        .batch-actions .btn-success:hover {
-            background-color: #73d13d;
-            border-color: #73d13d;
-        }
-
-        .batch-actions .btn-secondary {
-            background-color: #f0f2f5;
-            border-color: #f0f2f5;
-            color: #4e5969;
-        }
-
-        .batch-actions .btn-secondary:hover {
-            background-color: #e5e6eb;
-        }
-
-        .batch-actions .btn-warning {
-            background-color: #faad14;
-            border-color: #faad14;
-            color: white;
-        }
-
-        .batch-actions .btn-warning:hover {
-            background-color: #ffc53d;
-            border-color: #ffc53d;
-        }
-
-        /* 表格样式优化 */
+        /* 表格样式优化 - 增强可读性 */
         .table {
-            min-width: 1600px; /* 确保表格宽度足够触发横向滚动 */
+            min-width: 1600px;
             width: 100%;
             border-collapse: separate;
             border-spacing: 0;
@@ -210,7 +247,7 @@
         }
 
         .table th, .table td {
-            padding: 12px 10px;
+            padding: 12px 15px;
             text-align: left;
             border-bottom: 1px solid #e5e6eb;
             word-break: break-all;
@@ -280,7 +317,7 @@
             box-shadow: 0 0 0 2px rgba(64, 150, 255, 0.2);
         }
 
-        /* 状态标签样式 */
+        /* 状态标签样式 - 增强视觉区分 */
         .status-span {
             padding: 2px 6px;
             border-radius: 3px;
@@ -288,6 +325,7 @@
             display: inline-block;
             min-width: 60px;
             text-align: center;
+            font-weight: 500;
         }
 
         .status-span-green {
@@ -364,7 +402,7 @@
             width: 200px;
         }
 
-        /* 复制成功提示 */
+        /* 复制成功提示 - 优化动画 */
         .copy-toast {
             position: fixed;
             bottom: 20px;
@@ -376,20 +414,22 @@
             font-size: 13px;
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
             opacity: 0;
-            transition: opacity 0.3s ease;
+            transform: translateY(10px);
+            transition: all 0.3s ease;
             pointer-events: none;
             z-index: 1000;
         }
 
         .copy-toast.show {
             opacity: 1;
+            transform: translateY(0);
         }
 
         .copy-toast.error {
             background-color: #f5222d;
         }
 
-        /* 批量操作弹窗样式 */
+        /* 批量操作弹窗样式 - 增强层次感 */
         .modal-overlay {
             position: fixed;
             top: 0;
@@ -471,7 +511,7 @@
             font-size: 13px;
         }
 
-        /* 空状态样式 */
+        /* 空状态样式 - 增强友好度 */
         .empty-state {
             text-align: center;
             padding: 60px 20px;
@@ -489,7 +529,7 @@
             font-size: 14px;
         }
 
-        /* 加载状态 */
+        /* 加载状态 - 优化动画 */
         .loading-overlay {
             position: fixed;
             top: 0;
@@ -526,49 +566,16 @@
             }
         }
 
-        /* 响应式调整 */
-        @media (max-width: 768px) {
-            .search-bar {
-                flex-direction: column;
-                align-items: stretch;
-            }
-
-            .search-group {
-                width: 100%;
-            }
-
-            .batch-actions {
-                width: 100%;
-                justify-content: flex-start;
-            }
-
-            .table th, .table td {
-                padding: 8px 5px;
-                font-size: 11px;
-            }
-
-            .datetime-input {
-                width: 130px;
-            }
-
-            .custom-btn {
-                padding: 3px 8px;
-                font-size: 12px;
-                margin-left: 4px;
-            }
-        }
-
-        /* 表格容器样式 - 核心滚动区域 */
+        /* 表格容器样式 - 优化滚动体验 */
         .table-container {
             width: 100%;
-            max-height: calc(100vh - 180px); /* 调整此值控制表格高度 */
-            overflow: auto; /* 同时启用横向和纵向滚动 */
+            max-height: calc(100vh - 180px);
+            overflow: auto;
             -webkit-overflow-scrolling: touch;
             position: relative;
-            height: 640px;
         }
 
-        /* 表头固定 */
+        /* 表头固定 - 增强可读性 */
         .table thead tr:first-child {
             position: sticky;
             top: 0;
@@ -577,11 +584,11 @@
 
         .table thead tr:nth-child(2) {
             position: sticky;
-            top: 42px; /* 与第一个表头行高度匹配 */
+            top: 42px;
             z-index: 2;
         }
 
-        /* 滚动条样式优化 */
+        /* 滚动条样式优化 - 增强美观度 */
         .table-container::-webkit-scrollbar {
             height: 8px;
             width: 8px;
@@ -604,43 +611,201 @@
         /* 状态区域样式 */
         #status-summary-sec {
             padding-bottom: 10px;
-            overflow: hidden; /* 避免与表格容器滚动冲突 */
+            overflow: hidden;
         }
 
-        /* 列宽调整 */
-        .table th:nth-child(2), /* 柜号列 */
+        /* 列宽调整 - 优化内容展示 */
+        .table th:nth-child(2),
         .table td:nth-child(2) {
             min-width: 120px;
         }
 
-        .table th:nth-child(3), /* 客户列 */
+        .table th:nth-child(3),
         .table td:nth-child(3) {
             min-width: 100px;
         }
 
-        .table th:nth-child(4), /* 订单类型列 */
+        .table th:nth-child(4),
         .table td:nth-child(4) {
             min-width: 90px;
         }
 
-        .table th:nth-child(5), /* 所属仓列 */
+        .table th:nth-child(5),
         .table td:nth-child(5) {
             min-width: 150px;
         }
 
-        .table th:nth-child(6), /* T49状态列 */
+        .table th:nth-child(6),
         .table td:nth-child(6) {
             min-width: 140px;
         }
 
-        .table th:nth-child(13), /* 货柜备注列 */
+        .table th:nth-child(13),
         .table td:nth-child(13) {
             min-width: 180px;
         }
 
-        .table th:nth-child(14), /* 异常状态列 */
+        .table th:nth-child(14),
         .table td:nth-child(14) {
             min-width: 130px;
+        }
+
+        /* 响应式优化 - 适配不同屏幕 */
+        @media (max-width: 1200px) {
+            .search-group {
+                gap: 10px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .main-container {
+                padding: 10px;
+            }
+
+            .search-bar {
+                flex-direction: column;
+                align-items: stretch;
+                padding: 10px;
+            }
+
+            .search-group {
+                width: 100%;
+                gap: 8px;
+            }
+
+            .batch-actions {
+                width: 100%;
+                justify-content: flex-start;
+            }
+
+            .nav-item .nav-link {
+                padding: 8px 10px;
+                font-size: 12px;
+            }
+
+            .table th, .table td {
+                padding: 8px 5px;
+                font-size: 11px;
+            }
+
+            .datetime-input {
+                width: 130px;
+            }
+
+            .btn {
+                padding: 5px 10px;
+                font-size: 12px;
+            }
+        }
+
+        /* 新增优化样式 */
+        /* 搜索区域布局优化 */
+        .search-group > div {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* 异常数据筛选按钮位置优化 */
+        form[action=""][method="post"][style="display: inline; margin-left:-500px;"] {
+            margin-left: 0 !important;
+            margin-right: 10px;
+        }
+
+        /* 表格操作按钮样式统一 */
+        .custom-btn {
+            padding: 4px 12px;
+            border: none;
+            border-radius: 4px;
+            background-color: #4096ff;
+            color: #fff;
+            font-size: 13px;
+            cursor: pointer;
+            vertical-align: middle;
+            transition: all 0.2s ease;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+        }
+
+        .custom-btn:hover {
+            background-color: #69b1ff;
+            box-shadow: 0 2px 8px rgba(64, 150, 255, 0.3);
+            transform: translateY(-1px);
+        }
+
+        .custom-btn:active {
+            background-color: #3385ff;
+            transform: translateY(0);
+            box-shadow: none;
+        }
+
+        /* 修复时间输入框与按钮重叠问题 */
+        .time-input-container {
+            position: relative;
+            width: 100%;
+        }
+
+        .time-input-container .custom-btn {
+            position: absolute !important;
+            right: 0 !important;
+            top: 0 !important;
+            margin: 0 !important;
+            height: 30px !important;
+            width: 40px !important;
+            padding: 0 !important;
+        }
+
+        .time-input-container input.datetime-input {
+            width: 100% !important;
+            padding-right: 50px !important;
+        }
+
+        /* 异常状态行高亮增强 */
+        .table tbody tr.highlight {
+            background-color: #fff7e6;
+            border-left: 3px solid #faad14;
+        }
+
+        /* 单选框样式优化 */
+        input[type="radio"] {
+            margin-right: 5px;
+            cursor: pointer;
+        }
+
+        label[for] {
+            cursor: pointer;
+        }
+
+        /* 表格单元格悬停效果增强 */
+        .table td {
+            transition: background-color 0.2s ease;
+        }
+
+        .table tr:hover td {
+            background-color: rgba(240, 242, 245, 0.5);
+        }
+
+        /* 搜索输入框占位符样式 */
+        ::placeholder {
+            color: #c9c9c9;
+            opacity: 1;
+        }
+
+        :-ms-input-placeholder {
+            color: #c9c9c9;
+        }
+
+        ::-ms-input-placeholder {
+            color: #c9c9c9;
+        }
+
+        /* 全选复选框样式增强 */
+        #selectAll {
+            cursor: pointer;
+            accent-color: #4096ff;
+        }
+
+        .rowCheckbox {
+            accent-color: #4096ff;
         }
     </style>
     <div class="main-container">
@@ -660,28 +825,67 @@
                     <form method="post" action="" id="searchForm">
                         {% csrf_token %}
                         <div class="search-group">
-                            <b>ETA: </b>
-                            <input type="date" name="start_date_eta" value="{{ start_date_eta }}"
-                                   title="开始日期">
-                            <span style="color: #86909c;">至</span>
-                            <input type="date" name="end_date_eta" value="{{ end_date_eta }}"
-                                   title="结束日期">
-                            <button type="submit" name="step" value="search_orders" class="btn btn-primary"
-                                    title="查询数据">查询
-                            </button>
-                            <button type="submit" name="step" value="download_eta_file" class="btn btn-secondary"
-                                    title="导出当前数据">导出
-                            </button>
+                            <!-- 仓库选择 -->
+                            <div>
+                                <label class="layui-form-label">仓库:</label>
+                                <div class="layui-input-inline" style="width: 200px;">
+                                    <select name="warehouse" class="layui-select" lay-reqText="请选择仓库">
+                                        {% if not warehouse_options %}
+                                            <option value="">暂无仓库数据</option>
+                                        {% else %}
+                                            {% for k, v in warehouse_options.items %}
+                                                <option value="{{ v }}"
+                                                        {% if v == warehouse %}selected{% endif %}>{{ k }}</option>
+                                            {% endfor %}
+                                        {% endif %}
+                                    </select>
+                                </div>
+                            </div>
+
+                            <!-- 时间类型选择（ETA时间/还空时间） -->
+                            <div>
+                                <label class="layui-form-label">时间类型:</label>
+                                <div class="layui-input-inline" style="width: 160px;">
+                                    <select name="time_type" class="layui-select" lay-reqText="请选择时间类型">
+                                        <option value="eta"
+                                                {% if time_type == 'eta' or not time_type %}selected{% endif %}>ETA时间
+                                        </option>
+                                        <option value="return_empty"
+                                                {% if time_type == 'return_empty' %}selected{% endif %}>还空时间
+                                        </option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <!-- 日期范围选择 -->
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <span>日期范围:</span>
+                                <input type="date" name="start_date" value="{{ start_date|default:'' }}"
+                                       title="开始日期">
+                                <span style="color: #86909c;">至</span>
+                                <input type="date" name="end_date" value="{{ end_date|default:'' }}" title="结束日期">
+                            </div>
+
+                            <!-- 操作按钮 -->
+                            <div style="display: flex; gap: 10px;">
+                                <button type="submit" name="step" value="search_orders" class="btn btn-primary"
+                                        title="查询数据">
+                                    查询
+                                </button>
+                                <button type="submit" name="step" value="download_eta_file" class="btn btn-secondary"
+                                        title="导出当前数据">
+                                    导出
+                                </button>
+                            </div>
                         </div>
                     </form>
 
-                    <form action="" method="post" style="display: inline; margin-left:-500px;">
+                    <form action="" method="post" style="display: inline;">
                         {% csrf_token %}
                         <input type="hidden" name="start_date" value="{{ start_date|default:'' }}">
                         <input type="hidden" name="end_date" value="{{ end_date|default:'' }}">
                         <button type="submit" name="step" value="get_is_abnormal_state"
                                 class="btn btn-warning"
-                                style="transition: all 0.2s ease;"
                                 title="筛选所有标记为异常的数据">
                             <i class="bi bi-exclamation-triangle"></i> 筛选所有异常数据
                         </button>
@@ -922,17 +1126,12 @@
                                             <input type="hidden" name="retrieval_id"
                                                    value="{{ o.retrieval_id.retrieval_id }}">
                                             <input type="datetime-local"
-                                                   value=" {% if o.retrieval_id.generous_and_wide_target_retrieval_timestamp%}
-                                                            {{ o.retrieval_id.generous_and_wide_target_retrieval_timestamp|date:'Y-m-d\TH:i' }}
-                                                            {% elif o.retrieval_id.retrieval_cabinet_arrangement_time %}
-                                                            {{ o.retrieval_id.retrieval_cabinet_arrangement_time|date:'Y-m-d\TH:i' }}
-                                                            {% endif %}"
+                                                   value="{% if o.retrieval_id.generous_and_wide_target_retrieval_timestamp %}{{ o.retrieval_id.generous_and_wide_target_retrieval_timestamp|date:'Y-m-d\TH:i' }}{% elif o.retrieval_id.retrieval_cabinet_arrangement_time %}{{ o.retrieval_id.retrieval_cabinet_arrangement_time|date:'Y-m-d\TH:i' }}{% endif %}"
                                                    class="datetime-input"
                                                    name="retrieval_cabinet_arrangement_time"
                                                    placeholder="选择日期时间"
                                                    title="设置提柜安排时间">
                                             <button type="submit" class="custom-btn"
-                                                    style="padding: 4px;margin-top: -45px;margin-left: 166px;font-size: 13px"
                                                     title="确认提柜安排时间">
                                                 确认
                                             </button>
@@ -952,16 +1151,12 @@
                                                    value="{{ end_date_eta|default:'' }}">
                                             <input type="hidden" name="offload_id"
                                                    value="{{ o.offload_id.offload_id }}">
-                                            <input type="datetime-local"
-                                                   value="
-
-                                                           {% if o.offload_id.offload_at %}{{ o.offload_id.offload_at|date:'Y-m-d\TH:i' }}{% endif %}"
+                                            <input type="datetime-local" value="{% if o.offload_id.offload_at %}{{ o.offload_id.offload_at|date:'Y-m-d\TH:i' }}{% endif %}"
                                                    class="datetime-input"
                                                    name="offload_at"
                                                    placeholder="选择日期时间"
                                                    title="设置拆柜时间">
                                             <button type="submit" class="custom-btn"
-                                                    style="padding: 4px;margin-top: -45px;margin-left: 166px;font-size: 13px"
                                                     title="确认拆柜时间">
                                                 确认
                                             </button>
@@ -1000,7 +1195,6 @@
                                                 title="输入货柜备注信息"
                                         >{{ o.retrieval_id.note_preport_dispatch|default:'' }}</textarea>
                                             <button type="submit" class="custom-btn"
-                                                    style="font-size: 13px;padding: 4px;"
                                                     title="保存货柜备注">
                                                 确认
                                             </button>
@@ -1109,7 +1303,15 @@
         <div class="spinner"></div>
     </div>
 
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/layui-src@2.6.8/dist/css/layui.css">
+    <script src="https://cdn.jsdelivr.net/npm/layui-src@2.6.8/dist/layui.js"></script>
     <script>
+        layui.use('form', function () {
+            var form = layui.form;
+            // 渲染表单元素（针对Layui样式的select）
+            form.render('select');
+        });
+
         // 显示加载状态
         function showLoading() {
             document.getElementById('loadingOverlay').classList.add('show');
