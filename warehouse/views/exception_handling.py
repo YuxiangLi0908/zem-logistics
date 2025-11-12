@@ -2155,7 +2155,7 @@ class ExceptionHandling(View):
             
             # 异步查询当前批次的订单
             orders = await sync_to_async(list)(
-                Order.objects.select_related('container_number', 'payable_status')
+                Order.objects.select_related('container_number', 'receivable_status')
                 .all()[current_batch_start:current_batch_end]
             )
             
@@ -2163,8 +2163,8 @@ class ExceptionHandling(View):
             tasks = []
             for order in orders:
                 # 只处理应付状态
-                if order.payable_status:
-                    task = self.migrate_single_status(order, order.payable_status, "payable")
+                if order.receivable_status:
+                    task = self.migrate_single_status(order, order.receivable_status, "receivable")
                     tasks.append(task)
             
             # 等待所有任务完成
