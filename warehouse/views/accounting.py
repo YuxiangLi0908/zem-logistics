@@ -5456,14 +5456,7 @@ class Accounting(View):
             for region, fee_data_list in combina_fee.items():           
                 for fee_data in fee_data_list:
                     prices_obj = fee_data["prices"]
-                    price = None
-                    if isinstance(prices_obj, dict):
-                        price = prices_obj.get(container_type)
-                    elif isinstance(prices_obj, (list, tuple)):
-                        # 如果是列表，优先选第一个数字项（而不是随便第一个）
-                        price = next((x for x in prices_obj if isinstance(x, (int, float))), None)
-                    else:
-                        price = prices_obj
+                    price = self._extract_price(prices_obj, container_type)
                     
                     # 如果匹配到组合柜仓点，就登记到组合柜集合中
                     if dest in fee_data["location"]:
@@ -5533,7 +5526,7 @@ class Accounting(View):
                 for match in item["matches"]:
                     region = match["region"]
                     matching_regions[region] += item["cbm"]
-                    price_display[region]["price"] = match["prices"][container_type]
+                    price_display[region]["price"] = self._extract_price(match["prices"], container_type)
                     
                     price_display[region]["location"].add(dest)
 
@@ -5586,6 +5579,48 @@ class Accounting(View):
             "non_combina_dests": non_combina_dests,
             "price_display": price_display,
         }
+
+    def _extract_price(self, prices_obj, container_type):
+        """
+        安全地从 prices_obj 中提取数值 price：
+        - 如果 prices_obj 是 dict，按键取（container_type 可为字符串或整型）。
+        - 如果是 list/tuple，且 container_type 是 int，则尝试取 prices_obj[container_type]。
+        若越界或该项不是数值，则回退到列表中第一个数值项。
+        - 如果是单值（int/float），直接返回。
+        - 其它情况返回 None。
+        """
+        # 优先处理 dict
+        if isinstance(prices_obj, dict):
+            # 允许 container_type 是 str 或 int（int 转为索引的情况不常见）
+            val = prices_obj.get(container_type)
+            if isinstance(val, (int, float)):
+                return val
+            # 如果取到的不是数字，尝试找 dict 的第一个数字值作为回退
+            for v in prices_obj.values():
+                if isinstance(v, (int, float)):
+                    return v
+            return None
+
+        # list/tuple 按 index 选
+        if isinstance(prices_obj, (list, tuple)):
+            # 当 container_type 是整数索引时，优先使用该索引
+            if isinstance(container_type, int):
+                try:
+                    candidate = prices_obj[container_type]
+                    if isinstance(candidate, (int, float)):
+                        return candidate
+                except Exception:
+                    pass
+            # 回退：选第一个数字项
+            first_num = next((x for x in prices_obj if isinstance(x, (int, float))), None)
+            return first_num
+
+        # 直接是数字
+        if isinstance(prices_obj, (int, float)):
+            return prices_obj
+
+        # 其他（字符串等），不能作为 price
+        return None
 
     def is_mixed_region(self, matched_regions, warehouse, vessel_etd) -> bool:
         regions = list(matched_regions.keys())
@@ -6099,6 +6134,8 @@ class Accounting(View):
                 "extra_fees": actual_fees,
                 "destination_matches": matched_regions["combina_dests"],
                 "non_combina_dests": list(matched_regions["non_combina_dests"].keys()),
+                "container_type_temp": container_type_temp,
+                "container_type": container_type,
             }
         )
         return self.template_invoice_combina_edit, context

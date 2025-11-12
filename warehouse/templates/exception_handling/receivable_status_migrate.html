@@ -1,0 +1,453 @@
+<!-- templates/migration.html -->
+{% extends 'base.html' %}
+
+{% block content %}
+<style>
+    body {
+        background-color: #f5f6fa;
+    }
+
+    .migration-container {
+        max-width: 1800px;
+        margin: 30px auto;
+        padding: 30px;
+        font-size: 16px;
+        background-color: #fff;
+        border-radius: 10px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    }
+
+    h2, h5, .card-title {
+        font-weight: 600;
+        color: #2c3e50;
+    }
+
+    /* 徽章样式优化 */
+    .status-badge {
+        font-size: 14px;
+        padding: 6px 12px;
+        border-radius: 15px;
+        font-weight: 500;
+        border: none;
+        text-transform: capitalize;
+        margin: 3px;
+    }
+
+    .bg-success { background-color: #d1f7d1 !important; color: #0a7b32 !important; }
+    .bg-danger { background-color: #fde2e1 !important; color: #b02a37 !important; }
+    .bg-warning { background-color: #fff4d8 !important; color: #b06900 !important; }
+    .bg-primary { background-color: #dbe7ff !important; color: #004aad !important; }
+    .bg-info { background-color: #d8f6fc !important; color: #087990 !important; }
+    .bg-secondary { background-color: #e9ecef !important; color: #555 !important; }
+
+    /* 表格容器 */
+    .data-table-container {
+        overflow: auto;
+        height: 700px;
+        margin-top: 25px;
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        background-color: white;
+    }
+
+    /* 表格整体 */
+    .data-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 15px;
+    }
+
+    /* 表头 */
+    .data-table thead th {
+        position: sticky;
+        top: 0;
+        background-color: #2c3e50;
+        color: white;
+        z-index: 10;
+        font-weight: 600;
+        text-align: center;
+        padding: 15px 10px;
+        border-bottom: 2px solid #444;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        font-size: 15px;
+    }
+
+    /* 表格行 */
+    .data-table tbody tr {
+        transition: background-color 0.15s ease;
+    }
+
+    .data-table tbody tr:nth-child(even) {
+        background-color: #f8f9fa;
+    }
+
+    .data-table tbody tr:hover {
+        background-color: #eef5ff;
+    }
+
+    /* 单元格 */
+    .data-table td {
+        padding: 12px 10px;
+        vertical-align: top;
+        border-bottom: 1px solid #e1e5ea;
+        text-align: center;
+    }
+
+    /* 柜号列 */
+    .container-number {
+        font-weight: 700;
+        font-size: 16px;
+        color: #004085;
+    }
+
+    /* 原状态样式 */
+    .old-status-section {
+        text-align: left;
+        padding: 10px;
+    }
+
+    .status-row {
+        display: flex;
+        align-items: center;
+        margin-bottom: 6px;
+        min-height: 28px;
+    }
+
+    .status-name {
+        font-weight: 600;
+        color: #2f3542;
+        min-width: 50px;
+        font-size: 14px;
+    }
+
+    .status-value {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        align-items: center;
+        flex: 1;
+    }
+
+    .empty-status {
+        color: #adb5bd;
+        font-style: italic;
+        font-size: 14px;
+    }
+
+    /* 新状态列样式 */
+    .new-status-column {
+        text-align: center;
+        padding: 10px 6px;
+    }
+
+    .status-title {
+        font-weight: 600;
+        color: #2c3e50;
+        font-size: 14px;
+        margin-bottom: 8px;
+        padding-bottom: 4px;
+        border-bottom: 1px solid #e9ecef;
+    }
+
+    .status-content {
+        min-height: 50px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .status-item {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 2px 0;
+    }
+
+    .item-label {
+        font-size: 13px;
+        color: #6c757d;
+        margin-right: 4px;
+        font-weight: 500;
+    }
+
+    /* 按钮样式 */
+    .btn {
+        font-size: 16px;
+        padding: 10px 24px;
+        border-radius: 6px;
+        font-weight: 500;
+    }
+
+    .card {
+        border-radius: 8px;
+        box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+    }
+
+    .alert {
+        font-size: 16px;
+    }
+
+    /* 表单样式 */
+    .range-inputs {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-left: 20px;
+    }
+
+    .range-inputs span {
+        font-size: 15px;
+        color: #495057;
+        font-weight: 500;
+    }
+
+    .range-inputs input {
+        width: 90px;
+        padding: 8px 10px;
+        border: 1px solid #ced4da;
+        border-radius: 6px;
+        font-size: 15px;
+    }
+
+    .range-inputs input:focus {
+        border-color: #007bff;
+        box-shadow: 0 0 0 0.2rem rgba(0,123,255,.25);
+    }
+</style>
+
+<div class="migration-container">
+    <div class="row mb-4">
+        <div class="col">
+            <h2 class="text-center">账单状态数据迁移</h2>
+        </div>
+    </div>
+
+    <!-- 迁移表单 -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="post" id="migrationForm">
+                {% csrf_token %}
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h5 class="card-title mb-0">执行数据迁移</h5>
+                        <p class="text-muted mb-0">当前状态: 
+                            {% if migration_status == 'not_started' %}
+                                <span class="badge bg-secondary">未开始</span>
+                            {% elif migration_status == 'completed' %}
+                                <span class="badge bg-success">已完成</span>
+                            {% elif migration_status == 'error' %}
+                                <span class="badge bg-danger">执行失败</span>
+                            {% endif %}
+                        </p>
+                    </div>
+                    <div class="range-inputs">
+                        <span>迁移范围:</span>
+                        <input type="number" name="start_index" placeholder="起始" value="{{ start_index|default:'0' }}" min="0">
+                        <span>至</span>
+                        <input type="number" name="end_index" placeholder="结束" value="{{ end_index|default:'100' }}" min="1">
+                    </div>
+                    <input type="hidden" name="step" value="receivale_status_migrate">
+                    <button type="submit" class="btn btn-primary">开始数据迁移</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 迁移结果 -->
+    {% if message %}
+    <div class="alert alert-success alert-area">
+        <h5 class="alert-heading">迁移成功</h5>
+        <p class="mb-0">{{ message }}</p>
+        {% if total_migrated %}
+        <p class="mb-0"><strong>总共迁移: {{ total_migrated }} 条记录</strong></p>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    {% if error_message %}
+    <div class="alert alert-danger alert-area">
+        <h5 class="alert-heading">迁移失败</h5>
+        <p class="mb-0">错误信息: {{ error_message }}</p>
+    </div>
+    {% endif %}
+
+    <!-- 迁移日志 -->
+    {% if migration_log %}
+    <div class="card">
+        <div class="card-header">
+            <h5 class="card-title mb-0">迁移日志详情 ({{ migration_log|length }} 条记录)</h5>
+        </div>
+        <div class="card-body">
+            <div class="data-table-container">
+                <table class="data-table" id="resultTable">
+                    <thead>
+                        <tr>
+                            <th width="120">柜号</th>
+                            <th width="25%">原状态</th>
+                            <th width="14%">港前状态</th>
+                            <th width="20%">仓库状态</th>
+                            <th width="20%">派送状态</th>
+                            <th width="14%">财务状态</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for log in migration_log %}
+                        <tr>
+                            <!-- 柜号 -->
+                            <td>
+                                <div class="container-number">{{ log.container_number }}</div>
+                            </td>
+                            
+                            <!-- 原状态 -->
+                            <td>
+                                <div class="old-status-section">
+                                    <div class="status-row">
+                                        <span class="status-name">阶段:</span>
+                                        <div class="status-value">
+                                            {% if log.old_data.stage != 'unstarted' %}
+                                                <span class="badge bg-info status-badge">{{ log.old_data.stage }}</span>
+                                            {% else %}
+                                                <span class="empty-status">-</span>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    <div class="status-row">
+                                        <span class="status-name">公仓:</span>
+                                        <div class="status-value">
+                                            {% if log.old_data.stage_public != 'pending' %}
+                                                <span class="badge bg-secondary status-badge">{{ log.old_data.stage_public }}</span>
+                                            {% else %}
+                                                <span class="empty-status">-</span>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    <div class="status-row">
+                                        <span class="status-name">私仓:</span>
+                                        <div class="status-value">
+                                            {% if log.old_data.stage_other != 'pending' %}
+                                                <span class="badge bg-secondary status-badge">{{ log.old_data.stage_other }}</span>
+                                            {% else %}
+                                                <span class="empty-status">-</span>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </td>
+                            
+                            <!-- 港前状态 -->
+                            <td class="new-status-column">
+                                <div class="status-title">港前</div>
+                                <div class="status-content">
+                                    {% if log.new_data.preport_status != 'unstarted' %}
+                                        <span class="badge status-badge {% if log.new_data.preport_status == 'completed' %}bg-success
+                                            {% elif log.new_data.preport_status == 'rejected' %}bg-danger
+                                            {% elif log.new_data.preport_status == 'pending_review' %}bg-warning
+                                            {% else %}bg-primary{% endif %}">
+                                            {{ log.new_data.preport_status }}
+                                        </span>
+                                    {% else %}
+                                        <span class="empty-status">-</span>
+                                    {% endif %}
+                                </div>
+                            </td>
+                            
+                            <!-- 仓库状态 -->
+                            <td class="new-status-column">
+                                <div class="status-title">仓库</div>
+                                <div class="status-content">
+                                    <div class="status-item">
+                                        <span class="item-label">公仓:</span>
+                                        {% if log.new_data.warehouse_public_status != 'unstarted' %}
+                                            <span class="badge status-badge {% if log.new_data.warehouse_public_status == 'completed' %}bg-success
+                                                {% elif log.new_data.warehouse_public_status == 'rejected' %}bg-danger
+                                                {% else %}bg-primary{% endif %}">
+                                                {{ log.new_data.warehouse_public_status }}
+                                            </span>
+                                        {% else %}
+                                            <span class="empty-status">-</span>
+                                        {% endif %}
+                                    </div>
+                                    <div class="status-item">
+                                        <span class="item-label">私仓:</span>
+                                        {% if log.new_data.warehouse_other_status != 'unstarted' %}
+                                            <span class="badge status-badge {% if log.new_data.warehouse_other_status == 'completed' %}bg-success
+                                                {% elif log.new_data.warehouse_other_status == 'rejected' %}bg-danger
+                                                {% else %}bg-primary{% endif %}">
+                                                {{ log.new_data.warehouse_other_status }}
+                                            </span>
+                                        {% else %}
+                                            <span class="empty-status">-</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </td>
+                            
+                            <!-- 派送状态 -->
+                            <td class="new-status-column">
+                                <div class="status-title">派送</div>
+                                <div class="status-content">
+                                    <div class="status-item">
+                                        <span class="item-label">公仓:</span>
+                                        {% if log.new_data.delivery_public_status != 'unstarted' %}
+                                            <span class="badge status-badge {% if log.new_data.delivery_public_status == 'completed' %}bg-success
+                                                {% elif log.new_data.delivery_public_status == 'rejected' %}bg-danger
+                                                {% else %}bg-primary{% endif %}">
+                                                {{ log.new_data.delivery_public_status }}
+                                            </span>
+                                        {% else %}
+                                            <span class="empty-status">-</span>
+                                        {% endif %}
+                                    </div>
+                                    <div class="status-item">
+                                        <span class="item-label">私仓:</span>
+                                        {% if log.new_data.delivery_other_status != 'unstarted' %}
+                                            <span class="badge status-badge {% if log.new_data.delivery_other_status == 'completed' %}bg-success
+                                                {% elif log.new_data.delivery_other_status == 'rejected' %}bg-danger
+                                                {% else %}bg-primary{% endif %}">
+                                                {{ log.new_data.delivery_other_status }}
+                                            </span>
+                                        {% else %}
+                                            <span class="empty-status">-</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </td>
+                            
+                            <!-- 财务状态 -->
+                            <td class="new-status-column">
+                                <div class="status-title">财务</div>
+                                <div class="status-content">
+                                    {% if log.new_data.finance_status != 'unstarted' %}
+                                        <span class="badge status-badge {% if log.new_data.finance_status == 'confirmed' %}bg-success
+                                            {% elif log.new_data.finance_status == 'tobeconfirmed' %}bg-warning
+                                            {% elif log.new_data.finance_status == 'rejected' %}bg-danger
+                                            {% else %}bg-primary{% endif %}">
+                                            {{ log.new_data.finance_status }}
+                                        </span>
+                                    {% else %}
+                                        <span class="empty-status">-</span>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <!-- 无数据提示 -->
+    <div class="text-center py-5">
+        <div class="alert alert-warning">
+            <h5>暂无迁移数据</h5>
+            <p class="mb-0">点击"开始数据迁移"按钮执行数据迁移操作</p>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+{% endblock %}
