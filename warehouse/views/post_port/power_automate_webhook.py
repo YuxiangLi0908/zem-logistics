@@ -92,7 +92,8 @@ class PowerAutomateWebhook(View):
             raise ValueError(f"Invalid filename format: {filename}")
         
         # Find the document type (BOL, LABEL, or BOL+LABEL) - usually at index 4
-        shipment_batch_number = parts[5] if len(parts) > 5 else None
+        shipment_batch_number = parts[-2]
+        shipment_type = parts[-1]
         
         # Determine file type
         file_type = None
@@ -106,6 +107,7 @@ class PowerAutomateWebhook(View):
         return {
             "shipment_batch_number": shipment_batch_number,
             "file_type": file_type,
+            "shipment_type": shipment_type,
         }
 
     def _get_sharepoint_file_link(self, conn: ClientContext, file_path: str, filename: str) -> str:
@@ -178,11 +180,15 @@ class PowerAutomateWebhook(View):
                 parsed = self._parse_filename(filename)
                 shipment_batch_number = parsed["shipment_batch_number"]
                 file_type = parsed["file_type"]
+                shipment_type = parsed["shipment_type"]
             except ValueError as e:
                 # Skip files with invalid format
                 continue
             
             if not shipment_batch_number or not file_type:
+                continue
+            
+            if shipment_type != "LTL":
                 continue
             
             # Find LTL shipment by shipment_batch_number
