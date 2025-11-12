@@ -400,7 +400,6 @@ class PostNsop(View):
                 models.Q(container_number__order__order_type="转运")
                 | models.Q(container_number__order__order_type="转运组合")
             ),
-            container_number__order__packing_list_updloaded=True,
             shipment_batch_number__isnull=True,
             container_number__order__created_at__gte="2024-09-01",
         )
@@ -2908,7 +2907,7 @@ class PostNsop(View):
             # 优先级2: 把包含暂扣的放最后面
             custom_method = item.get("custom_delivery_method", "")
             keywords = ["暂扣", "HOLD", "留仓"]
-            has_hold_keyword = any(k in custom_method for k in keywords)
+            has_hold_keyword = custom_method is not None and any(k in custom_method for k in keywords)
             priority2 = has_hold_keyword  # True的排后面，False的排前面
             
             return (priority1[0], priority1[1], priority2)

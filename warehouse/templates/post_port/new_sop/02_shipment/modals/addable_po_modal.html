@@ -1,4 +1,59 @@
 <!--未排车时添加PO弹框-->
+<style>
+    .filter-info-tooltip {
+        position: relative;
+        display: inline-block;
+    }
+
+    .filter-info-tooltip::after {
+        content: attr(data-tooltip);
+        white-space: pre-line; /* 支持多行 */
+        position: absolute;
+        top: calc(50% + 6px);
+        left: 120%; /* 在问号右侧一点 */
+        transform: translateY(-35%); /* 垂直居中，与问号齐平 */
+        background-color: rgba(60, 60, 60, 0.95);
+        color: #fff;
+        padding: 6px 10px;
+        border-radius: 6px;
+        font-size: 12px;
+        line-height: 1.4;
+        width: max-content;
+        max-width: 260px;
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity 0.2s ease;
+        z-index: 1000;
+        pointer-events: none;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    }
+
+    /* 悬停时显示 */
+    .filter-info-tooltip:hover::after {
+        opacity: 1;
+        visibility: visible;
+    }
+
+    /* 加一个右侧的小箭头 */
+    .filter-info-tooltip::before {
+        content: "";
+        position: absolute;
+        top: 50%;
+        left: 100%;
+        transform: translateY(-50%);
+        border-width: 6px;
+        border-style: solid;
+        border-color: transparent rgba(60, 60, 60, 0.95) transparent transparent;
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity 0.2s ease;
+    }
+
+    .filter-info-tooltip:hover::before {
+        opacity: 1;
+        visibility: visible;
+    }
+</style>
 <form method="post" id="addablePOForm">
     {% csrf_token %}
     <input type="hidden" name="tab" id="formTab" value="">
@@ -9,7 +64,18 @@
     <div id="addablePOModal" class="modal">
         <div class="modal-content" style="width: 90%; max-width: 900px; max-height: 700px;">
             <div class="modal-header">
-                <h3><i class="fas fa-plus"></i> 添加PO - {{ appointment_id }}</h3>
+                <h3>
+                    <i class="fas fa-plus"></i> 添加PO - {{ appointment_id }}
+                    <span class="filter-info-tooltip" 
+                        data-tooltip="可添加PO筛选条件：
+                    • 柜子类型：转运 或 转运组合
+                    • 建单时间：2024年9月1日之后
+                    • 状态：未绑定预约
+                    • 所在地：{{ warehouse }}
+                    • 仓库类型：公仓">
+                        <i class="fas fa-question-circle" style="color: #6c757d; font-size: 0.8em; cursor: help; margin-left: 8px;"></i>
+                    </span>
+                </h3>
                 <span class="close" onclick="closeAddablePOModal()">&times;</span>
             </div>
             <div class="modal-body">
