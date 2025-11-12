@@ -56,10 +56,22 @@ class PowerAutomateWebhook(View):
         # Process files from SharePoint
         try:
             response = self._process_sharepoint_files(body)
+            # Log response to database
+            power_automate_event.response = {
+                "content": response.content.decode("utf-8") if response.content else "",
+                "status_code": response.status_code,
+            }
+            power_automate_event.save()
         except Exception as e:
-            # Log error but still return success to Power Automate
-            # The error details are saved in the raw webhook data
-            return HttpResponse(f"Request received but processing error: {str(e)}", status=200)
+            # Log error response (500 for unexpected errors)
+            error_response = HttpResponse(f"Request received but processing error: {str(e)}", status=500)
+            power_automate_event.response = {
+                "content": error_response.content.decode("utf-8") if error_response.content else "",
+                "status_code": error_response.status_code,
+                "error": str(e),
+            }
+            power_automate_event.save()
+            return error_response
         
         # return HttpResponse("POST request received", status=200)
         return response
@@ -150,31 +162,40 @@ class PowerAutomateWebhook(View):
     def _process_sharepoint_files(self, body: dict[str, Any]) -> None:
         """Process files from SharePoint and update shipments"""
         if "files" not in body:
-            return HttpResponse("No files found", status=200)
+            return HttpResponse("No files found", status=400)
         
         # Parse files JSON string
         files_str = body.get("files", "[]")
         try:
             files = json.loads(files_str) if isinstance(files_str, str) else files_str
         except json.JSONDecodeError:
-            # raise ValueError(f"Invalid files JSON: {files_str}")
-            return HttpResponse("Invalid files JSON", status=200)
+            return HttpResponse(f"Invalid files JSON: {files_str}", status=400)
         
         if not isinstance(files, list):
-            # raise ValueError("Files must be a list")
-            return HttpResponse("Files must be a list", status=200)
+            return HttpResponse(f"Files must be a list: {files}", status=400)
+        
+        if len(files) == 0:
+            return HttpResponse(f"No files to process: {body}", status=400)
         
         # Connect to SharePoint
-        conn = self._get_sharepoint_auth()
+        try:
+            conn = self._get_sharepoint_auth()
+        except Exception as e:
+            return HttpResponse(f"Error connecting to SharePoint: {str(e)}", status=500)
+        
+        processed_count = 0
+        errors = []
         
         for file_info in files:
             if not isinstance(file_info, dict):
+                errors.append(f"Invalid file info format (not a dict): {file_info}")
                 continue
             
             filename = file_info.get("name")
             file_path = file_info.get("path", "")
             
             if not filename:
+                errors.append(f"Missing filename in file info: {file_info}")
                 continue
             
             # Parse filename to extract shipment_batch_number and file type
@@ -184,34 +205,37 @@ class PowerAutomateWebhook(View):
                 file_type = parsed["file_type"]
                 shipment_type = parsed["shipment_type"]
             except ValueError as e:
-                # Skip files with invalid format
-                return HttpResponse(f"Invalid filename format: {filename}", status=200)
+                errors.append(f"Invalid filename format: {filename} - {str(e)}")
+                continue
             
             if not shipment_batch_number or not file_type:
-                return HttpResponse(f"Invalid shipment batch number or file type: {filename}", status=200)
+                errors.append(f"Invalid shipment batch number or file type: {filename}")
+                continue
             
             if shipment_type != "LTL":
-                return HttpResponse(f"Invalid shipment type: {shipment_type}", status=200)
+                errors.append(f"Invalid shipment type: {shipment_type} (expected LTL)")
+                continue
 
             # Find LTL shipment by shipment_batch_number
             try:
                 shipment = Shipment.objects.get(shipment_batch_number=shipment_batch_number)
             except Shipment.DoesNotExist:
-                # Skip if shipment not found or not LTL
-                return HttpResponse(f"Shipment not found: {shipment_batch_number}", status=200)
+                errors.append(f"Shipment not found: {shipment_batch_number}")
+                continue
             except Shipment.MultipleObjectsReturned:
                 # If multiple found, take the first one
                 shipment = Shipment.objects.filter(shipment_batch_number=shipment_batch_number).first()
             
             if not shipment:
-                return HttpResponse(f"Shipment not found: {shipment_batch_number}", status=200)
+                errors.append(f"Shipment not found: {shipment_batch_number}")
+                continue
             
             # Get shareable link from SharePoint
             try:
                 shareable_link = self._get_sharepoint_file_link(conn, file_path, filename)
             except Exception as e:
-                # Skip if file not found or error getting link
-                return HttpResponse(f"Error getting shareable link: {e}", status=200)
+                errors.append(f"Error getting shareable link for {filename}: {str(e)}")
+                continue
             
             # Update shipment with appropriate link
             if file_type == "BOL+LABEL" or file_type == "BOL":
@@ -220,5 +244,19 @@ class PowerAutomateWebhook(View):
                 shipment.ltl_label_link = shareable_link
             
             shipment.save()
+            processed_count += 1
 
-        return HttpResponse("Files processed successfully", status=200)
+        # Return appropriate status based on results
+        if processed_count == 0 and len(errors) > 0:
+            # All files failed
+            error_msg = f"No files processed. Errors: {'; '.join(errors)}"
+            return HttpResponse(error_msg, status=400)
+        elif len(errors) > 0:
+            # Some files processed, some failed
+            return HttpResponse(
+                f"Partially processed: {processed_count} file(s) processed, {len(errors)} error(s). Errors: {'; '.join(errors)}",
+                status=207  # 207 Multi-Status for partial success
+            )
+        else:
+            # All files processed successfully
+            return HttpResponse(f"Files processed successfully: {processed_count} file(s)", status=200)
