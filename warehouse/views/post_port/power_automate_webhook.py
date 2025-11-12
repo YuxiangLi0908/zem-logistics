@@ -94,7 +94,7 @@ class PowerAutomateWebhook(View):
         
         # Find the document type (BOL, LABEL, or BOL+LABEL) - usually at index 4
         shipment_batch_number = parts[-2]
-        shipment_type = parts[-1]
+        shipment_type = parts[-1].split(".")[0]
         
         # Determine file type
         file_type = None
