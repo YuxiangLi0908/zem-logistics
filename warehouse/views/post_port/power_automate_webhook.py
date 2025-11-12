@@ -55,13 +55,14 @@ class PowerAutomateWebhook(View):
         
         # Process files from SharePoint
         try:
-            self._process_sharepoint_files(body)
+            response = self._process_sharepoint_files(body)
         except Exception as e:
             # Log error but still return success to Power Automate
             # The error details are saved in the raw webhook data
             return HttpResponse(f"Request received but processing error: {str(e)}", status=200)
         
-        return HttpResponse("POST request received", status=200)
+        # return HttpResponse("POST request received", status=200)
+        return response
 
     def _get_client_ip(self, request: HttpRequest) -> str:
         x_forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
@@ -150,17 +151,19 @@ class PowerAutomateWebhook(View):
     def _process_sharepoint_files(self, body: dict[str, Any]) -> None:
         """Process files from SharePoint and update shipments"""
         if "files" not in body:
-            return
+            return HttpResponse("No files found", status=200)
         
         # Parse files JSON string
         files_str = body.get("files", "[]")
         try:
             files = json.loads(files_str) if isinstance(files_str, str) else files_str
         except json.JSONDecodeError:
-            raise ValueError(f"Invalid files JSON: {files_str}")
+            # raise ValueError(f"Invalid files JSON: {files_str}")
+            return HttpResponse("Invalid files JSON", status=200)
         
         if not isinstance(files, list):
-            raise ValueError("Files must be a list")
+            # raise ValueError("Files must be a list")
+            return HttpResponse("Files must be a list", status=200)
         
         # Connect to SharePoint
         conn = self._get_sharepoint_auth()
@@ -183,33 +186,33 @@ class PowerAutomateWebhook(View):
                 shipment_type = parsed["shipment_type"]
             except ValueError as e:
                 # Skip files with invalid format
-                continue
+                return HttpResponse(f"Invalid filename format: {filename}", status=200)
             
             if not shipment_batch_number or not file_type:
-                continue
+                return HttpResponse(f"Invalid shipment batch number or file type: {filename}", status=200)
             
             if shipment_type != "LTL":
-                continue
-            
+                return HttpResponse(f"Invalid shipment type: {shipment_type}", status=200)
+
             # Find LTL shipment by shipment_batch_number
             try:
                 shipment = Shipment.objects.get(shipment_batch_number=shipment_batch_number)
             except Shipment.DoesNotExist:
                 # Skip if shipment not found or not LTL
-                continue
+                return HttpResponse(f"Shipment not found: {shipment_batch_number}", status=200)
             except Shipment.MultipleObjectsReturned:
                 # If multiple found, take the first one
                 shipment = Shipment.objects.filter(shipment_batch_number=shipment_batch_number).first()
             
             if not shipment:
-                continue
+                return HttpResponse(f"Shipment not found: {shipment_batch_number}", status=200)
             
             # Get shareable link from SharePoint
             try:
                 shareable_link = self._get_sharepoint_file_link(conn, file_path, filename)
             except Exception as e:
                 # Skip if file not found or error getting link
-                continue
+                return HttpResponse(f"Error getting shareable link: {e}", status=200)
             
             # Update shipment with appropriate link
             if file_type == "BOL+LABEL" or file_type == "BOL":
@@ -218,3 +221,5 @@ class PowerAutomateWebhook(View):
                 shipment.ltl_label_link = shareable_link
             
             shipment.save()
+
+        return HttpResponse("Files processed successfully", status=200)
