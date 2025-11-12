@@ -92,10 +92,10 @@ class PostNsop(View):
     }
     shipment_type_options = {
         "FTL": "FTL",
-        "LTL": "LTL",
-        "外配": "外配",
-        "快递": "快递",
-        "客户自提": "客户自提",
+        # "LTL": "LTL",
+        # "外配": "外配",
+        # "快递": "快递",
+        # "客户自提": "客户自提",
     }
     
     async def get(self, request: HttpRequest) -> HttpResponse:
