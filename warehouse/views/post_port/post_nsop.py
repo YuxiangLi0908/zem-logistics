@@ -2126,7 +2126,9 @@ class PostNsop(View):
         pre_groups = {}
         for cargo in unshipment_pos:
             if not await self.has_appointment(cargo):
-                dest = cargo.get('destination')
+                raw_dest = (cargo.get('destination') or '').strip()
+                dest = raw_dest.split('-')[-1].strip().upper() if raw_dest else ''
+
                 delivery_method = cargo.get('custom_delivery_method')
                 if not dest or not delivery_method:
                     continue
@@ -2767,10 +2769,10 @@ class PostNsop(View):
     async def get_capacity_limits(self, st_type: str) -> tuple:
         """获取容量限制"""
         if st_type == "pallet":
-            return 72, 35
+            return 80, 35
         elif st_type == "floor":
             return 80, 38
-        return 72, 35
+        return 80, 35
 
     async def handle_appointment_management_post(
         self, request: HttpRequest, context: dict| None = None,
