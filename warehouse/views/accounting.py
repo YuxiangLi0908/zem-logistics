@@ -6099,6 +6099,8 @@ class Accounting(View):
                 "extra_fees": actual_fees,
                 "destination_matches": matched_regions["combina_dests"],
                 "non_combina_dests": list(matched_regions["non_combina_dests"].keys()),
+                "container_type_temp": container_type_temp,
+                "container_type": container_type,
             }
         )
         return self.template_invoice_combina_edit, context
