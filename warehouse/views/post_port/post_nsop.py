@@ -2907,7 +2907,7 @@ class PostNsop(View):
             # 优先级2: 把包含暂扣的放最后面
             custom_method = item.get("custom_delivery_method", "")
             keywords = ["暂扣", "HOLD", "留仓"]
-            has_hold_keyword = any(k in custom_method for k in keywords)
+            has_hold_keyword = custom_method is not None and any(k in custom_method for k in keywords)
             priority2 = has_hold_keyword  # True的排后面，False的排前面
             
             return (priority1[0], priority1[1], priority2)
