@@ -2113,7 +2113,6 @@ class ExceptionHandling(View):
         """
         start_index = int(request.POST.get("start_index", 0))
         end_index = int(request.POST.get("end_index", 0))
-        print(f"迁移范围: {start_index} - {end_index}")
         migration_log = []
         
         # 查一下数量
@@ -2126,7 +2125,6 @@ class ExceptionHandling(View):
             end_index = total_orders
         
         total_to_process = end_index - start_index
-        print(f"开始异步迁移应付状态数据，总共 {total_orders} 个订单，处理范围: {start_index}-{end_index}，共 {total_to_process} 条记录")
         
         # 分批处理
         batch_size = 100
@@ -2151,8 +2149,6 @@ class ExceptionHandling(View):
             batch_offset = current_batch_start - batch_start
             batch_limit = current_batch_end - current_batch_start
             
-            print(f"处理第 {batch_index + 1} 批订单，范围: {current_batch_start}-{current_batch_end}，共 {batch_limit} 个")
-            
             # 异步查询当前批次的订单
             orders = await sync_to_async(list)(
                 Order.objects.select_related('container_number', 'receivable_status')
@@ -2174,11 +2170,7 @@ class ExceptionHandling(View):
             for result in batch_results:
                 if result and not isinstance(result, Exception):
                     migration_log.append(result)
-        
-        print(f"应付状态数据异步迁移完成，总共迁移 {len(migration_log)} 条记录")
-        
-        # 异步保存迁移日志到文件
-        await self.save_migration_log(migration_log)
+    
         context = {
             'migration_log': migration_log,
             'total_migrated': len(migration_log),
@@ -2189,13 +2181,6 @@ class ExceptionHandling(View):
         }
         return self.template_receivable_status_migrate, context
 
-    async def save_migration_log(self, migration_log):
-        """异步保存迁移日志到文件"""
-        def _save():
-            with open('migration_log.json', 'w', encoding='utf-8') as f:
-                json.dump(migration_log, f, ensure_ascii=False, indent=2)
-        
-        await sync_to_async(_save)()
 
     async def migrate_single_status(self, order, old_status, invoice_type):
         """
@@ -2209,9 +2194,7 @@ class ExceptionHandling(View):
             
             # 构建迁移日志
             log_entry = {
-                'order_id': order.order_id or '无订单号',
                 'container_number': order.container_number.container_number if order.container_number else '未知柜号',
-                'invoice_type': invoice_type,
                 'old_data': {
                     'stage': old_stage,
                     'stage_public': old_stage_public,
@@ -2261,7 +2244,7 @@ class ExceptionHandling(View):
             }
         elif old_stage == "preport":
             base_status = {
-                'preport_status': "completed",
+                'preport_status': "pending_review",
                 'warehouse_public_status': "unstarted",
                 'warehouse_other_status': "unstarted",
                 'delivery_public_status': "unstarted",
