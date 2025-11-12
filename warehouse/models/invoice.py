@@ -109,6 +109,72 @@ class InvoiceStatus(models.Model):
             ("delivery_rejected", "派送已驳回"),
         ],
     )
+    preport_status = models.CharField(
+        max_length=20,
+        default="unstarted",  # 未开始
+        choices=[
+            ("unstarted", "未录入"),
+            ("in_progress", "录入中"), 
+            ("pending_review", "待组长审核"),
+            ("completed", "已完成"),
+            ("rejected", "已驳回"),
+        ]
+    )
+    
+    warehouse_public_status = models.CharField(
+        max_length=20,
+        default="unstarted",
+        choices=[
+            ("unstarted", "未录入"),
+            ("in_progress", "录入中"),
+            ("completed", "已完成"),
+            ("rejected", "已驳回"),
+        ]
+    )
+    
+    warehouse_other_status = models.CharField(
+        max_length=20,
+        default="unstarted", 
+        choices=[
+            ("unstarted", "未录入"),
+            ("in_progress", "录入中"),
+            ("completed", "已完成"),
+            ("rejected", "已驳回"),
+        ]
+    )
+    
+    delivery_public_status = models.CharField(
+        max_length=20,
+        default="unstarted",
+        choices=[
+            ("unstarted", "未录入"),
+            ("in_progress", "录入中"),
+            ("completed", "已完成"),
+            ("rejected", "已驳回"),
+        ]
+    )
+    
+    delivery_other_status = models.CharField(
+        max_length=20,
+        default="unstarted",
+        choices=[
+            ("unstarted", "未录入"),
+            ("in_progress", "录入中"),
+            ("completed", "已完成"),
+            ("rejected", "已驳回"),
+        ]
+    )
+    
+    # 财务审核状态（原来的待确认和已完成）
+    finance_status = models.CharField(
+        max_length=20,
+        default="unstarted",
+        choices=[
+            ("unstarted", "未开始"),
+            ("tobeconfirmed", "待确认"),
+            ("confirmed", "已完成"),
+        ]
+    )
     payable_status = models.JSONField(
         default={
             "pickup": "pending",  # 提拆状态
