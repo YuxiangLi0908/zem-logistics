@@ -30,6 +30,7 @@ from warehouse.models.quote import Quote
 from warehouse.models.retrieval import Retrieval
 from warehouse.models.shipment import Shipment
 from warehouse.models.shipment_status import ShipmentStatus
+from warehouse.models.power_automate_webhook_raw import PowerAutomateWebhookRaw
 from warehouse.models.terminal49_webhook_raw import T49Raw
 from warehouse.models.transaction import Transaction
 from warehouse.models.transfer_location import TransferLocation
@@ -53,6 +54,7 @@ admin.site.register(Invoice, SimpleHistoryAdmin)
 admin.site.register(InvoiceStatus, SimpleHistoryAdmin)
 admin.site.register(InvoiceItem, SimpleHistoryAdmin)
 admin.site.register(InvoiceStatement, SimpleHistoryAdmin)
+admin.site.register(PowerAutomateWebhookRaw)
 admin.site.register(T49Raw, SimpleHistoryAdmin)
 admin.site.register(Vessel, SimpleHistoryAdmin)
 admin.site.register(Fleet, SimpleHistoryAdmin)

@@ -15,6 +15,7 @@ from warehouse.views.palletization import Palletization as LegacyPalletization
 from warehouse.views.po import PO
 from warehouse.views.pod import POD
 from warehouse.views.home import Home
+from warehouse.views.post_port.power_automate_webhook import PowerAutomateWebhook
 from warehouse.views.post_port.post_nsop import PostNsop
 from warehouse.views.post_port.posport_dash import PostportDash
 from warehouse.views.post_port.shipment.fleet_management import FleetManagement
@@ -98,6 +99,7 @@ urlpatterns = [
     path("container_tracking/", ContainerTracking.as_view(), name="container_tracking"),
     path("exception_handling/", ExceptionHandling.as_view(), name="exception_handling"),
     path("t49webhook/", T49Webhook.as_view(), name="t49webhook"),
+    path("power_automate_webhook/", PowerAutomateWebhook.as_view(), name="power_automate_webhook"),
     path("async_view", AsyncView.as_view(), name="async_view"),
     path("dbconn", DBConn.as_view(), name="dbconn"),
     path("order_statistics", OrderQuantity.as_view(), name="order_statistics"),
