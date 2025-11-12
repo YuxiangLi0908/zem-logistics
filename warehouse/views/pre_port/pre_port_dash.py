@@ -54,8 +54,8 @@ class PrePortDash(View):
             elif time_type == "return_empty":
                 # 还空时间
                 template, context = await self.handle_all_get_return_empty(
-                    start_date=start_date,
-                    end_date=end_date,
+                    start_date_return_empty=start_date,
+                    end_date_return_empty=end_date,
                     tab="summary",
                 )
             return await sync_to_async(render)(request, template, context)
@@ -315,8 +315,8 @@ class PrePortDash(View):
 
     async def handle_all_get_return_empty(
             self,
-            start_date: str = None,
-            end_date: str = None,
+            start_date_return_empty: str = None,
+            end_date_return_empty: str = None,
             tab: str = None,
     ) -> tuple[Any, Any]:
         current_date = datetime.now().date()
@@ -333,8 +333,8 @@ class PrePortDash(View):
             naive_datetime = datetime.combine(date_obj, datetime.min.time())
             return timezone.make_aware(naive_datetime)  # 关键：添加时区信息
 
-        start_date = parse_eta_date(start_date)
-        end_date = parse_eta_date(end_date)
+        start_date = parse_eta_date(start_date_return_empty)
+        end_date = parse_eta_date(end_date_return_empty)
 
         if start_date:
             criteria &= models.Q(retrieval_id__empty_returned_at__gte=start_date) | models.Q(
@@ -387,8 +387,8 @@ class PrePortDash(View):
         context = {
             "customers": customers,
             "orders": orders,
-            "start_date": start_date,
-            "end_date": end_date,
+            "start_date": start_date_return_empty,
+            "end_date": end_date_return_empty,
             "current_date": current_date,
             "tab": tab,
             "time_type": "return_empty",
