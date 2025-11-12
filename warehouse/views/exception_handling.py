@@ -11,6 +11,7 @@ from django.core.exceptions import FieldDoesNotExist
 from django.views import View
 import pandas as pd
 import re, json
+import asyncio
 from django.db.models import Q
 from django.utils.timezone import make_aware, now
 from datetime import datetime, timedelta
@@ -71,6 +72,7 @@ class ExceptionHandling(View):
     template_find_all_table = "exception_handling/find_all_table_id.html"   
     template_query_pallet_packinglist = "exception_handling/query_pallet_packinglist.html"
     template_temporary_function = "exception_handling/temporary_function.html"
+    template_receivable_status_migrate = "exception_handling/receivable_status_migrate.html"
     shipment_type_options = {
         "": "",
         "FTL": "FTL",
@@ -124,6 +126,13 @@ class ExceptionHandling(View):
             if self._validate_user_exception_handling(request.user):
                 context = {"warehouse_form": ZemWarehouseForm()}
                 return await sync_to_async(render)(request, self.template_temporary_function, context)
+            else:
+                return HttpResponseForbidden(
+                    "You are not authenticated to access this page!"
+                )
+        elif step == "receivable_status_migrate":
+            if self._validate_super_user(request.user):
+                return await sync_to_async(render)(request, self.template_receivable_status_migrate, {})
             else:
                 return HttpResponseForbidden(
                     "You are not authenticated to access this page!"
@@ -187,6 +196,9 @@ class ExceptionHandling(View):
             return await sync_to_async(render)(request, template, context) 
         elif step == "search_outbound_pos":
             template, context = await self.handle_search_outbound_pos(request)
+            return await sync_to_async(render)(request, template, context) 
+        elif step == "receivale_status_migrate":
+            template, context = await self.handle_receivale_status_migrate(request)
             return await sync_to_async(render)(request, template, context) 
         else:
             return await sync_to_async(T49Webhook().post)(request)
@@ -2095,6 +2107,249 @@ class ExceptionHandling(View):
         request.POST["search_value"] = search_value
         return await self.handle_search_invoice_delivery(request)
     
+    async def handle_receivale_status_migrate(self,request):
+        """
+        将旧的 InvoiceStatus的stage 迁移到新的结构 - 应付状态
+        """
+        start_index = int(request.POST.get("start_index", 0))
+        end_index = int(request.POST.get("end_index", 0))
+        print(f"迁移范围: {start_index} - {end_index}")
+        migration_log = []
+        
+        # 查一下数量
+        total_orders = await sync_to_async(Order.objects.count)()
+        
+        # 验证范围
+        if start_index < 0:
+            start_index = 0
+        if end_index <= 0 or end_index > total_orders:
+            end_index = total_orders
+        
+        total_to_process = end_index - start_index
+        print(f"开始异步迁移应付状态数据，总共 {total_orders} 个订单，处理范围: {start_index}-{end_index}，共 {total_to_process} 条记录")
+        
+        # 分批处理
+        batch_size = 100
+        
+        # 计算需要处理的批次范围
+        start_batch = start_index // batch_size
+        end_batch = (end_index - 1) // batch_size
+        
+        for batch_index in range(start_batch, end_batch + 1):
+            batch_start = batch_index * batch_size
+            batch_end = min((batch_index + 1) * batch_size, total_orders)
+            
+            # 如果当前批次不在目标范围内，跳过
+            if batch_end <= start_index or batch_start >= end_index:
+                continue
+                
+            # 计算当前批次在目标范围内的实际起止位置
+            current_batch_start = max(batch_start, start_index)
+            current_batch_end = min(batch_end, end_index)
+            
+            # 计算在批次内的偏移量
+            batch_offset = current_batch_start - batch_start
+            batch_limit = current_batch_end - current_batch_start
+            
+            print(f"处理第 {batch_index + 1} 批订单，范围: {current_batch_start}-{current_batch_end}，共 {batch_limit} 个")
+            
+            # 异步查询当前批次的订单
+            orders = await sync_to_async(list)(
+                Order.objects.select_related('container_number', 'payable_status')
+                .all()[current_batch_start:current_batch_end]
+            )
+            
+            # 并发处理每个订单
+            tasks = []
+            for order in orders:
+                # 只处理应付状态
+                if order.payable_status:
+                    task = self.migrate_single_status(order, order.payable_status, "payable")
+                    tasks.append(task)
+            
+            # 等待所有任务完成
+            batch_results = await asyncio.gather(*tasks, return_exceptions=True)
+            
+            # 收集成功的结果
+            for result in batch_results:
+                if result and not isinstance(result, Exception):
+                    migration_log.append(result)
+        
+        print(f"应付状态数据异步迁移完成，总共迁移 {len(migration_log)} 条记录")
+        
+        # 异步保存迁移日志到文件
+        await self.save_migration_log(migration_log)
+        context = {
+            'migration_log': migration_log,
+            'total_migrated': len(migration_log),
+            'message': f'成功迁移 {len(migration_log)} 条应付状态记录',
+            'success': True,
+            'start_index': start_index,
+            'end_index': end_index,
+        }
+        return self.template_receivable_status_migrate, context
+
+    async def save_migration_log(self, migration_log):
+        """异步保存迁移日志到文件"""
+        def _save():
+            with open('migration_log.json', 'w', encoding='utf-8') as f:
+                json.dump(migration_log, f, ensure_ascii=False, indent=2)
+        
+        await sync_to_async(_save)()
+
+    async def migrate_single_status(self, order, old_status, invoice_type):
+        """
+        迁移单个 stage 
+        """
+        try:
+            old_stage = old_status.stage
+            old_stage_public = old_status.stage_public
+            old_stage_other = old_status.stage_other
+            is_rejected = old_status.is_rejected
+            
+            # 构建迁移日志
+            log_entry = {
+                'order_id': order.order_id or '无订单号',
+                'container_number': order.container_number.container_number if order.container_number else '未知柜号',
+                'invoice_type': invoice_type,
+                'old_data': {
+                    'stage': old_stage,
+                    'stage_public': old_stage_public,
+                    'stage_other': old_stage_other,
+                },
+                'new_data': {},
+            }
+            
+            # 根据旧状态映射到新状态
+            new_status_mapping = await self.calculate_new_status(old_stage, old_stage_public, old_stage_other, is_rejected)
+            
+            # 异步更新 InvoiceStatus 对象
+            await self.update_invoice_status(old_status, new_status_mapping)
+            
+            # 记录新数据
+            log_entry['new_data'] = new_status_mapping
+            
+            return log_entry
+            
+        except Exception as e:
+            print(f"迁移失败 - Order ID: {order.id}, Error: {str(e)}")
+            return None
+    
+    async def update_invoice_status(self, old_status, new_status_mapping):
+        """异步更新 InvoiceStatus 对象"""
+        old_status.preport_status = new_status_mapping['preport_status']
+        old_status.warehouse_public_status = new_status_mapping['warehouse_public_status']
+        old_status.warehouse_other_status = new_status_mapping['warehouse_other_status']
+        old_status.delivery_public_status = new_status_mapping['delivery_public_status']
+        old_status.delivery_other_status = new_status_mapping['delivery_other_status']
+        old_status.finance_status = new_status_mapping['finance_status']
+        
+        # 异步保存
+        await sync_to_async(old_status.save)()
+
+    async def calculate_new_status(self, old_stage, old_stage_public, old_stage_other, is_rejected):
+        """异步计算新状态映射 - 处理驳回状态"""
+        # 基础状态映射
+        if old_stage == "unstarted":
+            base_status = {
+                'preport_status': "unstarted",
+                'warehouse_public_status': "unstarted",
+                'warehouse_other_status': "unstarted",
+                'delivery_public_status': "unstarted",
+                'delivery_other_status': "unstarted",
+                'finance_status': "unstarted",
+            }
+        elif old_stage == "preport":
+            base_status = {
+                'preport_status': "completed",
+                'warehouse_public_status': "unstarted",
+                'warehouse_other_status': "unstarted",
+                'delivery_public_status': "unstarted",
+                'delivery_other_status': "unstarted",
+                'finance_status': "unstarted",
+            }
+        elif old_stage == "warehouse":
+            base_status = {
+                'preport_status': "completed",
+                'warehouse_public_status': await self.map_public_other_status_async(old_stage_public),
+                'warehouse_other_status': await self.map_public_other_status_async(old_stage_other),
+                'delivery_public_status': await self.map_public_other_status_async(old_stage_public),
+                'delivery_other_status': await self.map_public_other_status_async(old_stage_other),
+                'finance_status': "unstarted",
+            }
+        elif old_stage == "delivery":
+            base_status = {
+                'preport_status': "completed",
+                'warehouse_public_status': await self.map_public_other_status_async(old_stage_public),
+                'warehouse_other_status': await self.map_public_other_status_async(old_stage_public),
+                'delivery_public_status': await self.map_public_other_status_async(old_stage_public),
+                'delivery_other_status': await self.map_public_other_status_async(old_stage_other),
+                'finance_status': "unstarted",
+            }
+        elif old_stage == "tobeconfirmed":
+            base_status = {
+                'preport_status': "completed",
+                'warehouse_public_status': "completed",
+                'warehouse_other_status': "completed",
+                'delivery_public_status': "completed",
+                'delivery_other_status': "completed",
+                'finance_status': "tobeconfirmed",
+            }
+        elif old_stage == "confirmed":
+            base_status = {
+                'preport_status': "completed",
+                'warehouse_public_status': "completed",
+                'warehouse_other_status': "completed",
+                'delivery_public_status': "completed",
+                'delivery_other_status': "completed",
+                'finance_status': "confirmed",
+            }
+        else:
+            base_status = {
+                'preport_status': "unstarted",
+                'warehouse_public_status': "unstarted",
+                'warehouse_other_status': "unstarted",
+                'delivery_public_status': "unstarted",
+                'delivery_other_status': "unstarted",
+                'finance_status': "unstarted",
+            }
+        
+        # 如果有驳回，根据当前阶段设置驳回状态
+        if is_rejected:
+            base_status = await self.apply_rejection_status(old_stage, base_status)
+        
+        return base_status
+
+    async def map_public_other_status_async(self, old_status):
+        """映射公仓/私仓状态到新状态"""
+        mapping = {
+            "pending": "unstarted",
+            "warehouse_completed": "completed",
+            "delivery_completed": "completed", 
+            "warehouse_rejected": "rejected",  # 保留原有的驳回状态
+            "delivery_rejected": "rejected",   # 保留原有的驳回状态
+        }
+        return mapping.get(old_status, "unstarted")
+
+    async def apply_rejection_status(self, old_stage, base_status):
+        """根据原阶段应用驳回状态"""
+        if old_stage == "preport":
+            # 港前被驳回
+            base_status['preport_status'] = "rejected"
+        elif old_stage == "warehouse":
+            # 仓库被驳回 - 根据具体的公仓/私仓状态判断
+            if base_status['warehouse_public_status'] != "unstarted":
+                base_status['warehouse_public_status'] = "rejected"
+            if base_status['warehouse_other_status'] != "unstarted":
+                base_status['warehouse_other_status'] = "rejected"
+        elif old_stage == "delivery":
+            # 派送被驳回 - 根据具体的公仓/私仓状态判断
+            if base_status['delivery_public_status'] != "unstarted":
+                base_status['delivery_public_status'] = "rejected"
+            if base_status['delivery_other_status'] != "unstarted":
+                base_status['delivery_other_status'] = "rejected"
+        return base_status
+
     async def _validate_user_exception_handling(self, user: User) -> bool:
         if user.is_staff:
             return True
