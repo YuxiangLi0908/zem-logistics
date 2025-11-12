@@ -7,6 +7,7 @@ class PowerAutomateWebhookRaw(models.Model):
     header = models.JSONField(null=True, blank=True)
     body = models.JSONField(null=True, blank=True)
     payload = models.JSONField(null=True, blank=True)
+    response = models.JSONField(null=True, blank=True)
 
     class Meta:
         verbose_name = "Power Automate Webhook Raw"
