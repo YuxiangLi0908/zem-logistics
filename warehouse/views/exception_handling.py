@@ -2130,7 +2130,8 @@ class ExceptionHandling(View):
                 warehouse_other_status='completed',
                 delivery_public_status='completed',
                 delivery_other_status='completed'
-            ).select_related(
+            ).exclude(finance_status="completed")
+            .select_related(
                 'container_number'
             ).prefetch_related(
                 'container_number'
