@@ -5206,12 +5206,14 @@ class Accounting(View):
         # 组合柜区域
         combina_region_count = len(matched_regions["combina_dests"])
 
-        if combina_region_count + non_combina_region_count != len(destinations):
+        filtered_destinations = self._filter_ups_destinations(destinations)
+        if combina_region_count + non_combina_region_count != len(filtered_destinations):
             raise ValueError(
                 f"计算组合柜和非组合柜区域有误\n"
                 f"组合柜目的地：{matched_regions['combina_dests']}，数量：{combina_region_count}\n"
                 f"非组合柜目的地：{matched_regions['non_combina_dests']}，数量：{non_combina_region_count}\n"
-                f"目的地总数：{len(destinations)}"
+                f"目的地集合：{filtered_destinations}\n"
+                f"目的地总数：{len(filtered_destinations)}"
             )
         if non_combina_region_count > (
             uncombina_threshold
@@ -5814,8 +5816,16 @@ class Accounting(View):
         des_match_quote = matched_regions["des_match_quote"]
         # 组合柜区域，各区及总cbm
         matching_regions = matched_regions["matching_regions"]
-        if combina_region_count + non_combina_region_count != len(destinations):
-            raise ValueError("计算组合柜和非组合柜区域有误")
+
+        filtered_destinations = self._filter_ups_destinations(destinations)
+        if combina_region_count + non_combina_region_count != len(filtered_destinations):
+            raise ValueError(
+                f"计算组合柜和非组合柜区域有误\n"
+                f"组合柜目的地：{matched_regions['combina_dests']}，数量：{combina_region_count}\n"
+                f"非组合柜目的地：{matched_regions['non_combina_dests']}，数量：{non_combina_region_count}\n"
+                f"目的地集合：{filtered_destinations}\n"
+                f"目的地总数：{len(filtered_destinations)}"
+            )
 
         non_combina_cbm_ratio = round(
             sum(
@@ -6305,6 +6315,15 @@ class Accounting(View):
             )
         return extra_fees
 
+    def _filter_ups_destinations(destinations):
+        """过滤掉包含UPS的目的地，支持列表和QuerySet"""
+        if hasattr(destinations, 'exclude'):
+            # 如果是QuerySet
+            return destinations.exclude(包含UPS的字段名__contains='UPS')
+        else:
+            # 如果是列表或其他可迭代对象
+            return [dest for dest in destinations if 'UPS' not in str(dest)]
+        
     def _calculate_delivery_fee_cost(
         self,
         fee_details: dict,
