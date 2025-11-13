@@ -72,3 +72,4 @@ jobs:
           app-name: 'zem-logistics'
           slot-name: 'Production'
           publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_1BF2404E0B8E454093F862FB9DFFE8C7 }}
+          clean: true
