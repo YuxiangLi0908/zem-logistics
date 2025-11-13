@@ -1492,8 +1492,8 @@ class Accounting(View):
                 order.display_delivery_other_status_class = self._get_status_class(receivable_status.delivery_other_status)
                 order.display_finance_status_class = self._get_status_class(receivable_status.finance_status)
                 
-                order.display_is_rejected = "已驳回" if receivable_status.is_rejected else "正常"
-                order.display_reject_reason = receivable_status.reject_reason or " "
+                order.receivable_is_rejected = "已驳回" if receivable_status.is_rejected else "正常"
+                order.receivable_reject_reason = receivable_status.reject_reason or " "
             else:
                 # 没有应收状态时设置默认值
                 order.display_preport_status = "未开始"
@@ -1508,8 +1508,8 @@ class Accounting(View):
                 order.display_delivery_public_status_class = "unstarted"
                 order.display_delivery_other_status_class = "unstarted"
                 order.display_finance_status_class = "unstarted"
-                order.display_is_rejected = "正常"
-                order.display_reject_reason = " "
+                order.receivable_is_rejected = "正常"
+                order.receivable_reject_reason = " "
 
             # 处理应付状态（保持原来的逻辑）
             payable_status = getattr(order, "payable_status", None)
