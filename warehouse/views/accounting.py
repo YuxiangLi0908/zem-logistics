@@ -1260,8 +1260,10 @@ class Accounting(View):
             models.Q(  # 考虑账单编辑点的是暂存的情况
                 **{
                     "receivable_status__invoice_type": "receivable",
-                    "receivable_status__stage__in": ["tobeconfirmed"],
                 }
+            )& (
+                models.Q(receivable_status__stage__in=["tobeconfirmed"]) |
+                models.Q(receivable_status__finance_status__in=["completed"])
             ),
             order_type="转运组合",
             # container_number__account_order_type="转运组合",
@@ -1290,8 +1292,10 @@ class Accounting(View):
                 **{
                     "receivable_status__isnull": False,
                     "receivable_status__invoice_type": "receivable",
-                    "receivable_status__stage": "confirmed",
                 },
+            ).filter(
+                models.Q(receivable_status__stage="confirmed") | 
+                models.Q(receivable_status__finance_status="completed")
             )
         )
         previous_order = self.process_orders_display_status(
@@ -3967,6 +3971,7 @@ class Accounting(View):
         if save_type == "complete":  # 暂存的不改变状态
             receivable_status = order.receivable_status
             receivable_status.stage = "confirmed"
+            receivable_status.finance_status = "completed"
             receivable_status.save()
         order.save()
         is_from_account_confirmation = request.POST.get("is_from_account_confirmation")
@@ -5684,7 +5689,7 @@ class Accounting(View):
             "is_from_account_confirmation": is_from_account_confirmation,
         }
         # 查看是不是财务未确认状态，未确认就从报价表找+客服录的数据，确认了就从invoice_item表找
-        if invoice_status.stage == "confirmed":
+        if invoice_status.stage == "confirmed" or invoice_status.finance_status == "completed":
             invoice_item = InvoiceItem.objects.filter(
                 invoice_number__invoice_number=invoice.invoice_number
             )
@@ -7674,6 +7679,7 @@ class Accounting(View):
         )
         for item in invoice_status:
             item.stage = "tobeconfirmed"
+            item.finance_status = "completed"
             item.save()
 
         # 重开账单，需要撤销通知客户
