@@ -572,8 +572,21 @@ class PostNsop(View):
                 .order_by("destination", "container_number__container_number")
             )
         )()
+        # 展开 pallet_data：将ref_id按逗号分割成多行
+        expanded_pallet_data = []
+        for item in pallet_data:
+            item = dict(item)
+            # 分割ref_id
+            ref_ids = str(item["ref_id"]).split(",") if item["ref_id"] else [""]
+            
+            # 为每个分割后的ref_id创建一行
+            for ref_id in ref_ids:
+                new_row = item.copy()
+                new_row["ref_id"] = ref_id.strip()  # 去除空格
+                expanded_pallet_data.append(new_row)
+
         # 合并数据
-        combined_data = packinglist_data + pallet_data
+        combined_data = packinglist_data + expanded_pallet_data
 
         if not combined_data:
             raise ValueError("未找到匹配记录")
@@ -1485,12 +1498,21 @@ class PostNsop(View):
                 for p in PoCheckEtaSeven.objects.filter(packing_list_id__in=pl_ids_list)
             }
         )()
-        # 给每条 packing_list 添加 check_id
-        data = []
+
+        # 展开数据：将ref_id按逗号分割成多行
+        expanded_data = []
         for item in packing_list:
-            item = dict(item)  # 因为 values() 返回的是 ValuesQuerySet
-            item["check_id"] = check_map.get(item["id"])  # 如果没有对应记录就返回 None
-            data.append(item)
+            item = dict(item)
+            item["check_id"] = check_map.get(item["id"]) # 给每条 packing_list 添加 check_id
+            
+            # 分割ref_id
+            ref_ids = str(item["ref_id"]).split(",") if item["ref_id"] else [""]
+            
+            # 为每个分割后的ref_id创建一行
+            for ref_id in ref_ids:
+                new_row = item.copy()
+                new_row["ref_id"] = ref_id.strip()  # 去除空格
+                expanded_data.append(new_row)
         keep = [
             "shipping_mark",
             "container_number__container_number",
@@ -1504,7 +1526,7 @@ class PostNsop(View):
             "total_cbm",
             "destination", 
         ]
-        df = pd.DataFrame.from_records(data)
+        df = pd.DataFrame.from_records(expanded_data)
         df["is_valid"] = None
 
         def get_est_pallet(n):
@@ -1605,7 +1627,19 @@ class PostNsop(View):
                 .distinct()
                 .order_by("destination", "container_number__container_number")
             )
-            all_data += pallet_data
+            # 展开 pallet_data：将ref_id按逗号分割成多行
+            expanded_pallet_data = []
+            for item in pallet_data:
+                item = dict(item)
+                # 分割ref_id
+                ref_ids = str(item["ref_id"]).split(",") if item["ref_id"] else [""]
+                
+                # 为每个分割后的ref_id创建一行
+                for ref_id in ref_ids:
+                    new_row = item.copy()
+                    new_row["ref_id"] = ref_id.strip()  # 去除空格
+                    expanded_pallet_data.append(new_row)
+            all_data += expanded_pallet_data
         for p in all_data:
             try:
                 pl = await sync_to_async(PoCheckEtaSeven.objects.get)(
