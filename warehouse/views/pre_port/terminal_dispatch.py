@@ -272,24 +272,17 @@ class TerminalDispatch(View):
         return self.template_update_container_pickup_schedule, context
 
     async def handle_generous_and_wide_planted(self, request: HttpRequest) -> tuple[Any, Any]:
-        if await self._validate_user_four_major_whs(request.user):
-            def get_orders():
-                return Order.objects.select_related(
-                    "container_number", "retrieval_id", "offload_id"
-                ).filter(
-                    retrieval_id__retrieval_destination_area="LA",
-                    offload_id__offload_at__isnull=True,
-                ).all()
-            orders = await sync_to_async(get_orders)()
-            context = {"orders": orders}
-            return self.template_handle_generous_and_wide_planted, context
-        else:
-            # 权限失败：返回同一个模板，但传递错误信息
-            context = {
-                "orders": [],  # 空数据
-                "error": "您没有权限访问此页面，请联系管理员"
-            }
-            return self.template_handle_generous_and_wide_planted, context
+        def get_orders():
+            return Order.objects.select_related(
+                "container_number", "retrieval_id", "offload_id", "vessel_id"
+            ).filter(
+                retrieval_id__retrieval_destination_area="LA",
+                offload_id__offload_at__isnull=True,
+            ).order_by("-vessel_id__vessel_eta").all()
+        orders = await sync_to_async(get_orders)()
+        context = {"orders": orders}
+        return self.template_handle_generous_and_wide_planted, context
+
 
     async def handle_generous_and_wide_target_retrieval_timestamp_save(self, request: HttpRequest) -> tuple[Any, Any]:
         time_str = request.POST.get("generous_and_wide_target_retrieval_timestamp")
@@ -383,7 +376,8 @@ class TerminalDispatch(View):
         retrieval = order.retrieval_id
         retrieval.retrieval_destination_precise = destination
         retrieval.retrieval_carrier = request.POST.get("retrieval_carrier").strip()
-        retrieval.retrieval_delegation_status = True
+        if destination and request.POST.get("retrieval_carrier").strip():
+            retrieval.retrieval_delegation_status = True
         retrieval.planned_release_time = planned_release_time
         tzinfo = self._parse_tzinfo(destination)
         if request.POST.get("target_retrieval_timestamp"):

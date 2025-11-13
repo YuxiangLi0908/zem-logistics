@@ -10,6 +10,7 @@ from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
 from django.utils import timezone
 from django.views import View
+from pyhanko.sign.validation.ltv import retrieve_adobe_revocation_info
 
 from warehouse.models.container import Container
 from warehouse.models.customer import Customer
@@ -40,13 +41,23 @@ class PrePortDash(View):
         step = request.POST.get("step", None)
         # 根据建单时间和ETA进行筛选
         if step == "search_orders":
-            start_date_eta = request.POST.get("start_date_eta")
-            end_date_eta = request.POST.get("end_date_eta")
-            template, context = await self.handle_all_get(
-                start_date_eta=start_date_eta,
-                end_date_eta=end_date_eta,
-                tab="summary",
-            )
+            time_type = request.POST.get("time_type", "eta")
+            start_date = request.POST.get("start_date")
+            end_date = request.POST.get("end_date")
+            if time_type == "eta":
+                # eta时间
+                template, context = await self.handle_all_get(
+                    start_date_eta=start_date,
+                    end_date_eta=end_date,
+                    tab="summary",
+                )
+            elif time_type == "return_empty":
+                # 还空时间
+                template, context = await self.handle_all_get_return_empty(
+                    start_date_return_empty=start_date,
+                    end_date_return_empty=end_date,
+                    tab="summary",
+                )
             return await sync_to_async(render)(request, template, context)
         elif step == "download_eta_file":
             start_date_eta = request.POST.get("start_date_eta")
@@ -293,10 +304,95 @@ class PrePortDash(View):
         context = {
             "customers": customers,
             "orders": orders,
-            "start_date_eta": start_date_eta,
-            "end_date_eta": end_date_eta,
+            "start_date": start_date_eta,
+            "end_date": end_date_eta,
             "current_date": current_date,
             "tab": tab,
+            "return_empty": "eta",
+            "warehouse_options": self.warehouse_options,
+        }
+        return self.template_main, context
+
+    async def handle_all_get_return_empty(
+            self,
+            start_date_return_empty: str = None,
+            end_date_return_empty: str = None,
+            tab: str = None,
+    ) -> tuple[Any, Any]:
+        current_date = datetime.now().date()
+        criteria = models.Q(
+            cancel_notification=False,
+        )
+
+        # 处理ETA日期条件
+        def parse_eta_date(date_str):
+            if not date_str:
+                return None
+            date_obj = datetime.strptime(date_str, "%Y-%m-%d")
+            # 转换为带时区的datetime（当天0点）
+            naive_datetime = datetime.combine(date_obj, datetime.min.time())
+            return timezone.make_aware(naive_datetime)  # 关键：添加时区信息
+
+        start_date = parse_eta_date(start_date_return_empty)
+        end_date = parse_eta_date(end_date_return_empty)
+
+        if start_date:
+            criteria &= models.Q(retrieval_id__empty_returned_at__gte=start_date) | models.Q(
+                eta__gte=start_date
+            )
+        if end_date:
+            # 结束日期设置为当天23:59:59
+            end_eta = end_date.replace(hour=23, minute=59, second=59)
+            criteria &= models.Q(retrieval_id__empty_returned_at__lte=end_eta) | models.Q(
+                eta__lte=end_eta
+            )
+
+        customers = await sync_to_async(list)(Customer.objects.all())
+        customers = {c.zem_name: c.zem_name for c in customers}
+        orders = await sync_to_async(list)(
+            Order.objects.select_related(
+                "vessel_id",
+                "container_number",
+                "customer_name",
+                "retrieval_id",
+                "offload_id",
+                "warehouse",
+            )
+            .filter(criteria)
+            .annotate(
+                priority=Case(
+                    When(retrieval_id__empty_returned=True, then=Value(1)),
+                    When(
+                        offload_id__offload_at__isnull=False,
+                        retrieval_id__empty_returned=False,
+                        then=Value(2)
+                    ),
+                    When(
+                        retrieval_id__actual_retrieval_timestamp__isnull=False,
+                        offload_id__offload_at__isnull=True,
+                        then=Value(3)
+                    ),
+                    default=Value(4),
+                    output_field=IntegerField()
+                ),
+                sort_time=Case(
+                    When(priority__in=[1, 2, 3], then=F('retrieval_id__actual_retrieval_timestamp')),
+                    default=F('retrieval_id__target_retrieval_timestamp'),
+                )
+            )
+            .order_by("priority", "sort_time")
+        )
+
+        # 转换回字符串格式供前端使用
+        context = {
+            "customers": customers,
+            "orders": orders,
+            "start_date": start_date_return_empty,
+            "end_date": end_date_return_empty,
+            "current_date": current_date,
+            "tab": tab,
+            "time_type": "return_empty",
+            "warehouse_options": self.warehouse_options,
         }
         return self.template_main, context
 
@@ -389,3 +485,12 @@ class PrePortDash(View):
         if await sync_to_async(lambda: request.user.is_authenticated)():
             return True
         return False
+
+    warehouse_options = {
+        "所有仓库": "NJ,SAV,LA,MO,TX",
+        "NJ": "NJ",
+        "SAV": "SAV",
+        "LA": "LA",
+        "MO": "MO",
+        "TX": "TX",
+    }
