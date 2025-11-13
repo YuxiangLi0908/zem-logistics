@@ -51,11 +51,11 @@ class PrePortDash(View):
                     end_date_eta=end_date,
                     tab="summary",
                 )
-            elif time_type == "return_empty":
+            elif time_type == "planned_release_time":
                 # 还空时间
-                template, context = await self.handle_all_get_return_empty(
-                    start_date_return_empty=start_date,
-                    end_date_return_empty=end_date,
+                template, context = await self.handle_all_get_planned_release_time(
+                    start_date_planned_release_time=start_date,
+                    end_date_planned_release_time=end_date,
                     tab="summary",
                 )
             return await sync_to_async(render)(request, template, context)
@@ -308,15 +308,15 @@ class PrePortDash(View):
             "end_date": end_date_eta,
             "current_date": current_date,
             "tab": tab,
-            "return_empty": "eta",
+            "time_type": "eta",
             "warehouse_options": self.warehouse_options,
         }
         return self.template_main, context
 
-    async def handle_all_get_return_empty(
+    async def handle_all_get_planned_release_time(
             self,
-            start_date_return_empty: str = None,
-            end_date_return_empty: str = None,
+            start_date_planned_release_time: str = None,
+            end_date_planned_release_time: str = None,
             tab: str = None,
     ) -> tuple[Any, Any]:
         current_date = datetime.now().date()
@@ -333,17 +333,17 @@ class PrePortDash(View):
             naive_datetime = datetime.combine(date_obj, datetime.min.time())
             return timezone.make_aware(naive_datetime)  # 关键：添加时区信息
 
-        start_date = parse_eta_date(start_date_return_empty)
-        end_date = parse_eta_date(end_date_return_empty)
+        start_date = parse_eta_date(start_date_planned_release_time)
+        end_date = parse_eta_date(end_date_planned_release_time)
 
         if start_date:
-            criteria &= models.Q(retrieval_id__empty_returned_at__gte=start_date) | models.Q(
+            criteria &= models.Q(retrieval_id__planned_release_time__gte=start_date) | models.Q(
                 eta__gte=start_date
             )
         if end_date:
             # 结束日期设置为当天23:59:59
             end_eta = end_date.replace(hour=23, minute=59, second=59)
-            criteria &= models.Q(retrieval_id__empty_returned_at__lte=end_eta) | models.Q(
+            criteria &= models.Q(retrieval_id__planned_release_time__lte=end_eta) | models.Q(
                 eta__lte=end_eta
             )
 
@@ -387,11 +387,11 @@ class PrePortDash(View):
         context = {
             "customers": customers,
             "orders": orders,
-            "start_date": start_date_return_empty,
-            "end_date": end_date_return_empty,
+            "start_date": start_date_planned_release_time,
+            "end_date": end_date_planned_release_time,
             "current_date": current_date,
             "tab": tab,
-            "time_type": "return_empty",
+            "time_type": "planned_release_time",
             "warehouse_options": self.warehouse_options,
         }
         return self.template_main, context
