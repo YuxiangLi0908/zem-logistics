@@ -200,6 +200,9 @@ class ExceptionHandling(View):
         elif step == "receivale_status_migrate":
             template, context = await self.handle_receivale_status_migrate(request)
             return await sync_to_async(render)(request, template, context) 
+        elif step == "receivale_status_search":
+            template, context = await self.handle_receivale_status_search(request)
+            return await sync_to_async(render)(request, template, context) 
         else:
             return await sync_to_async(T49Webhook().post)(request)
     
@@ -2107,6 +2110,82 @@ class ExceptionHandling(View):
         request.POST["search_value"] = search_value
         return await self.handle_search_invoice_delivery(request)
     
+    async def handle_receivale_status_search(self,request):
+
+        old_status = await sync_to_async(list)(
+            InvoiceStatus.objects.filter(
+                stage='tobeconfirmed'
+            ).select_related(
+                'container_number'
+            ).prefetch_related(
+                'container_number'
+            )
+        )
+
+        # 第二组：所有状态字段都是completed的
+        now_status = await sync_to_async(list)(
+            InvoiceStatus.objects.filter(
+                preport_status='completed',
+                warehouse_public_status='completed', 
+                warehouse_other_status='completed',
+                delivery_public_status='completed',
+                delivery_other_status='completed'
+            ).select_related(
+                'container_number'
+            ).prefetch_related(
+                'container_number'
+            )
+        )
+
+        # 如果你需要更详细的数据，可以进一步处理
+        old_status_data = []
+        for status in old_status:
+            old_status_data.append({
+                'invoice_status_id': status.id,
+                'container_number': status.container_number.container_number,
+                'container_type': status.container_number.container_type,
+                'invoice_type': status.invoice_type,
+                'stage': status.stage,
+                'finance_status': status.finance_status,
+            })
+
+        now_status_data = []
+        for status in now_status:
+            now_status_data.append({
+                'invoice_status_id': status.id,
+                'container_number': status.container_number.container_number,
+                'container_type': status.container_number.container_type,
+                'invoice_type': status.invoice_type,
+                'stage': status.stage,
+                'finance_status': status.finance_status,
+                'preport_status': status.preport_status,
+                'warehouse_public_status': status.warehouse_public_status,
+                'warehouse_other_status': status.warehouse_other_status,
+                'delivery_public_status': status.delivery_public_status,
+                'delivery_other_status': status.delivery_other_status,
+            })
+
+        # 或者如果你只需要统计数量
+        old_status_count = await sync_to_async(
+            InvoiceStatus.objects.filter(stage='tobeconfirmed').count
+        )()
+        now_status_count = await sync_to_async(
+            InvoiceStatus.objects.filter(
+                preport_status='completed',
+                warehouse_public_status='completed', 
+                warehouse_other_status='completed',
+                delivery_public_status='completed',
+                delivery_other_status='completed'
+            ).count
+        )()
+        context = {
+            'old_status_count': old_status_count,
+            'now_status_count': now_status_count,
+            'now_status_data': now_status_data,
+            'old_status_data': old_status_data
+        }
+        return self.template_receivable_status_migrate, context
+
     async def handle_receivale_status_migrate(self,request):
         """
         将旧的 InvoiceStatus的stage 迁移到新的结构 - 应付状态
