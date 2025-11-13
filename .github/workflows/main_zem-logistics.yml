@@ -32,6 +32,11 @@ jobs:
         
       # Optional: Add step to run tests here (PyTest, Django test suites, etc.)
 
+      - name: Prepare WebJob folder for deployment
+        run: |
+          mkdir -p app_data/jobs/triggered
+          cp -r webjobs/* app_data/jobs/triggered/
+
       - name: Zip artifact for deployment
         run: zip release.zip ./* -r
 
