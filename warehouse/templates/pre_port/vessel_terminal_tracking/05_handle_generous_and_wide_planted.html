@@ -74,11 +74,14 @@
         <table class="layui-table" lay-size="sm" style="margin: 0; border: none;">
             <thead>
                 <tr style="background-color: #f5f7fa; color: #333;">
-                    <th style="width: 30%; padding: 12px 15px; border-bottom: 1px solid #eee; text-align: center;">
+                    <th style="width: 20%; padding: 12px 15px; border-bottom: 1px solid #eee; text-align: center;">
                         柜号
                     </th>
-                    <th style="width: 70%; padding: 12px 15px; border-bottom: 1px solid #eee; text-align: center;">
+                    <th style="width: 60%; padding: 12px 15px; border-bottom: 1px solid #eee; text-align: center;">
                         大方广预计提柜时间
+                    </th>
+                    <th style="width: 20%; padding: 12px 15px; border-bottom: 1px solid #eee; text-align: center;">
+                        ETA
                     </th>
                 </tr>
             </thead>
@@ -125,6 +128,11 @@
                             </div>
                             {% endif %}
                         </form>
+                    </td>
+                    <td style="padding: 15px; border-bottom: 1px solid #f0f0f0; text-align: center; vertical-align: middle;">
+                        <div class="container-number" style="font-weight: 500; color: #333;">
+                            {{ order.vessel_id.vessel_eta|date:"Y-m-d" }}
+                        </div>
                     </td>
                 </tr>
                 {% empty %}
