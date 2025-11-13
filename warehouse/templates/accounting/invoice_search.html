@@ -1,7 +1,29 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<div><h4><b>货柜账单录入状态</b></h4></div>
+<style>
+    .status-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 4px;
+        font-size: 12px;
+    }
+    .status-item {
+        padding: 2px 4px;
+        border-radius: 3px;
+        text-align: center;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .status-completed { background-color: #d4edda; color: #155724; }
+    .status-pending { background-color: #fff3cd; color: #856404; }
+    .status-rejected { background-color: #f8d7da; color: #721c24; }
+    .status-unstarted { background-color: #e2e3e5; color: #383d41; }
+    .status-inprogress { background-color: #cce7ff; color: #004085; }
+</style>
+
+<div><h4><b>账单录入进入</b></h4></div>
 <div style="width: 100%; display: flex; justify-content: space-between;">
     <form method="post" action="" style="width: 80%;">
         {% csrf_token %}
@@ -27,7 +49,7 @@
         </div>
     </form>
 </div>
-<div style="max-height: 100%; max-width: 800px; padding: 20px; margin: 0 auto; background-color: #fff; border-radius: 8px; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);">
+<div style="max-height: 100%; max-width: 1200px; padding: 20px; margin: 0 auto; background-color: #fff; border-radius: 8px; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);">
     <table id="quote-table" class="table" style="font-size: 14px; width: 100%; border-collapse: collapse;">
         <thead>
             <tr style="background-color: #f1f1f1;">
@@ -67,9 +89,19 @@
                             {{ c.container_number.delivery_type }} 
                         {% endif %}
                     </td>
-                    <td class="td" style="padding: 12px; border: 1px solid #ddd; text-align: center;vertical-align: middle; white-space: pre-line;">
-                        {% if c.receivable_status %}{{ c.display_stage }}
-                        {% elif not c.receivable_status and not c.payable_status %}{{ c.display_stage }}{% endif %}
+                    <td class="td" style="padding: 8px; border: 1px solid #ddd; text-align: center;vertical-align: middle;">
+                        {% if c.receivable_status %}
+                            <div class="status-grid">
+                                <div class="status-item status-{{ c.display_preport_status_class }}">港前:{{ c.display_preport_status }}</div>
+                                <div class="status-item status-{{ c.display_warehouse_public_status_class }}">公仓:{{ c.display_warehouse_public_status }}</div>
+                                <div class="status-item status-{{ c.display_warehouse_other_status_class }}">私仓:{{ c.display_warehouse_other_status }}</div>
+                                <div class="status-item status-{{ c.display_delivery_public_status_class }}">公派:{{ c.display_delivery_public_status }}</div>
+                                <div class="status-item status-{{ c.display_delivery_other_status_class }}">私派:{{ c.display_delivery_other_status }}</div>
+                                <div class="status-item status-{{ c.display_finance_status_class }}">财务:{{ c.display_finance_status }}</div>
+                            </div>
+                        {% else %}
+                            未录入
+                        {% endif %}
                     </td>
                     <td class="td" style="padding: 12px; border: 1px solid #ddd; text-align: center;vertical-align: middle; white-space: pre-line;">
                         {% if c.payable_status %}{{ c.display_stage }}
@@ -84,7 +116,6 @@
     </table>
 </div>
 <script>
-    
     function filterTable(filterInput, col_idx, trim) {
         var containerInput, containerFilter, table, tbody, tr, containerTd, i, containerTxtValue;
         containerFilter = filterInput.value.toUpperCase();
@@ -105,12 +136,9 @@
         }
     };
     window.addEventListener('load', function () {
-        // 1. 获取客户下拉框（Django Form生成的ID是"id_customer_name"）
         const customerSelect = document.getElementById('id_customer_name');
-        // 2. 获取后端传递的选中客户ID（双重保障，防止Form初始值失效）
         const selectedCustomerId = "{{ selected_customer_id|default:'' }}";
 
-        // 3. 若有选中ID，强制设置下拉框选中状态
         if (selectedCustomerId && customerSelect) {
             customerSelect.value = selectedCustomerId;
         }

@@ -1,6 +1,61 @@
 {% extends 'base.html' %}
 
 {% block content %}
+<style>
+    .filter-info-tooltip {
+        position: relative;
+        display: inline-block;
+    }
+
+    .filter-info-tooltip::after {
+        content: attr(data-tooltip);
+        white-space: pre-line; /* 支持多行 */
+        position: absolute;
+        top: calc(50% + 6px);
+        left: 120%; /* 在问号右侧一点 */
+        transform: translateY(-35%); /* 垂直居中，与问号齐平 */
+        background-color: rgba(60, 60, 60, 0.95);
+        color: #fff;
+        padding: 6px 10px;
+        border-radius: 6px;
+        font-size: 12px;
+        line-height: 1.4;
+        width: max-content;
+        max-width: 260px;
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity 0.2s ease;
+        z-index: 1000;
+        pointer-events: none;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    }
+
+    /* 悬停时显示 */
+    .filter-info-tooltip:hover::after {
+        opacity: 1;
+        visibility: visible;
+    }
+
+    /* 加一个右侧的小箭头 */
+    .filter-info-tooltip::before {
+        content: "";
+        position: absolute;
+        top: 50%;
+        left: 100%;
+        transform: translateY(-50%);
+        border-width: 6px;
+        border-style: solid;
+        border-color: transparent rgba(60, 60, 60, 0.95) transparent transparent;
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity 0.2s ease;
+    }
+
+    .filter-info-tooltip:hover::before {
+        opacity: 1;
+        visibility: visible;
+    }
+</style>
 <div><h4><b>应收提拆柜账单管理</b></h4></div>
 <div style="width: 100%; display: flex; justify-content: space-between;">
     <form method="post" action="" style="width: 80%;">
@@ -26,25 +81,26 @@
             <button id="submit-btn" type="submit" class="btn btn-primary" style="width: 100px; height: 35px; margin-left: 20px;">查询</button>
         </div>
     </form>
-    {% if user.is_staff %}
-        <form method="post" action="" style="width: 80%;">
-            {% csrf_token %}
-            <input type="hidden" name="step" value="migrate_status">
-            <b style="margin-right: 5px;">ETA时间:</b>
-            <input type="datetime-local" name="start_date">
-            <input type="datetime-local" name="end_date">
-            <button id="submit-btn" type="submit" class="btn btn-primary"
-                    style="width: 250px; height: 35px; margin-left: 20px;">查询PackingList数据
-            </button>
-        </form>
-    {% endif %}
 </div>
 
 {% if "invoice_preport" in groups or "staff" in groups %}
 <div style="display: flex; max-height: 720px;">
     <div style="overflow-y: auto; max-height: 100%; width: 40%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%; margin: 1%;">
         {% if order %}
-        <div><b>待录入账单</b></div>
+        <div>
+            <b>待录入账单</b>
+            <span class="filter-info-tooltip" 
+                data-tooltip="表格内筛选条件：
+            • 柜子类型：转运 或 转运组合
+            • etd时间：{{ start_date }} ~ {{ end_date }}
+            • 状态：已拆柜，未录入账单
+            • 仓库：{{ warehouse }}
+            • 用户名：{{ customer }}
+            • 仓库类型：公仓"
+            >
+                <i class="fas fa-question-circle" style="color: #6c757d; font-size: 0.8em; cursor: help; margin-left: 8px;"></i>
+            </span>
+        </div>
         <form method="post" action="">
             {% csrf_token %}
             <div style="overflow-x: auto; max-width: 100%; overflow-y: auto; max-height: 600px;">

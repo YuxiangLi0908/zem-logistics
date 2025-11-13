@@ -1431,6 +1431,18 @@ class Accounting(View):
         return self.template_invoice_search, context
 
     def process_orders_display_status_v1(self, orders):
+        # 应收状态映射
+        RECEIVABLE_STATUS_MAPPING = {
+            "unstarted": "未开始",
+            "in_progress": "录入中",
+            "pending_review": "待审核",
+            "completed": "已完成",
+            "rejected": "已驳回",
+            "tobeconfirmed": "待确认",
+            "confirmed": "已确认",
+        }
+        
+        # 应付状态映射（保持原来的）
         STAGE_MAPPING = {
             "unstarted": "未录入",
             "preport": "提拆柜录入阶段",
@@ -1447,47 +1459,91 @@ class Accounting(View):
             "warehouse_rejected": "仓库已驳回",
             "delivery_rejected": "派送已驳回",
         }
-
         processed_orders = []
         for order in orders:
-            # 1. 先判断订单关联的是“应收状态”还是“应付状态”
-            # 优先读取应收状态（若有），若无则读取应付状态（可根据业务调整优先级）
-            status_obj = getattr(order, "receivable_status", None)
-            status_type = "receivable"  # 标记状态类型：应收
-
-            # 若没有应收状态，再检查应付状态
-            if not status_obj:
-                status_obj = getattr(order, "payable_status", None)
-                status_type = "payable"  # 标记状态类型：应付
-
-            # 2. 读取状态字段信息（无状态时设为默认值）
-            if status_obj:
-                raw_stage = status_obj.stage
-                raw_public_stage = status_obj.stage_public
-                raw_other_stage = status_obj.stage_other
-                raw_is_rejected = status_obj.is_rejected
-                raw_reject_reason = status_obj.reject_reason
+            # 处理应收状态（新的独立状态）
+            receivable_status = getattr(order, "receivable_status", None)
+            if receivable_status:
+                # 应收状态各个阶段
+                order.display_preport_status = RECEIVABLE_STATUS_MAPPING.get(
+                    receivable_status.preport_status, receivable_status.preport_status
+                )
+                order.display_warehouse_public_status = RECEIVABLE_STATUS_MAPPING.get(
+                    receivable_status.warehouse_public_status, receivable_status.warehouse_public_status
+                )
+                order.display_warehouse_other_status = RECEIVABLE_STATUS_MAPPING.get(
+                    receivable_status.warehouse_other_status, receivable_status.warehouse_other_status
+                )
+                order.display_delivery_public_status = RECEIVABLE_STATUS_MAPPING.get(
+                    receivable_status.delivery_public_status, receivable_status.delivery_public_status
+                )
+                order.display_delivery_other_status = RECEIVABLE_STATUS_MAPPING.get(
+                    receivable_status.delivery_other_status, receivable_status.delivery_other_status
+                )
+                order.display_finance_status = RECEIVABLE_STATUS_MAPPING.get(
+                    receivable_status.finance_status, receivable_status.finance_status
+                )
+                
+                # 状态对应的CSS类
+                order.display_preport_status_class = self._get_status_class(receivable_status.preport_status)
+                order.display_warehouse_public_status_class = self._get_status_class(receivable_status.warehouse_public_status)
+                order.display_warehouse_other_status_class = self._get_status_class(receivable_status.warehouse_other_status)
+                order.display_delivery_public_status_class = self._get_status_class(receivable_status.delivery_public_status)
+                order.display_delivery_other_status_class = self._get_status_class(receivable_status.delivery_other_status)
+                order.display_finance_status_class = self._get_status_class(receivable_status.finance_status)
+                
+                order.display_is_rejected = "已驳回" if receivable_status.is_rejected else "正常"
+                order.display_reject_reason = receivable_status.reject_reason or " "
             else:
-                raw_stage = None
-                raw_public_stage = None
-                raw_other_stage = None
-                raw_is_rejected = False
-                raw_reject_reason = ""
-            # 3. 处理显示阶段（公仓/私仓逻辑不变，适配两种状态）
-            if raw_stage in ["warehouse", "delivery"]:
-                stage1 = SUB_STAGE_MAPPING.get(raw_public_stage, str(raw_public_stage))
-                stage2 = SUB_STAGE_MAPPING.get(raw_other_stage, str(raw_other_stage))
-                display_stage = f"公仓: {stage1} \n私仓: {stage2}"
+                # 没有应收状态时设置默认值
+                order.display_preport_status = "未开始"
+                order.display_warehouse_public_status = "未开始"
+                order.display_warehouse_other_status = "未开始"
+                order.display_delivery_public_status = "未开始"
+                order.display_delivery_other_status = "未开始"
+                order.display_finance_status = "未开始"
+                order.display_preport_status_class = "unstarted"
+                order.display_warehouse_public_status_class = "unstarted"
+                order.display_warehouse_other_status_class = "unstarted"
+                order.display_delivery_public_status_class = "unstarted"
+                order.display_delivery_other_status_class = "unstarted"
+                order.display_finance_status_class = "unstarted"
+                order.display_is_rejected = "正常"
+                order.display_reject_reason = " "
+
+            # 处理应付状态（保持原来的逻辑）
+            payable_status = getattr(order, "payable_status", None)
+            if payable_status:
+                raw_stage = payable_status.stage
+                raw_public_stage = payable_status.stage_public
+                raw_other_stage = payable_status.stage_other
+                
+                if raw_stage in ["warehouse", "delivery"]:
+                    stage1 = SUB_STAGE_MAPPING.get(raw_public_stage, str(raw_public_stage))
+                    stage2 = SUB_STAGE_MAPPING.get(raw_other_stage, str(raw_other_stage))
+                    order.display_stage = f"公仓: {stage1} \n私仓: {stage2}"
+                else:
+                    base_stage = STAGE_MAPPING.get(raw_stage, str(raw_stage)) if raw_stage else "未录入任何费用"
+                    order.display_stage = base_stage
             else:
-                # 无细分阶段时，同样显示状态类型
-                base_stage = STAGE_MAPPING.get(raw_stage, str(raw_stage)) if raw_stage else "未录入任何费用"
-                display_stage = base_stage
-            order.display_stage = display_stage
-            order.display_is_rejected = "已驳回" if raw_is_rejected else "正常"
-            order.display_reject_reason = raw_reject_reason or " "
+                order.display_stage = "未录入"
+
             processed_orders.append(order)
 
         return processed_orders
+
+    def _get_status_class(self, status):
+        """根据状态返回对应的CSS类"""
+        status_class_map = {
+            "completed": "completed",
+            "confirmed": "completed",
+            "pending_review": "pending",
+            "tobeconfirmed": "pending",
+            "in_progress": "inprogress",
+            "rejected": "rejected",
+            "unstarted": "unstarted",
+        }
+        return status_class_map.get(status, "unstarted")
 
     def process_orders_display_status(self, orders, invoice_type):
         STAGE_MAPPING = {
@@ -1621,13 +1677,15 @@ class Accounting(View):
             "container_number",
             "invoice_id__statement_id",
             "offload_id",
+            "receivable_status" 
         ).filter(
             criteria,
             models.Q(**{"receivable_status__isnull": True})
             | models.Q(  # 考虑账单编辑点的是暂存的情况
                 **{
                     "receivable_status__invoice_type": "receivable",
-                    "receivable_status__stage": "unstarted",
+                    "receivable_status__preport_status": "unstarted",  #港前未录入的
+                    "receivable_status__preport_status": "in_progress", #暂存的
                 }
             ),
         )
@@ -1636,8 +1694,7 @@ class Accounting(View):
             criteria,
             **{
                 "receivable_status__invoice_type": "receivable",
-                "receivable_status__is_rejected": True,
-                "receivable_status__stage": "preport",
+                "receivable_status__preport_status": "rejected",
             },
         )
         order_reject = self.process_orders_display_status(order_reject, "receivable")
@@ -1651,8 +1708,7 @@ class Accounting(View):
             criteria,
             **{
                 "receivable_status__invoice_type": "receivable",
-                "receivable_status__is_rejected": False,
-                "receivable_status__stage": "preport",
+               "receivable_status__preport_status": "pending_review",
             },
         )
         # 查找已录入账单
@@ -1675,10 +1731,9 @@ class Accounting(View):
                 criteria,
                 **{
                     "receivable_status__isnull": False,
-                    "receivable_status__invoice_type": "receivable",
+                    "receivable_status__preport_status": "completed",
                 },
             )
-            .exclude(**{"receivable_status__stage__in": ["preport", "unstarted"]})
         )
 
         previous_order = self.process_orders_display_status(
@@ -1765,68 +1820,54 @@ class Accounting(View):
         # 查找未操作过的
         if display_mix:
             order = base_query.filter(
-                **{"receivable_status__stage": "warehouse"},
+                models.Q(receivable_status__isnull=True) |
+                models.Q(receivable_status__warehouse_public_status="unstarted") |
+                models.Q(receivable_status__warehouse_public_status="rejected") |
+                models.Q(receivable_status__warehouse_other_status="unstarted") |
+                models.Q(receivable_status__warehouse_other_status="rejected") |
+                models.Q(receivable_status__warehouse_other_status="in_progress") |
+                models.Q(receivable_status__warehouse_public_status="in_progress")
             ).order_by("receivable_status__reject_reason")
         else:
             if "warehouse_public" in groups and "warehouse_other" not in groups:
                 # 如果是公仓人员
-                order = (
-                    base_query.filter(
-                        **{"receivable_status__stage": "warehouse"},
-                    )
-                    .filter(
-                        models.Q(**{"receivable_status__stage_public": "pending"})
-                        | models.Q(
-                            **{"receivable_status__stage_public": "warehouse_rejected"}
-                        )
-                    )
-                    .order_by("receivable_status__reject_reason")
-                )
+                order = base_query.filter(
+                    models.Q(receivable_status__isnull=True) |
+                    models.Q(receivable_status__warehouse_public_status="unstarted") |
+                    models.Q(receivable_status__warehouse_public_status="rejected") |
+                    models.Q(receivable_status__warehouse_public_status="in_progress")
+                ).order_by("receivable_status__reject_reason")
             elif "warehouse_other" in groups and "warehouse_public" not in groups:
                 # 如果是私仓人员
-                order = (
-                    base_query.filter(
-                        **{"receivable_status__stage": "warehouse"},
-                    )
-                    .filter(
-                        models.Q(**{"receivable_status__stage_other": "pending"})
-                        | models.Q(
-                            **{"receivable_status__stage_other": "warehouse_rejected"}
-                        )
-                    )
-                    .order_by("receivable_status__reject_reason")
-                )
+                order = base_query.filter(
+                    models.Q(receivable_status__isnull=True) |
+                    models.Q(receivable_status__warehouse_other_status="unstarted") |
+                    models.Q(receivable_status__warehouse_other_status="rejected") |
+                    models.Q(receivable_status__warehouse_other_status="in_progress")
+                ).order_by("receivable_status__reject_reason")
         order = self.process_orders_display_status(order, "receivable")
 
         # 查找历史操作过的，状态是warehouse时，对应group的stage为completed，或者状态是库内之后的
-        base_condition = ~models.Q(
-            **{"receivable_status__stage__in": ["unstarted", "preport"]}
-        )
-        other_stages = models.Q(
-            **{
-                "receivable_status__stage__in": [
-                    "delivery",
-                    "tobeconfirmed",
-                    "confirmed",
-                ]
-            }
+        base_condition = models.Q(
+            receivable_status__isnull=False,
+            receivable_status__invoice_type="receivable"
         )
 
         if display_mix:
-            warehouse_condition = models.Q(**{"receivable_status__stage": "delivery"})
+            warehouse_condition = (
+                models.Q(receivable_status__warehouse_public_status="completed") |
+                models.Q(receivable_status__warehouse_other_status="completed")
+            )
         else:
             if "warehouse_public" in groups and "warehouse_other" not in groups:
-                warehouse_condition = models.Q(
-                    **{"receivable_status__stage_public": "warehouse_completed"}
-                )
+                # 公仓人员：公仓状态为已完成
+                warehouse_condition = models.Q(receivable_status__warehouse_public_status="completed")
             elif "warehouse_other" in groups and "warehouse_public" not in groups:
-                warehouse_condition = models.Q(
-                    **{"receivable_status__stage_other": "warehouse_completed"}
-                )
+                # 私仓人员：私仓状态为已完成
+                warehouse_condition = models.Q(receivable_status__warehouse_other_status="completed")
         previous_order = base_query.filter(
             base_condition,
-            warehouse_condition | other_stages,  # 满足仓库条件或其他阶段
-            **{"receivable_status__invoice_type": "receivable"},
+            warehouse_condition  # 只包含仓库阶段已完成的
         ).select_related(
             "customer_name", "container_number", "receivable_status", "payable_status"
         )
@@ -1900,8 +1941,13 @@ class Accounting(View):
                 "customer_name", "container_number", "retrieval_id"
             ).filter(
                 criteria,
-                **{f"{invoice_type}_status__stage": "tobeconfirmed"},
-            )
+                receivable_status__isnull=False,
+                receivable_status__preport_status="completed",
+                receivable_status__warehouse_public_status="completed",
+                receivable_status__warehouse_other_status="completed",
+                receivable_status__delivery_public_status="completed",
+                receivable_status__delivery_other_status="completed",             
+            ).exclude(receivable_status__finance_status="completed")
 
             previous_order = (
                 Order.objects.select_related(
@@ -1926,7 +1972,10 @@ class Accounting(View):
                     "invoice_id__is_invoice_delivered",
                     "invoice_id__remain_offset",
                 )
-                .filter(criteria, **{"receivable_status__stage": "confirmed"})
+                .filter(
+                    criteria,  
+                    receivable_status__isnull=False,
+                    receivable_status__finance_status="confirmed" )
             )
             previous_order = previous_order.annotate(
                 total_amount=Case(
@@ -2472,21 +2521,19 @@ class Accounting(View):
         ):  # 这个权限的，要看NJ的私仓
             order = (
                 base_query.filter(
-                    models.Q(
-                        **{"receivable_status__stage_other": "warehouse_completed"}
-                    )
-                    | models.Q(
-                        **{"receivable_status__stage_other": "delivery_rejected"}
-                    )
+                    models.Q(receivable_status__isnull=True) |
+                    models.Q(receivable_status__delivery_other_status="unstarted") |
+                    models.Q(receivable_status__delivery_other_status="rejected")
                 )
                 .annotate(
                     is_priority=Case(
                         When(
-                            **{"receivable_status__stage_other": "delivery_rejected"},
+                            models.Q(receivable_status__delivery_other_status="rejected"),
                             then=Value(0),
                         ),
                         When(
-                            **{"receivable_status__stage_other": "warehouse_completed"},
+                            models.Q(receivable_status__delivery_other_status="unstarted") |
+                            models.Q(receivable_status__isnull=True),
                             then=Value(1),
                         ),
                         output_field=IntegerField(),
@@ -2499,24 +2546,25 @@ class Accounting(View):
             if display_mix:  # 这个权限的，都能看
                 order = (
                     base_query.filter(
-                        models.Q(**{"receivable_status__stage": "delivery"})
+                        models.Q(receivable_status__isnull=True) |
+                        models.Q(receivable_status__delivery_public_status="unstarted") |
+                        models.Q(receivable_status__delivery_public_status="rejected") |
+                        models.Q(receivable_status__delivery_other_status="unstarted") |
+                        models.Q(receivable_status__delivery_other_status="rejected")
                     )
                     .annotate(
                         is_priority=Case(
                             When(
-                                models.Q(
-                                    **{
-                                        "receivable_status__stage_other": "delivery_rejected"
-                                    }
-                                )
-                                | models.Q(
-                                    **{
-                                        "receivable_status__stage_public": "delivery_rejected"
-                                    }
-                                ),
+                                models.Q(receivable_status__delivery_public_status="rejected") |
+                                models.Q(receivable_status__delivery_other_status="rejected"),
                                 then=Value(0),
                             ),
-                            default=Value(1),
+                            When(
+                                models.Q(receivable_status__delivery_public_status="unstarted") |
+                                models.Q(receivable_status__delivery_other_status="unstarted") |
+                                models.Q(receivable_status__isnull=True),
+                                then=Value(1),
+                            ),
                             output_field=IntegerField(),
                         ),
                         is_hold=Exists(hold_subquery),
@@ -2527,25 +2575,19 @@ class Accounting(View):
                 # 只看公仓人员
                 order = (
                     base_query.filter(
-                        models.Q(
-                            **{"receivable_status__stage_public": "warehouse_completed"}
-                        )
-                        | models.Q(
-                            **{"receivable_status__stage_public": "delivery_rejected"}
-                        )
+                        models.Q(receivable_status__isnull=True) |
+                        models.Q(receivable_status__delivery_public_status="unstarted") |
+                        models.Q(receivable_status__delivery_public_status="rejected")
                     )
                     .annotate(
                         is_priority=Case(
                             When(
-                                **{
-                                    "receivable_status__stage_public": "delivery_rejected"
-                                },
+                                models.Q(receivable_status__delivery_public_status="rejected"),
                                 then=Value(0),
                             ),
                             When(
-                                **{
-                                    "receivable_status__stage_public": "warehouse_completed"
-                                },
+                                models.Q(receivable_status__delivery_public_status="unstarted") |
+                                models.Q(receivable_status__isnull=True),
                                 then=Value(1),
                             ),
                             output_field=IntegerField(),
@@ -2557,32 +2599,33 @@ class Accounting(View):
         order = self.process_orders_display_status(order, "receivable")
 
         # 查找历史操作过的
-        base_condition = ~models.Q(
-            **{"receivable_status__stage__in": ["unstarted", "preport"]}
+        base_condition = models.Q(
+            receivable_status__isnull=False,
+            receivable_status__invoice_type="receivable"
         )
-        other_stages = models.Q(
-            **{"receivable_status__stage__in": ["tobeconfirmed", "confirmed"]}
-        )
+
         delivery_completed_condition = models.Q()
         if "NJ_mix_account" in groups:
             delivery_completed_condition = models.Q(
-                **{"receivable_status__stage_other": "delivery_completed"}
+                receivable_status__delivery_other_status="completed"
             )
         else:
             if display_mix:
-                delivery_completed_condition = models.Q()
+                delivery_completed_condition = (
+                    models.Q(receivable_status__delivery_public_status="completed") |
+                    models.Q(receivable_status__delivery_other_status="completed")
+                )
             elif "warehouse_public" in groups and "warehouse_other" not in groups:
                 delivery_completed_condition = models.Q(
-                    **{"receivable_status__stage_public": "delivery_completed"}
+                    receivable_status__delivery_public_status="completed"
                 )
             elif "warehouse_other" in groups and "warehouse_public" not in groups:
                 delivery_completed_condition = models.Q(
-                    **{"receivable_status__stage_other": "delivery_completed"}
+                    receivable_status__delivery_other_status="completed"
                 )
         previous_order = base_query.filter(
             base_condition,
-            other_stages | delivery_completed_condition,  # 满足任意一个条件即可
-            **{"receivable_status__invoice_type": "receivable"},
+            delivery_completed_condition,  # 满足任意一个条件即可
         ).select_related(
             "customer_name", "container_number", "receivable_status", "payable_status"
         )
@@ -2945,61 +2988,35 @@ class Accounting(View):
             container_number__container_number=container_number
         )
 
-        if save_type == "complete":
-            # 开始准备改变状态，先找到状态表
-            invoice_status = InvoiceStatus.objects.get(
-                container_number=order.container_number, invoice_type="receivable"
-            )
-            container_delivery_type = invoice_status.container_number.delivery_type
-            # 如果这是被驳回的，就直接改主状态为待确认，其他不用动
-            if invoice_status.is_rejected == True:
-                invoice_status.stage = "tobeconfirmed"
-                invoice_status.stage_other = "delivery_completed"
-                invoice_status.stage_public = "delivery_completed"
-                invoice_status.is_rejected = False
-                invoice_status.reject_reason = ""
+        invoice_status = InvoiceStatus.objects.get(
+            container_number=order.container_number, invoice_type="receivable"
+        )
+        container_delivery_type = invoice_status.container_number.delivery_type
+        if save_type in ["complete", "account_complete"]:
+            # 开始准备改变状态，先找到状态表          
+            if container_delivery_type in ["public", "other"]:
+                invoice_status.warehouse_public_status = "completed"
+                invoice_status.warehouse_other_status = "completed"
+            elif container_delivery_type == "mixed":
+                if delivery_type == "public":
+                    invoice_status.warehouse_public_status = "completed"
+                elif delivery_type == "other":
+                    invoice_status.warehouse_other_status = "completed"
+                else:
+                    raise ValueError('界面回传delivery_type错误！')
             else:
-                if container_delivery_type in ["public", "other"]:
-                    # 如果这个柜子只有一类仓，就直接改变状态
-                    invoice_status.stage = "delivery"
-                    invoice_status.is_rejected = False
-                    invoice_status.reject_reason = ""
-                    invoice_status.stage_public = "warehouse_completed"
-                    invoice_status.stage_other = "warehouse_completed"
-                elif container_delivery_type == "mixed":
-                    if delivery_type == "public":
-                        # 公仓组录完了，改变stage_public
-                        if invoice_status.stage_public not in [
-                            "delivery_completed",
-                            "delivery_rejected",
-                        ]:
-                            invoice_status.stage_public = "warehouse_completed"
-                            # 如果私仓也做完了，就改变主状态到派送阶段
-                            if invoice_status.stage_other not in [
-                                "pending",
-                                "warehouse_rejected",
-                            ]:
-                                invoice_status.stage = "delivery"
-                    elif delivery_type == "other":
-                        # 私仓租录完了，改变stage_other
-                        if invoice_status.stage_other not in [
-                            "delivery_completed",
-                            "delivery_rejected",
-                        ]:
-                            invoice_status.stage_other = "warehouse_completed"
-                            # 如果公仓也做完了，就改变主状态
-                            if invoice_status.stage_public not in [
-                                "pending",
-                                "warehouse_rejected",
-                            ]:
-                                invoice_status.stage = "delivery"
-                    else:
-                        raise ValueError("没有派送类别")
-                    # 既有公仓权限，又有私仓权限的不知道咋处理，而且编辑页面也不好搞
-                    invoice_status.is_rejected = False
-                    invoice_status.reject_reason = ""
-            invoice_status.save()
-        elif save_type == "account_comlete":
+                raise ValueError('柜子的delivery_type错误！')           
+        elif save_type == "temporary": #暂存功能
+            if delivery_type == "public":
+                invoice_status.warehouse_public_status = "in_progress"
+            elif delivery_type == "other":
+                invoice_status.warehouse_other_status = "in_progress"
+            else:
+                raise ValueError('界面回传delivery_type错误！')
+        invoice_status.is_rejected = False
+        invoice_status.reject_reason = ""
+        invoice_status.save()
+        if save_type == "account_comlete":
             modified_get = request.GET.copy()
             modified_get["start_date_confirm"] = request.POST.get("start_date_confirm")
             modified_get["end_date_confirm"] = request.POST.get("end_date_confirm")
@@ -3252,32 +3269,31 @@ class Accounting(View):
             container_number__container_number=container_number
         )
 
-        invoice_status, created = InvoiceStatus.objects.get_or_create(
+        invoice_status = InvoiceStatus.objects.get(
             container_number=order.container_number, invoice_type="receivable"
         )
         if data.get("pending") == "True":
             # 审核通过，进入库内账单录入
-            invoice_status.stage = "warehouse"
-            invoice_status.is_rejected = "False"
+            invoice_status.preport_status = "completed"
+            invoice_status.is_rejected = False
             invoice_status.reject_reason = ""
         elif data.get("pending") == "False":
             # 审核失败，驳回账单
-            invoice_status.is_rejected = "True"
+            invoice_status.preport_status = "rejected"
+            invoice_status.is_rejected = True
             invoice_status.reject_reason = data.get("invoice_reject_reason", "")
         else:
             # 提拆柜录入完毕,如果是complete表示客服录入完成，订单状态进入下一步，否则不改状态
             if save_type == "complete":
-                # 如果这是被财务驳回的，就直接改主状态为待确认，其他不用动
-                if invoice_status.is_rejected == True and (
-                    invoice_status.stage_public == "delivery_completed"
-                    or invoice_status.stage_other == "delivery_completed"
-                ):
-                    invoice_status.stage = "tobeconfirmed"
-                    invoice_status.reject_reason = ""
+                if (invoice_status.delivery_public_status == "completed" or invoice_status.delivery_other_status == "completed"):
+                    #说明是财务退回的，不用组长审核了
+                    invoice_status.preport_status = "completed"
                 else:
-                    invoice_status.stage = "preport"
-                    invoice_status.reject_reason = ""
-                invoice_status.is_rejected = "False"
+                    invoice_status.preport_status = "pending_review"
+                invoice_status.is_rejected = False
+                invoice_status.reject_reason = ""
+            elif save_type == "temporary": #暂存功能
+                invoice_status.preport_status = "in_progress"
             elif (
                 save_type == "account_complete"
             ):  # 如果是财务从确认界面跳转过来的，就要return回账单确认界面
@@ -3447,7 +3463,7 @@ class Accounting(View):
         invoice_status = InvoiceStatus.objects.get(
             container_number=order.container_number, invoice_type="receivable"
         )
-        invoice_status.stage = "confirmed"
+        invoice_status.finance_status = "completed"
         invoice_status.save()
 
         context = self._parse_invoice_excel_data(order, invoice, invoice_type)
@@ -3990,28 +4006,35 @@ class Accounting(View):
             invoice_status = InvoiceStatus.objects.get(
                 container_number=order.container_number, invoice_type="receivable"
             )
+            if status == "preport":
+                invoice_status.preport_status = "rejected"
+            elif status == "warehouse":
+                delivery_type = request.POST.get("delivery_type")
+                if delivery_type == "public":
+                    invoice_status.warehouse_public_status = "rejected"
+                elif delivery_type == "other":
+                    invoice_status.warehouse_other_status = "rejected"
+            elif status == "delivery":
+                reject_type = request.POST.get("reject_type")
+                delivery_type = request.POST.get("delivery_type")
+                if reject_type == "public" or delivery_type == "public":
+                    invoice_status.delivery_public_status = "rejected"
+                else:
+                    invoice_status.delivery_other_status = "rejected"
+            else:
+                raise ValueError(f'驳回阶段参数异常{status}！')
+            invoice_status.is_rejected = "True"
+            invoice_status.reject_reason = reject_reason
+            invoice_status.save()
+            
         elif invoice_type == "payable":
             invoice_status = InvoiceStatus.objects.get(
                 container_number=order.container_number, invoice_type="payable"
             )
-        invoice_status.stage = status
-        if status == "warehouse":
-            delivery_type = request.POST.get("delivery_type")
-            if delivery_type == "public":
-                invoice_status.stage_public = "warehouse_rejected"
-            elif delivery_type == "other":
-                invoice_status.stage_other = "warehouse_rejected"
-        elif status == "delivery":
-            # 检查时驳回公仓还是私仓
-            reject_type = request.POST.get("reject_type")
-            delivery_type = request.POST.get("delivery_type")
-            if reject_type == "public" or delivery_type == "public":
-                invoice_status.stage_public = "delivery_rejected"
-            else:
-                invoice_status.stage_other = "delivery_rejected"
-        invoice_status.is_rejected = "True"
-        invoice_status.reject_reason = reject_reason
-        invoice_status.save()
+            invoice_status.stage = status       
+            invoice_status.is_rejected = "True"
+            invoice_status.reject_reason = reject_reason
+            invoice_status.save()
         if (
             start_date_confirm
             and end_date_confirm
@@ -4110,35 +4133,23 @@ class Accounting(View):
                 if (
                     "mix_account" in groups and "NJ_mix_account" not in groups
                 ):  # 公仓//私仓权限都有的
-                    invoice_status.stage_public = "delivery_completed"
-                    invoice_status.stage_other = "delivery_completed"
-                    invoice_status.stage = "tobeconfirmed"
-                    invoice_status.is_rejected = False
-                    invoice_status.reject_reason = ""
+                    invoice_status.delivery_public_status = "completed"
+                    invoice_status.delivery_other_status = "completed"                 
                 else:
                     if container_delivery_type in ["public", "other"]:
                         # 如果这个柜子只有一类仓，就直接改变状态
-                        invoice_status.stage = "tobeconfirmed"
-                        invoice_status.is_rejected = False
-                        invoice_status.reject_reason = ""
-                        invoice_status.stage_public = "delivery_completed"
-                        invoice_status.stage_other = "delivery_completed"
+                        invoice_status.delivery_public_status = "completed"
+                        invoice_status.delivery_other_status = "completed"
                     elif container_delivery_type == "mixed":
                         if delivery_type == "public":
                             # 公仓组录完了，改变stage_public
-                            invoice_status.stage_public = "delivery_completed"
-                            # 如果私仓也做完了，就改变主状态到派送阶段
-                            if invoice_status.stage_other == "delivery_completed":
-                                invoice_status.stage = "tobeconfirmed"
+                            invoice_status.delivery_public_status = "completed"
                         elif delivery_type == "other":
                             # 私仓租录完了，改变stage_other
-                            invoice_status.stage_other = "delivery_completed"
-                            # 如果公仓也做完了，就改变主状态
-                            if invoice_status.stage_public == "delivery_completed":
-                                invoice_status.stage = "tobeconfirmed"
-                        invoice_status.is_rejected = False
-                        invoice_status.reject_reason = ""
-
+                            invoice_status.delivery_other_status = "completed"
+                if invoice_status.is_rejected == True:
+                    invoice_status.is_rejected = False
+                    invoice_status.reject_reason = ""
                 invoice_status.save()
         else:
             # 记录其中一种派送方式到invoice_delivery表
@@ -4258,9 +4269,9 @@ class Accounting(View):
             "repeated_operation_fee": f"{WAREHOUSE_FEE.details.get('重复操作费', 'N/A')}",  # 重复操作费
         }
 
-        invoice = Invoice.objects.select_related("customer", "container_number").get(
-            container_number__container_number=container_number
-        )
+        invoice = self.get_or_create_invoice(container_number)
+        invoice_status = self.get_or_create_invoice_status(container_number, "receivable")
+
         groups = [group.name for group in request.user.groups.all()]
         if not delivery_type:
             delivery_type = request.GET.get("delivery_type")
@@ -4321,6 +4332,7 @@ class Accounting(View):
                 "invoice_warehouse": invoice_warehouse,
                 "surcharges": invoice_warehouse.surcharges,
                 "surcharge_notes": invoice_warehouse.surcharge_notes,
+                "status": invoice_status.warehouse_public_status if delivery_type == "public" else invoice_status.warehouse_other_status,
             }
             return self.template_invoice_warehouse_edit, context
         # 如果单价和数量都为空的话，就初始化
@@ -4336,6 +4348,14 @@ class Accounting(View):
             invoice_warehouse.save()
         step = request.POST.get("step")
         redirect_step = step == "redirect"
+        if invoice_status.finance_status == "completed":
+            current_status = "confirmed"
+        else:
+            if delivery_type == "public":
+                current_status = invoice_status.warehouse_public_status
+            else:
+                current_status = invoice_status.warehouse_other_status
+            
         context = {
             "warehouse": request.GET.get("warehouse"),
             "invoice_warehouse": invoice_warehouse,
@@ -4348,7 +4368,7 @@ class Accounting(View):
             "redirect_step": redirect_step,
             "FS": FS,
             "fs_json": fs_json,
-            "status": order.receivable_status.stage,
+            "status": current_status,
             "start_date_confirm": request.POST.get("start_date_confirm") or None,
             "end_date_confirm": request.POST.get("end_date_confirm") or None,
             "invoice_type": "receivable",
@@ -4711,11 +4731,11 @@ class Accounting(View):
     ) -> tuple[Any, Any]:
         container_number = request.GET.get("container_number")
         invoice_type = request.GET.get("invoice_type")
-        invoice = Invoice.objects.select_related("customer", "container_number").get(
-            container_number__container_number=container_number
-        )
+        invoice = self.get_or_create_invoice(container_number)
+        invoice_status = self.get_or_create_invoice_status(container_number, "receivable")
+
         order = Order.objects.select_related(
-            "retrieval_id", "container_number", "vessel_id"
+            "retrieval_id", "container_number", "vessel_id", "receivable_status"
         ).get(container_number__container_number=container_number)
         warehouse = order.retrieval_id.retrieval_destination_area
         vessel_etd = order.vessel_id.vessel_etd
@@ -4725,14 +4745,12 @@ class Accounting(View):
         customer = order.customer_name
         customer_name = customer.zem_name
         fee_details = self._get_fee_details(warehouse, vessel_etd, customer_name)
+
         # 这里新加入一个功能，是自动将派送类别归类，要先看下
-        invoice_status = InvoiceStatus.objects.get(
-            container_number=order.container_number, invoice_type="receivable"
-        )
-        if invoice_status.stage not in ["confirmed", "tobeconfirmed"]:
+        if invoice_status.finance_status != "completed":
             groups = [group.name for group in request.user.groups.all()]
             if "warehouse_other" not in groups:
-                # 私仓组，不用关公仓归类的情况
+                # 私仓组，不用管公仓归类的情况
                 has_unclassified_public_pallets = (
                     Pallet.objects.filter(
                         container_number__container_number=container_number,
@@ -7093,52 +7111,11 @@ class Accounting(View):
             "other_serive": f"{PICKUP_FEE.details.get('其他服务', 'N/A')}",  # 其他服务
         }
         # 提拆柜费用读取对应表
-        try:
-            invoice = Invoice.objects.select_related(
-                "customer", "container_number"
-            ).get(container_number__container_number=container_number)
-        except Invoice.DoesNotExist:
-            # 没有账单就创建
-            order = Order.objects.select_related(
-                "customer_name", "container_number"
-            ).get(container_number__container_number=container_number)
-            current_date = datetime.now().date()
-            order_id = str(order.id)
-            customer_id = order.customer_name.id
-            invoice = Invoice(
-                **{
-                    "invoice_number": f"{current_date.strftime('%Y-%m-%d').replace('-', '')}C{customer_id}{order_id}",
-                    "customer": order.customer_name,
-                    "container_number": order.container_number,
-                    "receivable_total_amount": 0.0,
-                    "receivable_preport_amount": 0.0,
-                    "receivable_warehouse_amount": 0.0,
-                    "receivable_delivery_amount": 0.0,
-                    "receivable_direct_amount": 0.0,
-                    "payable_total_amount": 0.0,
-                    "payable_basic": 0.0,
-                    "payable_chassis": 0.0,
-                    "payable_overweight": 0.0,
-                    "payable_palletization": 0.0,
-                    "remain_offset": 0.0,
-                }
-            )
-            invoice.save()
-            order.invoice_id = invoice
-
-        # 建立invoicestatus表
-        try:
-            invoice_status = InvoiceStatus.objects.get(
-                container_number=order.container_number, invoice_type="receivable"
-            )
-        except InvoiceStatus.DoesNotExist:
-            invoice_status = InvoiceStatus(
-                container_number=order.container_number,
-                invoice_type="receivable",
-            )
-            invoice_status.save()
-            order.receivable_status = invoice_status
-        order.save()
+        invoice = self._get_or_create_invoice(container_number)
+        invoice_status = self._get_or_create_invoice_status(container_number, "receivable")
+        order = Order.objects.select_related(
+            "retrieval_id", "container_number", "warehouse", "receivable_status"
+        ).get(container_number__container_number=container_number)
         # 建立invoicepreport表
         invoice_preports, created = InvoicePreport.objects.get_or_create(
             invoice_number=invoice,
@@ -7209,6 +7186,71 @@ class Accounting(View):
         }
         return self.template_invoice_preport_edit, context
 
+    def _get_or_create_invoice(self, container_number):
+        """
+        根据柜号获取或创建账单
+        """
+        try:
+            invoice = Invoice.objects.select_related(
+                "customer", "container_number"
+            ).get(container_number__container_number=container_number)
+            return invoice
+        except Invoice.DoesNotExist:
+            # 没有账单就创建
+            order = Order.objects.select_related(
+                "customer_name", "container_number"
+            ).get(container_number__container_number=container_number)
+            current_date = datetime.now().date()
+            order_id = str(order.id)
+            customer_id = order.customer_name.id
+            invoice = Invoice(
+                **{
+                    "invoice_number": f"{current_date.strftime('%Y-%m-%d').replace('-', '')}C{customer_id}{order_id}",
+                    "customer": order.customer_name,
+                    "container_number": order.container_number,
+                    "receivable_total_amount": 0.0,
+                    "receivable_preport_amount": 0.0,
+                    "receivable_warehouse_amount": 0.0,
+                    "receivable_delivery_amount": 0.0,
+                    "receivable_direct_amount": 0.0,
+                    "payable_total_amount": 0.0,
+                    "payable_basic": 0.0,
+                    "payable_chassis": 0.0,
+                    "payable_overweight": 0.0,
+                    "payable_palletization": 0.0,
+                    "remain_offset": 0.0,
+                }
+            )
+            invoice.save()
+            order.invoice_id = invoice
+            order.save()
+        return invoice
+    
+    def _get_or_create_invoice_status(self, container_number, invoice_type="receivable"):
+        """
+        根据订单和账单类型获取或创建账单状态
+        """
+        try:
+            # 先获取对应的订单
+            order = Order.objects.get(container_number__container_number=container_number)
+            
+            invoice_status = InvoiceStatus.objects.get(
+                container_number=order.container_number, invoice_type=invoice_type
+            )
+            return invoice_status
+        except InvoiceStatus.DoesNotExist:
+            invoice_status = InvoiceStatus(
+                container_number=order.container_number,
+                invoice_type=invoice_type,
+            )
+            invoice_status.save()
+            
+            # 更新订单的对应状态字段
+            order.receivable_status = invoice_status
+            order.save()
+            
+            return invoice_status
+    
     def handle_container_invoice_get(self, container_number: str) -> tuple[Any, Any]:
         order = Order.objects.select_related("offload_id").get(
             container_number__container_number=container_number
