@@ -2204,7 +2204,7 @@ class PostNsop(View):
                 cbm_percentage = min(100, (primary_group['total_cbm'] / max_cbm) * 100) if max_cbm > 0 else 0
                 
                 # 寻找匹配的shipment
-                matched_shipment = await self.find_matching_shipment(primary_group, shipments)
+                matched_shipment = await self.find_matching_shipment(primary_group, shipments, warehouse)
 
                 result_intel = await self._find_intelligent_po_for_group(
                     primary_group, warehouse, user
@@ -2432,7 +2432,7 @@ class PostNsop(View):
             'intelligent_pos_stats':intelligent_pos_stats
             }
     
-    async def find_matching_shipment(self, primary_group, shipments):
+    async def find_matching_shipment(self, primary_group, shipments, warehouse):
         """为货物大组寻找匹配的shipment"""
         destination = primary_group['destination']
         matched_shipments = []
@@ -2440,6 +2440,8 @@ class PostNsop(View):
         for shipment in shipments:
             # 检查目的地是否匹配
             if shipment.destination != destination:
+                continue
+            if shipment.origin != warehouse:
                 continue
             # 检查时间窗口条件
             if await self.check_time_window_match(primary_group, shipment):
