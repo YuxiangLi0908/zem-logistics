@@ -205,7 +205,14 @@
         margin-top: 3px;
         text-align: center;
     }
-    
+    .btn-secondary {
+        background: #6c757d;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: not-allowed;
+        opacity: 0.5;
+    }
     .status-abnormal {
         background-color: #f8d7da;
         color: #721c24;
@@ -251,9 +258,129 @@
     .shipment-table td:nth-child(1) {
         min-width: 100px; 
     }
+
+    .shipment-table th:nth-child(2), 
+    .shipment-table td:nth-child(2) {
+        min-width: 120px; /* 设置最小宽度 */
+        max-width: 220px; /* 设置最大宽度 */
+        word-wrap: break-word; /* 允许长单词换行 */
+        white-space: normal; /* 允许正常换行 */
+        line-height: 1.4; /* 增加行高提高可读性 */
+    }
     .shipment-table th:nth-child(4), 
     .shipment-table td:nth-child(4) {
         min-width: 100px; 
+    }
+    .shipment-table th:nth-child(10), 
+    .shipment-table td:nth-child(10) {
+        min-width: 320px;
+        max-width: 400px;
+    }
+    .action-column {
+        min-width: 300px;
+        max-width: 400px;
+    }
+
+    /* 链接组样式 */
+    .link-group {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        margin-bottom: 10px;
+    }
+
+    .link-row {
+        display: flex;
+        align-items: flex-start;
+        gap: 8px;
+        padding: 6px;
+        border-radius: 6px;
+        background: #f8f9fa;
+        border: 1px solid #e9ecef;
+    }
+
+    .batch-info {
+        min-width: 120px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: #495057;
+        background: white;
+        padding: 4px 8px;
+        border-radius: 4px;
+        border: 1px solid #dee2e6;
+        word-break: break-all;
+    }
+
+    .link-buttons {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+        flex: 1;
+    }
+
+    .link-btn {
+        text-decoration: none;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 0.7rem;
+        padding: 4px 8px;
+        border-radius: 4px;
+        border: 1px solid;
+        transition: all 0.2s ease;
+        white-space: nowrap;
+    }
+
+    .link-btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .link-btn.primary {
+        background: var(--primary-color);
+        color: white;
+        border-color: var(--primary-color);
+    }
+
+    .link-btn.success {
+        background: var(--success-color);
+        color: white;
+        border-color: var(--success-color);
+    }
+
+    .link-btn.secondary {
+        background: #6c757d;
+        color: white;
+        border-color: #6c757d;
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+
+    /* 操作按钮组 */
+    .action-buttons {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 5px;
+    }
+
+    .action-btn {
+        padding: 6px 10px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 0.75rem;
+        transition: all 0.2s ease;
+        white-space: nowrap;
+    }
+
+    .action-btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    /* FTL下载按钮 */
+    .ftl-download-btn {
+        margin-bottom: 8px;
     }
     .shipment-table td {
         padding: 10px 8px;
@@ -835,74 +962,126 @@
                             {% endif %}
                         </td>
                         
-                        <td>
-                            <form method="post" class="action-form">
-                                {% csrf_token %}
-                                <input type="hidden" name="step" value="export_bol">
-                                <input type="hidden" name="warehouse" value="{{ warehouse }}">
-                                <input type="hidden" name="shipment_type_filter" id="shipmentTypeHidden">
-                                <input type="hidden" name="fleet_number" value="{{ fleet.fleet_number }}">
-                                <button type="submit" class="action-btn btn-primary">
-                                    <i class="fas fa-download"></i> BOL
-                                </button>
-                            </form>
-                            
-                            {% if fleet.warehouse_process_status == 'waiting' %}
-                                <form method="post" class="action-form" id="loading-fleet-form-{{ fleet.fleet_number }}">
+                        <td class="action-column">
+                            {% if fleet.fleet_type == 'FTL' %}
+                            <div class="ftl-download-btn">
+                                <form method="post" class="action-form">
                                     {% csrf_token %}
-                                    <input type="hidden" name="step" value="loading_fleet">
+                                    <input type="hidden" name="step" value="export_bol">
+                                    <input type="hidden" name="file_type" value="BOL">
                                     <input type="hidden" name="warehouse" value="{{ warehouse }}">
-                                    <input type="hidden" name="fleet_number" value="{{ fleet.fleet_number }}">
                                     <input type="hidden" name="shipment_type_filter" id="shipmentTypeHidden">
-                                    <button type="button" class="action-btn btn-success" 
-                                            onclick="startLoadingFleet('{{ fleet.fleet_number }}')">
-                                        <i class="fas fa-play-circle"></i> 开始装柜
-                                    </button>
-                                </form> <!-- 这两个的按钮是一样，因为不管司机没到还是签到，下一步操作都是装柜-->
-                            {% elif fleet.warehouse_process_status == 'check_in' %}
-                                <form method="post" class="action-form" id="loading-fleet-form-{{ fleet.fleet_number }}">
-                                    {% csrf_token %}
-                                    <input type="hidden" name="step" value="loading_fleet">
-                                    <input type="hidden" name="warehouse" value="{{ warehouse }}">
                                     <input type="hidden" name="fleet_number" value="{{ fleet.fleet_number }}">
-                                    <input type="hidden" name="shipment_type_filter" id="shipmentTypeHidden">
-                                    <button type="button" class="action-btn btn-success" 
-                                            onclick="startLoadingFleet('{{ fleet.fleet_number }}')">
-                                        <i class="fas fa-play-circle"></i> 开始装柜
+                                    <button type="submit" class="action-btn btn-primary">
+                                        <i class="fas fa-download"></i> BOL
                                     </button>
                                 </form>
-                            {% elif fleet.warehouse_process_status == 'loading' %}
-                                <form method="post" class="action-form" id="finish-loading-form-{{ fleet.fleet_number }}">
-                                    {% csrf_token %}
-                                    <input type="hidden" name="step" value="shipped_fleet">
-                                    <input type="hidden" name="warehouse" value="{{ warehouse }}">
-                                    <input type="hidden" name="fleet_number" value="{{ fleet.fleet_number }}">
-                                    <input type="hidden" name="shipment_type_filter" id="shipmentTypeHidden">
-                                    <button type="button" class="action-btn btn-success" 
-                                            onclick="finishLoadingFleet('{{ fleet.fleet_number }}')">
-                                        <i class="fas fa-play-circle"></i> 装柜完成
+                            </div>
+                            {% endif %}
+                            {% if fleet.fleet_type == 'LTL' or fleet.fleet_type == '客户自提' %}
+                            <div class="link-group">
+                                {% for shipment in fleet.shipment_links %}
+                                <div class="link-row">
+                                    <div class="batch-info" title="{{ shipment.shipment_batch_number }}">
+                                        {{ shipment.shipment_batch_number|truncatechars:15 }}
+                                    </div>
+                                    <div class="link-buttons">
+                                        <!-- BOL链接 -->
+                                        {% if shipment.ltl_bol_link %}
+                                        <a href="{{ shipment.ltl_bol_link }}" 
+                                        target="_blank" 
+                                        class="link-btn primary"
+                                        title="打开BOL文件 - {{ shipment.shipment_batch_number }}">
+                                            <i class="fas fa-file-pdf"></i>
+                                            <span>BOL</span>
+                                        </a>
+                                        {% else %}
+                                        <span class="link-btn secondary"
+                                            title="BOL文件缺失 - {{ shipment.shipment_batch_number }}">
+                                            <i class="fas fa-file-pdf"></i>
+                                            <span>BOL</span>
+                                        </span>
+                                        {% endif %}
+
+                                        <!-- LABEL链接 -->
+                                        {% if shipment.ltl_label_link %}
+                                        <a href="{{ shipment.ltl_label_link }}" 
+                                        target="_blank" 
+                                        class="link-btn success"
+                                        title="打开LABEL文件 - {{ shipment.shipment_batch_number }}">
+                                            <i class="fas fa-tag"></i>
+                                            <span>LABEL</span>
+                                        </a>
+                                        {% else %}
+                                        <span class="link-btn secondary"
+                                            title="LABEL文件缺失 - {{ shipment.shipment_batch_number }}">
+                                            <i class="fas fa-tag"></i>
+                                            <span>LABEL</span>
+                                        </span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+                            <div class="action-buttons">
+                                {% if fleet.warehouse_process_status == 'waiting' %}
+                                    <form method="post" class="action-form" id="loading-fleet-form-{{ fleet.fleet_number }}">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="step" value="loading_fleet">
+                                        <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                                        <input type="hidden" name="fleet_number" value="{{ fleet.fleet_number }}">
+                                        <input type="hidden" name="shipment_type_filter" id="shipmentTypeHidden">
+                                        <button type="button" class="action-btn btn-success" 
+                                                onclick="startLoadingFleet('{{ fleet.fleet_number }}')">
+                                            <i class="fas fa-play-circle"></i> 开始装柜
+                                        </button>
+                                    </form> <!-- 这两个的按钮是一样，因为不管司机没到还是签到，下一步操作都是装柜-->
+                                {% elif fleet.warehouse_process_status == 'check_in' %}
+                                    <form method="post" class="action-form" id="loading-fleet-form-{{ fleet.fleet_number }}">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="step" value="loading_fleet">
+                                        <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                                        <input type="hidden" name="fleet_number" value="{{ fleet.fleet_number }}">
+                                        <input type="hidden" name="shipment_type_filter" id="shipmentTypeHidden">
+                                        <button type="button" class="action-btn btn-success" 
+                                                onclick="startLoadingFleet('{{ fleet.fleet_number }}')">
+                                            <i class="fas fa-play-circle"></i> 开始装柜
+                                        </button>
+                                    </form>
+                                {% elif fleet.warehouse_process_status == 'loading' %}
+                                    <form method="post" class="action-form" id="finish-loading-form-{{ fleet.fleet_number }}">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="step" value="shipped_fleet">
+                                        <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                                        <input type="hidden" name="fleet_number" value="{{ fleet.fleet_number }}">
+                                        <input type="hidden" name="shipment_type_filter" id="shipmentTypeHidden">
+                                        <button type="button" class="action-btn btn-success" 
+                                                onclick="finishLoadingFleet('{{ fleet.fleet_number }}')">
+                                            <i class="fas fa-play-circle"></i> 装柜完成
+                                        </button>
+                                    </form>                                             
+                                {% elif fleet.warehouse_process_status == 'shipped' %}  
+                                    <button type="button" class="action-btn btn-warning complete-loading-btn" 
+                                            data-fleet="{{ fleet.fleet_number }}">
+                                        <i class="fas fa-check-circle"></i> 上传凭证
+                                    </button>    
+                                {% elif fleet.warehouse_process_status == 'proof_uploaded' %}
+                                    <span class="action-btn" style="cursor: default; background-color: #d9d9d9; color: #333; padding: 5px 10px; border-radius: 4px;">
+                                        <i class="fas fa-check-circle"></i> </i> 已完结
+                                    </span>
+                                {% elif fleet.warehouse_process_status == 'abnormal' %}
+                                    <span class="action-btn btn-danger" style="cursor: default;">
+                                        <i class="fas fa-exclamation-triangle"></i> 已异常（{{ fleet.abnormal_reason }}）
+                                    </span>
+                                {% endif %}
+                                {% if fleet.warehouse_process_status != 'shipped' and fleet.warehouse_process_status != 'abnormal' %}
+                                    <button type="button" class="action-btn btn-danger report-issue-btn" 
+                                            data-fleet="{{ fleet.fleet_number }}">
+                                        <i class="fas fa-exclamation-triangle"></i> 异常报告
                                     </button>
-                                </form>                                             
-                            {% elif fleet.warehouse_process_status == 'shipped' %}  
-                                <button type="button" class="action-btn btn-warning complete-loading-btn" 
-                                        data-fleet="{{ fleet.fleet_number }}">
-                                    <i class="fas fa-check-circle"></i> 上传凭证
-                                </button>    
-                            {% elif fleet.warehouse_process_status == 'proof_uploaded' %}
-                                <span class="action-btn" style="cursor: default; background-color: #d9d9d9; color: #333; padding: 5px 10px; border-radius: 4px;">
-                                    <i class="fas fa-check-circle"></i> </i> 已完结
-                                </span>
-                            {% elif fleet.warehouse_process_status == 'abnormal' %}
-                                <span class="action-btn btn-danger" style="cursor: default;">
-                                    <i class="fas fa-exclamation-triangle"></i> 已异常（{{ fleet.abnormal_reason }}）
-                                </span>
-                            {% endif %}
-                            {% if fleet.warehouse_process_status != 'shipped' and fleet.warehouse_process_status != 'abnormal' %}
-                                <button type="button" class="action-btn btn-danger report-issue-btn" 
-                                        data-fleet="{{ fleet.fleet_number }}">
-                                    <i class="fas fa-exclamation-triangle"></i> 异常报告
-                                </button>
-                            {% endif %}
+                                {% endif %}
+                            </div>
                         </td>
                     </tr>
                     {% endfor %}
