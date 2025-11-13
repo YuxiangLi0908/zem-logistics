@@ -635,11 +635,15 @@
                                 title="统一设置拆柜时间">
                             批量设置拆柜时间
                         </button>
-                        <button type="submit" name="step" value="get_is_abnormal_state"
+                        <form action="" method="post">
+                            {% csrf_token %}
+                            <input type="hidden" name="step" value="get_is_abnormal_state">
+                        <button type="submit"
                                 class="btn btn-warning"
                                 title="筛选所有标记为异常的数据">
                             <i class="bi bi-exclamation-triangle"></i> 筛选所有异常数据
                         </button>
+                        </form>
                     </div>
                 </div>
 
@@ -899,7 +903,6 @@
                                        title="输入货柜备注关键词搜索">
                             </th>
                             <th>
-                                <input type="text" style="width: 100px;">
                             </th>
                         </tr>
                         </thead>
