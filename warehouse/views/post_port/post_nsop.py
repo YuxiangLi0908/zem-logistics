@@ -1924,6 +1924,9 @@ class PostNsop(View):
         exception_sp = await self._shipment_exceptions_data(warehouse)
         #待出库
         ready_to_ship_data = await self._sp_ready_to_ship_data(warehouse,request.user)
+        sum_fleet = []
+        for i in ready_to_ship_data:
+            sum_fleet.append(i['fleet_number'])
         # 待送达
         delivery_data = await self._fl_delivery_get(warehouse)
         #待传POD
@@ -1941,6 +1944,7 @@ class PostNsop(View):
             'delivery_shipments': delivery_data['shipments'],
             'pod_shipments': pod_data['fleet'],
             'ready_to_ship_data': ready_to_ship_data,
+            'sum_fleet': sum_fleet,
             'summary': summary,        
             'warehouse_options': self.warehouse_options,
             "account_options": self.account_options,

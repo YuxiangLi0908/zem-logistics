@@ -2110,8 +2110,7 @@ class ExceptionHandling(View):
         request.POST["search_value"] = search_value
         return await self.handle_search_invoice_delivery(request)
     
-    async def handle_receivale_status_search(self,request):
-
+    async def handle_receivale_status_search(self, request):
         old_status = await sync_to_async(list)(
             InvoiceStatus.objects.filter(
                 stage='tobeconfirmed'
@@ -2138,7 +2137,7 @@ class ExceptionHandling(View):
             )
         )
 
-        # 如果你需要更详细的数据，可以进一步处理
+        # 处理旧状态数据
         old_status_data = []
         for status in old_status:
             old_status_data.append({
@@ -2148,8 +2147,14 @@ class ExceptionHandling(View):
                 'invoice_type': status.invoice_type,
                 'stage': status.stage,
                 'finance_status': status.finance_status,
+                'preport_status': status.preport_status,
+                'warehouse_public_status': status.warehouse_public_status,
+                'warehouse_other_status': status.warehouse_other_status,
+                'delivery_public_status': status.delivery_public_status,
+                'delivery_other_status': status.delivery_other_status,
             })
 
+        # 处理新状态数据
         now_status_data = []
         for status in now_status:
             now_status_data.append({
@@ -2166,7 +2171,96 @@ class ExceptionHandling(View):
                 'delivery_other_status': status.delivery_other_status,
             })
 
-        # 或者如果你只需要统计数量
+        # 创建差异对比数据
+        diff_status_data = []
+        
+        # 1. 找出在 now_status 但不在 old_status 的记录（新增的记录）
+        old_container_numbers = {item['container_number'] for item in old_status_data}
+        now_container_numbers = {item['container_number'] for item in now_status_data}
+        
+        # 新增的记录
+        new_added = [item for item in now_status_data if item['container_number'] not in old_container_numbers]
+        
+        # 2. 找出在 old_status 但不在 now_status 的记录（删除的记录）
+        removed = [item for item in old_status_data if item['container_number'] not in now_container_numbers]
+        
+        # 3. 找出在两个数据集中都存在但有状态变化的记录
+        old_dict = {item['container_number']: item for item in old_status_data}
+        now_dict = {item['container_number']: item for item in now_status_data}
+        
+        changed = []
+        for container_num in old_container_numbers.intersection(now_container_numbers):
+            old_item = old_dict[container_num]
+            now_item = now_dict[container_num]
+            
+            # 检查是否有任何状态字段发生变化
+            status_fields = ['stage', 'finance_status', 'preport_status', 'warehouse_public_status', 
+                            'warehouse_other_status', 'delivery_public_status', 'delivery_other_status']
+            
+            has_changes = any(old_item[field] != now_item[field] for field in status_fields)
+            
+            if has_changes:
+                changed.append({
+                    'container_number': container_num,
+                    'old_data': old_item,
+                    'now_data': now_item,
+                    'changes': {field: {'old': old_item[field], 'new': now_item[field]} 
+                            for field in status_fields if old_item[field] != now_item[field]}
+                })
+
+        # 构建差异数据表格（格式与 now_status_data、old_status_data 一致）
+        diff_data = []
+        
+        # 添加新增的记录
+        for item in new_added:
+            diff_data.append({
+                'container_number': item['container_number'],
+                'change_type': '新增',
+                'stage': item['stage'],
+                'finance_status': item['finance_status'],
+                'preport_status': item['preport_status'],
+                'warehouse_public_status': item['warehouse_public_status'],
+                'warehouse_other_status': item['warehouse_other_status'],
+                'delivery_public_status': item['delivery_public_status'],
+                'delivery_other_status': item['delivery_other_status'],
+                'invoice_type': item['invoice_type'],
+                'container_type': item['container_type']
+            })
+        
+        # 添加删除的记录
+        for item in removed:
+            diff_data.append({
+                'container_number': item['container_number'],
+                'change_type': '删除', 
+                'stage': item['stage'],
+                'finance_status': item['finance_status'],
+                'preport_status': item['preport_status'],
+                'warehouse_public_status': item['warehouse_public_status'],
+                'warehouse_other_status': item['warehouse_other_status'],
+                'delivery_public_status': item['delivery_public_status'],
+                'delivery_other_status': item['delivery_other_status'],
+                'invoice_type': item['invoice_type'],
+                'container_type': item['container_type']
+            })
+        
+        # 添加变化的记录（显示新的状态值）
+        for item in changed:
+            diff_data.append({
+                'container_number': item['container_number'],
+                'change_type': '修改',
+                'stage': item['now_data']['stage'],
+                'finance_status': item['now_data']['finance_status'],
+                'preport_status': item['now_data']['preport_status'],
+                'warehouse_public_status': item['now_data']['warehouse_public_status'],
+                'warehouse_other_status': item['now_data']['warehouse_other_status'],
+                'delivery_public_status': item['now_data']['delivery_public_status'],
+                'delivery_other_status': item['now_data']['delivery_other_status'],
+                'invoice_type': item['now_data']['invoice_type'],
+                'container_type': item['now_data']['container_type'],
+                'changes': item['changes']  # 保存具体的变化信息
+            })
+
+        # 统计数量
         old_status_count = await sync_to_async(
             InvoiceStatus.objects.filter(stage='tobeconfirmed').count
         )()
@@ -2179,11 +2273,17 @@ class ExceptionHandling(View):
                 delivery_other_status='completed'
             ).count
         )()
+        
         context = {
             'old_status_count': old_status_count,
             'now_status_count': now_status_count,
             'now_status_data': now_status_data,
-            'old_status_data': old_status_data
+            'old_status_data': old_status_data,
+            'diff_status_data': diff_data,  # 添加差异数据
+            'diff_count': len(diff_data),   # 差异记录总数
+            'new_added_count': len(new_added),
+            'removed_count': len(removed),
+            'changed_count': len(changed)
         }
         return self.template_receivable_status_migrate, context
 
