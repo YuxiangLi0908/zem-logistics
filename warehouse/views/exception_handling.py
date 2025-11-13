@@ -2465,7 +2465,7 @@ class ExceptionHandling(View):
                 'warehouse_other_status': "completed",
                 'delivery_public_status': "completed",
                 'delivery_other_status': "completed",
-                'finance_status': "confirmed",
+                'finance_status': "completed",
             }
         else:
             base_status = {
