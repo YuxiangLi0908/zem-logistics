@@ -5207,7 +5207,12 @@ class Accounting(View):
         combina_region_count = len(matched_regions["combina_dests"])
 
         if combina_region_count + non_combina_region_count != len(destinations):
-            raise ValueError("计算组合柜和非组合柜区域有误")
+            raise ValueError(
+                f"计算组合柜和非组合柜区域有误\n"
+                f"组合柜目的地：{matched_regions['combina_dests']}，数量：{combina_region_count}\n"
+                f"非组合柜目的地：{matched_regions['non_combina_dests']}，数量：{non_combina_region_count}\n"
+                f"目的地总数：{len(destinations)}"
+            )
         if non_combina_region_count > (
             uncombina_threshold
             - combina_threshold
