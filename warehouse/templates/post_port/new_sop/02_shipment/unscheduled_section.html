@@ -159,7 +159,15 @@
                                 {% endif %}
                             </td>
                             <td class="cbm-col">{{ cargo.total_cbm|default:0|floatformat:3 }}</td>
-                            <td class="is-dropped">{{ cargo.is_dropped_pallet }}</td>
+                            <td class="is-dropped">
+                                {% if cargo.is_dropped_pallet == True %}
+                                    {% if cargo.rebuilt_is_dropped_pallet %}
+                                        {{ cargo.rebuilt_is_dropped_pallet }}
+                                    {% else %}
+                                        无主约时间
+                                    {% endif %}
+                                {% endif %}
+                            </td>
                             <!-- 匹配度 -->
                             {% if forloop.first %}
                             <td rowspan="{{ suggestion.cargos|length }}" style="vertical-align: middle;">
@@ -302,7 +310,15 @@
                                 {% endif %}
                             </td>
                             <td class="cbm-col">{{ cargo.total_cbm|default:0|floatformat:3 }}</td>
-                            <td class="is-dropped">{{ cargo.is_dropped_pallet }}</td>
+                            <td class="is-dropped">
+                                {% if cargo.is_dropped_pallet == True %}
+                                    {% if cargo.rebuilt_is_dropped_pallet %}
+                                        {{ cargo.rebuilt_is_dropped_pallet }}
+                                    {% else %}
+                                        无主约时间
+                                    {% endif %}
+                                {% endif %}
+                            </td>
                             <!-- 匹配度 -->
                             {% if forloop.first %}
                             <td rowspan="{{ suggestion.cargos|length }}" style="vertical-align: middle;">

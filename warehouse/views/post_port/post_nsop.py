@@ -2257,6 +2257,7 @@ class PostNsop(View):
                         'total_cbm': cargo.get('total_cbm', 0),
                         'label': cargo.get('label', ''),
                         'is_dropped_pallet': cargo.get('is_dropped_pallet'),
+                        'rebuilt_is_dropped_pallet': cargo.get('rebuilt_is_dropped_pallet'),
                     } for cargo in primary_group['cargos']],
                     'intelligent_cargos': intelligent_cargos,
                     'intelligent_pos_stats': intelligent_pos_stats,
@@ -2957,6 +2958,19 @@ class PostNsop(View):
                         output_field=CharField()
                     ),
                     data_source=Value("PALLET", output_field=CharField()),  # 添加数据源标识
+                    rebuilt_is_dropped_pallet=Case(
+                        When(
+                            is_dropped_pallet=True,
+                            then=Func(
+                                F('master_shipment_batch_number__shipment_appointment'),
+                                Value('YYYY-MM-DD'),
+                                function='to_char',
+                                output_field=CharField()
+                            )
+                        ),
+                        default=Value(""),
+                        output_field=CharField()
+                    )
                 )
                 .values(
                     "destination",
@@ -2967,6 +2981,7 @@ class PostNsop(View):
                     "note",
                     "container_number",
                     "is_dropped_pallet",
+                    "rebuilt_is_dropped_pallet",
                     "shipment_batch_number__shipment_batch_number",
                     "data_source",  # 包含数据源标识
                     "shipment_batch_number__fleet_number__fleet_number",
