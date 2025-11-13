@@ -6,53 +6,111 @@
             background-color: #f5f7fa;
             font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
             line-height: 1.5;
+            margin: 0;
+            padding: 0;
+            color: #1f2329;
         }
 
-        /* 主容器 */
+        /* 主容器 - 优化布局稳定性 */
         .main-container {
-            width: 102%;
+            width: 100%;
             padding: 15px;
             box-sizing: border-box;
             max-width: 1920px;
             margin: 0 auto;
-            margin-left: -1%;
         }
 
-        /* 按钮样式优化 */
-        .custom-btn {
-            padding: 4px 12px;
-            border: none;
+        /* 按钮样式系统 - 统一交互体验 */
+        .btn {
+            padding: 6px 12px;
             border-radius: 4px;
-            background-color: #4096ff;
-            color: #fff;
             font-size: 13px;
             cursor: pointer;
-            vertical-align: middle;
-            margin-left: 8px;
             transition: all 0.2s ease;
-            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+            border: 1px solid transparent;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+            text-decoration: none;
         }
 
-        .custom-btn:hover {
+        .btn i {
+            font-size: 14px;
+        }
+
+        .btn-primary {
+            background-color: #4096ff;
+            border-color: #4096ff;
+            color: white;
+        }
+
+        .btn-primary:hover {
             background-color: #69b1ff;
+            border-color: #69b1ff;
             box-shadow: 0 2px 8px rgba(64, 150, 255, 0.3);
             transform: translateY(-1px);
         }
 
-        .custom-btn:active {
-            background-color: #3385ff;
+        .btn-primary:active {
             transform: translateY(0);
-            box-shadow: none;
         }
 
-        .custom-btn:disabled {
-            background-color: #c9c9c9;
+        .btn-secondary {
+            background-color: #f0f2f5;
+            border-color: #f0f2f5;
+            color: #4e5969;
+        }
+
+        .btn-secondary:hover {
+            background-color: #e5e6eb;
+            transform: translateY(-1px);
+        }
+
+        .btn-secondary:active {
+            transform: translateY(0);
+        }
+
+        .btn-success {
+            background-color: #52c41a;
+            border-color: #52c41a;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background-color: #73d13d;
+            box-shadow: 0 2px 8px rgba(82, 196, 26, 0.3);
+            transform: translateY(-1px);
+        }
+
+        .btn-success:active {
+            transform: translateY(0);
+        }
+
+        .btn-warning {
+            background-color: #faad14;
+            border-color: #faad14;
+            color: white;
+        }
+
+        .btn-warning:hover {
+            background-color: #ffc53d;
+            box-shadow: 0 2px 8px rgba(250, 173, 20, 0.3);
+            transform: translateY(-1px);
+        }
+
+        .btn-warning:active {
+            transform: translateY(0);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
             cursor: not-allowed;
-            transform: none;
             box-shadow: none;
+            transform: none;
         }
 
-        /* 导航栏样式 */
+        /* 导航栏样式 - 增强选中状态 */
         .nav-tabs {
             border-bottom: 1px solid #e5e6eb;
             margin-bottom: 15px;
@@ -71,6 +129,7 @@
         .nav-item .nav-link {
             color: #4e5969;
             border: none;
+            padding: 12px 15px;
             margin-right: 5px;
             border-radius: 4px 4px 0 0;
             font-weight: 500;
@@ -90,119 +149,137 @@
             color: #4096ff;
         }
 
-        /* 内容区域容器 */
+        /* 内容区域容器 - 优化阴影层次 */
         #order-info-sec {
             background-color: #fff;
             border-radius: 4px;
-            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
             overflow: hidden;
         }
 
-        /* 搜索和批量操作区域 */
+        /* 搜索和批量操作区域 - 核心优化 */
         .search-bar {
-            padding: 15px;
+            padding: 15px 20px;
             border-bottom: 1px solid #e5e6eb;
             display: flex;
             justify-content: space-between;
-            flex-wrap: wrap;
-            gap: 15px;
             align-items: center;
             background-color: #fafbfc;
+            min-height: 80px;
+            flex-wrap: nowrap;
+            width: 100%;
+            box-sizing: border-box;
         }
 
         .search-group {
             display: flex;
             align-items: center;
-            gap: 10px;
-            flex-wrap: wrap;
+            gap: 20px;
+            flex: 1;
+            min-width: 0;
         }
 
-        .search-group b {
+        .search-group > div {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-shrink: 0;
+        }
+
+        /* 搜索项宽度优化 */
+        .search-group > div:nth-child(1) {
+            width: 175px;
+        }
+
+        .search-group > div:nth-child(2) {
+            width: 220px;
+        }
+
+        .search-group > div:nth-child(3) {
+            width: 360px; /* 增加宽度确保"日期范围"完整显示 */
+        }
+
+        .search-group > div:nth-child(4) {
+            width: 160px;
+        }
+
+        .search-group label, .search-group span {
             color: #4e5969;
             font-size: 14px;
             white-space: nowrap;
+            font-weight: 500;
         }
 
-        .search-group input[type="date"] {
-            padding: 6px 8px;
-            border: 1px solid #dcdfe6;
-            border-radius: 4px;
-            font-size: 13px;
-            min-width: 140px;
-        }
-
-        /* 批量操作按钮区域 */
         .batch-actions {
-            margin: 0;
-            padding: 0;
-            background-color: transparent;
             display: flex;
             gap: 10px;
             align-items: center;
-            flex-wrap: wrap;
+            flex-shrink: 0;
+            margin-left: 15px;
         }
 
-        .batch-actions .btn {
-            padding: 6px 12px;
+        /* 表格控制区 */
+        .table-controls {
+            padding: 10px 20px;
+            border-bottom: 1px solid #e5e6eb;
+            background-color: #f9fafb;
+            display: flex;
+            justify-content: flex-end;
+        }
+
+        /* 表单元素统一样式 - 优化版 */
+        select,
+        input[type="date"],
+        input[type="text"],
+        input[type="datetime-local"] {
+            padding: 8px 12px;
+            border: 1px solid #dcdfe6;
+            border-radius: 4px;
             font-size: 13px;
             transition: all 0.2s ease;
-            text-decoration: none;
-            border-radius: 4px;
-            border: 1px solid transparent;
-            cursor: pointer;
+            box-sizing: border-box;
+            background-color: #fff;
         }
 
-        .batch-actions .btn-primary {
-            background-color: #4096ff;
+        select:focus,
+        input[type="date"]:focus,
+        input[type="text"]:focus,
+        input[type="datetime-local"]:focus {
             border-color: #4096ff;
-            color: white;
+            outline: none;
+            box-shadow: 0 0 0 2px rgba(64, 150, 255, 0.2);
         }
 
-        .batch-actions .btn-primary:hover {
-            background-color: #69b1ff;
-            border-color: #69b1ff;
+        .layui-input-inline {
+            margin: 0 !important;
+            width: auto;
         }
 
-        .batch-actions .btn-success {
-            background-color: #52c41a;
-            border-color: #52c41a;
-            color: white;
+        select {
+            width: 100%;
+            height: 38px;
+            line-height: 38px;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%234e5969' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 10px center;
+            padding-right: 30px;
         }
 
-        .batch-actions .btn-success:hover {
-            background-color: #73d13d;
-            border-color: #73d13d;
-        }
-
-        .batch-actions .btn-secondary {
-            background-color: #f0f2f5;
-            border-color: #f0f2f5;
-            color: #4e5969;
-        }
-
-        .batch-actions .btn-secondary:hover {
-            background-color: #e5e6eb;
-        }
-
-        .batch-actions .btn-warning {
-            background-color: #faad14;
-            border-color: #faad14;
-            color: white;
-        }
-
-        .batch-actions .btn-warning:hover {
-            background-color: #ffc53d;
-            border-color: #ffc53d;
+        input[type="date"],
+        input[type="datetime-local"] {
+            width: 160px !important;
+            height: 38px;
         }
 
         /* 表格样式优化 */
         .table {
-            min-width: 1600px; /* 确保表格宽度足够触发横向滚动 */
             width: 100%;
-            border-collapse: separate;
-            border-spacing: 0;
+            min-width: 1600px;
+            border-collapse: collapse;
             font-size: 12px;
-            margin-bottom: 0;
+            margin: 0;
+            table-layout: auto;
         }
 
         .table thead {
@@ -210,74 +287,48 @@
         }
 
         .table th, .table td {
-            padding: 12px 10px;
+            padding: 12px 15px;
             text-align: left;
             border-bottom: 1px solid #e5e6eb;
-            word-break: break-all;
+            white-space: nowrap;
+            vertical-align: middle;
         }
 
         .table th {
             color: #4e5969;
             font-weight: 500;
-            white-space: nowrap;
             position: relative;
         }
 
-        .table th:after {
-            content: '';
-            position: absolute;
-            right: 0;
-            top: 50%;
-            transform: translateY(-50%);
-            height: 12px;
-            width: 1px;
-            background-color: #e5e6eb;
+        .table th .th-content {
+            display: flex;
+            align-items: center;
+            gap: 5px;
         }
 
-        .table th:last-child:after {
-            display: none;
-        }
-
-        .table tbody tr {
-            transition: background-color 0.2s ease;
-        }
-
-        .table tbody tr:hover {
-            background-color: #fafbfc;
-        }
-
-        /* 表格行高亮效果 */
-        .table tbody tr.highlight {
-            background-color: #fff7e6;
-        }
-
-        /* 复选框样式 */
         .checkbox-cell {
-            text-align: center !important;
-            vertical-align: middle;
             width: 50px;
+            text-align: center !important;
         }
 
-        .checkbox-cell input {
-            width: 16px;
-            height: 16px;
-            cursor: pointer;
-        }
-
-        /* 搜索输入框样式 */
-        .table th input, .table th select {
+        .table-container {
             width: 100%;
-            padding: 5px 8px;
-            border: 1px solid #dcdfe6;
-            border-radius: 3px;
-            font-size: 11px;
-            transition: border-color 0.2s ease;
+            overflow-x: auto;
+            overflow-y: auto;
+            height: 610px;
+            -webkit-overflow-scrolling: touch;
         }
 
-        .table th input:focus, .table th select:focus {
-            border-color: #4096ff;
-            outline: none;
-            box-shadow: 0 0 0 2px rgba(64, 150, 255, 0.2);
+        .table thead tr:first-child {
+            position: sticky;
+            top: 0;
+            z-index: 3;
+        }
+
+        .table thead tr:nth-child(2) {
+            position: sticky;
+            top: 42px;
+            z-index: 2;
         }
 
         /* 状态标签样式 */
@@ -288,6 +339,7 @@
             display: inline-block;
             min-width: 60px;
             text-align: center;
+            font-weight: 500;
         }
 
         .status-span-green {
@@ -322,49 +374,54 @@
             text-decoration: underline;
         }
 
-        /* 备注输入框样式 */
-        textarea[name="note_preport_dispatch"] {
-            width: 100%;
-            min-height: 50px;
-            padding: 5px 8px;
-            border: 1px solid #dcdfe6;
+        /* 列显示/隐藏按钮样式 */
+        .toggle-column-btn {
+            background: none;
+            border: none;
+            color: #86909c;
+            cursor: pointer;
+            font-size: 12px;
+            padding: 0 5px;
+            margin-left: 5px;
+            transition: color 0.2s;
+        }
+
+        .toggle-column-btn:hover {
+            color: #4096ff;
+        }
+
+        .toggle-column-btn.hidden i::before {
+            content: "\f136";
+        }
+
+        /* 表格内按钮样式 - 修复并优化 */
+        .custom-btn {
+            padding: 4px 8px;
+            background-color: #4096ff;
+            color: white;
+            border: none;
             border-radius: 3px;
             font-size: 12px;
-            resize: vertical;
-            transition: border-color 0.2s ease;
+            cursor: pointer;
+            transition: background-color 0.2s;
         }
 
-        textarea[name="note_preport_dispatch"]:focus {
-            border-color: #4096ff;
-            outline: none;
-            box-shadow: 0 0 0 2px rgba(64, 150, 255, 0.2);
-        }
-
-        /* 时间输入框样式 */
-        .datetime-input {
-            padding: 5px 8px;
-            border: 1px solid #dcdfe6;
-            border-radius: 3px;
-            font-size: 12px;
-            transition: all 0.2s;
-            width: 160px;
-        }
-
-        .datetime-input:focus {
-            border-color: #4096ff;
-            box-shadow: 0 0 0 2px rgba(64, 150, 255, 0.1);
-            outline: none;
+        .custom-btn:hover {
+            background-color: #69b1ff;
         }
 
         .time-input-container {
             display: flex;
             align-items: center;
             gap: 8px;
-            flex-wrap: wrap;
-            width: 200px;
         }
 
-        /* 复制成功提示 */
+        .inline-form {
+            margin: 0;
+            padding: 0;
+        }
+
+        /* 其他组件样式 */
         .copy-toast {
             position: fixed;
             bottom: 20px;
@@ -376,20 +433,21 @@
             font-size: 13px;
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
             opacity: 0;
-            transition: opacity 0.3s ease;
+            transform: translateY(10px);
+            transition: all 0.3s ease;
             pointer-events: none;
             z-index: 1000;
         }
 
         .copy-toast.show {
             opacity: 1;
+            transform: translateY(0);
         }
 
         .copy-toast.error {
             background-color: #f5222d;
         }
 
-        /* 批量操作弹窗样式 */
         .modal-overlay {
             position: fixed;
             top: 0;
@@ -425,71 +483,12 @@
             transform: translateY(0);
         }
 
-        .modal-header {
-            padding: 15px 20px;
-            border-bottom: 1px solid #e5e6eb;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .modal-title {
-            font-size: 16px;
-            font-weight: 500;
-            color: #1f2329;
-            margin: 0;
-        }
-
-        .modal-close {
-            background: none;
-            border: none;
-            font-size: 20px;
-            cursor: pointer;
-            color: #86909c;
-            transition: color 0.2s ease;
-            padding: 0 5px;
-        }
-
-        .modal-close:hover {
-            color: #1f2329;
-        }
-
-        .modal-body {
-            padding: 20px;
-        }
-
-        .modal-footer {
-            padding: 15px 20px;
-            border-top: 1px solid #e5e6eb;
-            display: flex;
-            justify-content: flex-end;
-            gap: 10px;
-        }
-
-        .modal-footer .btn {
-            padding: 6px 16px;
-            font-size: 13px;
-        }
-
-        /* 空状态样式 */
         .empty-state {
             text-align: center;
             padding: 60px 20px;
             color: #86909c;
         }
 
-        .empty-state i {
-            font-size: 48px;
-            margin-bottom: 15px;
-            color: #d9d9d9;
-        }
-
-        .empty-state p {
-            margin: 0;
-            font-size: 14px;
-        }
-
-        /* 加载状态 */
         .loading-overlay {
             position: fixed;
             top: 0;
@@ -526,121 +525,24 @@
             }
         }
 
-        /* 响应式调整 */
-        @media (max-width: 768px) {
-            .search-bar {
-                flex-direction: column;
-                align-items: stretch;
-            }
-
-            .search-group {
-                width: 100%;
-            }
-
-            .batch-actions {
-                width: 100%;
-                justify-content: flex-start;
-            }
-
-            .table th, .table td {
-                padding: 8px 5px;
-                font-size: 11px;
-            }
-
-            .datetime-input {
-                width: 130px;
-            }
-
-            .custom-btn {
-                padding: 3px 8px;
-                font-size: 12px;
-                margin-left: 4px;
-            }
+        /* 隐藏滚动条但保留功能 */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
         }
 
-        /* 表格容器样式 - 核心滚动区域 */
-        .table-container {
-            width: 100%;
-            max-height: calc(100vh - 180px); /* 调整此值控制表格高度 */
-            overflow: auto; /* 同时启用横向和纵向滚动 */
-            -webkit-overflow-scrolling: touch;
-            position: relative;
-            height: 640px;
-        }
-
-        /* 表头固定 */
-        .table thead tr:first-child {
-            position: sticky;
-            top: 0;
-            z-index: 3;
-        }
-
-        .table thead tr:nth-child(2) {
-            position: sticky;
-            top: 42px; /* 与第一个表头行高度匹配 */
-            z-index: 2;
-        }
-
-        /* 滚动条样式优化 */
-        .table-container::-webkit-scrollbar {
-            height: 8px;
-            width: 8px;
-        }
-
-        .table-container::-webkit-scrollbar-track {
+        ::-webkit-scrollbar-track {
             background: #f1f1f1;
-            border-radius: 4px;
+            border-radius: 3px;
         }
 
-        .table-container::-webkit-scrollbar-thumb {
+        ::-webkit-scrollbar-thumb {
             background: #c1c1c1;
-            border-radius: 4px;
+            border-radius: 3px;
         }
 
-        .table-container::-webkit-scrollbar-thumb:hover {
+        ::-webkit-scrollbar-thumb:hover {
             background: #a8a8a8;
-        }
-
-        /* 状态区域样式 */
-        #status-summary-sec {
-            padding-bottom: 10px;
-            overflow: hidden; /* 避免与表格容器滚动冲突 */
-        }
-
-        /* 列宽调整 */
-        .table th:nth-child(2), /* 柜号列 */
-        .table td:nth-child(2) {
-            min-width: 120px;
-        }
-
-        .table th:nth-child(3), /* 客户列 */
-        .table td:nth-child(3) {
-            min-width: 100px;
-        }
-
-        .table th:nth-child(4), /* 订单类型列 */
-        .table td:nth-child(4) {
-            min-width: 90px;
-        }
-
-        .table th:nth-child(5), /* 所属仓列 */
-        .table td:nth-child(5) {
-            min-width: 150px;
-        }
-
-        .table th:nth-child(6), /* T49状态列 */
-        .table td:nth-child(6) {
-            min-width: 140px;
-        }
-
-        .table th:nth-child(13), /* 货柜备注列 */
-        .table td:nth-child(13) {
-            min-width: 180px;
-        }
-
-        .table th:nth-child(14), /* 异常状态列 */
-        .table td:nth-child(14) {
-            min-width: 130px;
         }
     </style>
     <div class="main-container">
@@ -660,31 +562,59 @@
                     <form method="post" action="" id="searchForm">
                         {% csrf_token %}
                         <div class="search-group">
-                            <b>ETA: </b>
-                            <input type="date" name="start_date_eta" value="{{ start_date_eta }}"
-                                   title="开始日期">
-                            <span style="color: #86909c;">至</span>
-                            <input type="date" name="end_date_eta" value="{{ end_date_eta }}"
-                                   title="结束日期">
-                            <button type="submit" name="step" value="search_orders" class="btn btn-primary"
-                                    title="查询数据">查询
-                            </button>
-                            <button type="submit" name="step" value="download_eta_file" class="btn btn-secondary"
-                                    title="导出当前数据">导出
-                            </button>
-                        </div>
-                    </form>
+                            <!-- 仓库选择 -->
+                            <div>
+                                <label class="layui-form-label">仓库:</label>
+                                <div class="layui-input-inline">
+                                    <select name="warehouse" class="layui-select" lay-reqText="请选择仓库">
+                                        {% if not warehouse_options %}
+                                            <option value="">暂无仓库数据</option>
+                                        {% else %}
+                                            {% for k, v in warehouse_options.items %}
+                                                <option value="{{ v }}"
+                                                        {% if v == warehouse %}selected{% endif %}>{{ k }}</option>
+                                            {% endfor %}
+                                        {% endif %}
+                                    </select>
+                                </div>
+                            </div>
 
-                    <form action="" method="post" style="display: inline; margin-left:-500px;">
-                        {% csrf_token %}
-                        <input type="hidden" name="start_date" value="{{ start_date|default:'' }}">
-                        <input type="hidden" name="end_date" value="{{ end_date|default:'' }}">
-                        <button type="submit" name="step" value="get_is_abnormal_state"
-                                class="btn btn-warning"
-                                style="transition: all 0.2s ease;"
-                                title="筛选所有标记为异常的数据">
-                            <i class="bi bi-exclamation-triangle"></i> 筛选所有异常数据
-                        </button>
+                            <!-- 时间类型选择 -->
+                            <div>
+                                <label class="layui-form-label">时间类型:</label>
+                                <div class="layui-input-inline">
+                                    <select name="time_type" class="layui-select" lay-reqText="请选择时间类型">
+                                        <option value="eta"
+                                                {% if time_type == 'eta' or not time_type %}selected{% endif %}>ETA时间
+                                        </option>
+                                        <option value="return_empty"
+                                                {% if time_type == 'return_empty' %}selected{% endif %}>还空时间
+                                        </option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <!-- 日期范围选择 -->
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <span>日期范围:</span>
+                                <input type="date" name="start_date" value="{{ start_date|default:'' }}"
+                                       title="开始日期">
+                                <span style="color: #86909c;">至</span>
+                                <input type="date" name="end_date" value="{{ end_date|default:'' }}" title="结束日期">
+                            </div>
+
+                            <!-- 操作按钮 -->
+                            <div style="display: flex; gap: 10px;">
+                                <button type="submit" name="step" value="search_orders" class="btn btn-primary"
+                                        title="查询数据">
+                                    查询
+                                </button>
+                                <button type="submit" name="step" value="download_eta_file" class="btn btn-secondary"
+                                        title="导出当前数据">
+                                    导出
+                                </button>
+                            </div>
+                        </div>
                     </form>
 
                     <!-- 批量操作按钮区域 -->
@@ -705,10 +635,22 @@
                                 title="统一设置拆柜时间">
                             批量设置拆柜时间
                         </button>
+                        <button type="submit" name="step" value="get_is_abnormal_state"
+                                class="btn btn-warning"
+                                title="筛选所有标记为异常的数据">
+                            <i class="bi bi-exclamation-triangle"></i> 筛选所有异常数据
+                        </button>
                     </div>
                 </div>
 
-                <!-- 表格内容 - 包裹在滚动容器中 -->
+                <!-- 表格控制区 -->
+                <div class="table-controls">
+                    <button id="restoreAllColumns" class="btn btn-secondary" title="恢复所有隐藏的列">
+                        <i class="bi bi-columns"></i> 恢复所有列
+                    </button>
+                </div>
+
+                <!-- 表格内容 -->
                 <div class="table-container">
                     <table class="table">
                         <thead>
@@ -718,33 +660,153 @@
                                        style="width: 16px; height: 16px; vertical-align: middle;"
                                        title="全选/取消全选">
                             </th>
-                            <th class="th">柜号</th>
-                            <th class="th">客户</th>
-                            <th class="th">订单类型</th>
-                            <th class="th">所属仓/直送地址</th>
-                            <th class="th">T49参考状态</th>
-                            <th class="th">实际放行时间</th>
-                            <th class="th">预计提柜时间</th>
-                            <th class="th">实际提柜</th>
-                            <th class="th">提柜安排</th>
-                            <th class="th">拆柜时间</th>
-                            <th class="th">还空状态</th>
-                            <th class="th">港前完结</th>
-                            <th class="th">货柜备注</th>
-                            <th class="th">异常状态</th>
-                            <th class="th">LFD</th>
+                            <th class="th">
+                                <div class="th-content">
+                                    所属仓/直送地址
+                                    <button class="toggle-column-btn" data-col-index="1" title="隐藏此列">
+                                        <i class="bi bi-eye"></i>
+                                    </button>
+                                </div>
+                            </th>
+                            <th class="th">
+                                <div class="th-content">
+                                    订单类型
+                                    <button class="toggle-column-btn" data-col-index="2" title="隐藏此列">
+                                        <i class="bi bi-eye"></i>
+                                    </button>
+                                </div>
+                            </th>
+                            <th class="th">
+                                <div class="th-content">
+                                    客户
+                                    <button class="toggle-column-btn" data-col-index="3" title="隐藏此列">
+                                        <i class="bi bi-eye"></i>
+                                    </button>
+                                </div>
+                            </th>
+                            <th class="th">
+                                <div class="th-content">
+                                    实际提柜公司
+                                    <button class="toggle-column-btn" data-col-index="4" title="隐藏此列">
+                                        <i class="bi bi-eye"></i>
+                                    </button>
+                                </div>
+                            </th>
+                            <th class="th">
+                                <div class="th-content">
+                                    柜号
+                                    <button class="toggle-column-btn" data-col-index="5" title="隐藏此列">
+                                        <i class="bi bi-eye"></i>
+                                    </button>
+                                </div>
+                            </th>
+                            <th class="th">
+                                <div class="th-content">
+                                    T49参考状态
+                                    <button class="toggle-column-btn" data-col-index="6" title="隐藏此列">
+                                        <i class="bi bi-eye"></i>
+                                    </button>
+                                </div>
+                            </th>
+                            <th class="th">
+                                <div class="th-content">
+                                    实际放行时间
+                                    <button class="toggle-column-btn" data-col-index="7" title="隐藏此列">
+                                        <i class="bi bi-eye"></i>
+                                    </button>
+                                </div>
+                            </th>
+                            <th class="th">
+                                <div class="th-content">
+                                    LFD
+                                    <button class="toggle-column-btn" data-col-index="8" title="隐藏此列">
+                                        <i class="bi bi-eye"></i>
+                                    </button>
+                                </div>
+                            </th>
+                            <th class="th">
+                                <div class="th-content">
+                                    预计提柜时间
+                                    <button class="toggle-column-btn" data-col-index="9" title="隐藏此列">
+                                        <i class="bi bi-eye"></i>
+                                    </button>
+                                </div>
+                            </th>
+                            <th class="th">
+                                <div class="th-content">
+                                    实际提柜时间
+                                    <button class="toggle-column-btn" data-col-index="10" title="隐藏此列">
+                                        <i class="bi bi-eye"></i>
+                                    </button>
+                                </div>
+                            </th>
+                            <th class="th">
+                                <div class="th-content">
+                                    提柜安排
+                                    <button class="toggle-column-btn" data-col-index="11" title="隐藏此列">
+                                        <i class="bi bi-eye"></i>
+                                    </button>
+                                </div>
+                            </th>
+                            <th class="th">
+                                <div class="th-content">
+                                    拆柜时间
+                                    <button class="toggle-column-btn" data-col-index="12" title="隐藏此列">
+                                        <i class="bi bi-eye"></i>
+                                    </button>
+                                </div>
+                            </th>
+                            <th class="th">
+                                <div class="th-content">
+                                    还空状态
+                                    <button class="toggle-column-btn" data-col-index="13" title="隐藏此列">
+                                        <i class="bi bi-eye"></i>
+                                    </button>
+                                </div>
+                            </th>
+                            <th class="th">
+                                <div class="th-content">
+                                    港前完结
+                                    <button class="toggle-column-btn" data-col-index="14" title="隐藏此列">
+                                        <i class="bi bi-eye"></i>
+                                    </button>
+                                </div>
+                            </th>
+                            <th class="th">
+                                <div class="th-content">
+                                    货柜备注
+                                    <button class="toggle-column-btn" data-col-index="15" title="隐藏此列">
+                                        <i class="bi bi-eye"></i>
+                                    </button>
+                                </div>
+                            </th>
+                            <th class="th">
+                                <div class="th-content">
+                                    异常状态
+                                    <button class="toggle-column-btn" data-col-index="16" title="隐藏此列">
+                                        <i class="bi bi-eye"></i>
+                                    </button>
+                                </div>
+                            </th>
                         </tr>
                         <tr style="background-color: #f9fafb;">
                             <th class="th checkbox-cell"></th>
                             <th class="th">
-                                <input type="text" placeholder="搜索柜号..."
+                                <input type="text" placeholder="搜索仓库..."
                                        oninput="filterTable(this)"
                                        size="13" style="font-size: 11px;"
                                        data-col="1"
-                                       title="输入柜号关键词搜索">
+                                       title="输入仓库关键词搜索">
                             </th>
                             <th class="th">
-                                <select name="customer" onchange="filterTable(this)" data-col="2"
+                                <input type="text" placeholder="搜索订单类型..."
+                                       oninput="filterTable(this)"
+                                       size="13" style="font-size: 11px;"
+                                       data-col="2"
+                                       title="输入订单类型关键词搜索">
+                            </th>
+                            <th class="th">
+                                <select name="customer" onchange="filterTable(this)" data-col="3"
                                         title="选择客户筛选">
                                     <option value="" selected></option>
                                     {% for k, v in customers.items %}
@@ -753,92 +815,91 @@
                                 </select>
                             </th>
                             <th class="th">
-                                <input type="text" placeholder="搜索订单类型..."
-                                       oninput="filterTable(this)"
-                                       size="13" style="font-size: 11px;"
-                                       data-col="3"
-                                       title="输入订单类型关键词搜索">
-                            </th>
-                            <th class="th">
-                                <input type="text" placeholder="搜索仓库..."
+                                <input type="text" placeholder="搜索实际提柜公司..."
                                        oninput="filterTable(this)"
                                        size="13" style="font-size: 11px;"
                                        data-col="4"
-                                       title="输入仓库关键词搜索">
+                                       title="输入实际提柜公司关键词搜索">
+                            </th>
+                            <th class="th">
+                                <input type="text" placeholder="搜索柜号(空格分隔多个)..."
+                                       oninput="filterTable(this)"
+                                       size="13" style="font-size: 11px;"
+                                       data-col="5"
+                                       title="输入柜号关键词，空格分隔多个">
                             </th>
                             <th class="th">
                                 <input type="text" placeholder="搜索T49状态参考..."
                                        oninput="filterTable(this)"
                                        size="13" style="font-size: 11px; width: 200px;"
-                                       data-col="5"
+                                       data-col="6"
                                        title="输入T49状态参考关键词搜索">
                             </th>
                             <th class="th">
                                 <input type="text" placeholder="搜索计划放行时间..."
                                        oninput="filterTable(this)"
                                        size="13" style="font-size: 11px; width: 150px;"
-                                       data-col="6"
+                                       data-col="7"
                                        title="输入计划放行时间关键词搜索">
+                            </th>
+                            <th class="th">
+                                <input type="text" placeholder="搜索LFD..."
+                                       oninput="filterTable(this)"
+                                       size="13" style="font-size: 11px; width: 100px;"
+                                       data-col="8"
+                                       title="输入LFD关键词搜索">
                             </th>
                             <th class="th">
                                 <input type="text" placeholder="搜索预计提柜时间..."
                                        oninput="filterTable(this)"
                                        size="13" style="font-size: 11px; width: 90px;"
-                                       data-col="7"
+                                       data-col="9"
                                        title="输入预计提柜时间关键词搜索">
                             </th>
-
                             <th class="th">
                                 <input type="text" placeholder="搜索实际提柜..."
                                        oninput="filterTable(this)"
                                        size="13" style="font-size: 11px;"
-                                       data-col="8"
+                                       data-col="10"
                                        title="输入实际提柜时间关键词搜索">
                             </th>
                             <th class="th">
                                 <input type="text" placeholder="搜索提柜安排..."
                                        oninput="filterTable(this)"
                                        size="13" style="font-size: 11px;"
-                                       data-col="9"
+                                       data-col="11"
                                        title="输入提柜安排关键词搜索">
                             </th>
                             <th class="th">
                                 <input type="text" placeholder="搜索拆柜时间..."
                                        oninput="filterTable(this)"
                                        size="13" style="font-size: 11px;"
-                                       data-col="10"
+                                       data-col="12"
                                        title="输入拆柜时间关键词搜索">
                             </th>
                             <th class="th">
                                 <input type="text" placeholder="搜索还空状态..."
                                        oninput="filterTable(this)"
                                        size="13" style="font-size: 11px;"
-                                       data-col="11"
+                                       data-col="13"
                                        title="输入还空状态关键词搜索">
                             </th>
                             <th class="th">
                                 <input type="text" placeholder="搜索港前完结..."
                                        oninput="filterTable(this)"
                                        size="13" style="font-size: 11px;"
-                                       data-col="12"
+                                       data-col="14"
                                        title="输入港前完结状态关键词搜索">
                             </th>
                             <th class="th">
                                 <input type="text" placeholder="搜索货柜备注..."
                                        oninput="filterTable(this)"
                                        size="13" style="font-size: 11px; width: 200px;"
-                                       data-col="13"
+                                       data-col="15"
                                        title="输入货柜备注关键词搜索">
                             </th>
                             <th>
                                 <input type="text" style="width: 100px;">
-                            </th>
-                            <th class="th">
-                                <input type="text" placeholder="搜索LFD..."
-                                       oninput="filterTable(this)"
-                                       size="13" style="font-size: 11px; width: 100px;"
-                                       data-col="15"
-                                       title="输入LFD关键词搜索">
                             </th>
                         </tr>
                         </thead>
@@ -853,6 +914,10 @@
                                            data-offload-id="{{ o.offload_id.offload_id }}"
                                            title="选择此项">
                                 </td>
+                                <td class="td">{{ o.retrieval_id.retrieval_destination_area }}</td>
+                                <td class="td">{{ o.order_type }}</td>
+                                <td class="td">{{ o.customer_name.zem_name }}</td>
+                                <td class="td">{{ o.retrieval_id.retrieval_carrier }}</td>
                                 <td class="td">
                                     <a href="/create_order/?step=order_management_container&container_number={{ o.container_number.container_number }}"
                                        target="_blank"
@@ -860,12 +925,8 @@
                                         {{ o.container_number.container_number }}
                                     </a>
                                 </td>
-                                <td class="td">{{ o.customer_name.zem_name }}</td>
-                                <td class="td">{{ o.order_type }}</td>
-                                <td class="td">{{ o.retrieval_id.retrieval_destination_area }}</td>
                                 <td data-column="reference_status_t49">
                                     {% if o.retrieval_id.t49_empty_returned_at %}
-                                        <!-- 存储UTC时间戳到data属性，用于前端转换 -->
                                         <span class="utc-time"
                                               data-utc="{{ o.retrieval_id.t49_empty_returned_at|date:'c' }}">
                                             T49还空 {{ o.retrieval_id.t49_empty_returned_at|date:'Y-m-d H:i:s' }}
@@ -887,7 +948,17 @@
                                         {{ o.retrieval_id.planned_release_time|date:"Y-m-d" }}
                                     </span>
                                     {% else %}
-                                        <span class="status-span status-span-red">无计划放行时间</span>
+                                        <span class="status-span status-span-red">无放行时间</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if o.retrieval_id.temp_t49_lfd %}
+                                        <span class="status-span status-span-green utc-time"
+                                              data-utc="{{ o.retrieval_id.temp_t49_lfd|date:'c' }}">
+                                            {{ o.retrieval_id.temp_t49_lfd|date:'Y-m-d H:i:s' }}
+                                        </span>
+                                    {% else %}
+                                        <span class="status-span status-span-gray">-</span>
                                     {% endif %}
                                 </td>
                                 <td>
@@ -899,7 +970,6 @@
                                         <span class="status-span status-span-red">无提柜计划</span>
                                     {% endif %}
                                 </td>
-
                                 <td>
                                     {% if o.retrieval_id.actual_retrieval_timestamp %}
                                         <span class="status-span status-span-green">{{ o.retrieval_id.actual_retrieval_timestamp|date:"M-j" }}</span>
@@ -915,27 +985,14 @@
                                                    value="get_retrieval_cabinet_arrangement_time">
                                             <input type="hidden" name="start_date" value="{{ start_date|default:'' }}">
                                             <input type="hidden" name="end_date" value="{{ end_date|default:'' }}">
-                                            <input type="hidden" name="start_date_eta"
-                                                   value="{{ start_date_eta|default:'' }}">
-                                            <input type="hidden" name="end_date_eta"
-                                                   value="{{ end_date_eta|default:'' }}">
                                             <input type="hidden" name="retrieval_id"
                                                    value="{{ o.retrieval_id.retrieval_id }}">
                                             <input type="datetime-local"
-                                                   value=" {% if o.retrieval_id.generous_and_wide_target_retrieval_timestamp%}
-                                                            {{ o.retrieval_id.generous_and_wide_target_retrieval_timestamp|date:'Y-m-d\TH:i' }}
-                                                            {% elif o.retrieval_id.retrieval_cabinet_arrangement_time %}
-                                                            {{ o.retrieval_id.retrieval_cabinet_arrangement_time|date:'Y-m-d\TH:i' }}
-                                                            {% endif %}"
+                                                   value="{% if o.retrieval_id.generous_and_wide_target_retrieval_timestamp %}{{ o.retrieval_id.generous_and_wide_target_retrieval_timestamp|date:'Y-m-d\TH:i' }}{% elif o.retrieval_id.retrieval_cabinet_arrangement_time %}{{ o.retrieval_id.retrieval_cabinet_arrangement_time|date:'Y-m-d\TH:i' }}{% endif %}"
                                                    class="datetime-input"
                                                    name="retrieval_cabinet_arrangement_time"
-                                                   placeholder="选择日期时间"
-                                                   title="设置提柜安排时间">
-                                            <button type="submit" class="custom-btn"
-                                                    style="padding: 4px;margin-top: -45px;margin-left: 166px;font-size: 13px"
-                                                    title="确认提柜安排时间">
-                                                确认
-                                            </button>
+                                                   placeholder="选择日期时间">
+                                            <button type="submit" class="custom-btn">确认</button>
                                         </div>
                                     </form>
                                 </td>
@@ -946,25 +1003,13 @@
                                             <input type="hidden" name="step" value="get_offload_at">
                                             <input type="hidden" name="start_date" value="{{ start_date|default:'' }}">
                                             <input type="hidden" name="end_date" value="{{ end_date|default:'' }}">
-                                            <input type="hidden" name="start_date_eta"
-                                                   value="{{ start_date_eta|default:'' }}">
-                                            <input type="hidden" name="end_date_eta"
-                                                   value="{{ end_date_eta|default:'' }}">
                                             <input type="hidden" name="offload_id"
                                                    value="{{ o.offload_id.offload_id }}">
-                                            <input type="datetime-local"
-                                                   value="
-
-                                                           {% if o.offload_id.offload_at %}{{ o.offload_id.offload_at|date:'Y-m-d\TH:i' }}{% endif %}"
+                                            <input type="datetime-local" value="{% if o.offload_id.offload_at %}{{ o.offload_id.offload_at|date:'Y-m-d\TH:i' }}{% endif %}"
                                                    class="datetime-input"
                                                    name="offload_at"
-                                                   placeholder="选择日期时间"
-                                                   title="设置拆柜时间">
-                                            <button type="submit" class="custom-btn"
-                                                    style="padding: 4px;margin-top: -45px;margin-left: 166px;font-size: 13px"
-                                                    title="确认拆柜时间">
-                                                确认
-                                            </button>
+                                                   placeholder="选择日期时间">
+                                            <button type="submit" class="custom-btn">确认</button>
                                         </div>
                                     </form>
                                 </td>
@@ -988,22 +1033,14 @@
                                         <input type="hidden" name="step" value="get_note_preport_dispatch">
                                         <input type="hidden" name="start_date" value="{{ start_date|default:'' }}">
                                         <input type="hidden" name="end_date" value="{{ end_date|default:'' }}">
-                                        <input type="hidden" name="start_date_eta"
-                                               value="{{ start_date_eta|default:'' }}">
-                                        <input type="hidden" name="end_date_eta" value="{{ end_date_eta|default:'' }}">
                                         <input type="hidden" name="retrieval_id"
                                                value="{{ o.retrieval_id|default:'' }}">
                                         <div style="display: flex; gap: 8px; align-items: flex-end;">
                                         <textarea
                                                 name="note_preport_dispatch"
                                                 style="flex: 1; min-height: 50px;"
-                                                title="输入货柜备注信息"
                                         >{{ o.retrieval_id.note_preport_dispatch|default:'' }}</textarea>
-                                            <button type="submit" class="custom-btn"
-                                                    style="font-size: 13px;padding: 4px;"
-                                                    title="保存货柜备注">
-                                                确认
-                                            </button>
+                                            <button type="submit" class="custom-btn">确认</button>
                                         </div>
                                     </form>
                                 </td>
@@ -1013,44 +1050,25 @@
                                         <input type="hidden" name="container_number"
                                                value="{{ o.container_number.container_number }}">
                                         <input type="hidden" name="step" value="save_is_abnormal_state">
-                                        <input type="hidden" name="start_date_eta"
-                                               value="{{ start_date_eta|default:'' }}">
-                                        <input type="hidden" name="end_date_eta" value="{{ end_date_eta|default:'' }}">
-                                        <!-- 异常状态单选框：当 is_abnormal_state 为 True 时选中 -->
                                         <label>
                                             <input type="radio" name="is_abnormal_state" value="True"
-                                                   {% if o.container_number.is_abnormal_state %}checked{% endif %}
-                                                   title="标记为异常状态">
+                                                   {% if o.container_number.is_abnormal_state %}checked{% endif %}>
                                             异常
                                         </label>
-                                        <!-- 正常状态单选框：当 is_abnormal_state 为 False 时选中 -->
                                         <label style="margin-left: 10px;">
                                             <input type="radio" name="is_abnormal_state" value="False"
-                                                   {% if not o.container_number.is_abnormal_state %}checked{% endif %}
-                                                   title="标记为正常状态">
+                                                   {% if not o.container_number.is_abnormal_state %}checked{% endif %}>
                                             正常
                                         </label>
-                                        <button type="submit" class="custom-btn" style="margin-left: 10px;"
-                                                title="确认状态设置">
+                                        <button type="submit" class="custom-btn" style="margin-left: 10px;">
                                             确认
                                         </button>
                                     </form>
                                 </td>
-                                <td>
-                                    {% if o.retrieval_id.temp_t49_lfd %}
-                                        <!-- 添加utc-time类和data-utc属性存储原始UTC时间 -->
-                                        <span class="status-span status-span-green utc-time"
-                                              data-utc="{{ o.retrieval_id.temp_t49_lfd|date:'c' }}">
-                                            {{ o.retrieval_id.temp_t49_lfd|date:'Y-m-d H:i:s' }}
-                                        </span>
-                                    {% else %}
-                                        <span class="status-span status-span-gray">-</span>
-                                    {% endif %}
-                                </td>
                             </tr>
                         {% empty %}
                             <tr>
-                                <td colspan="15" class="empty-state">
+                                <td colspan="17" class="empty-state">
                                     <i class="bi bi-box-seam"></i>
                                     <p>暂无符合条件的数据</p>
                                     <p style="margin-top: 10px;">请尝试调整筛选条件或日期范围</p>
@@ -1060,9 +1078,6 @@
                         </tbody>
                     </table>
                 </div>
-            </div>
-            <div id="dispatch-summary-sec" style="display: none;">
-
             </div>
         </div>
     </div>
@@ -1079,7 +1094,6 @@
             </div>
             <div class="modal-body">
                 <div id="batchOffloadForm">
-                    <!-- 时间输入框 -->
                     <div class="form-group">
                         <label style="display: block; margin-bottom: 8px; color: #4e5969; font-size: 14px;">
                             拆柜时间：
@@ -1088,10 +1102,8 @@
                                class="datetime-input"
                                id="batchOffloadTime"
                                required
-                               style="width: 100%; padding: 8px; font-size: 13px;"
-                               title="选择拆柜时间">
+                               style="width: 100%; padding: 8px; font-size: 13px;">
                     </div>
-
                     <div style="margin-top: 15px; color: #86909c; font-size: 12px;">
                         <span id="selectedContainersCount">0</span> 个柜号将被设置为该拆柜时间
                     </div>
@@ -1109,24 +1121,66 @@
         <div class="spinner"></div>
     </div>
 
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/layui-src@2.6.8/dist/css/layui.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <script src="https://cdn.jsdelivr.net/npm/layui-src@2.6.8/dist/layui.js"></script>
     <script>
-        // 显示加载状态
+        layui.use('form', function () {
+            var form = layui.form;
+            form.render('select');
+        });
+
         function showLoading() {
             document.getElementById('loadingOverlay').classList.add('show');
         }
 
-        // 隐藏加载状态
         function hideLoading() {
             document.getElementById('loadingOverlay').classList.remove('show');
         }
 
-        // 页面加载和表单提交时显示加载状态
         document.addEventListener('DOMContentLoaded', function () {
-            // 为所有表单添加加载状态
             const forms = document.querySelectorAll('form');
             forms.forEach(form => {
                 form.addEventListener('submit', function () {
                     showLoading();
+                });
+            });
+
+            // 列显示/隐藏功能
+            const toggleButtons = document.querySelectorAll('.toggle-column-btn');
+            toggleButtons.forEach(button => {
+                button.addEventListener('click', function () {
+                    const colIndex = parseInt(this.dataset.colIndex);
+                    const isHidden = this.classList.toggle('hidden');
+                    this.title = isHidden ? '显示此列' : '隐藏此列';
+
+                    // 隐藏/显示对应列
+                    const allRows = document.querySelectorAll('.table tr');
+                    allRows.forEach(row => {
+                        const cell = row.cells[colIndex];
+                        if (cell) {
+                            cell.style.display = isHidden ? 'none' : '';
+                        }
+                    });
+                });
+            });
+
+            // 恢复所有隐藏列功能
+            document.getElementById('restoreAllColumns').addEventListener('click', function () {
+                const hiddenButtons = document.querySelectorAll('.toggle-column-btn.hidden');
+                hiddenButtons.forEach(button => {
+                    const colIndex = parseInt(button.dataset.colIndex);
+                    button.classList.remove('hidden');
+                    button.title = '隐藏此列';
+
+                    // 显示所有列
+                    const allRows = document.querySelectorAll('.table tr');
+                    allRows.forEach(row => {
+                        const cell = row.cells[colIndex];
+                        if (cell) {
+                            cell.style.display = '';
+                        }
+                    });
                 });
             });
         });
@@ -1152,7 +1206,8 @@
             var filters = document.querySelectorAll('thead input[type="text"], thead select');
             var filterValues = Array.from(filters).map(function (filter) {
                 var colIdx = parseInt(filter.dataset.col, 10);
-                if (colIdx === 1) {  // 柜号列
+                if (colIdx === 5) {  // 柜号列
+                    // 按空格分割多个关键词，过滤空字符串
                     return filter.value.toUpperCase().split(/\s+/).filter(Boolean);
                 } else {
                     return [filter.value.toUpperCase().trim()];
@@ -1173,7 +1228,7 @@
                         var cellText = cell.textContent || cell.innerText;
                         var cellValue = cellText.toUpperCase().trim();
 
-                        if (colIdx === 1) {  // 柜号列特殊处理
+                        if (colIdx === 5) {  // 柜号列多关键词搜索
                             var matchFound = filterValueList.some(function (filterValue) {
                                 return cellValue.includes(filterValue) || filterValue.includes(cellValue);
                             });
