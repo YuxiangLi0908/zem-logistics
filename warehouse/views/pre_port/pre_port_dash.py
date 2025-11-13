@@ -27,7 +27,7 @@ class PrePortDash(View):
             return redirect("login")
         step = request.GET.get("step", None)
         if step == "all":
-            template, context = await self.handle_all_get(tab="summary")
+            template, context = await self.handle_all_get(warehouse=['NJ', 'SAV', 'LA', 'MO', 'TX'], tab="summary")
             return await sync_to_async(render)(request, template, context)
         else:
             context = {}
@@ -41,6 +41,7 @@ class PrePortDash(View):
         step = request.POST.get("step", None)
         # 根据建单时间和ETA进行筛选
         if step == "search_orders":
+            warehouse = request.POST.getlist("warehouse", [])
             time_type = request.POST.get("time_type", "eta")
             start_date = request.POST.get("start_date")
             end_date = request.POST.get("end_date")
@@ -49,6 +50,7 @@ class PrePortDash(View):
                 template, context = await self.handle_all_get(
                     start_date_eta=start_date,
                     end_date_eta=end_date,
+                    warehouse=warehouse,
                     tab="summary",
                 )
             elif time_type == "planned_release_time":
@@ -56,6 +58,7 @@ class PrePortDash(View):
                 template, context = await self.handle_all_get_planned_release_time(
                     start_date_planned_release_time=start_date,
                     end_date_planned_release_time=end_date,
+                    warehouse=warehouse,
                     tab="summary",
                 )
             return await sync_to_async(render)(request, template, context)
@@ -213,6 +216,7 @@ class PrePortDash(View):
             "orders": orders,
             "current_date": current_date,
             "tab": "summary",
+            "warehouse_options": self.warehouse_options,
         }
         return self.template_main, context
 
@@ -220,6 +224,7 @@ class PrePortDash(View):
             self,
             start_date_eta: str = None,
             end_date_eta: str = None,
+            warehouse: str = [],
             tab: str = None,
     ) -> tuple[Any, Any]:
         current_date = datetime.now().date()
@@ -239,6 +244,7 @@ class PrePortDash(View):
 
         criteria = models.Q(
             cancel_notification=False,
+            retrieval_id__retrieval_destination_area__in=warehouse,
         )
 
         # 处理ETA日期条件
@@ -299,8 +305,7 @@ class PrePortDash(View):
             )
             .order_by("priority", "sort_time")
         )
-
-        # 转换回字符串格式供前端使用
+        warehouse = ''.join(warehouse)        # 转换回字符串格式供前端使用
         context = {
             "customers": customers,
             "orders": orders,
@@ -310,6 +315,7 @@ class PrePortDash(View):
             "tab": tab,
             "time_type": "eta",
             "warehouse_options": self.warehouse_options,
+            "warehouse": warehouse,
         }
         return self.template_main, context
 
@@ -317,11 +323,13 @@ class PrePortDash(View):
             self,
             start_date_planned_release_time: str = None,
             end_date_planned_release_time: str = None,
+            warehouse: str = [],
             tab: str = None,
     ) -> tuple[Any, Any]:
         current_date = datetime.now().date()
         criteria = models.Q(
             cancel_notification=False,
+            retrieval_id__retrieval_destination_area__in=warehouse,
         )
 
         # 处理ETA日期条件
@@ -382,7 +390,7 @@ class PrePortDash(View):
             )
             .order_by("priority", "sort_time")
         )
-
+        warehouse = ''.join(warehouse)
         # 转换回字符串格式供前端使用
         context = {
             "customers": customers,
@@ -393,6 +401,7 @@ class PrePortDash(View):
             "tab": tab,
             "time_type": "planned_release_time",
             "warehouse_options": self.warehouse_options,
+            "warehouse": warehouse,
         }
         return self.template_main, context
 
