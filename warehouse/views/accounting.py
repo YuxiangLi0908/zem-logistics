@@ -4269,8 +4269,8 @@ class Accounting(View):
             "repeated_operation_fee": f"{WAREHOUSE_FEE.details.get('重复操作费', 'N/A')}",  # 重复操作费
         }
 
-        invoice = self.get_or_create_invoice(container_number)
-        invoice_status = self.get_or_create_invoice_status(container_number, "receivable")
+        invoice = self._get_or_create_invoice(container_number)
+        invoice_status = self._get_or_create_invoice_status(container_number, "receivable")
 
         groups = [group.name for group in request.user.groups.all()]
         if not delivery_type:
@@ -4731,8 +4731,8 @@ class Accounting(View):
     ) -> tuple[Any, Any]:
         container_number = request.GET.get("container_number")
         invoice_type = request.GET.get("invoice_type")
-        invoice = self.get_or_create_invoice(container_number)
-        invoice_status = self.get_or_create_invoice_status(container_number, "receivable")
+        invoice = self._get_or_create_invoice(container_number)
+        invoice_status = self._get_or_create_invoice_status(container_number, "receivable")
 
         order = Order.objects.select_related(
             "retrieval_id", "container_number", "vessel_id", "receivable_status"
