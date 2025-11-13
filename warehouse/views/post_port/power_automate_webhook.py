@@ -212,7 +212,7 @@ class PowerAutomateWebhook(View):
                 errors.append(f"Invalid shipment batch number or file type: {filename}")
                 continue
             
-            if shipment_type != "LTL":
+            if shipment_type.startswith("LTL"):
                 errors.append(f"Invalid shipment type: {shipment_type} (expected LTL)")
                 continue
 
