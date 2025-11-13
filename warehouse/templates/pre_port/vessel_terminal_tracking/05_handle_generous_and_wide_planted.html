@@ -24,7 +24,7 @@
                 </span>
             </p>
 
-            <div style="display: flex; align-items: center; max-width: 600px;">
+            <div style="display: flex; align-items: center; max-width: 750px;">
                 <input type="text"
                        id="containerSearch"
                        placeholder="搜索柜号（多个柜号用空格分隔）"
@@ -37,6 +37,16 @@
                         style="margin-left: 10px; background-color: #f5f5f5; color: #666; border: 1px solid #e6e6e6; padding: 0 15px; height: 38px; border-radius: 4px; cursor: pointer; transition: all 0.2s;">
                     <i class="layui-icon layui-icon-refresh"></i> 重置
                 </button>
+                <!-- 新增导出按钮 -->
+                <form method="post" action="" style="margin-left: 10px;">
+                    {% csrf_token %}
+                    <input type="hidden" name="step" value="export_generous_wide_data">
+                    <input type="hidden" id="exportSearchTerms" name="search_terms" value="">
+                    <button type="submit"
+                            style="background-color: #52c41a; color: white; border: none; padding: 0 15px; height: 38px; border-radius: 4px; cursor: pointer; transition: all 0.2s;">
+                        <i class="layui-icon layui-icon-download"></i> 导出Excel
+                    </button>
+                </form>
             </div>
             <p style="margin: 8px 0 0; color: #999; font-size: 12px;">
                 示例：输入 "CSNU8205429 MSCU1234567" 可同时搜索多个柜号
@@ -137,7 +147,7 @@
                 </tr>
                 {% empty %}
                 <tr id="emptyRow">
-                    <td colspan="2" style="text-align: center; padding: 60px 20px; color: #666; background-color: #fafafa;">
+                    <td colspan="3" style="text-align: center; padding: 60px 20px; color: #666; background-color: #fafafa;">
                         <div style="display: flex; flex-direction: column; align-items: center;">
                             <i class="layui-icon layui-icon-empty" style="font-size: 48px; margin-bottom: 15px; color: #ddd;"></i>
                             <p>暂无LA区域的柜号数据</p>
@@ -171,13 +181,12 @@
         const searchInput = document.getElementById('containerSearch');
         const searchBtn = document.getElementById('searchBtn');
         const resetBtn = document.getElementById('resetBtn');
+        const exportSearchTerms = document.getElementById('exportSearchTerms');
         const tableRows = document.querySelectorAll('.container-row');
         const emptyRow = document.getElementById('emptyRow');
         const noResult = document.getElementById('noResult');
         const searchStats = document.getElementById('searchStats');
         const matchCountEl = document.getElementById('matchCount');
-        // 总柜数从模板直接获取（orders的长度）
-        const totalCount = {{ orders|length }};
 
         // 搜索功能
         function performSearch() {
@@ -196,6 +205,9 @@
                 row.style.display = isMatch ? '' : 'none';
                 if (isMatch) matchCount++;
             });
+
+            // 更新导出搜索条件
+            exportSearchTerms.value = searchText;
 
             searchStats.style.display = searchTerms.length > 0 ? 'block' : 'none';
             matchCountEl.textContent = matchCount;

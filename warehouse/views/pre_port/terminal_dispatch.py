@@ -1,6 +1,8 @@
 from datetime import datetime, timedelta
+from io import BytesIO
 from typing import Any
 
+import pandas as pd
 from django.contrib.auth.models import User
 from django.utils import timezone
 import pytz,json 
@@ -110,6 +112,8 @@ class TerminalDispatch(View):
         elif step == "generous_and_wide_target_retrieval_timestamp_save":
             template, context = await self.handle_generous_and_wide_target_retrieval_timestamp_save(request)
             return await sync_to_async(render)(request, template, context)
+        elif step == "export_generous_wide_data":
+            return await self.export_generous_wide_data(request)
 
 
     async def handle_all_get(self) -> tuple[Any, Any]:
@@ -271,17 +275,45 @@ class TerminalDispatch(View):
         _, context = await self.handle_schedule_container_pickup_get(request)
         return self.template_update_container_pickup_schedule, context
 
+    def get_orders(self):
+        return Order.objects.select_related(
+            "container_number", "retrieval_id", "offload_id", "vessel_id"
+        ).filter(
+            retrieval_id__retrieval_destination_area="LA",
+            offload_id__offload_at__isnull=True,
+            cancel_notification=False,
+        ).order_by("-vessel_id__vessel_eta").all()
+
     async def handle_generous_and_wide_planted(self, request: HttpRequest) -> tuple[Any, Any]:
-        def get_orders():
-            return Order.objects.select_related(
-                "container_number", "retrieval_id", "offload_id", "vessel_id"
-            ).filter(
-                retrieval_id__retrieval_destination_area="LA",
-                offload_id__offload_at__isnull=True,
-            ).order_by("-vessel_id__vessel_eta").all()
-        orders = await sync_to_async(get_orders)()
+
+        orders = await sync_to_async(self.get_orders)()
         context = {"orders": orders}
         return self.template_handle_generous_and_wide_planted, context
+
+    async def export_generous_wide_data(self, request):
+        orders = await sync_to_async(self.get_orders)()
+        data = []
+        for order in orders:
+            target_time = order.retrieval_id.generous_and_wide_target_retrieval_timestamp
+            eta_time = order.vessel_id.vessel_eta
+
+            data.append({
+                '柜号': order.container_number.container_number,
+                '大方广预计提柜时间': target_time.strftime('%Y-%m-%d %H:%M:%S') if target_time else '未设置',
+                'ETA': eta_time.strftime('%Y-%m-%d') if eta_time else ''
+            })
+
+        df = pd.DataFrame(data)
+        output = BytesIO()
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            df.to_excel(writer, index=False, sheet_name='所有提柜时间管理')
+        output.seek(0)
+        response = HttpResponse(
+            output.getvalue(),
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        response['Content-Disposition'] = 'attachment; filename="所有提柜时间管理.xlsx"'  # 文件名也可修改
+        return response
 
 
     async def handle_generous_and_wide_target_retrieval_timestamp_save(self, request: HttpRequest) -> tuple[Any, Any]:
