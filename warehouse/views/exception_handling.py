@@ -2382,17 +2382,17 @@ class ExceptionHandling(View):
                 },
                 'new_data': {},
             }
-            
-            # 根据旧状态映射到新状态
-            new_status_mapping = await self.calculate_new_status(old_stage, old_stage_public, old_stage_other, is_rejected)
-            
-            # 异步更新 InvoiceStatus 对象
-            await self.update_invoice_status(old_status, new_status_mapping)
-            
-            # 记录新数据
-            log_entry['new_data'] = new_status_mapping
-            
-            return log_entry
+            if old_stage == "confirmed":
+                # 根据旧状态映射到新状态
+                new_status_mapping = await self.calculate_new_status(old_stage, old_stage_public, old_stage_other, is_rejected)
+                
+                # 异步更新 InvoiceStatus 对象
+                await self.update_invoice_status(old_status, new_status_mapping)
+                
+                # 记录新数据
+                log_entry['new_data'] = new_status_mapping
+                
+                return log_entry
             
         except Exception as e:
             print(f"迁移失败 - Order ID: {order.id}, Error: {str(e)}")
@@ -2413,52 +2413,52 @@ class ExceptionHandling(View):
     async def calculate_new_status(self, old_stage, old_stage_public, old_stage_other, is_rejected):
         """异步计算新状态映射 - 处理驳回状态"""
         # 基础状态映射
-        if old_stage == "unstarted":
-            base_status = {
-                'preport_status': "unstarted",
-                'warehouse_public_status': "unstarted",
-                'warehouse_other_status': "unstarted",
-                'delivery_public_status': "unstarted",
-                'delivery_other_status': "unstarted",
-                'finance_status': "unstarted",
-            }
-        elif old_stage == "preport":
-            base_status = {
-                'preport_status': "pending_review",
-                'warehouse_public_status': "unstarted",
-                'warehouse_other_status': "unstarted",
-                'delivery_public_status': "unstarted",
-                'delivery_other_status': "unstarted",
-                'finance_status': "unstarted",
-            }
-        elif old_stage == "warehouse":
-            base_status = {
-                'preport_status': "completed",
-                'warehouse_public_status': await self.map_public_other_status_async(old_stage_public),
-                'warehouse_other_status': await self.map_public_other_status_async(old_stage_other),
-                'delivery_public_status': await self.map_public_other_status_async(old_stage_public),
-                'delivery_other_status': await self.map_public_other_status_async(old_stage_other),
-                'finance_status': "unstarted",
-            }
-        elif old_stage == "delivery":
-            base_status = {
-                'preport_status': "completed",
-                'warehouse_public_status': await self.map_public_other_status_async(old_stage_public),
-                'warehouse_other_status': await self.map_public_other_status_async(old_stage_public),
-                'delivery_public_status': await self.map_public_other_status_async(old_stage_public),
-                'delivery_other_status': await self.map_public_other_status_async(old_stage_other),
-                'finance_status': "unstarted",
-            }
-        elif old_stage == "tobeconfirmed":
-            base_status = {
-                'preport_status': "completed",
-                'warehouse_public_status': "completed",
-                'warehouse_other_status': "completed",
-                'delivery_public_status': "completed",
-                'delivery_other_status': "completed",
-                'finance_status': "tobeconfirmed",
-            }
-        elif old_stage == "confirmed":
+        # if old_stage == "unstarted":
+        #     base_status = {
+        #         'preport_status': "unstarted",
+        #         'warehouse_public_status': "unstarted",
+        #         'warehouse_other_status': "unstarted",
+        #         'delivery_public_status': "unstarted",
+        #         'delivery_other_status': "unstarted",
+        #         'finance_status': "unstarted",
+        #     }
+        # elif old_stage == "preport":
+        #     base_status = {
+        #         'preport_status': "pending_review",
+        #         'warehouse_public_status': "unstarted",
+        #         'warehouse_other_status': "unstarted",
+        #         'delivery_public_status': "unstarted",
+        #         'delivery_other_status': "unstarted",
+        #         'finance_status': "unstarted",
+        #     }
+        # elif old_stage == "warehouse":
+        #     base_status = {
+        #         'preport_status': "completed",
+        #         'warehouse_public_status': await self.map_public_other_status_async(old_stage_public),
+        #         'warehouse_other_status': await self.map_public_other_status_async(old_stage_other),
+        #         'delivery_public_status': await self.map_public_other_status_async(old_stage_public),
+        #         'delivery_other_status': await self.map_public_other_status_async(old_stage_other),
+        #         'finance_status': "unstarted",
+        #     }
+        # elif old_stage == "delivery":
+        #     base_status = {
+        #         'preport_status': "completed",
+        #         'warehouse_public_status': await self.map_public_other_status_async(old_stage_public),
+        #         'warehouse_other_status': await self.map_public_other_status_async(old_stage_public),
+        #         'delivery_public_status': await self.map_public_other_status_async(old_stage_public),
+        #         'delivery_other_status': await self.map_public_other_status_async(old_stage_other),
+        #         'finance_status': "unstarted",
+        #     }
+        # elif old_stage == "tobeconfirmed":
+        #     base_status = {
+        #         'preport_status': "completed",
+        #         'warehouse_public_status': "completed",
+        #         'warehouse_other_status': "completed",
+        #         'delivery_public_status': "completed",
+        #         'delivery_other_status': "completed",
+        #         'finance_status': "tobeconfirmed",
+        #     }
+        if old_stage == "confirmed":
             base_status = {
                 'preport_status': "completed",
                 'warehouse_public_status': "completed",
@@ -2467,15 +2467,15 @@ class ExceptionHandling(View):
                 'delivery_other_status': "completed",
                 'finance_status': "completed",
             }
-        else:
-            base_status = {
-                'preport_status': "unstarted",
-                'warehouse_public_status': "unstarted",
-                'warehouse_other_status': "unstarted",
-                'delivery_public_status': "unstarted",
-                'delivery_other_status': "unstarted",
-                'finance_status': "unstarted",
-            }
+        # else:
+        #     base_status = {
+        #         'preport_status': "unstarted",
+        #         'warehouse_public_status': "unstarted",
+        #         'warehouse_other_status': "unstarted",
+        #         'delivery_public_status': "unstarted",
+        #         'delivery_other_status': "unstarted",
+        #         'finance_status': "unstarted",
+        #     }
         
         # 如果有驳回，根据当前阶段设置驳回状态
         if is_rejected:
