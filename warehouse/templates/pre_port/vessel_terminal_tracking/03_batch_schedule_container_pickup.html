@@ -88,8 +88,6 @@
                     <tr style="position: sticky; top: 0;">
                         <th class="th">目的地</th>
                         <th class="th">供应商</th>
-                        <th class="th">预约时间</th>
-                        <th class="th">提柜备注</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -109,14 +107,6 @@
                                 <option value="{{ v }}">{{ k }}</option>
                                 {% endfor %}
                             </select>
-                        </td>
-                        <td class="td">
-                            <input type="datetime-local" name="target_retrieval_timestamp_lower" style="font-size: 13px;">
-                            至
-                            <input type="datetime-local" name="target_retrieval_timestamp" style="font-size: 13px;">
-                        </td>
-                        <td class="td">
-                            <input type="text" name="note" style="font-size: 13px;" placeholder="提柜备注">
                         </td>
                     </tr>
                 </tbody>

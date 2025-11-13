@@ -352,6 +352,8 @@ class TerminalDispatch(View):
             # 更新retrieval记录
             order.retrieval_id.retrieval_destination_precise = retrieval_destination
             order.retrieval_id.retrieval_carrier = retrieval_carrier
+            if retrieval_destination and retrieval_carrier:
+                order.retrieval_id.retrieval_delegation_status = True
             if request.POST.get("target_retrieval_timestamp"):
                 ts = request.POST.get("target_retrieval_timestamp")
                 order.retrieval_id.target_retrieval_timestamp = self._parse_ts(ts, tzinfo)
