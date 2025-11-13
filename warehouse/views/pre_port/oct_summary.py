@@ -335,7 +335,6 @@ class OctSummaryView(View):
                 "customer_name",
                 "retrieval_id",
                 "vessel_id",
-                "shipment_id__packinglist",
             )
             .filter(filter_conditions)
             .values("container_number__container_number")
@@ -376,8 +375,8 @@ class OctSummaryView(View):
                 ke_destination_num=Sum(
                     Case(
                         When(
-                            shipment_id__packinglist__delivery_type="other",
-                            shipment_id__packinglist__destination="客户自提",
+                            container_number__packinglist__delivery_type="other",
+                            container_number__packinglist__destination="客户自提",
                             then=1
                         ),
                         default=0,
@@ -388,7 +387,7 @@ class OctSummaryView(View):
                 total_other_delivery=Sum(
                     Case(
                         When(
-                            shipment_id__packinglist__delivery_type="other",
+                            container_number__packinglist__delivery_type="other",
                             then=1
                         ),
                         default=0,
@@ -411,7 +410,7 @@ class OctSummaryView(View):
                 "retrieval_carrier", "ke_destination_num", "si_destination_num", "order_type",
                 "do_sent", "id", "status", "retrieval_carrier_planned", "retrieval_id__retrieval_id",
                 "retrieval_delegation_status", "planned_release_time", "actual_release_status", "destination_port",
-                "t49_empty_returned_at", "t49_pod_full_out_at"
+                "t49_empty_returned_at", "t49_pod_full_out_at", "total_other_delivery"
             )
             .order_by(
                 # 第一优先级：区分"有/无实际放行时间"（有则排前面）
