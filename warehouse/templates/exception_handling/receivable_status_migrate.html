@@ -494,6 +494,38 @@
     </div>
     {% endif %}
 
+    {% if diff_status_data %}
+        <h3>差异账单{{ diff_count }}</h3>
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>柜号</th>
+                    <th>stage</th>
+                    <th>finance_status</th>
+                    <th>preport_status</th>
+                    <th>warehouse_public_status</th>
+                    <th>warehouse_other_status</th>
+                    <th>delivery_public_status</th>
+                    <th>delivery_other_status</th>
+                </tr>
+            </thead>
+            <tbody id="pallet-table-body">
+                {% for item in diff_status_data %}
+                <tr>
+                    <td>{{ item.container_number }}</td>
+                    <td>{{ item.stage }}</td>
+                    <td>{{ item.finance_status }}</td>
+                    <td>{{ item.preport_status }}</td>
+                    <td>{{ item.warehouse_public_status }}</td>
+                    <td>{{ item.warehouse_other_status }}</td>
+                    <td>{{ item.delivery_public_status }}</td>
+                    <td>{{ item.delivery_other_status }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% endif %}
+
     {% if old_status_data or now_status_data %}
     <div class="comparison-tables">
         <!-- Pallet 表格 -->
