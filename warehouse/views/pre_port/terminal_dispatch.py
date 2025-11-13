@@ -274,11 +274,11 @@ class TerminalDispatch(View):
     async def handle_generous_and_wide_planted(self, request: HttpRequest) -> tuple[Any, Any]:
         def get_orders():
             return Order.objects.select_related(
-                "container_number", "retrieval_id", "offload_id"
+                "container_number", "retrieval_id", "offload_id", "vessel_id"
             ).filter(
                 retrieval_id__retrieval_destination_area="LA",
                 offload_id__offload_at__isnull=True,
-            ).all()
+            ).order_by("-vessel_id__vessel_eta").all()
         orders = await sync_to_async(get_orders)()
         context = {"orders": orders}
         return self.template_handle_generous_and_wide_planted, context
