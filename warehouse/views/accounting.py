@@ -3564,7 +3564,7 @@ class Accounting(View):
         ws = wb.active
         ws.title = f"{select_carrier}_{select_month}账单"
 
-        #应付拆柜费
+        # 应付拆柜费
         pallet_name = str(
             InvoiceWarehouse._meta.get_field("palletization_fee").verbose_name
         )
@@ -3589,7 +3589,7 @@ class Accounting(View):
                 "车架费",
                 arrive_name,
                 "总费用",
-                "还空时间"
+                "还空时间"  # 东海岸包含还空时间
             ]
         else:
             fixed_fee_types = [
@@ -3601,7 +3601,16 @@ class Accounting(View):
                 "总费用",
             ]
 
-        valid_headers = ["柜号", "提柜时间", "仓库", "柜型", "总费用"]
+        # 1. 初始表头：明确加入“还空时间”并放在“提柜时间”后面（东海岸专用调整）
+        if select_carrier in ["东海岸"]:
+            valid_headers = ["柜号", "提柜时间", "还空时间", "仓库", "柜型", "总费用"]
+        else:
+            valid_headers = ["柜号", "提柜时间", "仓库", "柜型", "总费用"]
+
+        # 定义需要排除拆柜费的carriers
+        exclude_pallet_carriers = ["Kars", "东海岸", "GM"]
+        # 判断当前carrier是否需要排除拆柜费
+        is_exclude_pallet = select_carrier in exclude_pallet_carriers
 
         rows = []
         for order, invoice, warehouse, preport in orders:
@@ -3609,8 +3618,12 @@ class Accounting(View):
             row_data["柜号"] = order.container_number.container_number
             row_data["提柜时间"] = (
                 order.retrieval_id.actual_retrieval_timestamp.strftime("%Y-%m-%d")
+                if order.retrieval_id.actual_retrieval_timestamp
+                else ""  # 处理空值
             )
-            row_data["还空时间"] = order.retrieval_id.empty_returned_at.strftime("%Y-%m-%d")
+            # 还空时间：仅东海岸需要
+            row_data["还空时间"] = order.retrieval_id.empty_returned_at.strftime(
+                "%Y-%m-%d") if order.retrieval_id.empty_returned_at else ""
             try:
                 row_data["仓库"] = order.warehouse.name
             except Exception:
@@ -3632,7 +3645,9 @@ class Accounting(View):
                 total_amount = 0
 
                 if preport:
-                    total_amount += float(preport.amount or 0)
+                    # 累加preport的费用（基本费、超重费等）
+                    preport_amount = float(preport.amount or 0)
+                    total_amount += preport_amount
                     row_data["基本费用"] = preport.pickup or 0
                     row_data["超重费"] = preport.over_weight or 0
                     row_data["车架费"] = preport.chassis or 0
@@ -3650,31 +3665,48 @@ class Accounting(View):
                                 other_fees_dict[key] = value
 
                 if warehouse:
-                    total_amount += float(getattr(warehouse, "amount", 0) or 0)
+                    # 对于需要排除拆柜费的carriers，从warehouse费用中减去拆柜费
+                    warehouse_amount = float(getattr(warehouse, "amount", 0) or 0)
+                    if is_exclude_pallet:
+                        # 减去拆柜费（palletization_fee）
+                        pallet_fee = float(warehouse.palletization_fee or 0)
+                        warehouse_amount -= pallet_fee  # 总费用中排除拆柜费
+                    total_amount += warehouse_amount  # 累加调整后的warehouse费用
+
+                    # 记录拆柜费（仅显示，不纳入总费用）
                     row_data[pallet_name] = warehouse.palletization_fee or 0
                     row_data[arrive_name] = warehouse.arrive_fee or 0
+
                     # 计算warehouse的其他费用
                     other_fees_dict = {}
                     self.sum_exe_number(
                         warehouse, other_fees_dict, row_data, valid_headers
                     )
+
+                # 最终总费用（已排除拆柜费，如需要）
                 row_data["总费用"] = total_amount
+
+            # 填充固定费用类型（确保所有固定字段都有值）
             for fee_type in fixed_fee_types:
                 if fee_type not in row_data:
                     row_data[fee_type] = 0
             rows.append(row_data)
+
+        # 2. 去重并保持顺序
         valid_headers = list(dict.fromkeys(valid_headers))
+
+        # 3. 处理固定费用类型的表头
         for fee_type in fixed_fee_types:
             if fee_type not in ["柜号", "总费用"]:
-                # 检查该列是否有非零值
                 has_value = any(row.get(fee_type, 0) not in (0, "0") for row in rows)
-                if has_value:
+                if has_value and fee_type not in valid_headers:
                     valid_headers.append(fee_type)
-        valid_headers = list(dict.fromkeys(valid_headers))
-        # 写入表头
-        ws.append(valid_headers)
 
-        # 写入数据行
+        # 最终去重
+        valid_headers = list(dict.fromkeys(valid_headers))
+
+        # 写入表头和数据
+        ws.append(valid_headers)
         for row in rows:
             row_data = [row.get(col, 0) for col in valid_headers]
             ws.append(row_data)
