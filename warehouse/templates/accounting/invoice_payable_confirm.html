@@ -226,10 +226,8 @@
             </b>
             <b style="margin-right: 5px; margin-left: 10px;">账单类型:</b>
             <select name="invoice_type" style="margin-right: 5px;">
-                <option value="receivable" {% if invoice_type_filter==
-                'receivable' %}selected{% endif %}>应收账单</option>
-                <option value="payable" {% if invoice_type_filter==
-                'payable' %}selected{% endif %}>应付账单</option>
+                <option value="receivable" {% if invoice_type_filter=='receivable' %}selected{% endif %}>应收账单</option>
+                <option value="payable" {%if invoice_type_filter=='payable' %}selected{% endif %}>应付账单</option>
             </select>
             <input type="hidden" name="step" value="invoice_order_confirm">
             <button id="submit-btn" type="submit" class="btn btn-primary"
