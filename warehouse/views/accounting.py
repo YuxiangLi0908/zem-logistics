@@ -3129,6 +3129,7 @@ class Accounting(View):
             )
             invoice.save()
             invoice_status.stage = "tobeconfirmed"
+            invoice_status.finance_status = "tobeconfirmed"
             invoice_status.is_rejected = "False"
             invoice_status.reject_reason = ""
             invoice_status.save()
@@ -3143,6 +3144,7 @@ class Accounting(View):
             )
             invoice.save()
             invoice_status.stage = "confirmed"
+            invoice_status.finance_status = "completed"
             invoice_status.is_rejected = "False"
             invoice_status.reject_reason = ""
             invoice_status.save()
@@ -3152,6 +3154,7 @@ class Accounting(View):
                 container_number=order.container_number, invoice_type="receivable"
             )
             invoice_status.stage = "unstarted"
+            invoice_status.preport_status = "rejected"
             invoice_status.is_rejected = "True"
             invoice_status.reject_reason = data.get("invoice_reject_reason", "")
             invoice_status.save()
@@ -3487,10 +3490,6 @@ class Accounting(View):
                 + float(invoice.receivable_delivery_amount or 0)
             )
         invoice.save()
-        receivable_status = order.receivable_status
-        receivable_status.stage = "confirmed"
-        receivable_status.save()
-        order.save()
         return self.handle_invoice_confirm_get(
             request,
             request.POST.get("start_date_confirm"),
