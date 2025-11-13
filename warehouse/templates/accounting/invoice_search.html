@@ -23,7 +23,7 @@
     .status-inprogress { background-color: #cce7ff; color: #004085; }
 </style>
 
-<div><h4><b>账单录入进入</b></h4></div>
+<div><h4><b>账单录入进度</b></h4></div>
 <div style="width: 100%; display: flex; justify-content: space-between;">
     <form method="post" action="" style="width: 80%;">
         {% csrf_token %}
@@ -56,10 +56,10 @@
                 <th class="th" style="padding: 12px; border: 1px solid #ddd;text-align: center;">客户</th>
                 <th class="th" style="padding: 12px; border: 1px solid #ddd;text-align: center;">柜号</th>
                 <th class="th" style="padding: 12px; border: 1px solid #ddd;text-align: center;">分类</th>
-                <th class="th" style="padding: 12px; border: 1px solid #ddd;text-align: center;">应收状态</th>
                 <th class="th" style="padding: 12px; border: 1px solid #ddd;text-align: center;">应付状态</th>
-                <th class="th" style="padding: 12px; border: 1px solid #ddd;text-align: center;">是否拒绝</th>
-                <th class="th" style="padding: 12px; border: 1px solid #ddd;text-align: center;">拒绝原因</th>
+                <th class="th" style="padding: 12px; border: 1px solid #ddd;text-align: center;">应收状态</th>             
+                <th class="th" style="padding: 12px; border: 1px solid #ddd;text-align: center;">应收是否拒绝</th>
+                <th class="th" style="padding: 12px; border: 1px solid #ddd;text-align: center;">应收拒绝原因</th>
             </tr>
             <tr style="position: sticky; top: 28px;">
                 <th class="th"></th>
@@ -89,26 +89,27 @@
                             {{ c.container_number.delivery_type }} 
                         {% endif %}
                     </td>
+                    <td class="td" style="padding: 12px; border: 1px solid #ddd; text-align: center;vertical-align: middle; white-space: pre-line;">
+                        {% if c.payable_status %}{{ c.display_stage }}
+                        {% elif not c.receivable_status and not c.payable_status %}{{ c.display_stage }}{% endif %}
+                    </td>
                     <td class="td" style="padding: 8px; border: 1px solid #ddd; text-align: center;vertical-align: middle;">
                         {% if c.receivable_status %}
                             <div class="status-grid">
                                 <div class="status-item status-{{ c.display_preport_status_class }}">港前:{{ c.display_preport_status }}</div>
-                                <div class="status-item status-{{ c.display_warehouse_public_status_class }}">公仓:{{ c.display_warehouse_public_status }}</div>
-                                <div class="status-item status-{{ c.display_warehouse_other_status_class }}">私仓:{{ c.display_warehouse_other_status }}</div>
-                                <div class="status-item status-{{ c.display_delivery_public_status_class }}">公派:{{ c.display_delivery_public_status }}</div>
-                                <div class="status-item status-{{ c.display_delivery_other_status_class }}">私派:{{ c.display_delivery_other_status }}</div>
+                                <div class="status-item status-{{ c.display_warehouse_public_status_class }}">公仓仓库:{{ c.display_warehouse_public_status }}</div>
+                                <div class="status-item status-{{ c.display_warehouse_other_status_class }}">私仓仓库:{{ c.display_warehouse_other_status }}</div>
+                                <div class="status-item status-{{ c.display_delivery_public_status_class }}">公仓派送:{{ c.display_delivery_public_status }}</div>
+                                <div class="status-item status-{{ c.display_delivery_other_status_class }}">私仓派送:{{ c.display_delivery_other_status }}</div>
                                 <div class="status-item status-{{ c.display_finance_status_class }}">财务:{{ c.display_finance_status }}</div>
                             </div>
                         {% else %}
                             未录入
                         {% endif %}
                     </td>
-                    <td class="td" style="padding: 12px; border: 1px solid #ddd; text-align: center;vertical-align: middle; white-space: pre-line;">
-                        {% if c.payable_status %}{{ c.display_stage }}
-                        {% elif not c.receivable_status and not c.payable_status %}{{ c.display_stage }}{% endif %}
-                    </td>
-                    <td class="td" style="padding: 12px; border: 1px solid #ddd; text-align: center;vertical-align: middle">{{ c.display_is_rejected }}</td>
-                    <td class="td" style="padding: 12px; border: 1px solid #ddd; text-align: center;vertical-align: middle">{{ c.display_reject_reason }}</td>
+                    
+                    <td class="td" style="padding: 12px; border: 1px solid #ddd; text-align: center;vertical-align: middle">{{ c.receivable_is_rejected }}</td>
+                    <td class="td" style="padding: 12px; border: 1px solid #ddd; text-align: center;vertical-align: middle">{{ c.receivable_reject_reason }}</td>
                 </tr>            
             </form>    
             {% endfor %}
