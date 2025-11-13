@@ -226,8 +226,8 @@
             </b>
             <b style="margin-right: 5px; margin-left: 10px;">账单类型:</b>
             <select name="invoice_type" style="margin-right: 5px;">
-                <option value="receivable" {% if invoice_type_filter=='receivable' %}selected{% endif %}>应收账单</option>
-                <option value="payable" {%if invoice_type_filter=='payable' %}selected{% endif %}>应付账单</option>
+                <option value="receivable" {% if invoice_type_filter == 'receivable' %}selected{% endif %}>应收账单</option>
+                <option value="payable" {% if invoice_type_filter == 'payable' %}selected{% endif %}>应付账单</option>
             </select>
             <input type="hidden" name="step" value="invoice_order_confirm">
             <button id="submit-btn" type="submit" class="btn btn-primary"
@@ -281,11 +281,9 @@
 
                 <div class="sub-tabs">
                     <div class="tabs">
-                        <button class="tab-button active" onclick="switchSubTab('pick', 'pending')">待确认 ({{
-                            pick_pending_orders|length }})
+                        <button class="tab-button active" onclick="switchSubTab('pick', 'pending')">待确认 {{pick_pending_orders|length }}
                         </button>
-                        <button class="tab-button" onclick="switchSubTab('pick', 'confirmed')">已确认 ({{
-                            pick_confirmed_orders|length }})
+                        <button class="tab-button" onclick="switchSubTab('pick', 'confirmed')">已确认 {{pick_confirmed_orders|length }}
                         </button>
                     </div>
 
@@ -368,8 +366,8 @@
                                             -
                                             {% endif %}
                                         </td>
-                                        <td style="font-weight: bold;">{{
-                                            p.invoice_id__payable_preport_amount|default:0|floatformat:2 }}
+                                        <td style="font-weight: bold;">
+                                            {{p.invoice_id__payable_preport_amount|default:0|floatformat:2 }}
                                         </td>
                                     </tr>
                                     {% endfor %}
@@ -475,8 +473,8 @@
                                         -
                                         {% endif %}
                                     </td>
-                                    <td style="font-weight: bold;">{{
-                                        p.invoice_id__payable_preport_amount|default:0|floatformat:2 }}
+                                    <td style="font-weight: bold;">
+                                        {{p.invoice_id__payable_preport_amount|default:0|floatformat:2 }}
                                     </td>
                                 </tr>
                                 {% endfor %}
@@ -520,11 +518,11 @@
 
                 <div class="sub-tabs">
                     <div class="tabs">
-                        <button class="tab-button active" onclick="switchSubTab('warehouse', 'pending')">待确认 ({{
-                            warehouse_pending_orders|length }})
+                        <button class="tab-button active" onclick="switchSubTab('warehouse', 'pending')">待确认
+                            {{arehouse_pending_orders|length }}
                         </button>
-                        <button class="tab-button" onclick="switchSubTab('warehouse', 'confirmed')">已确认 ({{
-                            warehouse_confirmed_orders|length }})
+                        <button class="tab-button" onclick="switchSubTab('warehouse', 'confirmed')">已确认
+                            {{warehouse_confirmed_orders|length }}
                         </button>
                     </div>
 
@@ -594,8 +592,8 @@
                                             -
                                             {% endif %}
                                         </td>
-                                        <td style="font-weight: bold;">{{
-                                            p.invoice_id__payable_warehouse_amount|default:0|floatformat:2 }}
+                                        <td style="font-weight: bold;">
+                                            {{p.invoice_id__payable_warehouse_amount|default:0|floatformat:2 }}
                                         </td>
                                     </tr>
                                     {% endfor %}
@@ -695,8 +693,8 @@
                                         -
                                         {% endif %}
                                     </td>
-                                    <td style="font-weight: bold;">{{
-                                        p.invoice_id__payable_warehouse_amount|default:0|floatformat:2 }}
+                                    <td style="font-weight: bold;">
+                                        {{p.invoice_id__payable_warehouse_amount|default:0|floatformat:2 }}
                                     </td>
                                 </tr>
                                 {% endfor %}
@@ -740,8 +738,8 @@
 
                 <div class="sub-tabs">
                     <div class="tabs">
-                        <button class="tab-button active" onclick="switchSubTab('delivery', 'pending')">总计 ({{
-                            delivery_pending_orders|length }})
+                        <button class="tab-button active" onclick="switchSubTab('delivery', 'pending')">
+                            总计{{delivery_pending_orders|length }}
                         </button>
                     </div>
 
@@ -766,21 +764,6 @@
                                         <th rowspan="2" style="vertical-align: middle;">车次总板数</th>
                                         <th rowspan="2" style="vertical-align: middle;">车次总成本</th>
                                     </tr>
-                                    <!-- 新增搜索行 -->
-                                    <tr class="search-row">
-                                        <td><input type="text" placeholder="搜索供应商..."
-                                                   onkeyup="filterTable('delivery-pending-table', 0)"></td>
-                                        <td></td>
-                                        <td></td>
-                                        <td><input type="text" placeholder="搜索货柜号..."
-                                                   onkeyup="filterTable('delivery-pending-table', 3)"></td>
-                                        <td></td>
-                                        <td></td>
-                                        <td></td>
-                                        <td></td>
-                                        <td></td>
-                                        <td></td>
-                                    </tr>
                                     </thead>
                                     <tbody>
                                     {% for fleet in delivery_pending_orders %}
@@ -789,17 +772,17 @@
                                     {% for order in appointment_data.orders %}
                                     <tr>
                                         {% if forloop.parentloop.first and forloop.first %}
-                                        <td rowspan="{{ pickup_data.total_rows }}" style="vertical-align: middle;">{{
-                                            fleet.carrier|default_if_none:"" }}
+                                        <td rowspan="{{ pickup_data.total_rows }}" style="vertical-align: middle;">
+                                            {{fleet.carrier|default_if_none:"" }}
                                         </td>
-                                        <td rowspan="{{ pickup_data.total_rows }}" style="vertical-align: middle;">{{
-                                            pickup_number|default_if_none:"" }}
+                                        <td rowspan="{{ pickup_data.total_rows }}" style="vertical-align: middle;">
+                                            {{pickup_number|default_if_none:"" }}
                                         </td>
                                         {% endif %}
 
                                         {% if forloop.first %}
-                                        <td rowspan="{{ appointment_data.rowspan }}" style="vertical-align: middle;">{{
-                                            appointment_id|default_if_none:"" }}
+                                        <td rowspan="{{ appointment_data.rowspan }}" style="vertical-align: middle;">
+                                            {{appointment_id|default_if_none:"" }}
                                         </td>
                                         {% endif %}
 
@@ -809,11 +792,11 @@
                                         <td style="vertical-align: middle;">{{ order.cn_total_expense }}</td>
                                         <td style="vertical-align: middle;">{{ order.cn_per_expense }}</td>
                                         {% if forloop.parentloop.first and forloop.first %}
-                                        <td rowspan="{{ pickup_data.total_rows }}" style="vertical-align: middle;">{{
-                                            pickup_data.ISA_total_pallets }}
+                                        <td rowspan="{{ pickup_data.total_rows }}" style="vertical-align: middle;">
+                                            {{pickup_data.ISA_total_pallets }}
                                         </td>
-                                        <td rowspan="{{ pickup_data.total_rows }}" style="vertical-align: middle;">${{
-                                            pickup_data.ISA_total_expense }}
+                                        <td rowspan="{{ pickup_data.total_rows }}" style="vertical-align: middle;">
+                                            ${{pickup_data.ISA_total_expense }}
                                         </td>
                                         {% endif %}
                                     </tr>
