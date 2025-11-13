@@ -1975,7 +1975,7 @@ class Accounting(View):
                 .filter(
                     criteria,  
                     receivable_status__isnull=False,
-                    receivable_status__finance_status="confirmed" )
+                    receivable_status__finance_status="completed" )
             )
             previous_order = previous_order.annotate(
                 total_amount=Case(
