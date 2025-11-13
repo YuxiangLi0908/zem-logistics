@@ -102,8 +102,8 @@ jobs:
       # Add your WebJob folder into Azure's expected structure
       - name: Prepare WebJob folder for deployment
         run: |
-          mkdir -p app_data/jobs/triggered/update_data
-          cp -r webjobs/update_data/* app_data/jobs/triggered/update_data/
+          mkdir -p app_data/jobs/triggered
+          cp -r webjobs/* app_data/jobs/triggered/
 
       # (Optional) Verify folder structure before deploy
       - name: Show project structure
