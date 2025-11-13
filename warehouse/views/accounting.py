@@ -1684,13 +1684,13 @@ class Accounting(View):
             "receivable_status" 
         ).filter(
             criteria,
-            models.Q(**{"receivable_status__isnull": True})
-            | models.Q(  # 考虑账单编辑点的是暂存的情况
-                **{
-                    "receivable_status__invoice_type": "receivable",
-                    "receivable_status__preport_status": "unstarted",  #港前未录入的
-                    "receivable_status__preport_status": "in_progress", #暂存的
-                }
+            models.Q(receivable_status__isnull=True) |
+            (
+                models.Q(receivable_status__invoice_type="receivable") &
+                (
+                    models.Q(receivable_status__preport_status="unstarted") |
+                    models.Q(receivable_status__preport_status="in_progress")
+                )
             ),
         )
         # 查找驳回账单
