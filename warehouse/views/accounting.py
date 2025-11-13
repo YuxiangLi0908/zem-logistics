@@ -6315,7 +6315,7 @@ class Accounting(View):
             )
         return extra_fees
 
-    def _filter_ups_destinations(destinations):
+    def _filter_ups_destinations(self, destinations):
         """过滤掉包含UPS的目的地，支持列表和QuerySet"""
         if hasattr(destinations, 'exclude'):
             # 如果是QuerySet
