@@ -6317,12 +6317,12 @@ class Accounting(View):
 
     def _filter_ups_destinations(self, destinations):
         """过滤掉包含UPS的目的地，支持列表和QuerySet"""
-        if hasattr(destinations, 'exclude'):
-            # 如果是QuerySet
-            return destinations.exclude(包含UPS的字段名__contains='UPS')
+        if hasattr(destinations, '__iter__') and not isinstance(destinations, (str, dict)):
+            destinations_list = list(destinations)
         else:
-            # 如果是列表或其他可迭代对象
-            return [dest for dest in destinations if 'UPS' not in str(dest)]
+            destinations_list = destinations
+        filtered_destinations = [dest for dest in destinations_list if 'UPS' not in str(dest)]
+        return filtered_destinations
         
     def _calculate_delivery_fee_cost(
         self,
