@@ -99,6 +99,18 @@
         background-color: #edf2f7;
     }
 
+    .modal-table .filter-row th {
+        padding: 4px 6px;
+        background: #fdfdfd;
+        border-bottom: 1px solid #dee2e6;
+    }
+
+    .modal-table .filter-row input {
+        width: 100%;
+        box-sizing: border-box;
+        padding: 4px 6px;
+        font-size: 0.8rem;
+    }
     .modal-actions {
         padding: 15px 20px;
         background: #f8f9fa;
@@ -255,6 +267,15 @@
                             <th style="width: 10%; text-align:center;">板数</th>
                             <th style="width: 10%; text-align:center;">加塞板数</th>
                         </tr>
+                        <tr class="filter-row">
+                            <th></th>
+                            <th><input type="text" class="col-filter" data-col="1"></th>
+                            <th><input type="text" class="col-filter" data-col="2"></th>
+                            <th><input type="text" class="col-filter" data-col="3"></th>
+                            <th><input type="text" class="col-filter" data-col="4"></th>
+                            <th><input type="text" class="col-filter" data-col="5"></th>
+                            <th></th>
+                        </tr>
                     </thead>
                     <tbody id="addPOTableBody">
                         {% if plt_unshipped %}
@@ -379,6 +400,21 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // 关闭模态框事件
 document.querySelector('#addPOModal .close').addEventListener('click', closeAddPOModal);
+
+document.querySelectorAll(".col-filter").forEach(input => {
+    input.addEventListener("input", function () {
+        const colIndex = parseInt(this.dataset.col);
+        const keyword = this.value.toLowerCase();
+
+        document.querySelectorAll("#addPOTableBody tr").forEach(row => {
+            const cell = row.children[colIndex];
+            if (!cell) return;
+
+            const text = cell.innerText.toLowerCase();
+            row.style.display = text.includes(keyword) ? "" : "none";
+        });
+    });
+});
 
 // 点击外部关闭
 window.addEventListener('click', function(event) {
