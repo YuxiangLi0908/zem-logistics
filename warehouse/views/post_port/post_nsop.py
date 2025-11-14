@@ -2256,13 +2256,14 @@ class PostNsop(View):
                     'offload_time': pos.get('offload_time',''),
                     'delivery_window_start': pos.get('delivery_window_start'),
                     'delivery_window_end': pos.get('delivery_window_end'),
-                    'total_n_pallet_act': pos.get('total_n_pallet_act', 0),
-                    'total_n_pallet_est': pos.get('total_n_pallet_est', 0),
+                    'total_n_pallet_act': pos.get('total_n_pallet_act') or pos.get('total_n_pallet_est', 0),
                     'total_cbm': pos.get('total_cbm', 0),
                     'label': pos.get('label', ''),
                     'destination': pos.get('destination', ''),
+                    'location': pos.get('location') if pos.get('location') else pos.get('warehouse', ''),
                     'custom_delivery_method': pos.get('custom_delivery_method', ''),
                 } for pos in intelligent_pos]
+                
                 # 无论是否匹配到shipment，都创建建议分组
                 suggestion = {
                     'suggestion_id': f"{group_key}_{primary_group_index}",
@@ -2413,6 +2414,11 @@ class PostNsop(View):
             ) & location_condition
             & ~models.Q(id__in=existing_plt_ids),
         )
+        
+        sorted_intelligent_pos = sorted(intelligent_pos, key=lambda x: (
+            0 if (x.get('location') or x.get('warehouse', '')) == warehouse else 1,
+        ))
+        
         intelligent_cargos = [{
             'ids': pos.get('ids', ''),
             'plt_ids': pos.get('plt_ids', ''),
@@ -2420,7 +2426,7 @@ class PostNsop(View):
             'fba_ids': pos.get('fba_ids', ''),
             'container_numbers': pos.get('container_numbers', ''),
             'cns': pos.get('cns', ''),
-            'offload_time': cargo.get('offload_time',''),
+            'offload_time': pos.get('offload_time',''),
             'delivery_window_start': pos.get('delivery_window_start'),
             'delivery_window_end': pos.get('delivery_window_end'),
             'total_n_pallet_act': pos.get('total_n_pallet_act', 0),
@@ -2429,7 +2435,8 @@ class PostNsop(View):
             'label': pos.get('label', ''),
             'destination': pos.get('destination', ''),
             'custom_delivery_method': pos.get('custom_delivery_method', ''),
-        } for pos in intelligent_pos]
+            'location': pos.get('location') if pos.get('location') else pos.get('warehouse', '')
+        } for pos in sorted_intelligent_pos]
 
         organized = {
             'ACT': {'normal': [], 'hold': []},
@@ -2463,7 +2470,7 @@ class PostNsop(View):
                         len(organized['EST']['normal']) + len(organized['EST']['hold'])
         }
         return {
-            'intelligent_pos': intelligent_pos,
+            'intelligent_pos': sorted_intelligent_pos,
             'intelligent_pos_stats':intelligent_pos_stats
             }
     

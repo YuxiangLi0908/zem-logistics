@@ -206,11 +206,12 @@ function renderGroupedTables(groups, stats) {
                     <thead>
                         <tr>
                             <th class="checkbox-cell"><input type="checkbox" class="select-all"></th>
+                            <th class="destination-cell">仓库</th>
                             <th class="destination-cell">目的地</th>
                             <th class="delivery-method-cell">派送方式</th>
                             <th class="ref-id-cell">Ref ID</th>
                             <th class="container-cell">柜号</th>
-                            <th class="cbm-cell">体积(CBM)</th>
+                            <th class="cbm-cell">CBM</th>
                             <th class="pallet-cell">板数</th>
                             <th class="status-cell">状态</th>
                         </tr>
@@ -219,12 +220,13 @@ function renderGroupedTables(groups, stats) {
                         ${items.map(item => `
                             <tr>
                                 <td><input type="checkbox" class="cargo-checkbox" value="${item.ids}" data-cargo='${JSON.stringify(item).replace(/'/g, "&apos;")}'></td>
+                                <td class="location-cell">${item.location}</td>
                                 <td class="destination-cell">${item.destination || ''}</td>
                                 <td class="delivery-method-cell">${item.custom_delivery_method || ''}</td>
                                 <td class="ref-id-cell" data-full-text="${item.ref_ids || ''}">${item.ref_ids || ''}</td>
                                 <td class="container-cell">${item.container_numbers || ''}</td>
                                 <td class="cbm-cell">${item.total_cbm || ''}</td>
-                                <td class="pallet-cell">${item.total_n_pallet_est || ''}</td>
+                                <td class="pallet-cell">${item.total_n_pallet_act || ''}</td>
                                 <td class="status-cell">${item.label === 'ACT' ? '已打板' : '未打板'}</td>
                             </tr>
                         `).join('')}
