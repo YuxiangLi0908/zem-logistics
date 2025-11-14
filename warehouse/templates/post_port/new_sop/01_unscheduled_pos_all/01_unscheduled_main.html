@@ -1,0 +1,403 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load custom_filters %}
+
+{% block content %}
+
+<style>
+    :root {
+        --primary-color: #3498db;
+        --secondary-color: #2c3e50;
+        --success-color: #2ecc71;
+        --warning-color: #f39c12;
+        --danger-color: #e74c3c;
+        --light-color: #f8f9fa;
+        --dark-color: #343a40;
+        --day1-color: #e3f2fd;
+        --day2-color: #e8f5e9;
+        --day3-color: #fff3e0;
+    }
+
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    body {
+        background-color: #f5f7fa;
+        color: #333;
+        line-height: 1.6;
+    }
+
+    .appointment-system {
+        max-width: 1800px;
+        margin: 20px auto;
+        background: white;
+        border-radius: 10px;
+        box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+    }
+
+    .appointment-header {
+        background: linear-gradient(135deg, var(--secondary-color), #4a6491);
+        color: white;
+        padding: 20px 30px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+
+    .appointment-logo {
+        display: flex;
+        align-items: center;
+        font-size: 1.5rem;
+        font-weight: bold;
+    }
+
+    .appointment-logo i {
+        margin-right: 10px;
+        font-size: 1.8rem;
+    }
+
+    .warehouse-selector {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        background: rgba(255, 255, 255, 0.15);
+        padding: 10px 20px;
+        border-radius: 8px;
+    }
+
+    .warehouse-selector label {
+        font-weight: 600;
+    }
+
+    .warehouse-selector select {
+        padding: 8px 15px;
+        border: none;
+        border-radius: 5px;
+        background: white;
+        font-size: 1rem;
+        min-width: 200px;
+    }
+
+    .warehouse-selector button {
+        padding: 8px 16px;
+        background: var(--success-color);
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        font-weight: 600;
+        transition: background 0.3s ease;
+    }
+
+    .warehouse-selector button:hover {
+        background: #27ae60;
+    }
+
+    .appointment-main {
+        padding: 20px;
+    }
+
+    .summary-cards {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 15px;
+        margin-bottom: 25px;
+    }
+
+    .summary-card {
+        background: white;
+        border-radius: 8px;
+        padding: 15px;
+        box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
+        display: flex;
+        flex-direction: column;
+        border-left: 4px solid var(--primary-color);
+    }
+
+    .summary-card.expired {
+        border-left-color: var(--danger-color);
+    }
+
+    .summary-card.urgent {
+        border-left-color: var(--warning-color);
+    }
+
+    .summary-card.available {
+        border-left-color: var(--success-color);
+    }
+
+    .summary-card .card-title {
+        font-size: 0.8rem;
+        color: #7f8c8d;
+        margin-bottom: 8px;
+    }
+
+    .summary-card .card-value {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--secondary-color);
+    }
+
+    .tab-navigation {
+        display: flex;
+        margin-bottom: 20px;
+        border-bottom: 1px solid #eaecef;
+    }
+
+    .tab {
+        padding: 12px 25px;
+        cursor: pointer;
+        border-bottom: 3px solid transparent;
+        transition: all 0.3s;
+        font-weight: 500;
+        position: relative;
+    }
+
+    .tab.active {
+        color: var(--primary-color);
+        border-bottom: 3px solid var(--primary-color);
+        font-weight: 600;
+    }
+
+    .tab .badge {
+        position: absolute;
+        top: 5px;
+        right: 5px;
+        background: var(--primary-color);
+        color: white;
+        border-radius: 50%;
+        width: 20px;
+        height: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.7rem;
+    }
+
+    .content-section {
+        display: none;
+    }
+
+    .content-section.active {
+        display: block;
+    }
+
+    @media (max-width: 768px) {
+        .appointment-header {
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .warehouse-selector {
+            width: 100%;
+            justify-content: center;
+        }
+
+        .summary-cards {
+            grid-template-columns: 1fr 1fr;
+        }
+        
+        .tab-navigation {
+            flex-wrap: wrap;
+        }
+        
+        .tab {
+            flex: 1;
+            text-align: center;
+            min-width: 50%;
+        }
+    }
+
+    @media (max-width: 576px) {
+        .appointment-main {
+            padding: 10px;
+        }
+        
+        .summary-cards {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+
+<div class="appointment-system">
+    <div class="appointment-header">
+        <div class="appointment-logo">
+            <i class="fas fa-calendar-check"></i>
+            <span>大方广备约排约管理 - {{ warehouse }}</span>
+        </div>
+        <div class="warehouse-selector">
+            <form method="post" action="" onsubmit="showLoadingBar()" class="warehouse-selector">
+                {% csrf_token %}
+                <label for="warehouse">仓库:</label>
+                <select name="warehouse" style="padding: 5px; border-radius: 4px; border: 1px solid #ced4da;">
+                    {% for k, v in warehouse_options.items %}
+                    <option value="{{ v }}" {% if k == warehouse %}selected{% endif %}>{{ k }}</option>
+                    {% endfor %}
+                </select>
+                
+                <label for="st-type-select">约类型</label>
+                <select name="st_type" id="st-type-select" style="width: 60px !important; min-width: 60px !important; max-width: 60px !important; padding: 3px 5px !important; border-radius: 4px; border: 1px solid #ced4da; font-size: 13px; box-sizing: border-box;">
+                    <option value="pallet" {% if st_type == 'pallet' %}selected{% endif %}>卡板</option>
+                    <option value="floor" {% if st_type == 'floor' %}selected{% endif %}>地板</option>
+                </select>
+                
+                <input type="hidden" name="step" value="unscheduled_pos_warehouse">
+                <button id="confirmWarehouse">
+                    <i class="fas fa-check"></i> 确认
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <div class="appointment-main">
+        <div class="summary-cards">
+            <div class="summary-card expired">
+                <div class="card-title">已过期预约</div>
+                <div class="card-value">{{ summary.expired_count }}</div>
+                <div class="card-trend">需重新安排</div>
+            </div>
+            <div class="summary-card urgent">
+                <div class="card-title">即将过期</div>
+                <div class="card-value">{{ summary.urgent_count }}</div>
+                <div class="card-trend">7天内到期</div>
+            </div>
+            <div class="summary-card available">
+                <div class="card-title">可用预约</div>
+                <div class="card-value">{{ summary.available_count }}</div>
+                <div class="card-trend">可立即使用</div>
+            </div>
+            <div class="summary-card used">
+                <div class="card-title">已使用预约</div>
+                <div class="card-value">{{ summary.used_count }}</div>
+                <div class="card-trend">已绑定PO</div>
+            </div>
+        </div>
+
+        <div class="tab-navigation">
+            <div class="tab active" data-tab="cargo">
+                PO管理 <span class="badge">{{ cargo_count }}</span>
+            </div>
+            <div class="tab" data-tab="appointments">
+                预约管理 <span class="badge">{{ appointment_count }}</span>
+            </div>
+        </div>
+
+        <!-- PO管理标签页 -->
+        <div class="content-section active" id="cargo-section">
+            {% include 'post_port/new_sop/01_unscheduled_pos_all/po_management.html' %}
+        </div>
+
+        <!-- 预约管理标签页 -->
+        <div class="content-section" id="appointments-section">
+            {% include 'post_port/new_sop/01_unscheduled_pos_all/appointment_management.html' %}
+        </div>
+
+    </div>
+</div>
+
+<!-- 修改约的表单 -->
+<form method="post" action="" id="hiddenForm" style="display: none;">
+    {% csrf_token %}
+    <input type="hidden" id="appointmentId" name="appointmentId">
+    <input type="hidden" id="operation" name="operation">
+    <input type="hidden" id="appointmentTime" name="appointmentTime">
+    <input type="hidden" id="warehouse" name="warehouse">
+    <input type="hidden" id="st_type" name="st_type" value ="{{ st_type }}">
+    <input type="hidden" name="step" value="appointment_time_modify">
+    <button type="submit">提交</button>
+</form>
+{% include 'post_port/new_sop/01_unscheduled_pos_all/message_modal.html' %}
+<script>
+    // 在现有的标签页切换代码中添加
+    function debugTabContent() {
+        document.querySelectorAll('.content-section').forEach(section => {
+            console.log(section.id, 'active:', section.classList.contains('active'));
+        });
+    }
+
+    const activeTab = "{{ active_tab|default:'' }}";
+    function setActiveTabFromParams() {     
+        if (activeTab) {
+            // 去掉默认 active
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.content-section').forEach(s => s.classList.remove('active'));
+
+            // 激活对应 tab
+            const targetTab = document.querySelector(`.tab[data-tab="${activeTab}"]`);
+            const targetSection = document.getElementById(activeTab + '-section');
+
+            if (targetTab && targetSection) {
+                targetTab.classList.add('active');
+                targetSection.classList.add('active');
+
+                // 调用对应初始化函数
+                if (activeTab === 'cargo' && typeof initializePOManagement === 'function') {
+                    setTimeout(initializePOManagement, 100);
+                }
+                if (activeTab === 'appointments' && typeof initializeAppointmentManagement === 'function') {
+                    setTimeout(initializeAppointmentManagement, 100);
+                }
+            }
+        }
+    }
+    document.addEventListener('DOMContentLoaded', function() {
+        // 设置激活标签页
+        setActiveTabFromParams();
+        // 标签页切换 - 为所有标签添加点击事件
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', function() {
+                const tabName = this.getAttribute('data-tab');
+                
+                // 更新活跃标签
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                this.classList.add('active');
+                
+                // 显示对应内容
+                document.querySelectorAll('.content-section').forEach(section => {
+                    section.classList.remove('active');
+                });
+                
+                const targetSection = document.getElementById(tabName + '-section');
+                if (targetSection) {
+                    targetSection.classList.add('active');
+                    
+                    // 触发分页面的初始化函数（如果存在）
+                    if (tabName === 'cargo' && typeof initializePOManagement === 'function') {
+                        setTimeout(initializePOManagement, 50);
+                    }
+                    if (tabName === 'appointments' && typeof initializeAppointmentManagement === 'function') {
+                        setTimeout(initializeAppointmentManagement, 50);
+                    }
+                    if (tabName === 'matching' && typeof initializeIntelligentMatching === 'function') {
+                        setTimeout(initializeIntelligentMatching, 50);
+                    }
+                } else {
+                    console.error('未找到内容区域:', tabName + '-section');
+                }
+                
+                debugTabContent();
+                
+            });
+        });
+        
+        // 初始调试信息
+        debugTabContent();
+    });
+
+    function showLoadingBar() {
+        const buttons = document.querySelectorAll('button');
+        buttons.forEach(btn => {
+            if (btn.innerHTML.includes('fa-check')) {
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 处理中...';
+                btn.disabled = true;
+            }
+        });
+    }
+</script>
+{% endblock %}
