@@ -988,6 +988,7 @@
                                                    value="get_retrieval_cabinet_arrangement_time">
                                             <input type="hidden" name="start_date" value="{{ start_date|default:'' }}">
                                             <input type="hidden" name="end_date" value="{{ end_date|default:'' }}">
+                                            <input type="hidden" name="warehouse" value="{{ warehouse }}">
                                             <input type="hidden" name="retrieval_id"
                                                    value="{{ o.retrieval_id.retrieval_id }}">
                                             <input type="datetime-local"
@@ -1005,6 +1006,7 @@
                                         <div class="time-input-container">
                                             <input type="hidden" name="step" value="get_offload_at">
                                             <input type="hidden" name="start_date" value="{{ start_date|default:'' }}">
+                                            <input type="hidden" name="warehouse" value="{{ warehouse }}">
                                             <input type="hidden" name="end_date" value="{{ end_date|default:'' }}">
                                             <input type="hidden" name="offload_id"
                                                    value="{{ o.offload_id.offload_id }}">
@@ -1036,6 +1038,7 @@
                                         <input type="hidden" name="step" value="get_note_preport_dispatch">
                                         <input type="hidden" name="start_date" value="{{ start_date|default:'' }}">
                                         <input type="hidden" name="end_date" value="{{ end_date|default:'' }}">
+                                        <input type="hidden" name="warehouse" value="{{ warehouse }}">
                                         <input type="hidden" name="retrieval_id"
                                                value="{{ o.retrieval_id|default:'' }}">
                                         <div style="display: flex; gap: 8px; align-items: flex-end;">
@@ -1052,6 +1055,7 @@
                                         {% csrf_token %}
                                         <input type="hidden" name="container_number"
                                                value="{{ o.container_number.container_number }}">
+                                        <input type="hidden" name="warehouse" value="{{ warehouse }}">
                                         <input type="hidden" name="step" value="save_is_abnormal_state">
                                         <label>
                                             <input type="radio" name="is_abnormal_state" value="True"
@@ -1436,72 +1440,80 @@
 
             // 批量设置拆柜时间 - 确认提交（POST方式）
             confirmBatchOffload.addEventListener('click', function () {
-                // 验证时间是否选择
-                const offloadTime = batchOffloadTime.value;
-                if (!offloadTime) {
-                    showToast('请选择拆柜时间', 'error');
-                    return;
-                }
+    // 验证时间是否选择
+    const offloadTime = batchOffloadTime.value;
+    if (!offloadTime) {
+        showToast('请选择拆柜时间', 'error');
+        return;
+    }
 
-                // 验证是否有选中的offload_id
-                if (selectedOffloadIds.length === 0) {
-                    showToast('未选择任何货柜，请先选择', 'error');
-                    return;
-                }
+    // 验证是否有选中的offload_id
+    if (selectedOffloadIds.length === 0) {
+        showToast('未选择任何货柜，请先选择', 'error');
+        return;
+    }
 
-                // 创建表单元素
-                const form = document.createElement('form');
-                form.method = 'POST';
-                form.action = '/contaier_pre_port_summary_dash/';
+    // 创建表单元素
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '/contaier_pre_port_summary_dash/';
 
-                // 添加CSRF令牌（POST请求必须）
-                const csrfInput = document.createElement('input');
-                csrfInput.type = 'hidden';
-                csrfInput.name = 'csrfmiddlewaretoken';
-                csrfInput.value = document.querySelector('[name="csrfmiddlewaretoken"]').value;
-                form.appendChild(csrfInput);
+    // 添加CSRF令牌（POST请求必须）
+    const csrfInput = document.createElement('input');
+    csrfInput.type = 'hidden';
+    csrfInput.name = 'csrfmiddlewaretoken';
+    csrfInput.value = document.querySelector('[name="csrfmiddlewaretoken"]').value;
+    form.appendChild(csrfInput);
 
-                // 添加操作标识
-                const stepInput = document.createElement('input');
-                stepInput.type = 'hidden';
-                stepInput.name = 'step';
-                stepInput.value = 'batch_get_offload_at';
-                form.appendChild(stepInput);
+    // 添加操作标识
+    const stepInput = document.createElement('input');
+    stepInput.type = 'hidden';
+    stepInput.name = 'step';
+    stepInput.value = 'batch_get_offload_at';
+    form.appendChild(stepInput);
 
-                // 添加拆柜时间
-                const timeInput = document.createElement('input');
-                timeInput.type = 'hidden';
-                timeInput.name = 'offload_at_container';
-                timeInput.value = offloadTime;
-                form.appendChild(timeInput);
+    // 添加拆柜时间
+    const timeInput = document.createElement('input');
+    timeInput.type = 'hidden';
+    timeInput.name = 'offload_at_container';
+    timeInput.value = offloadTime;
+    form.appendChild(timeInput);
 
-                // 添加所有选中的offload_id（数组形式）
-                selectedOffloadIds.forEach(id => {
-                    const idInput = document.createElement('input');
-                    idInput.type = 'hidden';
-                    idInput.name = 'offload_ids[]';
-                    idInput.value = id;
-                    form.appendChild(idInput);
-                });
+    // 关键修复：正确传递仓库参数（原代码中变量名和属性名错误）
+    const warehouseValue = document.querySelector('[name="warehouse"]').value; // 获取页面中仓库选择框的值
+    const warehouseInput = document.createElement('input');
+    warehouseInput.type = 'hidden';
+    warehouseInput.name = 'warehouse'; // 表单字段名应为warehouse
+    warehouseInput.value = warehouseValue; // 使用获取到的仓库值
+    form.appendChild(warehouseInput);
 
-                // 添加筛选条件参数（保持页面状态）
-                const dateParams = ['start_date', 'end_date', 'start_date_eta', 'end_date_eta'];
-                dateParams.forEach(param => {
-                    const value = document.querySelector(`[name="${param}"]`)?.value || '';
-                    if (value) {
-                        const paramInput = document.createElement('input');
-                        paramInput.type = 'hidden';
-                        paramInput.name = param;
-                        paramInput.value = value;
-                        form.appendChild(paramInput);
-                    }
-                });
+    // 添加所有选中的offload_id（数组形式）
+    selectedOffloadIds.forEach(id => {
+        const idInput = document.createElement('input');
+        idInput.type = 'hidden';
+        idInput.name = 'offload_ids[]';
+        idInput.value = id;
+        form.appendChild(idInput);
+    });
 
-                // 提交表单
-                document.body.appendChild(form);
-                showLoading(); // 显示加载状态
-                form.submit();
-            });
+    // 添加筛选条件参数（保持页面状态）
+    const dateParams = ['start_date', 'end_date', 'start_date_eta', 'end_date_eta'];
+    dateParams.forEach(param => {
+        const value = document.querySelector(`[name="${param}"]`)?.value || '';
+        if (value) {
+            const paramInput = document.createElement('input');
+            paramInput.type = 'hidden';
+            paramInput.name = param;
+            paramInput.value = value;
+            form.appendChild(paramInput);
+        }
+    });
+
+    // 提交表单
+    document.body.appendChild(form);
+    showLoading(); // 显示加载状态
+    form.submit();
+});
 
             // 初始化计数
             updateSelectedCount();
