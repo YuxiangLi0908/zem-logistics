@@ -238,7 +238,7 @@
         }
     </style>
 
-    <div class="bg-gray-50 font-inter text-textDark p-4 md:p-6" style="margin-top: 85px; position: relative;">
+    <div class="bg-gray-50 font-inter text-textDark p-4 md:p-6" style="margin-top: 85px; position: relative; width: 115%;margin-left: -18px;">
         <!-- 更新后的顶部导航栏 -->
         <div class="warehouse-header">
             <div class="warehouse-title">
@@ -297,14 +297,15 @@
                     <th class="px-4 py-2.5 text-left text-sm font-bold tracking-wide" style="font-size: 12px">优先级</th>
                     <th class="px-4 py-2.5 text-left text-sm font-bold tracking-wide" style="font-size: 12px">到仓位置</th>
                     <th class="px-4 py-2.5 text-left text-sm font-bold tracking-wide" style="font-size: 12px">拆柜状态</th>
-                    <th class="px-4 py-2.5 text-left text-sm font-bold tracking-wide" style="font-size: 12px">实际提柜时间</th>
-                    <th class="px-4 py-2.5 text-left text-sm font-bold tracking-wide" style="font-size: 12px">拆柜开始时间</th>
-                    <th class="px-4 py-2.5 text-left text-sm font-bold tracking-wide" style="font-size: 12px">拆柜完成时间</th>
+                    <th class="px-4 py-2.5 text-left text-sm font-bold tracking-wide" style="font-size: 12px;width: 400px;">大方广提柜时间</th>
+                    <th class="px-4 py-2.5 text-left text-sm font-bold tracking-wide" style="font-size: 12px;width: 400px;">实际提柜时间</th>
+                    <th class="px-4 py-2.5 text-left text-sm font-bold tracking-wide" style="font-size: 12px;width: 400px;">拆柜开始时间</th>
+                    <th class="px-4 py-2.5 text-left text-sm font-bold tracking-wide" style="font-size: 12px;width: 400px;">拆柜完成时间</th>
                     <th class="px-4 py-2.5 text-left text-sm font-bold tracking-wide" style="font-size: 12px">导出</th>
                     <th class="px-4 py-2.5 text-left text-sm font-bold tracking-wide" style="font-size: 12px">操作</th>
                     <th class="px-4 py-2.5 text-left text-sm font-bold tracking-wide" style="font-size: 12px">回传拆柜数据</th>
-                    <th class="px-4 py-2.5 text-left text-sm font-bold tracking-wide" style="font-size: 12px">回传拆柜备注</th>
-                    <th class="px-4 py-2.5 text-left text-sm font-bold tracking-wide" style="font-size: 12px">回传时间</th>
+                    <th class="px-4 py-2.5 text-left text-sm font-bold tracking-wide" style="font-size: 12px;width: 400px;">回传拆柜备注</th>
+                    <th class="px-4 py-2.5 text-left text-sm font-bold tracking-wide" style="font-size: 12px;width: 400px;">回传时间</th>
                 </tr>
                 <!-- 搜索行 -->
                 <tr class="bg-gray-50 border-b border-gray-200">
@@ -431,6 +432,15 @@
                                             </label>
                                         </div>
                                     </div>
+                                </td>
+
+                                <!-- 大方广提柜实际-->
+                                <td class="px-4 py-2">
+                                    {% if order.retrieval_id.generous_and_wide_target_retrieval_timestamp %}
+                                        {{ order.retrieval_id.generous_and_wide_target_retrieval_timestamp |date:"Y-m-d H:i:s" }}
+                                    {% else %}
+                                        -
+                                    {% endif %}
                                 </td>
 
                                 <!-- 实际提柜实际-->
