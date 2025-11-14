@@ -220,6 +220,7 @@ function renderGroupedTables(groups, stats) {
                         ${items.map(item => `
                             <tr>
                                 <td><input type="checkbox" class="cargo-checkbox" value="${item.ids}" data-cargo='${JSON.stringify(item).replace(/'/g, "&apos;")}'></td>
+                                <td class="location-cell">${item.warehouse}</td>
                                 <td class="location-cell">${item.location}</td>
                                 <td class="destination-cell">${item.destination || ''}</td>
                                 <td class="delivery-method-cell">${item.custom_delivery_method || ''}</td>

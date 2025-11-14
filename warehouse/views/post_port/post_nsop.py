@@ -521,10 +521,61 @@ class PostNsop(View):
         ]
         if not pl_ids and not plt_ids:
             raise ValueError("没有获取到任何 ID")
+        
+        all_data = []
+
+        if plt_ids:
+            pallet_data = await sync_to_async(
+                lambda: list(
+                    Pallet.objects.select_related("container_number")
+                    .filter(id__in=plt_ids,is_dropped_pallet=False)
+                    .values(
+                        "id",
+                        "shipping_mark",
+                        "fba_id",
+                        "ref_id",
+                        "address",
+                        "zipcode",
+                        "container_number__container_number",
+                        "destination",
+                        "cbm",
+                        "pcs",
+                        "PO_ID"
+                    )
+                    .annotate(
+                        total_pcs=Sum("pcs"),
+                        total_n_pallet_act=Count("id"),
+                        total_cbm=Sum("cbm", output_field=FloatField()),
+                        label=Value('ACT')
+                    )
+                    .distinct()
+                    .order_by("destination", "container_number__container_number")
+                )
+            )()
+            
+            additional_packinglist_ids, unmatched_pallet_data = await self.find_packinglist_ids_by_pallet_data(pallet_data)
+            # 合并packinglist IDs
+            all_packinglist_ids = list(set(pl_ids + additional_packinglist_ids))
+            # 处理未匹配的pallet数据（添加标记）
+            if unmatched_pallet_data:
+                for item in unmatched_pallet_data:
+                    item = dict(item)
+                    ref_ids = str(item["ref_id"]).split(",") if item["ref_id"] else [""]
+                    
+                    for ref_id in ref_ids:
+                        new_row = item.copy()
+                        new_row["ref_id"] = ref_id.strip()
+                        new_row["check_id"] = "未找到对应PO记录，请手动处理"
+                        new_row["is_unmatched"] = True
+                        all_data.append(new_row)
+        else:
+            all_packinglist_ids = pl_ids
+        
+        
         packinglist_data = await sync_to_async(
             lambda: list(
                 PackingList.objects.select_related("container_number")
-                .filter(id__in=pl_ids)
+                .filter(id__in=all_packinglist_ids)
                 .values(
                     "id",
                     "shipping_mark",
@@ -546,53 +597,30 @@ class PostNsop(View):
                 .order_by("destination", "container_number__container_number")
             )
         )()
-        pallet_data = await sync_to_async(
-            lambda: list(
-                Pallet.objects.select_related("container_number")
-                .filter(id__in=plt_ids,is_dropped_pallet=False)
-                .values(
-                    "id",
-                    "shipping_mark",
-                    "fba_id",
-                    "ref_id",
-                    "address",
-                    "zipcode",
-                    "container_number__container_number",
-                    "destination",
-                    "cbm",
-                    "pcs"
-                )
-                .annotate(
-                    total_pcs=Sum("pcs"),
-                    total_n_pallet_act=Count("id"),
-                    total_cbm=Sum("cbm", output_field=FloatField()),
-                    label=Value('ACT')
-                )
-                .distinct()
-                .order_by("destination", "container_number__container_number")
-            )
+        
+        pl_ids_list = [pl["id"] for pl in packinglist_data]
+        check_map = await sync_to_async(
+            lambda: {
+                p.packing_list_id: p.id
+                for p in PoCheckEtaSeven.objects.filter(packing_list_id__in=pl_ids_list)
+            }
         )()
-        # 展开 pallet_data：将ref_id按逗号分割成多行
-        expanded_pallet_data = []
-        for item in pallet_data:
-            item = dict(item)
-            # 分割ref_id
-            ref_ids = str(item["ref_id"]).split(",") if item["ref_id"] else [""]
+
+        # 展开数据：将ref_id按逗号分割成多行
+        data = []
+        for item in packinglist_data:
+            check_id = check_map.get(item["id"])
+            if check_id:
+                item["check_id"] = check_id  # 匹配到就显示ID
+            else:
+                item["check_id"] = "未找到校验记录"  # 匹配不到就显示提示
             
-            # 为每个分割后的ref_id创建一行
-            for ref_id in ref_ids:
-                new_row = item.copy()
-                new_row["ref_id"] = ref_id.strip()  # 去除空格
-                expanded_pallet_data.append(new_row)
-
+        
         # 合并数据
-        combined_data = packinglist_data + expanded_pallet_data
-
-        if not combined_data:
-            raise ValueError("未找到匹配记录")
+        all_data += packinglist_data
 
         # 聚合计算
-        df = pd.DataFrame.from_records(combined_data)
+        df = pd.DataFrame.from_records(all_data)
         # 计算合计字段
         grouped = (
             df.groupby(
@@ -611,10 +639,12 @@ class PostNsop(View):
             .agg({
                 "cbm": "sum",
                 "total_pcs": "sum",
-                "id": "count",  # 👈 新增，统计 pallet 数
+                "id": "count",
+                "check_id": "first",
             })
             .rename(columns={"id": "total_n_pallet_act", "cbm": "total_cbm"})
         )
+        
         grouped["total_n_pallet_est"] = grouped["total_cbm"] / 2
         def get_est_pallet(n):
             if n < 1:
@@ -642,6 +672,7 @@ class PostNsop(View):
             "Pallet Count",
             "label",
             "is_valid",
+            "check_id",
             "total_cbm",
             "destination",
         ]
@@ -654,6 +685,7 @@ class PostNsop(View):
                 "total_pcs": "Carton Count",
                 "total_cbm": "Total CBM",
                 "destination": "Destination",
+                "check_id": "Check Result",
             },
             axis=1,
         )
@@ -1500,19 +1532,11 @@ class PostNsop(View):
         )()
 
         # 展开数据：将ref_id按逗号分割成多行
-        expanded_data = []
+        data = []
         for item in packing_list:
-            item = dict(item)
-            item["check_id"] = check_map.get(item["id"]) # 给每条 packing_list 添加 check_id
-            
-            # 分割ref_id
-            ref_ids = str(item["ref_id"]).split(",") if item["ref_id"] else [""]
-            
-            # 为每个分割后的ref_id创建一行
-            for ref_id in ref_ids:
-                new_row = item.copy()
-                new_row["ref_id"] = ref_id.strip()  # 去除空格
-                expanded_data.append(new_row)
+            item = dict(item)  # 因为 values() 返回的是 ValuesQuerySet
+            item["check_id"] = check_map.get(item["id"])  # 如果没有对应记录就返回 None
+            data.append(item)
         keep = [
             "shipping_mark",
             "container_number__container_number",
@@ -1526,7 +1550,7 @@ class PostNsop(View):
             "total_cbm",
             "destination", 
         ]
-        df = pd.DataFrame.from_records(expanded_data)
+        df = pd.DataFrame.from_records(data)
         df["is_valid"] = None
 
         def get_est_pallet(n):
@@ -1558,6 +1582,44 @@ class PostNsop(View):
         df.to_csv(path_or_buf=response, index=False)
         return response
 
+    async def find_packinglist_ids_by_pallet_data(self, pallet_data):
+        """
+        根据pallet数据查找对应的packinglist IDs
+        规则：根据PO_ID相同，且packinglist的fba_id和ref_id包含在pallet记录中
+        """
+        packinglist_ids = []
+        unmatched_pallet_records = []
+        
+        for pallet_item in pallet_data:
+            PO_ID = pallet_item.get('PO_ID')
+            pallet_fba_id = pallet_item.get('fba_id', '').strip()
+            pallet_ref_id = pallet_item.get('ref_id', '').strip()
+            
+            if not PO_ID:
+                unmatched_pallet_records.append(pallet_item)
+                continue
+                
+            # 构建查询条件
+            base_query = models.Q(PO_ID=PO_ID)
+            all_po_matching_packinglists = await sync_to_async(list)(
+                PackingList.objects.filter(base_query).values('id', 'fba_id', 'ref_id')
+            )
+            matching_packinglists = [
+                packinglist['id'] 
+                for packinglist in all_po_matching_packinglists 
+                if (not pallet_fba_id or (packinglist['fba_id'].strip() or '') in pallet_fba_id) and 
+                (not pallet_ref_id or (packinglist['ref_id'].strip() or '') in pallet_ref_id)
+            ]
+            
+            if matching_packinglists:
+                packinglist_ids.extend(matching_packinglists)
+            else:
+                unmatched_pallet_records.append(pallet_item)
+        
+        # 去重并返回
+        return list(set(packinglist_ids)), unmatched_pallet_records
+
+
     #这个是按照拿约的模板去导出   
     async def handle_export_pos_get_appointment(self, request: HttpRequest) -> HttpResponse:
         cargo_ids_str_list = request.POST.getlist("cargo_ids")
@@ -1577,32 +1639,9 @@ class PostNsop(View):
         if len(packinglist_ids) == 0 and pallet_ids == 0:
             raise ValueError('没有找到PO')
         all_data = []
-
-        if packinglist_ids:
-            packing_list_data = await sync_to_async(list)(
-                PackingList.objects.select_related("container_number", "pallet")
-                .filter(id__in=packinglist_ids)
-                .values(
-                    "fba_id",
-                    "ref_id",
-                    "address",
-                    "zipcode",
-                    "destination",
-                    "delivery_method",
-                    "container_number__container_number",
-                    "shipping_mark",
-                )
-                .annotate(
-                    total_pcs=Sum("pcs"),
-                    total_cbm=Sum("cbm"),
-                    total_weight_lbs=Sum("total_weight_lbs"),
-                    total_n_pallet_est=Sum("cbm", output_field=FloatField()) / 2,
-                    label=Value("EST"),
-                )
-                .distinct()
-                .order_by("destination", "container_number__container_number")
-            )
-            all_data += packing_list_data
+        unmatched_pallet_data = []  # 存储找不到对应packinglist的pallet记录
+        print('原本的pl_id',packinglist_ids)
+        print('原本的plt_id',pallet_ids)
         if pallet_ids:
             pallet_data = await sync_to_async(list)(
                 Pallet.objects.select_related("container_number")
@@ -1627,20 +1666,58 @@ class PostNsop(View):
                 .distinct()
                 .order_by("destination", "container_number__container_number")
             )
-            # 展开 pallet_data：将ref_id按逗号分割成多行
-            expanded_pallet_data = []
-            for item in pallet_data:
-                item = dict(item)
-                # 分割ref_id
-                ref_ids = str(item["ref_id"]).split(",") if item["ref_id"] else [""]
-                
-                # 为每个分割后的ref_id创建一行
-                for ref_id in ref_ids:
-                    new_row = item.copy()
-                    new_row["ref_id"] = ref_id.strip()  # 去除空格
-                    expanded_pallet_data.append(new_row)
-            all_data += expanded_pallet_data
+
+            # 根据pallet数据查找对应的packinglist IDs
+            additional_packinglist_ids, unmatched_pallet_data = await self.find_packinglist_ids_by_pallet_data(pallet_data)
+            # 合并packinglist IDs
+            all_packinglist_ids = list(set(packinglist_ids + additional_packinglist_ids))
+            # 处理未匹配的pallet数据（添加标记）
+            if unmatched_pallet_data:
+                expanded_unmatched_data = []
+                for item in unmatched_pallet_data:
+                    item = dict(item)
+                    ref_ids = str(item["ref_id"]).split(",") if item["ref_id"] else [""]
+                    
+                    for ref_id in ref_ids:
+                        new_row = item.copy()
+                        new_row["ref_id"] = ref_id.strip()
+                        new_row["check"] = "未找到对应PO记录，请手动处理"  # 添加特殊标记
+                        new_row["is_unmatched"] = True  # 标记为未匹配记录
+                        expanded_unmatched_data.append(new_row)
+                all_data += expanded_unmatched_data
+        else:
+            all_packinglist_ids = packinglist_ids
+        print('更新后的pl_id',all_packinglist_ids)
+        if all_packinglist_ids:
+            packing_list_data = await sync_to_async(list)(
+                PackingList.objects.select_related("container_number", "pallet")
+                .filter(id__in=all_packinglist_ids)
+                .values(
+                    "fba_id",
+                    "ref_id",
+                    "address",
+                    "zipcode",
+                    "destination",
+                    "delivery_method",
+                    "container_number__container_number",
+                    "shipping_mark",
+                )
+                .annotate(
+                    total_pcs=Sum("pcs"),
+                    total_cbm=Sum("cbm"),
+                    total_weight_lbs=Sum("total_weight_lbs"),
+                    total_n_pallet_est=Sum("cbm", output_field=FloatField()) / 2,
+                    label=Value("EST"),
+                )
+                .distinct()
+                .order_by("destination", "container_number__container_number")
+            )
+            all_data += packing_list_data
+        
+        
         for p in all_data:
+            if p.get("is_unmatched"):
+                continue
             try:
                 pl = await sync_to_async(PoCheckEtaSeven.objects.get)(
                     container_number__container_number=p["container_number__container_number"],
