@@ -1401,6 +1401,10 @@
                 document.body.appendChild(form);
                 showLoading(); // 显示加载状态
                 form.submit();
+                // 关键修复：延迟关闭当前页面的加载动画（500ms足够表单提交完成）
+                setTimeout(() => {
+                    hideLoading();
+                }, 500);
             });
 
             // 批量设置拆柜时间 - 打开弹窗
