@@ -427,7 +427,7 @@ class PrePortDash(View):
 
     async def batch_get_offload_at(self, request: HttpRequest) -> tuple[Any, Any]:
         offload_ids = request.POST.getlist("offload_ids[]")
-        time_str = request.POST.get("offload_at")
+        time_str = request.POST.get("offload_at_container")
         if offload_ids:
             for offload_id in offload_ids:
                 try:
@@ -435,9 +435,9 @@ class PrePortDash(View):
                     if time_str:
                         naive_datetime = datetime.strptime(time_str, "%Y-%m-%dT%H:%M")
                         aware_datetime = timezone.make_aware(naive_datetime)
-                        offload_obj.offload_at = aware_datetime
+                        offload_obj.offload_at_container = aware_datetime
                     else:
-                        offload_obj.offload_at = None
+                        offload_obj.offload_at_container = None
                     await offload_obj.asave()
                 except Offload.DoesNotExist:
                     continue
@@ -453,15 +453,15 @@ class PrePortDash(View):
         return template, context
 
     async def get_offload_at(self, request: HttpRequest) -> tuple[Any, Any]:
-        time_str = request.POST.get("offload_at")
+        time_str = request.POST.get("offload_at_container")
         offload_id = request.POST.get("offload_id")
         offload_obj = await Offload.objects.aget(offload_id=offload_id)
         if time_str:
             naive_datetime = datetime.strptime(time_str, "%Y-%m-%dT%H:%M")
             aware_datetime = timezone.make_aware(naive_datetime)
-            offload_obj.offload_at = aware_datetime
+            offload_obj.offload_at_container = aware_datetime
         else:
-            offload_obj.offload_at = None
+            offload_obj.offload_at_container = None
         await offload_obj.asave()
         start_date_eta = request.POST.get("start_date_eta", None)
         end_date_eta = request.POST.get("end_date_eta", None)

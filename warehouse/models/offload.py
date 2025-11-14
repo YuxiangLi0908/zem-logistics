@@ -8,6 +8,7 @@ class Offload(models.Model):
     offload_id = models.CharField(max_length=255, null=True)
     offload_required = models.BooleanField(default=True)
     offload_at = models.DateTimeField(null=True, blank=True)
+    offload_at_container = models.DateTimeField(null=True, blank=True, verbose_name="货柜汇总页面拆柜时间")
     total_pallet = models.IntegerField(null=True, blank=True)
     devanning_company = models.CharField(max_length=100, null=True, blank=True)
     devanning_fee = models.FloatField(null=True, blank=True)
