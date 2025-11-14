@@ -5811,7 +5811,7 @@ class Accounting(View):
         )
 
         # 非组合柜区域
-        filtered_non_destinations = [key for key in matched_regions["non_combina_dests"].keys() if "UPS" in key]
+        filtered_non_destinations = [key for key in matched_regions["non_combina_dests"].keys() if "UPS" not in key]
         non_combina_region_count = len(filtered_non_destinations)
         # 组合柜区域
         combina_region_count = len(matched_regions["combina_dests"])
