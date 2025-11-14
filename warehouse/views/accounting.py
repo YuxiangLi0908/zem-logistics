@@ -5478,6 +5478,8 @@ class Accounting(View):
         region_price_map = {}
         for plts in plts_by_destination:
             destination = plts["destination"]
+            if ('UPS' in destination) or ('FEDEX' in destination):
+                continue
             # 如果是沃尔玛的，只保留后面的名字，因为报价表里就是这么保留的
             dest = destination.replace("沃尔玛", "").split("-")[-1].strip()
             cbm = plts["total_cbm"]
@@ -6324,7 +6326,7 @@ class Accounting(View):
             destinations_list = list(destinations)
         else:
             destinations_list = destinations
-        filtered_destinations = [dest for dest in destinations_list if 'UPS' not in str(dest)]
+        filtered_destinations = [dest for dest in destinations_list if 'UPS' not in str(dest) and 'FEDEX' not in str(dest)]
         return filtered_destinations
         
     def _calculate_delivery_fee_cost(
