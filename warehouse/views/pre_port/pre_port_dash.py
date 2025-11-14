@@ -27,7 +27,7 @@ class PrePortDash(View):
             return redirect("login")
         step = request.GET.get("step", None)
         if step == "all":
-            template, context = await self.handle_all_get(warehouse=['NJ', 'SAV', 'LA', 'MO', 'TX'], tab="summary")
+            template, context = await self.handle_all_get(warehouse="all", tab="summary")
             return await sync_to_async(render)(request, template, context)
         else:
             context = {}
@@ -41,7 +41,7 @@ class PrePortDash(View):
         step = request.POST.get("step", None)
         # 根据建单时间和ETA进行筛选
         if step == "search_orders":
-            warehouse = request.POST.getlist("warehouse", [])
+            warehouse = request.POST.get("warehouse")
             time_type = request.POST.get("time_type", "eta")
             start_date = request.POST.get("start_date")
             end_date = request.POST.get("end_date")
@@ -154,6 +154,7 @@ class PrePortDash(View):
         container_number = request.POST.get("container_number")
         start_date_eta = request.POST.get("start_date_eta")
         end_date_eta = request.POST.get("end_date_eta")
+        warehouse = request.POST.get("warehouse")
         await sync_to_async(
             lambda: Container.objects.filter(container_number=container_number).update(
                 is_abnormal_state=is_abnormal_state
@@ -163,6 +164,7 @@ class PrePortDash(View):
             start_date_eta=start_date_eta,
             end_date_eta=end_date_eta,
             tab="summary",
+            warehouse=warehouse
         )
         return template, context
 
@@ -224,10 +226,22 @@ class PrePortDash(View):
             self,
             start_date_eta: str = None,
             end_date_eta: str = None,
-            warehouse: str = [],
+            warehouse: str = None,
             tab: str = None,
     ) -> tuple[Any, Any]:
         current_date = datetime.now().date()
+        if warehouse == "all" or warehouse =='NJ,SAV,LA,MO,TX':
+            warehouse = ["NJ","SAV","LA","MO","TX"]
+        elif warehouse == "NJ":
+            warehouse = ["NJ"]
+        elif warehouse == "SAV":
+            warehouse = ["SAV"]
+        elif warehouse == "LA":
+            warehouse = ["LA"]
+        elif warehouse == "MO":
+            warehouse = ["MO"]
+        elif warehouse == "TX":
+            warehouse = ["TX"]
 
         # 首次进入时设置默认时间为当前月份
         if not start_date_eta and not end_date_eta:
@@ -305,7 +319,7 @@ class PrePortDash(View):
             )
             .order_by("priority", "sort_time")
         )
-        warehouse = ''.join(warehouse)        # 转换回字符串格式供前端使用
+        warehouse = ','.join(warehouse)        # 转换回字符串格式供前端使用
         context = {
             "customers": customers,
             "orders": orders,
@@ -323,7 +337,7 @@ class PrePortDash(View):
             self,
             start_date_planned_release_time: str = None,
             end_date_planned_release_time: str = None,
-            warehouse: str = [],
+            warehouse: str = None,
             tab: str = None,
     ) -> tuple[Any, Any]:
         current_date = datetime.now().date()
@@ -409,6 +423,7 @@ class PrePortDash(View):
         time_str = request.POST.get("retrieval_cabinet_arrangement_time")
         retrieval_id = request.POST.get("retrieval_id")
         retrieval_obj = await Retrieval.objects.aget(retrieval_id=retrieval_id)
+        warehouse = request.POST.get("warehouse")
         if time_str:
             naive_datetime = datetime.strptime(time_str, "%Y-%m-%dT%H:%M")
             aware_datetime = timezone.make_aware(naive_datetime)
@@ -422,11 +437,13 @@ class PrePortDash(View):
             start_date_eta=start_date_eta,
             end_date_eta=end_date_eta,
             tab="summary",
+            warehouse=warehouse,
         )
         return template, context
 
     async def batch_get_offload_at(self, request: HttpRequest) -> tuple[Any, Any]:
         offload_ids = request.POST.getlist("offload_ids[]")
+        warehouse = request.POST.get("warehouse")
         time_str = request.POST.get("offload_at_container")
         if offload_ids:
             for offload_id in offload_ids:
@@ -449,6 +466,7 @@ class PrePortDash(View):
             start_date_eta=start_date_eta,
             end_date_eta=end_date_eta,
             tab="summary",
+            warehouse=warehouse,
         )
         return template, context
 
@@ -456,6 +474,7 @@ class PrePortDash(View):
         time_str = request.POST.get("offload_at_container")
         offload_id = request.POST.get("offload_id")
         offload_obj = await Offload.objects.aget(offload_id=offload_id)
+        warehouse = request.POST.get("warehouse")
         if time_str:
             naive_datetime = datetime.strptime(time_str, "%Y-%m-%dT%H:%M")
             aware_datetime = timezone.make_aware(naive_datetime)
@@ -468,6 +487,7 @@ class PrePortDash(View):
         template, context = await self.handle_all_get(
             start_date_eta=start_date_eta,
             end_date_eta=end_date_eta,
+            warehouse=warehouse,
             tab="summary",
         )
         return template, context
@@ -481,12 +501,13 @@ class PrePortDash(View):
         start_date_eta = process_empty(request.POST.get("start_date_eta"))  # 处理后为None
         end_date_eta = process_empty(request.POST.get("end_date_eta"))
         retrieval_id = request.POST.get("retrieval_id")
+        warehouse = request.POST.get("warehouse")
         await sync_to_async(
                 lambda: Retrieval.objects.filter(retrieval_id=retrieval_id).update(
                     note_preport_dispatch=note_preport_dispatch
                 )
             )()
-        template_main, context = await self.handle_all_get(start_date_eta, end_date_eta)
+        template_main, context = await self.handle_all_get(start_date_eta, end_date_eta,warehouse=warehouse,tab="summary")
         return template_main, context
 
 
@@ -496,7 +517,7 @@ class PrePortDash(View):
         return False
 
     warehouse_options = {
-        "所有仓库": "NJ,SAV,LA,MO,TX",
+        "所有仓库": "all",
         "NJ": "NJ",
         "SAV": "SAV",
         "LA": "LA",
