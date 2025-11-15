@@ -3081,6 +3081,8 @@ class PostNsop(View):
             destination = item.get('destination')
             destination_list.append(destination)
             vessel_name = item.get('vessel_name')
+            if not vessel_name:
+                continue
             vessel_voyage = item.get('vessel_voyage')
             vessel_eta = item.get('vessel_eta')
 
@@ -3289,6 +3291,7 @@ class PostNsop(View):
                         output_field=CharField()
                     ),
                     data_source=Value("PALLET", output_field=CharField()),  # 添加数据源标识
+                    is_pass=Value(True, output_field=BooleanField()),
                     rebuilt_is_dropped_pallet=Case(
                         When(
                             is_dropped_pallet=True,
@@ -3301,7 +3304,7 @@ class PostNsop(View):
                         ),
                         default=Value(""),
                         output_field=CharField()
-                    )
+                    )                   
                 )
                 .values(
                     "destination",
@@ -3317,12 +3320,10 @@ class PostNsop(View):
                     "data_source",  # 包含数据源标识
                     "shipment_batch_number__fleet_number__fleet_number",
                     "location",  # 添加location用于比较
+                    "is_pass",
                     warehouse=F(
                         "container_number__order__retrieval_id__retrieval_destination_precise"
-                    ),
-                    vessel_name=F("container_number__order__vessel_id__vessel"),
-                    vessel_voyage=F("container_number__order__vessel_id__voyage"),
-                    vessel_eta=F("container_number__order__vessel_id__vessel_eta"),                 
+                    ),               
                     retrieval_destination_precise=F("container_number__order__retrieval_id__retrieval_destination_precise"),
                 )
                 .annotate(
@@ -3347,7 +3348,7 @@ class PostNsop(View):
                     total_weight_lbs=Sum("weight_lbs", output_field=FloatField()),
                     total_n_pallet_act=Count("pallet_id", distinct=True),
                     label=Value("ACT"),
-                    note_sp=StringAgg("note_sp", delimiter=",", distinct=True)
+                    note_sp=StringAgg("note_sp", delimiter=",", distinct=True),
                 )
                 .order_by("container_number__order__offload_id__offload_at")
             )

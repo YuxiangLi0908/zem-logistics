@@ -381,7 +381,6 @@
                 <th data-sort="destination">放行状态</th>
                 <th class="delivery-method-col" data-sort="delivery_method">派送方式</th>
                 <th class="vessel-col" data-sort="vessels">船名</th>
-                <th class="arm-time-col" data-sort="arm-times">提柜约</th>
                 <th class="container-col" data-sort="containers">柜号</th>
                 <th data-sort="delivery_window">派送时间窗口</th>
                 <th data-sort="pallets">板数</th>
@@ -400,7 +399,6 @@
                 data-delivery-method="{{ cargo.custom_delivery_method }}"
                 data-vessel-name="{{ cargo.vessel_name|default:'' }}"
                 data-container-number="{{ cargo.cns|default:'' }}"
-                data-arm-time="{{ cargo.arm_time|default:'' }}"
                 >
                 <td class="checkbox-cell">
                     <input type="checkbox" class="cargo-checkbox" 
@@ -432,12 +430,7 @@
                 <td class="delivery-method-col">{{ cargo.custom_delivery_method|default:"-" }}</td>
                 <td class="container-col" style="white-space: pre-line;" id="container-{{ forloop.counter }}">
                     {{ cargo.vessel_name }}
-                </td>          
-                <td class="container-col" style="white-space: pre-line; text-align: center;" id="container-{{ forloop.counter }}">
-                    {% if cargo.arm_time %}
-                        {{ cargo.arm_time|date:"m-d" }}
-                    {% endif %}
-                </td>       
+                </td>                
                 <td class="container-col" style="white-space: pre-line;" id="container-{{ forloop.counter }}">
                     {{ cargo.container_numbers }}
                 </td>
