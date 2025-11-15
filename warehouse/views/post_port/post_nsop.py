@@ -3424,7 +3424,13 @@ class PostNsop(View):
                         function='to_char',
                         output_field=CharField()
                     ),
-                    
+                    # 格式化码头预约时间为月日
+                    formatted_appointment_retrieval=Func(
+                        F('container_number__order__retrieval_id__generous_and_wide_target_retrieval_timestamp'),
+                        Value('MM-DD'),
+                        function='to_char',
+                        output_field=CharField()
+                    ),
                     # 格式化预计提柜时间为月日
                     formatted_target_low=Func(
                         F('container_number__order__retrieval_id__target_retrieval_timestamp_lower'),
@@ -3453,6 +3459,15 @@ class PostNsop(View):
                                 # "formatted_vessel_eta",
                                 Value(" 提柜:"),
                                 "formatted_actual_retrieval",
+                                output_field=CharField()
+                            )),
+                        # 有码头预约时间 - 使用前缀 [码头预约]
+                        When(container_number__order__retrieval_id__generous_and_wide_target_retrieval_timestamp__isnull=False,
+                            then=Concat(
+                                Value("[码头预约]"),
+                                "container_number__container_number",
+                                Value(" 预计提柜:"),
+                                "formatted_appointment_retrieval",
                                 output_field=CharField()
                             )),
                         # 有预计提柜时间范围 - 使用前缀 [预计]
