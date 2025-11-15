@@ -7740,7 +7740,7 @@ class Accounting(View):
         )
         for item in invoice_status:
             item.stage = "tobeconfirmed"
-            item.finance_status = "completed"
+            item.finance_status = "tobeconfirmed"
             item.save()
 
         # 重开账单，需要撤销通知客户
