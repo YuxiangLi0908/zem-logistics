@@ -289,6 +289,17 @@
             display: none;
         }
 
+        /* 鼠标悬停高亮效果 */
+        .scroll-body tbody tr:hover {
+            background-color: #f0f7ff; /* 浅蓝色背景，可根据需要调整 */
+            transition: background-color 0.2s ease; /* 平滑过渡效果 */
+        }
+
+        /* 已选中行的高亮样式（可选增强） */
+        .scroll-body tbody tr.selected {
+            background-color: #e6f7ff;
+        }
+
         .do-column-content, .retrieval-carrier-content {
             display: flex;
             align-items: center;
