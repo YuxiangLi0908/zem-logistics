@@ -640,7 +640,11 @@ class PostNsop(View):
 
         # 聚合计算
         df = pd.DataFrame.from_records(all_data)
+        
+        df.columns = [c.strip().lower() for c in df.columns]  # 全小写
         df.rename(columns={"destination": "Destination"}, inplace=True)
+        df["Destination"] = df["Destination"].fillna("Unknown")
+
         # 计算合计字段
         grouped = (
             df.groupby(
@@ -715,6 +719,7 @@ class PostNsop(View):
         for _, row in grouped.iterrows():
             dest = row["Destination"]
             grouped_by_dest.setdefault(dest, []).append(row.to_dict())
+
         if len(grouped_by_dest) == 0:
             raise ValueError('没有数据',len(grouped_by_dest))
         # 如果只有一个 Destination，保持原来返回单 CSV
@@ -1648,6 +1653,8 @@ class PostNsop(View):
             "destination", 
         ]
         df = pd.DataFrame.from_records(all_data)
+
+        
         df["is_valid"] = None
 
         def get_est_pallet(n):
@@ -1986,8 +1993,9 @@ class PostNsop(View):
                 origin=warehouse,
                 departured_at__isnull=True,
                 is_canceled=False,
-                appointment_datetime__gt=target_date,
                 fleet_type="FTL",
+            ).filter(
+                Q(appointment_datetime__gt=target_date) | Q(appointment_datetime__isnull=True)
             )
             .prefetch_related("shipment")
             .annotate(
