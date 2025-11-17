@@ -528,7 +528,7 @@ class PostNsop(View):
     
     async def handle_export_virtual_fleet_pos_post(
         self, request: HttpRequest
-    ) -> tuple[str, dict[str, Any]]:
+    ) ->  HttpResponse:
         cargo_ids_str = request.POST.get("cargo_ids", "").strip()
         pl_ids = [
             int(i.strip()) for i in cargo_ids_str.split(",") if i.strip().isdigit()
@@ -636,41 +636,9 @@ class PostNsop(View):
         
         # 合并数据
         all_data += packinglist_data
-
-        # 聚合计算
         df = pd.DataFrame.from_records(all_data)
-        
-        df.columns = [c.strip().lower() for c in df.columns]  # 全小写
-        for col in ["shipping_mark","fba_id","ref_id","address","zipcode","container_number__container_number","destination","label"]:
-            if col not in df.columns:
-                df[col] = "Unknown"
-        df["destination"] = df["destination"].fillna("Unknown")
 
-        # 计算合计字段
-        grouped = (
-            df.groupby(
-                [
-                    "shipping_mark",
-                    "fba_id",
-                    "ref_id",
-                    "address",
-                    "zipcode",
-                    "container_number__container_number",
-                    "destination",
-                    "label",
-                ],
-                as_index=False,
-            )
-            .agg({
-                "cbm": "sum",
-                "total_pcs": "sum",
-                "id": "count",
-                "check_id": "first",
-            })
-            .rename(columns={"id": "total_n_pallet_act", "cbm": "total_cbm"})
-        )
-        
-        grouped["total_n_pallet_est"] = grouped["total_cbm"] / 2
+        df["total_n_pallet_est"] = df["total_cbm"] / 2
         def get_est_pallet(n):
             if n < 1:
                 return 1
@@ -679,16 +647,14 @@ class PostNsop(View):
             else:
                 return int(n // 1)
 
-        grouped["total_n_pallet_est"] = grouped["total_n_pallet_est"].apply(get_est_pallet)
-        grouped["is_valid"] = None
-        grouped["is_est"] = grouped["label"] == "EST"
-        grouped["Pallet Count"] = grouped.apply(
+        df["total_n_pallet_est"] = df["total_n_pallet_est"].apply(get_est_pallet)
+        df["is_valid"] = None
+        df["is_est"] = df["label"] == "EST"
+        df["Pallet Count"] = df.apply(
             lambda row: row["total_n_pallet_est"] if row["is_est"] else max(1, row.get("total_n_pallet_act", 1)),
             axis=1
         ).astype(int)
-        temp_check = grouped
-        print('temp_check',temp_check)
-        # 重命名列以符合导出格式
+
         keep = [
             "shipping_mark",
             "container_number__container_number",
@@ -702,8 +668,7 @@ class PostNsop(View):
             "total_cbm",
             "destination",
         ]
-        grouped1 = grouped
-        grouped = grouped[keep].rename(
+        df = df[keep].rename(
             {
                 "fba_id": "PRO",
                 "container_number__container_number": "BOL",
@@ -717,25 +682,23 @@ class PostNsop(View):
         )
         
         # 导出 CSV
-        # 按 Destination 分组
-        grouped_by_dest = {}
-        tttt = []
-        tttt_row = []
-        for _, row in grouped.iterrows():
-            dest = row["Destination"]
-            tttt.append(dest)
-            tttt_row.append(row)
-            grouped_by_dest.setdefault(dest, []).append(row.to_dict())
-        
-        grouped2 = grouped
 
-        if len(grouped_by_dest) == 0:
-            raise ValueError('没有数据',len(grouped_by_dest))
+        if len(df) == 0:
+            raise ValueError('没有数据',len(df))
         # 如果只有一个 Destination，保持原来返回单 CSV
+        grouped_by_dest = {}
+        for _, row in df.iterrows():
+            dest = row["Destination"]
+            if dest not in grouped_by_dest:
+                grouped_by_dest[dest] = []
+            grouped_by_dest[dest].append(row.to_dict())
+        
+        # 如果只有一个 Destination，返回单 CSV
         if len(grouped_by_dest) == 1:
-            df_single = pd.DataFrame.from_records(list(grouped_by_dest.values())[0])
+            dest_name = list(grouped_by_dest.keys())[0]
+            df_single = pd.DataFrame(grouped_by_dest[dest_name])
             response = HttpResponse(content_type="text/csv")
-            response["Content-Disposition"] = f"attachment; filename=PO_virtual_fleet.csv"
+            response["Content-Disposition"] = f"attachment; filename=PO_{dest_name}.csv"
             df_single.to_csv(path_or_buf=response, index=False)
             return response
         
