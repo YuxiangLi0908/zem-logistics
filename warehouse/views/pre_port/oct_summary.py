@@ -481,6 +481,7 @@ class OctSummaryView(View):
             .values("container_number__container_number")
             .annotate(
                 created_at=Max("created_at"),
+                status=F("status"),
                 customer_name=F("customer_name__zem_name"),
                 retrieval_destination_area=Case(
                     When(order_type="直送",
