@@ -686,7 +686,8 @@ class PostNsop(View):
             lambda row: row["total_n_pallet_est"] if row["is_est"] else max(1, row.get("total_n_pallet_act", 1)),
             axis=1
         ).astype(int)
-
+        temp_check = grouped
+        print('temp_check',temp_check)
         # 重命名列以符合导出格式
         keep = [
             "shipping_mark",
