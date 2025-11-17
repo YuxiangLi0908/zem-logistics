@@ -642,8 +642,10 @@ class PostNsop(View):
         df = pd.DataFrame.from_records(all_data)
         
         df.columns = [c.strip().lower() for c in df.columns]  # 全小写
-        df.rename(columns={"destination": "Destination"}, inplace=True)
-        df["Destination"] = df["Destination"].fillna("Unknown")
+        for col in ["shipping_mark","fba_id","ref_id","address","zipcode","container_number__container_number","destination","label"]:
+            if col not in df.columns:
+                df[col] = "Unknown"
+        df["destination"] = df["destination"].fillna("Unknown")
 
         # 计算合计字段
         grouped = (
@@ -655,7 +657,7 @@ class PostNsop(View):
                     "address",
                     "zipcode",
                     "container_number__container_number",
-                    "Destination",
+                    "destination",
                     "label",
                 ],
                 as_index=False,
@@ -698,7 +700,7 @@ class PostNsop(View):
             "is_valid",
             "check_id",
             "total_cbm",
-            "Destination",
+            "destination",
         ]
 
         grouped = grouped[keep].rename(
