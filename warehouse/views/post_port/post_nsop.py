@@ -640,6 +640,7 @@ class PostNsop(View):
 
         # 聚合计算
         df = pd.DataFrame.from_records(all_data)
+        df.rename(columns={"destination": "Destination"}, inplace=True)
         # 计算合计字段
         grouped = (
             df.groupby(
@@ -650,7 +651,7 @@ class PostNsop(View):
                     "address",
                     "zipcode",
                     "container_number__container_number",
-                    "destination",
+                    "Destination",
                     "label",
                 ],
                 as_index=False,
@@ -693,7 +694,7 @@ class PostNsop(View):
             "is_valid",
             "check_id",
             "total_cbm",
-            "destination",
+            "Destination",
         ]
 
         grouped = grouped[keep].rename(
@@ -703,7 +704,6 @@ class PostNsop(View):
                 "ref_id": "PO List (use , as separator) *",
                 "total_pcs": "Carton Count",
                 "total_cbm": "Total CBM",
-                "destination": "Destination",
                 "check_id": "Check Result",
             },
             axis=1,
@@ -715,7 +715,8 @@ class PostNsop(View):
         for _, row in grouped.iterrows():
             dest = row["Destination"]
             grouped_by_dest.setdefault(dest, []).append(row.to_dict())
-        
+        if len(grouped_by_dest) == 0:
+            raise ValueError('没有数据',len(grouped_by_dest))
         # 如果只有一个 Destination，保持原来返回单 CSV
         if len(grouped_by_dest) == 1:
             df_single = pd.DataFrame.from_records(list(grouped_by_dest.values())[0])
@@ -723,7 +724,7 @@ class PostNsop(View):
             response["Content-Disposition"] = f"attachment; filename=PO_virtual_fleet.csv"
             df_single.to_csv(path_or_buf=response, index=False)
             return response
-        raise ValueError(len(grouped_by_dest))
+        
         # 多个 Destination 打包 zip
         zip_buffer = io.BytesIO()
         with zipfile.ZipFile(zip_buffer, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
