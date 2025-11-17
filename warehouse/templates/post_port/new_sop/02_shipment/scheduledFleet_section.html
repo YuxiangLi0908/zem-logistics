@@ -1,4 +1,6 @@
 <!-- scheduledFleet_section.html -->
+ {% load custom_filters %}
+
  <style>
     .shipment-batch-cell {
         max-width: 180px;
@@ -20,7 +22,7 @@
         left: 0;
         top: 0;
         width: 100%;
-        height: 100%;
+        height: 300%;
         background-color: rgba(0,0,0,0.5);
     }
     
@@ -33,21 +35,12 @@
         box-shadow: 0 4px 6px rgba(0,0,0,0.1);
     }
     
-    .close-btn {
-        
-        right: 15px;
-        top: 15px;
-        font-size: 28px;
-        font-weight: bold;
-        cursor: pointer;
-        z-index: 1001;
-        color: #aaa;
-        line-height: 1;
+    .close-btn:hover {
+        background: #c0392b !important;
+        transform: scale(1.1);
+        box-shadow: 0 4px 12px rgba(231, 76, 60, 0.4) !important;
     }
     
-    .close-btn:hover {
-        color: #000;
-    }
  </style>
 <div class="content-section active" id="scheduledFleet-section">
     <div class="search-box">
@@ -100,10 +93,15 @@
                             data-total-cbm="{{ f.total_cbm|default_if_none:'' }}"
                             data-total-pallet="{{ f.total_pallet|default_if_none:'' }}"
                             data-shipment-batches="{{ f.shipment_batch_numbers|default_if_none:'' }}"
-                            data-appointment-ids="{{ f.appointment_ids|default_if_none:'' }}"
+                            data-appointment-ids="{{ f.appointment_ids|default_if_none:'' }}"                        
+                            data-json-id="fleet-json-{{ forloop.counter0 }}"
                             style="color: var(--primary-color); font-weight: 600; cursor: pointer; text-decoration: underline;">
                             {{ f.fleet_number }}
                         </span>
+                        <script type="application/json" id="fleet-json-{{ forloop.counter0 }}">
+                            {{ f.detailed_shipments|default:"[]"|safe }}
+                            <!-- DEBUG: {{ f.detailed_shipments }} -->
+                        </script>
                     </td>
                     <td class="shipment-batch-cell">
                         {{ f.shipment_batch_numbers }}
@@ -146,8 +144,6 @@
 
 <div id="fleetModaLModify" class="modal">
   <div class="modal-content" style="width: 90%; max-width: 1200px; min-width: 800px;">
-    <span class="close-btn" onclick="closeFleetModalModify()">&times;</span>
-
     <div id="fleetModalBody" style="padding-top: 10px;">
         <div style="border-radius: 12px; padding: 20px; margin-top: 10px;">
             <form method="post" action="" style="width: 100%;" onsubmit="showLoadingBar()">
@@ -164,9 +160,10 @@
                         <i class="fas fa-truck-loading"></i> 出库批次信息 - <span id="fleetNumberDisplay"></span>
                     </h4>
                     <div>
-                        <button type="submit" class="action-btn btn-success" id="fleetModalConfirmBtn">
-                            <i class="fas fa-check"></i> 确认出库
-                        </button>
+                        <span class="close-btn" onclick="closeFleetModalModify()" 
+                            style="width: 35px; height: 35px; background: #e74c3c; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 22px; font-weight: bold; cursor: pointer; box-shadow: 0 3px 10px rgba(231, 76, 60, 0.3); transition: all 0.3s ease;">
+                            &times;
+                        </span>          
                     </div>
                 </div>
 
@@ -230,23 +227,27 @@
                 <h4 style="color: var(--secondary-color); margin: 0;">
                     <i class="fas fa-list-alt"></i> 预约批次
                 </h4>
+                <button type="submit" class="action-btn btn-success" id="fleetModalConfirmBtn">
+                    <i class="fas fa-check"></i> 确认出库
+                </button>
             </div>
 
-            <div class="table-container" style="max-height: 300px;">
+            <div class="table-container">
                 <table class="data-table">
                     <thead>
                         <tr>
-                            <th>预约批次</th>
+                            <th>柜号</th>
                             <th>目的地</th>
+                            <th>CBM</th>
+                            <th>板数</th>
+                            <th>出库批次</th>
                             <th>预约号</th>
-                            <th>Scheduled Time</th>
+                            <th>类型</th>
+                            <th>是否甩板</th>
                             <th>备注</th>
-                            <th>总重lbs</th>
-                            <th>总CBM</th>
-                            <th>总卡板数</th>
                         </tr>
                     </thead>
-                    <tbody id="fleetShipmentTableBody">
+                    <tbody id="scheduledfleetShipmentTableBody">
                         <!-- 这里用JS动态插入选中的批次 -->
                     </tbody>
                 </table>
@@ -257,6 +258,7 @@
 </div>
 
 <script>
+    
     // 打开车次模态框函数
     document.querySelectorAll('.fleet-link').forEach(link => {
         link.addEventListener('click', function(e) {
@@ -269,7 +271,7 @@
             const data = this.dataset;
             document.getElementById('fleetModalModifyFleetNumber').value = data.fleetNumber; 
             document.getElementById('fleetNumberDisplay').textContent = data.fleetNumber;
-            console.log('车次信息', data.fleetNumber)
+
             const safeSetValueById = (id, value) => {
                 const input = document.getElementById(id);
                 if (!input) return;
@@ -297,35 +299,135 @@
                     }
                 }
             }
-
-            // 填充下方表格
-            const tbody = document.getElementById("fleetShipmentTableBody");
-            tbody.innerHTML = "";
-            const newRow = document.createElement("tr");
-            newRow.innerHTML = `
-                <td>${data.shipmentBatches || ''}</td>
-                <td>-</td>
-                <td>${data.appointmentIds || ''}</td>
-                <td>${data.appointmentDatetime || ''}</td>
-                <td>${data.note || ''}</td>
-                <td>${data.totalWeight || ''}</td>
-                <td>${data.totalCbm || ''}</td>
-                <td>${data.totalPallet || ''}</td>
-            `;
-            tbody.appendChild(newRow);
-
+           
+            // 填充detailed_shipments数据到表格
+            populateShipmentTable(data.jsonId);
             const confirmBtn = document.getElementById('fleetModalConfirmBtn');
             confirmBtn.innerHTML = '<i class="fas fa-check"></i> 更新出库';
         });
     });
+    // 填充shipment表格数据的函数
+    function populateShipmentTable(jsonId) {    
+        const tbody = document.getElementById("scheduledfleetShipmentTableBody");
+        
+        if (!tbody) {
+            console.error('错误: scheduledfleetShipmentTableBody');
+            return;
+        }
+        
+        // 先清空并显示一个测试行
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: blue; padding: 20px; font-weight: bold;">测试行 - 正在加载数据...</td></tr>';
+        
+        // 强制重绘
+        tbody.style.display = 'table-row-group';
+        
+        try {
+            const jsonElement = document.getElementById(jsonId);
+            
+            if (!jsonElement) {
+                tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: red;">错误: 找不到数据源</td></tr>';
+                return;
+            }
+            
+            let jsonText = jsonElement.textContent.trim();
+            
+            // 更彻底的清理
+            jsonText = jsonText
+                .replace(/<!--[\s\S]*?-->/g, '')
+                .replace(/DEBUG:.*$/, '')
+                .trim();
+            
+            
+            let shipments = [];
+            
+            if (jsonText && jsonText !== '[]') {
+                try {
+                    shipments = JSON.parse(jsonText);
+                } catch (parseError) {
+                    tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: red;">JSON解析错误: ' + parseError.message + '</td></tr>';
+                    return;
+                }
+            }
+            
+            if (!Array.isArray(shipments) || shipments.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: #999;">暂无数据</td></tr>';
+                return;
+            }
+            
+            // 彻底清空并重新构建
+            tbody.innerHTML = '';
+            
+            shipments.forEach((shipment, index) => {               
+                const row = document.createElement('tr');
+                row.style.border = '1px solid #ccc'; // 添加边框便于调试
+                
+                // 创建单元格
+                const cells = [
+                    shipment.container_number || '',
+                    shipment.destination || '',
+                    formatNumber(shipment.cbm),
+                    formatNumber(shipment.pallet_count),
+                    shipment.shipment_batch_number || '',
+                    shipment.appointment_id || '',
+                    getTypeDisplay(shipment.type),
+                    shipment.is_dropped_pallet ? '甩板' : '',
+                    shipment.note || ''
+                ];
+                
+                cells.forEach(cellContent => {
+                    const td = document.createElement('td');
+                    td.style.padding = '8px';
+                    td.style.border = '1px solid #ddd';
+                    td.style.textAlign = 'left';
+                    
+                    if (typeof cellContent === 'string' && cellContent.includes('status-span')) {
+                        td.innerHTML = cellContent;
+                    } else {
+                        td.textContent = cellContent;
+                    }
+                    
+                    row.appendChild(td);
+                });
+                
+                tbody.appendChild(row);
+            });          
+        } catch (error) {
+            console.error('填充表格时发生未知错误:', error);
+            tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: red;">系统错误: ' + error.message + '</td></tr>';
+        }
+    }
+
+    // 辅助函数 - 确保这些函数存在
+    function getTypeDisplay(type) {
+        if (type === 'EST') {
+            return '<span class="status-span-yellow">预估板数</span>';
+        } else if (type === 'ACT') {
+            return '<span class="status-span-green">实际板数</span>';
+        }
+        return type || '';
+    }
+
+    function escapeHtml(unsafe) {
+        if (unsafe === null || unsafe === undefined) return '';
+        return unsafe.toString()
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    }
+
+    function formatNumber(num) {
+        if (num === null || num === undefined) return '0';
+        const number = parseFloat(num);
+        return isNaN(number) ? '0' : number.toFixed(2);
+    }
 
     // 关闭车队模态框函数
     function closeFleetModalModify() {
-        console.log('关闭模态框函数被调用'); // 调试信息
         const modal = document.getElementById("fleetModaLModify");
         if (modal) {
             modal.style.display = "none";
-            console.log('模态框已关闭'); // 调试信息
         }
     }
     // 格式化日期函数
