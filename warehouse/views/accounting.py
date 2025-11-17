@@ -1668,7 +1668,7 @@ class Accounting(View):
                 vessel_id__vessel_etd__gte=start_date,
                 vessel_id__vessel_etd__lte=end_date,
             )
-            & models.Q(offload_id__offload_at__isnull=False)
+            & models.Q(offload_id__offload_at__isnull=False) #还空的要提醒一下
         )
         if warehouse:
             criteria &= models.Q(retrieval_id__retrieval_destination_precise=warehouse)
@@ -3292,11 +3292,7 @@ class Accounting(View):
         else:
             # 提拆柜录入完毕,如果是complete表示客服录入完成，订单状态进入下一步，否则不改状态
             if save_type == "complete":
-                if (invoice_status.delivery_public_status == "completed" or invoice_status.delivery_other_status == "completed"):
-                    #说明是财务退回的，不用组长审核了
-                    invoice_status.preport_status = "completed"
-                else:
-                    invoice_status.preport_status = "pending_review"
+                invoice_status.preport_status = "pending_review"
                 invoice_status.is_rejected = False
                 invoice_status.reject_reason = ""
             elif save_type == "temporary": #暂存功能
