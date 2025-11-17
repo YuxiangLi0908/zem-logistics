@@ -294,6 +294,17 @@
             vertical-align: middle;
         }
 
+        /* 鼠标悬停高亮效果 */
+        .table tbody tr:hover {
+            background-color: #f0f7ff; /* 浅蓝色背景，可根据需要调整 */
+            transition: background-color 0.2s ease; /* 平滑过渡效果 */
+        }
+
+        /* 已选中行的高亮样式（可选，增强选中状态） */
+        .table tbody tr.selected {
+            background-color: #e6f7ff;
+        }
+
         .table th {
             color: #4e5969;
             font-weight: 500;
