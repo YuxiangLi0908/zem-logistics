@@ -719,9 +719,11 @@ class PostNsop(View):
         # 按 Destination 分组
         grouped_by_dest = {}
         tttt = []
+        tttt_row = []
         for _, row in grouped.iterrows():
             dest = row["Destination"]
             tttt.append(dest)
+            tttt_row.append(row)
             grouped_by_dest.setdefault(dest, []).append(row.to_dict())
         
         grouped2 = grouped
