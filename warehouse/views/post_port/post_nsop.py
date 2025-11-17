@@ -715,7 +715,7 @@ class PostNsop(View):
         for _, row in grouped.iterrows():
             dest = row["Destination"]
             grouped_by_dest.setdefault(dest, []).append(row.to_dict())
-        raise ValueError(grouped_by_dest)
+        
         # 如果只有一个 Destination，保持原来返回单 CSV
         if len(grouped_by_dest) == 1:
             df_single = pd.DataFrame.from_records(list(grouped_by_dest.values())[0])
@@ -723,7 +723,7 @@ class PostNsop(View):
             response["Content-Disposition"] = f"attachment; filename=PO_virtual_fleet.csv"
             df_single.to_csv(path_or_buf=response, index=False)
             return response
-
+        raise ValueError(len(grouped_by_dest))
         # 多个 Destination 打包 zip
         zip_buffer = io.BytesIO()
         with zipfile.ZipFile(zip_buffer, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
