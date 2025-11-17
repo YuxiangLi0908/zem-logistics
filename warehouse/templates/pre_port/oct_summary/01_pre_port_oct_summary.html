@@ -1409,50 +1409,11 @@
                     return isValid;
                 });
 
-                function initColumnSearch() {
+                function initMultiColumnSearch() {
+                    // 监听所有搜索框的输入事件
                     document.querySelectorAll('.column-search').forEach(input => {
-                        if (input.getAttribute('data-column') !== 'container') {
-                            const newInput = input.cloneNode(true);
-                            input.parentNode.replaceChild(newInput, input);
-
-                            newInput.addEventListener('input', function () {
-                                const keyword = this.value.trim().toLowerCase();
-                                const column = this.getAttribute('data-column');
-                                let visibleCount = 0;
-
-                                const tableRows = document.querySelectorAll('#tableBody .table-row');
-                                tableRows.forEach(row => {
-                                    row.style.display = '';
-                                    // 搜索时忽略隐藏列的数据
-                                    const cell = row.querySelector(`td[data-column="${column}"]`);
-                                    if (!cell) {
-                                        row.style.display = 'none';
-                                        return;
-                                    }
-
-                                    const cellText = cell.textContent.trim().toLowerCase();
-                                    if (keyword && !cellText.includes(keyword)) {
-                                        row.style.display = 'none';
-                                    } else {
-                                        visibleCount++;
-                                    }
-                                });
-
-                                const selectAllCheckbox = document.querySelector('#selectAll');
-                                if (selectAllCheckbox) {
-                                    selectAllCheckbox.checked = false;
-                                    const layuiSelectAll = selectAllCheckbox.nextElementSibling;
-                                    if (layuiSelectAll && layuiSelectAll.classList.contains('layui-form-checkbox')) {
-                                        layuiSelectAll.classList.remove('layui-form-checked');
-                                    }
-                                }
-
-                                columnNoMatch.style.display = (visibleCount === 0 && keyword) ? 'block' : 'none';
-                                syncTableWidths();
-                            });
-                        }
+                        input.addEventListener('input', handleMultiSearch);
                     });
-                    form.render('radio');
                 }
 
                 function syncTableWidths() {
@@ -1881,70 +1842,73 @@
                     return false;
                 });
 
-                function enhanceContainerMultiSearch() {
-                    const containerSearch = document.querySelector('.column-search[data-column="container"]');
-                    if (!containerSearch) {
-                        console.warn('柜号搜索框未找到');
-                        return;
-                    }
+                // 多条件组合搜索的核心逻辑
+                function handleMultiSearch() {
+                    // 收集所有搜索框的关键词（列名 -> 关键词）
+                    const searchConditions = {};
+                    document.querySelectorAll('.column-search').forEach(input => {
+                        const column = input.getAttribute('data-column');
+                        const keyword = input.value.trim().toLowerCase();
+                        if (keyword) { // 只记录有值的条件
+                            searchConditions[column] = keyword;
+                        }
+                    });
 
-                    containerSearch.placeholder = "搜索柜号...（多个柜号用空格分隔）";
+                    const tableRows = document.querySelectorAll('#tableBody .table-row');
+                    let visibleCount = 0;
 
-                    const newInput = containerSearch.cloneNode(true);
-                    containerSearch.parentNode.replaceChild(newInput, containerSearch);
+                    tableRows.forEach(row => {
+                        let isMatch = true; // 默认为匹配，需满足所有条件
 
-                    newInput.addEventListener('input', function () {
-                        const inputValue = this.value.trim();
-                        const searchTerms = inputValue ? inputValue.split(/\s+/).filter(term => term.trim() !== '') : [];
-                        let visibleCount = 0;
-
-                        const tableRows = document.querySelectorAll('#tableBody .table-row');
-
-                        tableRows.forEach(row => {
-                            row.style.display = '';
-
-                            if (searchTerms.length === 0) {
-                                visibleCount++;
-                                return;
+                        // 检查当前行是否满足所有搜索条件
+                        Object.entries(searchConditions).forEach(([column, keyword]) => {
+                            const cell = row.querySelector(`td[data-column="${column}"]`);
+                            if (!cell) {
+                                isMatch = false;
+                                return; // 列不存在，不匹配
                             }
 
-                            const containerCell = row.querySelector('td[data-column="container"]');
-                            if (!containerCell) {
-                                row.style.display = 'none';
-                                return;
-                            }
+                            const cellText = cell.textContent.trim().toLowerCase();
 
-                            const containerNumber = containerCell.textContent.trim().toLowerCase();
-
-                            const isMatch = searchTerms.some(term => {
-                                return containerNumber.includes(term.toLowerCase());
-                            });
-
-                            if (isMatch) {
-                                visibleCount++;
+                            // 特殊处理柜号的多关键词搜索（空格分隔）
+                            if (column === 'container') {
+                                const terms = keyword.split(/\s+/).filter(t => t);
+                                const matchesAnyTerm = terms.some(term => cellText.includes(term));
+                                if (!matchesAnyTerm) {
+                                    isMatch = false;
+                                }
                             } else {
-                                row.style.display = 'none';
+                                // 普通列：包含关键词则匹配
+                                if (!cellText.includes(keyword)) {
+                                    isMatch = false;
+                                }
                             }
                         });
 
-                        const selectAllCheckbox = document.querySelector('#selectAll');
-                        if (selectAllCheckbox) {
-                            selectAllCheckbox.checked = false;
-                            const layuiCheckbox = selectAllCheckbox.nextElementSibling;
-                            if (layuiCheckbox && layuiCheckbox.classList.contains('layui-form-checkbox')) {
-                                layuiCheckbox.classList.remove('layui-form-checked');
-                            }
-                        }
-
-                        const noMatchTip = document.getElementById('columnNoMatch');
-                        noMatchTip.style.display = (visibleCount === 0 && searchTerms.length > 0) ? 'block' : 'none';
+                        // 根据是否匹配控制行显示
+                        row.style.display = isMatch ? '' : 'none';
+                        if (isMatch) visibleCount++;
                     });
+
+                    // 更新“无匹配”提示
+                    const columnNoMatch = document.getElementById('columnNoMatch');
+                    columnNoMatch.style.display = (visibleCount === 0 && Object.keys(searchConditions).length > 0) ? 'block' : 'none';
+
+                    // 重置全选状态
+                    const selectAllCheckbox = document.querySelector('#selectAll');
+                    if (selectAllCheckbox) {
+                        selectAllCheckbox.checked = false;
+                        const layuiCheckbox = selectAllCheckbox.nextElementSibling;
+                        if (layuiCheckbox) layuiCheckbox.classList.remove('layui-form-checked');
+                    }
+
+                    syncTableWidths();
                 }
 
                 // 初始化所有功能
                 initDatePickers();
-                initColumnSearch();
-                enhanceContainerMultiSearch();
+                initMultiColumnSearch();
+                handleMultiSearch();
                 syncTableWidths();
                 window.addEventListener('load', function () {
                     syncTableWidths();
