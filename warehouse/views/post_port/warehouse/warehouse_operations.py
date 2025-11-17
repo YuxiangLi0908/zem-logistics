@@ -3,6 +3,10 @@ from django.utils import timezone
 import pytz
 from typing import Any, Coroutine, Tuple
 import os, re
+import aiohttp
+import cgi
+from urllib.parse import urlparse, unquote
+import mimetypes
 from io import BytesIO
 import zipfile
 from office365.sharepoint.client_context import ClientContext
@@ -469,6 +473,7 @@ class WarehouseOperations(View):
     ) -> tuple[str, dict[str, Any]]:
         context = {"warehouse_options": self.warehouse_options}
         return self.template_upcoming_fleet, context
+    
 
     async def handle_bol_post(self, request: HttpRequest) -> HttpResponse:
         #准备参数
@@ -481,11 +486,8 @@ class WarehouseOperations(View):
         fm = FleetManagement()
 
         fleet = await sync_to_async(Fleet.objects.get)(fleet_number=fleet_number)
-        
-        if fleet.fleet_type == 'LTL':
-            return await fm._export_ltl_bol(request)
             
-        elif fleet.fleet_type == 'FTL':   
+        if fleet.fleet_type == 'FTL': 
             shipment = await sync_to_async(list)(Shipment.objects.filter(fleet_number=fleet))
             if len(shipment) > 1:
                 zip_buffer = BytesIO()
@@ -503,7 +505,7 @@ class WarehouseOperations(View):
                 mutable_post["shipment_batch_number"] = shipment[0].shipment_batch_number
             return await fm.handle_export_bol_post(request)
         else:
-            raise ValueError('暂不支持下载非FTL和LTL以外的BOL')
+            raise ValueError('出库类型异常！')
 
         
 
@@ -903,7 +905,6 @@ class WarehouseOperations(View):
                 )
             )
         )
-
         fleet_data = []
         day_stats = {
             0: {'fleets': [], 'total_pallets': 0, 'total_cbm': 0, 'completed_count': 0, 'abnormal_count': 0},
@@ -1043,6 +1044,13 @@ class WarehouseOperations(View):
                 'abnormal_reason': fleet.abnormal_reason,
                 'PRO': arm_pro_combined,
                 'is_print_label':is_print_label_combined,
+                'shipment_links': await sync_to_async(list)(
+                    fleet.shipment.all().values(
+                        'shipment_batch_number',
+                        'ltl_bol_link',
+                        'ltl_label_link'
+                    )
+                )
             }
             fleet_data.append(fleet_item)
 

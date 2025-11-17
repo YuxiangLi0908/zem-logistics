@@ -38,10 +38,6 @@ class OrderQuantity(View):
     async def get(self, request: HttpRequest, **kwargs) -> HttpResponse:
         step = request.GET.get("step", None)
         if step == "historical_query":
-            if not await self._validate_user_manage(request.user):
-                return HttpResponseForbidden(
-                    "You are not authenticated to access this page!"
-                )
             context = {"model_choices": MODEL_CHOICES}
             return await sync_to_async(render)(
                 request, self.template_historical, context

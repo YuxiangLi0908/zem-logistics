@@ -600,22 +600,18 @@
             <div class="summary-card scheduled">
                 <div class="card-title">异常批次</div>
                 <div class="card-value">{{ summary.exception_count }}</div>
-                <div class="card-trend">等待出库</div>
             </div>
             <div class="summary-card scheduled">
                 <div class="card-title">待出库批次</div>
                 <div class="card-value">{{ summary.ready_to_ship_count }}</div>
-                <div class="card-trend">等待出库</div>
             </div>
             <div class="summary-card ready">
                 <div class="card-title">待送达批次</div>
                 <div class="card-value">{{ summary.ready_count }}</div>
-                <div class="card-trend">等待确认</div>
             </div>
             <div class="summary-card pallets">
                 <div class="card-title">待传POD批次</div>
                 <div class="card-value">{{ summary.pod_count }}</div>
-                <div class="card-trend">等待上传</div>
             </div>
         </div>
 

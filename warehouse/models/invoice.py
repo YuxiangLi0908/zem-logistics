@@ -172,7 +172,7 @@ class InvoiceStatus(models.Model):
         choices=[
             ("unstarted", "未开始"),
             ("tobeconfirmed", "待确认"),
-            ("confirmed", "已完成"),
+            ("completed", "已完成"),
         ]
     )
     payable_status = models.JSONField(

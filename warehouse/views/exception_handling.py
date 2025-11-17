@@ -200,6 +200,9 @@ class ExceptionHandling(View):
         elif step == "receivale_status_migrate":
             template, context = await self.handle_receivale_status_migrate(request)
             return await sync_to_async(render)(request, template, context) 
+        elif step == "receivale_status_search":
+            template, context = await self.handle_receivale_status_search(request)
+            return await sync_to_async(render)(request, template, context) 
         else:
             return await sync_to_async(T49Webhook().post)(request)
     
@@ -2107,6 +2110,183 @@ class ExceptionHandling(View):
         request.POST["search_value"] = search_value
         return await self.handle_search_invoice_delivery(request)
     
+    async def handle_receivale_status_search(self, request):
+        old_status = await sync_to_async(list)(
+            InvoiceStatus.objects.filter(
+                stage='tobeconfirmed'
+            ).select_related(
+                'container_number'
+            ).prefetch_related(
+                'container_number'
+            )
+        )
+
+        # 第二组：所有状态字段都是completed的
+        now_status = await sync_to_async(list)(
+            InvoiceStatus.objects.filter(
+                preport_status='completed',
+                warehouse_public_status='completed', 
+                warehouse_other_status='completed',
+                delivery_public_status='completed',
+                delivery_other_status='completed'
+            ).exclude(finance_status="completed")
+            .select_related(
+                'container_number'
+            ).prefetch_related(
+                'container_number'
+            )
+        )
+
+        # 处理旧状态数据
+        old_status_data = []
+        for status in old_status:
+            old_status_data.append({
+                'invoice_status_id': status.id,
+                'container_number': status.container_number.container_number,
+                'container_type': status.container_number.container_type,
+                'invoice_type': status.invoice_type,
+                'stage': status.stage,
+                'finance_status': status.finance_status,
+                'preport_status': status.preport_status,
+                'warehouse_public_status': status.warehouse_public_status,
+                'warehouse_other_status': status.warehouse_other_status,
+                'delivery_public_status': status.delivery_public_status,
+                'delivery_other_status': status.delivery_other_status,
+            })
+
+        # 处理新状态数据
+        now_status_data = []
+        for status in now_status:
+            now_status_data.append({
+                'invoice_status_id': status.id,
+                'container_number': status.container_number.container_number,
+                'container_type': status.container_number.container_type,
+                'invoice_type': status.invoice_type,
+                'stage': status.stage,
+                'finance_status': status.finance_status,
+                'preport_status': status.preport_status,
+                'warehouse_public_status': status.warehouse_public_status,
+                'warehouse_other_status': status.warehouse_other_status,
+                'delivery_public_status': status.delivery_public_status,
+                'delivery_other_status': status.delivery_other_status,
+            })
+
+        # 创建差异对比数据
+        diff_status_data = []
+        
+        # 1. 找出在 now_status 但不在 old_status 的记录（新增的记录）
+        old_container_numbers = {item['container_number'] for item in old_status_data}
+        now_container_numbers = {item['container_number'] for item in now_status_data}
+        
+        # 新增的记录
+        new_added = [item for item in now_status_data if item['container_number'] not in old_container_numbers]
+        
+        # 2. 找出在 old_status 但不在 now_status 的记录（删除的记录）
+        removed = [item for item in old_status_data if item['container_number'] not in now_container_numbers]
+        
+        # 3. 找出在两个数据集中都存在但有状态变化的记录
+        old_dict = {item['container_number']: item for item in old_status_data}
+        now_dict = {item['container_number']: item for item in now_status_data}
+        
+        changed = []
+        for container_num in old_container_numbers.intersection(now_container_numbers):
+            old_item = old_dict[container_num]
+            now_item = now_dict[container_num]
+            
+            # 检查是否有任何状态字段发生变化
+            status_fields = ['stage', 'finance_status', 'preport_status', 'warehouse_public_status', 
+                            'warehouse_other_status', 'delivery_public_status', 'delivery_other_status']
+            
+            has_changes = any(old_item[field] != now_item[field] for field in status_fields)
+            
+            if has_changes:
+                changed.append({
+                    'container_number': container_num,
+                    'old_data': old_item,
+                    'now_data': now_item,
+                    'changes': {field: {'old': old_item[field], 'new': now_item[field]} 
+                            for field in status_fields if old_item[field] != now_item[field]}
+                })
+
+        # 构建差异数据表格（格式与 now_status_data、old_status_data 一致）
+        diff_data = []
+        
+        # 添加新增的记录
+        for item in new_added:
+            diff_data.append({
+                'container_number': item['container_number'],
+                'change_type': '新增',
+                'stage': item['stage'],
+                'finance_status': item['finance_status'],
+                'preport_status': item['preport_status'],
+                'warehouse_public_status': item['warehouse_public_status'],
+                'warehouse_other_status': item['warehouse_other_status'],
+                'delivery_public_status': item['delivery_public_status'],
+                'delivery_other_status': item['delivery_other_status'],
+                'invoice_type': item['invoice_type'],
+                'container_type': item['container_type']
+            })
+        
+        # 添加删除的记录
+        for item in removed:
+            diff_data.append({
+                'container_number': item['container_number'],
+                'change_type': '删除', 
+                'stage': item['stage'],
+                'finance_status': item['finance_status'],
+                'preport_status': item['preport_status'],
+                'warehouse_public_status': item['warehouse_public_status'],
+                'warehouse_other_status': item['warehouse_other_status'],
+                'delivery_public_status': item['delivery_public_status'],
+                'delivery_other_status': item['delivery_other_status'],
+                'invoice_type': item['invoice_type'],
+                'container_type': item['container_type']
+            })
+        
+        # 添加变化的记录（显示新的状态值）
+        for item in changed:
+            diff_data.append({
+                'container_number': item['container_number'],
+                'change_type': '修改',
+                'stage': item['now_data']['stage'],
+                'finance_status': item['now_data']['finance_status'],
+                'preport_status': item['now_data']['preport_status'],
+                'warehouse_public_status': item['now_data']['warehouse_public_status'],
+                'warehouse_other_status': item['now_data']['warehouse_other_status'],
+                'delivery_public_status': item['now_data']['delivery_public_status'],
+                'delivery_other_status': item['now_data']['delivery_other_status'],
+                'invoice_type': item['now_data']['invoice_type'],
+                'container_type': item['now_data']['container_type'],
+                'changes': item['changes']  # 保存具体的变化信息
+            })
+
+        # 统计数量
+        old_status_count = await sync_to_async(
+            InvoiceStatus.objects.filter(stage='tobeconfirmed').count
+        )()
+        now_status_count = await sync_to_async(
+            InvoiceStatus.objects.filter(
+                preport_status='completed',
+                warehouse_public_status='completed', 
+                warehouse_other_status='completed',
+                delivery_public_status='completed',
+                delivery_other_status='completed'
+            ).count
+        )()
+        
+        context = {
+            'old_status_count': old_status_count,
+            'now_status_count': now_status_count,
+            'now_status_data': now_status_data,
+            'old_status_data': old_status_data,
+            'diff_status_data': diff_data,  # 添加差异数据
+            'diff_count': len(diff_data),   # 差异记录总数
+            'new_added_count': len(new_added),
+            'removed_count': len(removed),
+            'changed_count': len(changed)
+        }
+        return self.template_receivable_status_migrate, context
+
     async def handle_receivale_status_migrate(self,request):
         """
         将旧的 InvoiceStatus的stage 迁移到新的结构 - 应付状态
@@ -2202,17 +2382,17 @@ class ExceptionHandling(View):
                 },
                 'new_data': {},
             }
-            
-            # 根据旧状态映射到新状态
-            new_status_mapping = await self.calculate_new_status(old_stage, old_stage_public, old_stage_other, is_rejected)
-            
-            # 异步更新 InvoiceStatus 对象
-            await self.update_invoice_status(old_status, new_status_mapping)
-            
-            # 记录新数据
-            log_entry['new_data'] = new_status_mapping
-            
-            return log_entry
+            if old_stage == "confirmed":
+                # 根据旧状态映射到新状态
+                new_status_mapping = await self.calculate_new_status(old_stage, old_stage_public, old_stage_other, is_rejected)
+                
+                # 异步更新 InvoiceStatus 对象
+                await self.update_invoice_status(old_status, new_status_mapping)
+                
+                # 记录新数据
+                log_entry['new_data'] = new_status_mapping
+                
+                return log_entry
             
         except Exception as e:
             print(f"迁移失败 - Order ID: {order.id}, Error: {str(e)}")
@@ -2233,69 +2413,69 @@ class ExceptionHandling(View):
     async def calculate_new_status(self, old_stage, old_stage_public, old_stage_other, is_rejected):
         """异步计算新状态映射 - 处理驳回状态"""
         # 基础状态映射
-        if old_stage == "unstarted":
-            base_status = {
-                'preport_status': "unstarted",
-                'warehouse_public_status': "unstarted",
-                'warehouse_other_status': "unstarted",
-                'delivery_public_status': "unstarted",
-                'delivery_other_status': "unstarted",
-                'finance_status': "unstarted",
-            }
-        elif old_stage == "preport":
-            base_status = {
-                'preport_status': "pending_review",
-                'warehouse_public_status': "unstarted",
-                'warehouse_other_status': "unstarted",
-                'delivery_public_status': "unstarted",
-                'delivery_other_status': "unstarted",
-                'finance_status': "unstarted",
-            }
-        elif old_stage == "warehouse":
-            base_status = {
-                'preport_status': "completed",
-                'warehouse_public_status': await self.map_public_other_status_async(old_stage_public),
-                'warehouse_other_status': await self.map_public_other_status_async(old_stage_other),
-                'delivery_public_status': await self.map_public_other_status_async(old_stage_public),
-                'delivery_other_status': await self.map_public_other_status_async(old_stage_other),
-                'finance_status': "unstarted",
-            }
-        elif old_stage == "delivery":
-            base_status = {
-                'preport_status': "completed",
-                'warehouse_public_status': await self.map_public_other_status_async(old_stage_public),
-                'warehouse_other_status': await self.map_public_other_status_async(old_stage_public),
-                'delivery_public_status': await self.map_public_other_status_async(old_stage_public),
-                'delivery_other_status': await self.map_public_other_status_async(old_stage_other),
-                'finance_status': "unstarted",
-            }
-        elif old_stage == "tobeconfirmed":
+        # if old_stage == "unstarted":
+        #     base_status = {
+        #         'preport_status': "unstarted",
+        #         'warehouse_public_status': "unstarted",
+        #         'warehouse_other_status': "unstarted",
+        #         'delivery_public_status': "unstarted",
+        #         'delivery_other_status': "unstarted",
+        #         'finance_status': "unstarted",
+        #     }
+        # elif old_stage == "preport":
+        #     base_status = {
+        #         'preport_status': "pending_review",
+        #         'warehouse_public_status': "unstarted",
+        #         'warehouse_other_status': "unstarted",
+        #         'delivery_public_status': "unstarted",
+        #         'delivery_other_status': "unstarted",
+        #         'finance_status': "unstarted",
+        #     }
+        # elif old_stage == "warehouse":
+        #     base_status = {
+        #         'preport_status': "completed",
+        #         'warehouse_public_status': await self.map_public_other_status_async(old_stage_public),
+        #         'warehouse_other_status': await self.map_public_other_status_async(old_stage_other),
+        #         'delivery_public_status': await self.map_public_other_status_async(old_stage_public),
+        #         'delivery_other_status': await self.map_public_other_status_async(old_stage_other),
+        #         'finance_status': "unstarted",
+        #     }
+        # elif old_stage == "delivery":
+        #     base_status = {
+        #         'preport_status': "completed",
+        #         'warehouse_public_status': await self.map_public_other_status_async(old_stage_public),
+        #         'warehouse_other_status': await self.map_public_other_status_async(old_stage_public),
+        #         'delivery_public_status': await self.map_public_other_status_async(old_stage_public),
+        #         'delivery_other_status': await self.map_public_other_status_async(old_stage_other),
+        #         'finance_status': "unstarted",
+        #     }
+        # elif old_stage == "tobeconfirmed":
+        #     base_status = {
+        #         'preport_status': "completed",
+        #         'warehouse_public_status': "completed",
+        #         'warehouse_other_status': "completed",
+        #         'delivery_public_status': "completed",
+        #         'delivery_other_status': "completed",
+        #         'finance_status': "tobeconfirmed",
+        #     }
+        if old_stage == "confirmed":
             base_status = {
                 'preport_status': "completed",
                 'warehouse_public_status': "completed",
                 'warehouse_other_status': "completed",
                 'delivery_public_status': "completed",
                 'delivery_other_status': "completed",
-                'finance_status': "tobeconfirmed",
+                'finance_status': "completed",
             }
-        elif old_stage == "confirmed":
-            base_status = {
-                'preport_status': "completed",
-                'warehouse_public_status': "completed",
-                'warehouse_other_status': "completed",
-                'delivery_public_status': "completed",
-                'delivery_other_status': "completed",
-                'finance_status': "confirmed",
-            }
-        else:
-            base_status = {
-                'preport_status': "unstarted",
-                'warehouse_public_status': "unstarted",
-                'warehouse_other_status': "unstarted",
-                'delivery_public_status': "unstarted",
-                'delivery_other_status': "unstarted",
-                'finance_status': "unstarted",
-            }
+        # else:
+        #     base_status = {
+        #         'preport_status': "unstarted",
+        #         'warehouse_public_status': "unstarted",
+        #         'warehouse_other_status': "unstarted",
+        #         'delivery_public_status': "unstarted",
+        #         'delivery_other_status': "unstarted",
+        #         'finance_status': "unstarted",
+        #     }
         
         # 如果有驳回，根据当前阶段设置驳回状态
         if is_rejected:

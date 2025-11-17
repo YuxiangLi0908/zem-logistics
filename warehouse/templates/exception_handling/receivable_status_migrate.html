@@ -40,6 +40,47 @@
     .bg-info { background-color: #d8f6fc !important; color: #087990 !important; }
     .bg-secondary { background-color: #e9ecef !important; color: #555 !important; }
 
+    .table-container {
+        background: white;
+        border-radius: 8px;
+        padding: 10px; /* 减少内边距 */
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        transform: scale(0.9); /* 整体缩放90% */
+        transform-origin: top center; /* 从顶部中心缩放 */
+    }
+
+    .table-container h3 {
+        margin: 0 0 15px 0;
+        color: #2c3e50;
+        border-bottom: 2px solid #3498db;
+        padding-bottom: 8px;
+    }
+    .data-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 15px;
+    }
+
+    .data-table th, .data-table td {
+        border: 1px solid #bdc3c7;
+        padding: 8px 10px;
+        text-align: left;
+        font-size: 13px;
+    }
+
+    .data-table th {
+        background-color: #34495e;
+        color: white;
+        font-weight: 600;
+    }
+
+    .data-table tr:nth-child(even) {
+        background-color: #ecf0f1;
+    }
+
+    .data-table tr:hover {
+        background-color: #d0d7de;
+    }
     /* 表格容器 */
     .data-table-container {
         overflow: auto;
@@ -216,6 +257,12 @@
         border-color: #007bff;
         box-shadow: 0 0 0 0.2rem rgba(0,123,255,.25);
     }
+    .comparison-tables {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+        margin-top: 20px;
+    }
 </style>
 
 <div class="migration-container">
@@ -255,7 +302,13 @@
             </form>
         </div>
     </div>
-
+    <form method="post" id="migrationForm">
+        {% csrf_token %}
+        <div class="d-flex justify-content-between align-items-center">
+            <input type="hidden" name="step" value="receivale_status_search">
+            <button type="submit" class="btn btn-primary">查询应付待确认账单</button>
+        </div>
+    </form>
     <!-- 迁移结果 -->
     {% if message %}
     <div class="alert alert-success alert-area">
@@ -439,12 +492,105 @@
             </div>
         </div>
     </div>
-    {% else %}
-    <!-- 无数据提示 -->
-    <div class="text-center py-5">
-        <div class="alert alert-warning">
-            <h5>暂无迁移数据</h5>
-            <p class="mb-0">点击"开始数据迁移"按钮执行数据迁移操作</p>
+    {% endif %}
+
+    {% if diff_status_data %}
+        <h3>差异账单{{ diff_count }}</h3>
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>柜号</th>
+                    <th>stage</th>
+                    <th>finance_status</th>
+                    <th>preport_status</th>
+                    <th>warehouse_public_status</th>
+                    <th>warehouse_other_status</th>
+                    <th>delivery_public_status</th>
+                    <th>delivery_other_status</th>
+                </tr>
+            </thead>
+            <tbody id="pallet-table-body">
+                {% for item in diff_status_data %}
+                <tr>
+                    <td>{{ item.container_number }}</td>
+                    <td>{{ item.stage }}</td>
+                    <td>{{ item.finance_status }}</td>
+                    <td>{{ item.preport_status }}</td>
+                    <td>{{ item.warehouse_public_status }}</td>
+                    <td>{{ item.warehouse_other_status }}</td>
+                    <td>{{ item.delivery_public_status }}</td>
+                    <td>{{ item.delivery_other_status }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% endif %}
+
+    {% if old_status_data or now_status_data %}
+    <div class="comparison-tables">
+        <!-- Pallet 表格 -->
+        <div class="table-container">
+            <h3>过去待开账单{{ old_status_count }}</h3>
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>柜号</th>
+                        <th>stage</th>
+                        <th>finance_status</th>
+                        <th>preport_status</th>
+                        <th>warehouse_public_status</th>
+                        <th>warehouse_other_status</th>
+                        <th>delivery_public_status</th>
+                        <th>delivery_other_status</th>
+                    </tr>
+                </thead>
+                <tbody id="pallet-table-body">
+                    {% for item in old_status_data %}
+                    <tr>
+                        <td>{{ item.container_number }}</td>
+                        <td>{{ item.stage }}</td>
+                        <td>{{ item.finance_status }}</td>
+                        <td>{{ item.preport_status }}</td>
+                        <td>{{ item.warehouse_public_status }}</td>
+                        <td>{{ item.warehouse_other_status }}</td>
+                        <td>{{ item.delivery_public_status }}</td>
+                        <td>{{ item.delivery_other_status }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="table-container">
+            <h3>现在待开账单{{ now_status_count }}</h3>
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>柜号</th>
+                        <th>stage</th>
+                        <th>finance_status</th>
+                        <th>preport_status</th>
+                        <th>warehouse_public_status</th>
+                        <th>warehouse_other_status</th>
+                        <th>delivery_public_status</th>
+                        <th>delivery_other_status</th>
+                    </tr>
+                </thead>
+                <tbody id="packinglist-table-body">
+                    {% for item in now_status_data %}
+                    <tr>
+                        <td>{{ item.container_number }}</td>
+                        <td>{{ item.stage }}</td>
+                        <td>{{ item.finance_status }}</td>
+                        <td>{{ item.preport_status }}</td>
+                        <td>{{ item.warehouse_public_status }}</td>
+                        <td>{{ item.warehouse_other_status }}</td>
+                        <td>{{ item.delivery_public_status }}</td>
+                        <td>{{ item.delivery_other_status }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
     </div>
     {% endif %}
