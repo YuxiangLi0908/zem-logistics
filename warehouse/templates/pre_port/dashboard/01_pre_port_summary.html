@@ -401,9 +401,6 @@
             color: #4096ff;
         }
 
-        .toggle-column-btn.hidden i::before {
-            content: "\f136";
-        }
 
         /* 表格内按钮样式 - 修复并优化 */
         .custom-btn {
@@ -709,7 +706,7 @@
                             </th>
                             <th class="th">
                                 <div class="th-content">
-                                    柜号
+                                    码头
                                     <button class="toggle-column-btn" data-col-index="5" title="隐藏此列">
                                         <i class="bi bi-eye"></i>
                                     </button>
@@ -717,7 +714,7 @@
                             </th>
                             <th class="th">
                                 <div class="th-content">
-                                    T49参考状态
+                                    柜号
                                     <button class="toggle-column-btn" data-col-index="6" title="隐藏此列">
                                         <i class="bi bi-eye"></i>
                                     </button>
@@ -725,7 +722,7 @@
                             </th>
                             <th class="th">
                                 <div class="th-content">
-                                    实际放行时间
+                                    T49参考状态
                                     <button class="toggle-column-btn" data-col-index="7" title="隐藏此列">
                                         <i class="bi bi-eye"></i>
                                     </button>
@@ -733,7 +730,7 @@
                             </th>
                             <th class="th">
                                 <div class="th-content">
-                                    LFD
+                                    实际放行时间
                                     <button class="toggle-column-btn" data-col-index="8" title="隐藏此列">
                                         <i class="bi bi-eye"></i>
                                     </button>
@@ -741,7 +738,7 @@
                             </th>
                             <th class="th">
                                 <div class="th-content">
-                                    预计提柜时间
+                                    LFD
                                     <button class="toggle-column-btn" data-col-index="9" title="隐藏此列">
                                         <i class="bi bi-eye"></i>
                                     </button>
@@ -749,7 +746,7 @@
                             </th>
                             <th class="th">
                                 <div class="th-content">
-                                    实际提柜时间
+                                    预计提柜时间
                                     <button class="toggle-column-btn" data-col-index="10" title="隐藏此列">
                                         <i class="bi bi-eye"></i>
                                     </button>
@@ -757,7 +754,7 @@
                             </th>
                             <th class="th">
                                 <div class="th-content">
-                                    提柜安排
+                                    实际提柜时间
                                     <button class="toggle-column-btn" data-col-index="11" title="隐藏此列">
                                         <i class="bi bi-eye"></i>
                                     </button>
@@ -765,7 +762,7 @@
                             </th>
                             <th class="th">
                                 <div class="th-content">
-                                    拆柜数据回传时间
+                                    提柜安排
                                     <button class="toggle-column-btn" data-col-index="12" title="隐藏此列">
                                         <i class="bi bi-eye"></i>
                                     </button>
@@ -773,7 +770,7 @@
                             </th>
                             <th class="th">
                                 <div class="th-content">
-                                    还空状态
+                                    拆柜数据回传时间
                                     <button class="toggle-column-btn" data-col-index="13" title="隐藏此列">
                                         <i class="bi bi-eye"></i>
                                     </button>
@@ -781,7 +778,7 @@
                             </th>
                             <th class="th">
                                 <div class="th-content">
-                                    港前完结
+                                    还空状态
                                     <button class="toggle-column-btn" data-col-index="14" title="隐藏此列">
                                         <i class="bi bi-eye"></i>
                                     </button>
@@ -789,7 +786,7 @@
                             </th>
                             <th class="th">
                                 <div class="th-content">
-                                    货柜备注
+                                    港前完结
                                     <button class="toggle-column-btn" data-col-index="15" title="隐藏此列">
                                         <i class="bi bi-eye"></i>
                                     </button>
@@ -797,8 +794,16 @@
                             </th>
                             <th class="th">
                                 <div class="th-content">
-                                    异常状态
+                                    货柜备注
                                     <button class="toggle-column-btn" data-col-index="16" title="隐藏此列">
+                                        <i class="bi bi-eye"></i>
+                                    </button>
+                                </div>
+                            </th>
+                            <th class="th">
+                                <div class="th-content">
+                                    异常状态
+                                    <button class="toggle-column-btn" data-col-index="17" title="隐藏此列">
                                         <i class="bi bi-eye"></i>
                                     </button>
                                 </div>
@@ -837,80 +842,87 @@
                                        title="输入实际提柜公司关键词搜索">
                             </th>
                             <th class="th">
-                                <input type="text" placeholder="搜索柜号(空格分隔多个)..."
+                                <input type="text" placeholder="搜索码头..."
                                        oninput="filterTable(this)"
                                        size="13" style="font-size: 11px;"
                                        data-col="5"
+                                       title="输入码头搜索">
+                            </th>
+                            <th class="th">
+                                <input type="text" placeholder="搜索柜号(空格分隔多个)..."
+                                       oninput="filterTable(this)"
+                                       size="13" style="font-size: 11px;"
+                                       data-col="6"
                                        title="输入柜号关键词，空格分隔多个">
                             </th>
                             <th class="th">
                                 <input type="text" placeholder="搜索T49状态参考..."
                                        oninput="filterTable(this)"
                                        size="13" style="font-size: 11px; width: 200px;"
-                                       data-col="6"
+                                       data-col="7"
                                        title="输入T49状态参考关键词搜索">
                             </th>
                             <th class="th">
                                 <input type="text" placeholder="搜索计划放行时间..."
                                        oninput="filterTable(this)"
                                        size="13" style="font-size: 11px; width: 150px;"
-                                       data-col="7"
+                                       data-col="8"
                                        title="输入计划放行时间关键词搜索">
                             </th>
                             <th class="th">
                                 <input type="text" placeholder="搜索LFD..."
                                        oninput="filterTable(this)"
                                        size="13" style="font-size: 11px; width: 100px;"
-                                       data-col="8"
+                                       data-col="9"
                                        title="输入LFD关键词搜索">
                             </th>
                             <th class="th">
                                 <input type="text" placeholder="搜索预计提柜时间..."
                                        oninput="filterTable(this)"
                                        size="13" style="font-size: 11px; width: 90px;"
-                                       data-col="9"
+                                       data-col="10"
                                        title="输入预计提柜时间关键词搜索">
                             </th>
                             <th class="th">
                                 <input type="text" placeholder="搜索实际提柜..."
                                        oninput="filterTable(this)"
                                        size="13" style="font-size: 11px;"
-                                       data-col="10"
+                                       data-col="11"
                                        title="输入实际提柜时间关键词搜索">
                             </th>
                             <th class="th">
                                 <input type="text" placeholder="搜索提柜安排..."
                                        oninput="filterTable(this)"
                                        size="13" style="font-size: 11px;"
-                                       data-col="11"
+                                       data-col="12"
                                        title="输入提柜安排关键词搜索">
                             </th>
                             <th class="th">
                                 <input type="text" placeholder="搜索拆柜时间..."
                                        oninput="filterTable(this)"
                                        size="13" style="font-size: 11px;"
-                                       data-col="12"
+                                       data-col="13"
                                        title="输入拆柜时间关键词搜索">
                             </th>
                             <th class="th">
                                 <input type="text" placeholder="搜索还空状态..."
                                        oninput="filterTable(this)"
                                        size="13" style="font-size: 11px;"
-                                       data-col="13"
+                                       data-col="14"
                                        title="输入还空状态关键词搜索">
                             </th>
                             <th class="th">
                                 <input type="text" placeholder="搜索港前完结..."
                                        oninput="filterTable(this)"
                                        size="13" style="font-size: 11px;"
-                                       data-col="14"
+                                       data-col="15"
                                        title="输入港前完结状态关键词搜索">
                             </th>
                             <th class="th">
                                 <input type="text" placeholder="搜索货柜备注..."
                                        oninput="filterTable(this)"
                                        size="13" style="font-size: 11px; width: 200px;"
-                                       data-col="15"
+                                       data-col="16"
                                        title="输入货柜备注关键词搜索">
                             </th>
                             <th>
@@ -932,6 +944,7 @@
                                 <td class="td">{{ o.order_type }}</td>
                                 <td class="td">{{ o.customer_name.zem_name }}</td>
                                 <td class="td">{{ o.retrieval_id.retrieval_carrier }}</td>
+                                <td class="td">{{ o.vessel_id.destination_port|default:'-' }}</td>
                                 <td class="td">
                                     <a href="/create_order/?step=order_management_container&container_number={{ o.container_number.container_number }}"
                                        target="_blank"
@@ -1156,50 +1169,84 @@
             document.getElementById('loadingOverlay').classList.remove('show');
         }
 
+        // 简化版：只保留隐藏列和恢复所有列功能
         document.addEventListener('DOMContentLoaded', function () {
-            const forms = document.querySelectorAll('form');
-            forms.forEach(form => {
-                form.addEventListener('submit', function () {
-                    showLoading();
-                });
-            });
+            // 从本地存储加载列隐藏状态
+            let hiddenColumns = JSON.parse(localStorage.getItem('hiddenColumns') || '[]');
 
-            // 列显示/隐藏功能
+            // 初始化列状态和按钮（只显示"隐藏"图标）
             const toggleButtons = document.querySelectorAll('.toggle-column-btn');
             toggleButtons.forEach(button => {
+                const colIndex = parseInt(button.dataset.colIndex);
+                // 根据保存的状态初始化显示/隐藏
+                if (hiddenColumns.includes(colIndex)) {
+                    hideColumn(colIndex);
+                    // 隐藏后按钮禁用（避免重复点击）
+                    button.disabled = true;
+                    button.title = '此列已隐藏，可通过"恢复所有列"显示';
+                } else {
+                    // 未隐藏时显示"隐藏"图标
+                    button.title = '隐藏此列';
+                    button.disabled = false;
+                }
+
+                // 绑定点击事件：只执行隐藏操作
                 button.addEventListener('click', function () {
                     const colIndex = parseInt(this.dataset.colIndex);
-                    const isHidden = this.classList.toggle('hidden');
-                    this.title = isHidden ? '显示此列' : '隐藏此列';
-
-                    // 隐藏/显示对应列
-                    const allRows = document.querySelectorAll('.table tr');
-                    allRows.forEach(row => {
-                        const cell = row.cells[colIndex];
-                        if (cell) {
-                            cell.style.display = isHidden ? 'none' : '';
-                        }
-                    });
+                    // 仅当列未隐藏时执行隐藏
+                    if (!hiddenColumns.includes(colIndex)) {
+                        hideColumn(colIndex);
+                        hiddenColumns.push(colIndex);
+                        // 隐藏后禁用按钮，避免重复操作
+                        this.disabled = true;
+                        // 保存状态
+                        localStorage.setItem('hiddenColumns', JSON.stringify(hiddenColumns));
+                    }
                 });
             });
+
+            // 隐藏指定列（同步处理表头和内容）
+            function hideColumn(colIndex) {
+                // 处理表头（包含标题行和搜索行）
+                document.querySelectorAll('table thead tr').forEach(row => {
+                    const th = row.cells[colIndex];
+                    if (th) th.style.display = 'none';
+                });
+                // 处理内容行
+                document.querySelectorAll('table tbody tr').forEach(row => {
+                    const td = row.cells[colIndex];
+                    if (td) td.style.display = 'none';
+                });
+            }
+
+            // 显示指定列（仅用于恢复所有列时调用）
+            function showColumn(colIndex) {
+                // 处理表头
+                document.querySelectorAll('table thead tr').forEach(row => {
+                    const th = row.cells[colIndex];
+                    if (th) th.style.display = '';
+                });
+                // 处理内容行
+                document.querySelectorAll('table tbody tr').forEach(row => {
+                    const td = row.cells[colIndex];
+                    if (td) td.style.display = '';
+                });
+            }
 
             // 恢复所有隐藏列功能
             document.getElementById('restoreAllColumns').addEventListener('click', function () {
-                const hiddenButtons = document.querySelectorAll('.toggle-column-btn.hidden');
-                hiddenButtons.forEach(button => {
-                    const colIndex = parseInt(button.dataset.colIndex);
-                    button.classList.remove('hidden');
-                    button.title = '隐藏此列';
-
-                    // 显示所有列
-                    const allRows = document.querySelectorAll('.table tr');
-                    allRows.forEach(row => {
-                        const cell = row.cells[colIndex];
-                        if (cell) {
-                            cell.style.display = '';
-                        }
-                    });
+                hiddenColumns.forEach(colIndex => {
+                    showColumn(colIndex);
+                    // 恢复按钮状态（重新启用并显示"隐藏"图标）
+                    const button = document.querySelector(`.toggle-column-btn[data-col-index="${colIndex}"]`);
+                    if (button) {
+                        button.title = '隐藏此列';
+                        button.disabled = false;
+                    }
                 });
+                // 清空隐藏状态并保存
+                hiddenColumns = [];
+                localStorage.setItem('hiddenColumns', JSON.stringify(hiddenColumns));
             });
         });
 
