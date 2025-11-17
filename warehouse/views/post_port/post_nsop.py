@@ -16,6 +16,8 @@ from django.db.models.functions import Round, Cast, Coalesce
 from django.core.exceptions import ObjectDoesNotExist
 from simple_history.utils import bulk_update_with_history
 from django.db import models
+from django.db.models.expressions import ExpressionWrapper
+import math  
 from django.db.models import (
     Case,
     CharField,
@@ -616,7 +618,6 @@ class PostNsop(View):
                 .order_by("destination", "container_number__container_number")
             )
         )()
-        
         pl_ids_list = [pl["id"] for pl in packinglist_data]
         check_map = await sync_to_async(
             lambda: {
@@ -1951,7 +1952,7 @@ class PostNsop(View):
         self, request: HttpRequest, warehouse:str
     ) -> tuple[str, dict[str, Any]]:
         target_date = datetime(2025, 10, 10)
-        shipment = await sync_to_async(list)(
+        shipment_list = await sync_to_async(list)(
             Shipment.objects.filter(
                 origin=warehouse,
                 fleet_number__isnull=True,
@@ -1978,8 +1979,74 @@ class PostNsop(View):
             )
             .order_by("appointment_datetime")
         )
+        # 在获取fleet列表后，添加具体柜号、仓点等详情
+        for fleet_obj in fleet:
+            detailed_shipments = []
+            
+            # 获取该车队的所有shipment
+            shipments = await sync_to_async(list)(fleet_obj.shipment.all())
+            
+            for shipment in shipments:
+                shipment_batch_number = shipment.shipment_batch_number
+                
+                packinglists = await sync_to_async(list)(
+                    PackingList.objects.filter(
+                        shipment_batch_number__shipment_batch_number=shipment_batch_number,
+                        container_number__order__offload_id__offload_at__isnull=True
+                    ).select_related('container_number')
+                    .values('container_number__container_number', 'destination')
+                    .annotate(
+                        total_cbm=Sum('cbm'),
+                        pallet_count=ExpressionWrapper(
+                            Sum('cbm') / 2, 
+                            output_field=FloatField()
+                        )
+                    )
+                )
+                pallets = await sync_to_async(list)(
+                    Pallet.objects.filter(
+                        shipment_batch_number__shipment_batch_number=shipment_batch_number,
+                        container_number__order__offload_id__offload_at__isnull=False
+                    ).select_related('container_number')
+                    .values('container_number__container_number', 'destination','is_dropped_pallet')
+                    .annotate(
+                        total_cbm=Sum('cbm'),
+                        pallet_count=Count('id')  # pallet的板数就是数量
+                    )
+                )
+                
+                # 构建统一格式的数据
+                for item in packinglists:
+                    detailed_shipments.append({
+                        "type": "EST",
+                        "container_number": item["container_number__container_number"],
+                        "destination": item["destination"],
+                        "cbm": float(item["total_cbm"]) if item["total_cbm"] else 0,
+                        "pallet_count": math.ceil(float(item["pallet_count"])) if item["pallet_count"] else 0,  # 向上取整
+                        "shipment_batch_number": shipment_batch_number if shipment_batch_number else "",
+                        "appointment_id": shipment.appointment_id,
+                        "scheduled_time": shipment.shipment_appointment.strftime("%Y-%m-%d %H:%M") if shipment.shipment_appointment else "",
+                        "note": shipment.note or "",
+                        "is_dropped_pallet": False,
+                    })
+                
+                for item in pallets:
+                    detailed_shipments.append({
+                        "type": "ACT",
+                        "container_number": item["container_number__container_number"],
+                        "destination": item["destination"],
+                        "cbm": float(item["total_cbm"]) if item["total_cbm"] else 0,
+                        "pallet_count": item["pallet_count"] or 0,
+                        "shipment_batch_number": shipment_batch_number if shipment_batch_number else "",
+                        "appointment_id": shipment.appointment_id,
+                        "scheduled_time": shipment.shipment_appointment.strftime("%Y-%m-%d %H:%M") if shipment.shipment_appointment else "",
+                        "note": shipment.note or "",
+                        "is_dropped_pallet": item["is_dropped_pallet"],
+                    })       
+            print('detailed_shipments',detailed_shipments)    
+            fleet_obj.detailed_shipments = json.dumps(detailed_shipments) 
         context = {
-            "shipment_list": shipment,
+            "shipment_list": shipment_list,
             "fleet_list": fleet,
         }
         return context
