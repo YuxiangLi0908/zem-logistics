@@ -715,7 +715,7 @@ class PostNsop(View):
         for _, row in grouped.iterrows():
             dest = row["Destination"]
             grouped_by_dest.setdefault(dest, []).append(row.to_dict())
-
+        raise ValueError(grouped_by_dest)
         # 如果只有一个 Destination，保持原来返回单 CSV
         if len(grouped_by_dest) == 1:
             df_single = pd.DataFrame.from_records(list(grouped_by_dest.values())[0])
@@ -730,13 +730,10 @@ class PostNsop(View):
             for dest, rows in grouped_by_dest.items():
                 df_dest = pd.DataFrame.from_records(rows)
                 
-                # 使用 BytesIO 而不是 StringIO
                 csv_buffer = io.BytesIO()
-                # 注意：to_csv 需要指定 encoding
                 df_dest.to_csv(csv_buffer, index=False, encoding='utf-8-sig')
                 csv_buffer.seek(0)
-                
-                # 确保文件名是安全的
+            
                 safe_dest = "".join(c for c in dest if c.isalnum() or c in (' ', '-', '_')).rstrip()
                 filename = f"{safe_dest}.csv" if safe_dest else f"destination_{hash(dest)}.csv"
                 
