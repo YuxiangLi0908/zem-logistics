@@ -405,6 +405,7 @@ class Accounting(View):
         wb = openpyxl.Workbook()
         ws = wb.active
         ws.title = f"{select_carrier}账单"
+        orders = []
         # 查找该月份，该供应商的所有费用
         # 先查账单时间满足月份的，就是实际提柜时间+1个月
         if confirm_phase == "delivery":
