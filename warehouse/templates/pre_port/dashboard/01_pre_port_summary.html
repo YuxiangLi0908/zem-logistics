@@ -1271,7 +1271,7 @@
             var filters = document.querySelectorAll('thead input[type="text"], thead select');
             var filterValues = Array.from(filters).map(function (filter) {
                 var colIdx = parseInt(filter.dataset.col, 10);
-                if (colIdx === 5) {  // 柜号列
+                if (colIdx === 6) {  // 柜号列
                     // 按空格分割多个关键词，过滤空字符串
                     return filter.value.toUpperCase().split(/\s+/).filter(Boolean);
                 } else {
@@ -1293,7 +1293,7 @@
                         var cellText = cell.textContent || cell.innerText;
                         var cellValue = cellText.toUpperCase().trim();
 
-                        if (colIdx === 5) {  // 柜号列多关键词搜索
+                        if (colIdx === 6) {  // 柜号列多关键词搜索
                             var matchFound = filterValueList.some(function (filterValue) {
                                 return cellValue.includes(filterValue) || filterValue.includes(cellValue);
                             });
