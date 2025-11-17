@@ -729,9 +729,18 @@ class PostNsop(View):
         with zipfile.ZipFile(zip_buffer, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
             for dest, rows in grouped_by_dest.items():
                 df_dest = pd.DataFrame.from_records(rows)
-                csv_buffer = io.StringIO()
-                df_dest.to_csv(csv_buffer, index=False)
-                zf.writestr(f"{dest}.csv", csv_buffer.getvalue())
+                
+                # 使用 BytesIO 而不是 StringIO
+                csv_buffer = io.BytesIO()
+                # 注意：to_csv 需要指定 encoding
+                df_dest.to_csv(csv_buffer, index=False, encoding='utf-8-sig')
+                csv_buffer.seek(0)
+                
+                # 确保文件名是安全的
+                safe_dest = "".join(c for c in dest if c.isalnum() or c in (' ', '-', '_')).rstrip()
+                filename = f"{safe_dest}.csv" if safe_dest else f"destination_{hash(dest)}.csv"
+                
+                zf.writestr(filename, csv_buffer.getvalue())
 
         zip_buffer.seek(0)
         zip_bytes = zip_buffer.getvalue()
