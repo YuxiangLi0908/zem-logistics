@@ -718,9 +718,12 @@ class PostNsop(View):
         # 导出 CSV
         # 按 Destination 分组
         grouped_by_dest = {}
+        tttt = []
         for _, row in grouped.iterrows():
             dest = row["Destination"]
+            tttt.append(dest)
             grouped_by_dest.setdefault(dest, []).append(row.to_dict())
+        
         grouped2 = grouped
 
         if len(grouped_by_dest) == 0:
