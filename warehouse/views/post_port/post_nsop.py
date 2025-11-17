@@ -2042,8 +2042,7 @@ class PostNsop(View):
                         "scheduled_time": shipment.shipment_appointment.strftime("%Y-%m-%d %H:%M") if shipment.shipment_appointment else "",
                         "note": shipment.note or "",
                         "is_dropped_pallet": item["is_dropped_pallet"],
-                    })       
-            print('detailed_shipments',detailed_shipments)    
+                    })         
             fleet_obj.detailed_shipments = json.dumps(detailed_shipments) 
         context = {
             "shipment_list": shipment_list,
