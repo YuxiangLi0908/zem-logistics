@@ -626,7 +626,6 @@ class PostNsop(View):
         )()
 
         # 展开数据：将ref_id按逗号分割成多行
-        data = []
         for item in packinglist_data:
             check_id = check_map.get(item["id"])
             if check_id:
@@ -702,7 +701,7 @@ class PostNsop(View):
             "total_cbm",
             "destination",
         ]
-
+        grouped1 = grouped
         grouped = grouped[keep].rename(
             {
                 "fba_id": "PRO",
@@ -710,17 +709,19 @@ class PostNsop(View):
                 "ref_id": "PO List (use , as separator) *",
                 "total_pcs": "Carton Count",
                 "total_cbm": "Total CBM",
+                "destination": "Destination",
                 "check_id": "Check Result",
             },
             axis=1,
         )
-
+        
         # 导出 CSV
         # 按 Destination 分组
         grouped_by_dest = {}
         for _, row in grouped.iterrows():
             dest = row["Destination"]
             grouped_by_dest.setdefault(dest, []).append(row.to_dict())
+        grouped2 = grouped
 
         if len(grouped_by_dest) == 0:
             raise ValueError('没有数据',len(grouped_by_dest))
