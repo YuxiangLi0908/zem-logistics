@@ -734,8 +734,11 @@ class PostNsop(View):
                 zf.writestr(f"{dest}.csv", csv_buffer.getvalue())
 
         zip_buffer.seek(0)
-        response = HttpResponse(zip_buffer, content_type="application/zip")
+        zip_bytes = zip_buffer.getvalue()
+
+        response = HttpResponse(zip_bytes, content_type="application/zip")
         response["Content-Disposition"] = "attachment; filename=PO_virtual_fleet.zip"
+        response["Content-Length"] = len(zip_bytes)
         return response
     
     async def handle_update_fleet_info(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
