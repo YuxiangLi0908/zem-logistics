@@ -2767,8 +2767,16 @@ class PostNsop(View):
             fba = amazon_fba_locations[destination]
             address = f"{fba['location']}, {fba['city']} {fba['state']}, {fba['zipcode']}"
             return address
-        else:
-            raise ValueError(f'找不到这个目的地的地址，请核实{destination}')
+        
+        # 如果直接查找不到，尝试添加Walmart-前缀查找
+        walmart_destination = f"Walmart-{destination}"
+        if walmart_destination in amazon_fba_locations:
+            fba = amazon_fba_locations[walmart_destination]
+            address = f"{fba['location']}, {fba['city']} {fba['state']}, {fba['zipcode']}"
+            return address
+        
+        # 如果两种方式都找不到，报错
+        raise ValueError(f'找不到这个目的地的地址，请核实{destination}（已尝试{walmart_destination}）')
         
     async def check_time_window_match(self, primary_group, shipment):
         """检查时间窗口是否匹配"""
