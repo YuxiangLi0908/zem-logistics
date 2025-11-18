@@ -593,7 +593,7 @@
                                         </td>
                                         <td>{{ p.payable_palletization_fee|default:0|floatformat:2 }}</td>
                                         <td>{{ p.payable_arrive_fee|default:0|floatformat:2 }}</td>
-                                        <td>{{ p.payable_carrier|default:0|floatformat:2 }}</td>
+                                        <td>{{ p.payable_carrier}}</td>
                                         <td>
                                             {% if p.payable_other_fee_data %}
                                             <div>
