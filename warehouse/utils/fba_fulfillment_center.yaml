@@ -1713,6 +1713,11 @@ WMM-ATL1:
   location: 6055 Derrick Industrial Pkwy
   state: GA
   zipcode: '30349'
+ATL1:
+  city: Atlanta
+  location: 6055 Derrick Industrial Pkwy
+  state: GA
+  zipcode: '30349'
 Walmart-ATL2:
   city: Carrollton
   location: 3101 N. Highway 27
