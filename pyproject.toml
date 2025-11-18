@@ -27,6 +27,7 @@ black = "^25.1.0"
 django-simple-history = "^3.8.0"
 zxing-cpp = "^2.3.0"
 aiohttp = "^3.13.2"
+xlrd="^2.0.1"
 
 
 [tool.poetry.group.dev.dependencies]
