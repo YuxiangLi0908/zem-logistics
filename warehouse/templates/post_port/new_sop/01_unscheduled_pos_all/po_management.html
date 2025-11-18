@@ -226,7 +226,7 @@
         <div style="display: flex; align-items: center; gap: 8px; margin-left: 10px;">
             <small style="color: #666; white-space: nowrap;">筛选结果:</small>
             <span id="filterResultStats" style="font-size: 0.85rem; color: var(--primary-color); font-weight: 600;">
-                总板数: <span id="totalPalletsCount">0</span> | 总CBM: <span id="totalCbmCount">0</span>
+                总板数: <span id="totalPalletsCount">0</span> | 总CBM: <span id="totalCbmCount">0</span> | 总重量:<span id="totalWeightCount">0</span>
             </span>
         </div>
     </div>
@@ -315,6 +315,9 @@
         <span style="font-weight: 600; color: #1565c0;">
             选中总CBM: <span id="selectedCbmCount">0.00</span>
         </span>
+        <span style="font-weight: 600; color: #7b1fa2;">
+            选中总重量: <span id="selectedWeightCount">0.00</span> lbs
+        </span>
     </div>
     <button class="action-btn btn-primary" onclick="exportSelectedCargos()">
         <i class="fas fa-file-export"></i> 导出选PO
@@ -385,6 +388,7 @@
                 <th data-sort="delivery_window">派送时间窗口</th>
                 <th data-sort="pallets">板数</th>
                 <th data-sort="cbm">CBM</th>
+                <th data-sort="weight">重量</th>
                 <th data-sort="note">备注</th>
             </tr>
         </thead>
@@ -394,6 +398,7 @@
                 data-destination="{{ cargo.destination }}" 
                 data-pallets="{% if cargo.label == 'ACT' %}{{ cargo.total_n_pallet_act|default:0 }}{% else %}{{ cargo.total_n_pallet_est|default:0 }}{% endif %}" 
                 data-cbm="{{ cargo.total_cbm|default:0 }}"
+                data-weight="{{ cargo.total_weight_lbs|default:0 }}"
                 data-ref-ids="{{ cargo.ref_ids }}"
                 data-fba-ids="{{ cargo.fba_ids }}"
                 data-delivery-method="{{ cargo.custom_delivery_method }}"
@@ -454,6 +459,9 @@
                 </td>
                 <td>
                     <span class="status-badge status-expired">{{ cargo.total_cbm }}</span>
+                </td>
+                <td>
+                    <span class="status-badge status-expired">{{ cargo.total_weight_lbs }}</span>
                 </td>
                 <td>
                     {{ cargo.note|default_if_none:"" }}
@@ -683,20 +691,25 @@
         
         let totalPallets = 0;
         let totalCbm = 0;
+        let totalWeight = 0;
         
         visibleRows.forEach(row => {
             const pallets = parseFloat(row.getAttribute('data-pallets')) || 0;
             const cbm = parseFloat(row.getAttribute('data-cbm')) || 0; // CBM列是第11列
+            const weight = parseFloat(row.getAttribute('data-weight')) || 0;
             
             totalPallets += pallets;
             totalCbm += cbm;
+            totalWeight += weight;
         });
         
         const totalPalletsCount = document.getElementById('totalPalletsCount');
         const totalCbmCount = document.getElementById('totalCbmCount');
+        const totalWeightCount = document.getElementById('totalWeightCount');
         
         if (totalPalletsCount) totalPalletsCount.textContent = Math.round(totalPallets);
         if (totalCbmCount) totalCbmCount.textContent = totalCbm.toFixed(2);
+        if (totalWeightCount) totalWeightCount.textContent = totalWeight.toFixed(2);
     }
 
     // 目的地筛选函数
@@ -818,25 +831,32 @@
         // 计算选中PO的总板数和总CBM
         let totalSelectedPallets = 0;
         let totalSelectedCbm = 0;
+        let totalSelectedWeight = 0;
         
         selectedCheckboxes.forEach(checkbox => {
             const row = checkbox.closest('tr');
             const pallets = parseFloat(row.getAttribute('data-pallets')) || 0;
             const cbm = parseFloat(row.getAttribute('data-cbm')) || 0;
+            const weight = parseFloat(row.getAttribute('data-weight')) || 0;
             
             totalSelectedPallets += pallets;
             totalSelectedCbm += cbm;
+            totalSelectedWeight += weight;
         });
         
         // 更新选中统计显示 - 确保这部分代码存在
         const selectedPalletsCountEl = document.getElementById('selectedPalletsCount');
         const selectedCbmCountEl = document.getElementById('selectedCbmCount');
+        const selectedWeightCountEl = document.getElementById('selectedWeightCount');
         
         if (selectedPalletsCountEl) {
             selectedPalletsCountEl.textContent = Math.round(totalSelectedPallets);
         }
         if (selectedCbmCountEl) {
             selectedCbmCountEl.textContent = totalSelectedCbm.toFixed(2);
+        }
+        if (selectedWeightCountEl) {
+            selectedWeightCountEl.textContent = totalSelectedWeight.toFixed(2);
         }
         // 更新全选框的状态
         updateSelectAllCheckbox();
