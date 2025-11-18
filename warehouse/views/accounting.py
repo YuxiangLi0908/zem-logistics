@@ -1774,6 +1774,8 @@ class Accounting(View):
         customer: str = None,
         warehouse: str = None,
     ) -> tuple[Any, Any]:
+        if warehouse == "CA-91789":
+            warehouse = "LA-91789"
         # 库内操作费
         current_date = datetime.now().date()
         start_date = (
