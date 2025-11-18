@@ -341,6 +341,20 @@ class PrePortDash(View):
             tab: str = None,
     ) -> tuple[Any, Any]:
         current_date = datetime.now().date()
+
+        if warehouse == "all" or warehouse =='NJ,SAV,LA,MO,TX':
+            warehouse = ["NJ","SAV","LA","MO","TX"]
+        elif warehouse == "NJ":
+            warehouse = ["NJ"]
+        elif warehouse == "SAV":
+            warehouse = ["SAV"]
+        elif warehouse == "LA":
+            warehouse = ["LA"]
+        elif warehouse == "MO":
+            warehouse = ["MO"]
+        elif warehouse == "TX":
+            warehouse = ["TX"]
+
         criteria = models.Q(
             cancel_notification=False,
             retrieval_id__retrieval_destination_area__in=warehouse,
@@ -400,7 +414,7 @@ class PrePortDash(View):
             )
             .order_by("priority", "sort_time")
         )
-        warehouse = ''.join(warehouse)
+        warehouse = ','.join(warehouse)
         # 转换回字符串格式供前端使用
         context = {
             "customers": customers,
