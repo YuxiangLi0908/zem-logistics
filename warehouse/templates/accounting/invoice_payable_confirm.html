@@ -256,27 +256,6 @@
                     <div class="header-actions">
                         <h5><b>提拆账单</b></h5>
                     </div>
-                    <div class="export-options">
-                        <h6 style="margin-right: 15px;"><b>导出选项:</b></h6>
-                        <form method="post" class="export-form">
-                            {% csrf_token %}
-                            <b style="margin-right: 5px; margin-left: 10px;">etd时间:</b>
-                            <input type="date" name="start_date_export" value="{{ start_date_export }}">
-                            <input type="date" name="end_date_export" value="{{ end_date_export }}"
-                                   style="margin-right: 5px;">
-
-                            <label>供应商:</label>
-                            <select name="select_carrier">
-                                {% for key,value in pickup_carriers.items %}
-                                <option value="{{ key }}">{{ value }}</option>
-                                {% endfor %}
-                            </select>
-
-                            <input type="hidden" name="step" value="export_carrier_payable">
-                            <input type="hidden" name="confirm_phase" value="pickup">
-                            <button type="submit" class="btn btn-info btn-sm">导出Excel</button>
-                        </form>
-                    </div>
                 </div>
 
                 <div class="sub-tabs">
@@ -407,6 +386,40 @@
 
                     <div id="pick-confirmed" class="tab-content">
                         {% if pick_confirmed_orders %}
+                        <div class="export-controls"
+                             style="margin: 10px 0; display: flex; gap: 15px; align-items: center;">
+                            <h6 style="margin: 0;"><b>按条件导出：</b></h6>
+                            <form method="post" class="export-filter-form"
+                                  style="display: flex; gap: 10px; align-items: center;">
+                                {% csrf_token %}
+                                <!-- ETD月份选择器 -->
+                                <div>
+                                    <label for="etd_month">ETD时间：</label>
+                                    <input type="date" name="start_date_export" value="{{ start_date_export }}">
+                                    <input type="date" name="end_date_export" value="{{ end_date_export }}"
+                                   style="margin-right: 5px;">
+                                </div>
+
+                                <!-- 供应商筛选（复用现有供应商数据） -->
+                                <div>
+                                    <label>供应商：</label>
+                                    <select name="export_carrier">
+                                        {% for key,value in pickup_carriers.items %}
+                                            <option value="{{ key }}">{{ value }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+
+                                <!-- 隐藏参数：标识导出的是“已确认”表格 -->
+                                <input type="hidden" name="step" value="export_confirmed_by_month_carrier">
+                                <input type="hidden" name="confirm_phase" value="pickup">
+
+                                <!-- 导出按钮 -->
+                                <button type="submit" class="btn btn-info btn-sm">
+                                    导出筛选结果
+                                </button>
+                            </form>
+                        </div>
                         <div style="overflow-x: auto;">
                             <table class="table" id="pick-confirmed-table">
                                 <thead>
@@ -729,7 +742,7 @@
                                 {% endfor %}
                             </select>
 
-                            <input type="hidden" name="step" value="export_carrier_payable">
+                            <input type="hidden" name="step" value="export_carrier_payable_delivery">
                             <input type="hidden" name="confirm_phase" value="delivery">
                             <button type="submit" class="btn btn-warning btn-sm">导出Excel</button>
                         </form>
