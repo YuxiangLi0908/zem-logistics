@@ -495,6 +495,7 @@ PORT_TO_WAREHOUSE_AREA = {
     "GCT": "SAV",
     "TTI": "LA",
     "APM Terminals": "NJ",
+    "Maher Terminals": "NJ",
     "PIER A": "LA",
     "FMS": "LA",
     "NYCT": "NJ",

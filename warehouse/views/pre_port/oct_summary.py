@@ -356,6 +356,7 @@ class OctSummaryView(View):
                     output_field=CharField()
                 ),
                 retrieval_note=F("retrieval_id__note"),
+                status=F("status"),
                 retrieval_delegation_status = F("retrieval_id__retrieval_delegation_status"),
                 actual_release_status = F("retrieval_id__actual_release_status"),
                 planned_release_time = F("retrieval_id__planned_release_time"),
