@@ -2262,6 +2262,9 @@ class Accounting(View):
                 "invoice_id",
             )
         )
+        for warehouse_pending_order in warehouse_pending_orders:
+            if warehouse_pending_order["retrieval_id__retrieval_destination_area"] == "SAV":
+                warehouse_pending_order["payable_carrier"] = "大方广"
         warehouse_confirmed_orders = (
             Order.objects.select_related(
                 "customer_name", "container_number", "retrieval_id", "invoice_id"
