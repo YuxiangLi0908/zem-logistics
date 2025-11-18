@@ -1,15 +1,41 @@
 <!-- 已排约标签页 -->
  {% load custom_filters %}
- 
+<style>
+    .search-row {
+        background-color: #f8f9fa;
+    }
+    .search-row td {
+        padding: 5px !important;
+        border-bottom: 1px solid #dee2e6;
+    }
+    .header-search {
+        width: 100%;
+        padding: 4px 8px;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+        font-size: 0.8rem;
+    }
+    .highlight-color-1 {
+        background: yellow;
+        font-weight: bold;
+    }
+
+    .highlight-color-2 {
+        background: #8ef5a6;
+        font-weight: bold;
+    }
+
+    .highlight-color-3 {
+        background: #ffb4b4;
+        font-weight: bold;
+    }
+
+    .highlight-color-4 {
+        background: #b4c9ff;
+        font-weight: bold;
+    }
+</style>
 <div class="content-section" id="scheduled-section">
-    <div class="search-box">
-        <div style="display: flex; gap: 10px; flex: 1; align-items: center;">
-            <input type="text" class="search-input" placeholder="搜索预约号、目的地..." id="scheduledSearch">
-            <button class="search-btn" id="searchScheduledBtn">
-                <i class="fas fa-search"></i> 搜索
-            </button>
-        </div>
-    </div>
 
     <div class="table-container">
         <table class="data-table">
@@ -27,6 +53,19 @@
                     <th>CBM</th>
                     <th>备注</th>
                     <th>操作</th>
+                </tr>
+                <tr class="search-row">
+                    <td><input type="text" class="header-search" placeholder="搜索预约批次" data-column="0"></td>
+                    <td><input type="text" class="header-search" placeholder="搜索预约号" data-column="1"></td>
+                    <td><input type="text" class="header-search" placeholder="搜索目的地" data-column="2"></td>
+                    <td><input type="text" class="header-search" placeholder="搜索预约时间" data-column="3"></td>
+                    <td><input type="text" class="header-search" placeholder="搜索装车类型" data-column="4"></td>
+                    <td><input type="text" class="header-search" placeholder="搜索柜号" data-column="5"></td>
+                    <td><input type="text" class="header-search" placeholder="搜索REF ID" data-column="6"></td>
+                    <td><input type="text" class="header-search" placeholder="搜索FBA ID" data-column="7"></td>
+                    <td><input type="text" class="header-search" placeholder="搜索板数" data-column="8"></td>
+                    <td><input type="text" class="header-search" placeholder="搜索CBM" data-column="9"></td>
+                    <td><input type="text" class="header-search" placeholder="搜索备注" data-column="10"></td>
                 </tr>
             </thead>
             <tbody>
@@ -219,47 +258,189 @@
     </div>
 </div>
 <script>
-// 已排约页面特定的JavaScript
-document.addEventListener('DOMContentLoaded', function() {
-    // 已排约页面的特定功能可以在这里添加
-});
-// 打开修改约模态框
-document.querySelectorAll('.open-edit-modal').forEach(btn => {
-    btn.addEventListener('click', function() {
-        const appointmentId = this.dataset.appointmentId;
-        const scheduledTime = this.dataset.scheduledTime.replace(' ', 'T');
-        const pickupTime = this.dataset.pickupTime ? this.dataset.pickupTime.replace(' ', 'T') : '';
-        const pickupNumber = this.dataset.pickupNumber || '';
-        const destination = this.dataset.destination;
-        const loadType = this.dataset.loadType;
-        const origin = this.dataset.origin;
+    document.addEventListener('DOMContentLoaded', function() {
+        const searchInputs = document.querySelectorAll('#scheduled-section .header-search');
+        const rows = document.querySelectorAll('#scheduled-section tbody tr');
 
-        document.getElementById('editModalAppointmentId').value = appointmentId;
-        document.getElementById('editModalAppointmentInput').value = appointmentId;
-        document.getElementById('editModalScheduledTime').value = scheduledTime;
-        document.getElementById('editModalPickupTime').value = pickupTime;
-        document.getElementById('editModalPickupNumber').value = pickupNumber;
+        let searchState = {};   // 保存每列搜索值
+        let searchTimer;
         
-        document.getElementById('editModalDestination').value = destination;
-        document.getElementById('editModalLoadType').value = loadType;
-        document.getElementById('editModalOrigin').value = origin;
+        function handleScheduledSearchForVisible(rows, searchTerm) {
+            // 先找出当前所有 "仍在显示" 的组 ID
+            const visibleGroups = new Set();
+            rows.forEach(r => {
+                if (r.style.display !== 'none') {
+                    const g = r.dataset.shipmentGroup;
+                    if (g) visibleGroups.add(g);
+                }
+            });
 
-        document.getElementById('editAppointmentModal').style.display = 'block';
+            // 运行你原来的搜索逻辑
+            const groups = new Set();
+            rows.forEach(tr => {
+                const groupId = tr.dataset.shipmentGroup;
+                if (!groupId) return;
+
+                // ❗不在可见组的，先过滤掉，不参与本轮搜索
+                if (!visibleGroups.has(groupId)) return;
+
+                const firstRow = document.querySelector(`tr[data-shipment-group="${groupId}"]`);
+                if (!firstRow) return;
+
+                const text = firstRow.innerText.toLowerCase();
+                if (text.includes(searchTerm)) groups.add(groupId);
+            });
+
+            // 最终只隐藏“本轮 AND 结果中不包括的组”
+            rows.forEach(tr => {
+                const groupId = tr.dataset.shipmentGroup;
+                if (!groupId) return;
+
+                if (!groups.has(groupId)) {
+                    tr.style.display = 'none';
+                }
+            });
+        }
+
+        // 多列 AND 条件搜索
+        function applyMultiFilter() {
+            // 每次搜索前清空高亮
+            clearHighlights();
+            // 收集每列的搜索内容
+            searchState = {};
+            searchInputs.forEach(input => {
+                const col = input.dataset.column;
+                const val = input.value.trim().toLowerCase();
+                if (val) searchState[col] = val;
+            });
+
+            // 无任何搜索 → 全部显示
+            if (Object.keys(searchState).length === 0) {
+                rows.forEach(r => r.style.display = '');
+                return;
+            }
+
+            // 初次状态：第一次搜索以所有行作为基础
+            let firstRound = true;
+            let searchTerms = Object.values(searchState);
+
+            // 逐个搜索条件依次用你的 handleScheduledSearch 来过滤
+            for (let term of searchTerms) {
+                if (firstRound) {
+                    // 第一次搜索基于所有行
+                    handleScheduledSearch(rows, term);
+                    firstRound = false;
+                } else {
+                    // 后续搜索基于当前已显示的行（多列 AND）
+                    handleScheduledSearchForVisible(rows, term);
+                }
+            }
+            // 执行高亮（只处理可见行）
+            applyHighlights(searchTerms);
+        }
+
+        // 输入框监听
+        searchInputs.forEach(input => {
+            input.addEventListener('input', function () {
+                clearTimeout(searchTimer);
+                searchTimer = setTimeout(applyMultiFilter, 250);
+            });
+
+            input.addEventListener('keypress', function (e) {
+                if (e.key === 'Enter') {
+                    clearTimeout(searchTimer);
+                    applyMultiFilter();
+                }
+            });
+        });
     });
-});
+    
+    function handleScheduledSearch(rows, searchTerm) {
+        const groups = new Set();
+        rows.forEach(tr => {
+            const groupId = tr.dataset.shipmentGroup;
+            if (!groupId) return;
 
-// 关闭弹框
-function closeEditModal() {
-    document.getElementById('editAppointmentModal').style.display = 'none';
-}
+            const firstRow = document.querySelector(`tr[data-shipment-group="${groupId}"]`);
+            if (!firstRow) return;
 
-// 提交表单
-document.getElementById('editAppointmentForm').addEventListener('submit', function(e) {
-    if (!confirm('确定保存修改吗？')) {
-        e.preventDefault();
-        return;
+            const text = firstRow.innerText.toLowerCase();
+            if (text.includes(searchTerm)) groups.add(groupId);
+        });
+
+        rows.forEach(tr => {
+            const groupId = tr.dataset.shipmentGroup;
+            if (!groups.has(groupId)) tr.style.display = 'none';
+        });
     }
-});
+    function clearHighlights() {
+        document.querySelectorAll('#scheduled-section tbody tr td').forEach(td => {
+            td.innerHTML = td.innerText;  // 恢复内容
+        });
+    }
+
+    function applyHighlights(searchTerms) {
+        const rows = document.querySelectorAll('#scheduled-section tbody tr');
+
+        rows.forEach(row => {
+            if (row.style.display === 'none') return;  // 隐藏行不做高亮
+
+            row.querySelectorAll('td').forEach(td => {
+                let html = td.innerText;
+
+                searchTerms.forEach((term, index) => {
+                    if (!term) return;
+
+                    // 每个搜索词一个不同的颜色 class
+                    const colorClass = `highlight-color-${(index % 4) + 1}`;
+
+                    // 构造安全的正则
+                    const regex = new RegExp(`(${term})`, 'ig');
+
+                    html = html.replace(regex, `<span class="${colorClass}">$1</span>`);
+                });
+
+                td.innerHTML = html;
+            });
+        });
+    }
+    // 打开修改约模态框
+    document.querySelectorAll('.open-edit-modal').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const appointmentId = this.dataset.appointmentId;
+            const scheduledTime = this.dataset.scheduledTime.replace(' ', 'T');
+            const pickupTime = this.dataset.pickupTime ? this.dataset.pickupTime.replace(' ', 'T') : '';
+            const pickupNumber = this.dataset.pickupNumber || '';
+            const destination = this.dataset.destination;
+            const loadType = this.dataset.loadType;
+            const origin = this.dataset.origin;
+
+            document.getElementById('editModalAppointmentId').value = appointmentId;
+            document.getElementById('editModalAppointmentInput').value = appointmentId;
+            document.getElementById('editModalScheduledTime').value = scheduledTime;
+            document.getElementById('editModalPickupTime').value = pickupTime;
+            document.getElementById('editModalPickupNumber').value = pickupNumber;
+            
+            document.getElementById('editModalDestination').value = destination;
+            document.getElementById('editModalLoadType').value = loadType;
+            document.getElementById('editModalOrigin').value = origin;
+
+            document.getElementById('editAppointmentModal').style.display = 'block';
+        });
+    });
+
+    // 关闭弹框
+    function closeEditModal() {
+        document.getElementById('editAppointmentModal').style.display = 'none';
+    }
+
+    // 提交表单
+    document.getElementById('editAppointmentForm').addEventListener('submit', function(e) {
+        if (!confirm('确定保存修改吗？')) {
+            e.preventDefault();
+            return;
+        }
+    });
 
 
 </script>
