@@ -963,7 +963,6 @@ function initializeTooltips() {
         });
     }
 
-    // 备用：普通行搜索
     function isRowMatch(row, searchTerm) {
         return Array.from(row.querySelectorAll('td')).some(td => 
             td.textContent.toLowerCase().includes(searchTerm)
@@ -1217,7 +1216,7 @@ function initializeTooltips() {
                 if (e.key === 'Enter') applySearch('unscheduled');
             });
         }
-        
+    
         if (readySearch) {
             readySearch.addEventListener('keypress', function(e) {
                 if (e.key === 'Enter') applySearch('ready');

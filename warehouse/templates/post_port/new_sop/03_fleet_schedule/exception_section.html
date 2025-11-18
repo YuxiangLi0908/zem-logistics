@@ -1,13 +1,38 @@
 <!-- exception_section.html -->
+ <style>
+    .search-row {
+        background-color: #f8f9fa;
+    }
+    .search-row td {
+        padding: 5px !important;
+        border-bottom: 1px solid #dee2e6;
+    }
+    .header-search {
+        width: 100%;
+        padding: 4px 8px;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+        font-size: 0.8rem;
+    }
+    
+    .highlight-color-1 {
+        background: yellow;
+        font-weight: bold;
+    }
+    .highlight-color-2 {
+        background: #8ef5a6;
+        font-weight: bold;
+    }
+    .highlight-color-3 {
+        background: #ffb4b4;
+        font-weight: bold;
+    }
+    .highlight-color-4 {
+        background: #b4c9ff;
+        font-weight: bold;
+    }
+</style>
 <div class="content-section" id="exception-section">
-    <div class="search-box">
-        <div style="display: flex; gap: 10px; flex: 1; align-items: center;">
-            <input type="text" class="search-input" placeholder="搜索预约批次、Appointment ID、异常车次、目的仓库..." id="exceptionSearch">
-            <button class="search-btn" id="searchExceptionBtn">
-                <i class="fas fa-search"></i> 搜索
-            </button>
-        </div>
-    </div>
 
     <div class="table-container">
         <table class="data-table">
@@ -24,6 +49,19 @@
                     <th>总重lbs</th>
                     <th>异常说明</th>
                     <th>处理操作</th>
+                </tr>
+                <tr class="search-row">
+                    <td><input type="text" class="header-search" placeholder="搜索预约批次" data-column="0"></td>
+                    <td><input type="text" class="header-search" placeholder="搜索Appointment ID" data-column="1"></td>
+                    <td><input type="text" class="header-search" placeholder="搜索异常车次" data-column="2"></td>
+                    <td><input type="text" class="header-search" placeholder="搜索目的仓库" data-column="3"></td>
+                    <td><input type="text" class="header-search" placeholder="搜索预约时间" data-column="4"></td>
+                    <td><input type="text" class="header-search" placeholder="搜索出库时间" data-column="5"></td>
+                    <td><input type="text" class="header-search" placeholder="搜索CBM" data-column="6"></td>
+                    <td><input type="text" class="header-search" placeholder="搜索卡板数" data-column="7"></td>
+                    <td><input type="text" class="header-search" placeholder="搜索总重" data-column="8"></td>
+                    <td><input type="text" class="header-search" placeholder="搜索异常说明" data-column="9"></td>
+                    <td><!-- 操作列不需要搜索框 --></td>
                 </tr>
             </thead>
             <tbody>
@@ -81,43 +119,186 @@
 <script>
     // 异常预约搜索功能
     document.addEventListener('DOMContentLoaded', function() {
-        const searchExceptionBtn = document.getElementById('searchExceptionBtn');
-        const exceptionSearch = document.getElementById('exceptionSearch');
+        initExceptionSearch();
+    });
+    let exceptionSearchTimer;
+    let exceptionSearchState = {};
+
+     function initExceptionSearch() {
+        const searchInputs = document.querySelectorAll('#exception-section .header-search');
         
-        if (searchExceptionBtn) {
-            searchExceptionBtn.addEventListener('click', function() {
-                applyExceptionSearch();
+        searchInputs.forEach(input => {
+            input.addEventListener('input', function() {
+                clearTimeout(exceptionSearchTimer);
+                exceptionSearchTimer = setTimeout(applyExceptionMultiFilter, 250);
             });
-        }
-        
-        if (exceptionSearch) {
-            exceptionSearch.addEventListener('keypress', function(e) {
+
+            input.addEventListener('keypress', function(e) {
                 if (e.key === 'Enter') {
-                    applyExceptionSearch();
+                    clearTimeout(exceptionSearchTimer);
+                    applyExceptionMultiFilter();
                 }
             });
-        }
-    });
+        });
+    }
 
-    function applyExceptionSearch() {
-        const searchTerm = document.getElementById('exceptionSearch').value.trim().toLowerCase();
-        const rows = document.querySelectorAll('#exception-section .data-table tbody tr');
+    // 多列搜索函数
+    function applyExceptionMultiFilter() {
+        console.log('执行异常预约搜索');
         
-        let hasResults = false;
+        // 先清除高亮
+        clearExceptionHighlights();
         
-        rows.forEach(row => {
-            const text = row.textContent.toLowerCase();
-            const shouldShow = text.includes(searchTerm);
-            row.style.display = shouldShow ? '' : 'none';
+        const searchInputs = document.querySelectorAll('#exception-section .header-search');
+        const rows = document.querySelectorAll('#exception-section tbody tr');
+        
+        // 收集搜索条件
+        exceptionSearchState = {};
+        searchInputs.forEach(input => {
+            const col = input.dataset.column;
+            const val = input.value.trim().toLowerCase();
+            if (val) exceptionSearchState[col] = val;
+        });
+
+        const searchTerms = Object.values(exceptionSearchState);
+
+        // 没有搜索条件时显示所有行
+        if (searchTerms.length === 0) {
+            rows.forEach(r => r.style.display = '');
+            return;
+        }
+
+        let firstRound = true;
+
+        // 应用AND搜索逻辑
+        for (let term of searchTerms) {
+            if (firstRound) {
+                handleExceptionSearch(rows, term);
+                firstRound = false;
+            } else {
+                handleExceptionSearchForVisible(rows, term);
+            }
+        }
+
+        // 应用高亮
+        applyExceptionHighlights(searchTerms);
+    }
+
+    // 异常预约搜索处理
+    function handleExceptionSearch(rows, searchTerm) {
+        const matchedRows = new Set();
+        
+        rows.forEach(tr => {
+            const cells = tr.querySelectorAll('td');
+            let isMatch = false;
             
-            if (shouldShow) {
-                hasResults = true;
+            // 检查每个单元格（跳过操作列）
+            for (let i = 0; i < cells.length - 1; i++) {
+                const cellText = cells[i].textContent.toLowerCase();
+                if (cellText.includes(searchTerm)) {
+                    isMatch = true;
+                    break;
+                }
+            }
+            
+            if (isMatch) {
+                matchedRows.add(tr);
             }
         });
+
+        // 设置显示状态
+        rows.forEach(tr => {
+            tr.style.display = matchedRows.has(tr) ? '' : 'none';
+        });
+    }
+
+    function handleExceptionSearchForVisible(rows, searchTerm) {
+        const visibleRows = Array.from(rows).filter(r => r.style.display !== 'none');
+        const matchedRows = new Set();
         
-        if (!hasResults && searchTerm) {
-            console.log('没有找到匹配的异常预约');
-        }
+        visibleRows.forEach(tr => {
+            const cells = tr.querySelectorAll('td');
+            let isMatch = false;
+            
+            // 检查每个单元格（跳过操作列）
+            for (let i = 0; i < cells.length - 1; i++) {
+                const cellText = cells[i].textContent.toLowerCase();
+                if (cellText.includes(searchTerm)) {
+                    isMatch = true;
+                    break;
+                }
+            }
+            
+            if (isMatch) {
+                matchedRows.add(tr);
+            }
+        });
+
+        // 设置显示状态
+        rows.forEach(tr => {
+            if (tr.style.display !== 'none') {
+                tr.style.display = matchedRows.has(tr) ? '' : 'none';
+            }
+        });
+    }
+
+    // 高亮功能
+    function clearExceptionHighlights() {
+        document.querySelectorAll('#exception-section tbody tr td').forEach(td => {
+            const originalText = td.getAttribute('data-original-text');
+            if (originalText) {
+                td.textContent = originalText;
+                td.removeAttribute('data-original-text');
+            }
+        });
+    }
+
+    function applyExceptionHighlights(searchTerms) {
+        if (searchTerms.length === 0) return;
+        
+        const rows = document.querySelectorAll('#exception-section tbody tr');
+        
+        rows.forEach(row => {
+            if (row.style.display === 'none') return;
+            
+            const cells = row.querySelectorAll('td');
+            cells.forEach((cell, cellIndex) => {
+                // 跳过操作列（最后一列）
+                if (cellIndex >= cells.length - 1) return;
+                
+                let cellText = cell.textContent;
+                
+                // 保存原始文本
+                if (!cell.hasAttribute('data-original-text')) {
+                    cell.setAttribute('data-original-text', cellText);
+                }
+                
+                let highlightedHtml = cellText;
+                
+                searchTerms.forEach((term, termIndex) => {
+                    if (!term) return;
+                    
+                    const colorClass = `highlight-color-${(termIndex % 4) + 1}`;
+                    const regex = new RegExp(`(${escapeRegExp(term)})`, 'gi');
+                    
+                    highlightedHtml = highlightedHtml.replace(regex, `<span class="${colorClass}">$1</span>`);
+                });
+                
+                cell.innerHTML = highlightedHtml;
+            });
+        });
+    }
+
+    // 转义正则表达式特殊字符
+    function escapeRegExp(string) {
+        return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+
+    // 清除搜索
+    function clearExceptionSearch() {
+        const searchInputs = document.querySelectorAll('#exception-section .header-search');
+        searchInputs.forEach(input => input.value = '');
+        applyExceptionMultiFilter();
     }
 
     // 打开换约模态框
