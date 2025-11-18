@@ -15,6 +15,12 @@ class Vessel(models.Model):
     voyage = models.CharField(max_length=100, blank=True, null=True)
     vessel_etd = models.DateTimeField(null=True, blank=True)
     vessel_eta = models.DateTimeField(null=True, blank=True)
+    #Terminal 49返回数据
+    origin_port_t49 = models.CharField(max_length=255, null=True, blank=True)
+    destination_port_t49 = models.CharField(max_length=255, null=True, blank=True)
+    vessel_t49 = models.CharField(max_length=100, blank=True, null=True)
+    vessel_etd_t49 = models.DateTimeField(null=True, blank=True)
+    vessel_eta_t49 = models.DateTimeField(null=True, blank=True)
     vessel_imo = models.CharField(max_length=100, blank=True, null=True)
     history = HistoricalRecords()
 

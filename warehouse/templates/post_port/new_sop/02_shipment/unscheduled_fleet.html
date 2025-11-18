@@ -1,13 +1,47 @@
 {% load custom_filters %}
+<style>
+    .highlight1 {
+        background-color: yellow;
+        color: black;
+        padding: 0 2px;
+        border-radius: 3px;
+    }
+    .highlight2 {
+        background-color: #a3d5ff;
+        color: black;
+        padding: 0 2px;
+        border-radius: 3px;
+    }
+    .highlight3 {
+        background-color: #b7f7c8;
+        color: black;
+        padding: 0 2px;
+        border-radius: 3px;
+    }
+    .search-row {
+        background-color: #f8f9fa !important;
+    }
 
+    .search-row td, 
+    .search-row th {
+        padding: 5px !important;
+        border-bottom: 1px solid #dee2e6 !important;
+    }
+
+    /* 搜索框样式 */
+    .col-search-input {
+        width: 100%;
+        padding: 4px 8px;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+        font-size: 0.8rem;
+        background: white;
+    }
+</style>
 <!-- 未排车批次标签页 -->
 <div class="content-section" id="unscheduled-fleet-section">
     <div class="search-box">
         <div style="display: flex; gap: 10px; flex: 1; align-items: center;">
-            <input type="text" class="search-input" placeholder="搜索预约批次、目的仓库、预约号..." id="unscheduledFleetSearch">
-            <button class="search-btn" id="searchUnscheduledFleetBtn">
-                <i class="fas fa-search"></i> 搜索
-            </button>
             <button class="btn btn-primary" id="confirmScheduleBtn" style="margin-left: auto;">
                 <i class="fas fa-truck"></i> 确认排车
             </button>
@@ -30,6 +64,18 @@
                         <th>总CBM</th>
                         <th>总卡板数</th>
                         <th>备注</th>
+                    </tr>
+                    <tr class="search-row">
+                        <td></td>
+                        <td><input data-col="1" class="col-search-input" placeholder="搜索预约批次"></td>
+                        <td><input data-col="2" class="col-search-input" placeholder="搜索目的仓库"></td>
+                        <td><input data-col="3" class="col-search-input" placeholder="搜索预约号"></td>
+                        <td><input data-col="4" class="col-search-input" placeholder="搜索送仓时间"></td>
+                        <td><input data-col="5" class="col-search-input" placeholder="搜索提货时间"></td>
+                        <td><input data-col="6" class="col-search-input" placeholder="搜索重量"></td>
+                        <td><input data-col="7" class="col-search-input" placeholder="搜索CBM"></td>
+                        <td><input data-col="8" class="col-search-input" placeholder="搜索板数"></td>
+                        <td><input data-col="9" class="col-search-input" placeholder="搜索备注"></td>
                     </tr>
                 </thead>
                 <tbody>
@@ -219,230 +265,290 @@
 </div>
 
 <script>
-// 未排车页面特定的JavaScript
-document.addEventListener('DOMContentLoaded', function() {
-    // 搜索功能
-    document.getElementById('searchUnscheduledFleetBtn').addEventListener('click', function() {
-        applyFleetSearch('unscheduled-fleet');
-    });
-
-    // 确认排车按钮
-    document.getElementById("confirmScheduleBtn").addEventListener("click", function() {
-        const checkboxes = document.querySelectorAll('#unscheduled-fleet-section input[name="is_appointment_added"]:checked');
-        if (checkboxes.length === 0) {
-            alert("请先选择至少一条待排车批次！");
-            return;
-        }
-
-        const selectedIds = [];
-        checkboxes.forEach(cb => {
-            const hiddenInput = cb.closest('tr').querySelector('input[name="shipment_ids"]');
-            if (hiddenInput && hiddenInput.value) {
-                selectedIds.push(hiddenInput.value);
+    // 未排车页面特定的JavaScript
+    document.addEventListener('DOMContentLoaded', function() {
+        document.querySelectorAll('#unscheduled-fleet-section .col-search-input')
+            .forEach(input => {
+                input.addEventListener('input', applyUnscheduledColumnSearch);
+            });
+        // 确认排车按钮
+        document.getElementById("confirmScheduleBtn").addEventListener("click", function() {
+            const checkboxes = document.querySelectorAll('#unscheduled-fleet-section input[name="is_appointment_added"]:checked');
+            if (checkboxes.length === 0) {
+                alert("请先选择至少一条待排车批次！");
+                return;
             }
-        });
 
-        // 设置选中的ID到隐藏字段
-        document.getElementById('fleetModalSelectedIds').value = JSON.stringify(selectedIds);
-        
-        // 将选中的记录信息填入弹窗表格
-        const tbody = document.getElementById("fleetShipmentTableBody");
-        tbody.innerHTML = ""; // 清空旧内容
+            const selectedIds = [];
+            checkboxes.forEach(cb => {
+                const hiddenInput = cb.closest('tr').querySelector('input[name="shipment_ids"]');
+                if (hiddenInput && hiddenInput.value) {
+                    selectedIds.push(hiddenInput.value);
+                }
+            });
 
-        checkboxes.forEach(cb => {
-            const tr = cb.closest("tr");
-            const cells = tr.querySelectorAll("td");
-            const newRow = document.createElement("tr");
-            newRow.innerHTML = `
-                <td style="max-width: 120px; word-break: break-all;">${cells[1].innerText}</td>
-                <td>${cells[2].innerText}</td>
-                <td>${cells[3].innerText}</td>
-                <td style="max-width: 150px; word-break: break-all;">${cells[4].innerText}</td>
-                <td style="max-width: 120px; word-break: break-all;">${cells[8].innerText}</td>
-                <td>${cells[5].innerText}</td>
-                <td>${cells[6].innerText}</td>
-                <td>${cells[7].innerText}</td>
-            `;
-            tbody.appendChild(newRow);
-        });
-        
-        document.getElementById('fleetModalStep').value = 'fleet_confirmation';
-        document.getElementById('fleetModalFleetNumber').value = '';
-        
-        // 清空其他表单字段
-        const form = document.querySelector('#fleetModal form');
-        form.reset();
-        
-        // 显示弹窗
-        document.getElementById("fleetModal").style.display = "block";
-    });
-
-    // 时间标记功能
-    markUnscheduledFleetRows();
-    
-    // 绑定回车键搜索
-    const unscheduledFleetSearch = document.getElementById('unscheduledFleetSearch');
-    if (unscheduledFleetSearch) {
-        unscheduledFleetSearch.addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') {
-                applyFleetSearch('unscheduled-fleet');
-            }
-        });
-    }
-});
-
-// 未排车批次标记
-function markUnscheduledFleetRows() {
-    const rows = document.querySelectorAll('#unscheduled-fleet-section .data-table tbody tr');
-    
-    rows.forEach((row, index) => {
-        const timeCell = row.cells[4]; // Scheduled Time在第5列
-        let timeText = timeCell.textContent.trim();
-        
-        // 如果有状态span，获取span内的文本
-        const statusSpan = timeCell.querySelector('.status-span-red, .status-span-yellow');
-        if (statusSpan) {
-            timeText = statusSpan.textContent.trim();
-        }
-        
-        if (timeText) {
-            const scheduledTime = parseDateTime(timeText);
+            // 设置选中的ID到隐藏字段
+            document.getElementById('fleetModalSelectedIds').value = JSON.stringify(selectedIds);
             
-            if (scheduledTime) {
-                const diffDays = getDayDiff(CURRENT_TIME, scheduledTime);
+            // 将选中的记录信息填入弹窗表格
+            const tbody = document.getElementById("fleetShipmentTableBody");
+            tbody.innerHTML = ""; // 清空旧内容
+
+            checkboxes.forEach(cb => {
+                const tr = cb.closest("tr");
+                const cells = tr.querySelectorAll("td");
+                const newRow = document.createElement("tr");
+                newRow.innerHTML = `
+                    <td style="max-width: 120px; word-break: break-all;">${cells[1].innerText}</td>
+                    <td>${cells[2].innerText}</td>
+                    <td>${cells[3].innerText}</td>
+                    <td style="max-width: 150px; word-break: break-all;">${cells[4].innerText}</td>
+                    <td style="max-width: 120px; word-break: break-all;">${cells[8].innerText}</td>
+                    <td>${cells[5].innerText}</td>
+                    <td>${cells[6].innerText}</td>
+                    <td>${cells[7].innerText}</td>
+                `;
+                tbody.appendChild(newRow);
+            });
+            
+            document.getElementById('fleetModalStep').value = 'fleet_confirmation';
+            document.getElementById('fleetModalFleetNumber').value = '';
+            
+            // 清空其他表单字段
+            const form = document.querySelector('#fleetModal form');
+            form.reset();
+            
+            // 显示弹窗
+            document.getElementById("fleetModal").style.display = "block";
+        });
+
+        // 时间标记功能
+        markUnscheduledFleetRows();
+        
+    });
+
+    // 未排车批次标记
+    function markUnscheduledFleetRows() {
+        const rows = document.querySelectorAll('#unscheduled-fleet-section .data-table tbody tr');
+        
+        rows.forEach((row, index) => {
+            const timeCell = row.cells[4]; // Scheduled Time在第5列
+            let timeText = timeCell.textContent.trim();
+            
+            // 如果有状态span，获取span内的文本
+            const statusSpan = timeCell.querySelector('.status-span-red, .status-span-yellow');
+            if (statusSpan) {
+                timeText = statusSpan.textContent.trim();
+            }
+            
+            if (timeText) {
+                const scheduledTime = parseDateTime(timeText);
                 
-                // 时间标记逻辑
-                if (scheduledTime < CURRENT_TIME) {
-                    // 早于当前时间 - 深红色
-                    row.style.backgroundColor = '#ffcccc';
-                } else if (diffDays <= 1) {
-                    // 未来一天内 - 浅红色
-                    row.style.backgroundColor = '#ffe6e6';
-                } else if (diffDays <= 2) {
-                    // 未来一天到两天内 - 黄色
-                    row.style.backgroundColor = '#fff9e6';
-                } else {
-                    row.style.backgroundColor = ''; // 清除背景色
+                if (scheduledTime) {
+                    const diffDays = getDayDiff(CURRENT_TIME, scheduledTime);
+                    
+                    // 时间标记逻辑
+                    if (scheduledTime < CURRENT_TIME) {
+                        // 早于当前时间 - 深红色
+                        row.style.backgroundColor = '#ffcccc';
+                    } else if (diffDays <= 1) {
+                        // 未来一天内 - 浅红色
+                        row.style.backgroundColor = '#ffe6e6';
+                    } else if (diffDays <= 2) {
+                        // 未来一天到两天内 - 黄色
+                        row.style.backgroundColor = '#fff9e6';
+                    } else {
+                        row.style.backgroundColor = ''; // 清除背景色
+                    }
                 }
             }
+        });
+    }
+
+    // 搜索功能
+    function applyFleetSearch(section) {
+        let searchInput;
+        if (section === 'unscheduled-fleet') {
+            searchInput = document.getElementById('unscheduledFleetSearch');
+        } else {
+            // 其他section的搜索框
+            searchInput = document.getElementById(section + 'Search');
         }
-    });
-}
-
-// 搜索功能
-function applyFleetSearch(section) {
-    let searchInput;
-    if (section === 'unscheduled-fleet') {
-        searchInput = document.getElementById('unscheduledFleetSearch');
-    } else {
-        // 其他section的搜索框
-        searchInput = document.getElementById(section + 'Search');
-    }
-    
-    if (!searchInput) {
-        console.error('Search input not found for section:', section);
-        return;
-    }
-    
-    const searchTerm = searchInput.value.trim().toLowerCase();
-    const rows = document.querySelectorAll('#' + section + '-section .data-table tbody tr');
-    
-    rows.forEach(row => {
-        const text = row.textContent.toLowerCase();
-        row.style.display = text.includes(searchTerm) ? '' : 'none';
-    });
-    
-    // 重新添加时间标记
-    setTimeout(() => {
-        markUnscheduledFleetRows();
-    }, 100);
-}
-
-// 行背景切换
-function toggleRowBackground(checkbox) {
-    const row = checkbox.closest('tr');
-    if (checkbox.checked) {
-        row.style.backgroundColor = '#e8f5e9';
-    } else {
-        row.style.backgroundColor = '';
-    }
-}
-
-// 关闭模态框
-function closeUnscheduledFleetModal() {
-    document.getElementById("fleetModal").style.display = "none";
-}
-
-// 加载状态显示
-function showLoadingBar() {
-    const buttons = document.querySelectorAll('button');
-    buttons.forEach(btn => {
-        if (btn.innerHTML.includes('fa-check')) {
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 处理中...';
-            btn.disabled = true;
+        
+        if (!searchInput) {
+            console.error('Search input not found for section:', section);
+            return;
         }
-    });
-}
-
-// 日期时间解析函数
-function parseDateTime(dateTimeStr) {
-    if (!dateTimeStr) return null;
-    
-    const standardFormat = /^(\d{4})-(\d{2})-(\d{2})\s+(\d{1,2}):(\d{2})/;
-    const monthFormat = /^(\w{3})-(\d{1,2})\s+(\d{1,2}):(\d{2})/;
-    const monthDateOnly = /^(\w{3})-(\d{1,2})$/;
-    
-    let match;
-    
-    // 尝试标准格式 "2024-07-04 14:30"
-    match = dateTimeStr.match(standardFormat);
-    if (match) {
-        const year = parseInt(match[1]);
-        const month = parseInt(match[2]) - 1;
-        const day = parseInt(match[3]);
-        const hour = parseInt(match[4]);
-        const minute = parseInt(match[5]);
-        return new Date(year, month, day, hour, minute);
-    }
-    
-    // 尝试月份格式 "Jul-4 14:30"
-    match = dateTimeStr.match(monthFormat);
-    if (match) {
-        const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
-                        'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-        const month = monthNames.indexOf(match[1]);
-        const day = parseInt(match[2]);
-        const hour = parseInt(match[3]);
-        const minute = parseInt(match[4]);
-        const year = CURRENT_TIME.getFullYear();
         
-        if (month === -1) return null;
-        return new Date(year, month, day, hour, minute);
-    }
-    
-    // 尝试只有日期的格式 "Jul-4"
-    match = dateTimeStr.match(monthDateOnly);
-    if (match) {
-        const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
-                        'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-        const month = monthNames.indexOf(match[1]);
-        const day = parseInt(match[2]);
-        const year = CURRENT_TIME.getFullYear();
+        const searchTerm = searchInput.value.trim().toLowerCase();
+        const rows = document.querySelectorAll('#' + section + '-section .data-table tbody tr');
         
-        if (month === -1) return null;
-        return new Date(year, month, day, 0, 0);
+        rows.forEach(row => {
+            const text = row.textContent.toLowerCase();
+            row.style.display = text.includes(searchTerm) ? '' : 'none';
+        });
+        
+        // 重新添加时间标记
+        setTimeout(() => {
+            markUnscheduledFleetRows();
+        }, 100);
     }
-    
-    return null;
-}
 
-// 计算天数差
-function getDayDiff(date1, date2) {
-    const d1 = new Date(date1.getFullYear(), date1.getMonth(), date1.getDate());
-    const d2 = new Date(date2.getFullYear(), date2.getMonth(), date2.getDate());
-    return Math.floor((d2 - d1) / (1000 * 60 * 60 * 24));
-}
+    // 行背景切换
+    function toggleRowBackground(checkbox) {
+        const row = checkbox.closest('tr');
+        if (checkbox.checked) {
+            row.style.backgroundColor = '#e8f5e9';
+        } else {
+            row.style.backgroundColor = '';
+        }
+    }
 
-// 全局变量
-const CURRENT_TIME = new Date('{{ current_time|date:"Y-m-d H:i" }}' || new Date());
+    // 关闭模态框
+    function closeUnscheduledFleetModal() {
+        document.getElementById("fleetModal").style.display = "none";
+    }
+
+    // 加载状态显示
+    function showLoadingBar() {
+        const buttons = document.querySelectorAll('button');
+        buttons.forEach(btn => {
+            if (btn.innerHTML.includes('fa-check')) {
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 处理中...';
+                btn.disabled = true;
+            }
+        });
+    }
+
+    // 日期时间解析函数
+    function parseDateTime(dateTimeStr) {
+        if (!dateTimeStr) return null;
+        
+        const standardFormat = /^(\d{4})-(\d{2})-(\d{2})\s+(\d{1,2}):(\d{2})/;
+        const monthFormat = /^(\w{3})-(\d{1,2})\s+(\d{1,2}):(\d{2})/;
+        const monthDateOnly = /^(\w{3})-(\d{1,2})$/;
+        
+        let match;
+        
+        // 尝试标准格式 "2024-07-04 14:30"
+        match = dateTimeStr.match(standardFormat);
+        if (match) {
+            const year = parseInt(match[1]);
+            const month = parseInt(match[2]) - 1;
+            const day = parseInt(match[3]);
+            const hour = parseInt(match[4]);
+            const minute = parseInt(match[5]);
+            return new Date(year, month, day, hour, minute);
+        }
+        
+        // 尝试月份格式 "Jul-4 14:30"
+        match = dateTimeStr.match(monthFormat);
+        if (match) {
+            const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
+                            'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            const month = monthNames.indexOf(match[1]);
+            const day = parseInt(match[2]);
+            const hour = parseInt(match[3]);
+            const minute = parseInt(match[4]);
+            const year = CURRENT_TIME.getFullYear();
+            
+            if (month === -1) return null;
+            return new Date(year, month, day, hour, minute);
+        }
+        
+        // 尝试只有日期的格式 "Jul-4"
+        match = dateTimeStr.match(monthDateOnly);
+        if (match) {
+            const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
+                            'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            const month = monthNames.indexOf(match[1]);
+            const day = parseInt(match[2]);
+            const year = CURRENT_TIME.getFullYear();
+            
+            if (month === -1) return null;
+            return new Date(year, month, day, 0, 0);
+        }
+        
+        return null;
+    }
+
+    // 计算天数差
+    function getDayDiff(date1, date2) {
+        const d1 = new Date(date1.getFullYear(), date1.getMonth(), date1.getDate());
+        const d2 = new Date(date2.getFullYear(), date2.getMonth(), date2.getDate());
+        return Math.floor((d2 - d1) / (1000 * 60 * 60 * 24));
+    }
+
+    //表格查询
+    function applyUnscheduledColumnSearch() {
+        const inputs = document.querySelectorAll('#unscheduled-fleet-section .col-search-input');
+        const rows = document.querySelectorAll('#unscheduled-fleet-section tbody tr');
+
+        // 收集每一列输入的搜索词
+        const columnKeywords = {};
+        inputs.forEach(input => {
+            const col = input.dataset.col;
+            const kw = input.value.trim().toLowerCase();
+            if (kw) columnKeywords[col] = kw.split(/\s+/);
+        });
+
+        rows.forEach(row => {
+            removeHighlights(row);
+
+            let visible = true;
+
+            // 逐列检查
+            for (const col in columnKeywords) {
+                const cell = row.cells[col];
+                const text = cell.innerText.toLowerCase();
+
+                const keywords = columnKeywords[col];
+
+                // 所有词都包含才行
+                const match = keywords.every(kw => text.includes(kw));
+
+                if (!match) {
+                    visible = false;
+                    break;
+                }
+            }
+
+            row.style.display = visible ? "" : "none";
+
+            // 高亮显示
+            if (visible) {
+                for (const col in columnKeywords) {
+                    highlightMatches(row.cells[col], columnKeywords[col]);
+                }
+            }
+        });
+    }
+    // 移除旧高亮
+    function removeHighlights(row) {
+        row.querySelectorAll('.highlight1, .highlight2, .highlight3').forEach(span => {
+            span.outerHTML = span.textContent;
+        });
+    }
+
+    // 对单元格内容添加关键词高亮
+    function highlightMatches(element, keywords) {
+        if (!keywords || keywords.length === 0) return;
+
+        let html = element.innerHTML;
+
+        // 清除旧高亮
+        html = html.replace(/<span class="highlight\d">([^<]*)<\/span>/gi, "$1");
+
+        // 每个搜索词有独立颜色（同列单独计数）
+        keywords.forEach((kw, index) => {
+            if (!kw) return;
+            const cls = `highlight-color-${(index % 4) + 1}`;
+            const regex = new RegExp(`(${kw})`, "gi");
+            html = html.replace(regex, `<span class="${cls}">$1</span>`);
+        });
+
+        element.innerHTML = html;
+    }
+    // 全局变量
+    const CURRENT_TIME = new Date('{{ current_time|date:"Y-m-d H:i" }}' || new Date());
 </script>

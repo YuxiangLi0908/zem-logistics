@@ -2383,3 +2383,8 @@ MCC1:
   location: 3300 Rancho Cordova Pkwy
   state: California
   zipcode: '95742'
+IUTE:
+  city: Goodyear
+  location: 16155 WElwood St
+  state: AZ
+  zipcode: '85338'

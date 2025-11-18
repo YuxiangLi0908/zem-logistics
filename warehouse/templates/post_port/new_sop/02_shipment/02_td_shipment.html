@@ -866,80 +866,60 @@ function initializeTooltips() {
             handleReadySectionSearch(rows, searchTerm);
         } else if (section === 'scheduledFleet') {  // 添加这一部分
             handleScheduledFleetSearch(rows, searchTerm);
-        } else if (section === 'scheduled') {
-            handleScheduledSearch(rows, searchTerm);
-        }  else {
+        } else {
             handleNormalSearch(rows, searchTerm);
         }
     }
-        function handleScheduledFleetSearch(rows, searchTerm) {
-            rows.forEach(row => {
-                const isMatch = isScheduledFleetRowMatch(row, searchTerm);
-                row.style.display = isMatch ? '' : 'none';
-            });
-        }
-
-        function isScheduledFleetRowMatch(row, searchTerm) {
-            if (!searchTerm) return true;
-            
-            // 检查出库批次
-            const fleetNumberCell = row.querySelector('td:first-child');
-            if (fleetNumberCell) {
-                const fleetNumber = fleetNumberCell.textContent.toLowerCase();
-                if (fleetNumber.includes(searchTerm)) return true;
-            }
-            
-            // 检查预约批次
-            const shipmentBatchCell = row.querySelector('td:nth-child(2)');
-            if (shipmentBatchCell) {
-                const shipmentBatch = shipmentBatchCell.textContent.toLowerCase();
-                if (shipmentBatch.includes(searchTerm)) return true;
-            }
-            
-            // 检查 ISA
-            const isaCell = row.querySelector('td:nth-child(3)');
-            if (isaCell) {
-                const isa = isaCell.textContent.toLowerCase();
-                if (isa.includes(searchTerm)) return true;
-            }
-            
-            // 检查 carrier
-            const carrierCell = row.querySelector('td:nth-child(4)');
-            if (carrierCell) {
-                const carrier = carrierCell.textContent.toLowerCase();
-                if (carrier.includes(searchTerm)) return true;
-            }
-            
-            // 检查备注
-            const noteCell = row.querySelector('td:nth-child(9)');
-            if (noteCell) {
-                const note = noteCell.textContent.toLowerCase();
-                if (note.includes(searchTerm)) return true;
-            }
-            
-            // 检查所有文本内容
-            const rowText = row.textContent.toLowerCase();
-            if (rowText.includes(searchTerm)) return true;
-            
-            return false;
-        }
-    function handleScheduledSearch(rows, searchTerm) {
-        const groups = new Set();
-        rows.forEach(tr => {
-            const groupId = tr.dataset.shipmentGroup;
-            if (!groupId) return;
-
-            const firstRow = document.querySelector(`tr[data-shipment-group="${groupId}"]`);
-            if (!firstRow) return;
-
-            const text = firstRow.innerText.toLowerCase();
-            if (text.includes(searchTerm)) groups.add(groupId);
+    function handleScheduledFleetSearch(rows, searchTerm) {
+        rows.forEach(row => {
+            const isMatch = isScheduledFleetRowMatch(row, searchTerm);
+            row.style.display = isMatch ? '' : 'none';
         });
+    }
 
-        rows.forEach(tr => {
-            const groupId = tr.dataset.shipmentGroup;
-            if (!groups.has(groupId)) tr.style.display = 'none';
-        });
+    function isScheduledFleetRowMatch(row, searchTerm) {
+        if (!searchTerm) return true;
+        
+        // 检查出库批次
+        const fleetNumberCell = row.querySelector('td:first-child');
+        if (fleetNumberCell) {
+            const fleetNumber = fleetNumberCell.textContent.toLowerCase();
+            if (fleetNumber.includes(searchTerm)) return true;
+        }
+        
+        // 检查预约批次
+        const shipmentBatchCell = row.querySelector('td:nth-child(2)');
+        if (shipmentBatchCell) {
+            const shipmentBatch = shipmentBatchCell.textContent.toLowerCase();
+            if (shipmentBatch.includes(searchTerm)) return true;
+        }
+        
+        // 检查 ISA
+        const isaCell = row.querySelector('td:nth-child(3)');
+        if (isaCell) {
+            const isa = isaCell.textContent.toLowerCase();
+            if (isa.includes(searchTerm)) return true;
+        }
+        
+        // 检查 carrier
+        const carrierCell = row.querySelector('td:nth-child(4)');
+        if (carrierCell) {
+            const carrier = carrierCell.textContent.toLowerCase();
+            if (carrier.includes(searchTerm)) return true;
+        }
+        
+        // 检查备注
+        const noteCell = row.querySelector('td:nth-child(9)');
+        if (noteCell) {
+            const note = noteCell.textContent.toLowerCase();
+            if (note.includes(searchTerm)) return true;
+        }
+        
+        // 检查所有文本内容
+        const rowText = row.textContent.toLowerCase();
+        if (rowText.includes(searchTerm)) return true;
+        
+        return false;
     }
 
     function handleGroupedSearch(rows, searchTerm) {
@@ -983,7 +963,6 @@ function initializeTooltips() {
         });
     }
 
-    // 备用：普通行搜索
     function isRowMatch(row, searchTerm) {
         return Array.from(row.querySelectorAll('td')).some(td => 
             td.textContent.toLowerCase().includes(searchTerm)
@@ -1207,19 +1186,12 @@ function initializeTooltips() {
     // 搜索按钮事件绑定
     document.addEventListener('DOMContentLoaded', function() {
         const searchUnscheduledBtn = document.getElementById('searchUnscheduledBtn');
-        const searchScheduledBtn = document.getElementById('searchScheduledBtn');
         const searchReadyBtn = document.getElementById('searchReadyBtn');
         const searchScheduledFleetBtn = document.getElementById('searchScheduledFleetBtn');
         
         if (searchUnscheduledBtn) {
             searchUnscheduledBtn.addEventListener('click', function() {
                 applySearch('unscheduled');
-            });
-        }
-        
-        if (searchScheduledBtn) {
-            searchScheduledBtn.addEventListener('click', function() {
-                applySearch('scheduled');
             });
         }
         
@@ -1236,7 +1208,6 @@ function initializeTooltips() {
         }
         // 回车键搜索
         const unscheduledSearch = document.getElementById('unscheduledSearch');
-        const scheduledSearch = document.getElementById('scheduledSearch');
         const readySearch = document.getElementById('readySearch');
         const scheduledFleetSearch = document.getElementById('scheduledFleetSearch');
         
@@ -1245,13 +1216,7 @@ function initializeTooltips() {
                 if (e.key === 'Enter') applySearch('unscheduled');
             });
         }
-        
-        if (scheduledSearch) {
-            scheduledSearch.addEventListener('keypress', function(e) {
-                if (e.key === 'Enter') applySearch('scheduled');
-            });
-        }
-        
+    
         if (readySearch) {
             readySearch.addEventListener('keypress', function(e) {
                 if (e.key === 'Enter') applySearch('ready');

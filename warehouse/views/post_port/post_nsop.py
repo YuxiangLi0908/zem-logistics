@@ -16,6 +16,8 @@ from django.db.models.functions import Round, Cast, Coalesce
 from django.core.exceptions import ObjectDoesNotExist
 from simple_history.utils import bulk_update_with_history
 from django.db import models
+from django.db.models.expressions import ExpressionWrapper
+import math  
 from django.db.models import (
     Case,
     CharField,
@@ -528,7 +530,7 @@ class PostNsop(View):
     
     async def handle_export_virtual_fleet_pos_post(
         self, request: HttpRequest
-    ) -> tuple[str, dict[str, Any]]:
+    ) ->  HttpResponse:
         cargo_ids_str = request.POST.get("cargo_ids", "").strip()
         pl_ids = [
             int(i.strip()) for i in cargo_ids_str.split(",") if i.strip().isdigit()
@@ -616,7 +618,6 @@ class PostNsop(View):
                 .order_by("destination", "container_number__container_number")
             )
         )()
-        
         pl_ids_list = [pl["id"] for pl in packinglist_data]
         check_map = await sync_to_async(
             lambda: {
@@ -626,7 +627,6 @@ class PostNsop(View):
         )()
 
         # 展开数据：将ref_id按逗号分割成多行
-        data = []
         for item in packinglist_data:
             check_id = check_map.get(item["id"])
             if check_id:
@@ -637,34 +637,9 @@ class PostNsop(View):
         
         # 合并数据
         all_data += packinglist_data
-
-        # 聚合计算
         df = pd.DataFrame.from_records(all_data)
-        # 计算合计字段
-        grouped = (
-            df.groupby(
-                [
-                    "shipping_mark",
-                    "fba_id",
-                    "ref_id",
-                    "address",
-                    "zipcode",
-                    "container_number__container_number",
-                    "destination",
-                    "label",
-                ],
-                as_index=False,
-            )
-            .agg({
-                "cbm": "sum",
-                "total_pcs": "sum",
-                "id": "count",
-                "check_id": "first",
-            })
-            .rename(columns={"id": "total_n_pallet_act", "cbm": "total_cbm"})
-        )
-        
-        grouped["total_n_pallet_est"] = grouped["total_cbm"] / 2
+
+        df["total_n_pallet_est"] = df["total_cbm"] / 2
         def get_est_pallet(n):
             if n < 1:
                 return 1
@@ -673,15 +648,14 @@ class PostNsop(View):
             else:
                 return int(n // 1)
 
-        grouped["total_n_pallet_est"] = grouped["total_n_pallet_est"].apply(get_est_pallet)
-        grouped["is_valid"] = None
-        grouped["is_est"] = grouped["label"] == "EST"
-        grouped["Pallet Count"] = grouped.apply(
+        df["total_n_pallet_est"] = df["total_n_pallet_est"].apply(get_est_pallet)
+        df["is_valid"] = None
+        df["is_est"] = df["label"] == "EST"
+        df["Pallet Count"] = df.apply(
             lambda row: row["total_n_pallet_est"] if row["is_est"] else max(1, row.get("total_n_pallet_act", 1)),
             axis=1
         ).astype(int)
 
-        # 重命名列以符合导出格式
         keep = [
             "shipping_mark",
             "container_number__container_number",
@@ -695,8 +669,7 @@ class PostNsop(View):
             "total_cbm",
             "destination",
         ]
-
-        grouped = grouped[keep].rename(
+        df = df[keep].rename(
             {
                 "fba_id": "PRO",
                 "container_number__container_number": "BOL",
@@ -708,34 +681,49 @@ class PostNsop(View):
             },
             axis=1,
         )
-
+        
         # 导出 CSV
-        # 按 Destination 分组
-        grouped_by_dest = {}
-        for _, row in grouped.iterrows():
-            dest = row["Destination"]
-            grouped_by_dest.setdefault(dest, []).append(row.to_dict())
 
+        if len(df) == 0:
+            raise ValueError('没有数据',len(df))
         # 如果只有一个 Destination，保持原来返回单 CSV
+        grouped_by_dest = {}
+        for _, row in df.iterrows():
+            dest = row["Destination"]
+            if dest not in grouped_by_dest:
+                grouped_by_dest[dest] = []
+            grouped_by_dest[dest].append(row.to_dict())
+        
+        # 如果只有一个 Destination，返回单 CSV
         if len(grouped_by_dest) == 1:
-            df_single = pd.DataFrame.from_records(list(grouped_by_dest.values())[0])
+            dest_name = list(grouped_by_dest.keys())[0]
+            df_single = pd.DataFrame(grouped_by_dest[dest_name])
             response = HttpResponse(content_type="text/csv")
-            response["Content-Disposition"] = f"attachment; filename=PO_virtual_fleet.csv"
+            response["Content-Disposition"] = f"attachment; filename=PO_{dest_name}.csv"
             df_single.to_csv(path_or_buf=response, index=False)
             return response
-
+        
         # 多个 Destination 打包 zip
         zip_buffer = io.BytesIO()
         with zipfile.ZipFile(zip_buffer, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
             for dest, rows in grouped_by_dest.items():
                 df_dest = pd.DataFrame.from_records(rows)
-                csv_buffer = io.StringIO()
-                df_dest.to_csv(csv_buffer, index=False)
-                zf.writestr(f"{dest}.csv", csv_buffer.getvalue())
+                
+                csv_buffer = io.BytesIO()
+                df_dest.to_csv(csv_buffer, index=False, encoding='utf-8-sig')
+                csv_buffer.seek(0)
+            
+                safe_dest = "".join(c for c in dest if c.isalnum() or c in (' ', '-', '_')).rstrip()
+                filename = f"{safe_dest}.csv" if safe_dest else f"destination_{hash(dest)}.csv"
+                
+                zf.writestr(filename, csv_buffer.getvalue())
 
         zip_buffer.seek(0)
-        response = HttpResponse(zip_buffer, content_type="application/zip")
+        zip_bytes = zip_buffer.getvalue()
+
+        response = HttpResponse(zip_bytes, content_type="application/zip")
         response["Content-Disposition"] = "attachment; filename=PO_virtual_fleet.zip"
+        response["Content-Length"] = len(zip_bytes)
         return response
     
     async def handle_update_fleet_info(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
@@ -1638,6 +1626,8 @@ class PostNsop(View):
             "destination", 
         ]
         df = pd.DataFrame.from_records(all_data)
+
+        
         df["is_valid"] = None
 
         def get_est_pallet(n):
@@ -1962,7 +1952,7 @@ class PostNsop(View):
         self, request: HttpRequest, warehouse:str
     ) -> tuple[str, dict[str, Any]]:
         target_date = datetime(2025, 10, 10)
-        shipment = await sync_to_async(list)(
+        shipment_list = await sync_to_async(list)(
             Shipment.objects.filter(
                 origin=warehouse,
                 fleet_number__isnull=True,
@@ -1976,8 +1966,9 @@ class PostNsop(View):
                 origin=warehouse,
                 departured_at__isnull=True,
                 is_canceled=False,
-                appointment_datetime__gt=target_date,
                 fleet_type="FTL",
+            ).filter(
+                Q(appointment_datetime__gt=target_date) | Q(appointment_datetime__isnull=True)
             )
             .prefetch_related("shipment")
             .annotate(
@@ -1988,8 +1979,73 @@ class PostNsop(View):
             )
             .order_by("appointment_datetime")
         )
+        # 在获取fleet列表后，添加具体柜号、仓点等详情
+        for fleet_obj in fleet:
+            detailed_shipments = []
+            
+            # 获取该车队的所有shipment
+            shipments = await sync_to_async(list)(fleet_obj.shipment.all())
+            
+            for shipment in shipments:
+                shipment_batch_number = shipment.shipment_batch_number
+                
+                packinglists = await sync_to_async(list)(
+                    PackingList.objects.filter(
+                        shipment_batch_number__shipment_batch_number=shipment_batch_number,
+                        container_number__order__offload_id__offload_at__isnull=True
+                    ).select_related('container_number')
+                    .values('container_number__container_number', 'destination')
+                    .annotate(
+                        total_cbm=Sum('cbm'),
+                        pallet_count=ExpressionWrapper(
+                            Sum('cbm') / 2, 
+                            output_field=FloatField()
+                        )
+                    )
+                )
+                pallets = await sync_to_async(list)(
+                    Pallet.objects.filter(
+                        shipment_batch_number__shipment_batch_number=shipment_batch_number,
+                        container_number__order__offload_id__offload_at__isnull=False
+                    ).select_related('container_number')
+                    .values('container_number__container_number', 'destination','is_dropped_pallet')
+                    .annotate(
+                        total_cbm=Sum('cbm'),
+                        pallet_count=Count('id')  # pallet的板数就是数量
+                    )
+                )
+                
+                # 构建统一格式的数据
+                for item in packinglists:
+                    detailed_shipments.append({
+                        "type": "EST",
+                        "container_number": item["container_number__container_number"],
+                        "destination": item["destination"],
+                        "cbm": float(item["total_cbm"]) if item["total_cbm"] else 0,
+                        "pallet_count": math.ceil(float(item["pallet_count"])) if item["pallet_count"] else 0,  # 向上取整
+                        "shipment_batch_number": shipment_batch_number if shipment_batch_number else "",
+                        "appointment_id": shipment.appointment_id,
+                        "scheduled_time": shipment.shipment_appointment.strftime("%Y-%m-%d %H:%M") if shipment.shipment_appointment else "",
+                        "note": shipment.note or "",
+                        "is_dropped_pallet": False,
+                    })
+                
+                for item in pallets:
+                    detailed_shipments.append({
+                        "type": "ACT",
+                        "container_number": item["container_number__container_number"],
+                        "destination": item["destination"],
+                        "cbm": float(item["total_cbm"]) if item["total_cbm"] else 0,
+                        "pallet_count": item["pallet_count"] or 0,
+                        "shipment_batch_number": shipment_batch_number if shipment_batch_number else "",
+                        "appointment_id": shipment.appointment_id,
+                        "scheduled_time": shipment.shipment_appointment.strftime("%Y-%m-%d %H:%M") if shipment.shipment_appointment else "",
+                        "note": shipment.note or "",
+                        "is_dropped_pallet": item["is_dropped_pallet"],
+                    })         
+            fleet_obj.detailed_shipments = json.dumps(detailed_shipments) 
         context = {
-            "shipment_list": shipment,
+            "shipment_list": shipment_list,
             "fleet_list": fleet,
         }
         return context
