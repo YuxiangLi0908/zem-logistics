@@ -54,7 +54,7 @@ class PrePortDash(View):
                     tab="summary",
                 )
             elif time_type == "planned_release_time":
-                # 还空时间
+                # 放行时间
                 template, context = await self.handle_all_get_planned_release_time(
                     start_date_planned_release_time=start_date,
                     end_date_planned_release_time=end_date,
@@ -359,15 +359,11 @@ class PrePortDash(View):
         end_date = parse_eta_date(end_date_planned_release_time)
 
         if start_date:
-            criteria &= models.Q(retrieval_id__planned_release_time__gte=start_date) | models.Q(
-                eta__gte=start_date
-            )
+            criteria &= models.Q(retrieval_id__planned_release_time__gte=start_date)
         if end_date:
             # 结束日期设置为当天23:59:59
             end_eta = end_date.replace(hour=23, minute=59, second=59)
-            criteria &= models.Q(retrieval_id__planned_release_time__lte=end_eta) | models.Q(
-                eta__lte=end_eta
-            )
+            criteria &= models.Q(retrieval_id__planned_release_time__lte=end_eta)
 
         customers = await sync_to_async(list)(Customer.objects.all())
         customers = {c.zem_name: c.zem_name for c in customers}
