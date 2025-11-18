@@ -2435,9 +2435,6 @@ class Accounting(View):
         warehouse_carriers = {
             "BBR": "BBR",
             "KNO": "KNO",
-            "JOHN": "JOHN",
-            "unload": "unload",
-            "大方广": "大方广",
         }
         existing_customers = Customer.objects.all().order_by("zem_name")
         context = {
