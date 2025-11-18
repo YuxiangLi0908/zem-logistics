@@ -7,26 +7,49 @@
     .fleet-number-cell:hover strong {
         color: #2980b9 !important;
     }
+    .search-row {
+        background-color: #f8f9fa;
+    }
+    .search-row td {
+        padding: 5px !important;
+        border-bottom: 1px solid #dee2e6;
+    }
+    .header-search {
+        width: 100%;
+        padding: 4px 8px;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+        font-size: 0.8rem;
+    }
+    .date-filter {
+        width: 100%;
+        padding: 4px 8px;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+        font-size: 0.8rem;
+        background-color: white;
+    }
+    
+    /* 高亮样式 */
+    .highlight-color-1 {
+        background: yellow;
+        font-weight: bold;
+    }
+    .highlight-color-2 {
+        background: #8ef5a6;
+        font-weight: bold;
+    }
+    .highlight-color-3 {
+        background: #ffb4b4;
+        font-weight: bold;
+    }
+    .highlight-color-4 {
+        background: #b4c9ff;
+        font-weight: bold;
+    }
  </style>
  
 <div class="content-section" id="readyShip-section">
-    <div class="search-box">
-        <div style="display: flex; gap: 10px; flex: 1; align-items: center;">
-            <input type="text" class="search-input" placeholder="搜索车次号、预约号、预约批次..." id="readyShipSearch">
-            <button class="search-btn" id="searchReadyShipBtn">
-                <i class="fas fa-search"></i> 搜索
-            </button>
-        </div>
-        <div style="display: flex; align-items: center; gap: 8px; background: #f8f9fa; padding: 5px 12px; border-radius: 5px; border: 1px solid #e9ecef;">
-            <i class="fas fa-filter" style="color: #3498db; font-size: 0.9rem;"></i>
-            <span style="font-size: 0.85rem; color: #495057; font-weight: 500;">提货时间</span>
-            <input type="date" id="pickupDateFilter" class="search-input" style="min-width: 130px; padding: 5px 8px; font-size: 0.8rem; border: 1px solid #dee2e6;">
-            <button class="search-btn" id="clearDateFilter" style="background: #adb5bd; padding: 5px 8px; min-width: auto;">
-                <i class="fas fa-times"></i>
-            </button>
-        </div>
-    </div>
-
     <div class="table-container">
         <table class="data-table">
             <thead>
@@ -43,6 +66,27 @@
                     <th>CBM</th>
                     <th>加塞</th>
                     <th>出库</th>
+                </tr>
+                <tr class="search-row">
+                    <td><input type="text" class="header-search" placeholder="搜索车次号" data-column="0"></td>
+                    <td>
+                        <div style="display: flex; gap: 5px; align-items: center;">
+                            <input type="date" class="date-filter" id="pickupDateFilter" placeholder="筛选日期">
+                            <button class="search-btn" id="clearDateFilter" style="padding: 4px 8px; min-width: auto; font-size: 0.7rem;">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                    </td>
+                    <td><input type="text" class="header-search" placeholder="搜索预约批次" data-column="2"></td>
+                    <td><input type="text" class="header-search" placeholder="搜索预约号" data-column="3"></td>
+                    <td><input type="text" class="header-search" placeholder="搜索目的地" data-column="4"></td>
+                    <td><input type="text" class="header-search" placeholder="搜索柜号" data-column="5"></td>
+                    <td><input type="text" class="header-search" placeholder="搜索REF ID" data-column="6"></td>
+                    <td><input type="text" class="header-search" placeholder="搜索FBA ID" data-column="7"></td>
+                    <td><input type="text" class="header-search" placeholder="搜索板数" data-column="8"></td>
+                    <td><input type="text" class="header-search" placeholder="搜索CBM" data-column="9"></td>
+                    <td></td>
+                    <td></td>
                 </tr>
             </thead>
             <tbody>
@@ -201,7 +245,6 @@
         if (activeTab) {
             // 直接从 data-tab 属性获取值
             tabValue = activeTab.getAttribute('data-tab');
-            console.log('获取到的标签页 data-tab:', tabValue);
         }
         
         // 获取表单
@@ -217,55 +260,79 @@
         }
         activeTabInput.value = tabValue;
         
-        console.log('最终提交的 active_tab:', tabValue);
-        
         // 提交表单
         form.submit();
     }
 
     document.addEventListener('DOMContentLoaded', function() {
-        const searchReadyShipBtn = document.getElementById('searchReadyShipBtn');
-        const clearDateFilterBtn = document.getElementById('clearDateFilter');
-        const pickupDateFilter = document.getElementById('pickupDateFilter');
-        
-        if (searchReadyShipBtn) {
-            searchReadyShipBtn.addEventListener('click', function() {
-                applyReadyShipSearch();
-            });
-        }
-        if (clearDateFilterBtn) {
-            clearDateFilterBtn.addEventListener('click', function() {
-                pickupDateFilter.value = '';
-                applyReadyShipSearch();
-            });
-        }
-        if (pickupDateFilter) {
-            pickupDateFilter.addEventListener('change', function() {
-                applyReadyShipSearch();
-            });
-        }
-        const readyShipSearch = document.getElementById('readyShipSearch');
-        if (readyShipSearch) {
-            readyShipSearch.addEventListener('keypress', function(e) {
-                if (e.key === 'Enter') applyReadyShipSearch();
-            });
-        }
+        initReadyShipSearch();
     });
 
-    function applyReadyShipSearch() {
-        const searchInput = document.getElementById('readyShipSearch');
+    // 搜索相关变量
+    let readyShipSearchTimer;
+    let readyShipSearchState = {};
+
+    // 初始化搜索功能
+    function initReadyShipSearch() {
+        const searchInputs = document.querySelectorAll('#readyShip-section .header-search');
         const dateFilter = document.getElementById('pickupDateFilter');
-        if (!searchInput) return;
+        const clearDateBtn = document.getElementById('clearDateFilter');
         
-        const searchTerm = searchInput.value.trim().toLowerCase();
-        const filterDate = dateFilter.value;
+        // 文本搜索框事件
+        searchInputs.forEach(input => {
+            input.addEventListener('input', function() {
+                clearTimeout(readyShipSearchTimer);
+                readyShipSearchTimer = setTimeout(applyReadyShipMultiFilter, 250);
+            });
+        });
         
+        // 日期筛选事件
+        if (dateFilter) {
+            dateFilter.addEventListener('change', function() {
+                clearTimeout(readyShipSearchTimer);
+                readyShipSearchTimer = setTimeout(applyReadyShipMultiFilter, 250);
+            });
+        }
+        
+        // 清除日期按钮事件
+        if (clearDateBtn) {
+            clearDateBtn.addEventListener('click', function() {
+                if (dateFilter) {
+                    dateFilter.value = '';
+                    applyReadyShipMultiFilter();
+                }
+            });
+        }
+    }
+
+    // 多列搜索函数 - 支持文本搜索和日期筛选的AND关系
+    function applyReadyShipMultiFilter() {      
+        // 先清除高亮
+        clearReadyShipHighlights();
+        
+        const searchInputs = document.querySelectorAll('#readyShip-section .header-search');
+        const dateFilter = document.getElementById('pickupDateFilter');
         const sectionElement = document.getElementById('readyShip-section');
         if (!sectionElement) return;
         
-        
         const rows = sectionElement.querySelectorAll('.data-table tbody tr');
         
+        // 收集每一列的筛选条件
+        const columnFilters = {};
+        let hasSearchTerm = false;
+        
+        searchInputs.forEach(input => {
+            const colIndex = input.dataset.column;
+            const value = input.value.trim().toLowerCase();
+            if (value) {
+                columnFilters[colIndex] = value;
+                hasSearchTerm = true;
+            }
+        });
+
+        // 获取日期筛选值
+        const filterDate = dateFilter ? dateFilter.value : '';
+
         // 先显示所有行
         rows.forEach(row => {
             row.style.display = '';
@@ -274,54 +341,51 @@
             });
         });
         
-        if (searchTerm === ''&& filterDate === '') return;
+        // 没有搜索条件时显示所有行
+        if (!hasSearchTerm && !filterDate) {
+            return;
+        }
+
+        // 使用新的多列筛选逻辑
+        handleReadyShipMultiColumnFilter(rows, columnFilters, filterDate);
         
-        handleReadyShipSearch(rows, searchTerm, filterDate);
+        // 应用高亮
+        applyReadyShipColumnHighlights(columnFilters);
     }
 
-    function handleReadyShipSearch(rows, searchTerm, filterDate) {
-        // 构建组映射 - 关键修复：正确识别组结构
+    function handleReadyShipMultiColumnFilter(rows, columnFilters, filterDate) {
         const groupMap = new Map();
         let currentGroupId = null;
         let currentGroupRows = [];
         
+        // 构建组映射
         rows.forEach((row, index) => {
-            // 跳过分隔行
             if (row.classList.contains('group-separator')) {
-                // 保存前一个组
                 if (currentGroupId && currentGroupRows.length > 0) {
                     groupMap.set(currentGroupId, [...currentGroupRows]);
                 }
-                // 开始新组
                 currentGroupId = `group-${index}`;
-                currentGroupRows = [row]; // 包含分隔行
+                currentGroupRows = [row];
                 return;
             }
             
-            // 检查是否是车次行的开始（有fleet-number-cell的行）
             const fleetCell = row.querySelector('.fleet-number-cell');
             if (fleetCell && currentGroupId) {
-                // 保存前一个组
                 groupMap.set(currentGroupId, [...currentGroupRows]);
-                // 开始新组
                 currentGroupId = `group-${index}`;
                 currentGroupRows = [];
             }
             
-            // 添加到当前组
             if (currentGroupId) {
                 currentGroupRows.push(row);
             }
         });
         
-        // 保存最后一个组
         if (currentGroupId && currentGroupRows.length > 0) {
             groupMap.set(currentGroupId, [...currentGroupRows]);
         }
         
-        console.log('组映射:', groupMap);
-        
-        // 先隐藏所有行
+        // 隐藏所有行
         rows.forEach(row => {
             row.style.display = 'none';
         });
@@ -334,7 +398,7 @@
             
             // 检查组内是否有任何行匹配搜索条件
             for (const row of groupRows) {
-                if (isReadyShipRowMatch(row, searchTerm, filterDate)) {
+                if (isReadyShipRowMatchMultiColumn(row, columnFilters, filterDate)) {
                     groupMatched = true;
                     break;
                 }
@@ -344,8 +408,6 @@
                 matchingGroups.add(groupId);
             }
         });
-        
-        console.log('匹配的组:', matchingGroups);
         
         // 显示匹配的组的所有行
         matchingGroups.forEach(groupId => {
@@ -364,7 +426,7 @@
         // 如果没有匹配的组，尝试单独匹配（处理没有组结构的情况）
         if (matchingGroups.size === 0) {
             rows.forEach(row => {
-                if (isReadyShipRowMatch(row, searchTerm, filterDate)) {
+                if (isReadyShipRowMatchMultiColumn(row, columnFilters, filterDate)) {
                     row.style.display = '';
                     row.querySelectorAll('td[rowspan]').forEach(td => {
                         td.style.display = '';
@@ -374,104 +436,131 @@
         }
     }
 
-    function isReadyShipRowMatch(row, searchTerm, filterDate) {
-        if (!searchTerm && !filterDate) return true;
-        
+    // 改进的匹配函数 - 支持多列AND筛选
+    function isReadyShipRowMatchMultiColumn(row, columnFilters, filterDate) {
         // 跳过分隔行
         if (row.classList.contains('group-separator')) {
             return false;
         }
-
-        let textMatch = !searchTerm; // 如果没有搜索词，默认为匹配
-        let dateMatch = !filterDate; // 如果没有日期筛选，默认为匹配
-         // 文本搜索匹配
-        if (searchTerm) {
-            textMatch = false; // 重置为false，需要找到匹配
-            
-            // 检查车次号
-            const fleetTd = row.querySelector('td:first-child');
-            if (fleetTd && fleetTd.textContent.toLowerCase().includes(searchTerm)) {
-                textMatch = true;
-            }
-            
-            // 检查提货时间
-            const pickupTimeTd = row.querySelector('td:nth-child(2)');
-            if (!textMatch && pickupTimeTd && pickupTimeTd.textContent.toLowerCase().includes(searchTerm)) {
-                textMatch = true;
-            }
-            
-            // 检查预约批次
-            const batchTd = row.querySelector('td:nth-child(3)');
-            if (!textMatch && batchTd && batchTd.textContent.toLowerCase().includes(searchTerm)) {
-                textMatch = true;
-            }
-            
-            // 检查预约号
-            const appointmentTd = row.querySelector('td:nth-child(4)');
-            if (!textMatch && appointmentTd && appointmentTd.textContent.toLowerCase().includes(searchTerm)) {
-                textMatch = true;
-            }
-            
-            // 检查目的地
-            const destinationTd = row.querySelector('td:nth-child(5)');
-            if (!textMatch && destinationTd && destinationTd.textContent.toLowerCase().includes(searchTerm)) {
-                textMatch = true;
-            }
-            
-            // 检查柜号
-            const containerCell = row.querySelector('.cns-col');
-            if (!textMatch && containerCell && containerCell.textContent.toLowerCase().includes(searchTerm)) {
-                textMatch = true;
-            }
-            
-            // 检查REF ID
-            const refIdsCell = row.querySelector('.ref-ids-col');
-            if (!textMatch && refIdsCell) {
-                const fullRefIds = refIdsCell.getAttribute('data-full') || refIdsCell.textContent || '';
-                if (fullRefIds.toLowerCase().includes(searchTerm)) {
-                    textMatch = true;
-                }
-            }
-            
-            // 检查FBA ID
-            const fbaIdsCell = row.querySelector('.fba-ids-col');
-            if (!textMatch && fbaIdsCell) {
-                const fullFbaIds = fbaIdsCell.getAttribute('data-full') || fbaIdsCell.textContent || '';
-                if (fullFbaIds.toLowerCase().includes(searchTerm)) {
-                    textMatch = true;
-                }
-            }
-            
-            // 检查整行文本
-            if (!textMatch && row.textContent.toLowerCase().includes(searchTerm)) {
-                textMatch = true;
-            }
-        }
         
-        // 日期筛选匹配
-        if (filterDate) {
-            dateMatch = false; // 重置为false，需要找到匹配
-            
-            const pickupTimeTd = row.querySelector('td:nth-child(2)');
-            if (pickupTimeTd) {
-                const pickupDate = pickupTimeTd.textContent.trim();
-                console.log('比较日期:', pickupDate, '筛选日期:', filterDate);
-                
-                // 直接比较日期字符串
-                if (pickupDate === filterDate) {
-                    dateMatch = true;
-                }
-            }
-        }
+        let allColumnsMatch = true;
         
-        console.log('行匹配结果:', { 
-            row: row.querySelector('td:first-child')?.textContent,
-            textMatch, 
-            dateMatch, 
-            final: textMatch && dateMatch 
+        // 检查每一列的筛选条件（AND关系）
+        Object.keys(columnFilters).forEach(colIndex => {
+            const searchValue = columnFilters[colIndex];
+            if (!searchValue) return;
+            
+            const cell = getCellByColumnIndex(row, parseInt(colIndex));
+            if (!cell) {
+                allColumnsMatch = false;
+                return;
+            }
+            
+            let cellText = cell.textContent.toLowerCase();
+            
+            // 处理特殊列（REF ID和FBA ID有完整数据在data-full属性中）
+            if (colIndex === '6') { // REF ID列
+                const fullRefIds = cell.getAttribute('data-full') || cellText;
+                cellText = fullRefIds.toLowerCase();
+            } else if (colIndex === '7') { // FBA ID列
+                const fullFbaIds = cell.getAttribute('data-full') || cellText;
+                cellText = fullFbaIds.toLowerCase();
+            }
+                       
+            if (!cellText.includes(searchValue)) {
+                allColumnsMatch = false;
+            }
         });
         
-        return textMatch && dateMatch;
+        // 检查日期筛选
+        let dateMatch = !filterDate;
+        if (filterDate) {
+            const pickupTimeCell = getCellByColumnIndex(row, 1); // 第2列是提货时间
+            if (pickupTimeCell) {
+                const pickupDate = pickupTimeCell.textContent.trim();
+                dateMatch = pickupDate === filterDate;
+            } else {
+                dateMatch = false;
+            }
+        }
+        
+        const finalMatch = allColumnsMatch && dateMatch;
+        
+        return finalMatch;
+    }
+
+    // 辅助函数：根据列索引获取单元格（考虑rowspan/colspan）
+    function getCellByColumnIndex(row, targetColIndex) {
+        const cells = row.querySelectorAll('td');
+        let currentColIndex = 0;
+        
+        for (let i = 0; i < cells.length; i++) {
+            const cell = cells[i];
+            const rowspan = parseInt(cell.getAttribute('rowspan') || '1');
+            const colspan = parseInt(cell.getAttribute('colspan') || '1');
+            
+            // 如果目标列在当前单元格的列范围内
+            if (currentColIndex <= targetColIndex && targetColIndex < currentColIndex + colspan) {
+                return cell;
+            }
+            
+            currentColIndex += colspan;
+        }
+        
+        console.warn(`未找到列 ${targetColIndex} 的单元格`);
+        return null;
+    }
+
+    // 改进的高亮函数 - 按列高亮
+    function applyReadyShipColumnHighlights(columnFilters) {
+        if (Object.keys(columnFilters).length === 0) return;
+        
+        const rows = document.querySelectorAll('#readyShip-section tbody tr');
+        
+        rows.forEach(row => {
+            if (row.style.display === 'none' || row.classList.contains('group-separator')) return;
+            
+            Object.keys(columnFilters).forEach((colIndex, termIndex) => {
+                const searchTerm = columnFilters[colIndex];
+                const cell = getCellByColumnIndex(row, parseInt(colIndex));
+                
+                if (!cell) return;
+                
+                let cellText = cell.textContent;
+                
+                // 保存原始文本
+                if (!cell.hasAttribute('data-original-text')) {
+                    cell.setAttribute('data-original-text', cellText);
+                }
+                
+                // 对于REF ID和FBA ID列，使用完整数据进行高亮
+                if (colIndex === '6' || colIndex === '7') {
+                    const fullData = cell.getAttribute('data-full') || cellText;
+                    cellText = fullData;
+                }
+                
+                const colorClass = `highlight-color-${(termIndex % 4) + 1}`;
+                const regex = new RegExp(`(${escapeRegExp(searchTerm)})`, 'gi');
+                
+                const highlightedHtml = cellText.replace(regex, `<span class="${colorClass}">$1</span>`);
+                cell.innerHTML = highlightedHtml;
+            });
+        });
+    }
+    // 高亮功能
+    function clearReadyShipHighlights() {
+        document.querySelectorAll('#readyShip-section tbody tr td').forEach(td => {
+            const originalText = td.getAttribute('data-original-text');
+            if (originalText) {
+                td.textContent = originalText;
+                td.removeAttribute('data-original-text');
+            }
+        });
+    }
+
+    // 转义正则表达式特殊字符
+    function escapeRegExp(string) {
+        return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     }
 
     // 待出库页面特定的JavaScript
@@ -532,9 +621,6 @@
                     pltId = rawPlt;
                 }
             }
-
-            console.log(`[collectFleetData] row ${idx} appointment=${rawAppt} parsed pltId="${pltId}" cargoId="${cargoId}" dataset=`, row.dataset);
-
             // Assemble into shipments map
             if (!shipmentsMap[rawAppt]) {
                 shipmentsMap[rawAppt] = { appointmentId: rawAppt, destination: dest, cargos: [] };
@@ -554,7 +640,6 @@
         });
 
         fleetData.shipments = Object.values(shipmentsMap);
-        console.log('[collectFleetData] final fleetData:', fleetData);
         return fleetData;
     }
 </script>
