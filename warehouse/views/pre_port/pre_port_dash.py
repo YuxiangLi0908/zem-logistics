@@ -10,6 +10,7 @@ from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
 from django.utils import timezone
 from django.views import View
+from office365.runtime.compat import is_absolute_url
 from pyhanko.sign.validation.ltv import retrieve_adobe_revocation_info
 
 from warehouse.models.container import Container
@@ -160,12 +161,16 @@ class PrePortDash(View):
                 is_abnormal_state=is_abnormal_state
             )
         )()
-        template, context = await self.handle_all_get(
-            start_date_eta=start_date_eta,
-            end_date_eta=end_date_eta,
-            tab="summary",
-            warehouse=warehouse
-        )
+        is_abnormal_state = request.POST.get("is_abnormal_state")
+        if is_abnormal_state:
+            template, context = await self.get_is_abnormal_state(request)
+        else:
+            template, context = await self.handle_all_get(
+                start_date_eta=start_date_eta,
+                end_date_eta=end_date_eta,
+                tab="summary",
+                warehouse=warehouse
+            )
         return template, context
 
     async def get_is_abnormal_state(self, request: HttpRequest) -> tuple[Any, Any]:
@@ -219,6 +224,7 @@ class PrePortDash(View):
             "current_date": current_date,
             "tab": "summary",
             "warehouse_options": self.warehouse_options,
+            "is_abnormal_state": True
         }
         return self.template_main, context
 
@@ -443,12 +449,16 @@ class PrePortDash(View):
         await retrieval_obj.asave()
         start_date_eta = request.POST.get("start_date_eta", None)
         end_date_eta = request.POST.get("end_date_eta", None)
-        template, context = await self.handle_all_get(
-            start_date_eta=start_date_eta,
-            end_date_eta=end_date_eta,
-            tab="summary",
-            warehouse=warehouse,
-        )
+        is_abnormal_state = request.POST.get("is_abnormal_state")
+        if is_abnormal_state:
+            template, context = await self.get_is_abnormal_state(request)
+        else:
+            template, context = await self.handle_all_get(
+                start_date_eta=start_date_eta,
+                end_date_eta=end_date_eta,
+                tab="summary",
+                warehouse=warehouse,
+            )
         return template, context
 
     async def batch_get_offload_at(self, request: HttpRequest) -> tuple[Any, Any]:
@@ -471,13 +481,16 @@ class PrePortDash(View):
 
         start_date_eta = request.POST.get("start_date_eta", None)
         end_date_eta = request.POST.get("end_date_eta", None)
-
-        template, context = await self.handle_all_get(
-            start_date_eta=start_date_eta,
-            end_date_eta=end_date_eta,
-            tab="summary",
-            warehouse=warehouse,
-        )
+        is_abnormal_state = request.POST.get("is_abnormal_state")
+        if is_abnormal_state:
+            template, context = await self.get_is_abnormal_state(request)
+        else:
+            template, context = await self.handle_all_get(
+                start_date_eta=start_date_eta,
+                end_date_eta=end_date_eta,
+                tab="summary",
+                warehouse=warehouse,
+            )
         return template, context
 
     async def get_offload_at(self, request: HttpRequest) -> tuple[Any, Any]:
@@ -494,12 +507,16 @@ class PrePortDash(View):
         await offload_obj.asave()
         start_date_eta = request.POST.get("start_date_eta", None)
         end_date_eta = request.POST.get("end_date_eta", None)
-        template, context = await self.handle_all_get(
-            start_date_eta=start_date_eta,
-            end_date_eta=end_date_eta,
-            warehouse=warehouse,
-            tab="summary",
-        )
+        is_abnormal_state = request.POST.get("is_abnormal_state")
+        if is_abnormal_state:
+            template, context = await self.get_is_abnormal_state(request)
+        else:
+            template, context = await self.handle_all_get(
+                start_date_eta=start_date_eta,
+                end_date_eta=end_date_eta,
+                warehouse=warehouse,
+                tab="summary",
+            )
         return template, context
 
     async def get_note_preport_dispatch(self, request: HttpRequest) -> tuple[Any, Any]:
@@ -517,8 +534,12 @@ class PrePortDash(View):
                     note_preport_dispatch=note_preport_dispatch
                 )
             )()
-        template_main, context = await self.handle_all_get(start_date_eta, end_date_eta,warehouse=warehouse,tab="summary")
-        return template_main, context
+        is_abnormal_state = request.POST.get("is_abnormal_state")
+        if is_abnormal_state:
+            template, context = await self.get_is_abnormal_state(request)
+        else:
+            template, context = await self.handle_all_get(start_date_eta, end_date_eta,warehouse=warehouse,tab="summary")
+        return template, context
 
 
     async def _user_authenticate(self, request: HttpRequest):
