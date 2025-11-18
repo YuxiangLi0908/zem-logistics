@@ -2886,6 +2886,8 @@ class Accounting(View):
             invoice_content = InvoiceWarehouse(
                 **{
                     "invoice_number": invoice,
+                    "invoice_type": "receivable",
+                    "delivery_type": delivery_type,
                 }
             )
             invoice_content.save()
