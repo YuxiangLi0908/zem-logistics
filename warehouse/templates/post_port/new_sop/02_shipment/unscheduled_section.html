@@ -37,15 +37,79 @@
         height: 16px;
         margin: 0;
     }
+    .search-row {
+        background-color: #f8f9fa;
+    }
+    .search-row td {
+        padding: 5px !important;
+        border-bottom: 1px solid #dee2e6;
+    }
+    .header-search {
+        width: 100%;
+        padding: 4px 8px;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+        font-size: 0.8rem;
+    }
+    
+    /* 高亮样式 */
+    .highlight-color-1 {
+        background: yellow;
+        font-weight: bold;
+    }
+    .highlight-color-2 {
+        background: #8ef5a6;
+        font-weight: bold;
+    }
+    .highlight-color-3 {
+        background: #ffb4b4;
+        font-weight: bold;
+    }
+    .highlight-color-4 {
+        background: #b4c9ff;
+        font-weight: bold;
+    }
+    .highlight-color-1 {
+        background: linear-gradient(120deg, #ffeb3b 0%, #ffeb3b 100%) !important;
+        color: #000 !important;
+        font-weight: bold !important;
+        padding: 2px 4px !important;
+        border-radius: 3px !important;
+        box-shadow: 0 2px 4px rgba(255, 235, 59, 0.4) !important;
+    }
+
+    .highlight-color-2 {
+        background: linear-gradient(120deg, #8ef5a6 0%, #4caf50 100%) !important;
+        color: #000 !important;
+        font-weight: bold !important;
+        padding: 2px 4px !important;
+        border-radius: 3px !important;
+        box-shadow: 0 2px 4px rgba(142, 245, 166, 0.4) !important;
+    }
+
+    .highlight-color-3 {
+        background: linear-gradient(120deg, #ffb4b4 0%, #f44336 100%) !important;
+        color: #000 !important;
+        font-weight: bold !important;
+        padding: 2px 4px !important;
+        border-radius: 3px !important;
+        box-shadow: 0 2px 4px rgba(255, 180, 180, 0.4) !important;
+    }
+
+    .highlight-color-4 {
+        background: linear-gradient(120deg, #b4c9ff 0%, #2196f3 100%) !important;
+        color: #000 !important;
+        font-weight: bold !important;
+        padding: 2px 4px !important;
+        border-radius: 3px !important;
+        box-shadow: 0 2px 4px rgba(180, 201, 255, 0.4) !important;
+    }
 </style>
 <!-- 未排约标签页 -->
 <div class="content-section" id="unscheduled-section">
     <div class="search-box">
         <div style="display: flex; gap: 10px; flex: 1; align-items: center;">
-            <input type="text" class="search-input" placeholder="搜索目的地、REF ID、FBA ID..." id="unscheduledSearch">
-            <button class="search-btn" id="searchUnscheduledBtn">
-                <i class="fas fa-search"></i> 搜索
-            </button>
+            
             <div style="display: flex; align-items: center; gap: 8px; margin-left: 10px;">
                 <small style="color: #666; white-space: nowrap;">容量限制:</small>
                 <span style="font-size: 0.85rem; color: var(--primary-color); font-weight: 600;">
@@ -84,6 +148,20 @@
                         <th>是否甩板</th>
                         <th>匹配度</th>
                         <th>操作</th>
+                    </tr>
+                    <tr class="search-row">
+                        <td><input type="text" class="header-search" placeholder="搜索仓点" data-column="0"></td>
+                        <td><input type="text" class="header-search" placeholder="搜索预约号" data-column="1"></td>
+                        <td><input type="text" class="header-search" placeholder="搜索REF ID" data-column="2"></td>
+                        <td><input type="text" class="header-search" placeholder="搜索FBA ID" data-column="3"></td>
+                        <td><input type="text" class="header-search" placeholder="搜索柜号" data-column="4"></td>
+                        <td><input type="text" class="header-search" placeholder="搜索入仓时间" data-column="5"></td>
+                        <td><input type="text" class="header-search" placeholder="搜索派送时间" data-column="6"></td>
+                        <td><input type="text" class="header-search" placeholder="搜索板数" data-column="7"></td>
+                        <td><input type="text" class="header-search" placeholder="搜索CBM" data-column="8"></td>
+                        <td><input type="text" class="header-search" placeholder="搜索是否甩板" data-column="9"></td>
+                        <td></td>
+                        <td></td>
                     </tr>
                 </thead>
                 <tbody>
@@ -442,117 +520,364 @@
     </div>
 </div>
 <script>
-// 未排约页面特定的JavaScript
-document.addEventListener('DOMContentLoaded', function() {
-    // 导出PO功能
-    document.querySelectorAll('.export-group-po').forEach(btn => {
-        btn.addEventListener('click', function () {
-            const suggestionId = this.getAttribute('data-suggestion-id');
-            const groupRows = document.querySelectorAll(`tr[data-suggestion-id="${suggestionId}"]`);
-
-            if (!groupRows.length) {
-                alert('未找到对应的PO数据');
-                return;
-            }
-
-            const tbody = document.getElementById('exportPoTableBody');
-            tbody.innerHTML = ''; // 清空旧内容
-
-            const cargoIds = [];
-            const pltIds = [];
-
-            groupRows.forEach(row => {
-                const ref = row.querySelector('.ref-ids-col')?.textContent.trim() || '-';
-                const fba = row.querySelector('.fba-ids-col')?.textContent.trim() || '-';
-                const cn = row.querySelector('.container-no-col')?.textContent.trim() || '-';
-                const offload = row.querySelector('.offload-time-col')?.textContent.trim() || '-';
-                const pallets = row.querySelector('.pallet-col')?.textContent.trim() || '-';
-                const cbm = row.querySelector('.cbm-col')?.textContent.trim() || '-';
-                const isdropped = row.querySelector('.is-dropped')?.textContent.trim() || '-';
-                if (row.dataset.cargoId) {
-                    cargoIds.push(...row.dataset.cargoId.split(',').filter(Boolean));
-                }
-                if (row.dataset.pltId) {
-                    pltIds.push(...row.dataset.pltId.split(',').filter(Boolean));
-                }
-
-                tbody.insertAdjacentHTML('beforeend', `
-                    <tr>
-                        <td><input type="checkbox" class="export-po-checkbox" 
-                            data-cargo-id="${row.dataset.cargoId}" 
-                            data-plt-id="${row.dataset.pltId}" checked></td>
-                        <td style="max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${ref}</td>
-                        <td style="max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${fba}</td>
-                        <td>${cn}</td>
-                        <td>${offload}</td>
-                        <td>${pallets}</td>
-                        <td>${cbm}</td>
-                        <td>${isdropped}</td>
-                    </tr>
-                `);
-            });
-            document.getElementById('exportSuggestionId').value = suggestionId;
-            document.getElementById('exportCargoIds').value = cargoIds.join(',');
-            document.getElementById('exportPltIds').value = pltIds.join(',');
-
-            openExportPoModal();
-        });
-    });
-    const checkAllBox = document.getElementById('checkAllExportPo');
-    checkAllBox.addEventListener('change', function() {
-        const checkboxes = document.querySelectorAll('.export-po-checkbox');
-        checkboxes.forEach(cb => cb.checked = this.checked);
-    });
     function openExportPoModal() {
         const modal = document.getElementById('exportPoModal');
         modal.style.display = 'block';
     }
-
-    document.getElementById('closeExportPoModal').addEventListener('click', closeExportPoModal);
-    document.getElementById('cancelExportPo').addEventListener('click', closeExportPoModal);
-
     function closeExportPoModal() {
         document.getElementById('exportPoModal').style.display = 'none';
     }
+    // 搜索相关变量
+    let searchState = {};
+    let searchTimer;
 
-    // 确认导出逻辑
-    document.getElementById('confirmExportPo').addEventListener('click', function() {
-        const suggestionId = document.getElementById('exportSuggestionId').value;
+    // 搜索功能工具函数
+    function escapeRegExp(string) {
+        return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
 
-        const checkedBoxes = document.querySelectorAll('.export-po-checkbox:checked');
-        if (!checkedBoxes.length) {
-            alert('请至少选择一个PO导出！');
+    function isRowMatchSingle(row, searchTerm) {
+        const cells = row.querySelectorAll('td');
+        
+        for (let i = 0; i < cells.length; i++) {
+            // 跳过操作列和匹配度列（最后几列）
+            if (i >= 10) continue;
+            
+            const cellText = cells[i].textContent.toLowerCase().trim();
+            if (cellText.includes(searchTerm)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    function isRowMatchAll(row, searchState) {
+        const cells = row.querySelectorAll('td');
+        
+        for (const [colIndex, searchTerm] of Object.entries(searchState)) {
+            const cellIndex = parseInt(colIndex);
+            if (cellIndex >= cells.length || cellIndex >= 10) continue;
+            
+            const cellText = cells[cellIndex].textContent.toLowerCase().trim();
+            if (!cellText.includes(searchTerm)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    function handleUnscheduledSearch(rows, searchTerm) {
+        const groupMap = new Map();
+
+        // 按 suggestionId 分组
+        rows.forEach(row => {
+            const suggestionId = row.getAttribute('data-suggestion-id');
+            if (suggestionId) {
+                if (!groupMap.has(suggestionId)) {
+                    groupMap.set(suggestionId, []);
+                }
+                groupMap.get(suggestionId).push(row);
+            }
+        });
+
+        // 处理每个组
+        groupMap.forEach(groupRows => {
+            let groupMatched = false;
+            
+            // 检查组内是否有任何行匹配搜索词
+            groupRows.forEach(row => {
+                if (isRowMatchSingle(row, searchTerm)) {
+                    groupMatched = true;
+                }
+            });
+            
+            // 设置整个组的显示状态
+            groupRows.forEach(row => {
+                row.style.display = groupMatched ? '' : 'none';
+            });
+        });
+    }
+
+    function handleUnscheduledSearchForVisible(rows, searchTerm) {
+        const visibleGroups = new Set();
+        rows.forEach(r => {
+            if (r.style.display !== 'none') {
+                const groupId = r.dataset.suggestionId;
+                if (groupId) visibleGroups.add(groupId);
+            }
+        });
+
+        const matchedGroups = new Set();
+        
+        // 检查每个可见组是否有任何行匹配搜索词
+        visibleGroups.forEach(groupId => {
+            const groupRows = document.querySelectorAll(`tr[data-suggestion-id="${groupId}"]`);
+            let groupMatched = false;
+            
+            groupRows.forEach(tr => {
+                if (isRowMatchSingle(tr, searchTerm)) {
+                    groupMatched = true;
+                }
+            });
+            
+            if (groupMatched) {
+                matchedGroups.add(groupId);
+            }
+        });
+
+        // 隐藏不匹配的组
+        rows.forEach(tr => {
+            const groupId = tr.dataset.suggestionId;
+            if (groupId && !matchedGroups.has(groupId)) {
+                tr.style.display = 'none';
+            }
+        });
+    }
+
+    function clearHighlights() {
+        const rows = document.querySelectorAll('#unscheduled-section tbody tr');
+        
+        rows.forEach(row => {
+            if (row.classList.contains('group-separator')) return;
+            
+            const cells = row.querySelectorAll('td');
+            cells.forEach(cell => {
+                // 恢复原始HTML内容
+                const originalHtml = cell.getAttribute('data-original-html');
+                if (originalHtml) {
+                    cell.innerHTML = originalHtml;
+                    cell.removeAttribute('data-original-html');
+                }
+            });
+        });
+    }
+
+    function applyHighlightsUnscheduledSP(searchTerms) {
+        if (searchTerms.length === 0) {
+            clearHighlights();
+            return;
+        }
+        
+        const rows = document.querySelectorAll('#unscheduled-section tbody tr');
+        
+        rows.forEach(row => {
+            if (row.style.display === 'none' || row.classList.contains('group-separator')) return;
+            
+            const cells = row.querySelectorAll('td');
+            cells.forEach((cell, cellIndex) => {
+                // 跳过操作列和匹配度列（最后2列）
+                if (cellIndex >= 10) return;
+                
+                let cellText = cell.textContent;
+                
+                // 保存原始HTML（如果有的话）
+                if (!cell.hasAttribute('data-original-html')) {
+                    cell.setAttribute('data-original-html', cell.innerHTML);
+                }
+                
+                let highlightedHtml = cellText;
+                
+                // 对每个搜索词应用高亮
+                searchTerms.forEach((term, termIndex) => {
+                    if (!term) return;
+                    
+                    const colorClass = `highlight-color-${(termIndex % 4) + 1}`;
+                    // 创建不区分大小写的正则表达式
+                    const regex = new RegExp(`(${escapeRegExp(term)})`, 'gi');
+                    
+                    highlightedHtml = highlightedHtml.replace(regex, `<span class="${colorClass}">$1</span>`);
+                });
+                
+                // 只有当有实际变化时才更新innerHTML
+                if (highlightedHtml !== cellText) {
+                    cell.innerHTML = highlightedHtml;
+                }
+            });
+        });
+    }
+
+    function updateGroupSeparators() {
+        const groupSeparators = document.querySelectorAll('#unscheduled-section .group-separator');
+        groupSeparators.forEach(separator => {
+            // 找到分隔行后面的第一个数据行
+            let nextRow = separator.nextElementSibling;
+            let shouldShowSeparator = false;
+            
+            // 查找分隔行后面的第一个有效数据行
+            while (nextRow) {
+                if (nextRow.classList && !nextRow.classList.contains('group-separator')) {
+                    if (nextRow.style.display !== 'none') {
+                        shouldShowSeparator = true;
+                    }
+                    break;
+                }
+                nextRow = nextRow.nextElementSibling;
+            }
+            
+            separator.style.display = shouldShowSeparator ? '' : 'none';
+        });
+    }
+
+    // 多列 AND 条件搜索
+    function applyMultiFilter() {
+        clearHighlights();
+        
+        const searchInputs = document.querySelectorAll('#unscheduled-section .header-search');
+        const rows = document.querySelectorAll('#unscheduled-section tbody tr');
+        
+        // 收集搜索条件
+        searchState = {};
+        searchInputs.forEach(input => {
+            const col = input.dataset.column;
+            const val = input.value.trim().toLowerCase();
+            if (val) searchState[col] = val;
+        });
+
+        const searchTerms = Object.values(searchState);
+
+        // 没有搜索条件时显示所有行和分隔线
+        if (searchTerms.length === 0) {
+            rows.forEach(r => {
+                if (!r.classList.contains('group-separator')) {
+                    r.style.display = '';
+                }
+            });
+            updateGroupSeparators();
             return;
         }
 
-        const cargoIds = Array.from(checkedBoxes).map(cb => cb.dataset.cargoId);
-        const pltIds = Array.from(checkedBoxes).map(cb => cb.dataset.pltId);
+        let firstRound = true;
 
-        document.getElementById('formStep').value = 'export_virtual_fleet_pos';
-        document.getElementById('formCargoIds').value = cargoIds.join(',');
-        document.getElementById('formPltIds').value = pltIds.join(',');
-        document.getElementById('formSuggestionId').value = suggestionId;
+        // 应用AND搜索逻辑
+        for (let term of searchTerms) {
+            if (firstRound) {
+                handleUnscheduledSearch(rows, term);
+                firstRound = false;
+            } else {
+                handleUnscheduledSearchForVisible(rows, term);
+            }
+        }
+        // 处理组间隔行的显示
+        updateGroupSeparators();
+        // 应用高亮
+        applyHighlightsUnscheduledSP(searchTerms);
+    }
 
-        closeExportPoModal();
-        document.getElementById('actionForm').submit();
-    });
+    // 清除搜索
+    function clearSearch() {
+        const searchInputs = document.querySelectorAll('#unscheduled-section .header-search');
 
-    // 排序功能
-    const sortButtons = document.querySelectorAll('.sort-btn');
-    sortButtons.forEach(btn => {
-        btn.addEventListener('click', function() {
-            sortButtons.forEach(b => b.classList.remove('active'));
-            this.classList.add('active');
-            
-            const sortBy = this.dataset.sort;
-            sortUnscheduledTable(sortBy);
+        searchInputs.forEach(input => input.value = '');
+        applyMultiFilter();
+    }
+
+    // 初始化搜索功能
+    function initSearch() {
+        const searchInputs = document.querySelectorAll('#unscheduled-section .header-search');
+        
+        searchInputs.forEach(input => {
+            input.addEventListener('input', function() {
+                clearTimeout(searchTimer);
+                searchTimer = setTimeout(applyMultiFilter, 250);
+            });
+
+            input.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    clearTimeout(searchTimer);
+                    applyMultiFilter();
+                }
+            });
+        });
+    }
+    // 未排约页面特定的JavaScript
+    document.addEventListener('DOMContentLoaded', function() {
+        initSearch();
+
+        // 导出PO功能
+        document.querySelectorAll('.export-group-po').forEach(btn => {
+            btn.addEventListener('click', function () {
+                const suggestionId = this.getAttribute('data-suggestion-id');
+                const groupRows = document.querySelectorAll(`tr[data-suggestion-id="${suggestionId}"]`);
+
+                if (!groupRows.length) {
+                    alert('未找到对应的PO数据');
+                    return;
+                }
+
+                const tbody = document.getElementById('exportPoTableBody');
+                tbody.innerHTML = ''; // 清空旧内容
+
+                const cargoIds = [];
+                const pltIds = [];
+
+                groupRows.forEach(row => {
+                    const ref = row.querySelector('.ref-ids-col')?.textContent.trim() || '-';
+                    const fba = row.querySelector('.fba-ids-col')?.textContent.trim() || '-';
+                    const cn = row.querySelector('.container-no-col')?.textContent.trim() || '-';
+                    const offload = row.querySelector('.offload-time-col')?.textContent.trim() || '-';
+                    const pallets = row.querySelector('.pallet-col')?.textContent.trim() || '-';
+                    const cbm = row.querySelector('.cbm-col')?.textContent.trim() || '-';
+                    const isdropped = row.querySelector('.is-dropped')?.textContent.trim() || '-';
+                    if (row.dataset.cargoId) {
+                        cargoIds.push(...row.dataset.cargoId.split(',').filter(Boolean));
+                    }
+                    if (row.dataset.pltId) {
+                        pltIds.push(...row.dataset.pltId.split(',').filter(Boolean));
+                    }
+
+                    tbody.insertAdjacentHTML('beforeend', `
+                        <tr>
+                            <td><input type="checkbox" class="export-po-checkbox" 
+                                data-cargo-id="${row.dataset.cargoId}" 
+                                data-plt-id="${row.dataset.pltId}" checked></td>
+                            <td style="max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${ref}</td>
+                            <td style="max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${fba}</td>
+                            <td>${cn}</td>
+                            <td>${offload}</td>
+                            <td>${pallets}</td>
+                            <td>${cbm}</td>
+                            <td>${isdropped}</td>
+                        </tr>
+                    `);
+                });
+                document.getElementById('exportSuggestionId').value = suggestionId;
+                document.getElementById('exportCargoIds').value = cargoIds.join(',');
+                document.getElementById('exportPltIds').value = pltIds.join(',');
+
+                openExportPoModal();
+            });
+        });
+        const checkAllBox = document.getElementById('checkAllExportPo');
+        checkAllBox.addEventListener('change', function() {
+            const checkboxes = document.querySelectorAll('.export-po-checkbox');
+            checkboxes.forEach(cb => cb.checked = this.checked);
+        });
+        
+
+        document.getElementById('closeExportPoModal').addEventListener('click', closeExportPoModal);
+        document.getElementById('cancelExportPo').addEventListener('click', closeExportPoModal);
+
+        // 确认导出逻辑
+        document.getElementById('confirmExportPo').addEventListener('click', function() {
+            const suggestionId = document.getElementById('exportSuggestionId').value;
+
+            const checkedBoxes = document.querySelectorAll('.export-po-checkbox:checked');
+            if (!checkedBoxes.length) {
+                alert('请至少选择一个PO导出！');
+                return;
+            }
+
+            const cargoIds = Array.from(checkedBoxes).map(cb => cb.dataset.cargoId);
+            const pltIds = Array.from(checkedBoxes).map(cb => cb.dataset.pltId);
+
+            document.getElementById('formStep').value = 'export_virtual_fleet_pos';
+            document.getElementById('formCargoIds').value = cargoIds.join(',');
+            document.getElementById('formPltIds').value = pltIds.join(',');
+            document.getElementById('formSuggestionId').value = suggestionId;
+
+            closeExportPoModal();
+            document.getElementById('actionForm').submit();
         });
     });
-
-    function sortUnscheduledTable(sortBy) {
-        // 实现排序逻辑
-        console.log('按', sortBy, '排序');
-        // 这里可以添加具体的排序实现
-    }
-});
+    
 </script>

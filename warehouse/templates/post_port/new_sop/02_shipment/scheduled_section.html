@@ -320,23 +320,18 @@
                 return;
             }
 
-            // 初次状态：第一次搜索以所有行作为基础
             let firstRound = true;
             let searchTerms = Object.values(searchState);
 
-            // 逐个搜索条件依次用你的 handleScheduledSearch 来过滤
             for (let term of searchTerms) {
                 if (firstRound) {
-                    // 第一次搜索基于所有行
                     handleScheduledSearch(rows, term);
                     firstRound = false;
                 } else {
-                    // 后续搜索基于当前已显示的行（多列 AND）
                     handleScheduledSearchForVisible(rows, term);
                 }
             }
-            // 执行高亮（只处理可见行）
-            applyHighlights(searchTerms);
+            applyHighlightsScheduledSP(searchTerms);
         }
 
         // 输入框监听
@@ -379,7 +374,7 @@
         });
     }
 
-    function applyHighlights(searchTerms) {
+    function applyHighlightsScheduledSP(searchTerms) {
         const rows = document.querySelectorAll('#scheduled-section tbody tr');
 
         rows.forEach(row => {

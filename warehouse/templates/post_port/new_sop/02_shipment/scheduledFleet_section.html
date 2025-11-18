@@ -40,17 +40,41 @@
         transform: scale(1.1);
         box-shadow: 0 4px 12px rgba(231, 76, 60, 0.4) !important;
     }
+    .search-row {
+        background-color: #f8f9fa;
+    }
+    .search-row td {
+        padding: 5px !important;
+        border-bottom: 1px solid #dee2e6;
+    }
+    .header-search {
+        width: 100%;
+        padding: 4px 8px;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+        font-size: 0.8rem;
+    }
+    
+    /* 高亮样式 */
+    .highlight-color-1 {
+        background: yellow;
+        font-weight: bold;
+    }
+    .highlight-color-2 {
+        background: #8ef5a6;
+        font-weight: bold;
+    }
+    .highlight-color-3 {
+        background: #ffb4b4;
+        font-weight: bold;
+    }
+    .highlight-color-4 {
+        background: #b4c9ff;
+        font-weight: bold;
+    }
     
  </style>
 <div class="content-section active" id="scheduledFleet-section">
-    <div class="search-box">
-        <div style="display: flex; gap: 10px; flex: 1; align-items: center;">
-            <input type="text" class="search-input" placeholder="搜索出库批次、预约批次、ISA、carrier..." id="scheduledFleetSearch">
-            <button class="search-btn" id="searchScheduledFleetBtn">
-                <i class="fas fa-search"></i> 搜索
-            </button>
-        </div>
-    </div>
 
     <div class="table-container">
         <table class="data-table">
@@ -66,6 +90,18 @@
                     <th>总卡板数</th>
                     <th>note</th>
                     <th>撤销批次</th>
+                </tr>
+                <tr class="search-row">
+                    <td><input type="text" class="header-search" placeholder="搜索出库批次" data-column="0"></td>
+                    <td><input type="text" class="header-search" placeholder="搜索预约批次" data-column="1"></td>
+                    <td><input type="text" class="header-search" placeholder="搜索ISA" data-column="2"></td>
+                    <td><input type="text" class="header-search" placeholder="搜索carrier" data-column="3"></td>
+                    <td><input type="text" class="header-search" placeholder="搜索提货时间" data-column="4"></td>
+                    <td><input type="text" class="header-search" placeholder="搜索总重" data-column="5"></td>
+                    <td><input type="text" class="header-search" placeholder="搜索CBM" data-column="6"></td>
+                    <td><input type="text" class="header-search" placeholder="搜索卡板数" data-column="7"></td>
+                    <td><input type="text" class="header-search" placeholder="搜索备注" data-column="8"></td>
+                    <td></td>
                 </tr>
             </thead>
             <tbody>
@@ -453,8 +489,126 @@
                 closeFleetModalModify();
             });
         }
+        const searchInputs = document.querySelectorAll('#scheduledFleet-section .header-search');
+        const rows = document.querySelectorAll('#scheduledFleet-section tbody tr');
+
+        let searchState = {};
+        let searchTimer;
+        
+        function handleScheduledFleetSearchForVisible(rows, searchTerm) {
+            const visibleRows = Array.from(rows).filter(r => r.style.display !== 'none');
+            
+            const matchedFleetNumbers = new Set();
+            visibleRows.forEach(tr => {
+                const fleetNumber = tr.dataset.fleetNumber;
+                if (!fleetNumber) return;
+
+                const text = tr.innerText.toLowerCase();
+                if (text.includes(searchTerm)) matchedFleetNumbers.add(fleetNumber);
+            });
+
+            rows.forEach(tr => {
+                const fleetNumber = tr.dataset.fleetNumber;
+                if (!fleetNumber) return;
+
+                if (!matchedFleetNumbers.has(fleetNumber)) {
+                    tr.style.display = 'none';
+                }
+            });
+        }
+
+        // 多列 AND 条件搜索
+        function applyMultiFilter() {
+            clearHighlights();
+            searchState = {};
+            searchInputs.forEach(input => {
+                const col = input.dataset.column;
+                const val = input.value.trim().toLowerCase();
+                if (val) searchState[col] = val;
+            });
+
+            if (Object.keys(searchState).length === 0) {
+                rows.forEach(r => r.style.display = '');
+                return;
+            }
+
+            let firstRound = true;
+            let searchTerms = Object.values(searchState);
+
+            for (let term of searchTerms) {
+                if (firstRound) {
+                    handleScheduledFleetSearch(rows, term);
+                    firstRound = false;
+                } else {
+                    handleScheduledFleetSearchForVisible(rows, term);
+                }
+            }
+            applyHighlights(searchTerms);
+        }
+
+        // 输入框监听
+        searchInputs.forEach(input => {
+            input.addEventListener('input', function () {
+                clearTimeout(searchTimer);
+                searchTimer = setTimeout(applyMultiFilter, 250);
+            });
+
+            input.addEventListener('keypress', function (e) {
+                if (e.key === 'Enter') {
+                    clearTimeout(searchTimer);
+                    applyMultiFilter();
+                }
+            });
+        });
     });
 
+    function handleScheduledFleetSearch(rows, searchTerm) {
+        const matchedFleetNumbers = new Set();
+        rows.forEach(tr => {
+            const fleetNumber = tr.dataset.fleetNumber;
+            if (!fleetNumber) return;
+
+            const text = tr.innerText.toLowerCase();
+            if (text.includes(searchTerm)) matchedFleetNumbers.add(fleetNumber);
+        });
+
+        rows.forEach(tr => {
+            const fleetNumber = tr.dataset.fleetNumber;
+            if (!fleetNumber) return;
+
+            if (!matchedFleetNumbers.has(fleetNumber)) {
+                tr.style.display = 'none';
+            }
+        });
+    }
+    
+    function clearHighlights() {
+        document.querySelectorAll('#scheduledFleet-section tbody tr td').forEach(td => {
+            td.innerHTML = td.innerText;
+        });
+    }
+
+    function applyHighlights(searchTerms) {
+        const rows = document.querySelectorAll('#scheduledFleet-section tbody tr');
+
+        rows.forEach(row => {
+            if (row.style.display === 'none') return;
+
+            row.querySelectorAll('td').forEach(td => {
+                let html = td.innerText;
+
+                searchTerms.forEach((term, index) => {
+                    if (!term) return;
+
+                    const colorClass = `highlight-color-${(index % 4) + 1}`;
+                    const regex = new RegExp(`(${term})`, 'ig');
+                    html = html.replace(regex, `<span class="${colorClass}">$1</span>`);
+                });
+
+                td.innerHTML = html;
+            });
+        });
+    }
     function markScheduledFleetRows() {
         const rows = document.querySelectorAll('#scheduledFleet-section .data-table tbody tr');
         
