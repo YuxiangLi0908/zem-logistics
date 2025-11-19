@@ -2897,11 +2897,12 @@ class PostNsop(View):
         # 查询没有货物的shipment记录
         empty_shipments = await sync_to_async(list)(
             Shipment.objects.filter(
+                Q(fleet_number__isnull=True) |
+                Q(fleet_number__isnull=False, fleet_number__is_virtual=True),
                 shipment_appointment__gt=target_date,
-                fleet_number__isnull=True,
                 shipment_type='FTL',
                 is_canceled=False,
-                in_use=True,
+                in_use=True,             
             ).exclude(shipment_batch_number__in=processed_batch_numbers)
         )
         
