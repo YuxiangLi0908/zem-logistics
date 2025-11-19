@@ -7406,7 +7406,7 @@ class Accounting(View):
                 chassis_comment = ""
                 is_save_invoice = False
         else:
-            is_save_invoice = True
+            is_save_invoice = False
             # 从报价表获取
             DETAILS = self._get_feetail(vessel_etd, "PAYABLE_DIRECT")
             destination = order.retrieval_id.retrieval_destination_area
