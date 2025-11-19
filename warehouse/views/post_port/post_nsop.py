@@ -2899,7 +2899,9 @@ class PostNsop(View):
             Shipment.objects.filter(
                 shipment_appointment__gt=target_date,
                 fleet_number__isnull=True,
-                shipment_type='FTL'
+                shipment_type='FTL',
+                is_canceled=False,
+                in_use=True,
             ).exclude(shipment_batch_number__in=processed_batch_numbers)
         )
         
