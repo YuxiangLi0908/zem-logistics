@@ -4639,7 +4639,7 @@ class Accounting(View):
                 "invoice_warehouse": invoice_warehouse,
                 "surcharges": invoice_warehouse.surcharges,
                 "surcharge_notes": invoice_warehouse.surcharge_notes,
-                "status": invoice_status.warehouse_public_status if delivery_type == "public" else invoice_status.warehouse_other_status,
+                "status": invoice_status.finance_status,
             }
             return self.template_invoice_warehouse_edit, context
         # 如果单价和数量都为空的话，就初始化
@@ -7511,7 +7511,7 @@ class Accounting(View):
             "end_date": request.GET.get("end_date"),
             "FS": FS,
             "fs_json": fs_json,
-            "status": order.receivable_status.stage,
+            "status": order.receivable_status.finance_status,
             "redirect_step": redirect_step,
             "start_date_confirm": request.POST.get("start_date_confirm") or None,
             "end_date_confirm": request.POST.get("end_date_confirm") or None,
