@@ -1,0 +1,155 @@
+{% extends 'base.html' %}
+{% load custom_filters %}
+{% block content %}
+
+<div style="padding: 20px; background: #f8f9fa; position: relative; z-index: 1;">
+    <form method="post" enctype="multipart/form-data" style="font-size:12px; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+        {% csrf_token %}     
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; align-items: center;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="white-space: nowrap;">导入模版:</span>
+                <input type="file" name="file" style="padding: 6px; border: 1px solid #ddd;">
+            </div>
+
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <label style="display: flex; align-items: center; gap: 5px;">
+                    <input type="checkbox" name="is_user_exclusive" id="is_user_exclusive" style="margin: 0;">
+                    <span style="white-space: nowrap;">用户专属</span>
+                </label>
+                <div style="margin: 5px 0; display: none;" id="user_selection">
+                    <b style="margin-right: 5px;">客户:</b>
+                    {{ order_form.customer_name }}
+                </div>
+            </div>
+
+            <div style="display: flex; align-items: center; gap: 5px;">
+                <span style="white-space: nowrap; margin-right: 5px;">生效日期:</span>
+                <input type="date" name="effective_date" required style="padding: 6px; border: 1px solid #ddd;">
+            </div>
+
+            <button type="submit" class="btn btn-success" style="padding: 8px 20px; font-size: 14px; background: #28a745; border-color: #28a745;">
+                上传报价表
+            </button>
+            <input type="hidden" name="step" value="upload_quote_excel">
+        </div>
+    </form>
+</div>
+
+<div style="max-width: 1200px; margin: 20px auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+    <h3 style="text-align: center; margin-bottom: 20px; color: #333;">报价单版本管理</h3>
+    <table id="quote-table" class="table" style="font-size: 14px; width: 100%; border-collapse: collapse;table-layout: fixed;">
+        <thead style="background: #e9ecef;">
+            <tr>
+                <th style="padding: 15px; border-bottom: 2px solid #dee2e6; text-align: center;width:320px;">文件名</th>
+                <th style="padding: 15px; border-bottom: 2px solid #dee2e6; text-align: center; width:120px;">生效时间</th>
+                <th style="padding: 15px; border-bottom: 2px solid #dee2e6; text-align: center;width:100px;">上传时间</th>            
+                <th style="padding: 15px; border-bottom: 2px solid #dee2e6; text-align: center;width:100px;">是否通用</th>
+                <th style="padding: 15px; border-bottom: 2px solid #dee2e6; text-align: center;width:100px;">专属客户</th>         
+            </tr>
+            <tr style="position: sticky; top: 52px;" id="fleet-table-filter">
+                <th class="th"><input type="text" style="width:110px;" id="filenameSearchInput" placeholder="搜索文件名..." oninput="filterTable()"></th>
+                <th class="th"></th>
+                <th class="th"></th>
+                <th class="th"></th>
+                <th class="th"><input type="text" style="width:110px;" id="customerSearchInput" placeholder="搜索客户..." oninput="filterTable()"></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for q in quotes %}
+            <form id="quote-form" method="post" enctype="multipart/form-data" action="">
+                {% csrf_token %}
+                <tr style="background: {% cycle '#ffffff' '#f8f9fa' %};">
+                    <td style="padding: 15px; text-align: center;">{{ q.filename }}</td>
+                    <td style="padding: 15px; text-align: center;">{{ q.effective_date|date:"Y-M-j" }}</td>   
+                    <td style="padding: 15px; text-align: center;">{{ q.upload_date|date:"M-j" }}</td>             
+                    <td style="padding: 15px; text-align: center;">{{ q.is_user_exclusive|yesno:"否,是" }}</td>
+                    <td style="padding: 15px; text-align: center;">{{ q.exclusive_user|default:"" }}</td>
+                    {% comment %} <td style="padding: 15px; text-align: center; {% if q.active %}color: #28a745; font-weight: bold;{% else %}color: #dc3545; font-style: italic;{% endif %}">
+                        {% if q.active %}已启用{% else %}未启用{% endif %}
+                    </td>
+                    <td style="padding: 15px; text-align: center;">
+                        <input type="hidden" name="q_id" value="{{ q.id }}">
+                        <input type="hidden" name="step" value="activate_quotation">
+                        <button type="submit" class="btn btn-success" style="padding: 6px 15px; font-size: 14px; width:80px; background: #28a745; border-color: #28a745;">
+                            启用
+                        </button>
+                    </td> {% endcomment %}
+                    
+                </tr>            
+            </form>    
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<style>
+    .btn-success:hover {
+        background: #218838 !important;
+        border-color: #1e7a31 !important;
+    }
+    th, td {
+        border-bottom: 1px solid #dee2e6;
+    }
+    tr:last-child td {
+        border-bottom: none;
+    }
+    .container {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(120px, 1fr));
+        gap: 10px;
+        position: relative;  
+        z-index: 0;          
+    }
+       
+    .item {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    } 
+</style>
+
+<script>
+    document.getElementById('is_user_exclusive').addEventListener('change', function() {
+        const userSelection = document.getElementById('user_selection');
+        if (this.checked) {
+            userSelection.style.display = 'block';
+            userSelection.querySelector('select').setAttribute('required', 'required');
+        } else {
+            userSelection.style.display = 'none';
+            userSelection.querySelector('select').removeAttribute('required');
+        }
+    });
+    function filterTable() {
+        const filenameInput = document.getElementById("filenameSearchInput");
+        const customerInput = document.getElementById("customerSearchInput");
+
+        const filenameFilter = filenameInput.value.trim().toUpperCase();
+        const customerFilter = customerInput.value.trim().toUpperCase();
+
+        const table = document.getElementById("quote-table");
+        const tbody = table.getElementsByTagName("tbody")[0];
+        const tr = tbody.getElementsByTagName("tr");
+
+        const filenameParts = filenameFilter.split(/\W+/).filter(p => p); // 非空分组
+
+        for (let i = 0; i < tr.length; i++) {
+            const tds = tr[i].getElementsByTagName("td");
+            const filenameTd = tds[0]; 
+            const customerTd = tds[4]; 
+
+            if (filenameTd && customerTd) {
+                const filenameTxt = filenameTd.textContent.toUpperCase();
+                const customerTxt = customerTd.textContent.toUpperCase();
+
+                let filenameMatch = filenameParts.length === 0 ? true :
+                    filenameParts.some(part => filenameTxt.includes(part));
+
+                const customerMatch = customerTxt.includes(customerFilter);
+
+                tr[i].style.display = (filenameMatch && customerMatch) ? "" : "none";
+            }
+        }
+    };
+</script>
+
+{% endblock %}

@@ -2767,8 +2767,16 @@ class PostNsop(View):
             fba = amazon_fba_locations[destination]
             address = f"{fba['location']}, {fba['city']} {fba['state']}, {fba['zipcode']}"
             return address
-        else:
-            raise ValueError('找不到这个目的地的地址，请核实')
+        
+        # 如果直接查找不到，尝试添加Walmart-前缀查找
+        walmart_destination = f"Walmart-{destination}"
+        if walmart_destination in amazon_fba_locations:
+            fba = amazon_fba_locations[walmart_destination]
+            address = f"{fba['location']}, {fba['city']} {fba['state']}, {fba['zipcode']}"
+            return address
+        
+        # 如果两种方式都找不到，报错
+        raise ValueError(f'找不到这个目的地的地址，请核实{destination}（已尝试{walmart_destination}）')
         
     async def check_time_window_match(self, primary_group, shipment):
         """检查时间窗口是否匹配"""
@@ -3290,26 +3298,36 @@ class PostNsop(View):
             return (any(k in custom_method for k in keywords),)
         
         def sort_key_pl(item):
-            # 优先级1: 按提柜状态和时间排序
-            if item['has_actual_retrieval']:
-                actual_time = item.get('container_number__order__retrieval_id__actual_retrieval_timestamp')
-                priority1 = (0, actual_time or datetime.min)  # 有实际提柜的排最前，按时间排序
-            elif item['has_appointment_retrieval']:
-                arm_time = item.get('container_number__order__retrieval_id__generous_and_wide_target_retrieval_timestamp')
-                priority1 = (1, arm_time or datetime.min)  # 有提柜约的排第二，按时间排序
-            elif item['has_estimated_retrieval']:
-                estimated_time = item.get('container_number__order__retrieval_id__target_retrieval_timestamp')
-                priority1 = (2, estimated_time or datetime.min)  # 有预计提柜的排第三，按时间排序
+            # 第一优先级：按四组分类 + 时间排序
+            if item.get('has_actual_retrieval'):
+                # 实际提柜
+                actual_time = item.get('actual_retrieval_time')
+                group = 0
+                sort_time = actual_time or datetime.min
+
+            elif item.get('has_appointment_retrieval'):
+                # 码头预约
+                arm_time = item.get('arm_time')
+                group = 1
+                sort_time = arm_time or datetime.min
+
+            elif item.get('has_estimated_retrieval'):
+                # 预计提柜
+                estimated_time = item.get('estimated_time')
+                group = 2
+                sort_time = estimated_time or datetime.min
+
             else:
-                priority1 = (3, datetime.min)  # 其他的排最后
+                # 无计划
+                group = 3
+                sort_time = datetime.min
             
             # 优先级2: 把包含暂扣的放最后面
-            custom_method = item.get("custom_delivery_method", "")
+            custom_method = item.get("custom_delivery_method", "") or ""
             keywords = ["暂扣", "HOLD", "留仓"]
-            has_hold_keyword = custom_method is not None and any(k in custom_method for k in keywords)
-            priority2 = has_hold_keyword  # True的排后面，False的排前面
-            
-            return (priority1[0], priority1[1], priority2)
+            has_hold = any(k in custom_method.upper() for k in keywords)
+            hold_flag = 1 if has_hold else 0
+            return (group, sort_time, hold_flag)
         
         data = []
         if plt_criteria:
@@ -3328,8 +3346,7 @@ class PostNsop(View):
                 .filter(plt_criteria)
                 .annotate(
                     str_id=Cast("id", CharField()),
-                    str_container_number=Cast("container_number__container_number", CharField()), 
-                    
+                    str_container_number=Cast("container_number__container_number", CharField()),                  
                     # 格式化vessel_eta为月日
                     formatted_offload_at=Func(
                         F('container_number__order__offload_id__offload_at'),
@@ -3401,7 +3418,7 @@ class PostNsop(View):
                     ),
                     total_pcs=Sum("pcs", output_field=IntegerField()),
                     total_cbm = Round(Sum("cbm", output_field=FloatField()), 3),
-                    total_weight_lbs=Sum("weight_lbs", output_field=FloatField()),
+                    total_weight_lbs=Round(Sum("weight_lbs", output_field=FloatField()),3),
                     total_n_pallet_act=Count("pallet_id", distinct=True),
                     label=Value("ACT"),
                     note_sp=StringAgg("note_sp", delimiter=",", distinct=True),
@@ -3698,6 +3715,7 @@ class PostNsop(View):
                     ),
                     total_pcs=Sum("pcs", output_field=FloatField()),
                     total_cbm = Round(Sum("cbm", output_field=FloatField()), 3),
+                    total_weight_lbs=Round(Sum("total_weight_lbs", output_field=FloatField()),3),
                     total_n_pallet_est= Ceil(Sum("cbm", output_field=FloatField()) / 2),
                     label=Value("EST"),
                     note_sp=StringAgg("note_sp", delimiter=",", distinct=True)

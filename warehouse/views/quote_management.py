@@ -7,6 +7,8 @@ from collections import defaultdict
 from datetime import datetime, timedelta
 from io import BytesIO
 from typing import Any
+from typing import Dict, List, Any, Tuple, Union
+
 
 import pandas as pd
 from django.contrib.auth.decorators import login_required
@@ -1048,41 +1050,185 @@ class QuoteManagement(View):
         fee_detail = FeeDetail(**fee_detail_data)
         fee_detail.save()
 
-    def extract_locations(self, locations) -> dict[list]:
+    def clean_destination(self, destination: str) -> str:
+        """清理目的地字符串"""
+        if pd.isna(destination) or destination is None:
+            return ""
+        
+        destination = str(destination).strip()
+        
+        # 第一步：移除中文内容和特殊字符
+        destination = re.sub(r'[\u4e00-\u9fff]+', '', destination)
+        destination = re.sub(r'[【】（）(){}[\]"\'"“”]', '', destination)
+        destination = re.sub(r'\s+', ' ', destination).strip()
+        
+        # 第二步：应用原有的 extract_locations 逻辑
+        destination = destination.split("（")[0].split("(")[0].strip()
+        
+        # 处理沃尔玛格式
+        parts = destination.split("-")
+        destination = parts[1] if len(parts) > 1 else parts[0]
+        destination = destination.strip()
+        
+        # 移除"新增"字样
+        destination = destination.replace("新增", "").strip()
+        
+        # 第三步：处理斜杠分隔的情况
+        if "/" in destination:
+            parts = destination.split("/")
+            prefix = "".join([char for char in parts[0] if not char.isdigit()])
+            nums = []
+            for part in parts:
+                if part.isdigit():
+                    nums.append(part)
+                else:
+                    # 提取非纯数字部分中的数字
+                    num_part = "".join([char for char in part if char.isdigit()])
+                    if num_part:
+                        nums.append(num_part)
+            # 组合前缀和数字
+            if nums:
+                destination = f"{prefix}{nums[0]}"  # 返回第一个组合结果
+            else:
+                destination = prefix
+        
+        # 第四步：最终格式规范化
+        # 处理 LA 1 -> LA1 这样的格式
+        destination = re.sub(r'^([A-Z]{2,3})\s+(\d+)$', r'\1\2', destination)
+        
+        return destination
+    
+    def extract_locations(self, locations: Union[List[str], str]) -> List[str]:
+        if isinstance(locations, str):
+            locations = [locations]
+        
         result = []
         for loc in locations:
-            loc = str(loc)
-            loc = (
-                loc.split("（")[0].split("(")[0].strip()
-            )  # 有的仓点后面会写上（新增），这个不要
-            parts = loc.split("-")
-            loc = (
-                parts[1] if len(parts) > 1 else parts[0]
-            ).strip()  # 有的仓点是沃尔玛-xx，只要后面的仓点名
-            loc = loc.replace("新增", "")
-            if "私人地址" in loc:
-                result.append(loc)
-            else:
-                if "/" in str(loc):
-                    # 拆分前缀和数字部分
-                    parts = loc.split("/")
-                    prefix = "".join(
-                        [char for char in parts[0] if not char.isdigit()]
-                    )  # 提取前缀（去掉数字）
-                    nums = []
-                    for part in parts:
-                        if part.isdigit():  # 如果是纯数字
-                            nums.append(part)
-                        else:  # 如果不是纯数字（如 ONT8），提取末尾的数字
-                            nums.append(
-                                "".join([char for char in part if char.isdigit()])
-                            )
-                    # 组合前缀和数字
-                    result.extend([f"{prefix}{num}" for num in nums])
-                else:
-                    result.append(loc)
+            if pd.isna(loc) or loc is None:
+                continue
+                
+            cleaned_loc = self.clean_destination(str(loc))
+            
+            # 特殊处理：私人地址保留原样
+            if "私人地址" in str(loc):
+                result.append(str(loc).strip())
+            elif cleaned_loc and cleaned_loc not in result:
+                result.append(cleaned_loc)
+        
         return result
 
+    def validate_sheet_structure(self, df: pd.DataFrame, expected_columns: Dict[str, List[str]]) -> Tuple[bool, List[str]]:
+        """验证sheet表结构"""
+        errors = []
+        actual_columns = [str(col).strip().lower() for col in df.columns]
+        
+        for col_name, expected_versions in expected_columns.items():
+            found = False
+            for expected in expected_versions:
+                if any(expected.lower() in actual_col for actual_col in actual_columns):
+                    found = True
+                    break
+            if not found:
+                errors.append(f"缺少必要列: {col_name} (可能的形式: {', '.join(expected_versions)})")
+        
+        return len(errors) == 0, errors
+    
+    def format_validation_errors(self, sheet_name: str, errors: List[str]) -> str:
+        """格式化验证错误信息"""
+        if not errors:
+            return f"✅ {sheet_name} - 格式正确"
+        
+        error_msg = f"❌ {sheet_name} - 格式错误:\n"
+        for error in errors:
+            error_msg += f"   • {error}\n"
+        return error_msg
+    
+    def debug_location_processing(self, original_locations: List[str]) -> Dict[str, Any]:
+        """
+        调试位置处理过程，用于前端展示处理详情
+        """
+        debug_info = {}
+        
+        for loc in original_locations:
+            if pd.isna(loc) or loc is None:
+                continue
+                
+            original = str(loc)
+            steps = []
+            current = original
+            
+            # 步骤1: 基础清理
+            current = current.strip()
+            steps.append(f"初始: {current}")
+            
+            # 步骤2: 移除中文和特殊字符
+            current = re.sub(r'[\u4e00-\u9fff]+', '', current)
+            current = re.sub(r'[【】（）(){}[\]"\'"“”]', '', current)
+            steps.append(f"移除中文特殊字符: {current}")
+            
+            # 步骤3: 移除括号内容
+            current = current.split("（")[0].split("(")[0].strip()
+            steps.append(f"移除括号: {current}")
+            
+            # 步骤4: 处理沃尔玛格式
+            parts = current.split("-")
+            current = parts[1] if len(parts) > 1 else parts[0]
+            current = current.strip()
+            steps.append(f"处理沃尔玛格式: {current}")
+            
+            # 步骤5: 移除"新增"
+            current = current.replace("新增", "").strip()
+            steps.append(f"移除新增: {current}")
+            
+            # 步骤6: 处理斜杠
+            if "/" in current:
+                parts = current.split("/")
+                prefix = "".join([char for char in parts[0] if not char.isdigit()])
+                nums = []
+                for part in parts:
+                    if part.isdigit():
+                        nums.append(part)
+                    else:
+                        num_part = "".join([char for char in part if char.isdigit()])
+                        if num_part:
+                            nums.append(num_part)
+                if nums:
+                    current = f"{prefix}{nums[0]}"
+                else:
+                    current = prefix
+                steps.append(f"处理斜杠: {current}")
+            
+            # 步骤7: 最终格式化
+            current = re.sub(r'^([A-Z]{2,3})\s+(\d+)$', r'\1\2', current)
+            steps.append(f"最终结果: {current}")
+            
+            debug_info[original] = {
+                'final': current,
+                'steps': steps,
+                'changed': original != current
+            }
+        
+        return debug_info
+    
+    def enhanced_extract_locations(self, locations: Union[List[str], str]) -> Dict[str, List[str]]:
+        """
+        增强版位置提取，返回更详细的结果
+        """
+        if isinstance(locations, str):
+            locations = [locations]
+        
+        original_locations = [str(loc) for loc in locations if pd.notna(loc) and loc is not None]
+        cleaned_locations =self.extract_locations(locations)
+        
+        return {
+            'original': original_locations,
+            'cleaned': cleaned_locations,
+            'changes': [
+                f"{orig} -> {cleaned}" 
+                for orig, cleaned in zip(original_locations, cleaned_locations) 
+                if orig != cleaned
+            ]
+        }
     def handle_upload_payable_quote_post(self, request: HttpRequest) -> dict[str, Any]:
         order_form = OrderForm(request.POST)
         effective_date = request.POST.get("effective_date")
