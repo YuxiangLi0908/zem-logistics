@@ -72,16 +72,134 @@
                 {% for shipment_group in scheduled_data %}
                 <td colspan="12" style="background: linear-gradient(90deg, #3498db, #6c8bc7); 
                                                 height: 2px; padding: 0;"></td>
-                {% for cargo in shipment_group.cargos %}
-                <tr data-suggestion-id="{{ suggestion.suggestion_id }}"
-                            data-cargo-id="{{ cargo.ids|default:'' }}"
-                            data-plt-id="{{ cargo.plt_ids|default:'' }}"
-                            data-shipment-group="{{ shipment_group.appointment_id }}">
-                    {% if forloop.first %}
-                    <td rowspan="{{ shipment_group.cargos|length }}" style="vertical-align: middle; background-color: #f8f9fa;">
+                {% if shipment_group.cargos %}
+                    <!-- 有PO的-->
+                    {% for cargo in shipment_group.cargos %}
+                    <tr data-suggestion-id="{{ suggestion.suggestion_id }}"
+                                data-cargo-id="{{ cargo.ids|default:'' }}"
+                                data-plt-id="{{ cargo.plt_ids|default:'' }}"
+                                data-shipment-group="{{ shipment_group.appointment_id }}">
+                        {% if forloop.first %}
+                        <td rowspan="{{ shipment_group.cargos|length }}" style="vertical-align: middle; background-color: #f8f9fa;">
+                            {{ shipment_group.shipment_batch_number|default_if_none:'' }}
+                        </td>
+                        <td rowspan="{{ shipment_group.cargos|length }}" style="vertical-align: middle; background-color: #f8f9fa;">
+                            <strong>{{ shipment_group.appointment_id|default_if_none:'' }}</strong>
+                            {% if shipment_group.shipment_cargo_id %}
+                            <div style="font-size: 12px; color: #666;">
+                                shipment: {{ shipment_group.shipment_cargo_id }}
+                            </div>
+                            {% endif %}
+                        </td>
+                        <td rowspan="{{ shipment_group.cargos|length }}" style="vertical-align: middle; background-color: #f8f9fa;">
+                            {{ shipment_group.destination }}
+                        </td>
+                        <td rowspan="{{ shipment_group.cargos|length }}" style="vertical-align: middle; background-color: #f8f9fa;">
+                            {{ shipment_group.shipment_appointment|date:"Y-m-d H:i" }}
+                        </td>
+                        <td rowspan="{{ shipment_group.cargos|length }}" style="vertical-align: middle; background-color: #f8f9fa;">
+                            {{ shipment_group.load_type }}
+                        </td>
+                        {% endif %}
+                        <td class="container-no-col" style="max-width: 150px; white-space: pre-line; font-size: 0.8rem;">
+                            {{ cargo.cns|linebreaks_cn }}
+                        </td>
+                        <td class="ref-ids-col" data-full="{{ cargo.ref_ids|default:'' }}">{{ cargo.ref_ids|default:"-"|truncatechars:20 }}</td>
+                        <td class="fba-ids-col" data-full="{{ cargo.fba_ids|default:'' }}">{{ cargo.fba_ids|default:"-"|truncatechars:20 }}</td>
+                        <td>
+                            {% if cargo.label == 'ACT' %}
+                                {{ cargo.total_n_pallet_act|default:0 }} ACT
+                            {% else %}
+                                {{ cargo.total_n_pallet_est|default:0 }} EST
+                            {% endif %}
+                        </td>
+                        <td>{{ cargo.total_cbm|default:0 }}</td>
+                        <td>
+                            <form method="post">
+                                {% csrf_token %}
+                                <input type="hidden" name="step" value="edit_note_sp">
+                                <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                                <input type="hidden" name="cargo_ids" value="{{ cargo.ids|default:'' }}">
+                                <input type="hidden" name="plt_ids" value="{{ cargo.plt_ids|default:'' }}">
+                                <div style="margin-bottom: 5px;">
+                                    <input type="text" name="note_sp" class="form-input" value="{{ cargo.note_sp|default:'' }}" style="width: 80px;">
+                                </div>
+                                <button type="submit" class="btn btn-sm btn-primary" style="margin-top: 2px;">保存</button>
+                            </form>
+                        </td>
+                        {% if forloop.first %}
+                        <td rowspan="{{ shipment_group.cargos|length }}" style="vertical-align: middle;">
+                            
+                            <button class="action-btn btn-secondary" onclick="unassignShipment('{{ shipment_group.appointment_id }}')">
+                                <i class="fas fa-unlink"></i> 取消排约
+                            </button>
+                            
+                            <form method="post" action="">
+                                {% csrf_token %}
+                                <input type="hidden" name="appointment_id" value="{{ shipment_group.appointment_id }}">                                  
+                                <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                                <input type="hidden" name="destination" value="{{ shipment_group.destination }}">
+                                <input type="hidden" name="step" value="search_addable_po">
+                                <input type="hidden" name="active_tab" value="scheduled"> 
+
+                                <button class="action-btn btn-success" onclick="">
+                                    <i class="fas fa-square-plus"></i> 添加PO
+                                </button>
+                            </form>
+        
+                            <button class="action-btn btn-warning open-bind-modal"
+                                    data-has-appointment="1"
+                                    data-appointment-id="{{ shipment_group.appointment_id }}"
+                                    data-load-type="{{ shipment_group.load_type }}"
+                                    data-destination="{{ shipment_group.destination }}"
+                                    data-delivery-method="{{ shipment_group.load_type }}"
+                                    data-scheduled-time="{{ shipment_group.shipment_appointment|date:'Y-m-d H:i' }}"
+                                    data-shipment-account="{{ shipment_group.shipment_account }}"
+                                    data-origin="{{ warehouse }}"
+                                    data-note=""
+                                    data-address-detail="{{ shipment_group.address_detail }}"
+                                    data-operation-type="remove_po"
+                                    data-pickup-time="{{ shipment_group.pickup_time|date:'Y-m-d H:i' }}"
+                                    data-pickup-number="{{ shipment_group.pickup_number }}">
+                                <i class="fas fa-square-minus"></i> 删除PO
+                            </button>
+                            <button class="action-btn btn-primary open-edit-modal"
+                                    data-appointment-id="{{ shipment_group.appointment_id }}"
+                                    data-destination="{{ shipment_group.destination }}"
+                                    data-scheduled-time="{{ shipment_group.shipment_appointment|date:'Y-m-d H:i' }}"
+                                    data-load-type="{{ shipment_group.load_type }}"
+                                    data-origin="{{ warehouse }}"
+                                    data-pickup-time="{{ shipment_group.pickup_time|date:'Y-m-d H:i' }}"
+                                    data-pickup-number="{{ shipment_group.pickup_number }}">
+                                <i class="fas fa-edit"></i> 修改约
+                            </button>
+                            {% if shipment_group.is_notified_customer %}
+                                <button class="action-btn btn-success" disabled style="opacity: 0.6;">
+                                    <i class="fas fa-check-circle"></i> 已通知客户
+                                </button>
+                            {% else %}
+                                <form method="post" action="">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="appointment_id" value="{{ shipment_group.appointment_id }}">                                  
+                                    <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                                    <input type="hidden" name="step" value="sp_notified_customer">
+                                    <input type="hidden" name="active_tab" value="scheduled"> 
+                                    <button class="action-btn btn-info">
+                                        <i class="fas fa-bell"></i> 通知客户
+                                    </button>
+                                </form>                        
+                            {% endif %}
+                        </td>
+                        {% endif %}
+                    </tr>
+                    {% endfor %}
+                {% else %}
+                    <!-- 没有PO的 -->
+                    <tr data-shipment-group="{{ shipment_group.appointment_id }}">
+                    <td style="vertical-align: middle; background-color: #f8f9fa;">
                         {{ shipment_group.shipment_batch_number|default_if_none:'' }}
                     </td>
-                    <td rowspan="{{ shipment_group.cargos|length }}" style="vertical-align: middle; background-color: #f8f9fa;">
+                    <td style="vertical-align: middle; background-color: #f8f9fa;">
                         <strong>{{ shipment_group.appointment_id|default_if_none:'' }}</strong>
                         {% if shipment_group.shipment_cargo_id %}
                         <div style="font-size: 12px; color: #666;">
@@ -89,46 +207,20 @@
                         </div>
                         {% endif %}
                     </td>
-                    <td rowspan="{{ shipment_group.cargos|length }}" style="vertical-align: middle; background-color: #f8f9fa;">
+                    <td style="vertical-align: middle; background-color: #f8f9fa;">
                         {{ shipment_group.destination }}
                     </td>
-                    <td rowspan="{{ shipment_group.cargos|length }}" style="vertical-align: middle; background-color: #f8f9fa;">
+                    <td style="vertical-align: middle; background-color: #f8f9fa;">
                         {{ shipment_group.shipment_appointment|date:"Y-m-d H:i" }}
                     </td>
-                    <td rowspan="{{ shipment_group.cargos|length }}" style="vertical-align: middle; background-color: #f8f9fa;">
+                    <td style="vertical-align: middle; background-color: #f8f9fa;">
                         {{ shipment_group.load_type }}
                     </td>
-                    {% endif %}
-                    <td class="container-no-col" style="max-width: 150px; white-space: pre-line; font-size: 0.8rem;">
-                        {{ cargo.cns|linebreaks_cn }}
+                    <td colspan="6" style="text-align: center; color: #999; background-color: #f8f9fa;">
+                        无PO
                     </td>
-                    <td class="ref-ids-col" data-full="{{ cargo.ref_ids|default:'' }}">{{ cargo.ref_ids|default:"-"|truncatechars:20 }}</td>
-                    <td class="fba-ids-col" data-full="{{ cargo.fba_ids|default:'' }}">{{ cargo.fba_ids|default:"-"|truncatechars:20 }}</td>
-                    <td>
-                        {% if cargo.label == 'ACT' %}
-                            {{ cargo.total_n_pallet_act|default:0 }} ACT
-                        {% else %}
-                            {{ cargo.total_n_pallet_est|default:0 }} EST
-                        {% endif %}
-                    </td>
-                    <td>{{ cargo.total_cbm|default:0 }}</td>
-                    <td>
-                        <form method="post">
-                            {% csrf_token %}
-                            <input type="hidden" name="step" value="edit_note_sp">
-                            <input type="hidden" name="warehouse" value="{{ warehouse }}">
-                            <input type="hidden" name="cargo_ids" value="{{ cargo.ids|default:'' }}">
-                            <input type="hidden" name="plt_ids" value="{{ cargo.plt_ids|default:'' }}">
-                            <div style="margin-bottom: 5px;">
-                                <input type="text" name="note_sp" class="form-input" value="{{ cargo.note_sp|default:'' }}" style="width: 80px;">
-                            </div>
-                            <button type="submit" class="btn btn-sm btn-primary" style="margin-top: 2px;">保存</button>
-                        </form>
-                    </td>
-                    {% if forloop.first %}
-                    <td rowspan="{{ shipment_group.cargos|length }}" style="vertical-align: middle;">
-                        
-                        <button class="action-btn btn-danger" onclick="unassignShipment('{{ shipment_group.appointment_id }}')">
+                    <td style="vertical-align: middle;">
+                        <button class="action-btn btn-secondary" onclick="unassignShipment('{{ shipment_group.appointment_id }}')">
                             <i class="fas fa-unlink"></i> 取消排约
                         </button>
                         
@@ -139,28 +231,10 @@
                             <input type="hidden" name="destination" value="{{ shipment_group.destination }}">
                             <input type="hidden" name="step" value="search_addable_po">
                             <input type="hidden" name="active_tab" value="scheduled"> 
-
                             <button class="action-btn btn-success" onclick="">
                                 <i class="fas fa-square-plus"></i> 添加PO
                             </button>
                         </form>
-      
-                        <button class="action-btn btn-warning open-bind-modal"
-                                data-has-appointment="1"
-                                data-appointment-id="{{ shipment_group.appointment_id }}"
-                                data-load-type="{{ shipment_group.load_type }}"
-                                data-destination="{{ shipment_group.destination }}"
-                                data-delivery-method="{{ shipment_group.load_type }}"
-                                data-scheduled-time="{{ shipment_group.shipment_appointment|date:'Y-m-d H:i' }}"
-                                data-shipment-account="{{ shipment_group.shipment_account }}"
-                                data-origin="{{ warehouse }}"
-                                data-note=""
-                                data-address-detail="{{ shipment_group.address_detail }}"
-                                data-operation-type="remove_po"
-                                data-pickup-time="{{ shipment_group.pickup_time|date:'Y-m-d H:i' }}"
-                                data-pickup-number="{{ shipment_group.pickup_number }}">
-                            <i class="fas fa-square-minus"></i> 删除PO
-                        </button>
                         <button class="action-btn btn-primary open-edit-modal"
                                 data-appointment-id="{{ shipment_group.appointment_id }}"
                                 data-destination="{{ shipment_group.destination }}"
@@ -171,10 +245,25 @@
                                 data-pickup-number="{{ shipment_group.pickup_number }}">
                             <i class="fas fa-edit"></i> 修改约
                         </button>
+                        {% if shipment_group.is_notified_customer %}
+                            <button class="action-btn btn-danger" disabled style="opacity: 0.8;">
+                                <i class="fas fa-exclamation-circle"></i> 无PO已通知
+                            </button>
+                        {% else %}
+                            <form method="post" action="">
+                                {% csrf_token %}
+                                <input type="hidden" name="appointment_id" value="{{ shipment_group.appointment_id }}">                                  
+                                <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                                <input type="hidden" name="step" value="sp_notified_customer">
+                                <input type="hidden" name="active_tab" value="scheduled"> 
+                                <button class="action-btn btn-info">
+                                    <i class="fas fa-bell"></i> 通知客户
+                                </button>
+                            </form>                        
+                        {% endif %}
                     </td>
-                    {% endif %}
                 </tr>
-                {% endfor %}
+            {% endif %}
                 {% empty %}
                 <tr>
                     <td colspan="9" style="text-align: center; padding: 20px;">

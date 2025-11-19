@@ -196,6 +196,9 @@ class PostNsop(View):
         elif step == "fleet_add_pallet":
             template, context = await self.handle_fleet_add_pallet_post(request)
             return render(request, template, context)
+        elif step == "sp_notified_customer":
+            template, context = await self.handle_sp_notified_customer_post(request)
+            return render(request, template, context)
         elif step == "search_addable_po":
             template, context = await self.handle_search_addable_po_post(request)
             return render(request, template, context)
@@ -403,6 +406,33 @@ class PostNsop(View):
         if 'error_messages' not in context:
             context.update({"success_messages": f"{appointment_id}加塞成功！"})
         return await self.handle_fleet_schedule_post(request,context)
+    
+    async def handle_sp_notified_customer_post(
+        self, request: HttpRequest
+    ) -> tuple[str, dict[str, Any]]:
+        appointment_id = request.POST.get("appointment_id")
+        context = {}
+        if not bool(appointment_id) or not appointment_id or 'None' in appointment_id:
+            context.update({
+                'error_messages':'ISA为空！',
+            })
+            return await self.handle_td_shipment_post(request, context)
+        try:
+            shipment = await sync_to_async(Shipment.objects.get)(
+                appointment_id=appointment_id
+            )
+            shipment.is_notified_customer = True
+            await sync_to_async(shipment.save)()
+            context = {'success_messages': f"{appointment_id}通知客户成功！"}
+        except Shipment.DoesNotExist:
+            context.update({
+                'error_messages': f"找不到预约号为 {appointment_id} 的记录",
+            })
+        except Exception as e:
+            context.update({
+                'error_messages': f"通知客户失败: {str(e)}",
+            })
+        return await self.handle_td_shipment_post(request, context)
     
     async def handle_search_addable_po_post(
         self, request: HttpRequest
@@ -1162,8 +1192,8 @@ class PostNsop(View):
             old_shipment.in_use = True
             old_shipment.is_canceled = False
             old_shipment.status = ""
-            await sync_to_async(old_shipment.save)()
-            context.update({'success_messages':'预约信息修改成功!'})
+            await sync_to_async(old_shipment.save)()         
+            context.update( {'success_messages':f"{appointment_id_old}预约信息修改成功！"})
             if name == "fleet_departure":
                 return await self.handle_fleet_schedule_post(request,context)
             return await self.handle_td_shipment_post(request,context)
@@ -1959,6 +1989,7 @@ class PostNsop(View):
                 in_use=True,
                 is_canceled=False,
                 shipment_type="FTL",
+                is_notified_customer=True,
             ).order_by("pickup_time", "shipment_appointment")
         )
         fleet = await sync_to_async(list)(
@@ -2304,7 +2335,7 @@ class PostNsop(View):
         # 获取三类数据：未排约、已排约、待出库
         if not matching_suggestions:
             matching_suggestions = await self.sp_unscheduled_data(warehouse, st_type, max_cbm, max_pallet,request.user)
-
+        #已排约
         scheduled_data = await self.sp_scheduled_data(warehouse, request.user)
 
         #未排车+已排车
@@ -2774,7 +2805,7 @@ class PostNsop(View):
             fba = amazon_fba_locations[walmart_destination]
             address = f"{fba['location']}, {fba['city']} {fba['state']}, {fba['zipcode']}"
             return address
-        
+        return None
         # 如果两种方式都找不到，报错
         raise ValueError(f'找不到这个目的地的地址，请核实{destination}（已尝试{walmart_destination}）')
         
@@ -2825,6 +2856,8 @@ class PostNsop(View):
         
         # 按shipment_batch_number分组
         grouped_data = {}
+        processed_batch_numbers = set()
+
         for item in raw_data:           
             batch_number = item.get('shipment_batch_number__shipment_batch_number')
             if "库存盘点" in batch_number:
@@ -2856,9 +2889,41 @@ class PostNsop(View):
                     'cargos': [],
                     'pickup_time': shipment.pickup_time,
                     'pickup_number': shipment.pickup_number,
+                    'is_notified_customer': shipment.is_notified_customer,
                 }
+                processed_batch_numbers.add(batch_number)
             grouped_data[batch_number]['cargos'].append(item)
         
+        # 查询没有货物的shipment记录
+        empty_shipments = await sync_to_async(list)(
+            Shipment.objects.filter(
+                shipment_appointment__gt=target_date,
+                fleet_number__isnull=True,
+                shipment_type='FTL'
+            ).exclude(shipment_batch_number__in=processed_batch_numbers)
+        )
+        
+        # 添加没有货物的shipment记录
+        for shipment in empty_shipments:
+            batch_number = shipment.shipment_batch_number
+            if batch_number not in grouped_data:
+                address = await self.get_address(shipment.destination)
+                grouped_data[batch_number] = {
+                    'appointment_id': shipment.appointment_id,
+                    'shipment_cargo_id': shipment.shipment_cargo_id,
+                    'shipment_batch_number': shipment.shipment_batch_number,
+                    'shipment_type': shipment.shipment_type,
+                    'destination': shipment.destination,
+                    'shipment_appointment': shipment.shipment_appointment,
+                    'load_type': shipment.load_type,
+                    'shipment_account': shipment.shipment_account,
+                    'address': shipment.address,
+                    'address_detail': address,
+                    'cargos': [],  # 空列表表示没有货物
+                    'pickup_time': shipment.pickup_time,
+                    'pickup_number': shipment.pickup_number,
+                    'is_notified_customer': shipment.is_notified_customer,
+                }
         return list(grouped_data.values())
 
     async def _sp_ready_to_ship_data(self, warehouse: str, user) -> list:
