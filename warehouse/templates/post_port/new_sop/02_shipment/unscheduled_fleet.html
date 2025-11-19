@@ -37,10 +37,28 @@
         font-size: 0.8rem;
         background: white;
     }
+    .filter-notice {
+        background-color: #f8f9fa;
+        border-left: 4px solid #6c757d;
+        padding: 10px 15px;
+        margin-bottom: 15px;
+        border-radius: 4px;
+        font-size: 14px;
+        color: #495057;
+    }
 </style>
 <!-- 未排车批次标签页 -->
 <div class="content-section" id="unscheduled-fleet-section">
     <div class="search-box">
+        <div class="filter-notice">
+            <i class="fas fa-filter"></i> 
+            当前显示 <strong>{{ warehouse }}</strong> 仓库的未排车货物，筛选条件：          
+            <strong>未排车</strong>、
+            <strong>约在使用中</strong>、
+            <strong>约未取消</strong>、
+            <strong>约类型为FTL</strong>、
+            <strong>约已通知客户</strong>
+        </div>
         <div style="display: flex; gap: 10px; flex: 1; align-items: center;">
             <button class="btn btn-primary" id="confirmScheduleBtn" style="margin-left: auto;">
                 <i class="fas fa-truck"></i> 确认排车
