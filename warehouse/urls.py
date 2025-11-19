@@ -2,6 +2,7 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.urls import path
 
+from warehouse.views.receivable_accounting import ReceivableAccounting
 from warehouse.views.accounting import Accounting
 from warehouse.views.bol import BOL
 from warehouse.views.container_tracking import ContainerTracking
@@ -95,6 +96,7 @@ urlpatterns = [
     path("quote/", QuoteManagement.as_view(), name="quote_management"),
     path("stuff_user/", StuffPower.as_view(), name="stuff_user"),
     path("accounting/", Accounting.as_view(), name="accounting"),
+    path("receivable_accounting/", ReceivableAccounting.as_view(), name="receivable_accounting"),
     path("shipment_status/", ShipmentStatus.as_view(), name="shipment_status"),
     path("container_tracking/", ContainerTracking.as_view(), name="container_tracking"),
     path("exception_handling/", ExceptionHandling.as_view(), name="exception_handling"),
