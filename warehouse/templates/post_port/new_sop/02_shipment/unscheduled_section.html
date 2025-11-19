@@ -108,16 +108,22 @@
 <!-- 未排约标签页 -->
 <div class="content-section" id="unscheduled-section">
     <div class="search-box">
-        <div style="display: flex; gap: 10px; flex: 1; align-items: center;">
-            
-            <div style="display: flex; align-items: center; gap: 8px; margin-left: 10px;">
-                <small style="color: #666; white-space: nowrap;">容量限制:</small>
-                <span style="font-size: 0.85rem; color: var(--primary-color); font-weight: 600;">
-                    {{ max_pallet }}板 / {{ max_cbm }}CBM
-                </span>
+        <div style="display: flex; gap: 10px; flex: 1; align-items: center;">                     
+            <div class="filter-notice">
+                <i class="fas fa-filter"></i> 
+                筛选条件：<strong>{{ warehouse }}</strong> | 
+                <strong>非暂扣/自提/快递</strong> | 
+                <strong>有提柜时间</strong> | 
+                <strong>未预约</strong> | 
+                <strong>公仓</strong>
             </div>
         </div>
-        
+        <div style="display: flex; align-items: center; gap: 8px; margin-left: 10px;">
+            <small style="color: #666; white-space: nowrap;">容量限制:</small>
+            <span style="font-size: 0.85rem; color: var(--primary-color); font-weight: 600;">
+                {{ max_pallet }}板 / {{ max_cbm }}CBM
+            </span>
+        </div>
         <div class="sort-options" style="margin-bottom: 0;">
             <button class="sort-btn active" data-sort="destination">目的地</button>
             <button class="sort-btn" data-sort="pallets">板数</button>

@@ -559,6 +559,15 @@
         height: 16px;
         margin: 0;
     }
+    .filter-notice {
+        background-color: #f8f9fa;
+        border-left: 4px solid #6c757d;
+        padding: 10px 15px;
+        margin-bottom: 15px;
+        border-radius: 4px;
+        font-size: 14px;
+        color: #495057;
+    }
     /* 响应式设计 */
     @media (max-width: 768px) {
         .system-header {
@@ -660,6 +669,15 @@
                     {{ max_pallet }}板 / {{ max_cbm }}CBM
                 </span>
             </div>
+            
+        </div>
+        <div class="filter-notice">
+            <i class="fas fa-filter"></i> 
+            筛选条件：<strong>{{ warehouse }}</strong> | 
+            <strong>非暂扣/自提/快递</strong> | 
+            <strong>有提柜时间</strong> | 
+            <strong>未预约</strong> | 
+            <strong>公仓</strong>
         </div>
     </div>
 

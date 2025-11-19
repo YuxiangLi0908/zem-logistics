@@ -1,5 +1,5 @@
 <!-- 已排约标签页 -->
- {% load custom_filters %}
+{% load custom_filters %}
 <style>
     .search-row {
         background-color: #f8f9fa;
@@ -34,9 +34,24 @@
         background: #b4c9ff;
         font-weight: bold;
     }
+    .filter-notice {
+        background-color: #f8f9fa;
+        border-left: 4px solid #6c757d;
+        padding: 10px 15px;
+        margin-bottom: 15px;
+        border-radius: 4px;
+        font-size: 14px;
+        color: #495057;
+    }
 </style>
 <div class="content-section" id="scheduled-section">
-
+    <div class="filter-notice">
+        <i class="fas fa-filter"></i> 
+        当前显示 <strong>{{ warehouse }}</strong> 仓库的已排约货物，筛选条件：
+        <strong>送仓时间在 2025-10-10 之后</strong>、
+        <strong>未排车</strong>、
+        <strong>PO类型为公仓</strong>
+    </div>
     <div class="table-container">
         <table class="data-table">
             <thead>
