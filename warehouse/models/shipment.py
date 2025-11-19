@@ -64,6 +64,7 @@ class Shipment(models.Model):
     ARM_PRO = models.CharField(max_length=255, null=True, blank=True)
     express_number = models.CharField(max_length=255, null=True, blank=True)
     is_print_label = models.BooleanField(default=False, null=True, blank=True)
+    is_notified_customer = models.BooleanField(default=False, null=True, blank=True)
     history = HistoricalRecords()
 
     class Meta:
