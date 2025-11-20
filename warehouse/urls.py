@@ -2,6 +2,7 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.urls import path
 
+from warehouse.views.pre_port.information_update import InformationUpdate
 from warehouse.views.receivable_accounting import ReceivableAccounting
 from warehouse.views.accounting import Accounting
 from warehouse.views.bol import BOL
@@ -67,6 +68,7 @@ urlpatterns = [
         name="contaier_pre_port_summary_dash",
     ),
     path("oct_summary/", OctSummaryView.as_view(), name="oct_summary"),
+    path("information_update/", InformationUpdate.as_view(), name="information_update"),
     path("container_pickup/", ScheduleRetrieval.as_view(), name="schedule_pickup"),
     path("palletize/", Palletization.as_view(), name="palletization"),
     path("warehouse_operations/", WarehouseOperations.as_view(), name="warehouse_operations"),
