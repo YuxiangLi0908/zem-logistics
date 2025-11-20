@@ -159,6 +159,8 @@
                     <input type="hidden" name="step" value="confirm_delivery">
                     <input type="hidden" name="fleet_number" value="{{ s.fleet_number.fleet_number }}">
                     <input type="hidden" name="shipment_batch_number" value="{{ s.shipment_batch_number }}">
+                    <input type="hidden" name="page" value="arm_appointment">
+                    <input type="hidden" name="active_tab" value="ready">
                     <input type="hidden" name="warehouse" value="{{ warehouse }}">
                     <button type="submit" class="table-btn btn-success-small">确认送达</button>
                 </form>
@@ -173,8 +175,6 @@
 
 <script>
     function initializeDeliverySection() {
-        console.log('初始化待送达批次页面');
-        
         // 为搜索框添加事件监听
         const searchInputs = document.querySelectorAll('#ready-section .header-search');
         searchInputs.forEach(input => {
@@ -204,10 +204,16 @@
     }
 
     function abnormalPopUp(fleetNumber, batchNumber) {
-        if (confirm(`确定要标记车次 ${fleetNumber} (批次: ${batchNumber}) 为异常吗？`)) {
-            // 这里可以添加异常处理逻辑
-            console.log('标记异常:', fleetNumber, batchNumber);
-            // 可以在这里提交表单或调用API
-        }
+        // 设置隐藏字段的值
+        document.getElementById('abnormalFleetNumber').value = fleetNumber;
+        document.getElementById('abnormalShipmentNumber').value = batchNumber;
+        
+        // 显示弹框
+        document.getElementById('abnormalModal').style.display = 'block';
+    }
+
+    // 关闭异常弹框函数
+    function closeAbnormalModal() {
+        document.getElementById('abnormalModal').style.display = 'none';
     }
 </script>

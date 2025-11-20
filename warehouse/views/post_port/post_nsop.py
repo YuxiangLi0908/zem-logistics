@@ -152,7 +152,11 @@ class PostNsop(View):
         elif step == "update_fleet":
             fm = FleetManagement()
             context = await fm.handle_update_fleet_post(request,'post_nsop')
-            template, context = await self.handle_td_shipment_post(request)
+            page = request.POST.get("page")
+            if page == "arm_appointment":
+                template, context = await self.handle_unscheduled_pos_post(request)
+            else:
+                template, context = await self.handle_td_shipment_post(request)
             context.update({"success_messages": "更新出库车次成功!"}) 
             return render(request, template, context)
         elif step == "fleet_confirmation":
@@ -161,25 +165,42 @@ class PostNsop(View):
         elif step == "cancel_fleet":
             fm = FleetManagement()
             context = await fm.handle_cancel_fleet_post(request,'post_nsop')
-            template, context = await self.handle_td_shipment_post(request)
+            
+            page = request.POST.get("page")
+            if page == "arm_appointment":
+                template, context = await self.handle_unscheduled_pos_post(request,context)
+            else:
+                template, context = await self.handle_td_shipment_post(request)
             context.update({"success_messages": '取消批次成功!'})  
             return render(request, template, context)
         elif step == "confirm_delivery":
             fm = FleetManagement()
             context = await fm.handle_confirm_delivery_post(request,'post_nsop')
-            template, context = await self.handle_fleet_schedule_post(request)
+            page = request.POST.get("page")
+            if page == "arm_appointment":
+                template, context = await self.handle_unscheduled_pos_post(request)
+            else:
+                template, context = await self.handle_fleet_schedule_post(request)
             context.update({"success_messages": '确认送达成功!'})  
             return render(request, template, context)
         elif step == "abnormal_fleet":
             fm = FleetManagement()
             context = await fm.handle_abnormal_fleet_post(request,'post_nsop')
-            template, context = await self.handle_fleet_schedule_post(request)
+            page = request.POST.get("page")
+            if page == "arm_appointment":
+                template, context = await self.handle_unscheduled_pos_post(request)
+            else:
+                template, context = await self.handle_fleet_schedule_post(request)
             context.update({"success_messages": '异常处理成功!'})  
             return render(request, template, context)
         elif step == "pod_upload":
             fm = FleetManagement()
             context = await fm.handle_pod_upload_post(request,'post_nsop')
-            template, context = await self.handle_fleet_schedule_post(request)
+            page = request.POST.get("page")
+            if page == "arm_appointment":
+                template, context = await self.handle_unscheduled_pos_post(request)
+            else:
+                template, context = await self.handle_fleet_schedule_post(request)
             context.update({"success_messages": 'POD上传成功!'})           
             return render(request, template, context)
         elif step == "bind_group_shipment":
@@ -3297,9 +3318,12 @@ class PostNsop(View):
         #待出库
         ready_to_ship_data = await self._sp_ready_to_ship_data(warehouse,request.user, "four_major_whs")
         # 待送达
-        delivery_data = await self._fl_delivery_get(warehouse, "four_major_whs")
+        delivery_data_raw = await self._fl_delivery_get(warehouse, "four_major_whs")
+        delivery_data = delivery_data_raw['shipments']
         #待传POD
-        pod_data = await self._fl_pod_get(warehouse, "four_major_whs")
+        pod_data_raw = await self._fl_pod_get(warehouse, "four_major_whs")
+        pod_data = pod_data_raw['fleet']
+        print('待传POD',pod_data)
 
         summary = await self._four_major_calculate_summary(unshipment_pos, shipments, scheduled_data, schedule_fleet_data, ready_to_ship_data, delivery_data, pod_data, warehouse)
 
@@ -3329,10 +3353,11 @@ class PostNsop(View):
             "scheduled_data": scheduled_data,
             "schedule_fleet_data": schedule_fleet_data,
             "ready_to_ship_data": ready_to_ship_data,
-            "delivery_shipments": delivery_data['shipments'],
-            "pod_shipments": pod_data['fleet'],
+            "delivery_shipments": delivery_data,
+            "pod_shipments": pod_data,
             'shipment_type_options': self.shipment_type_options,
             "carrier_options": self.carrier_options,
+            "abnormal_fleet_options": self.abnormal_fleet_options,
         })
         active_tab = request.POST.get('active_tab')
         
