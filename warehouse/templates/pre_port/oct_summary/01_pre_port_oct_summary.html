@@ -974,14 +974,13 @@
 
                                 <td data-column="reference_status_t49">
                                     {% if data.t49_empty_returned_at %}
-                                        <!-- 添加utc-time类和存储UTC时间戳 -->
-                                        <span class="utc-time" data-utc="{{ data.t49_empty_returned_at|date:'c' }}">
-                                        T49还空 {{ data.t49_empty_returned_at|date:'Y-m-d H:i:s' }}
-                                    </span>
+                                        <span>
+                                            T49还空 {{ data.t49_empty_returned_at }}
+                                        </span>
                                     {% elif data.t49_pod_full_out_at %}
-                                        <span class="utc-time" data-utc="{{ data.t49_pod_full_out_at|date:'c' }}">
-                                        T49提柜 {{ data.t49_pod_full_out_at|date:'Y-m-d H:i:s' }}
-                                    </span>
+                                        <span>
+                                            T49提柜 {{ data.t49_pod_full_out_at }}
+                                        </span>
                                     {% elif data.temp_t49_available_for_pickup %}
                                         放行状态 {{ data.temp_t49_available_for_pickup }}
                                     {% else %}
@@ -1904,115 +1903,115 @@
                     return false;
                 });
 
-// 批量设置DO按钮点击事件（保持不变）
-$('#batchSetDOBtn').off('click').on('click', function () {
-    const visibleCheckedBoxes = document.querySelectorAll(
-        '#tableBody .table-row:not([style="display: none"]) .rowCheckbox:checked'
-    );
+                // 批量设置DO按钮点击事件（保持不变）
+                $('#batchSetDOBtn').off('click').on('click', function () {
+                    const visibleCheckedBoxes = document.querySelectorAll(
+                        '#tableBody .table-row:not([style="display: none"]) .rowCheckbox:checked'
+                    );
 
-    if (visibleCheckedBoxes.length === 0) {
-        layer.msg('请先勾选需要设置的记录', {icon: 2, time: 2000});
-        return;
-    }
+                    if (visibleCheckedBoxes.length === 0) {
+                        layer.msg('请先勾选需要设置的记录', {icon: 2, time: 2000});
+                        return;
+                    }
 
-    // 更新选中数量显示
-    document.getElementById('doSelectedCount').textContent = visibleCheckedBoxes.length;
+                    // 更新选中数量显示
+                    document.getElementById('doSelectedCount').textContent = visibleCheckedBoxes.length;
 
-    // 清空旧的选中ID（提前清空，避免重复提交）
-    $('#batchSetDOForm input[name="selected_ids[]"]').remove();
+                    // 清空旧的选中ID（提前清空，避免重复提交）
+                    $('#batchSetDOForm input[name="selected_ids[]"]').remove();
 
-    // 显示弹出层（修改容器ID，layer的id改为不同名称）
-    const doBatchLayerIndex = layer.open({
-        type: 1,
-        title: `批量设置DO状态（${visibleCheckedBoxes.length}条记录）`,
-        content: $('#batchSetDOLayerContainer'), // 对应修改后的容器ID
-        area: ['450px', '260px'],
-        shade: 0.3,
-        btnAlign: 'c',
-        id: 'batchSetDOLayerPopup', // 与容器ID不同，避免冲突
-        fixed: true,
-        resize: false,
-        success: function (layero, index) {
-            // 渲染表单（必须调用，否则layui表单样式异常）
-            form.render(null, 'batchSetDOForm');
-            // 添加当前选中的ID（修复：从外层移到success内，确保DOM已加载）
-            visibleCheckedBoxes.forEach(box => {
-                $('<input>').attr({
-                    type: 'hidden',
-                    name: 'selected_ids[]',
-                    value: box.getAttribute('data-id')
-                }).appendTo('#batchSetDOForm');
-            });
-        }
-    });
+                    // 显示弹出层（修改容器ID，layer的id改为不同名称）
+                    const doBatchLayerIndex = layer.open({
+                        type: 1,
+                        title: `批量设置DO状态（${visibleCheckedBoxes.length}条记录）`,
+                        content: $('#batchSetDOLayerContainer'), // 对应修改后的容器ID
+                        area: ['450px', '260px'],
+                        shade: 0.3,
+                        btnAlign: 'c',
+                        id: 'batchSetDOLayerPopup', // 与容器ID不同，避免冲突
+                        fixed: true,
+                        resize: false,
+                        success: function (layero, index) {
+                            // 渲染表单（必须调用，否则layui表单样式异常）
+                            form.render(null, 'batchSetDOForm');
+                            // 添加当前选中的ID（修复：从外层移到success内，确保DOM已加载）
+                            visibleCheckedBoxes.forEach(box => {
+                                $('<input>').attr({
+                                    type: 'hidden',
+                                    name: 'selected_ids[]',
+                                    value: box.getAttribute('data-id')
+                                }).appendTo('#batchSetDOForm');
+                            });
+                        }
+                    });
 
-    // 关闭按钮事件（绑定到弹出层内的按钮）
-    $('#closeDOBatchLayer').off('click').on('click', function () {
-        layer.close(doBatchLayerIndex);
-    });
-});
+                    // 关闭按钮事件（绑定到弹出层内的按钮）
+                    $('#closeDOBatchLayer').off('click').on('click', function () {
+                        layer.close(doBatchLayerIndex);
+                    });
+                });
 
-// 批量设置DO提交事件（适配后端HTML返回格式）
-form.on('submit(batchSetDoSubmit)', function (data) {
-    const formElement = document.getElementById('batchSetDOForm');
-    const doStatus = formElement.querySelector('select[name="batch_do_status"]').value;
+                // 批量设置DO提交事件（适配后端HTML返回格式）
+                form.on('submit(batchSetDoSubmit)', function (data) {
+                    const formElement = document.getElementById('batchSetDOForm');
+                    const doStatus = formElement.querySelector('select[name="batch_do_status"]').value;
 
-    if (!doStatus) {
-        layer.msg('请选择DO状态', {icon: 2, time: 2000});
-        return false;
-    }
+                    if (!doStatus) {
+                        layer.msg('请选择DO状态', {icon: 2, time: 2000});
+                        return false;
+                    }
 
-    const loadingIndex = layer.load(2, {
-        shade: [0.3, '#fff'],
-        time: 10000
-    });
+                    const loadingIndex = layer.load(2, {
+                        shade: [0.3, '#fff'],
+                        time: 10000
+                    });
 
-    // 关键修改：不指定dataType，默认接收HTML响应
-    $.ajax({
-        url: window.location.href, // 提交到当前页面
-        type: 'POST',
-        data: $(formElement).serialize(), // 自动处理CSRF和表单数据
-        // 移除dataType: 'json'，因为后端返回HTML
-        success: function (response) {
-            layer.close(loadingIndex);
-            // 后端更新成功后会返回新的页面HTML，直接刷新页面即可
-            layer.msg(`成功设置 ${document.getElementById('doSelectedCount').textContent} 条记录的DO状态`, {
-                icon: 1,
-                time: 1500
-            }, function () {
-                // 刷新页面，加载后端返回的最新数据（包含更新后的DO状态）
-                window.location.reload();
-            });
-        },
-        error: function (xhr, status, error) {
-            layer.close(loadingIndex);
-            console.error('设置失败详情:', status, error);
-            // 解析后端返回的错误信息（如果有）
-            let errorMsg = '设置失败';
-            if (xhr.responseText) {
-                // 尝试从后端返回的HTML中提取错误信息
-                const tempDiv = document.createElement('div');
-                tempDiv.innerHTML = xhr.responseText;
-                const errorElement = tempDiv.querySelector('.error-message, .alert-danger');
-                if (errorElement) {
-                    errorMsg = errorElement.textContent.trim() || errorMsg;
-                }
-            }
-            // 根据状态码优化提示
-            if (xhr.status === 403) {
-                layer.msg('权限不足或CSRF验证失败', {icon: 2, time: 2000});
-            } else if (xhr.status === 404) {
-                layer.msg('请求地址不存在', {icon: 2, time: 2000});
-            } else if (xhr.status === 500) {
-                layer.msg(`服务器错误：${errorMsg}`, {icon: 2, time: 2000});
-            } else {
-                layer.msg(`网络错误：${status}`, {icon: 2, time: 2000});
-            }
-        }
-    });
+                    // 关键修改：不指定dataType，默认接收HTML响应
+                    $.ajax({
+                        url: window.location.href, // 提交到当前页面
+                        type: 'POST',
+                        data: $(formElement).serialize(), // 自动处理CSRF和表单数据
+                        // 移除dataType: 'json'，因为后端返回HTML
+                        success: function (response) {
+                            layer.close(loadingIndex);
+                            // 后端更新成功后会返回新的页面HTML，直接刷新页面即可
+                            layer.msg(`成功设置 ${document.getElementById('doSelectedCount').textContent} 条记录的DO状态`, {
+                                icon: 1,
+                                time: 1500
+                            }, function () {
+                                // 刷新页面，加载后端返回的最新数据（包含更新后的DO状态）
+                                window.location.reload();
+                            });
+                        },
+                        error: function (xhr, status, error) {
+                            layer.close(loadingIndex);
+                            console.error('设置失败详情:', status, error);
+                            // 解析后端返回的错误信息（如果有）
+                            let errorMsg = '设置失败';
+                            if (xhr.responseText) {
+                                // 尝试从后端返回的HTML中提取错误信息
+                                const tempDiv = document.createElement('div');
+                                tempDiv.innerHTML = xhr.responseText;
+                                const errorElement = tempDiv.querySelector('.error-message, .alert-danger');
+                                if (errorElement) {
+                                    errorMsg = errorElement.textContent.trim() || errorMsg;
+                                }
+                            }
+                            // 根据状态码优化提示
+                            if (xhr.status === 403) {
+                                layer.msg('权限不足或CSRF验证失败', {icon: 2, time: 2000});
+                            } else if (xhr.status === 404) {
+                                layer.msg('请求地址不存在', {icon: 2, time: 2000});
+                            } else if (xhr.status === 500) {
+                                layer.msg(`服务器错误：${errorMsg}`, {icon: 2, time: 2000});
+                            } else {
+                                layer.msg(`网络错误：${status}`, {icon: 2, time: 2000});
+                            }
+                        }
+                    });
 
-    return false;
-});
+                    return false;
+                });
 
                 // 多条件组合搜索的核心逻辑
                 function handleMultiSearch() {
@@ -2129,106 +2128,6 @@ form.on('submit(batchSetDoSubmit)', function (data) {
                 initColumnVisibility();
                 initSelectAll();
             });
-        }
-
-        // 页面加载完成后执行时间转换
-        document.addEventListener('DOMContentLoaded', function () {
-            // 转换所有带utc-time类的元素（按所属仓时区）
-            document.querySelectorAll('.utc-time').forEach(function (element) {
-                const utcTimeStr = element.getAttribute('data-utc');
-                if (!utcTimeStr) return;
-
-                // 解析UTC时间
-                const utcDate = new Date(utcTimeStr);
-                if (isNaN(utcDate.getTime())) return; // 无效时间不处理
-
-                // 获取当前行的所属仓信息
-                const warehouseInfo = getWarehouseInfo(element);
-                if (!warehouseInfo) {
-                    // 无法获取仓库信息时默认显示UTC时间
-                    const utcTimeStr = formatUTCTime(utcDate);
-                    updateElementTime(element, utcTimeStr);
-                    return;
-                }
-
-                // 根据仓库信息获取对应的时区偏移（小时）
-                const timeZoneOffset = getTimeZoneOffsetByWarehouse(warehouseInfo);
-
-                // 计算对应时区的当地时间
-                const localDate = new Date(utcDate.getTime() + timeZoneOffset * 3600 * 1000);
-                const localTimeStr = formatLocalTime(localDate);
-
-                // 更新显示内容
-                updateElementTime(element, localTimeStr);
-            });
-        });
-
-        // 获取元素所在行的所属仓信息
-        function getWarehouseInfo(element) {
-            // 查找当前元素所在的行
-            const row = element.closest('.table-row');
-            if (!row) return null;
-
-            // 查找当前行的所属仓单元格
-            const warehouseCell = row.querySelector('td[data-column="warehouse"]');
-            if (!warehouseCell) return null;
-
-            // 返回所属仓文本（转为大写便于匹配）
-            return warehouseCell.textContent.trim().toUpperCase();
-        }
-
-        // 根据仓库信息获取时区偏移（小时，UTC+偏移值）
-        function getTimeZoneOffsetByWarehouse(warehouseInfo) {
-            // 偏移值为：当地时间 = UTC时间 + 偏移小时数
-            const timeZoneMap = {
-                'NJ': -5,    // 纽约：UTC-5（标准时间）/ UTC-4（夏令时），此处简化为标准时间
-                'LA': -8,    // 洛杉矶：UTC-8（标准时间）/ UTC-7（夏令时）
-                'SAV': -5,   // 萨凡纳：UTC-5（标准时间）/ UTC-4（夏令时）
-                'MO': -6,    // 圣路易斯：UTC-6（标准时间）/ UTC-5（夏令时）
-                'TX': -6,    // 圣路易斯：UTC-6（标准时间）/ UTC-5（夏令时）
-                'TH': -6,    // 休斯顿：UTC-6（标准时间）/ UTC-5（夏令时）
-                'CA': -8,   // 洛杉矶：UTC-8（标准时间）/ UTC-7（夏令时）
-            };
-
-            // 检查仓库信息中是否包含关键词
-            for (const [keyword, offset] of Object.entries(timeZoneMap)) {
-                if (warehouseInfo.includes(keyword)) {
-                    return offset;
-                }
-            }
-
-            // 未匹配到任何关键词时默认返回UTC时间（偏移0）
-            return 0;
-        }
-
-        // 格式化时间为 "YYYY-MM-DD HH:MM:SS"
-        function formatLocalTime(date) {
-            const year = date.getFullYear();
-            const month = String(date.getMonth() + 1).padStart(2, '0');
-            const day = String(date.getDate()).padStart(2, '0');
-            const hours = String(date.getHours()).padStart(2, '0');
-            const minutes = String(date.getMinutes()).padStart(2, '0');
-            const seconds = String(date.getSeconds()).padStart(2, '0');
-            return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
-        }
-
-        // 格式化UTC时间（用于默认显示）
-        function formatUTCTime(date) {
-            const year = date.getUTCFullYear();
-            const month = String(date.getUTCMonth() + 1).padStart(2, '0');
-            const day = String(date.getUTCDate()).padStart(2, '0');
-            const hours = String(date.getUTCHours()).padStart(2, '0');
-            const minutes = String(date.getUTCMinutes()).padStart(2, '0');
-            const seconds = String(date.getUTCSeconds()).padStart(2, '0');
-            return `${year}-${month}-${day} ${hours}:${minutes}:${seconds} (UTC)`;
-        }
-
-        // 更新元素显示的时间文本
-        function updateElementTime(element, timeStr) {
-            const originalText = element.textContent;
-            // 保留前缀（如"T49还空 "、"T49提柜 "），只替换时间部分
-            const prefix = originalText.replace(/\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}( \(\w+\))?/, '');
-            element.textContent = prefix + timeStr;
         }
     </script>
 {% endblock %}

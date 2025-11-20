@@ -2,8 +2,9 @@ import json
 import zipfile
 from datetime import datetime
 from io import BytesIO
-from typing import Any
+from typing import Any, Tuple, Dict, Optional
 
+import pytz
 from asgiref.sync import sync_to_async
 from dateutil.relativedelta import relativedelta
 from django.db.models import F, Sum, Case, When, IntegerField, Max, CharField, Value, Q, DateTimeField
@@ -70,7 +71,64 @@ class OctSummaryView(View):
             return True
         return False
 
-    async def oct_handle_warehouse_post(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
+    def _convert_utc_to_local(self, utc_time: Optional[datetime | str], warehouse: str) -> str:
+        """
+        将数据库的 UTC 时间（datetime 对象或字符串）转换为仓库对应时区的本地时间（自动处理夏令时）
+        :param utc_time: 数据库中的 UTC 时间（datetime 对象 或 字符串，如 "2025-11-20T12:00:00Z"）
+        :param warehouse: 仓库名称（retrieval_destination_area）
+        :return: 格式化后的本地时间字符串（如 "2025-11-20 08:00:00"），空值返回空字符串
+        """
+        if not utc_time:
+            return ""
+
+        try:
+            WAREHOUSE_TIMEZONES = {
+                "NJ": pytz.timezone("America/New_York"),  # 新泽西（UTC-5/UTC-4）
+                "SAV": pytz.timezone("America/New_York"),  # 萨凡纳（UTC-5/UTC-4）
+                "LA": pytz.timezone("America/Los_Angeles"),  # 洛杉矶（UTC-8/UTC-7）
+                "MO": pytz.timezone("America/Chicago"),  # 圣路易斯（UTC-6/UTC-5）
+                "TX": pytz.timezone("America/Chicago"),  # 德克萨斯（UTC-6/UTC-5）
+                "TH": pytz.timezone("America/Chicago"),  # 休斯顿（UTC-6/UTC-5）
+                "CA": pytz.timezone("America/Los_Angeles"),  # 加州（UTC-8/UTC-7）
+            }
+            DEFAULT_TIMEZONE = pytz.UTC
+
+            # 2. 处理输入类型：如果是 datetime 对象，直接使用；如果是字符串，解析为 datetime
+            if isinstance(utc_time, datetime):
+                # 若 datetime 无时区信息，标记为 UTC
+                if not utc_time.tzinfo:
+                    utc_datetime = pytz.UTC.localize(utc_time)
+                else:
+                    # 若已有时区，转换为 UTC（防止非 UTC 时间传入）
+                    utc_datetime = utc_time.astimezone(pytz.UTC)
+            else:
+                # 字符串类型：兼容 "2025-11-20T12:00:00Z" 或 "2025-11-20 12:00:00" 格式
+                utc_time_str = str(utc_time).replace("Z", "+00:00")
+                utc_datetime = datetime.fromisoformat(utc_time_str)
+                if not utc_datetime.tzinfo:
+                    utc_datetime = pytz.UTC.localize(utc_datetime)
+
+            # 3. 根据仓库匹配目标时区
+            target_timezone = DEFAULT_TIMEZONE
+            for warehouse_key, tz in WAREHOUSE_TIMEZONES.items():
+                if warehouse_key in warehouse.upper():  # 不区分大小写模糊匹配
+                    target_timezone = tz
+                    break
+
+            # 4. 转换为目标时区并格式化
+            local_time = utc_datetime.astimezone(target_timezone)
+            return local_time.strftime("%Y-%m-%d %H:%M:%S")
+
+        except Exception as e:
+            # 异常处理：兼容各种错误情况，避免影响整体功能
+            if isinstance(utc_time, datetime):
+                # 若是 datetime 对象，直接格式化为字符串返回
+                return utc_time.strftime("%Y-%m-%d %H:%M:%S")
+            else:
+                # 若是字符串，去除时区后缀后返回（兼容 "2025-11-20 12:00:00+00:00" 格式）
+                return str(utc_time).split("+")[0].strip() if utc_time else ""
+
+    async def oct_handle_warehouse_post(self, request: HttpRequest) -> Tuple[str, Dict[str, Any]]:
         warehouse = request.POST.get("warehouse")
         eta_start = request.POST.get("eta_start")
         eta_end = request.POST.get("eta_end")
@@ -95,11 +153,31 @@ class OctSummaryView(View):
             else:
                 pallets_list = await self._get_pallet_by_order_at(warehouse, order_start, order_end)
 
-        # 3. 构建上下文（包含更新提示）
+        # 关键修改：遍历数据，转换 UTC 时间为仓库时区时间
+        processed_pallets = []
+        for pallet in pallets_list:
+            # 获取当前记录的仓库（retrieval_destination_area）
+            current_warehouse = pallet.get("retrieval_destination_area", "")
+
+            # 转换 3 个 UTC 时间字段
+            pallet["t49_empty_returned_at"] = self._convert_utc_to_local(
+                pallet.get("t49_empty_returned_at"), current_warehouse
+            )
+            pallet["t49_pod_full_out_at"] = self._convert_utc_to_local(
+                pallet.get("t49_pod_full_out_at"), current_warehouse
+            )
+            # temp_t49_available_for_pickup 可能是状态字符串，判断是否为时间再转换
+            temp_t49 = pallet.get("temp_t49_available_for_pickup", "")
+            if temp_t49 and any(char.isdigit() for char in temp_t49):  # 包含数字则视为时间
+                pallet["temp_t49_available_for_pickup"] = self._convert_utc_to_local(temp_t49, current_warehouse)
+
+            processed_pallets.append(pallet)
+
+        # 3. 构建上下文（使用处理后的时间数据）
         context = {
             "warehouse_options": self.warehouse_options,
             "warehouse": warehouse,
-            "datas": pallets_list,
+            "datas": processed_pallets,  # 替换为处理后的列表
             "eta_start": eta_start,
             "eta_end": eta_end,
             "order_start": order_start,
