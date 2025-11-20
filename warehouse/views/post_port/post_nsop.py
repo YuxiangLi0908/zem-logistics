@@ -2947,6 +2947,11 @@ class PostNsop(View):
         
         # 添加没有货物的shipment记录
         for shipment in empty_shipments:
+            has_packinglist = await sync_to_async(PackingList.objects.filter(shipment=shipment).exists)()
+            has_pallet = await sync_to_async(Pallet.objects.filter(shipment=shipment).exists)()
+            
+            if has_packinglist or has_pallet:
+                continue  # 已经绑定货物，跳过
             batch_number = shipment.shipment_batch_number
             if batch_number not in grouped_data:
                 address = await self.get_address(shipment.destination)
