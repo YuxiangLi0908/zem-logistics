@@ -1,6 +1,7 @@
 {% extends 'base.html' %}
 {% block content %}
     <link href="//unpkg.com/layui@2.12.0/dist/css/layui.css" rel="stylesheet">
+    <script src="https://cdn.bootcdn.net/ajax/libs/jquery/3.6.4/jquery.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/layui-src/dist/layui.js"></script>
     <style>
         .container_main {
@@ -444,6 +445,24 @@
             /* 新增：按钮固定大小，不被挤压 */
             min-width: 18px;
         }
+
+        /* 确保下拉搜索框与文本搜索框样式一致 */
+        .column-search[data-column="do_provided"] {
+            height: 28px;
+            box-sizing: border-box;
+            appearance: none;
+            -webkit-appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23666' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: left 8px center;
+            padding-left: 28px !important;
+            padding-right: 8px !important;
+        }
+
+        .column-search[data-column="do_provided"]:focus {
+            border-color: #57c5f7;
+            box-shadow: 0 0 0 2px rgba(87, 197, 247, 0.2);
+        }
     </style>
 
     <div class="container_main">
@@ -530,6 +549,11 @@
             <!-- 批量设置计划提柜供应商按钮 -->
             <button type="button" id="batchSetCarrierBtn" class="batch-operation-btn">
                 <i class="layui-icon layui-icon-edit"></i> 批量设置计划提柜供应商
+            </button>
+
+            <!-- 批量设置DO按钮 -->
+            <button type="button" id="batchSetDOBtn" class="batch-operation-btn">
+                <i class="layui-icon layui-icon-edit"></i> 批量设置DO
             </button>
 
             <!-- 新增：恢复所有列按钮 -->
@@ -837,9 +861,15 @@
                                                                                             placeholder="搜索实际放行时间...">
                             </th>
 
-                            <th data-column="do_provided" class="search-th"><input type="text" class="column-search"
-                                                                                   data-column="do_provided"
-                                                                                   placeholder="搜索Do..."></th>
+                            <th data-column="do_provided" class="search-th">
+                                <select class="column-search" data-column="do_provided"
+                                        style="width: 100%; padding: 4px 6px; font-size: 12px; border: 1px solid #e6e6e6; border-radius: 3px; outline: none;">
+                                    <option value="">全部</option>
+                                    <option value="未提供">未提供</option>
+                                    <option value="已催促">已催促</option>
+                                    <option value="已提供">已提供</option>
+                                </select>
+                            </th>
 
                             <th data-column="planned_carrier" class="search-th"><input type="text" class="column-search"
                                                                                        data-column="planned_carrier"
@@ -993,7 +1023,6 @@
                                         {% csrf_token %}
                                         <input type="hidden" name="step" value="save_do_sent">
                                         <input type="hidden" name="order_id" value="{{ data.id }}">
-                                        <input type="hidden" name="do_sent" value="{{ data.do_sent }}">
                                         <input type="hidden" name="warehouse" value="{{ warehouse }}">
                                         <input type="hidden" name="eta_start" value="{{ eta_start }}">
                                         <input type="hidden" name="eta_end" value="{{ eta_end }}">
@@ -1002,21 +1031,12 @@
                                         <input type="hidden" name="timeRangeType" value="{{ time_range_type }}">
 
                                         <div class="do-column-content">
-                                            <label style="display: inline-flex; align-items: center; cursor: pointer; margin: 0;">
-                                                <input type="radio" name="do_sent"
-                                                       value="True"
-                                                       {% if data.do_sent == True %}checked{% endif %}
-                                                       style="width: 14px; height: 14px; margin: 0 3px 0 0; cursor: pointer;">
-                                                <span style="color: red; font-size: 12px; margin: 0;">是</span>
-                                            </label>
-
-                                            <label style="display: inline-flex; align-items: center; cursor: pointer; margin: 0;">
-                                                <input type="radio" name="do_sent"
-                                                       value="False"
-                                                       {% if data.do_sent == False %}checked{% endif %}
-                                                       style="width: 14px; height: 14px; margin: 0 3px 0 0; cursor: pointer;">
-                                                <span style="color: green; font-size: 12px; margin: 0;">否</span>
-                                            </label>
+                                            <!-- 下拉框替换原来的单选按钮 -->
+                                            <select name="do_sent_new" style="padding: 2px 5px; font-size: 12px; height: 20px; margin: 0 5px 0 0;">
+                                                <option value="未提供" {% if data.do_sent_new == "未提供" %}selected{% endif %}>未提供</option>
+                                                <option value="已催促" {% if data.do_sent_new == "已催促" %}selected{% endif %}>已催促</option>
+                                                <option value="已提供" {% if data.do_sent_new == "已提供" %}selected{% endif %}>已提供</option>
+                                            </select>
 
                                             <button type="submit" class="layui-btn layui-btn-sm"
                                                     style="margin: 0; padding: 0 8px; height: 20px; line-height: 20px; font-size: 12px;">
@@ -1154,6 +1174,48 @@
         </form>
     </div>
 
+    <!-- 批量设置DO弹出层 -->
+    <div id="batchSetDOLayerContainer" style="display: none; padding: 20px;">
+        <form id="batchSetDOForm" method="post" class="layui-form" lay-filter="batchSetDOForm">
+            {% csrf_token %}
+            <input type="hidden" name="step" value="batch_save_do_sent_new">
+            <input type="hidden" name="warehouse" value="{{ warehouse }}">
+            <input type="hidden" name="eta_start" value="{{ eta_start }}">
+            <input type="hidden" name="eta_end" value="{{ eta_end }}">
+            <input type="hidden" name="order_start" value="{{ order_start }}">
+            <input type="hidden" name="order_end" value="{{ order_end }}">
+            <input type="hidden" name="timeRangeType" value="{{ time_range_type }}">
+
+            <!-- 已选记录数量显示 -->
+            <div class="layui-form-item">
+                <div class="layui-input-block" style="margin-left: 0px; color: #666; font-size: 16px;">
+                    已选择 <span id="doSelectedCount" style="color: #1E9FFF; font-weight: bold;">0</span> 条记录
+                </div>
+            </div>
+
+            <div class="layui-form-item" style="margin-bottom: 15px;">
+                <div style="font-size: 16px; font-weight: 500; margin-bottom: 10px; color: #2c3e50; line-height: 1.4;">
+                    DO状态设置
+                </div>
+                <div class="layui-input-block" style="margin-left: 0;">
+                    <select name="batch_do_status" required
+                            class="layui-select" style="width: 100%;">
+                        <option value="">请选择DO状态</option>
+                        <option value="未提供">未提供</option>
+                        <option value="已催促">已催促</option>
+                        <option value="已提供">已提供</option>
+                    </select>
+                </div>
+            </div>
+            <div class="layui-form-item" style="margin-top: 20px;">
+                <div class="layui-input-block">
+                    <button class="layui-btn" lay-submit lay-filter="batchSetDoSubmit">确认设置</button>
+                    <button type="button" class="layui-btn layui-btn-primary" id="closeDOBatchLayer">关闭</button>
+                </div>
+            </div>
+        </form>
+    </div>
+
     <script>
         document.addEventListener('DOMContentLoaded', function () {
             initAllFeatures();
@@ -1161,9 +1223,9 @@
 
         function initAllFeatures() {
             layui.use(['form', 'laydate', 'layer'], function () {
-                var form = layui.form;
-                var layer = layui.layer;
-                var laydate = layui.laydate;
+                window.form = layui.form; // 改为全局变量
+                window.layer = layui.layer;
+                window.laydate = layui.laydate;
                 var timeError = document.getElementById('timeError');
                 var columnNoMatch = document.getElementById('columnNoMatch');
 
@@ -1842,6 +1904,116 @@
                     return false;
                 });
 
+// 批量设置DO按钮点击事件（保持不变）
+$('#batchSetDOBtn').off('click').on('click', function () {
+    const visibleCheckedBoxes = document.querySelectorAll(
+        '#tableBody .table-row:not([style="display: none"]) .rowCheckbox:checked'
+    );
+
+    if (visibleCheckedBoxes.length === 0) {
+        layer.msg('请先勾选需要设置的记录', {icon: 2, time: 2000});
+        return;
+    }
+
+    // 更新选中数量显示
+    document.getElementById('doSelectedCount').textContent = visibleCheckedBoxes.length;
+
+    // 清空旧的选中ID（提前清空，避免重复提交）
+    $('#batchSetDOForm input[name="selected_ids[]"]').remove();
+
+    // 显示弹出层（修改容器ID，layer的id改为不同名称）
+    const doBatchLayerIndex = layer.open({
+        type: 1,
+        title: `批量设置DO状态（${visibleCheckedBoxes.length}条记录）`,
+        content: $('#batchSetDOLayerContainer'), // 对应修改后的容器ID
+        area: ['450px', '260px'],
+        shade: 0.3,
+        btnAlign: 'c',
+        id: 'batchSetDOLayerPopup', // 与容器ID不同，避免冲突
+        fixed: true,
+        resize: false,
+        success: function (layero, index) {
+            // 渲染表单（必须调用，否则layui表单样式异常）
+            form.render(null, 'batchSetDOForm');
+            // 添加当前选中的ID（修复：从外层移到success内，确保DOM已加载）
+            visibleCheckedBoxes.forEach(box => {
+                $('<input>').attr({
+                    type: 'hidden',
+                    name: 'selected_ids[]',
+                    value: box.getAttribute('data-id')
+                }).appendTo('#batchSetDOForm');
+            });
+        }
+    });
+
+    // 关闭按钮事件（绑定到弹出层内的按钮）
+    $('#closeDOBatchLayer').off('click').on('click', function () {
+        layer.close(doBatchLayerIndex);
+    });
+});
+
+// 批量设置DO提交事件（适配后端HTML返回格式）
+form.on('submit(batchSetDoSubmit)', function (data) {
+    const formElement = document.getElementById('batchSetDOForm');
+    const doStatus = formElement.querySelector('select[name="batch_do_status"]').value;
+
+    if (!doStatus) {
+        layer.msg('请选择DO状态', {icon: 2, time: 2000});
+        return false;
+    }
+
+    const loadingIndex = layer.load(2, {
+        shade: [0.3, '#fff'],
+        time: 10000
+    });
+
+    // 关键修改：不指定dataType，默认接收HTML响应
+    $.ajax({
+        url: window.location.href, // 提交到当前页面
+        type: 'POST',
+        data: $(formElement).serialize(), // 自动处理CSRF和表单数据
+        // 移除dataType: 'json'，因为后端返回HTML
+        success: function (response) {
+            layer.close(loadingIndex);
+            // 后端更新成功后会返回新的页面HTML，直接刷新页面即可
+            layer.msg(`成功设置 ${document.getElementById('doSelectedCount').textContent} 条记录的DO状态`, {
+                icon: 1,
+                time: 1500
+            }, function () {
+                // 刷新页面，加载后端返回的最新数据（包含更新后的DO状态）
+                window.location.reload();
+            });
+        },
+        error: function (xhr, status, error) {
+            layer.close(loadingIndex);
+            console.error('设置失败详情:', status, error);
+            // 解析后端返回的错误信息（如果有）
+            let errorMsg = '设置失败';
+            if (xhr.responseText) {
+                // 尝试从后端返回的HTML中提取错误信息
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = xhr.responseText;
+                const errorElement = tempDiv.querySelector('.error-message, .alert-danger');
+                if (errorElement) {
+                    errorMsg = errorElement.textContent.trim() || errorMsg;
+                }
+            }
+            // 根据状态码优化提示
+            if (xhr.status === 403) {
+                layer.msg('权限不足或CSRF验证失败', {icon: 2, time: 2000});
+            } else if (xhr.status === 404) {
+                layer.msg('请求地址不存在', {icon: 2, time: 2000});
+            } else if (xhr.status === 500) {
+                layer.msg(`服务器错误：${errorMsg}`, {icon: 2, time: 2000});
+            } else {
+                layer.msg(`网络错误：${status}`, {icon: 2, time: 2000});
+            }
+        }
+    });
+
+    return false;
+});
+
                 // 多条件组合搜索的核心逻辑
                 function handleMultiSearch() {
                     // 收集所有搜索框的关键词（列名 -> 关键词）
@@ -1868,18 +2040,49 @@
                                 return; // 列不存在，不匹配
                             }
 
-                            const cellText = cell.textContent.trim().toLowerCase();
-
-                            // 特殊处理柜号的多关键词搜索（空格分隔）
-                            if (column === 'container') {
+                            let cellValue = '';
+                            // 特殊处理：实际放行时间（读取datetime-local输入框值）
+                            if (column === 'planned_release_time') {
+                                const input = cell.querySelector('input[type="datetime-local"]');
+                                cellValue = input ? input.value.trim().toLowerCase() : '';
+                            }
+                            // 特殊处理：计划提柜供应商（读取文本输入框值）
+                            else if (column === 'planned_carrier') {
+                                const input = cell.querySelector('input[name="retrieval_carrier_planned"]');
+                                cellValue = input ? input.value.trim().toLowerCase() : '';
+                            }
+                            // 特殊处理：是否提供Do（下拉框）
+                            else if (column === 'do_provided') {
+                                const searchSelect = document.querySelector(`.column-search[data-column="do_provided"]`);
+                                const searchValue = searchSelect ? searchSelect.value.trim().toLowerCase() : '';
+                                if (searchValue) {
+                                    const selectElem = cell.querySelector('select[name="do_sent_new"]');
+                                    cellValue = selectElem ? selectElem.value.trim().toLowerCase() : '';
+                                    if (cellValue !== searchValue) {
+                                        isMatch = false;
+                                    }
+                                }
+                            }
+                            // 特殊处理：柜号多关键词搜索
+                            else if (column === 'container') {
+                                cellValue = cell.textContent.trim().toLowerCase();
                                 const terms = keyword.split(/\s+/).filter(t => t);
-                                const matchesAnyTerm = terms.some(term => cellText.includes(term));
+                                const matchesAnyTerm = terms.some(term => cellValue.includes(term));
                                 if (!matchesAnyTerm) {
                                     isMatch = false;
                                 }
-                            } else {
-                                // 普通列：包含关键词则匹配
-                                if (!cellText.includes(keyword)) {
+                            }
+                            // 普通列：直接读取单元格文本
+                            else {
+                                cellValue = cell.textContent.trim().toLowerCase();
+                                if (!cellValue.includes(keyword)) {
+                                    isMatch = false;
+                                }
+                            }
+
+                            // 对实际放行时间和计划提柜供应商进行匹配判断
+                            if (['planned_release_time', 'planned_carrier'].includes(column)) {
+                                if (!cellValue.includes(keyword)) {
                                     isMatch = false;
                                 }
                             }
