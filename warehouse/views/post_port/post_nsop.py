@@ -1983,15 +1983,16 @@ class PostNsop(View):
         context = {
             "warehouse_options": self.warehouse_options
         }
-        if await self._validate_user_four_major_whs(request.user):
-            warehouse = 'LA-91761'
-            new_request = HttpRequest()
-            new_request.method = request.method
-            new_request.POST = request.POST.copy()
-            new_request.POST['warehouse'] = warehouse
-            new_request.user = request.user
-            return await self.handle_unscheduled_pos_post(new_request)
-        return self.template_unscheduled_pos_all, context
+        #if await self._validate_user_four_major_whs(request.user):
+        #不看权限了，就默认打开就是四大仓的
+        warehouse = 'LA-91761'
+        new_request = HttpRequest()
+        new_request.method = request.method
+        new_request.POST = request.POST.copy()
+        new_request.POST['warehouse'] = warehouse
+        new_request.user = request.user
+        return await self.handle_unscheduled_pos_post(new_request)
+        #return self.template_unscheduled_pos_all, context
     
     async def handle_appointment_management_get(
         self, request: HttpRequest
@@ -3194,7 +3195,8 @@ class PostNsop(View):
     async def handle_unscheduled_pos_post(
         self, request: HttpRequest, context: dict| None = None,
     ) -> tuple[str, dict[str, Any]]:
-        warehouse = request.POST.get("warehouse")
+        #warehouse = request.POST.get("warehouse")
+        warehouse = 'LA-91761'
         if not context:
             context = {}
         if warehouse:
@@ -3205,13 +3207,14 @@ class PostNsop(View):
         
         nowtime = timezone.now()
         two_weeks_later = nowtime + timezone.timedelta(weeks=2)
+        major_whs = ["ONT8","LAX9","LGB8","SBD1"]     
         pl_criteria = (models.Q(
                 shipment_batch_number__shipment_batch_number__isnull=True,
                 container_number__order__offload_id__offload_at__isnull=True,
                 container_number__order__vessel_id__vessel_eta__lte=two_weeks_later, 
                 container_number__order__retrieval_id__retrieval_destination_area=warehouse_name,
-                delivery_type='public',
                 container_number__is_abnormal_state=False,
+                destination__in=major_whs
             )&
             ~(
                 models.Q(delivery_method__icontains='暂扣') |
@@ -3225,7 +3228,7 @@ class PostNsop(View):
                 location=warehouse,
                 shipment_batch_number__shipment_batch_number__isnull=True,
                 container_number__order__offload_id__offload_at__gt=datetime(2025, 1, 1),
-                delivery_type='public',
+                destination__in=major_whs
             )&
             ~(
                 models.Q(delivery_method__icontains='暂扣') |
@@ -3261,30 +3264,13 @@ class PostNsop(View):
         summary = await self._four_major_calculate_summary(unshipment_pos, shipments, scheduled_data, schedule_fleet_data, ready_to_ship_data, delivery_data, pod_data, warehouse)
 
         #四大仓的不看船列表    
-        vessel_names = []
-        vessel_dict = OrderedDict()
         destination_list = []
-        vessel_eta_dict = {}
         for item in unshipment_pos:
             destination = item.get('destination')
             destination_list.append(destination)
-            vessel_name = item.get('vessel_name')
-            if not vessel_name:
-                continue
-            vessel_voyage = item.get('vessel_voyage')
-            vessel_eta = item.get('vessel_eta')
-
-            if vessel_name and vessel_name not in vessel_names:
-                eta_date = vessel_eta
-                vessel_eta_dict[vessel_name] = eta_date
-                display_text = f"{vessel_name} / {vessel_voyage} → {str(vessel_eta).split()[0] if vessel_eta else '未知'}"
-                vessel_dict[vessel_name] = display_text
-                vessel_names.append(vessel_name)
-        vessel_dict = OrderedDict(
-            sorted(vessel_dict.items(), key=lambda x: vessel_eta_dict[x[0]])
-        ) 
-        if await self._validate_user_four_major_whs(request.user):
-            vessel_dict = {}       
+            
+        #if await self._validate_user_four_major_whs(request.user):
+        vessel_dict = {}       
         destination_list = list(set(destination_list))
         if not context:
             context = {}
