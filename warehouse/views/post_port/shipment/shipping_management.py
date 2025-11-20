@@ -1841,7 +1841,6 @@ class ShippingManagement(View):
                 plt_ids = []
             else:
                 plt_ids = parse_ids(plt_ids_key)
-        print('修改的功能',alter_type)
         if alter_type == "add":
             container_number = set()
             selections = request.POST.getlist("is_shipment_added")
@@ -2171,6 +2170,9 @@ class ShippingManagement(View):
             shipment_batch_number = request.POST.get("batch_number")
             shipment = Shipment.objects.get(shipment_batch_number=shipment_batch_number)
             if shipment.is_shipped:
+                
+                if name == "post_nsop":
+                    return {'error_messages':f"{shipment}批次已发货，不可取消！"}
                 raise RuntimeError(
                     f"Shipment with batch number {shipment} has been shipped!"
                 )
@@ -2185,7 +2187,7 @@ class ShippingManagement(View):
         mutable_post["name"] = warehouse
         request.POST = mutable_post
         if name == "post_nsop":
-            return {'success_messages':f"{shipment}批次已发货，不可取消！"}
+            return {'success_messages':f"{shipment}取消成功！"}
         return await self.handle_warehouse_post(request)
 
     async def handle_update_appointment_post(

@@ -36,7 +36,7 @@
 </div>
 
 <div style="max-width: 1200px; margin: 20px auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
-    <h3 style="text-align: center; margin-bottom: 20px; color: #333;">报价单版本管理</h3>
+    <h3 style="text-align: center; margin-bottom: 20px; color: #333;">报价表版本管理</h3>
     <table id="quote-table" class="table" style="font-size: 14px; width: 100%; border-collapse: collapse;table-layout: fixed;">
         <thead style="background: #e9ecef;">
             <tr>
@@ -48,9 +48,24 @@
             </tr>
             <tr style="position: sticky; top: 52px;" id="fleet-table-filter">
                 <th class="th"><input type="text" style="width:110px;" id="filenameSearchInput" placeholder="搜索文件名..." oninput="filterTable()"></th>
+                <th class="th">
+                    <select style="width:110px; padding: 4px;" id="effectiveDateFilter" onchange="filterTable()">
+                        <option value="">全部日期</option>
+                        <option value="today">今天</option>
+                        <option value="this_week">本周</option>
+                        <option value="this_month">本月</option>
+                        <option value="last_month">上月</option>
+                        <option value="this_year">今年</option>
+                    </select>
+                </th>
                 <th class="th"></th>
-                <th class="th"></th>
-                <th class="th"></th>
+                <th class="th">
+                    <select style="width:110px; padding: 4px;" id="exclusiveFilter" onchange="filterTable()">
+                        <option value="">全部</option>
+                        <option value="yes">是</option>
+                        <option value="no">否</option>
+                    </select>
+                </th>
                 <th class="th"><input type="text" style="width:110px;" id="customerSearchInput" placeholder="搜索客户..." oninput="filterTable()"></th>
             </tr>
         </thead>
@@ -60,9 +75,9 @@
                 {% csrf_token %}
                 <tr style="background: {% cycle '#ffffff' '#f8f9fa' %};">
                     <td style="padding: 15px; text-align: center;">{{ q.filename }}</td>
-                    <td style="padding: 15px; text-align: center;">{{ q.effective_date|date:"Y-M-j" }}</td>   
+                    <td style="padding: 15px; text-align: center;" data-effective-date="{{ q.effective_date|date:'Y-m-d' }}">{{ q.effective_date|date:"Y-M-j" }}</td>   
                     <td style="padding: 15px; text-align: center;">{{ q.upload_date|date:"M-j" }}</td>             
-                    <td style="padding: 15px; text-align: center;">{{ q.is_user_exclusive|yesno:"否,是" }}</td>
+                    <td style="padding: 15px; text-align: center;" data-exclusive="{{ q.is_user_exclusive|yesno:'no,yes' }}">{{ q.is_user_exclusive|yesno:"否,是" }}</td>
                     <td style="padding: 15px; text-align: center;">{{ q.exclusive_user|default:"" }}</td>
                     {% comment %} <td style="padding: 15px; text-align: center; {% if q.active %}color: #28a745; font-weight: bold;{% else %}color: #dc3545; font-style: italic;{% endif %}">
                         {% if q.active %}已启用{% else %}未启用{% endif %}
@@ -119,37 +134,91 @@
             userSelection.querySelector('select').removeAttribute('required');
         }
     });
+
     function filterTable() {
         const filenameInput = document.getElementById("filenameSearchInput");
         const customerInput = document.getElementById("customerSearchInput");
+        const effectiveDateFilter = document.getElementById("effectiveDateFilter");
+        const exclusiveFilter = document.getElementById("exclusiveFilter");
 
         const filenameFilter = filenameInput.value.trim().toUpperCase();
         const customerFilter = customerInput.value.trim().toUpperCase();
+        const dateFilter = effectiveDateFilter.value;
+        const exclusiveValue = exclusiveFilter.value;
 
         const table = document.getElementById("quote-table");
         const tbody = table.getElementsByTagName("tbody")[0];
         const tr = tbody.getElementsByTagName("tr");
 
-        const filenameParts = filenameFilter.split(/\W+/).filter(p => p); // 非空分组
-
+        const filenameParts = filenameFilter.split(/\W+/).filter(p => p);
+        const today = new Date();
+        
         for (let i = 0; i < tr.length; i++) {
             const tds = tr[i].getElementsByTagName("td");
             const filenameTd = tds[0]; 
+            const effectiveDateTd = tds[1];
+            const exclusiveTd = tds[3];
             const customerTd = tds[4]; 
 
             if (filenameTd && customerTd) {
                 const filenameTxt = filenameTd.textContent.toUpperCase();
                 const customerTxt = customerTd.textContent.toUpperCase();
+                const effectiveDate = effectiveDateTd.getAttribute('data-effective-date');
+                const exclusiveTxt = exclusiveTd.getAttribute('data-exclusive');
 
+                // 文件名筛选
                 let filenameMatch = filenameParts.length === 0 ? true :
                     filenameParts.some(part => filenameTxt.includes(part));
 
+                // 客户筛选
                 const customerMatch = customerTxt.includes(customerFilter);
 
-                tr[i].style.display = (filenameMatch && customerMatch) ? "" : "none";
+                // 是否通用筛选
+                let exclusiveMatch = true;
+                if (exclusiveValue === 'yes') {
+                    exclusiveMatch = exclusiveTxt === 'yes';
+                } else if (exclusiveValue === 'no') {
+                    exclusiveMatch = exclusiveTxt === 'no';
+                }
+
+                // 生效日期筛选
+                let dateMatch = true;
+                if (dateFilter && effectiveDate) {
+                    const rowDate = new Date(effectiveDate);
+                    
+                    switch(dateFilter) {
+                        case 'today':
+                            dateMatch = rowDate.toDateString() === today.toDateString();
+                            break;
+                        case 'this_week':
+                            const startOfWeek = new Date(today);
+                            startOfWeek.setDate(today.getDate() - today.getDay());
+                            startOfWeek.setHours(0, 0, 0, 0);
+                            const endOfWeek = new Date(startOfWeek);
+                            endOfWeek.setDate(startOfWeek.getDate() + 6);
+                            endOfWeek.setHours(23, 59, 59, 999);
+                            dateMatch = rowDate >= startOfWeek && rowDate <= endOfWeek;
+                            break;
+                        case 'this_month':
+                            dateMatch = rowDate.getMonth() === today.getMonth() && 
+                                       rowDate.getFullYear() === today.getFullYear();
+                            break;
+                        case 'last_month':
+                            const lastMonth = today.getMonth() === 0 ? 11 : today.getMonth() - 1;
+                            const lastMonthYear = today.getMonth() === 0 ? today.getFullYear() - 1 : today.getFullYear();
+                            dateMatch = rowDate.getMonth() === lastMonth && 
+                                       rowDate.getFullYear() === lastMonthYear;
+                            break;
+                        case 'this_year':
+                            dateMatch = rowDate.getFullYear() === today.getFullYear();
+                            break;
+                    }
+                }
+
+                tr[i].style.display = (filenameMatch && customerMatch && exclusiveMatch && dateMatch) ? "" : "none";
             }
         }
-    };
+    }
 </script>
 
 {% endblock %}

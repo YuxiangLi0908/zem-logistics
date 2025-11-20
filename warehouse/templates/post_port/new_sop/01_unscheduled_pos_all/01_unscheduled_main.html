@@ -187,7 +187,127 @@
     .content-section.active {
         display: block;
     }
+    .action-btn {
+        display: inline-block;
+        padding: 6px 12px;
+        margin: 2px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 0.8rem;
+        font-weight: 500;
+        text-decoration: none;
+        transition: all 0.3s ease;
+        text-align: center;
+        white-space: nowrap;
+    }
 
+    .action-btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    }
+
+    .action-btn:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+        transform: none;
+    }
+
+    /* 按钮颜色变体 */
+    .btn-primary {
+        background: var(--primary-color);
+        color: white;
+    }
+
+    .btn-primary:hover {
+        background: #2980b9;
+    }
+
+    .btn-secondary {
+        background: #6c757d;
+        color: white;
+    }
+
+    .btn-secondary:hover {
+        background: #5a6268;
+    }
+
+    .btn-success {
+        background: var(--success-color);
+        color: white;
+    }
+
+    .btn-success:hover {
+        background: #27ae60;
+    }
+
+    .btn-warning {
+        background: var(--warning-color);
+        color: white;
+    }
+
+    .btn-warning:hover {
+        background: #e67e22;
+    }
+
+    .btn-danger {
+        background: var(--danger-color);
+        color: white;
+    }
+
+    .btn-danger:hover {
+        background: #c0392b;
+    }
+
+    .btn-info {
+        background: #17a2b8;
+        color: white;
+    }
+
+    .btn-info:hover {
+        background: #138496;
+    }
+
+    /* 表单样式 */
+    .form-input {
+        padding: 6px 8px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 0.8rem;
+        width: 100%;
+    }
+
+    .form-input:focus {
+        outline: none;
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+    }
+
+    .form-select {
+        padding: 6px 8px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 0.8rem;
+        width: 100%;
+        background: white;
+    }
+
+    /* 按钮组样式 */
+    .btn-group {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+    }
+
+    .btn-group .action-btn {
+        margin: 0;
+    }
+
+    /* 小按钮样式 */
+    .btn-sm {
+        padding: 4px 8px;
+        font-size: 0.75rem;
+    }
     @media (max-width: 768px) {
         .appointment-header {
             flex-direction: column;
@@ -282,7 +402,22 @@
         <div class="tab-navigation">
             <div class="tab active" data-tab="cargo">
                 PO管理 <span class="badge">{{ cargo_count }}</span>
+            </div>           
+            <div class="tab" data-tab="scheduled">
+                已排约 <span class="badge">{{ summary.scheduled_sp_count }}</span>
             </div>
+            <div class="tab" data-tab="scheduledFleet">
+                已排车 <span class="badge">{{ summary.schedule_fl_count }}</span>
+            </div>
+            <div class="tab" data-tab="readyShip">
+                待出库批次 <span class="badge">{{ summary.ready_to_ship_count }}</span>
+            </div>
+            <div class="tab" data-tab="ready">
+                待送达批次 <span class="badge">{{ summary.ready_count }}</span>
+            </div>
+            <div class="tab" data-tab="pod">
+                待传POD批次 <span class="badge">{{ summary.pod_count }}</span>
+            </div>    
             <div class="tab" data-tab="appointments">
                 预约管理 <span class="badge">{{ appointment_count }}</span>
             </div>
@@ -291,6 +426,31 @@
         <!-- PO管理标签页 -->
         <div class="content-section active" id="cargo-section">
             {% include 'post_port/new_sop/01_unscheduled_pos_all/po_management.html' %}
+        </div>
+
+        <!-- 已排约标签页 -->
+        <div class="content-section" id="scheduled-section">
+            {% include 'post_port/new_sop/01_unscheduled_pos_all/scheduled_section.html' %}
+        </div>
+
+        <!-- 已排车标签页 -->
+        <div class="content-section" id="scheduledFleet-section">
+            {% include 'post_port/new_sop/01_unscheduled_pos_all/scheduledFleet_section.html' %}
+        </div>
+
+        <!-- 待出库批次标签页 -->
+        <div class="content-section" id="readyShip-section">
+            {% include 'post_port/new_sop/01_unscheduled_pos_all/ready_section.html' %}
+        </div>
+
+        <!-- 待送达批次标签页 -->
+        <div class="content-section" id="ready-section">
+            {% include 'post_port/new_sop/01_unscheduled_pos_all/delivery_section.html' %}
+        </div>
+
+        <!-- 待传POD批次标签页 -->
+        <div class="content-section" id="pod-section">
+            {% include 'post_port/new_sop/01_unscheduled_pos_all/pod_section.html' %}
         </div>
 
         <!-- 预约管理标签页 -->
@@ -312,7 +472,10 @@
     <input type="hidden" name="step" value="appointment_time_modify">
     <button type="submit">提交</button>
 </form>
-{% include 'post_port/new_sop/01_unscheduled_pos_all/message_modal.html' %}
+
+{% include 'post_port/new_sop/01_unscheduled_pos_all/modal/message_modal.html' %}
+{% include 'post_port/new_sop/01_unscheduled_pos_all/modal/bind_shipment_modal.html' %}
+{% include 'post_port/new_sop/01_unscheduled_pos_all/modal/addable_po_modal.html' %}
 <script>
     // 在现有的标签页切换代码中添加
     function debugTabContent() {
@@ -342,6 +505,21 @@
                 }
                 if (activeTab === 'appointments' && typeof initializeAppointmentManagement === 'function') {
                     setTimeout(initializeAppointmentManagement, 100);
+                }
+                if (activeTab === 'scheduled' && typeof initializeScheduledSection === 'function') {
+                    setTimeout(initializeScheduledSection, 100);
+                }
+                if (activeTab === 'scheduledFleet' && typeof initializeScheduledFleetSection === 'function') {
+                    setTimeout(initializeScheduledFleetSection, 100);
+                }
+                if (activeTab === 'readyShip' && typeof initializeReadyShipSection === 'function') {
+                    setTimeout(initializeReadyShipSection, 100);
+                }
+                if (activeTab === 'ready' && typeof initializeReadySection === 'function') {
+                    setTimeout(initializeReadySection, 100);
+                }
+                if (activeTab === 'pod' && typeof initializePodSection === 'function') {
+                    setTimeout(initializePodSection, 100);
                 }
             }
         }
@@ -374,8 +552,20 @@
                     if (tabName === 'appointments' && typeof initializeAppointmentManagement === 'function') {
                         setTimeout(initializeAppointmentManagement, 50);
                     }
-                    if (tabName === 'matching' && typeof initializeIntelligentMatching === 'function') {
-                        setTimeout(initializeIntelligentMatching, 50);
+                    if (tabName === 'scheduled' && typeof initializeScheduledSection === 'function') {
+                        setTimeout(initializeScheduledSection, 50);
+                    }
+                    if (tabName === 'scheduledFleet' && typeof initializeScheduledFleetSection === 'function') {
+                        setTimeout(initializeScheduledFleetSection, 50);
+                    }
+                    if (tabName === 'readyShip' && typeof initializeReadyShipSection === 'function') {
+                        setTimeout(initializeReadyShipSection, 50);
+                    }
+                    if (tabName === 'ready' && typeof initializeReadySection === 'function') {
+                        setTimeout(initializeReadySection, 50);
+                    }
+                    if (tabName === 'pod' && typeof initializePodSection === 'function') {
+                        setTimeout(initializePodSection, 50);
                     }
                 } else {
                     console.error('未找到内容区域:', tabName + '-section');
@@ -388,6 +578,12 @@
         
         // 初始调试信息
         debugTabContent();
+        {% if show_add_po_inventory_modal %}
+            setTimeout(function () {
+                const modal = document.getElementById('addablePOModal');
+                if (modal) modal.style.display = 'block';
+            }, 300);
+        {% endif %}
     });
 
     function showLoadingBar() {

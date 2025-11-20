@@ -432,7 +432,11 @@ class PostNsop(View):
             context.update({
                 'error_messages': f"通知客户失败: {str(e)}",
             })
-        return await self.handle_td_shipment_post(request, context)
+        page = request.POST.get("page")
+        if page == "arm_appointment":
+            return await self.handle_unscheduled_pos_post(request,context)
+        else:
+            return await self.handle_td_shipment_post(request, context)
     
     async def handle_search_addable_po_post(
         self, request: HttpRequest
@@ -478,7 +482,11 @@ class PostNsop(View):
         })
         if 'show_add_po_inventory_modal' not in context:
             context.update({"show_add_po_inventory_modal": True})# ← 控制是否直接弹出“添加PO”弹窗
-        return await self.handle_td_shipment_post(request, context)
+        page = request.POST.get("page")
+        if page == "arm_appointment":
+            return await self.handle_unscheduled_pos_post(request,context)
+        else:
+            return await self.handle_td_shipment_post(request, context)
     
     async def handle_add_pallet_post(
         self, request: HttpRequest
@@ -1135,7 +1143,7 @@ class PostNsop(View):
                 lambda: PackingList.objects.filter(id__in=cargo_id_list).update(note_sp=note_sp)
             )()
             if updated_count == 0:
-                context.update({'error_messages': "更新失败！"})
+                context.update({'error_messages': "更新备注失败！"})
                 return await self.handle_td_shipment_post(request,context)
 
         # 更新 Pallet
@@ -1144,10 +1152,14 @@ class PostNsop(View):
                 lambda: Pallet.objects.filter(id__in=plt_id_list).update(note_sp=note_sp)
             )()
             if updated_count == 0:
-                context.update({'error_messages': "更新失败！"})
+                context.update({'error_messages': "更新备注失败！"})
                 return await self.handle_td_shipment_post(request,context)
-        context.update({'sucess_messages':"更新备注成功！"}) 
-        return await self.handle_td_shipment_post(request,context)
+        context.update({'success_messages':"更新备注成功！"}) 
+        page = request.POST.get("page")
+        if page == "arm_appointment":
+            return await self.handle_unscheduled_pos_post(request,context)
+        else:
+            return await self.handle_td_shipment_post(request,context)
 
 
     async def handle_edit_appointment_post(
@@ -1196,6 +1208,9 @@ class PostNsop(View):
             context.update( {'success_messages':f"{appointment_id_old}预约信息修改成功！"})
             if name == "fleet_departure":
                 return await self.handle_fleet_schedule_post(request,context)
+            page = request.POST.get("page")
+            if page == "arm_appointment":
+                return await self.handle_unscheduled_pos_post(request,context)
             return await self.handle_td_shipment_post(request,context)
         else:
             context = await self._check_ISA_is_repetition(appointment_id_new,destination)
@@ -1210,6 +1225,9 @@ class PostNsop(View):
             await sync_to_async(old_shipment.save)()
             if name == "fleet_departure":
                 return await self.handle_fleet_schedule_post(request,context)
+            page = request.POST.get("page")
+            if page == "arm_appointment":
+                return await self.handle_unscheduled_pos_post(request,context)
             return await self.handle_td_shipment_post(request,context)
     
     async def _check_ISA_is_repetition(self,appointment_id,destination):
@@ -1248,8 +1266,12 @@ class PostNsop(View):
         request.POST['shipment_batch_number'] = shipment_batch_number
         request.POST['type'] = 'td'     
         sm = ShippingManagement()
-        context = await sm.handle_cancel_post(request,'post_nsop')         
-        return await self.handle_td_shipment_post(request,context)
+        context = await sm.handle_cancel_post(request,'post_nsop')   
+        page = request.POST.get("page")
+        if page == "arm_appointment":
+            return await self.handle_unscheduled_pos_post(request,context)    
+        else:  
+            return await self.handle_td_shipment_post(request,context)
     
     async def handle_shipment_add_pallet_post(
         self, request: HttpRequest
@@ -1288,11 +1310,16 @@ class PostNsop(View):
         info = await sm.handle_alter_po_shipment_post(request,'post_nsop') 
         
         context.update({"success_messages": f"{appointment_id}添加成功！"})
-        return await self.handle_td_shipment_post(request,context)
+        page = request.POST.get("page")
+        if page == "arm_appointment":
+            return await self.handle_unscheduled_pos_post(request,context)
+        else:
+            return await self.handle_td_shipment_post(request,context)
     
     async def handle_appointment_post(
         self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:    
+        print(request.POST)
         appointment_id = request.POST.get('appointment_id')
         ids = request.POST.get("cargo_ids")
         plt_ids = request.POST.get("plt_ids")
@@ -1316,8 +1343,12 @@ class PostNsop(View):
             request.POST['shipment_batch_number'] = shipment_batch_number    
             sm = ShippingManagement()
             info = await sm.handle_alter_po_shipment_post(request,'post_nsop') 
-            context.update({"success_messages": f"删除成功，批次号是{shipment_batch_number}"})
-            return await self.handle_td_shipment_post(request,context)
+            context.update({"success_messages": f"删除部分PO，批次号是{shipment_batch_number}"})
+            page = request.POST.get("page")
+            if page == "arm_appointment":
+                template, context = await self.handle_unscheduled_pos_post(request,context)
+            else:
+                return await self.handle_td_shipment_post(request,context)
         
         destination = request.POST.get('destination')                  
         
@@ -1423,13 +1454,21 @@ class PostNsop(View):
             
             sm = ShippingManagement()
             info = await sm.handle_appointment_post(request,'post_nsop') 
-            context.update({"success_messages": f"绑定成功，批次号是{shipment_batch_number}"})
+            page = request.POST.get("page")
+            if page == "arm_appointment":
+                template, context = await self.handle_unscheduled_pos_post(request,context)
+            else:
+                context.update({"success_messages": f"绑定成功，批次号是{shipment_batch_number}"})
         else:
             context.update({"error_messages": f"没有选择PO！"}) 
         template_name = request.POST.get('template_name')
         if template_name and template_name == "unshipment":
             return await self.handle_td_unshipment_post(request,context)
-        return await self.handle_td_shipment_post(request,context)
+        page = request.POST.get("page")
+        if page == "arm_appointment":
+            template, context = await self.handle_unscheduled_pos_post(request,context)
+        else:
+            return await self.handle_td_shipment_post(request,context)
     
     async def handle_fleet_confirmation_post(
         self, request: HttpRequest
@@ -3200,11 +3239,23 @@ class PostNsop(View):
             return self.template_unscheduled_pos_all, context
         #未使用的约和异常的约
         shipments = await self.get_shipments_by_warehouse(warehouse,request)
-        
-        summary = await self.calculate_summary(unshipment_pos, shipments, warehouse)
+        #已排约
+        scheduled_data = await self.sp_scheduled_data(warehouse, request.user)
 
-        #四大仓的不看船列表
-        
+        #未排车+已排车
+        fleets = await self._fl_unscheduled_data(request, warehouse)
+        #已排车
+        schedule_fleet_data = fleets['fleet_list']
+        #待出库
+        ready_to_ship_data = await self._sp_ready_to_ship_data(warehouse,request.user)
+        # 待送达
+        delivery_data = await self._fl_delivery_get(warehouse)
+        #待传POD
+        pod_data = await self._fl_pod_get(warehouse)
+
+        summary = await self._four_major_calculate_summary(unshipment_pos, shipments, scheduled_data, schedule_fleet_data, ready_to_ship_data, delivery_data, pod_data, warehouse)
+
+        #四大仓的不看船列表    
         vessel_names = []
         vessel_dict = OrderedDict()
         destination_list = []
@@ -3244,8 +3295,15 @@ class PostNsop(View):
             "destination_list": destination_list,
             'account_options': self.account_options,
             'load_type_options': LOAD_TYPE_OPTIONS,
+            "scheduled_data": scheduled_data,
+            "schedule_fleet_data": schedule_fleet_data,
+            "ready_to_ship_data": ready_to_ship_data,
+            "delivery_shipments": delivery_data['shipments'],
+            "pod_shipments": pod_data['fleet'],
+            'shipment_type_options': self.shipment_type_options,
         })
         active_tab = request.POST.get('active_tab')
+        
         if active_tab:
             context.update({'active_tab':active_tab})
         return self.template_unscheduled_pos_all, context
@@ -3935,6 +3993,71 @@ class PostNsop(View):
         today = timezone.localtime(today, local_tz)
         return today
     
+    async def _four_major_calculate_summary(self, unshipment_pos, shipments, scheduled_data, schedule_fleet_data, ready_to_ship_data, delivery_data, pod_data, warehouse):
+        now = await self._now_time_get(warehouse)
+        # 计算预约状态统计
+        expired_count = 0
+        urgent_count = 0
+        available_count = 0
+        used_count = 0  # 已使用的预约数量
+        
+        for shipment in shipments:
+            # 检查预约是否已过期
+            is_expired = (
+                shipment.shipment_appointment_utc and 
+                shipment.shipment_appointment_utc < now
+            )
+            
+            # 检查预约是否即将过期（7天内）
+            is_urgent = (
+                shipment.shipment_appointment_utc and 
+                shipment.shipment_appointment_utc - now < timedelta(days=7) and
+                not is_expired
+            )
+            
+            # 检查预约是否已被使用（通过 PackingList 或 Pallet 绑定）
+            has_packinglist = await self.has_related_packinglist(shipment)
+            has_pallet = await self.has_related_pallet(shipment)
+            is_used = has_packinglist or has_pallet
+            
+            if is_used:
+                shipment.status = "used"
+                used_count += 1
+            elif is_expired:
+                shipment.status = "expired"
+                expired_count += 1
+            elif is_urgent:
+                shipment.status = "urgent"
+                urgent_count += 1
+            else:
+                shipment.status = "available"
+                available_count += 1
+        
+        # 计算货物统计
+        pending_cargos_count = len(unshipment_pos)
+        
+        # 计算总板数
+        total_pallets = 0
+        for cargo in unshipment_pos:
+            if cargo.get('label') == 'ACT':  # 实际板数
+                total_pallets += cargo.get('total_n_pallet_act', 0) or 0
+            else:  # 预估板数
+                total_pallets += cargo.get('total_n_pallet_est', 0) or 0
+        
+        return {
+            'expired_count': expired_count,
+            'urgent_count': urgent_count,
+            'available_count': available_count,
+            'used_count': used_count,  # 已使用的预约数量
+            'pending_cargo_count': pending_cargos_count,
+            'total_pallets': int(total_pallets),
+            'scheduled_sp_count': len(scheduled_data),
+            'schedule_fl_count': len(schedule_fleet_data),
+            'ready_to_ship_count': len(ready_to_ship_data),
+            'ready_count': len(delivery_data),
+            'pod_count': len(pod_data),
+        }
+
     async def calculate_summary(self, unshipment_pos, shipments, warehouse):
         """异步计算统计数据 - 适配新的数据结构"""
         now = await self._now_time_get(warehouse)
