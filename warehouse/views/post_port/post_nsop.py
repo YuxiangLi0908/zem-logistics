@@ -427,7 +427,11 @@ class PostNsop(View):
             )
         if 'error_messages' not in context:
             context.update({"success_messages": f"{appointment_id}加塞成功！"})
-        return await self.handle_fleet_schedule_post(request,context)
+        page = request.POST.get("page")
+        if page == "arm_appointment":
+            return await self.handle_unscheduled_pos_post(request,context)
+        else:
+            return await self.handle_fleet_schedule_post(request,context)
     
     async def handle_sp_notified_customer_post(
         self, request: HttpRequest
@@ -545,7 +549,11 @@ class PostNsop(View):
             "add_po_title": "加塞",
             "add_pallet_ISA": request.POST.get('add_pallet_ISA')
         }
-        return await self.handle_fleet_schedule_post(request, context)
+        page = request.POST.get("page")
+        if page == "arm_appointment":
+            return await self.handle_unscheduled_pos_post(request,context)
+        else:
+            return await self.handle_fleet_schedule_post(request, context)
 
     async def handle_one_fleet_departure_post(
         self, request: HttpRequest, context: str | None = None
@@ -586,7 +594,11 @@ class PostNsop(View):
         fm = FleetManagement()
         context_new = await fm.handle_fleet_departure_post(request,'post_nsop')
         context.update(context_new)
-        return await self.handle_fleet_schedule_post(request,context)         
+        page = request.POST.get("page")
+        if page == "arm_appointment":
+            return await self.handle_unscheduled_pos_post(request,context)
+        else:
+            return await self.handle_fleet_schedule_post(request,context)         
     
     async def handle_export_virtual_fleet_pos_post(
         self, request: HttpRequest
@@ -1341,7 +1353,6 @@ class PostNsop(View):
     async def handle_appointment_post(
         self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:    
-        print(request.POST)
         appointment_id = request.POST.get('appointment_id')
         ids = request.POST.get("cargo_ids")
         plt_ids = request.POST.get("plt_ids")
@@ -1494,8 +1505,7 @@ class PostNsop(View):
     
     async def handle_fleet_confirmation_post(
         self, request: HttpRequest
-    ) -> tuple[str, dict[str, Any]]:
-        print(request.POST)       
+    ) -> tuple[str, dict[str, Any]]:     
         page = request.POST.get("page")
         selected_ids_str = request.POST.get("selected_ids")
         
@@ -3323,7 +3333,6 @@ class PostNsop(View):
         #待传POD
         pod_data_raw = await self._fl_pod_get(warehouse, "four_major_whs")
         pod_data = pod_data_raw['fleet']
-        print('待传POD',pod_data)
 
         summary = await self._four_major_calculate_summary(unshipment_pos, shipments, scheduled_data, schedule_fleet_data, ready_to_ship_data, delivery_data, pod_data, warehouse)
 

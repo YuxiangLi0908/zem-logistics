@@ -1,0 +1,761 @@
+<!--确认出库的弹框-->
+<style>
+    /* 确认出库模态框专用样式 */
+    #confirmDepartureModal {
+        display: none;
+        position: fixed;
+        z-index: 3000;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.5);
+        backdrop-filter: blur(2px);
+    }
+
+    #confirmDepartureModal .modal-content {
+        background: #fff;
+        border-radius: 14px;
+        width: 95%;
+        max-width: 1200px;
+        max-height: 700px;
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        overflow: hidden;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+        animation: modalIn 0.3s ease-out;
+    }
+
+    #confirmDepartureModal .modal-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 15px 0;
+        font-size: 0.85rem;
+    }
+
+    #confirmDepartureModal .modal-table th {
+        background: var(--secondary-color);
+        color: white;
+        padding: 10px;
+        text-align: left;
+        font-weight: 600;
+        position: sticky;
+        top: 0;
+    }
+
+    #confirmDepartureModal .modal-table td {
+        padding: 10px;
+        border-bottom: 1px solid #eaecef;
+    }
+
+    #confirmDepartureModal .modal-table tr:nth-child(even) {
+        background-color: #f9fafb;
+    }
+
+    #confirmDepartureModal .modal-table tr:hover {
+        background-color: #edf2f7;
+    }
+
+    /* 列宽限制 */
+    #confirmDepartureModal .modal-table td:nth-child(3),
+    #confirmDepartureModal .modal-table td:nth-child(4) {
+        max-width: 160px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    #confirmDepartureModal .modal-table th:nth-child(3),
+    #confirmDepartureModal .modal-table th:nth-child(4) {
+        max-width: 160px;
+        min-width: 160px;
+    }
+
+    #confirmDepartureModal .modal-table th:nth-child(5) {
+        max-width: 120px;
+        min-width: 160px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    /* 状态样式 */
+    #confirmDepartureModal .status-ok {
+        background-color: #d4edda;
+        color: #155724;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-weight: 600;
+        font-size: 0.75rem;
+    }
+
+    #confirmDepartureModal .status-warning {
+        background-color: #fff3cd;
+        color: #856404;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-weight: 600;
+        font-size: 0.75rem;
+    }
+
+    #confirmDepartureModal .status-error {
+        background-color: #f8d7da;
+        color: #721c24;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-weight: 600;
+        font-size: 0.75rem;
+    }
+
+    /* 模态框头部 */
+    #confirmDepartureModal .modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 20px 30px 15px;
+        border-bottom: 1px solid #eaecef;
+        background: linear-gradient(135deg, var(--secondary-color), #4a6491);
+        color: white;
+        border-radius: 10px 10px 0 0;
+    }
+
+    #confirmDepartureModal .modal-header h3 {
+        margin: 0;
+        font-size: 1.3rem;
+    }
+
+    #confirmDepartureModal .modal-header .close {
+        color: white;
+        font-size: 28px;
+        font-weight: bold;
+        cursor: pointer;
+        opacity: 0.8;
+    }
+
+    #confirmDepartureModal .modal-header .close:hover {
+        opacity: 1;
+    }
+
+    /* 模态框主体 */
+    #confirmDepartureModal .modal-body {
+        padding: 20px 30px;
+        max-height: calc(700px - 80px);
+        overflow-y: auto;
+    }
+
+    /* 表单区域 */
+    #confirmDepartureModal .modal-form-section {
+        margin-bottom: 20px;
+        padding: 15px;
+        border: 1px solid #eaecef;
+        border-radius: 8px;
+        background: white;
+    }
+
+    #confirmDepartureModal .modal-form-section h4 {
+        margin: 0 0 15px 0;
+        color: var(--secondary-color);
+        font-size: 1.1rem;
+    }
+
+    /* 表单输入 */
+    #confirmDepartureModal .form-input {
+        padding: 8px 12px;
+        border: 1px solid #dce1e6;
+        border-radius: 4px;
+        font-size: 0.9rem;
+        margin-left: 10px;
+    }
+
+    #confirmDepartureModal .form-input:focus {
+        outline: none;
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+    }
+
+    /* 按钮样式 */
+    #confirmDepartureModal .modal-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+        margin-top: 20px;
+        padding-top: 20px;
+        border-top: 1px solid #eaecef;
+    }
+
+    #confirmDepartureModal .modal-btn {
+        padding: 10px 20px;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        font-weight: 600;
+        font-size: 0.9rem;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    #confirmDepartureModal .modal-btn-success {
+        background: var(--success-color);
+        color: white;
+    }
+
+    #confirmDepartureModal .modal-btn-success:hover {
+        background: #27ae60;
+        transform: translateY(-1px);
+    }
+
+    #confirmDepartureModal .modal-btn-danger {
+        background: var(--danger-color);
+        color: white;
+    }
+
+    #confirmDepartureModal .modal-btn-danger:hover {
+        background: #c0392b;
+        transform: translateY(-1px);
+    }
+
+    /* 数字输入框 */
+    #confirmDepartureModal input[type="number"] {
+        padding: 4px 8px;
+        border: 1px solid #dce1e6;
+        border-radius: 4px;
+        font-size: 0.8rem;
+        width: 70px;
+        text-align: center;
+    }
+
+    #confirmDepartureModal input[type="number"]:focus {
+        outline: none;
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+    }
+
+    /* 统计信息区域 */
+    #confirmDepartureModal .modal-form-section:last-child {
+        background: #e9f7ef;
+        border-left: 4px solid #28a745;
+        margin-top: 20px;
+    }
+
+    /* 响应式设计 */
+    @media (max-width: 768px) {
+        #confirmDepartureModal .modal-content {
+            width: 95% !important;
+            margin: 5% auto;
+        }
+        
+        #confirmDepartureModal .modal-header {
+            padding: 15px 20px;
+        }
+        
+        #confirmDepartureModal .modal-body {
+            padding: 15px 20px;
+        }
+        
+        #confirmDepartureModal .modal-actions {
+            flex-direction: column;
+        }
+        
+        #confirmDepartureModal .modal-btn {
+            width: 100%;
+            justify-content: center;
+        }
+        
+        #confirmDepartureModal .modal-table {
+            font-size: 0.75rem;
+        }
+        
+        #confirmDepartureModal .modal-table th,
+        #confirmDepartureModal .modal-table td {
+            padding: 6px 8px;
+        }
+    }
+
+    /* 滚动条样式 */
+    #confirmDepartureModal .modal-body::-webkit-scrollbar {
+        width: 6px;
+    }
+
+    #confirmDepartureModal .modal-body::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 3px;
+    }
+
+    #confirmDepartureModal .modal-body::-webkit-scrollbar-thumb {
+        background: #c1c1c1;
+        border-radius: 3px;
+    }
+
+    #confirmDepartureModal .modal-body::-webkit-scrollbar-thumb:hover {
+        background: #a8a8a8;
+    }
+</style>
+<div id="confirmDepartureModal" class="modal">
+    <div class="modal-content" style="width: 95%; max-width: 1200px; max-height: 700px;">
+        <div class="modal-header">
+            <h3><i class="fas fa-truck-loading"></i> 确认出库 - <span id="modalFleetNumber"></span></h3>
+            <span class="close close-departure">&times;</span>
+        </div>
+        <div class="modal-body">
+            <form id="confirmDepartureForm" method="post">
+                {% csrf_token %}
+                <input type="hidden" name="step" value="one_fleet_departure">
+                <input type="hidden" name="fleet_number" id="fleetNumber">
+                <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                <input type="hidden" name="debug_info" id="debugInfo">
+                <input type="hidden" name="scheduled_pallet" id="formScheduledPallet">
+                <input type="hidden" name="actual_shipped_pallet" id="formActualShippedPallet">
+                <input type="hidden" name="page" value="arm_appointment">
+                <input type="hidden" name="active_tab" value="readyShip">
+                <input type="hidden" name="plt_ids" id="formPltIds">
+                <div id="cargoDataContainer" style="display: none;"></div>
+                
+                <!-- 出库时间选择 -->
+                <div class="modal-form-section" style="background: #f8f9fa; padding: 15px; border-radius: 8px;">
+                    <label style="font-weight: bold; margin-right: 15px;">
+                        <i class="fas fa-calendar-alt"></i> 出库时间:
+                    </label>
+                    <input type="datetime-local" name="departured_at" id="departuredAt" class="form-input" required>
+                </div>
+
+                <!-- 货物信息表格 -->
+                <div class="modal-form-section">
+                    <h4><i class="fas fa-list"></i> 货物信息</h4>
+                    <div style="max-height: 400px; overflow-y: auto;">
+                        <table class="modal-table">
+                            <thead>
+                                <tr>
+                                    <th>预约号</th>
+                                    <th>目的地</th>
+                                    <th>REF ID</th>
+                                    <th>FBA ID</th>
+                                    <th>柜号</th>
+                                    <th>计划板数</th>
+                                    <th>实际出库板数</th>
+                                    <th>状态</th>
+                                </tr>
+                            </thead>
+                            <tbody id="departureCargoBody">
+                                <!-- JS动态填充 -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- 统计信息 -->
+                <div style="background: #e9f7ef; padding: 15px; border-radius: 8px; border-left: 4px solid #28a745;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <strong>板数统计:</strong>
+                            <span id="totalScheduledPallets" style="margin: 0 10px;"></span>
+                            <i class="fas fa-arrow-right" style="color: #6c757d;"></i>
+                            <span id="totalActualPallets" style="margin: 0 10px; font-weight: bold; color: #28a745;"></span>
+                        </div>
+                        <div id="estWarning" style="display: none; color: #dc3545; font-weight: bold;">
+                            <i class="fas fa-exclamation-triangle"></i> 存在未打板货物，请核实！
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal-actions">
+                    
+                    <button type="button" class="modal-btn modal-btn-success" onclick="submitFleetDepartureSimple()">
+                        <i class="fas fa-check-circle"></i> 确认出库
+                    </button>
+                    
+                    <button type="button" class="modal-btn modal-btn-danger" onclick="closeDepartureModal()">
+                        <i class="fas fa-times"></i> 取消
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+<style>
+#confirmDepartureModal .modal-table td:nth-child(3),
+#confirmDepartureModal .modal-table td:nth-child(4) {
+    max-width: 160px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+#confirmDepartureModal .modal-table th:nth-child(5) {
+    max-width: 120px;
+    min-width: 160px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* 可选：表头宽度也保持一致 */
+#confirmDepartureModal .modal-table th:nth-child(3),
+#confirmDepartureModal .modal-table th:nth-child(4) {
+    max-width: 160px;
+    min-width: 160px;
+}
+</style>
+<script>
+// 出库确认模态框的JavaScript
+    function openDepartureModal(fleetNumber, fleetData) {
+        const modal = document.getElementById('confirmDepartureModal');
+        const tbody = document.getElementById('departureCargoBody');
+        const fleetNumberInput = document.getElementById('fleetNumber');
+        const modalFleetSpan = document.getElementById('modalFleetNumber');
+
+        if (!modal || !tbody) return console.error('Modal elements not found');
+        
+        if (fleetNumberInput) fleetNumberInput.value = fleetNumber;
+        if (modalFleetSpan) modalFleetSpan.textContent = fleetNumber;
+
+        tbody.innerHTML = '';
+
+        let totalPlanned = 0;
+        let totalActual = 0;
+        let hasEst = false;
+        let hasUnfilled = false;
+        let hasAnomaly = false; // 标记异常行
+
+        fleetData.shipments.forEach(shipment => {
+            const appointment = shipment.appointmentId || '-';
+            const destination = shipment.destination || '-';
+            (shipment.cargos || []).forEach(cargo => {
+                const tr = document.createElement('tr');
+
+                // 预约号
+                const apptTd = document.createElement('td');
+                apptTd.textContent = appointment;
+                tr.appendChild(apptTd);
+
+                // 目的地
+                const destTd = document.createElement('td');
+                destTd.textContent = destination;
+                tr.appendChild(destTd);
+
+                // REF ID
+                const refTd = document.createElement('td');
+                refTd.textContent = cargo.refIds || '-';
+                refTd.title = cargo.refIds || '';
+                tr.appendChild(refTd);
+
+                // FBA ID
+                const fbaTd = document.createElement('td');
+                fbaTd.textContent = cargo.fbaIds || '-';
+                fbaTd.title = cargo.fbaIds || '';
+                tr.appendChild(fbaTd);
+
+                // 柜号
+                const contTd = document.createElement('td');
+                contTd.textContent = cargo.containerNo || '-';
+                tr.appendChild(contTd);
+
+                // 计划板数
+                const planned = (typeof cargo.plannedPallets === 'number') ? cargo.plannedPallets : (parseFloat(cargo.plannedPallets) || 0);
+                const labelPart = cargo.palletLabel ? (' ' + cargo.palletLabel) : '';
+                const planTd = document.createElement('td');
+                planTd.textContent = (planned || planned === 0) ? (planned + labelPart) : '-';
+                tr.appendChild(planTd);
+
+                // 实际出库板数（可编辑）
+                const actualTd = document.createElement('td');
+                const actualInput = document.createElement('input');
+                actualInput.type = 'number';
+                actualInput.min = 0;
+                actualInput.step = 1;
+                actualInput.value = (typeof cargo.actualPallets !== 'undefined') ? cargo.actualPallets : planned;
+                actualInput.style.width = '70px';
+                actualInput.addEventListener('input', () => {
+                    updateTotalsAndWarning();
+                });
+                actualTd.appendChild(actualInput);
+                tr.appendChild(actualTd);
+
+                // 状态列（根据 pltId / cargoId 决定）
+                const statusTd = document.createElement('td');
+
+                // **关键：明确设置两个 dataset 字段**
+                tr.dataset.pltId = (cargo.pltId || '').toString();
+                tr.dataset.cargoId = (cargo.cargoId || '').toString();
+                tr.dataset.planned = (cargo.plannedPallets || 0).toString();
+                tr.dataset.palletLabel = (cargo.palletLabel || '').toString();
+
+                // 决定状态：只有 cargoId -> 未打板；只有 pltId -> 已打板；两者都有/都没有 -> 异常
+                const hasPlt = Boolean((tr.dataset.pltId || '').trim());
+                console.log('hasPlt',hasPlt,tr.dataset.pltId);
+                const hasCargoId = Boolean((tr.dataset.cargoId || '').trim());
+                console.log('hasCargoId',hasCargoId,tr.dataset.cargoId);
+
+                let statusText = '';
+                if (hasPlt && !hasCargoId) {
+                    statusText = '已打板';
+                    statusTd.classList.add('status-ok');
+                } else if (!hasPlt && hasCargoId) {
+                    statusText = '未打板';
+                    statusTd.classList.add('status-warning');
+                } else if (hasPlt && hasCargoId) {
+                    statusText = '异常（双ID）';
+                    statusTd.classList.add('status-error');
+                    hasAnomaly = true;
+                } else { // !hasPlt && !hasCargoId
+                    statusText = '异常（无ID）';
+                    statusTd.classList.add('status-error');
+                    hasAnomaly = true;
+                }
+                statusTd.textContent = statusText;
+                tr.appendChild(statusTd);
+
+                // 处理 EST 警告
+                if (String(cargo.palletLabel || '').toUpperCase() === 'EST') hasEst = true;
+
+                // 统计
+                totalPlanned += planned;
+                const actualVal = parseFloat(actualInput.value || 0) || 0;
+                totalActual += actualVal;
+                if (actualVal < planned) hasUnfilled = true;
+
+                tbody.appendChild(tr);
+            });
+        });
+
+        const totalScheduledElem = document.getElementById('totalScheduledPallets');
+        const totalActualElem = document.getElementById('totalActualPallets');
+        const estWarning = document.getElementById('estWarning');
+
+        if (totalScheduledElem) totalScheduledElem.textContent = totalPlanned;
+        if (totalActualElem) totalActualElem.textContent = totalActual;
+        if (estWarning) {
+            estWarning.style.display = (hasEst || hasUnfilled) ? 'block' : 'none';
+            // 如果存在异常也高亮提示
+            if (hasAnomaly) {
+                estWarning.style.display = 'block';
+                estWarning.textContent = '存在异常 ID 配置（双ID或无ID），请核实！';
+            } else {
+                estWarning.textContent = '存在未打板货物，请核实！';
+            }
+        }
+
+        
+
+        const closeBtns = modal.querySelectorAll('.close-departure');
+        closeBtns.forEach(btn => {
+            btn.onclick = function() { modal.style.display = 'none'; };
+        });
+
+        modal.addEventListener('click', function(e) {
+            if (e.target === modal) modal.style.display = 'none';
+        });
+
+        modal.style.display = 'block';
+        updateTotalsAndWarning();
+    }
+
+    function updateTotalsAndWarning() {
+        const tbody = document.getElementById('departureCargoBody');
+        const totalScheduledElem = document.getElementById('totalScheduledPallets');
+        const totalActualElem = document.getElementById('totalActualPallets');
+        const estWarning = document.getElementById('estWarning');
+        if (!tbody) return;
+
+        let tp = 0;
+        let ta = 0;
+        let anyUnplated = false;   // pltId 为空且 cargoId 有值 -> “未打板”
+        let anyUnfilledLocal = false; // 实际 < 计划
+        let anyAnomaly = false;    // 双ID 或 无ID
+
+        Array.from(tbody.children).forEach((tr, rowIndex) => {
+            const plannedNum = parseFloat(tr.dataset.planned || 0) || 0;
+            const input = tr.querySelector('input[type="number"]');
+            const actualNum = input ? (parseFloat(input.value || 0) || 0) : 0;
+
+            // 累加
+            tp += plannedNum;
+            ta += actualNum;
+
+            // 未打板判断：pltId 为空且 cargoId 有值
+            const hasPltLocal = Boolean((tr.dataset.pltId || '').trim());
+            const hasCargoIdLocal = Boolean((tr.dataset.cargoId || '').trim());
+            if (!hasPltLocal && hasCargoIdLocal) anyUnplated = true;
+
+            // 实际小于计划 => 未满
+            if (actualNum > plannedNum) anyUnfilledLocal = true;
+
+            // 异常判断：同时有 pltId 和 cargoId（双ID） 或 两者都没有（无ID）
+            if ((hasPltLocal && hasCargoIdLocal) || (!hasPltLocal && !hasCargoIdLocal)) {
+                anyAnomaly = true;
+            }
+
+            // 重新计算状态文字（保持原逻辑，但用本地判断）
+            const statusTd = tr.children[tr.children.length - 1];
+            if (statusTd) {
+                let newStatus = '';
+                if (hasPltLocal && !hasCargoIdLocal) newStatus = '已打板';
+                else if (!hasPltLocal && hasCargoIdLocal) newStatus = '未打板';
+                else if (hasPltLocal && hasCargoIdLocal) { newStatus = '异常（双ID）'; }
+                else { newStatus = '异常（无ID）'; }
+                statusTd.textContent = newStatus;
+
+                // 更新类名（清理旧类后加新类）
+                statusTd.classList.remove('status-ok','status-warning','status-error');
+                if (newStatus === '已打板') statusTd.classList.add('status-ok');
+                else if (newStatus === '未打板') statusTd.classList.add('status-warning');
+                else statusTd.classList.add('status-error');
+            }
+        });
+
+        if (totalScheduledElem) totalScheduledElem.textContent = tp;
+        if (totalActualElem) totalActualElem.textContent = ta;
+
+        // 提示区逻辑：优先显示异常 ID 配置；否则显示“未打板”提示；若都没有则隐藏
+        if (estWarning) {
+            if (anyAnomaly) {
+                estWarning.style.display = 'block';
+                estWarning.textContent = '存在异常 ID 配置（双ID或无ID），请核实！';
+            } else if (anyUnplated) {
+                estWarning.style.display = 'block';
+                estWarning.textContent = '存在未打板货物（pltId 为空且 cargoId 有值），请核实！';
+            } else {
+                // 如果仅仅是实际小于计划（未满）但没有未打板，按照你原需求，这种不一定阻止提交，
+                // 这里我们仍显示提示（原行为）但文案更明确；如果不想显示，可把下面两行删掉。
+                if (anyUnfilledLocal) {
+                    estWarning.style.display = 'block';
+                    estWarning.textContent = '实际出库大于计划的记录，请确认。';
+                } else {
+                    estWarning.style.display = 'none';
+                    estWarning.textContent = '';
+                }
+            }
+        }
+    }
+    function closeDepartureModal() {
+        const modal = document.getElementById('confirmDepartureModal');
+        if (modal) modal.style.display = 'none';
+    }
+
+    function submitFleetDepartureSimple() {
+        const tbody = document.getElementById('departureCargoBody');
+        if (!tbody) {
+            console.error('找不到出库表格 tbody');
+            return alert('找不到出库表格');
+        }
+
+        // 必填：出库时间不能为空
+        const departuredAtInput = document.getElementById('departuredAt');
+        if (!departuredAtInput || !departuredAtInput.value) {
+            alert('出库时间不能为空，请选择出库时间');
+            if (departuredAtInput) departuredAtInput.focus();
+            return;
+        }
+
+        const rows = Array.from(tbody.querySelectorAll('tr'));
+        if (rows.length === 0) {
+            alert('没有货物行，无法出库');
+            return;
+        }
+
+        const pltRows = [];      // 将存放每一行的 pltId（按顺序），每行作为数组（例如 ["PLT123"] 或 [""]）
+        const scheduledArr = [];
+        const actualArr = [];
+        const batchArr = [];
+
+        let foundUnplated = false;
+        let foundAnomaly = false;
+        let foundActualGreater = false;
+
+        rows.forEach((row, index) => {
+            const pltId = (row.dataset.pltId || '').trim();
+            const cargoId = (row.dataset.cargoId || '').trim();
+            const planned = parseFloat(row.dataset.planned || 0) || 0;
+            const actualInput = row.querySelector('input[type="number"]');
+            const actual = actualInput ? (parseFloat(actualInput.value || 0) || 0) : 0;
+
+            const appointment = (row.children[0]?.textContent || '').trim(); // 第一列就是预约号
+            batchArr.push(appointment || '');
+
+            // 检查实际 > 计划（不允许）
+            if (actual > planned) {
+                foundActualGreater = true;
+                // 给出视觉标记
+                if (actualInput) actualInput.style.borderColor = '#dc3545';
+            }
+
+            // 未打板：pltId 为空但 cargoId 有值
+            if (!pltId && cargoId) foundUnplated = true;
+
+            // 异常：同时有plt和cargo（双ID）或两者都没有（无ID）
+            if ((pltId && cargoId) || (!pltId && !cargoId)) {
+                // 注意：如果是既无又无（两者都空），也视作异常
+                // 但如果你希望把“完全空行”忽略，请说明，当前依据你的要求把它视为异常
+                foundAnomaly = true;
+            }
+
+            // 构建每行的 plt 行数据（按顺序），这里我们把每行放成单个字符串数组以保持“行内数组”结构
+            pltRows.push([ pltId || '' ]);
+
+            scheduledArr.push(planned);
+            actualArr.push(actual);
+        });
+
+        // 先处理各种校验失败的情况并阻止提交
+        if (foundAnomaly) {
+            alert('存在异常 ID 配置（双ID或无ID），请核实后再提交。');
+            return;
+        }
+
+        if (foundUnplated) {
+            alert('存在未打板货物（pltId 为空且 cargoId 有值），请核实后再提交。');
+            return;
+        }
+
+        if (foundActualGreater) {
+            alert('部分行的“实际出库板数”大于对应的“计划板数”，请修正后再提交。');
+            return;
+        }
+
+        // 清理旧的隐藏字段（如果有）
+        const form = document.getElementById('confirmDepartureForm');
+        if (!form) {
+            console.error('找不到确认出库表单');
+            return alert('系统错误：找不到表单');
+        }
+        const existingInputs = form.querySelectorAll('input[name="plt_ids"], input[name="scheduled_pallet"], input[name="actual_shipped_pallet"]');
+        existingInputs.forEach(input => input.remove());
+
+        // 添加新的隐藏字段：plt_ids —— JSON 字符串，每行一个数组（按顺序）
+        const pltInput = document.createElement('input');
+        pltInput.type = 'hidden';
+        pltInput.name = 'plt_ids';
+        pltInput.value = JSON.stringify(pltRows); // e.g. [["PLT1"],[""],["PLT3"]]
+        form.appendChild(pltInput);
+
+        // scheduled_pallet 与 actual_shipped_pallet 保持逗号分隔（如你原来那样）
+        if (scheduledArr.length > 0) {
+            const scheduledInput = document.createElement('input');
+            scheduledInput.type = 'hidden';
+            scheduledInput.name = 'scheduled_pallet';
+            scheduledInput.value = scheduledArr.join(',');
+            form.appendChild(scheduledInput);
+        }
+
+        if (actualArr.length > 0) {
+            const actualInput = document.createElement('input');
+            actualInput.type = 'hidden';
+            actualInput.name = 'actual_shipped_pallet';
+            actualInput.value = actualArr.join(',');
+            form.appendChild(actualInput);
+        }
+        //  隐藏字段：batch_number
+        if (batchArr.length > 0) {
+            const batchInput = document.createElement('input');
+            batchInput.type = 'hidden';
+            batchInput.name = 'batch_number';
+            batchInput.value = batchArr.join(',');
+            form.appendChild(batchInput);
+        }
+        // 所有校验通过，提交表单
+        console.log('提交表单...');
+        form.submit();
+    }
+</script>

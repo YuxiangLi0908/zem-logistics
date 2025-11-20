@@ -498,7 +498,15 @@
 {% include 'post_port/new_sop/01_unscheduled_pos_all/modal/addable_po_modal.html' %}
 {% include 'post_port/new_sop/01_unscheduled_pos_all/modal/fleet_modal.html' %}
 {% include 'post_port/new_sop/01_unscheduled_pos_all/modal/abnormal_fleet.html' %}
+{% include 'post_port/new_sop/01_unscheduled_pos_all/modal/add_po_modal.html' %}
+{% include 'post_port/new_sop/01_unscheduled_pos_all/modal/departure_modal.html' %}
 <script>
+    {% if show_add_po_modal %}
+        setTimeout(function () {
+            const modal = document.getElementById('addPOModal');
+            if (modal) modal.style.display = 'block';
+        }, 300);
+    {% endif %}
     // 在现有的标签页切换代码中添加
     function debugTabContent() {
         document.querySelectorAll('.content-section').forEach(section => {
