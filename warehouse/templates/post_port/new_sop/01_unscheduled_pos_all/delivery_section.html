@@ -1,0 +1,213 @@
+<!-- post_port/new_sop/03_fleet_schedule/delivery_section.html -->
+<style>
+    .table-container {
+        overflow-x: auto;
+        overflow-y: auto;
+        max-height: 600px;
+        border-radius: 8px;
+        box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
+        margin-bottom: 20px;
+    }
+
+    .data-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .data-table th {
+        position: sticky;
+        top: 0;
+        background: var(--secondary-color);
+        color: white;
+        padding: 12px;
+        text-align: left;
+        font-weight: 600;
+        font-size: 0.9rem;
+    }
+
+    .data-table td {
+        padding: 12px;
+        border-bottom: 1px solid #eaecef;
+        font-size: 0.85rem;
+    }
+
+    .data-table tr:nth-child(even) {
+        background-color: #f9fafb;
+    }
+
+    .data-table tr:hover {
+        background-color: #edf2f7;
+    }
+
+    .search-row input {
+        width: 100%;
+        padding: 8px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 0.8rem;
+    }
+
+    .table-input {
+        padding: 6px 8px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 0.8rem;
+    }
+
+    .table-btn {
+        padding: 6px 12px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 0.8rem;
+        font-weight: 500;
+        transition: all 0.3s;
+    }
+
+    .btn-success-small {
+        background: var(--success-color);
+        color: white;
+    }
+
+    .btn-success-small:hover {
+        background: #27ae60;
+    }
+
+    .btn-danger-small {
+        background: var(--danger-color);
+        color: white;
+    }
+
+    .btn-danger-small:hover {
+        background: #c0392b;
+    }
+
+    .status-span-red {
+        color: #e74c3c;
+        font-weight: 600;
+    }
+
+    .status-span-yellow {
+        color: #f39c12;
+        font-weight: 600;
+    }
+</style>
+
+<table class="data-table">
+    <thead>
+        <tr>
+            <th>出库批次</th>
+            <th>预约批次</th>
+            <th>预约号</th>
+            <th>Carrier</th>
+            <th>预约发车日期</th>
+            <th>实际发车日期</th>
+            <th>总重lbs</th>
+            <th>总CBM</th>
+            <th>总卡板数</th>
+            <th>一提两卸</th>
+            <th>备注</th>
+            <th>实际送达时间</th>
+            <th>车次异常</th>
+        </tr>
+        <tr class="search-row">
+            <td><input type="text" class="header-search" placeholder="搜索出库批次" data-column="0"></td>
+            <td><input type="text" class="header-search" placeholder="搜索预约批次" data-column="1"></td>
+            <td><input type="text" class="header-search" placeholder="搜索预约号" data-column="2"></td>
+            <td><input type="text" class="header-search" placeholder="搜索Carrier" data-column="3"></td>
+            <td><input type="text" class="header-search" placeholder="搜索预约发车日期" data-column="4"></td>
+            <td><input type="text" class="header-search" placeholder="搜索实际发车日期" data-column="5"></td>
+            <td><input type="text" class="header-search" placeholder="搜索总重" data-column="6"></td>
+            <td><input type="text" class="header-search" placeholder="搜索CBM" data-column="7"></td>
+            <td><input type="text" class="header-search" placeholder="搜索卡板数" data-column="8"></td>
+            <td><input type="text" class="header-search" placeholder="搜索一提两卸" data-column="9"></td>
+            <td><input type="text" class="header-search" placeholder="搜索备注" data-column="10"></td>
+            <td></td>
+            <td></td>
+        </tr>
+    </thead>
+    <tbody>
+        {% for s in delivery_shipments %}
+        <tr>
+            <td style="max-width: 120px; word-break: break-all;">{{ s.fleet_number.fleet_number }}</td>
+            <td style="max-width: 120px; word-break: break-all;">{{ s.shipment_batch_number }}</td>
+            <td style="max-width: 120px; word-break: break-all;">{{ s.appointment_id }}</td>
+            <td>{{ s.fleet_number.carrier }}</td>
+            <td>{{ s.fleet_number.appointment_datetime|date:"M-j H:i" }}</td>
+            <td>
+                {% if s.fleet_number.arrival_status == "past_due" %}
+                <span class="status-span-red">{{ s.fleet_number.departured_at|date:"M-j H:i" }}</span>
+                {% elif s.fleet_number.arrival_status == "need_attention" %}
+                <span class="status-span-yellow">{{ s.fleet_number.departured_at|date:"M-j H:i" }}</span>
+                {% else %}
+                {{ s.fleet_number.departured_at|date:"M-j H:i" }}
+                {% endif %}
+            </td>
+            <td>{{ s.total_weight|floatformat:2 }}</td>
+            <td>{{ s.total_cbm|floatformat:2 }}</td>
+            <td>{{ s.total_pallet|floatformat:0 }}</td>
+            <td>
+                {% if s.fleet_number.multipule_destination %}
+                <i class="fas fa-check-circle" style="color: var(--success-color); font-size: 1rem"></i>
+                {% endif %}
+            </td>
+            <td style="max-width: 120px; word-break: break-all;">{{ s.fleet_number.note|default_if_none:"" }}</td>
+            <td>
+                <form method="post" enctype="multipart/form-data" action="" style="display: flex; gap: 5px; align-items: center;">
+                    {% csrf_token %}
+                    <input type="datetime-local" name="arrived_at" class="table-input" style="font-size: 0.8rem;" required>
+                    <input type="hidden" name="step" value="confirm_delivery">
+                    <input type="hidden" name="fleet_number" value="{{ s.fleet_number.fleet_number }}">
+                    <input type="hidden" name="shipment_batch_number" value="{{ s.shipment_batch_number }}">
+                    <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                    <button type="submit" class="table-btn btn-success-small">确认送达</button>
+                </form>
+            </td>
+            <td>
+                <button type="button" class="table-btn btn-danger-small" onclick="abnormalPopUp('{{ s.fleet_number.fleet_number }}','{{ s.shipment_batch_number }}')">异常</button>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<script>
+    function initializeDeliverySection() {
+        console.log('初始化待送达批次页面');
+        
+        // 为搜索框添加事件监听
+        const searchInputs = document.querySelectorAll('#ready-section .header-search');
+        searchInputs.forEach(input => {
+            input.addEventListener('input', function() {
+                filterDeliveryTable(this);
+            });
+        });
+    }
+
+    function filterDeliveryTable(input) {
+        const filter = input.value.toUpperCase();
+        const columnIndex = parseInt(input.getAttribute('data-column'));
+        const table = document.querySelector('#ready-section table');
+        const rows = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
+        
+        for (let i = 0; i < rows.length; i++) {
+            const cell = rows[i].getElementsByTagName('td')[columnIndex];
+            if (cell) {
+                const txtValue = cell.textContent || cell.innerText;
+                if (txtValue.toUpperCase().indexOf(filter) > -1) {
+                    rows[i].style.display = '';
+                } else {
+                    rows[i].style.display = 'none';
+                }
+            }
+        }
+    }
+
+    function abnormalPopUp(fleetNumber, batchNumber) {
+        if (confirm(`确定要标记车次 ${fleetNumber} (批次: ${batchNumber}) 为异常吗？`)) {
+            // 这里可以添加异常处理逻辑
+            console.log('标记异常:', fleetNumber, batchNumber);
+            // 可以在这里提交表单或调用API
+        }
+    }
+</script>
