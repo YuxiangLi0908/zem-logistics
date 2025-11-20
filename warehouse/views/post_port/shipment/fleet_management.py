@@ -1209,6 +1209,7 @@ class FleetManagement(View):
                     "scheduled_at": current_time,
                     "note": request.POST.get("note", ""),
                     "multipule_destination": True if len(shipment_ids) > 1 else False,
+                    "fleet_type": request.POST.get("fleet_type",""),
                 }
             )
             fleet = Fleet(**fleet_data)
@@ -2444,10 +2445,8 @@ class FleetManagement(View):
             if zh_font_path and os.path.exists(zh_font_path):
                 zh_font = fm.FontProperties(fname=zh_font_path)
                 plt.rcParams["font.family"] = zh_font.get_name()
-                print(f"✅ 中文字体已加载: {zh_font_path}")
             else:
                 plt.rcParams["font.family"] = "DejaVu Sans"
-                print("⚠️ 未找到中文字体，使用默认英文字体。")
 
             plt.rcParams["axes.unicode_minus"] = False  # 防止负号乱码
 

@@ -153,27 +153,6 @@
 <!-- 排车模态框 -->
 <div id="fleetModal" class="modal">
   <div class="modal-content" style="width: 90%; max-width: 1200px; min-width: 800px;">
-    <span class="close-btn" onclick="closeUnscheduledFleetModal()" style="
-        font-size: 28px;
-        font-weight: bold;
-        color: #2c3e50;
-        background: #f8f9fa;
-        width: 44px;
-        height: 44px;
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        cursor: pointer;
-        transition: all 0.3s ease;
-        position: absolute;
-        top: 20px;
-        left: 20px;  /* 改为左上角显示 */
-        z-index: 9999;
-        border: 2px solid #e9ecef;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        line-height: 1;
-    ">&times;</span>
 
     <div id="fleetModalBody" style="padding-top: 10px;">
         <div style="border-radius: 12px; padding: 20px; margin-top: 10px;">
@@ -185,14 +164,12 @@
                 <input type="hidden" name="selected_ids" id="fleetModalSelectedIds">
                 <input type="hidden" name="warehouse" value="{{ warehouse }}">
                 
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 20px; margin-bottom: 20px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
                     <h4 style="color: var(--secondary-color); margin: 0;">
                         <i class="fas fa-truck-loading"></i> 出库批次信息
                     </h4>
                     <div>
-                        <button type="submit" class="action-btn btn-success" id="fleetModalConfirmBtn">
-                            <i class="fas fa-check"></i> 确认出库
-                        </button>
+                        <span class="close-btn" onclick="closeUnscheduledFleetModal()" style="width: 35px; height: 35px; background: #e74c3c; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 22px; font-weight: bold; cursor: pointer; box-shadow: 0 3px 10px rgba(231, 76, 60, 0.3); transition: all 0.3s ease;">&times;</span>
                     </div>
                 </div>
 
@@ -249,14 +226,17 @@
                             </tr>
                         </tbody>
                     </table>
+                </div>          
+
+                <div style="display: flex; justify-content: space-between; align-items: center; margin: 25px 0 15px 0;">
+                    <h4 style="color: var(--secondary-color); margin: 0;">
+                        <i class="fas fa-list-alt"></i> 预约批次
+                    </h4>
+                    <button type="submit" class="action-btn btn-success" id="fleetModalConfirmBtn">
+                        <i class="fas fa-check"></i> 确认排车
+                    </button>
                 </div>
             </form>
-
-            <div style="display: flex; justify-content: space-between; align-items: center; margin: 25px 0 15px 0;">
-                <h4 style="color: var(--secondary-color); margin: 0;">
-                    <i class="fas fa-list-alt"></i> 预约批次
-                </h4>
-            </div>
 
             <div class="table-container" style="max-height: 300px;">
                 <table class="data-table">

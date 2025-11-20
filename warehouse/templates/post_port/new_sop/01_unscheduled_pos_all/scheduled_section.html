@@ -44,17 +44,25 @@
         color: #495057;
     }
 </style>
-<div class="filter-notice">
-    <i class="fas fa-filter"></i> 
-    当前显示 <strong>{{ warehouse }}</strong> 仓库的已排约货物，筛选条件：
-    <strong>送仓时间在 2025-10-10 之后</strong>、
-    <strong>未排车</strong>、
-    <strong>PO类型为公仓</strong>
+<div class="search-box">
+    <div class="filter-notice">
+        <i class="fas fa-filter"></i> 
+        当前显示 <strong>{{ warehouse }}</strong> 仓库的已排约货物，筛选条件：
+        <strong>送仓时间在 2025-10-10 之后</strong>、
+        <strong>未排车</strong>、
+        <strong>PO类型为公仓</strong>
+    </div>
+    <div style="display: flex; gap: 10px; flex: 1; align-items: center;">
+        <button class="btn btn-primary" onclick="openFleetModal()" style="margin-left: auto;">
+            <i class="fas fa-truck"></i> 确认排车
+        </button>
+    </div>
 </div>
 <div class="table-container">
     <table class="data-table">
         <thead>
             <tr>
+                <th style="min-width: 40px; text-align: center;"></th>
                 <th>预约批次</th>
                 <th>预约号</th>
                 <th>目的地</th>
@@ -70,19 +78,20 @@
                 <th>操作</th>
             </tr>
             <tr class="search-row">
-                <td><input type="text" class="header-search" placeholder="搜索预约批次" data-column="0"></td>
-                <td><input type="text" class="header-search" placeholder="搜索预约号" data-column="1"></td>
-                <td><input type="text" class="header-search" placeholder="搜索目的地" data-column="2"></td>
-                <td><input type="text" class="header-search" placeholder="搜索预约时间" data-column="3"></td>
-                <td><input type="text" class="header-search" placeholder="搜索装车类型" data-column="4"></td>
-                <td><input type="text" class="header-search" placeholder="搜索柜号" data-column="5"></td>
-                <td><input type="text" class="header-search" placeholder="搜索REF ID" data-column="6"></td>
-                <td><input type="text" class="header-search" placeholder="搜索FBA ID" data-column="7"></td>
-                <td><input type="text" class="header-search" placeholder="搜索板数" data-column="8"></td>
-                <td><input type="text" class="header-search" placeholder="搜索CBM" data-column="9"></td>
-                <td><input type="text" class="header-search" placeholder="搜索备注" data-column="10"></td>
+                <td></td>
+                <td><input type="text" class="header-search" placeholder="搜索预约批次" data-column="1"></td>
+                <td><input type="text" class="header-search" placeholder="搜索预约号" data-column="2"></td>
+                <td><input type="text" class="header-search" placeholder="搜索目的地" data-column="3"></td>
+                <td><input type="text" class="header-search" placeholder="搜索预约时间" data-column="4"></td>
+                <td><input type="text" class="header-search" placeholder="搜索装车类型" data-column="5"></td>
+                <td><input type="text" class="header-search" placeholder="搜索柜号" data-column="6"></td>
+                <td><input type="text" class="header-search" placeholder="搜索REF ID" data-column="7"></td>
+                <td><input type="text" class="header-search" placeholder="搜索FBA ID" data-column="8"></td>
+                <td><input type="text" class="header-search" placeholder="搜索板数" data-column="9"></td>
+                <td><input type="text" class="header-search" placeholder="搜索CBM" data-column="10"></td>
+                <td><input type="text" class="header-search" placeholder="搜索备注" data-column="11"></td>
                 <td>
-                    <select class="notification-select" data-column="11" onchange="applyMultiFilter()" style="width: 100%; padding: 4px 8px; border: 1px solid #ced4da; border-radius: 4px; font-size: 0.8rem;">
+                    <select class="notification-select" data-column="12" onchange="applyMultiFilter()" style="width: 100%; padding: 4px 8px; border: 1px solid #ced4da; border-radius: 4px; font-size: 0.8rem;">
                         <option value="">全部</option>
                         <option value="已通知">已通知</option>
                         <option value="未通知">未通知</option>
@@ -93,7 +102,7 @@
         </thead>
         <tbody>
             {% for shipment_group in scheduled_data %}
-            <td colspan="12" style="background: linear-gradient(90deg, #3498db, #6c8bc7); 
+            <td colspan="13" style="background: linear-gradient(90deg, #3498db, #6c8bc7); 
                                             height: 2px; padding: 0;"></td>
             {% if shipment_group.cargos %}
                 <!-- 有PO的-->
@@ -103,6 +112,10 @@
                             data-plt-id="{{ cargo.plt_ids|default:'' }}"
                             data-shipment-group="{{ shipment_group.appointment_id }}">
                     {% if forloop.first %}
+                    <td rowspan="{{ shipment_group.cargos|length }}" style="min-width: 40px; text-align: center; vertical-align: middle;">
+                        <input type='checkbox' name='is_appointment_added' onclick="toggleRowBackground(this)" data-appointment-id="{{ shipment_group.appointment_id }}">
+                        <input type="hidden" name="appointment_id" value="{{ shipment_group.appointment_id }}">
+                    </td>
                     <td rowspan="{{ shipment_group.cargos|length }}" style="vertical-align: middle; background-color: #f8f9fa;">
                         {{ shipment_group.shipment_batch_number|default_if_none:'' }}
                     </td>
@@ -235,87 +248,91 @@
             {% else %}
                 <!-- 没有PO的 -->
                 <tr data-shipment-group="{{ shipment_group.appointment_id }}">
-                <td style="vertical-align: middle; background-color: #f8f9fa;">
-                    {{ shipment_group.shipment_batch_number|default_if_none:'' }}
-                </td>
-                <td style="vertical-align: middle; background-color: #f8f9fa;">
-                    <strong>{{ shipment_group.appointment_id|default_if_none:'' }}</strong>
-                    {% if shipment_group.shipment_cargo_id %}
-                    <div style="font-size: 12px; color: #666;">
-                        shipment: {{ shipment_group.shipment_cargo_id }}
-                    </div>
-                    {% endif %}
-                </td>
-                <td style="vertical-align: middle; background-color: #f8f9fa;">
-                    {{ shipment_group.destination }}
-                </td>
-                <td style="vertical-align: middle; background-color: #f8f9fa;">
-                    {{ shipment_group.shipment_appointment|date:"Y-m-d H:i" }}
-                </td>
-                <td style="vertical-align: middle; background-color: #f8f9fa;">
-                    {{ shipment_group.load_type }}
-                </td>
-                <td colspan="6" style="text-align: center; color: #999; background-color: #f8f9fa;">
-                    无PO
-                </td>
-                <td>
-                    {% if shipment_group.is_notified_customer %}
-                        <button class="action-btn btn-success" disabled style="opacity: 0.6;" data-notified="1">
-                            <i class="fas fa-check-circle"></i> 已通知客户
-                        </button>
-                    {% else %}
-                        <button class="hidden-notify-flag" style="display: none;"></button>
-                        <form method="post" action="" class="notify-customer-form">
+                    <td style="min-width: 40px; text-align: center; vertical-align: middle;">
+                        <input type='checkbox' name='is_appointment_added' onclick="toggleRowBackground(this)" data-appointment-id="{{ shipment_group.appointment_id }}">
+                        <input type="hidden" name="appointment_id" value="{{ shipment_group.appointment_id }}">
+                    </td>
+                    <td style="vertical-align: middle; background-color: #f8f9fa;">
+                        {{ shipment_group.shipment_batch_number|default_if_none:'' }}
+                    </td>
+                    <td style="vertical-align: middle; background-color: #f8f9fa;">
+                        <strong>{{ shipment_group.appointment_id|default_if_none:'' }}</strong>
+                        {% if shipment_group.shipment_cargo_id %}
+                        <div style="font-size: 12px; color: #666;">
+                            shipment: {{ shipment_group.shipment_cargo_id }}
+                        </div>
+                        {% endif %}
+                    </td>
+                    <td style="vertical-align: middle; background-color: #f8f9fa;">
+                        {{ shipment_group.destination }}
+                    </td>
+                    <td style="vertical-align: middle; background-color: #f8f9fa;">
+                        {{ shipment_group.shipment_appointment|date:"Y-m-d H:i" }}
+                    </td>
+                    <td style="vertical-align: middle; background-color: #f8f9fa;">
+                        {{ shipment_group.load_type }}
+                    </td>
+                    <td colspan="6" style="text-align: center; color: #999; background-color: #f8f9fa;">
+                        无PO
+                    </td>
+                    <td>
+                        {% if shipment_group.is_notified_customer %}
+                            <button class="action-btn btn-success" disabled style="opacity: 0.6;" data-notified="1">
+                                <i class="fas fa-check-circle"></i> 已通知客户
+                            </button>
+                        {% else %}
+                            <button class="hidden-notify-flag" style="display: none;"></button>
+                            <form method="post" action="" class="notify-customer-form">
+                                {% csrf_token %}
+                                <input type="hidden" name="appointment_id" value="{{ shipment_group.appointment_id }}">                                  
+                                <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                                <input type="hidden" name="step" value="sp_notified_customer">
+                                <input type="hidden" name="page" value="arm_appointment">
+                                <input type="hidden" name="active_tab" value="scheduled"> 
+                                <button class="action-btn btn-info" data-notified="0">
+                                    <i class="fas fa-bell"></i> 通知客户
+                                </button>
+                            </form>                        
+                        {% endif %}
+                    </td>
+                    <td style="vertical-align: middle;">
+                        <form method="post" action="">
                             {% csrf_token %}
                             <input type="hidden" name="appointment_id" value="{{ shipment_group.appointment_id }}">                                  
                             <input type="hidden" name="warehouse" value="{{ warehouse }}">
-                            <input type="hidden" name="step" value="sp_notified_customer">
+                            <input type="hidden" name="step" value="unassign_shipment">
                             <input type="hidden" name="page" value="arm_appointment">
                             <input type="hidden" name="active_tab" value="scheduled"> 
-                            <button class="action-btn btn-info" data-notified="0">
-                                <i class="fas fa-bell"></i> 通知客户
-                            </button>
-                        </form>                        
-                    {% endif %}
-                </td>
-                <td style="vertical-align: middle;">
-                    <form method="post" action="">
-                        {% csrf_token %}
-                        <input type="hidden" name="appointment_id" value="{{ shipment_group.appointment_id }}">                                  
-                        <input type="hidden" name="warehouse" value="{{ warehouse }}">
-                        <input type="hidden" name="step" value="unassign_shipment">
-                        <input type="hidden" name="page" value="arm_appointment">
-                        <input type="hidden" name="active_tab" value="scheduled"> 
 
-                        <button class="action-btn btn-secondary">
-                            <i class="fas fa-unlink"></i> 取消排约
+                            <button class="action-btn btn-secondary">
+                                <i class="fas fa-unlink"></i> 取消排约
+                            </button>
+                        </form>
+                        
+                        <form method="post" action="">
+                            {% csrf_token %}
+                            <input type="hidden" name="appointment_id" value="{{ shipment_group.appointment_id }}">                                  
+                            <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                            <input type="hidden" name="destination" value="{{ shipment_group.destination }}">
+                            <input type="hidden" name="step" value="search_addable_po">
+                            <input type="hidden" name="page" value="arm_appointment">
+                            <input type="hidden" name="active_tab" value="scheduled"> 
+                            <button class="action-btn btn-success" onclick="">
+                                <i class="fas fa-square-plus"></i> 添加PO
+                            </button>
+                        </form>
+                        <button class="action-btn btn-primary open-edit-modal"
+                                data-appointment-id="{{ shipment_group.appointment_id }}"
+                                data-destination="{{ shipment_group.destination }}"
+                                data-scheduled-time="{{ shipment_group.shipment_appointment|date:'Y-m-d H:i' }}"
+                                data-load-type="{{ shipment_group.load_type }}"
+                                data-origin="{{ warehouse }}"
+                                data-pickup-time="{{ shipment_group.pickup_time|date:'Y-m-d H:i' }}"
+                                data-pickup-number="{{ shipment_group.pickup_number }}">
+                            <i class="fas fa-edit"></i> 修改约
                         </button>
-                    </form>
-                    
-                    <form method="post" action="">
-                        {% csrf_token %}
-                        <input type="hidden" name="appointment_id" value="{{ shipment_group.appointment_id }}">                                  
-                        <input type="hidden" name="warehouse" value="{{ warehouse }}">
-                        <input type="hidden" name="destination" value="{{ shipment_group.destination }}">
-                        <input type="hidden" name="step" value="search_addable_po">
-                        <input type="hidden" name="page" value="arm_appointment">
-                        <input type="hidden" name="active_tab" value="scheduled"> 
-                        <button class="action-btn btn-success" onclick="">
-                            <i class="fas fa-square-plus"></i> 添加PO
-                        </button>
-                    </form>
-                    <button class="action-btn btn-primary open-edit-modal"
-                            data-appointment-id="{{ shipment_group.appointment_id }}"
-                            data-destination="{{ shipment_group.destination }}"
-                            data-scheduled-time="{{ shipment_group.shipment_appointment|date:'Y-m-d H:i' }}"
-                            data-load-type="{{ shipment_group.load_type }}"
-                            data-origin="{{ warehouse }}"
-                            data-pickup-time="{{ shipment_group.pickup_time|date:'Y-m-d H:i' }}"
-                            data-pickup-number="{{ shipment_group.pickup_number }}">
-                        <i class="fas fa-edit"></i> 修改约
-                    </button>
-                </td>
-            </tr>
+                    </td>
+                </tr>
         {% endif %}
             {% empty %}
             <tr>
