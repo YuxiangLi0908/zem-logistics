@@ -159,18 +159,13 @@ class OctSummaryView(View):
             # 获取当前记录的仓库（retrieval_destination_area）
             current_warehouse = pallet.get("retrieval_destination_area", "")
 
-            # 转换 3 个 UTC 时间字段
+            # 转换 2 个 UTC 时间字段
             pallet["t49_empty_returned_at"] = self._convert_utc_to_local(
                 pallet.get("t49_empty_returned_at"), current_warehouse
             )
             pallet["t49_pod_full_out_at"] = self._convert_utc_to_local(
                 pallet.get("t49_pod_full_out_at"), current_warehouse
             )
-            # temp_t49_available_for_pickup 可能是状态字符串，判断是否为时间再转换
-            temp_t49 = pallet.get("temp_t49_available_for_pickup", "")
-            if temp_t49 and any(char.isdigit() for char in temp_t49):  # 包含数字则视为时间
-                pallet["temp_t49_available_for_pickup"] = self._convert_utc_to_local(temp_t49, current_warehouse)
-
             processed_pallets.append(pallet)
 
         # 3. 构建上下文（使用处理后的时间数据）
