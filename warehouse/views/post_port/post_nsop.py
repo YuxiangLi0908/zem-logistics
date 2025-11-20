@@ -3293,7 +3293,6 @@ class PostNsop(View):
             "pod_shipments": pod_data['fleet'],
             'shipment_type_options': self.shipment_type_options,
         })
-        print('ddddddddddd',context[''])
         active_tab = request.POST.get('active_tab')
         
         if active_tab:
