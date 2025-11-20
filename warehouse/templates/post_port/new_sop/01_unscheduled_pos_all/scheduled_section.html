@@ -66,6 +66,7 @@
                 <th>板数</th>
                 <th>CBM</th>
                 <th>备注</th>
+                <th>通知客户</th>
                 <th>操作</th>
             </tr>
             <tr class="search-row">
@@ -80,6 +81,14 @@
                 <td><input type="text" class="header-search" placeholder="搜索板数" data-column="8"></td>
                 <td><input type="text" class="header-search" placeholder="搜索CBM" data-column="9"></td>
                 <td><input type="text" class="header-search" placeholder="搜索备注" data-column="10"></td>
+                <td>
+                    <select class="notification-select" data-column="11" onchange="applyMultiFilter()" style="width: 100%; padding: 4px 8px; border: 1px solid #ced4da; border-radius: 4px; font-size: 0.8rem;">
+                        <option value="">全部</option>
+                        <option value="已通知">已通知</option>
+                        <option value="未通知">未通知</option>
+                    </select>
+                </td>
+                <td></td>
             </tr>
         </thead>
         <tbody>
@@ -144,6 +153,26 @@
                         </form>
                     </td>
                     {% if forloop.first %}
+                    <td>
+                        {% if shipment_group.is_notified_customer %}
+                            <button class="action-btn btn-success" disabled style="opacity: 0.6;" data-notified="1">
+                                <i class="fas fa-check-circle"></i> 已通知客户
+                            </button>
+                        {% else %}
+                            <button class="hidden-notify-flag" style="display: none;"></button>
+                            <form method="post" action="" class="notify-customer-form">
+                                {% csrf_token %}
+                                <input type="hidden" name="appointment_id" value="{{ shipment_group.appointment_id }}">                                  
+                                <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                                <input type="hidden" name="step" value="sp_notified_customer">
+                                <input type="hidden" name="page" value="arm_appointment">
+                                <input type="hidden" name="active_tab" value="scheduled"> 
+                                <button class="action-btn btn-info" data-notified="0">
+                                    <i class="fas fa-bell"></i> 通知客户
+                                </button>
+                            </form>                        
+                        {% endif %}
+                    </td>
                     <td rowspan="{{ shipment_group.cargos|length }}" style="vertical-align: middle;">
                         <form method="post" action="">
                             {% csrf_token %}
@@ -199,23 +228,6 @@
                                 data-pickup-number="{{ shipment_group.pickup_number }}">
                             <i class="fas fa-edit"></i> 修改约
                         </button>
-                        {% if shipment_group.is_notified_customer %}
-                            <button class="action-btn btn-success" disabled style="opacity: 0.6;">
-                                <i class="fas fa-check-circle"></i> 已通知客户
-                            </button>
-                        {% else %}
-                            <form method="post" action="">
-                                {% csrf_token %}
-                                <input type="hidden" name="appointment_id" value="{{ shipment_group.appointment_id }}">                                  
-                                <input type="hidden" name="warehouse" value="{{ warehouse }}">
-                                <input type="hidden" name="step" value="sp_notified_customer">
-                                <input type="hidden" name="page" value="arm_appointment">
-                                <input type="hidden" name="active_tab" value="scheduled"> 
-                                <button class="action-btn btn-info">
-                                    <i class="fas fa-bell"></i> 通知客户
-                                </button>
-                            </form>                        
-                        {% endif %}
                     </td>
                     {% endif %}
                 </tr>
@@ -245,6 +257,26 @@
                 </td>
                 <td colspan="6" style="text-align: center; color: #999; background-color: #f8f9fa;">
                     无PO
+                </td>
+                <td>
+                    {% if shipment_group.is_notified_customer %}
+                        <button class="action-btn btn-success" disabled style="opacity: 0.6;" data-notified="1">
+                            <i class="fas fa-check-circle"></i> 已通知客户
+                        </button>
+                    {% else %}
+                        <button class="hidden-notify-flag" style="display: none;"></button>
+                        <form method="post" action="" class="notify-customer-form">
+                            {% csrf_token %}
+                            <input type="hidden" name="appointment_id" value="{{ shipment_group.appointment_id }}">                                  
+                            <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                            <input type="hidden" name="step" value="sp_notified_customer">
+                            <input type="hidden" name="page" value="arm_appointment">
+                            <input type="hidden" name="active_tab" value="scheduled"> 
+                            <button class="action-btn btn-info" data-notified="0">
+                                <i class="fas fa-bell"></i> 通知客户
+                            </button>
+                        </form>                        
+                    {% endif %}
                 </td>
                 <td style="vertical-align: middle;">
                     <form method="post" action="">
@@ -282,23 +314,6 @@
                             data-pickup-number="{{ shipment_group.pickup_number }}">
                         <i class="fas fa-edit"></i> 修改约
                     </button>
-                    {% if shipment_group.is_notified_customer %}
-                        <button class="action-btn btn-danger" disabled style="opacity: 0.8;">
-                            <i class="fas fa-exclamation-circle"></i> 无PO已通知
-                        </button>
-                    {% else %}
-                        <form method="post" action="">
-                            {% csrf_token %}
-                            <input type="hidden" name="appointment_id" value="{{ shipment_group.appointment_id }}">                                  
-                            <input type="hidden" name="warehouse" value="{{ warehouse }}">
-                            <input type="hidden" name="step" value="sp_notified_customer">
-                            <input type="hidden" name="page" value="arm_appointment">
-                            <input type="hidden" name="active_tab" value="scheduled"> 
-                            <button class="action-btn btn-info">
-                                <i class="fas fa-bell"></i> 通知客户
-                            </button>
-                        </form>                        
-                    {% endif %}
                 </td>
             </tr>
         {% endif %}
@@ -386,82 +401,11 @@
     </div>
 </div>
 <script>
+    let searchTimer;
     document.addEventListener('DOMContentLoaded', function() {
         const searchInputs = document.querySelectorAll('#scheduled-section .header-search');
         const rows = document.querySelectorAll('#scheduled-section tbody tr');
-
-        let searchState = {};   // 保存每列搜索值
-        let searchTimer;
-        
-        function handleScheduledSearchForVisible(rows, searchTerm) {
-            // 先找出当前所有 "仍在显示" 的组 ID
-            const visibleGroups = new Set();
-            rows.forEach(r => {
-                if (r.style.display !== 'none') {
-                    const g = r.dataset.shipmentGroup;
-                    if (g) visibleGroups.add(g);
-                }
-            });
-
-            // 运行你原来的搜索逻辑
-            const groups = new Set();
-            rows.forEach(tr => {
-                const groupId = tr.dataset.shipmentGroup;
-                if (!groupId) return;
-
-                // ❗不在可见组的，先过滤掉，不参与本轮搜索
-                if (!visibleGroups.has(groupId)) return;
-
-                const firstRow = document.querySelector(`tr[data-shipment-group="${groupId}"]`);
-                if (!firstRow) return;
-
-                const text = firstRow.innerText.toLowerCase();
-                if (text.includes(searchTerm)) groups.add(groupId);
-            });
-
-            // 最终只隐藏“本轮 AND 结果中不包括的组”
-            rows.forEach(tr => {
-                const groupId = tr.dataset.shipmentGroup;
-                if (!groupId) return;
-
-                if (!groups.has(groupId)) {
-                    tr.style.display = 'none';
-                }
-            });
-        }
-
-        // 多列 AND 条件搜索
-        function applyMultiFilter() {
-            // 每次搜索前清空高亮
-            clearHighlights();
-            // 收集每列的搜索内容
-            searchState = {};
-            searchInputs.forEach(input => {
-                const col = input.dataset.column;
-                const val = input.value.trim().toLowerCase();
-                if (val) searchState[col] = val;
-            });
-
-            // 无任何搜索 → 全部显示
-            if (Object.keys(searchState).length === 0) {
-                rows.forEach(r => r.style.display = '');
-                return;
-            }
-
-            let firstRound = true;
-            let searchTerms = Object.values(searchState);
-
-            for (let term of searchTerms) {
-                if (firstRound) {
-                    handleScheduledSearch(rows, term);
-                    firstRound = false;
-                } else {
-                    handleScheduledSearchForVisible(rows, term);
-                }
-            }
-            applyHighlightsScheduledSP(searchTerms);
-        }
-
+             
         // 输入框监听
         searchInputs.forEach(input => {
             input.addEventListener('input', function () {
@@ -477,7 +421,107 @@
             });
         });
     });
-    
+    function handleScheduledSearchForVisible(rows, searchTerm) {
+        // 先找出当前所有 "仍在显示" 的组 ID
+        const visibleGroups = new Set();
+        rows.forEach(r => {
+            if (r.style.display !== 'none') {
+                const g = r.dataset.shipmentGroup;
+                if (g) visibleGroups.add(g);
+            }
+        });
+
+        // 运行你原来的搜索逻辑
+        const groups = new Set();
+        rows.forEach(tr => {
+            const groupId = tr.dataset.shipmentGroup;
+            if (!groupId) return;
+
+            // ❗不在可见组的，先过滤掉，不参与本轮搜索
+            if (!visibleGroups.has(groupId)) return;
+
+            const firstRow = document.querySelector(`tr[data-shipment-group="${groupId}"]`);
+            if (!firstRow) return;
+
+            const text = firstRow.innerText.toLowerCase();
+            if (text.includes(searchTerm)) groups.add(groupId);
+        });
+
+        // 最终只隐藏“本轮 AND 结果中不包括的组”
+        rows.forEach(tr => {
+            const groupId = tr.dataset.shipmentGroup;
+            if (!groupId) return;
+
+            if (!groups.has(groupId)) {
+                tr.style.display = 'none';
+            }
+        });
+    }
+
+    // 多列 AND 条件搜索
+    function applyMultiFilter() {
+        // 每次搜索前清空高亮
+        clearHighlights();
+        
+        const rows = document.querySelectorAll('#scheduled-section tbody tr');
+        const searchInputs = document.querySelectorAll('#scheduled-section .header-search');
+        // 收集每列的搜索内容
+        const searchState = {};   // 保存每列搜索值
+        searchInputs.forEach(input => {
+            const col = input.dataset.column;
+            const val = input.value.trim().toLowerCase();
+            if (val) searchState[col] = val;
+        });
+
+        // 获取通知客户选择框的值
+        const notificationSelect = document.querySelector('#scheduled-section .notification-select');
+        const notificationFilter = notificationSelect ? notificationSelect.value : '';
+        
+        rows.forEach(tr => {
+            const groupId = tr.dataset.shipmentGroup;
+            if (!groupId) return;
+
+            const firstRow = document.querySelector(`tr[data-shipment-group="${groupId}"]`);
+            if (!firstRow) return;
+
+            // 检查通知客户条件
+            let notificationPass = true;
+            if (notificationFilter === '已通知' || notificationFilter === '未通知') {
+                const btn = firstRow.querySelector('button[data-notified]');
+                const notified = btn && btn.dataset.notified === '1';
+                notificationPass = (notificationFilter === '已通知' && notified) || 
+                                (notificationFilter === '未通知' && !notified);
+            }
+
+            // 检查每列输入框条件
+            let inputPass = true;
+            for (let col in searchState) {
+                const term = searchState[col];
+                if (!term) continue;
+
+                // 匹配整组第一行文本
+                const text = firstRow.innerText.toLowerCase();
+                if (!text.includes(term)) {
+                    inputPass = false;
+                    break;
+                }
+            }
+
+            // 最终显示/隐藏
+            const show = notificationPass && inputPass;
+            rows.forEach(r => {
+                if (r.dataset.shipmentGroup === groupId) {
+                    r.style.display = show ? '' : 'none';
+                }
+            });
+        });
+
+        // 高亮搜索词
+        const allTerms = [...Object.values(searchState)];
+        if (notificationFilter) allTerms.push(notificationFilter);
+        applyHighlightsScheduledSP(allTerms);
+    }
+
     function handleScheduledSearch(rows, searchTerm) {
         const groups = new Set();
         rows.forEach(tr => {
