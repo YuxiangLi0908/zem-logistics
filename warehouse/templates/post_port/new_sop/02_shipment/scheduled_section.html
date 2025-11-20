@@ -64,6 +64,7 @@
                     <th>预约时间</th>
                     <th>装车类型</th>
                     <th>柜号</th>
+                    <th>入仓时间</th>
                     <th>REF ID</th>
                     <th>FBA ID</th>
                     <th>板数</th>
@@ -128,6 +129,9 @@
                         {% endif %}
                         <td class="container-no-col" style="max-width: 150px; white-space: pre-line; font-size: 0.8rem;">
                             {{ cargo.cns|linebreaks_cn }}
+                        </td>
+                        <td class="offload-time-col">
+                            {{ cargo.offload_time }}
                         </td>
                         <td class="ref-ids-col" data-full="{{ cargo.ref_ids|default:'' }}">{{ cargo.ref_ids|default:"-"|truncatechars:20 }}</td>
                         <td class="fba-ids-col" data-full="{{ cargo.fba_ids|default:'' }}">{{ cargo.fba_ids|default:"-"|truncatechars:20 }}</td>
