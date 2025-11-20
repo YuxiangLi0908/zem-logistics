@@ -301,8 +301,48 @@ class PostNsop(View):
             context = {"success_messages": f"{shipment_batch_number}约已取消不可用，所有po已解绑！"}
             template, context = await self.handle_fleet_schedule_post(request,context)
             return render(request, template, context) 
+        elif step == "export_bol":
+            return await self.handle_bol_post(request)
         else:
             raise ValueError('输入错误',step)
+    
+    async def handle_bol_post(self, request: HttpRequest) -> Any:
+        fm = FleetManagement()
+        mutable_post = request.POST.copy()
+        mutable_post["customerInfo"] = None
+        mutable_post["pickupList"] = None
+        warehouse = mutable_post["warehouse"]
+        context = {}
+        for key, code in self.warehouse_options.items():
+            if key in warehouse:
+                mutable_post["warehouse"] = code
+
+        appointment_id = request.POST.get("appointment_id")
+        mutable_post["appointment_id"] = appointment_id
+        shipment = await sync_to_async(
+            lambda: Shipment.objects.select_related("fleet_number").get(
+                appointment_id=appointment_id
+            )
+        )()
+        
+        if shipment.shipment_type == '客户自提':
+            context.update({"error_messages": f"{appointment_id}预约批次尚未排车，预约类型为客户自提，不支持客提的BOL下载！"})
+            return render(request, self.template_unscheduled_pos_all, context)
+        if shipment.fleet_number:
+            mutable_post["fleet_number"] = shipment.fleet_number
+        else:
+            context.update({"error_messages": f"{appointment_id}预约批次尚未排车，无法下载BOL！"})
+            return render(request, self.template_unscheduled_pos_all, context)
+        request.POST = mutable_post
+
+        shipment_batch_number = shipment.shipment_batch_number
+        fleet_number = shipment.fleet_number.fleet_number
+
+        mutable_post = request.POST.copy()
+        mutable_post['shipment_batch_number'] = shipment_batch_number
+        mutable_post['fleet_number'] = fleet_number
+        request.POST = mutable_post
+        return await fm.handle_export_bol_post(request)
     
     async def generate_unique_batch_number(self,destination):
         """生成唯一的shipment_batch_number"""
@@ -2936,14 +2976,14 @@ class PostNsop(View):
                 container_number__order__offload_id__offload_at__isnull=True,
                 shipment_batch_number__shipment_batch_number__isnull=False,
                 shipment_batch_number__shipment_appointment__gt=target_date,
-                shipment_batch_number__fleet_number__isnull=True,
+                shipment_batch_number__shipped_at__isnull=True,
                 delivery_type='public',
             )
         plt_criteria = models.Q(
                 shipment_batch_number__shipment_batch_number__isnull=False,
                 shipment_batch_number__shipment_appointment__gt=target_date,
                 container_number__order__offload_id__offload_at__isnull=False,
-                shipment_batch_number__fleet_number__isnull=True,
+                shipment_batch_number__shipped_at__isnull=True,
                 location=warehouse,
                 delivery_type='public',
             )
