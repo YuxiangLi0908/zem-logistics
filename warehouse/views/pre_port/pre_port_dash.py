@@ -1,8 +1,9 @@
 from datetime import datetime, timedelta
-from typing import Any
+from typing import Any, Optional
 from urllib import request
 
 import pandas as pd
+import pytz
 from asgiref.sync import sync_to_async
 from django.db import models
 from django.db.models import Case, When, Value, IntegerField, F
@@ -40,14 +41,15 @@ class PrePortDash(View):
         if not await self._user_authenticate(request):
             return redirect("login")
         step = request.POST.get("step", None)
-        # 根据建单时间和ETA进行筛选
         if step == "search_orders":
             warehouse = request.POST.get("warehouse")
             time_type = request.POST.get("time_type", "eta")
             start_date = request.POST.get("start_date")
             end_date = request.POST.get("end_date")
+            template = ""
+            context = {}
+
             if time_type == "eta":
-                # eta时间
                 template, context = await self.handle_all_get(
                     start_date_eta=start_date,
                     end_date_eta=end_date,
@@ -55,13 +57,33 @@ class PrePortDash(View):
                     tab="summary",
                 )
             elif time_type == "planned_release_time":
-                # 放行时间
                 template, context = await self.handle_all_get_planned_release_time(
                     start_date_planned_release_time=start_date,
                     end_date_planned_release_time=end_date,
                     warehouse=warehouse,
                     tab="summary",
                 )
+
+            for order in context.get("orders", []):
+                # 获取关联的 retrieval 实例（注意：可能为 None，需判断）
+                retrieval = getattr(order, "retrieval_id", None)
+                if not retrieval:
+                    continue  # 无关联retrieval，跳过
+
+                # 1. 获取仓库和原始 UTC 时间（从 retrieval 中取）
+                current_warehouse = getattr(retrieval, "retrieval_destination_area", "")
+                t49_empty = getattr(retrieval, "t49_empty_returned_at", None)
+                t49_pod_full = getattr(retrieval, "t49_pod_full_out_at", None)
+
+                # 2. 转换为本地时间（调用你的时区转换函数）
+                local_t49_empty = self._convert_utc_to_local(t49_empty, current_warehouse)
+                local_t49_pod_full = self._convert_utc_to_local(t49_pod_full, current_warehouse)
+
+                # 3. 直接修改 retrieval 实例的属性（模板中渲染 retrieval.xxx 时生效）
+                # 注意：这是内存中修改，不会同步到数据库（仅用于页面渲染）
+                setattr(retrieval, "t49_empty_returned_at", local_t49_empty)
+                setattr(retrieval, "t49_pod_full_out_at", local_t49_pod_full)
+
             return await sync_to_async(render)(request, template, context)
         elif step == "download_eta_file":
             start_date_eta = request.POST.get("start_date_eta")
@@ -90,6 +112,63 @@ class PrePortDash(View):
 
         else:
             return await sync_to_async(render)(request, self.template_main, {})
+
+    def _convert_utc_to_local(self, utc_time: Optional[datetime | str], warehouse: str) -> str:
+        """
+        将数据库的 UTC 时间（datetime 对象或字符串）转换为仓库对应时区的本地时间（自动处理夏令时）
+        :param utc_time: 数据库中的 UTC 时间（datetime 对象 或 字符串，如 "2025-11-20T12:00:00Z"）
+        :param warehouse: 仓库名称（retrieval_destination_area）
+        :return: 格式化后的本地时间字符串（如 "2025-11-20 08:00:00"），空值返回空字符串
+        """
+        if not utc_time:
+            return ""
+
+        try:
+            WAREHOUSE_TIMEZONES = {
+                "NJ": pytz.timezone("America/New_York"),  # 新泽西（UTC-5/UTC-4）
+                "SAV": pytz.timezone("America/New_York"),  # 萨凡纳（UTC-5/UTC-4）
+                "LA": pytz.timezone("America/Los_Angeles"),  # 洛杉矶（UTC-8/UTC-7）
+                "MO": pytz.timezone("America/Chicago"),  # 圣路易斯（UTC-6/UTC-5）
+                "TX": pytz.timezone("America/Chicago"),  # 德克萨斯（UTC-6/UTC-5）
+                "TH": pytz.timezone("America/Chicago"),  # 休斯顿（UTC-6/UTC-5）
+                "CA": pytz.timezone("America/Los_Angeles"),  # 加州（UTC-8/UTC-7）
+            }
+            DEFAULT_TIMEZONE = pytz.UTC
+
+            # 2. 处理输入类型：如果是 datetime 对象，直接使用；如果是字符串，解析为 datetime
+            if isinstance(utc_time, datetime):
+                # 若 datetime 无时区信息，标记为 UTC
+                if not utc_time.tzinfo:
+                    utc_datetime = pytz.UTC.localize(utc_time)
+                else:
+                    # 若已有时区，转换为 UTC（防止非 UTC 时间传入）
+                    utc_datetime = utc_time.astimezone(pytz.UTC)
+            else:
+                # 字符串类型：兼容 "2025-11-20T12:00:00Z" 或 "2025-11-20 12:00:00" 格式
+                utc_time_str = str(utc_time).replace("Z", "+00:00")
+                utc_datetime = datetime.fromisoformat(utc_time_str)
+                if not utc_datetime.tzinfo:
+                    utc_datetime = pytz.UTC.localize(utc_datetime)
+
+            # 3. 根据仓库匹配目标时区
+            target_timezone = DEFAULT_TIMEZONE
+            for warehouse_key, tz in WAREHOUSE_TIMEZONES.items():
+                if warehouse_key in warehouse.upper():  # 不区分大小写模糊匹配
+                    target_timezone = tz
+                    break
+
+            # 4. 转换为目标时区并格式化
+            local_time = utc_datetime.astimezone(target_timezone)
+            return local_time.strftime("%Y-%m-%d %H:%M:%S")
+
+        except Exception as e:
+            # 异常处理：兼容各种错误情况，避免影响整体功能
+            if isinstance(utc_time, datetime):
+                # 若是 datetime 对象，直接格式化为字符串返回
+                return utc_time.strftime("%Y-%m-%d %H:%M:%S")
+            else:
+                # 若是字符串，去除时区后缀后返回（兼容 "2025-11-20 12:00:00+00:00" 格式）
+                return str(utc_time).split("+")[0].strip() if utc_time else ""
 
     async def download_eta_file(
         self, start_date_eta, end_date_eta

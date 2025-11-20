@@ -954,14 +954,12 @@
                                 </td>
                                 <td data-column="reference_status_t49">
                                     {% if o.retrieval_id.t49_empty_returned_at %}
-                                        <span class="utc-time"
-                                              data-utc="{{ o.retrieval_id.t49_empty_returned_at|date:'c' }}">
-                                            T49还空 {{ o.retrieval_id.t49_empty_returned_at|date:'Y-m-d H:i:s' }}
+                                        <span>
+                                            T49还空 {{ o.retrieval_id.t49_empty_returned_at }}
                                         </span>
                                     {% elif o.retrieval_id.t49_pod_full_out_at %}
-                                        <span class="utc-time"
-                                              data-utc="{{ o.retrieval_id.t49_pod_full_out_at|date:'c' }}">
-                                            T49提柜 {{ o.retrieval_id.t49_pod_full_out_at|date:'Y-m-d H:i:s' }}
+                                        <span>
+                                            T49提柜 {{ o.retrieval_id.t49_pod_full_out_at }}
                                         </span>
                                     {% elif o.retrieval_id.temp_t49_available_for_pickup %}
                                         放行状态 {{ o.retrieval_id.temp_t49_available_for_pickup }}
@@ -1603,33 +1601,5 @@
                 });
             });
         });
-        // 页面加载完成后执行时间转换
-        document.addEventListener('DOMContentLoaded', function () {
-            // 转换所有带utc-time类的元素
-            document.querySelectorAll('.utc-time').forEach(function (element) {
-                const utcTimeStr = element.getAttribute('data-utc');
-                if (utcTimeStr) {
-                    // 解析UTC时间
-                    const utcDate = new Date(utcTimeStr);
-                    // 转换为本地时间并格式化
-                    const localTimeStr = formatLocalTime(utcDate);
-                    // 更新显示内容（保留前缀，只替换时间部分）
-                    const originalText = element.textContent;
-                    const prefix = originalText.replace(/\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}/, '');
-                    element.textContent = prefix + localTimeStr;
-                }
-            });
-        });
-
-        // 格式化本地时间为 "YYYY-MM-DD HH:MM:SS"
-        function formatLocalTime(date) {
-            const year = date.getFullYear();
-            const month = String(date.getMonth() + 1).padStart(2, '0'); // 月份从0开始
-            const day = String(date.getDate()).padStart(2, '0');
-            const hours = String(date.getHours()).padStart(2, '0');
-            const minutes = String(date.getMinutes()).padStart(2, '0');
-            const seconds = String(date.getSeconds()).padStart(2, '0');
-            return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
-        }
     </script>
 {% endblock %}
