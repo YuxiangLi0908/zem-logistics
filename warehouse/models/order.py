@@ -61,6 +61,19 @@ class Order(models.Model):
     )
     customer_do_link = models.CharField(max_length=2000, null=True, blank=True)
     do_sent = models.BooleanField(default=False, blank=True)
+    DO_SENT_CHOICES = [
+        ("未提供", "未提供"),
+        ("已催促", "已催促"),
+        ("已提供", "已提供"),
+    ]
+
+    do_sent_new = models.CharField(
+        max_length=10,
+        choices=DO_SENT_CHOICES,
+        default="未提供",
+        blank=True,
+        verbose_name="是否提供DO",
+    )
     invoice_id = models.ForeignKey(
         Invoice, null=True, blank=True, on_delete=models.SET_NULL, related_name="order"
     )

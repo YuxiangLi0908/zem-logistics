@@ -56,6 +56,10 @@ class OctSummaryView(View):
         elif step == "batch_save_retrieval_carrier_planned":
             template, context = await self.batch_save_retrieval_carrier_planned(request)
             return render(request, template, context)
+        elif step == "batch_save_do_sent_new":
+            template, context = await self.batch_save_do_sent_new(request)
+            return render(request, template, context)
+
 
     async def check_disnation(self) -> tuple[Any, Any]:
         context = {"warehouse_options": self.warehouse_options}
@@ -248,8 +252,8 @@ class OctSummaryView(View):
 
     async def save_do_sent(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
         order_id = request.POST.get("order_id")
-        do_sent = request.POST.get("do_sent")
-        await sync_to_async(lambda:Order.objects.filter(id=order_id).update(do_sent=do_sent))()
+        do_sent_new = request.POST.get("do_sent_new")
+        await sync_to_async(lambda:Order.objects.filter(id=order_id).update(do_sent_new=do_sent_new))()
         template, context = await self.oct_handle_warehouse_post(request)
         return template, context
 
@@ -291,6 +295,22 @@ class OctSummaryView(View):
         await sync_to_async(
             lambda: Retrieval.objects.filter(retrieval_id__in=retrieval_ids).update(
                 retrieval_carrier_planned=batch_carrier
+            )
+        )()
+        template, context = await self.oct_handle_warehouse_post(request)
+        return template, context
+
+    async def batch_save_do_sent_new(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
+        do_sent_new = request.POST.get("batch_do_status")
+        if not do_sent_new:
+            return "错误页面", {"error": "请输入DO状态"}
+        order_ids = request.POST.getlist("selected_ids[]")
+        if not order_ids:
+            return "错误页面", {"error": "未选择任何记录"}
+
+        await sync_to_async(
+            lambda: Order.objects.filter(id__in=order_ids).update(
+                do_sent_new=do_sent_new
             )
         )()
         template, context = await self.oct_handle_warehouse_post(request)
@@ -409,7 +429,7 @@ class OctSummaryView(View):
                 "retrieval_note", "mbl", "shipping_line", "vessel", "container_type",
                 "vessel_date", "vessel_etd", "vessel_eta", "temp_t49_available_for_pickup",
                 "retrieval_carrier", "ke_destination_num", "si_destination_num", "order_type",
-                "do_sent", "id", "status", "retrieval_carrier_planned", "retrieval_id__retrieval_id",
+                "do_sent_new", "id", "status", "retrieval_carrier_planned", "retrieval_id__retrieval_id",
                 "retrieval_delegation_status", "planned_release_time", "actual_release_status", "destination_port",
                 "t49_empty_returned_at", "t49_pod_full_out_at", "total_other_delivery"
             )
@@ -552,7 +572,7 @@ class OctSummaryView(View):
                 "retrieval_note", "mbl", "shipping_line", "vessel", "container_type",
                 "vessel_date", "vessel_etd", "vessel_eta", "temp_t49_available_for_pickup",
                 "retrieval_carrier", "ke_destination_num", "si_destination_num", "order_type",
-                "do_sent", "id", "status", "retrieval_carrier_planned", "retrieval_id__retrieval_id",
+                "do_sent_new", "id", "status", "retrieval_carrier_planned", "retrieval_id__retrieval_id",
                 "retrieval_delegation_status", "planned_release_time", "actual_release_status", "destination_port",
                 "t49_empty_returned_at", "t49_pod_full_out_at"
             )
