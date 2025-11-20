@@ -118,6 +118,33 @@
                     </td>
                     <td rowspan="{{ shipment_group.cargos|length }}" style="vertical-align: middle; background-color: #f8f9fa;">
                         {{ shipment_group.shipment_batch_number|default_if_none:'' }}
+                        <div style="margin-top: 5px;">
+                            <form method="post" action="" class="notify-customer-form" style="display: inline-block;">
+                                {% csrf_token %}
+                                <input type="hidden" name="appointment_id" value="{{ shipment_group.appointment_id }}">                                  
+                                <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                                <input type="hidden" name="step" value="export_bol">
+                                <input type="hidden" name="page" value="arm_appointment">
+                                <input type="hidden" name="active_tab" value="scheduled"> 
+                                <button class="action-btn" style="
+                                    background: linear-gradient(135deg, #3498db, #2980b9);
+                                    border: none;
+                                    color: white;
+                                    padding: 6px 12px;
+                                    border-radius: 6px;
+                                    font-size: 0.8rem;
+                                    cursor: pointer;
+                                    transition: all 0.3s ease;
+                                    box-shadow: 0 2px 4px rgba(52, 152, 219, 0.3);
+                                    display: flex;
+                                    align-items: center;
+                                    gap: 5px;
+                                ">
+                                    <i class="fas fa-file-word" style="font-size: 0.9rem;"></i>
+                                    BOL下载
+                                </button>
+                            </form>
+                        </div>
                     </td>
                     <td rowspan="{{ shipment_group.cargos|length }}" style="vertical-align: middle; background-color: #f8f9fa;">
                         <strong>{{ shipment_group.appointment_id|default_if_none:'' }}</strong>
@@ -184,7 +211,7 @@
                                     <i class="fas fa-bell"></i> 通知客户
                                 </button>
                             </form>                        
-                        {% endif %}
+                        {% endif %}     
                     </td>
                     <td rowspan="{{ shipment_group.cargos|length }}" style="vertical-align: middle;">
                         <form method="post" action="">
@@ -254,6 +281,33 @@
                     </td>
                     <td style="vertical-align: middle; background-color: #f8f9fa;">
                         {{ shipment_group.shipment_batch_number|default_if_none:'' }}
+                        <div style="margin-top: 5px;">
+                            <form method="post" action="" class="notify-customer-form" style="display: inline-block;">
+                                {% csrf_token %}
+                                <input type="hidden" name="appointment_id" value="{{ shipment_group.appointment_id }}">                                  
+                                <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                                <input type="hidden" name="step" value="export_bol">
+                                <input type="hidden" name="page" value="arm_appointment">
+                                <input type="hidden" name="active_tab" value="scheduled"> 
+                                <button class="action-btn" style="
+                                    background: linear-gradient(135deg, #3498db, #2980b9);
+                                    border: none;
+                                    color: white;
+                                    padding: 6px 12px;
+                                    border-radius: 6px;
+                                    font-size: 0.8rem;
+                                    cursor: pointer;
+                                    transition: all 0.3s ease;
+                                    box-shadow: 0 2px 4px rgba(52, 152, 219, 0.3);
+                                    display: flex;
+                                    align-items: center;
+                                    gap: 5px;
+                                ">
+                                    <i class="fas fa-file-word" style="font-size: 0.9rem;"></i>
+                                    BOL下载
+                                </button>
+                            </form>
+                        </div>
                     </td>
                     <td style="vertical-align: middle; background-color: #f8f9fa;">
                         <strong>{{ shipment_group.appointment_id|default_if_none:'' }}</strong>
@@ -336,7 +390,7 @@
         {% endif %}
             {% empty %}
             <tr>
-                <td colspan="9" style="text-align: center; padding: 20px;">
+                <td colspan="14" style="text-align: center; padding: 20px;">
                     暂无已排约货物
                 </td>
             </tr>
