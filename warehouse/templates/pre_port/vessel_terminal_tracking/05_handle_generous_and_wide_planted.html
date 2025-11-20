@@ -101,6 +101,9 @@
                     <td style="padding: 15px; border-bottom: 1px solid #f0f0f0; text-align: center; vertical-align: middle;">
                         <div class="container-number" style="font-weight: 500; color: #333;">
                             {{ order.container_number.container_number }}
+                            {% if order.customer_name_id is 10 %}
+                                <span style="color: red">特操柜</span>
+                            {% endif %}
                         </div>
                     </td>
                     <td style="padding: 15px; border-bottom: 1px solid #f0f0f0; vertical-align: middle;">
