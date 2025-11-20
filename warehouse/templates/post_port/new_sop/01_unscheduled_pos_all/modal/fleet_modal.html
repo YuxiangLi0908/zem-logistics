@@ -1,0 +1,265 @@
+<!-- fleet_modal.html -->
+<div id="fleetModal" class="modal">
+  <div class="modal-content" style="width: 90%; max-width: 1200px; min-width: 800px;">
+
+    <div id="fleetModalBody" style="padding-top: 10px;">
+        <div style="border-radius: 12px; padding: 20px; margin-top: 10px;">
+            <form method="post" action="" style="width: 100%;" onsubmit="showLoadingBar()">
+                {% csrf_token %}
+                <!-- 添加隐藏字段 -->
+                <input type="hidden" name="step" id="fleetModalStep" value="fleet_confirmation">
+                <input type="hidden" name="fleet_number" id="fleetModalFleetNumber">
+                <input type="hidden" name="selected_ids" id="fleetModalSelectedAppointments">
+                <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                <input type="hidden" name="page" value="arm_appointment">
+                <input type="hidden" name="active_tab" value="scheduled">
+                
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h4 style="color: var(--secondary-color); margin: 0;">
+                        <i class="fas fa-truck-loading"></i> 出库批次信息
+                    </h4>
+                    <div>
+                        <span class="close-btn" onclick="closeFleetModal()" style="width: 35px; height: 35px; background: #e74c3c; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 22px; font-weight: bold; cursor: pointer; box-shadow: 0 3px 10px rgba(231, 76, 60, 0.3); transition: all 0.3s ease;">&times;</span>
+                    </div>
+                </div>
+
+                <!-- 车辆信息表格 -->
+                <div class="table-container" style="margin-bottom: 20px;">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th colspan="3" style="text-align: center;">车辆信息</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td style="width: 33%;">
+                                    <label style="font-size: 0.8rem; font-weight: 600; color: var(--secondary-color); display: block; margin-bottom: 5px;">carrier</label>
+                                    <select name="carrier" id="fleetModalCarrier" style="font-size: 13px; width: 100%; padding: 5px;">
+                                        {% for k, v in carrier_options.items %}
+                                        <option value="{{ v }}">{{ k }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </td>
+                                <td style="width: 33%;">
+                                    <label style="font-size: 0.8rem; font-weight: 600; color: var(--secondary-color); display: block; margin-bottom: 5px;">3rd Party Address</label>
+                                    <input type="text" name="third_party_address" id="fleetModalThirdPartyAddress" class="table-input" style="width: 100%;">
+                                </td>
+                                <td style="width: 33%;">
+                                    <label style="font-size: 0.8rem; font-weight: 600; color: var(--secondary-color); display: block; margin-bottom: 5px;">PickUp Number</label>
+                                    <input type="text" name="pickup_number" id="fleetModalPickupNumber" class="table-input" style="width: 100%;">
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    <label style="font-size: 0.8rem; font-weight: 600; color: var(--secondary-color); display: block; margin-bottom: 5px;">车牌号</label>
+                                    <input type="text" name="license_plate" id="fleetModalLicensePlate" class="table-input" style="width: 100%;">
+                                </td>
+                                <td>
+                                    <label style="font-size: 0.8rem; font-weight: 600; color: var(--secondary-color); display: block; margin-bottom: 5px;">MC Number</label>
+                                    <input type="text" name="motor_carrier_number" id="fleetModalMotorCarrierNumber" class="table-input" style="width: 100%;">
+                                </td>
+                                <td>
+                                    <label style="font-size: 0.8rem; font-weight: 600; color: var(--secondary-color); display: block; margin-bottom: 5px;">DOT Number</label>
+                                    <input type="text" name="dot_number" id="fleetModalDotNumber" class="table-input" style="width: 100%;">
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    <label style="font-size: 0.8rem; font-weight: 600; color: var(--secondary-color); display: block; margin-bottom: 5px;">提货时间</label>
+                                    <input type="datetime-local" name="appointment_datetime" id="fleetModalAppointmentDatetime" class="table-input" style="width: 100%;" required>
+                                </td>
+                                <td colspan="2">
+                                    <label style="font-size: 0.8rem; font-weight: 600; color: var(--secondary-color); display: block; margin-bottom: 5px;">备注</label>
+                                    <input type="text" name="note" id="fleetModalNote" class="table-input" style="width: 100%;">
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            
+                <div style="display: flex; justify-content: space-between; align-items: center; margin: 25px 0 15px 0;">
+                    <h4 style="color: var(--secondary-color); margin: 0;">
+                        <i class="fas fa-list-alt"></i> 预约批次
+                    </h4>
+                    <button type="submit" class="action-btn btn-success" id="fleetModalConfirmBtn">
+                        <i class="fas fa-check"></i> 确认排车
+                    </button>
+                </div>
+            </form>
+
+            <div class="table-container" style="max-height: 300px;">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>预约批次</th>
+                            <th>目的地</th>
+                            <th>预约号</th>
+                            <th>Scheduled Time</th>
+                            <th>备注</th>
+                            <th>总重lbs</th>
+                            <th>总CBM</th>
+                            <th>总卡板数</th>
+                        </tr>
+                    </thead>
+                    <tbody id="fleetShipmentTableBody">
+                        <!-- 这里用JS动态插入选中的批次 -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+  </div>
+</div>
+
+<script>
+    // 排车弹框相关的JavaScript函数
+    function closeFleetModal() {
+        document.getElementById("fleetModal").style.display = "none";
+    }
+
+    function showLoadingBar() {
+        const buttons = document.querySelectorAll('button');
+        buttons.forEach(btn => {
+            if (btn.innerHTML.includes('fa-check')) {
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 处理中...';
+                btn.disabled = true;
+            }
+        });
+    }
+
+    // 行背景切换
+    function toggleRowBackground(checkbox) {
+        const row = checkbox.closest('tr');
+        if (checkbox.checked) {
+            row.style.backgroundColor = '#e8f5e9';
+        } else {
+            row.style.backgroundColor = '';
+        }
+    }
+
+    // 确认排车功能
+    function openFleetModal() {
+        const checkboxes = document.querySelectorAll('#scheduled-section input[name="is_appointment_added"]:checked');
+        if (checkboxes.length === 0) {
+            alert("请先选择至少一条待排车批次！");
+            return;
+        }
+
+        
+        const hasNoPOAppointments = [];
+        checkboxes.forEach(cb => {
+            const tr = cb.closest("tr");
+            const noPOCell = tr.querySelector('td[colspan="6"]'); // 查找无PO的单元格
+            
+            if (noPOCell && noPOCell.textContent.includes('无PO')) {
+                const appointmentId = cb.dataset.appointmentId;
+                hasNoPOAppointments.push(appointmentId);
+            }
+        });
+
+        // 如果有无PO的记录，直接弹框提示并返回
+        if (hasNoPOAppointments.length > 0) {
+            showNoPOPrompt(hasNoPOAppointments);
+            return;
+        }
+
+        const selectedAppointments = [];
+        checkboxes.forEach(cb => {
+            const appointmentId = cb.dataset.appointmentId;
+            if (appointmentId) {
+                selectedAppointments.push(appointmentId);
+            }
+        });
+
+        // 设置选中的预约号到隐藏字段
+        document.getElementById('fleetModalSelectedAppointments').value = JSON.stringify(selectedAppointments);
+        
+        // 将选中的记录信息填入弹窗表格
+        const tbody = document.getElementById("fleetShipmentTableBody");
+        tbody.innerHTML = ""; // 清空旧内容
+
+        checkboxes.forEach(cb => {
+            const tr = cb.closest("tr");
+            const cells = tr.querySelectorAll("td");
+            console.log('cells',cells);
+            
+            // 获取预约信息
+            const appointmentBatch = cells[1].innerText; // 预约批次
+            const destination = cells[2].innerText; // 目的地
+            const appointmentId = cells[3].innerText; // 预约号
+            const scheduledTime = cells[4].innerText; // Scheduled Time
+            const note = cells[10].innerText; // 备注
+            const totalWeight = cells[5].innerText; // 总重
+            const totalCbm = cells[6].innerText; // 总CBM
+            const totalPallet = cells[7].innerText; // 总卡板数
+
+            const newRow = document.createElement("tr");
+            newRow.innerHTML = `
+                <td style="max-width: 120px; word-break: break-all;">${appointmentBatch}</td>
+                <td>${destination}</td>
+                <td>${appointmentId}</td>
+                <td style="max-width: 150px; word-break: break-all;">${scheduledTime}</td>
+                <td style="max-width: 120px; word-break: break-all;">${note}</td>
+                <td>${totalWeight}</td>
+                <td>${totalCbm}</td>
+                <td>${totalPallet}</td>
+            `;
+            tbody.appendChild(newRow);
+        });
+        
+        document.getElementById('fleetModalStep').value = 'fleet_confirmation';
+        document.getElementById('fleetModalFleetNumber').value = '';
+        
+        // 清空其他表单字段
+        const form = document.querySelector('#fleetModal form');
+        form.reset();
+        
+        // 显示弹窗
+        document.getElementById("fleetModal").style.display = "block";
+    }
+    //错误提示框
+    function showNoPOPrompt(appointmentIds) {
+        // 创建模态框
+        const modal = document.createElement('div');
+        modal.className = 'modal';
+        modal.style.display = 'block';
+        modal.innerHTML = `
+            <div class="modal-content" style="width: 500px; max-width: 90%;">
+                <div style="padding: 30px; text-align: center;">
+                    <div style="font-size: 48px; color: #ff6b6b; margin-bottom: 20px;">
+                        <i class="fas fa-exclamation-triangle"></i>
+                    </div>
+                    <h3 style="color: #2c3e50; margin-bottom: 15px;">无法排车</h3>
+                    <p style="color: #7f8c8d; margin-bottom: 20px; line-height: 1.5;">
+                        以下预约批次没有PO，不能进行排车：
+                    </p>
+                    <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 25px; max-height: 200px; overflow-y: auto;">
+                        ${appointmentIds.map(id => `<div style="padding: 5px 0; color: #e74c3c; font-weight: 500;">${id}</div>`).join('')}
+                    </div>
+                    <button onclick="closeNoPOPrompt()" class="action-btn btn-primary" style="padding: 10px 30px;">
+                        <i class="fas fa-check"></i> 确定
+                    </button>
+                </div>
+            </div>
+        `;
+        
+        modal.id = 'noPOPromptModal';
+        document.body.appendChild(modal);
+        
+        // 点击背景关闭
+        modal.addEventListener('click', function(e) {
+            if (e.target === modal) {
+                closeNoPOPrompt();
+            }
+        });
+    }
+
+    // 关闭提示框
+    function closeNoPOPrompt() {
+        const modal = document.getElementById('noPOPromptModal');
+        if (modal) {
+            document.body.removeChild(modal);
+        }
+    }
+</script>
