@@ -460,7 +460,7 @@ class PostNsop(View):
         )
         pl_criteria = criteria_p & models.Q(
             container_number__order__offload_id__offload_at__isnull=True,
-            container_number__order__retrieval_id__retrieval_destination_area=warehouse,
+            container_number__order__retrieval_id__retrieval_destination_precise=warehouse,
             #destination=destination,
             delivery_type='public',
         )
@@ -1992,7 +1992,6 @@ class PostNsop(View):
         new_request.POST['warehouse'] = warehouse
         new_request.user = request.user
         return await self.handle_unscheduled_pos_post(new_request)
-        #return self.template_unscheduled_pos_all, context
     
     async def handle_appointment_management_get(
         self, request: HttpRequest
@@ -3254,6 +3253,7 @@ class PostNsop(View):
         fleets = await self._fl_unscheduled_data(request, warehouse)
         #已排车
         schedule_fleet_data = fleets['fleet_list']
+        print('已排车',schedule_fleet_data)
         #待出库
         ready_to_ship_data = await self._sp_ready_to_ship_data(warehouse,request.user)
         # 待送达
@@ -3293,6 +3293,7 @@ class PostNsop(View):
             "pod_shipments": pod_data['fleet'],
             'shipment_type_options': self.shipment_type_options,
         })
+        print('ddddddddddd',context[''])
         active_tab = request.POST.get('active_tab')
         
         if active_tab:
