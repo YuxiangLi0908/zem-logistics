@@ -1,0 +1,189 @@
+{% extends 'base.html' %}
+{% block content %}
+<link href="//unpkg.com/layui@2.12.0/dist/css/layui.css" rel="stylesheet">
+<script src="https://cdn.bootcdn.net/ajax/libs/jquery/3.6.4/jquery.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/layui-src/dist/layui.js"></script>
+<style>
+    .container_main {
+        margin: 20px;
+        padding: 20px;
+        background-color: #fff;
+        border-radius: 8px;
+        box-shadow: 0 0 10px rgba(0,0,0,0.05);
+    }
+    .search-form {
+        margin-bottom: 20px;
+        padding: 15px;
+        background-color: #f8f9fa;
+        border-radius: 6px;
+    }
+    .form-item-group {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 20px;
+    }
+    .layui-form-label {
+        width: 80px;
+    }
+    .layui-input-inline {
+        width: 200px;
+    }
+    .table-container {
+        overflow-x: auto;
+    }
+    .layui-table {
+        min-width: 1000px;
+    }
+    .time-range {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    .layui-form-mid {
+        padding: 0 5px;
+    }
+</style>
+
+<div class="container_main">
+    <!-- 搜索表单 -->
+    <form class="layui-form search-form" id="searchForm" method="post">
+        {% csrf_token %}
+        <div class="form-item-group">
+            <!-- 仓库选择下拉框 -->
+            <div class="layui-form-item">
+                <label class="layui-form-label">仓库选择</label>
+                <div class="layui-input-inline">
+                    <select name="warehouse" lay-verify="required" class="layui-select">
+                        <option value="">请选择仓库</option>
+                        <!-- 修正：default 过滤器用空字符串，for 循环会自动忽略空值 -->
+                        {% for warehouse_code, warehouse_name in warehouse_options.items|default:"" %}
+                            <option value="{{ warehouse_code }}" {% if warehouse == warehouse_code %}selected{% endif %}>
+                                {{ warehouse_name }}
+                            </option>
+                        {% empty %}
+                            <option value="">暂无仓库数据</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <!-- ETA 时间范围选择 -->
+            <div class="layui-form-item">
+                <label class="layui-form-label">ETA 时间范围</label>
+                <div class="time-range">
+                    <div class="layui-input-inline">
+                        <input type="text" name="eta_start" class="layui-input" id="etaStart"
+                               placeholder="开始日期" value="{{ eta_start|default:'' }}" readonly>
+                    </div>
+                    <span class="layui-form-mid">-</span>
+                    <div class="layui-input-inline">
+                        <input type="text" name="eta_end" class="layui-input" id="etaEnd"
+                               placeholder="结束日期" value="{{ eta_end|default:'' }}" readonly>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 查询按钮 -->
+            <button class="layui-btn layui-btn-normal" lay-submit lay-filter="doSearch">
+                <i class="layui-icon layui-icon-search"></i> 查询
+            </button>
+        </div>
+    </form>
+
+    <!-- 数据表格 -->
+    <div class="table-container">
+        <table class="layui-table" lay-size="sm">
+            <thead>
+                <tr>
+                    <th>柜号</th>
+                    <th>MBL</th>
+                    <th>船司</th>
+                    <th>船名航次</th>
+                    <th>ETA 时间</th>
+                    <th>码头</th>
+                    <th>柜型</th>
+                    <th>客户</th>
+                    <th>所属仓库</th>
+                </tr>
+            </thead>
+            <tbody id="tableBody">
+                <!-- 修正：default 过滤器用空字符串，for 循环会自动忽略空值 -->
+                {% for item in datas|default:"" %}
+                    <tr>
+                        <td>{{ item.container|default:"-" }}</td>
+                        <td>{{ item.mbl|default:"-" }}</td>
+                        <td>{{ item.shipping_line|default:"-" }}</td>
+                        <td>{{ item.vessel|default:"-" }}</td>
+                        <td>{{ item.eta|date:"Y-m-d H:i"|default:"-" }}</td>
+                        <td>{{ item.destination_port|default:"-" }}</td>
+                        <td>{{ item.container_type|default:"-" }}</td>
+                        <td>{{ item.customer_name|default:"-" }}</td>
+                        <td>{{ item.warehouse_name|default:"-" }}</td>
+                    </tr>
+                {% empty %}
+                    <tr>
+                        <td colspan="9" style="text-align: center; padding: 30px;">
+                            {% if warehouse or eta_start or eta_end %}
+                                未找到符合条件的数据
+                            {% else %}
+                                请选择仓库和时间范围后查询
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+layui.use(['form', 'laydate', 'layer'], function() {
+    const form = layui.form;
+    const laydate = layui.laydate;
+    const layer = layui.layer;
+
+    // 初始化日期选择器
+    laydate.render({
+        elem: '#etaStart',
+        type: 'date',
+        format: 'yyyy-MM-dd',
+        done: function(value) {
+            laydate.config({
+                elem: '#etaEnd',
+                min: value
+            });
+        }
+    });
+
+    laydate.render({
+        elem: '#etaEnd',
+        type: 'date',
+        format: 'yyyy-MM-dd',
+        done: function(value) {
+            laydate.config({
+                elem: '#etaStart',
+                max: value
+            });
+        }
+    });
+
+    // 表单提交事件
+    form.on('submit(doSearch)', function(data) {
+        const params = data.field;
+
+        if (!params.warehouse) {
+            layer.msg('请选择仓库', {icon: 2, time: 1500});
+            return false;
+        }
+        if (!params.eta_start || !params.eta_end) {
+            layer.msg('请选择完整的ETA时间范围', {icon: 2, time: 1500});
+            return false;
+        }
+
+        $('#searchForm').submit();
+        return true;
+    });
+});
+</script>
+{% endblock %}
