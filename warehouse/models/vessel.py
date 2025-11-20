@@ -22,6 +22,7 @@ class Vessel(models.Model):
     vessel_etd_t49 = models.DateTimeField(null=True, blank=True)
     vessel_eta_t49 = models.DateTimeField(null=True, blank=True)
     vessel_imo = models.CharField(max_length=100, blank=True, null=True)
+    vessel_mmsi = models.CharField(max_length=100, blank=True, null=True)
     history = HistoricalRecords()
 
     class Meta:
