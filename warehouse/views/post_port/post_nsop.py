@@ -326,13 +326,11 @@ class PostNsop(View):
         )()
         
         if shipment.shipment_type == '客户自提':
-            context.update({"error_messages": f"{appointment_id}预约批次尚未排车，预约类型为客户自提，不支持客提的BOL下载！"})
-            return render(request, self.template_unscheduled_pos_all, context)
+            raise ValueError("该预约批次预约类型为客户自提，不支持客提的BOL下载！")
         if shipment.fleet_number:
             mutable_post["fleet_number"] = shipment.fleet_number
         else:
-            context.update({"error_messages": f"{appointment_id}预约批次尚未排车，无法下载BOL！"})
-            return render(request, self.template_unscheduled_pos_all, context)
+            raise ValueError("该预约批次尚未排车")
         request.POST = mutable_post
 
         shipment_batch_number = shipment.shipment_batch_number
