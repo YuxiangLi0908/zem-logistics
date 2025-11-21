@@ -217,7 +217,8 @@
                                     data-load-type="{{ shipment_group.load_type }}"
                                     data-origin="{{ warehouse }}"
                                     data-pickup-time="{{ shipment_group.pickup_time|date:'Y-m-d H:i' }}"
-                                    data-pickup-number="{{ shipment_group.pickup_number }}">
+                                    data-pickup-number="{{ shipment_group.pickup_number }}"
+                                    data-shipment-id="{{ shipment_group.shipment_cargo_id }}">
                                 <i class="fas fa-edit"></i> 修改约
                             </button>
                         </td>
@@ -292,7 +293,8 @@
                                 data-load-type="{{ shipment_group.load_type }}"
                                 data-origin="{{ warehouse }}"
                                 data-pickup-time="{{ shipment_group.pickup_time|date:'Y-m-d H:i' }}"
-                                data-pickup-number="{{ shipment_group.pickup_number }}">
+                                data-pickup-number="{{ shipment_group.pickup_number }}"
+                                data-shipment-id="{{ shipment_group.shipment_cargo_id }}">
                             <i class="fas fa-edit"></i> 修改约
                         </button>
                     </td>
@@ -364,6 +366,10 @@
                         <tr>
                             <th>Pickup Number</th>
                             <td><input type="text" name="pickup_number" id="editModalPickupNumber" class="form-input"></td>
+                        </tr>
+                        <tr>
+                            <th>Shipment id</th>
+                            <td><input type="text" name="shipment_cargo_id" id="editModalShipmentId" class="form-input"></td>
                         </tr>
                     </tbody>
                 </table>
@@ -574,6 +580,7 @@
             const scheduledTime = this.dataset.scheduledTime.replace(' ', 'T');
             const pickupTime = this.dataset.pickupTime ? this.dataset.pickupTime.replace(' ', 'T') : '';
             const pickupNumber = this.dataset.pickupNumber || '';
+            const shipmentId = this.dataset.shipmentId || '';
             const destination = this.dataset.destination;
             const loadType = this.dataset.loadType;
             const origin = this.dataset.origin;
@@ -582,7 +589,8 @@
             document.getElementById('editModalAppointmentInput').value = appointmentId;
             document.getElementById('editModalScheduledTime').value = scheduledTime;
             document.getElementById('editModalPickupTime').value = pickupTime;
-            document.getElementById('editModalPickupNumber').value = pickupNumber;
+            document.getElementById('editModalPickupNumber').value = pickupNumber;          
+            document.getElementById('editModalShipmentId').value = shipmentId;
             
             document.getElementById('editModalDestination').value = destination;
             document.getElementById('editModalLoadType').value = loadType;
