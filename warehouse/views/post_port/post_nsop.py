@@ -374,15 +374,13 @@ class PostNsop(View):
             suggestion_id = suggestion_data['suggestion_id']
             cargos = suggestion_data.get('cargos', [])
             intelligent_cargos = suggestion_data.get('intelligent_cargos', [])
-        
-        selected_cargos_raw = request.POST.get('selected_cargos')
 
-        move_ids = []
-        if selected_cargos_raw:
-            cargos_list = json.loads(selected_cargos_raw)
-            move_ids = [sl['ids'] for sl in cargos_list]
+        selected_ids_raw = request.POST.get("selected_ids")
+        selected_ids = json.loads(selected_ids_raw) if selected_ids_raw else []
         
-        cargos.extend(cargos_list)
+        selected_cargos = [c for c in intelligent_cargos if c['unique_id'] in selected_ids]
+        cargos.extend(selected_cargos)
+
          # === 更新 primary_group 的统计数据 ===
         total_pallets = sum(c.get('total_n_pallet_act', 0) or c.get('total_n_pallet_est', 0) for c in cargos)
         total_cbm = sum(c.get('total_cbm', 0) for c in cargos)
@@ -392,7 +390,7 @@ class PostNsop(View):
             # 更新主组的板数和CBM
             primary_group['total_pallets'] = total_pallets
             primary_group['total_cbm'] = total_cbm
-        new_intelligent_cargos = [c for c in intelligent_cargos if c['ids'] not in move_ids]
+        new_intelligent_cargos = [c for c in intelligent_cargos if c['unique_id'] not in selected_ids]
 
         suggestion_data['cargos'] = cargos
         suggestion_data['intelligent_cargos'] = new_intelligent_cargos
@@ -2664,6 +2662,7 @@ class PostNsop(View):
                 intelligent_pos = result_intel['intelligent_pos']
                 intelligent_pos_stats = result_intel['intelligent_pos_stats']
                 intelligent_cargos = [{
+                    'unique_id': pos.get('unique_id', ''),
                     'ids': pos.get('ids', ''),
                     'plt_ids': pos.get('plt_ids', ''),
                     'ref_ids': pos.get('ref_ids', ''),
@@ -2837,6 +2836,7 @@ class PostNsop(View):
         ))
         
         intelligent_cargos = [{
+            'unique_id': str(uuid.uuid4()), 
             'ids': pos.get('ids', ''),
             'plt_ids': pos.get('plt_ids', ''),
             'ref_ids': pos.get('ref_ids', ''),
@@ -2887,7 +2887,7 @@ class PostNsop(View):
                         len(organized['EST']['normal']) + len(organized['EST']['hold'])
         }
         return {
-            'intelligent_pos': sorted_intelligent_pos,
+            'intelligent_pos': intelligent_cargos,
             'intelligent_pos_stats':intelligent_pos_stats
             }
     
@@ -3515,8 +3515,8 @@ class PostNsop(View):
         plt_criteria: models.Q | None = None,
         name: str | None = None
     ) -> list[Any]:
-        pl_criteria &= models.Q(container_number__order__cancel_notification=False)
-        plt_criteria &= models.Q(container_number__order__cancel_notification=False)
+        pl_criteria &= models.Q(container_number__order__cancel_notification=False)& ~models.Q(container_number__order__order_type='直送')
+        plt_criteria &= models.Q(container_number__order__cancel_notification=False)& ~models.Q(container_number__order__order_type='直送')
         if await self._validate_user_four_major_whs(user):
             pl_criteria &= models.Q(destination__in=FOUR_MAJOR_WAREHOUSES)
             plt_criteria &= models.Q(destination__in=FOUR_MAJOR_WAREHOUSES)
