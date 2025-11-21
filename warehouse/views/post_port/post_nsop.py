@@ -1274,43 +1274,50 @@ class PostNsop(View):
         load_type = request.POST.get('load_type')
         origin = request.POST.get('origin')
         shipment_cargo_id = request.POST.get('shipment_cargo_id')
-
+        page = request.POST.get("page")
         if appointment_id_new == appointment_id_old:
-            old_shipment.shipment_appointment = shipment_appointment
+            old_shipment.shipment_appointment = shipment_appointment if shipment_appointment else None
             old_shipment.destination = destination
             old_shipment.load_type = load_type
             old_shipment.origin = origin
-            old_shipment.pickup_time = pickup_time
+            old_shipment.pickup_time = pickup_time if pickup_time else None
             old_shipment.pickup_number = pickup_number
-            old_shipment.shipment_cargo_id = shipment_cargo_id
-            old_shipment.in_use = True
+            old_shipment.shipment_cargo_id = shipment_cargo_id           
             old_shipment.is_canceled = False
             old_shipment.status = ""
+            if page != "01_appointment":
+                old_shipment.in_use = True
             await sync_to_async(old_shipment.save)()         
             context.update( {'success_messages':f"{appointment_id_old}预约信息修改成功！"})
             if name == "fleet_departure":
                 return await self.handle_fleet_schedule_post(request,context)
-            page = request.POST.get("page")
+            
             if page == "arm_appointment":
                 return await self.handle_unscheduled_pos_post(request,context)
+            elif page == "01_appointment":
+                return await self.handle_appointment_management_post(request,context)
             return await self.handle_td_shipment_post(request,context)
         else:
             context = await self._check_ISA_is_repetition(appointment_id_new,destination)
             old_shipment.destination = destination
             old_shipment.load_type = load_type
             old_shipment.origin = origin
-            old_shipment.pickup_time = pickup_time
+            old_shipment.pickup_time = pickup_time if pickup_time else None
             old_shipment.pickup_number = pickup_number
             old_shipment.shipment_cargo_id = shipment_cargo_id
-            old_shipment.in_use = True
             old_shipment.is_canceled = False
             old_shipment.status = ""
+            old_shipment.shipment_appointment = shipment_appointment if shipment_appointment else None
+            if page != "01_appointment":
+                old_shipment.in_use = True
             await sync_to_async(old_shipment.save)()
             if name == "fleet_departure":
                 return await self.handle_fleet_schedule_post(request,context)
             page = request.POST.get("page")
             if page == "arm_appointment":
                 return await self.handle_unscheduled_pos_post(request,context)
+            elif page == "01_appointment":
+                return await self.handle_appointment_management_post(request,context)
             return await self.handle_td_shipment_post(request,context)
     
     async def _check_ISA_is_repetition(self,appointment_id,destination):
@@ -2676,7 +2683,7 @@ class PostNsop(View):
                         'cargos': []
                     }
                 pre_groups[group_key]['cargos'].append(cargo)
-                
+
         # 在预分组循环之前初始化已使用的shipment集合
         used_shipment_ids = set()
         # 对每个预分组按容量限制创建大组
