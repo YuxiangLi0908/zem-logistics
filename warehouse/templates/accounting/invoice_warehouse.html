@@ -29,9 +29,22 @@
 </div>
 <hr class="Dashed" style="margin-top: 10px; margin-bottom: 10px;">
 <div style="display: flex; max-height: 720px;">
-    <div style="overflow-y: auto; max-height: 100%; width: 40%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%; margin: 1%;">
+    <div style="overflow-y: auto; max-height: 100%; width: 50%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%; margin: 1%;">
         {% if order %}
-        <div><b>待录入账单</b></div>
+        <div>
+            <b>待录入账单：</b>
+            <span style="color:#0d6efd; font-weight:bold;">
+            {% if permission == "all" %}
+                全部仓点
+            {% elif permission == "public" %}
+                仅公仓仓点
+            {% elif permission == "other" %}
+                仅私仓仓点
+            {% else %}
+                未知权限
+            {% endif %}
+            </span>
+        </div>
         <form method="post" action="">
             {% csrf_token %}
             <div style="overflow-x: auto; max-width: 100%; overflow-y: auto; max-height: 600px;">
@@ -43,6 +56,8 @@
                             {% if display_mix %}
                                 <th class="th">类别</th>
                             {% endif %}
+                            <th class="th">未出库数</th>
+                            <th class="th">已出库数</th>
                             <th class="th">驳回原因</th>
                             <th class="th">建单日期</th>
                         </tr>
@@ -52,6 +67,8 @@
                             {% if display_mix %}
                                 <th class="th"></th>
                             {% endif %}
+                            <th class="th"></th>
+                            <th class="th"></th>
                             <th class="th"></th>
                             <th class="th"></th>
                         </tr>
@@ -73,6 +90,8 @@
                                             <a href="/accounting/?step=container_warehouse&container_number={{ c.container_number }}&start_date={{ start_date }}&end_date={{ end_date }}&warehouse={{ warehouse_filter }}&delivery_type=other">私仓</a>                                       
                                     {% endif %}
                                 </td>
+                                <td class="td">{{ c.unshipped_shipment_groups }}/{{ c.total_shipment_groups }}</td>
+                                <td class="td">{{ c.shipped_shipment_groups }}/{{ c.total_shipment_groups }}</td>
                                 <td class="td">{{ c.display_reject_reason }}</td>
                                 <td class="td">{{ c.created_at|date:"Y-m-d" }}</td>
                             </tr>
@@ -83,7 +102,7 @@
         </form>
         {% endif %}
     </div>
-    <div style="overflow-y: auto; max-height: 100%; width: 60%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%; margin: 1%;">
+    <div style="overflow-y: auto; max-height: 100%; width: 50%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%; margin: 1%;">
         {% if previous_order %}
         <div><b>已录入账单</b></div>
         <form method="post" action="">
