@@ -2676,7 +2676,9 @@ class PostNsop(View):
                         'cargos': []
                     }
                 pre_groups[group_key]['cargos'].append(cargo)
-        
+                
+        # 在预分组循环之前初始化已使用的shipment集合
+        used_shipment_ids = set()
         # 对每个预分组按容量限制创建大组
         for group_key, pre_group in pre_groups.items():
             cargos = pre_group['cargos']
@@ -2735,7 +2737,10 @@ class PostNsop(View):
                 cbm_percentage = min(100, (primary_group['total_cbm'] / max_cbm) * 100) if max_cbm > 0 else 0
                 
                 # 寻找匹配的shipment
-                matched_shipment = await self.find_matching_shipment(primary_group, shipments, warehouse)
+                matched_shipment = await self.find_matching_shipment(primary_group, shipments, warehouse, used_shipment_ids)
+                # 如果匹配到shipment，将其标记为已使用
+                if matched_shipment and 'shipment_id' in matched_shipment:
+                    used_shipment_ids.add(matched_shipment['shipment_id'])
 
                 result_intel = await self._find_intelligent_po_for_group(
                     primary_group, warehouse, user
@@ -2973,12 +2978,15 @@ class PostNsop(View):
             'intelligent_pos_stats':intelligent_pos_stats
             }
     
-    async def find_matching_shipment(self, primary_group, shipments, warehouse):
+    async def find_matching_shipment(self, primary_group, shipments, warehouse, used_shipments=None):
         """为货物大组寻找匹配的shipment"""
         destination = primary_group['destination']
         matched_shipments = []
         
         for shipment in shipments:
+            # 检查这个shipment是否已经被其他组使用了
+            if used_shipments and shipment.id in used_shipments:
+                continue
             # 检查目的地是否匹配
             if shipment.destination != destination:
                 continue
