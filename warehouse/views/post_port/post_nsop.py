@@ -1273,6 +1273,7 @@ class PostNsop(View):
         destination = request.POST.get('destination').strip()
         load_type = request.POST.get('load_type')
         origin = request.POST.get('origin')
+        shipment_cargo_id = request.POST.get('shipment_cargo_id')
 
         if appointment_id_new == appointment_id_old:
             old_shipment.shipment_appointment = shipment_appointment
@@ -1281,6 +1282,7 @@ class PostNsop(View):
             old_shipment.origin = origin
             old_shipment.pickup_time = pickup_time
             old_shipment.pickup_number = pickup_number
+            old_shipment.shipment_cargo_id = shipment_cargo_id
             old_shipment.in_use = True
             old_shipment.is_canceled = False
             old_shipment.status = ""
@@ -1299,6 +1301,7 @@ class PostNsop(View):
             old_shipment.origin = origin
             old_shipment.pickup_time = pickup_time
             old_shipment.pickup_number = pickup_number
+            old_shipment.shipment_cargo_id = shipment_cargo_id
             old_shipment.in_use = True
             old_shipment.is_canceled = False
             old_shipment.status = ""
