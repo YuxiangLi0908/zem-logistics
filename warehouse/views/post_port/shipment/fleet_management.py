@@ -1537,6 +1537,7 @@ class FleetManagement(View):
                 if shipment.fleet_number and shipment.fleet_number.pickup_number
                 else None
             ),
+            "pickup_time": shipment.pickup_time,
             "fleet_number": shipment.fleet_number.fleet_number,
             "shipment": shipment,
             "packing_list": packing_list,
