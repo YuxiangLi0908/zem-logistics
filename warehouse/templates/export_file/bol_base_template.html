@@ -93,6 +93,11 @@
                             </td>
                         </tr>
                         <tr>
+                            <td style="margin-left: 5px;">
+                                Pickup Time: {{ shipment.pickup_time|date:"Y-m-d" }} {{ shipment.pickup_time|time:"H:i" }}
+                            </td>
+                        </tr>
+                        <tr>
                             {% if note_chinese_char %}
                                 <td style="margin-left: 5px; font-family: STSong-Light;">
                                     Note: {{ shipment.note }}

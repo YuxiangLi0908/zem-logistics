@@ -102,6 +102,7 @@ class PostNsop(View):
         "Arm": "Arm",
         "ZEM": "ZEM",
         "LiFeng": "LiFeng",
+        "LLC": "LLC",
     }
     shipment_type_options = {
         "FTL": "FTL",
