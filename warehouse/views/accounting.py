@@ -67,6 +67,7 @@ from sqlalchemy.util import await_only
 from warehouse.forms.order_form import OrderForm
 from warehouse.models.container import Container
 from warehouse.models.customer import Customer
+from warehouse.models.shipment import Shipment
 from warehouse.models.fee_detail import FeeDetail
 from warehouse.models.fleet_shipment_pallet import FleetShipmentPallet
 from warehouse.models.invoice import (
@@ -1858,25 +1859,30 @@ class Accounting(View):
                     models.Q(receivable_status__warehouse_other_status="in_progress")
                 ).order_by("receivable_status__reject_reason")
         order = self.process_orders_display_status(order, "receivable")
+        # 额外处理：添加分组统计信息
+        order = self._add_shipment_group_stats(order, groups, display_mix)
 
         # 查找历史操作过的，状态是warehouse时，对应group的stage为completed，或者状态是库内之后的
         base_condition = models.Q(
             receivable_status__isnull=False,
             receivable_status__invoice_type="receivable"
         )
-
+        permission = None
         if display_mix:
             warehouse_condition = (
                 models.Q(receivable_status__warehouse_public_status="completed") |
                 models.Q(receivable_status__warehouse_other_status="completed")
             )
+            permission = "all"
         else:
             if "warehouse_public" in groups and "warehouse_other" not in groups:
                 # 公仓人员：公仓状态为已完成
                 warehouse_condition = models.Q(receivable_status__warehouse_public_status="completed")
+                permission = "public"
             elif "warehouse_other" in groups and "warehouse_public" not in groups:
                 # 私仓人员：私仓状态为已完成
                 warehouse_condition = models.Q(receivable_status__warehouse_other_status="completed")
+                permission = "other"
         previous_order = base_query.filter(
             base_condition,
             warehouse_condition  # 只包含仓库阶段已完成的
@@ -1898,9 +1904,101 @@ class Accounting(View):
             "warehouse_filter": warehouse,
             "groups": groups,
             "display_mix": display_mix,
+            "permission": permission,
         }
         return self.template_invoice_warehouse, context
 
+    def _add_shipment_group_stats(self, orders, user_groups, display_mix):
+        """
+        为每个order添加分组统计信息
+        """
+        # 获取用户权限对应的delivery_type筛选条件
+        delivery_type_q = self.get_delivery_type_filter(user_groups, display_mix)
+        print('delivery_type_q',delivery_type_q)
+        for order in orders:
+            # 查找该order关联的packinglist和pallet
+            packinglist_stats = self.get_shipment_group_stats(
+                PackingList.objects.filter(
+                    container_number__container_number=order.container_number,
+                    container_number__order__offload_id__offload_at__isnull=True,
+                ),
+                delivery_type_q
+            )
+            pallet_stats = self.get_shipment_group_stats(
+                Pallet.objects.filter(
+                    container_number__container_number=order.container_number,
+                    container_number__order__offload_id__offload_at__isnull=False,
+                ),
+                delivery_type_q
+            )
+            
+            # 合并统计结果
+            total_groups = packinglist_stats['total_groups'] + pallet_stats['total_groups']
+            shipped_groups = packinglist_stats['shipped_groups'] + pallet_stats['shipped_groups']
+            unshipped_groups = packinglist_stats['unshipped_groups'] + pallet_stats['unshipped_groups']
+            
+            # 添加到order对象（不改变原有结构）
+            order.total_shipment_groups = total_groups
+            order.shipped_shipment_groups = shipped_groups
+            order.unshipped_shipment_groups = unshipped_groups
+        
+        return orders
+
+    def get_shipment_group_stats(self, queryset, delivery_type_q):
+        """
+        获取分组统计信息
+        """
+        # 应用delivery_type筛选
+        if delivery_type_q:
+            queryset = queryset.filter(delivery_type_q)
+        
+        # 按destination和shipment_batch_number分组
+        groups = queryset.values('destination', 'shipment_batch_number').annotate(
+            group_count=Count('id')
+        )
+        
+        total_groups = groups.count()
+        
+        # 统计已出库和未出库的分组
+        shipped_groups = 0
+        unshipped_groups = 0
+        
+        for group in groups:
+            shipment_batch_number = group['shipment_batch_number']
+            if shipment_batch_number:
+                # 检查shipment是否已出库
+                try:
+                    shipment = Shipment.objects.get(shipment_batch_number=shipment_batch_number)
+                    if shipment.shipped_at:
+                        shipped_groups += 1
+                    else:
+                        unshipped_groups += 1
+                except Shipment.DoesNotExist:
+                    unshipped_groups += 1
+            else:
+                # 没有shipment_batch_number的视为未出库
+                unshipped_groups += 1
+        
+        return {
+            'total_groups': total_groups,
+            'shipped_groups': shipped_groups,
+            'unshipped_groups': unshipped_groups
+        }
+
+    def get_delivery_type_filter(self, user_groups, display_mix):
+        """
+        根据用户权限获取delivery_type筛选条件
+        """
+        if display_mix:
+            return None  # 混合权限不筛选
+        
+        if "warehouse_public" in user_groups and "warehouse_other" not in user_groups:
+            return Q(delivery_type="public")
+        elif "warehouse_other" in user_groups and "warehouse_public" not in user_groups:
+            return Q(delivery_type="other")
+        else:
+            return None
+    
     def handle_invoice_confirm_get(
         self,
         request: HttpRequest,
@@ -2530,6 +2628,7 @@ class Accounting(View):
         if delivery_type != "mix":
             hold_subquery = hold_subquery.filter(delivery_type=delivery_type)
 
+        permission = None
         # 查找未操作过的
         if "NJ_mix_account" in groups or (
             "warehouse_other" in groups and "warehouse_public" not in groups
@@ -2557,6 +2656,7 @@ class Accounting(View):
                 )
                 .order_by("is_priority")
             )
+            permission = "other"
         else:
             if display_mix:  # 这个权限的，都能看
                 order = (
@@ -2586,6 +2686,7 @@ class Accounting(View):
                     )
                     .order_by("is_priority")
                 )
+                permission = "all"
             elif "warehouse_public" in groups and "warehouse_other" not in groups:
                 # 只看公仓人员
                 order = (
@@ -2611,7 +2712,10 @@ class Accounting(View):
                     )
                     .order_by("is_priority")
                 )
+                permission = "public"
         order = self.process_orders_display_status(order, "receivable")
+        #按出库仓点数统计
+        order = self._add_shipment_group_stats(order, groups, display_mix)
 
         # 查找历史操作过的
         base_condition = models.Q(
@@ -2658,6 +2762,7 @@ class Accounting(View):
             "warehouse_filter": warehouse,
             "warehouse": warehouse,
             "modify_shipped_shipment": request.user.groups.filter(name="shipment_leader").exists(),
+            "permission": permission,
         }
         return self.template_invoice_delivery, context
 
