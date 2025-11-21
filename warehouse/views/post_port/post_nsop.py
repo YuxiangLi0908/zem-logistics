@@ -2614,7 +2614,10 @@ class PostNsop(View):
         has_any_timestamp = (
             models.Q(container_number__order__retrieval_id__target_retrieval_timestamp__isnull=False) |
             models.Q(container_number__order__retrieval_id__target_retrieval_timestamp_lower__isnull=False) |
-            models.Q(container_number__order__retrieval_id__actual_retrieval_timestamp__isnull=False)
+            (
+                models.Q(container_number__order__retrieval_id__actual_retrieval_timestamp__isnull=False) &
+                models.Q(container_number__order__retrieval_id__actual_retrieval_timestamp__gt=datetime(2025, 2, 1))
+            )
         )
         unshipment_pos = await self._get_packing_list(
             user,
@@ -2624,7 +2627,6 @@ class PostNsop(View):
                 container_number__order__offload_id__offload_at__isnull=True,
                 shipment_batch_number__shipment_batch_number__isnull=True,
                 container_number__order__retrieval_id__retrieval_destination_precise=warehouse,
-                container_number__order__retrieval_id__actual_retrieval_timestamp__gt=datetime(2025, 2, 1),
                 delivery_type='public',
             ),
             delivery_method_filter
