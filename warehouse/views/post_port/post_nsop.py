@@ -1399,7 +1399,7 @@ class PostNsop(View):
         context = {}
         operation_type = request.POST.get('operation_type')
         shipment_cargo_id = request.POST.get('shipment_cargo_id')
-
+        page = request.POST.get("page")
         if operation_type == "remove_po":            
             shipment = await sync_to_async(Shipment.objects.get)(
                 appointment_id=appointment_id
@@ -1415,9 +1415,8 @@ class PostNsop(View):
             sm = ShippingManagement()
             info = await sm.handle_alter_po_shipment_post(request,'post_nsop') 
             context.update({"success_messages": f"删除部分PO，批次号是{shipment_batch_number}"})
-            page = request.POST.get("page")
             if page == "arm_appointment":
-                template, context = await self.handle_unscheduled_pos_post(request,context)
+                return await self.handle_unscheduled_pos_post(request,context)
             else:
                 return await self.handle_td_shipment_post(request,context)
         
@@ -1484,7 +1483,10 @@ class PostNsop(View):
                                
             except MultipleObjectsReturned:
                 context.update({"error_messages": f"存在多条重复的{appointment_id}!"})  
-                return await self.handle_td_shipment_post(request,context)          
+                if page == "arm_appointment":
+                    return await self.handle_unscheduled_pos_post(request,context)
+                else:
+                    return await self.handle_td_shipment_post(request,context)          
 
             shipment_data = {
                 'shipment_batch_number': shipment_batch_number,
@@ -1525,19 +1527,19 @@ class PostNsop(View):
             
             sm = ShippingManagement()
             info = await sm.handle_appointment_post(request,'post_nsop') 
-            page = request.POST.get("page")
+            context.update({"success_messages": f"绑定成功，批次号是{shipment_batch_number}"})
             if page == "arm_appointment":
-                template, context = await self.handle_unscheduled_pos_post(request,context)
+                return await self.handle_unscheduled_pos_post(request,context)
             else:
-                context.update({"success_messages": f"绑定成功，批次号是{shipment_batch_number}"})
+                return await self.handle_td_unshipment_post(request,context)
         else:
             context.update({"error_messages": f"没有选择PO！"}) 
         template_name = request.POST.get('template_name')
         if template_name and template_name == "unshipment":
             return await self.handle_td_unshipment_post(request,context)
         page = request.POST.get("page")
-        if page == "arm_appointment":
-            template, context = await self.handle_unscheduled_pos_post(request,context)
+        if page == "arm_appointment":          
+            return await self.handle_unscheduled_pos_post(request,context)
         else:
             return await self.handle_td_shipment_post(request,context)
     

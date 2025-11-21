@@ -5,7 +5,7 @@
             <h3><i class="fas fa-link"></i> 绑定预约信息</h3>
             <span class="close">&times;</span>
         </div>
-        <div class="modal-body">
+        <div class="modal-body" style="padding: 20px;">
             <form id="bindShipmentForm" method="post">
                 {% csrf_token %}
                 <input type="hidden" name="step" value="bind_group_shipment">
@@ -15,12 +15,12 @@
                 <input type="hidden" name="warehouse" value="{{ warehouse }}">
                 <input type="hidden" name="st_type" value="{{ st_type }}">
                 <input type="hidden" name="page" value="arm_appointment">
-                <input type="hidden" name="active_tab" value="scheduled">
+                <input type="hidden" name="active_tab" value="cargo">
                 <input type="hidden" name="operation_type" id="operationType" value="bind">
 
                 <!-- FTL 表单 -->
                 <div class="modal-form-section">
-                    <h4><i class="fas fa-truck"></i> 预约信息</h4>
+                    <h4 style="margin-top: 20px;"><i class="fas fa-truck"></i> 预约信息</h4>
                     <table class="modal-table">
                         <thead>
                             <tr>
