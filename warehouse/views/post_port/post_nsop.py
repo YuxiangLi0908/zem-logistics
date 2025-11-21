@@ -2124,6 +2124,57 @@ class PostNsop(View):
         context = {"warehouse_options": self.warehouse_options}
         return self.template_fleet_schedule, context
     
+    async def _update_shipment_totals(self, sp_base_q):
+        """
+        更新shipment的总重量、总体积和总板数
+        """
+        shipment_list = await sync_to_async(list)(
+            Shipment.objects.filter(sp_base_q).order_by("pickup_time", "shipment_appointment")
+        )
+
+        for shipment in shipment_list:
+            total_weight = 0
+            total_cbm = 0
+            total_pallet = 0
+            
+            # 查询关联的packinglist
+            packinglists = await sync_to_async(list)(
+                PackingList.objects.filter(
+                    shipment_batch_number=shipment,
+                    container_number__order__offload_id__offload_at__isnull=True
+                )
+            )
+            for packinglist in packinglists:
+                if packinglist.total_weight_lbs:
+                    total_weight += packinglist.total_weight_lbs
+                if packinglist.cbm:
+                    total_cbm += packinglist.cbm
+                    total_pallet += math.ceil(packinglist.cbm / 2)
+            
+            # 查询关联的pallet
+            pallets = await sync_to_async(list)(
+                Pallet.objects.filter(
+                    shipment_batch_number=shipment,
+                    container_number__order__offload_id__offload_at__isnull=False
+                )
+            )
+            for pallet in pallets:
+                if pallet.weight_lbs:
+                    total_weight += pallet.weight_lbs
+                if pallet.cbm:
+                    total_cbm += pallet.cbm
+                total_pallet += 1
+            
+            # 更新shipment的总重量和总体积
+            shipment.total_weight = float(round(total_weight, 3))
+            shipment.total_cbm = float(round(total_cbm, 3))
+            shipment.total_pallet = int(total_pallet)
+            shipment.shipped_weight = float(round(total_weight, 3))
+            shipment.shipped_cbm = float(round(total_cbm, 3))
+            shipment.shipped_pallet = int(total_pallet)
+            await sync_to_async(shipment.save, thread_sensitive=True)()
+              
+    
     async def _fl_unscheduled_data(
         self, request: HttpRequest, warehouse:str, four_major_whs: str | None = None
     ) -> tuple[str, dict[str, Any]]:
@@ -2138,6 +2189,9 @@ class PostNsop(View):
         )
         if four_major_whs == "four_major_whs":          
             sp_base_q &= models.Q(destination__in=FOUR_MAJOR_WAREHOUSES)
+
+        await self._update_shipment_totals(sp_base_q)
+
         shipment_list = await sync_to_async(list)(
             Shipment.objects.filter(sp_base_q).order_by("pickup_time", "shipment_appointment")
         )
