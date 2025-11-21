@@ -224,8 +224,11 @@ class TerminalDispatch(View):
     async def handle_batch_schedule_container_get(
         self, request: HttpRequest
     ) -> tuple[Any, Any]:
-        container_numbers_json = request.POST.get("selected_containers")
-        container_numbers = json.loads(container_numbers_json)
+        if request.POST.getlist("containers[]"):
+            container_numbers = request.POST.getlist("containers[]")
+        else:
+            container_numbers_json = request.POST.get("selected_containers")
+            container_numbers = json.loads(container_numbers_json)
         
         # 获取所有选中的订单
         selected_orders = []
