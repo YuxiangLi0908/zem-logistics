@@ -1,14 +1,26 @@
 {% extends 'base.html' %}
 <style>
     .completed {
-        background-color: #d4edda; /* 浅绿色背景 */
-        color: #155724; /* 深绿色文字 */
+        background-color: red !important;
+        color: white !important;
         font-weight: bold;
     }
 
     .in-progress {
-        background-color: #fff3cd; /* 浅黄色背景 */
-        color: #856404; /* 深黄色文字 */
+        background-color: blue !important;
+        color: white !important;
+    }
+
+    /* 如果上面生效，再换回正常颜色 */
+    .completed {
+        background-color: #d4edda;
+        color: #155724;
+        font-weight: bold;
+    }
+
+    .in-progress {
+        background-color: #fff3cd;
+        color: #856404;
     }
 </style>
 {% block content %}
@@ -102,7 +114,7 @@
                                     {% endif %}
                                 </td>
                                 <td class="td">{{ c.unshipped_shipment_groups }}/{{ c.total_shipment_groups }}</td>
-                                <td class="td {% if c.shipped_shipment_groups == c.total_shipment_groups %}completed{% else %}in-progress{% endif %}">
+                                <td class="td" style="{% if c.shipped_shipment_groups == c.total_shipment_groups %}background-color: #d4edda; color: #155724; font-weight: bold;{% else %}background-color: #fff3cd; color: #856404;{% endif %}">
                                     {{ c.shipped_shipment_groups }}/{{ c.total_shipment_groups }}
                                 </td>
                                 <td class="td">{{ c.display_reject_reason }}</td>
