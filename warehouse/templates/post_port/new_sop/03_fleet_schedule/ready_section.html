@@ -109,7 +109,8 @@
                                                         <br><small style="color:#7f8c8d;font-size:10px;">虚拟车次待编辑</small>
                                                     {% endif %}
                                                 </td>
-                                                <td rowspan="{{ fleet_rowspan }}" style="vertical-align: middle; background-color: #f8f9fa;">
+                                                <td rowspan="{{ fleet_rowspan }}" style="vertical-align: middle; background-color: #f8f9fa;"
+                                                    data-pickup-time="{{ fleet_group.appointment_datetime|date:'c' }}">
                                                     {{ fleet_group.appointment_datetime|date:"Y-m-d" }}
                                                 </td>
                                             {% endif %}
@@ -168,7 +169,8 @@
                                                         <small style="color: #7f8c8d; font-size: 10px;">虚拟车次待编辑</small>
                                                         {% endif %}
                                                     </td> 
-                                                    <td rowspan="{{ fleet_rowspan }}" style="vertical-align: middle; background-color: #f8f9fa;">
+                                                    <td rowspan="{{ fleet_rowspan }}" style="vertical-align: middle; background-color: #f8f9fa;"
+                                                        data-pickup-time="{{ fleet_group.appointment_datetime|date:'c' }}">
                                                         {{ fleet_group.appointment_datetime|date:"Y-m-d" }}
                                                     </td> 
                                                 {% endif %}
