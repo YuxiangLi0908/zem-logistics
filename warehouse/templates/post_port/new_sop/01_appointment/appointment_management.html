@@ -188,6 +188,156 @@
     .btn:hover {
         opacity: 0.9;
     }
+    .modal {
+        display: none;
+        position: fixed;
+        z-index: 1000;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0,0,0,0.5);
+        backdrop-filter: blur(2px);
+    }
+
+    .modal-content {
+        background-color: #fefefe;
+        margin: auto;
+        padding: 0;
+        border: none;
+        border-radius: 12px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        position: absolute;
+        top: 55%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        max-height: 85vh;
+        overflow-y: auto;
+        animation: modalSlideIn 0.3s ease-out;
+    }
+
+    @keyframes modalSlideIn {
+        from {
+            opacity: 0;
+            transform: translate(-50%, -60%);
+        }
+        to {
+            opacity: 1;
+            transform: translate(-50%, -50%);
+        }
+    }
+
+    .modal-header {
+        background: linear-gradient(135deg, var(--secondary-color), #4a6491);
+        color: white;
+        padding: 20px 25px;
+        border-radius: 12px 12px 0 0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .modal-header h3 {
+        margin: 0;
+        font-size: 1.3rem;
+        font-weight: 600;
+    }
+
+    .modal-header .close {
+        color: white;
+        font-size: 28px;
+        font-weight: bold;
+        cursor: pointer;
+        opacity: 0.8;
+        transition: opacity 0.3s;
+    }
+
+    .modal-header .close:hover {
+        opacity: 1;
+    }
+
+    .modal-body {
+        padding: 25px;
+    }
+
+    .modal-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 15px 0;
+        font-size: 0.9rem;
+    }
+
+    .modal-table th {
+        background-color: #f8f9fa;
+        padding: 12px 15px;
+        text-align: left;
+        font-weight: 600;
+        color: var(--secondary-color);
+        border-bottom: 2px solid #e9ecef;
+    }
+
+    .modal-table td {
+        padding: 12px 15px;
+        border-bottom: 1px solid #f1f3f4;
+    }
+
+    .modal-table tr:hover {
+        background-color: #f8f9fa;
+    }
+
+    .modal-actions {
+        display: flex;
+        justify-content: center;
+        gap: 15px;
+        margin-top: 25px;
+        padding-top: 20px;
+        border-top: 1px solid #e9ecef;
+    }
+
+    .modal-btn {
+        padding: 12px 25px;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-weight: 600;
+        font-size: 0.95rem;
+        transition: all 0.3s ease;
+        min-width: 120px;
+    }
+
+    .modal-btn-success {
+        background: var(--success-color);
+        color: white;
+    }
+
+    .modal-btn-success:hover {
+        background: #27ae60;
+        transform: translateY(-1px);
+    }
+
+    .modal-btn-danger {
+        background: var(--danger-color);
+        color: white;
+    }
+
+    .modal-btn-danger:hover {
+        background: #c0392b;
+        transform: translateY(-1px);
+    }
+
+    .form-select, .form-input {
+        width: 100%;
+        padding: 8px 12px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 0.9rem;
+    }
+
+    .form-select:focus, .form-input:focus {
+        outline: none;
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+    }
 </style>
 
 <!-- 功能A：添加备约 -->
@@ -222,6 +372,7 @@
                         <th>Scheduled Time</th>
                         <th>装车类型</th>
                         <th>发货仓库</th>
+                        
                     </tr>
                 </thead>
                 <tbody>
@@ -284,7 +435,83 @@
         </form>
     </div>
 </div>
+<div id="editAppointmentModal" class="modal">
+    <div class="modal-content" style="width: 600px; max-width: 90%;">
+        <div class="modal-header">
+            <h3><i class="fas fa-edit"></i> 修改预约</h3>
+            <span class="close" onclick="closeEditModal()">&times;</span>
+        </div>
+        <div class="modal-body">
+            <form id="editAppointmentForm" method="post">
+                {% csrf_token %}
+                <input type="hidden" name="step" value="edit_appointment">
+                <input type="hidden" name="appointment_id" id="editModalAppointmentId">
+                <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                <input type="hidden" name="page" value="01_appointment">          
+                <input type="hidden" name="active_tab" value="appointments">
+                <input type="hidden" name="st_type" value="{{ st_type }}">
 
+                <table class="modal-table">
+                    <tbody>
+                        <tr>
+                            <th>预约号</th>
+                            <td><input type="text" name="appointment_id_input" id="editModalAppointmentInput" class="form-input" required></td>
+                        </tr>
+                        <tr>
+                            <th>Scheduled Time</th>
+                            <td><input type="datetime-local" name="shipment_appointment" id="editModalScheduledTime" class="form-input" required></td>
+                        </tr>
+                        <tr>
+                            <th>目的地</th>
+                            <td><input type="text" name="destination" id="editModalDestination" class="form-input" required></td>
+                        </tr>
+                        <tr>
+                            <th>装车类型</th>
+                            <td>
+                                <select name="load_type" id="editModalLoadType" class="form-select">
+                                    {% for k, v in load_type_options %}
+                                    <option value="{{ v }}">{{ k }}</option>
+                                    {% endfor %}
+                                </select>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>发货仓库</th>
+                            <td>
+                                <select name="origin" id="editModalOrigin" class="form-select">
+                                    {% for k, v in warehouse_options.items %}
+                                    <option value="{{ v }}">{{ k }}</option>
+                                    {% endfor %}
+                                </select>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>Pickup Time</th>
+                            <td><input type="datetime-local" name="pickup_time" id="editModalPickupTime" class="form-input"></td>
+                        </tr>
+                        <tr>
+                            <th>Pickup Number</th>
+                            <td><input type="text" name="pickup_number" id="editModalPickupNumber" class="form-input"></td>
+                        </tr>
+                        <tr>
+                            <th>Shipment id</th>
+                            <td><input type="text" name="shipment_cargo_id" id="editModalShipmentId" class="form-input"></td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <div class="modal-actions">
+                    <button type="submit" class="modal-btn modal-btn-success">
+                        <i class="fas fa-check"></i> 保存修改
+                    </button>
+                    <button type="button" class="modal-btn modal-btn-danger" onclick="closeEditModal()">
+                        <i class="fas fa-times"></i> 取消
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 <!-- 现有的预约数据表格 -->
 <div class="appointment-table-container">
     <table class="appointment-data-table">
@@ -299,6 +526,7 @@
                 <th>Scheduled Time</th>
                 <th>装车类型</th>
                 <th>发货仓库</th>
+                <th>操作</th> 
             </tr>
         </thead>
         <tbody>
@@ -341,6 +569,11 @@
                     {{ s.load_type|default_if_none:"" }}
                 </td>
                 <td>{% if s.origin %}{{ s.origin }}{% endif %}</td>
+                <td>
+                    <button type="button" class="btn btn-warning" onclick="openEditModal('{{ s.appointment_id }}', '{{ s.shipment_account }}', '{{ s.shipment_cargo_id|default_if_none:"" }}', '{{ s.destination }}', '{{ s.pickup_time|date:"Y-m-d\\TH:i" }}', '{{ s.pickup_number }}', '{{ s.shipment_appointment|date:"Y-m-d\\TH:i" }}', '{{ s.load_type }}', '{{ s.origin }}')">
+                        <i class="fas fa-edit"></i> 修改
+                    </button>
+                </td>
             </tr>
             {% empty %}
             <tr>
@@ -369,6 +602,30 @@
     document.addEventListener('DOMContentLoaded', function() {
         addAppointmentFormEventListeners();
     });
+    // 打开修改模态框并填充数据
+    function openEditModal(appointmentId, shipmentAccount, shipmentCargoId, destination, pickupTime, pickupNumber, shipmentAppointment, loadType, origin) {
+        // 填充到模态框
+        const safePickupNumber = (pickupNumber === 'None' || pickupNumber === 'null' || pickupNumber === '') ? '' : pickupNumber;
+        document.getElementById('editModalAppointmentId').value = appointmentId;
+        document.getElementById('editModalAppointmentInput').value = appointmentId;
+        document.getElementById('editModalScheduledTime').value = shipmentAppointment;
+        document.getElementById('editModalDestination').value = destination;
+        document.getElementById('editModalLoadType').value = loadType;
+        document.getElementById('editModalOrigin').value = origin;
+        document.getElementById('editModalPickupTime').value = pickupTime;
+        document.getElementById('editModalPickupNumber').value = pickupNumber;
+        document.getElementById('editModalShipmentId').value = shipmentCargoId;
+
+        // 显示模态框
+        document.getElementById('editAppointmentModal').style.display = 'block';
+    }
+
+    // 关闭模态框
+    function closeEditModal() {
+        document.getElementById('editAppointmentModal').style.display = 'none';
+    }
+
+
     // 自动生成 pickup number 的函数
     function generateAppointmentPickupNumber() {
         const shipmentAccountSelect = document.getElementById('shipment-account-select');
