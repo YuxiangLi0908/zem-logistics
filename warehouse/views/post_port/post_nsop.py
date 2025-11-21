@@ -2976,14 +2976,14 @@ class PostNsop(View):
                 container_number__order__offload_id__offload_at__isnull=True,
                 shipment_batch_number__shipment_batch_number__isnull=False,
                 shipment_batch_number__shipment_appointment__gt=target_date,
-                shipment_batch_number__shipped_at__isnull=True,
+                shipment_batch_number__fleet_number__isnull=True,
                 delivery_type='public',
             )
         plt_criteria = models.Q(
                 shipment_batch_number__shipment_batch_number__isnull=False,
                 shipment_batch_number__shipment_appointment__gt=target_date,
                 container_number__order__offload_id__offload_at__isnull=False,
-                shipment_batch_number__shipped_at__isnull=True,
+                shipment_batch_number__fleet_number__isnull=True,
                 location=warehouse,
                 delivery_type='public',
             )
