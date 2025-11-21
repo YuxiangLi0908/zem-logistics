@@ -1687,15 +1687,21 @@
 
                     // 创建表单并提交
                     const form = document.createElement('form');
-                    form.method = 'GET';
+                    form.method = 'POST';
                     form.action = '/terminal_dispatch/';
                     form.target = '_blank';
+
+                    const csrfInput = document.createElement('input');
+                    csrfInput.type = 'hidden';
+                    csrfInput.name = 'csrfmiddlewaretoken'; // Django 要求的固定字段名
+                    csrfInput.value = '{{ csrf_token }}'; // 直接使用 Django 模板变量
+                    form.appendChild(csrfInput);
 
                     // 添加步骤参数
                     const stepInput = document.createElement('input');
                     stepInput.type = 'hidden';
                     stepInput.name = 'step';
-                    stepInput.value = 'batch_confirm_pickup_v1';
+                    stepInput.value = 'batch_schedule_container';
                     form.appendChild(stepInput);
 
                     // 添加选中的柜号
