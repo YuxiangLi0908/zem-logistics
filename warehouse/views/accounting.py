@@ -1941,8 +1941,10 @@ class Accounting(View):
             order.total_shipment_groups = total_groups
             order.shipped_shipment_groups = shipped_groups
             order.unshipped_shipment_groups = unshipped_groups
-        
-        return orders
+            order.completion_ratio = shipped_groups / total_groups if total_groups > 0 else 0
+            
+        sorted_orders = sorted(orders, key=lambda x: x.completion_ratio, reverse=True)
+        return sorted_orders
 
     def get_shipment_group_stats(self, queryset, delivery_type_q):
         """
