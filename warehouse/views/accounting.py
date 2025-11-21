@@ -1914,21 +1914,20 @@ class Accounting(View):
         """
         # 获取用户权限对应的delivery_type筛选条件
         delivery_type_q = self.get_delivery_type_filter(user_groups, display_mix)
-        print('delivery_type_q',delivery_type_q)
         for order in orders:
             # 查找该order关联的packinglist和pallet
             packinglist_stats = self.get_shipment_group_stats(
                 PackingList.objects.filter(
                     container_number__container_number=order.container_number,
                     container_number__order__offload_id__offload_at__isnull=True,
-                ),
+                ).select_related('shipment_batch_number'),
                 delivery_type_q
             )
             pallet_stats = self.get_shipment_group_stats(
                 Pallet.objects.filter(
                     container_number__container_number=order.container_number,
                     container_number__order__offload_id__offload_at__isnull=False,
-                ),
+                ).select_related('shipment_batch_number'),
                 delivery_type_q
             )
             
@@ -1955,7 +1954,7 @@ class Accounting(View):
             queryset = queryset.filter(delivery_type_q)
         
         # 按destination和shipment_batch_number分组
-        groups = queryset.values('destination', 'shipment_batch_number').annotate(
+        groups = queryset.values('destination', 'shipment_batch_number__shipment_batch_number').annotate(
             group_count=Count('id')
         )
         
@@ -1966,16 +1965,14 @@ class Accounting(View):
         unshipped_groups = 0
         
         for group in groups:
-            shipment_batch_number = group['shipment_batch_number']
+            shipment_batch_number = group['shipment_batch_number__shipment_batch_number']
+            
             if shipment_batch_number:
                 # 检查shipment是否已出库
-                try:
-                    shipment = Shipment.objects.get(shipment_batch_number=shipment_batch_number)
-                    if shipment.shipped_at:
-                        shipped_groups += 1
-                    else:
-                        unshipped_groups += 1
-                except Shipment.DoesNotExist:
+                shipment = Shipment.objects.get(shipment_batch_number=shipment_batch_number)
+                if shipment.shipped_at:
+                    shipped_groups += 1
+                else:
                     unshipped_groups += 1
             else:
                 # 没有shipment_batch_number的视为未出库
