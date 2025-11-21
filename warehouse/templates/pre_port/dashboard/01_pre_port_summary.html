@@ -33,10 +33,23 @@
             justify-content: center;
             gap: 5px;
             text-decoration: none;
+            /* 响应式：缩小时自动调整内边距 */
+            @media (max-width: 1200px) {
+                padding: 5px 10px;
+                font-size: 12px;
+            }
+            @media (max-width: 992px) {
+                padding: 4px 8px;
+                font-size: 11px;
+                gap: 3px;
+            }
         }
 
         .btn i {
             font-size: 14px;
+            @media (max-width: 992px) {
+                font-size: 12px;
+            }
         }
 
         .btn-primary {
@@ -157,18 +170,19 @@
             overflow: hidden;
         }
 
-        /* 搜索和批量操作区域 - 核心优化 */
+        /* 搜索区域 - 优化为单行布局 */
         .search-bar {
             padding: 15px 20px;
             border-bottom: 1px solid #e5e6eb;
             display: flex;
-            justify-content: space-between;
+            justify-content: flex-start;
             align-items: center;
             background-color: #fafbfc;
-            min-height: 80px;
-            flex-wrap: nowrap;
+            min-height: 60px;
+            flex-wrap: wrap;
             width: 100%;
             box-sizing: border-box;
+            gap: 15px;
         }
 
         .search-group {
@@ -177,6 +191,7 @@
             gap: 20px;
             flex: 1;
             min-width: 0;
+            flex-wrap: wrap;
         }
 
         .search-group > div {
@@ -184,23 +199,42 @@
             align-items: center;
             gap: 8px;
             flex-shrink: 0;
+            /* 响应式：缩小时自动换行 */
+            @media (max-width: 1400px) {
+                margin-bottom: 8px;
+            }
         }
 
-        /* 搜索项宽度优化 */
+        /* 搜索项宽度优化（响应式调整） */
         .search-group > div:nth-child(1) {
             width: 175px;
+            @media (max-width: 1200px) {
+                width: 150px;
+            }
         }
 
         .search-group > div:nth-child(2) {
             width: 220px;
+            @media (max-width: 1200px) {
+                width: 180px;
+            }
         }
 
         .search-group > div:nth-child(3) {
             width: 360px; /* 增加宽度确保"日期范围"完整显示 */
+            @media (max-width: 1200px) {
+                width: 300px;
+            }
+            @media (max-width: 992px) {
+                width: 250px;
+            }
         }
 
         .search-group > div:nth-child(4) {
             width: 160px;
+            @media (max-width: 1200px) {
+                width: 140px;
+            }
         }
 
         .search-group label, .search-group span {
@@ -208,14 +242,32 @@
             font-size: 14px;
             white-space: nowrap;
             font-weight: 500;
+            @media (max-width: 992px) {
+                font-size: 13px;
+            }
+        }
+
+        /* 批量操作按钮区域 - 独立一行+响应式 */
+        .batch-actions-bar {
+            padding: 10px 20px;
+            border-bottom: 1px solid #e5e6eb;
+            background-color: #f9fafb;
+            display: flex;
+            flex-wrap: wrap; /* 缩小时自动换行 */
+            gap: 10px;
+            align-items: center;
+            justify-content: flex-start;
+            width: 100%;
+            box-sizing: border-box;
         }
 
         .batch-actions {
             display: flex;
-            gap: 10px;
+            flex-wrap: wrap; /* 按钮组内自动换行 */
+            gap: 8px;
             align-items: center;
-            flex-shrink: 0;
-            margin-left: 15px;
+            flex: 1;
+            min-width: 0;
         }
 
         /* 表格控制区 */
@@ -239,6 +291,11 @@
             transition: all 0.2s ease;
             box-sizing: border-box;
             background-color: #fff;
+            /* 响应式：缩小时调整宽度 */
+            @media (max-width: 992px) {
+                padding: 7px 10px;
+                font-size: 12px;
+            }
         }
 
         select:focus,
@@ -264,12 +321,21 @@
             background-repeat: no-repeat;
             background-position: right 10px center;
             padding-right: 30px;
+            @media (max-width: 992px) {
+                height: 34px;
+                line-height: 34px;
+                padding-right: 25px;
+            }
         }
 
         input[type="date"],
         input[type="datetime-local"] {
             width: 160px !important;
             height: 38px;
+            @media (max-width: 992px) {
+                width: 140px !important;
+                height: 34px;
+            }
         }
 
         /* 表格样式优化 */
@@ -552,6 +618,50 @@
         ::-webkit-scrollbar-thumb:hover {
             background: #a8a8a8;
         }
+
+        /* 模态框头部样式补充 */
+        .modal-header {
+            padding: 12px 15px;
+            border-bottom: 1px solid #e5e6eb;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-title {
+            margin: 0;
+            font-size: 16px;
+            color: #1f2329;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 20px;
+            cursor: pointer;
+            color: #86909c;
+            padding: 0 5px;
+        }
+
+        .modal-close:hover {
+            color: #f5222d;
+        }
+
+        .modal-body {
+            padding: 15px;
+        }
+
+        .modal-footer {
+            padding: 10px 15px;
+            border-top: 1px solid #e5e6eb;
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
     </style>
     <div class="main-container">
         <ul class="nav nav-tabs">
@@ -565,7 +675,7 @@
 
         <div id="order-info-sec">
             <div id="status-summary-sec">
-                <!-- 搜索和批量操作区域 -->
+                <!-- 搜索区域（单独一行） -->
                 <div class="search-bar">
                     <form method="post" action="" id="searchForm">
                         {% csrf_token %}
@@ -624,8 +734,10 @@
                             </div>
                         </div>
                     </form>
+                </div>
 
-                    <!-- 批量操作按钮区域 -->
+                <!-- 批量操作按钮区域（单独一行，响应式） -->
+                <div class="batch-actions-bar">
                     <div class="batch-actions">
                         <button id="batchActionBtn" class="btn btn-primary" disabled
                                 title="查看已选项详情">
@@ -643,14 +755,14 @@
                                 title="统一设置拆柜时间">
                             批量设置拆柜时间
                         </button>
-                        <form action="" method="post">
+                        <form action="" method="post" class="inline-form">
                             {% csrf_token %}
                             <input type="hidden" name="step" value="get_is_abnormal_state">
-                        <button type="submit"
-                                class="btn btn-warning"
-                                title="筛选所有标记为异常的数据">
-                            <i class="bi bi-exclamation-triangle"></i> 筛选所有异常数据
-                        </button>
+                            <button type="submit"
+                                    class="btn btn-warning"
+                                    title="筛选所有标记为异常的数据">
+                                <i class="bi bi-exclamation-triangle"></i> 筛选所有异常数据
+                            </button>
                         </form>
                     </div>
                 </div>
