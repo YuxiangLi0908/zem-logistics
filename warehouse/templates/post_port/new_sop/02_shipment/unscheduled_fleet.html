@@ -129,7 +129,7 @@
                             {{ s.shipment_appointment|date:"Y-m-d" }} {{ s.shipment_appointment|time:"H:i" }}
                             {% endif %}
                         </td>
-                        <td>
+                        <td data-pickup-time="{{ s.pickup_time|date:'Y-m-d\TH:i' }}">
                             {{ s.pickup_time|date:"Y-m-d" }} {{ s.pickup_time|time:"H:i" }}
                         </td>
                         <td>{{ s.total_weight|floatformat:2 }}</td>
@@ -278,11 +278,21 @@
             }
 
             const selectedIds = [];
+            let pickupTime = '';
+
             checkboxes.forEach(cb => {
                 const hiddenInput = cb.closest('tr').querySelector('input[name="shipment_ids"]');
                 if (hiddenInput && hiddenInput.value) {
                     selectedIds.push(hiddenInput.value);
-                }
+                    // 获取第一条选中记录的Pickup Time
+                    if (!pickupTime) {
+                        const tr = cb.closest('tr');
+                        const pickupTimeCell = tr.querySelector('td[data-pickup-time]');
+                        if (pickupTimeCell) {
+                            pickupTime = pickupTimeCell.dataset.pickupTime;
+                        }
+                    }
+                    }
             });
 
             // 设置选中的ID到隐藏字段
@@ -316,6 +326,10 @@
             const form = document.querySelector('#fleetModal form');
             form.reset();
             
+            // 设置提货时间到弹框 - 直接使用，不进行转换
+            if (pickupTime) {
+                document.getElementById('fleetModalAppointmentDatetime').value = pickupTime;
+            }
             // 显示弹窗
             document.getElementById("fleetModal").style.display = "block";
         });
