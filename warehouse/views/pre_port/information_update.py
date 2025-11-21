@@ -174,20 +174,33 @@ class InformationUpdate(View):
                 return template, context
 
             def parse_datetime(time_str: str):
+                """
+                修正：支持两种时间格式（兼容纯日期和年月日时分秒）
+                - 前端传递格式：Y-m-d H:i:s（时分秒）或 Y-m-d（纯日期）
+                - 返回带时区的 datetime 对象（与后端时区一致）
+                """
                 if not time_str:
                     return None
-                try:
-                    date_obj = datetime.strptime(time_str, "%Y-%m-%d")
-                    date_obj = date_obj.replace(hour=0, minute=0, second=0, microsecond=0)
-                    return date_obj
-                except ValueError as e:
-                    print(f"时间解析失败：{e}（输入值：{time_str}）")
-                    return None
+                # 定义支持的时间格式（优先匹配时分秒格式）
+                formats = ["%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M", "%Y-%m-%d"]
+                for fmt in formats:
+                    try:
+                        # 解析为本地时间（datetime 对象）
+                        date_obj = datetime.strptime(time_str, fmt)
+                        # 转换为带时区的时间（使用 Django 配置的时区，如 UTC+8）
+                        aware_date = timezone.make_aware(date_obj)
+                        return aware_date
+                    except ValueError:
+                        continue
+                print(f"时间解析失败：不支持的时间格式（输入值：{time_str}）")
+                return None
+
             @sync_to_async
             def update_order_data():
                 vessel_eta = parse_datetime(vessel_eta_str)
                 vessel_etd = parse_datetime(vessel_etd_str)
 
+                # 筛选条件优化：确保只查询有效订单
                 orders = Order.objects.select_related("vessel_id", "container_number").filter(
                     container_number__container_number=container_number,
                     cancel_notification=False,
@@ -195,34 +208,46 @@ class InformationUpdate(View):
                 )
 
                 if not orders.exists():
-                    return False
+                    return False, f"未找到柜号为【{container_number}】的有效订单"
 
+                # 批量更新（优化性能）
+                updated_count = 0
                 for order in orders:
                     vessel_instance = order.vessel_id
+                    has_update = False
 
-                    if vessel:
+                    # 只更新有变化的字段（避免无用写入）
+                    if vessel and vessel_instance.vessel != vessel:
                         vessel_instance.vessel = vessel
+                        has_update = True
 
-                    if vessel_eta:
-                        vessel_instance.vessel_eta = timezone.make_aware(vessel_eta)
+                    if vessel_eta and vessel_instance.vessel_eta != vessel_eta:
+                        vessel_instance.vessel_eta = vessel_eta
+                        has_update = True
 
-                    if vessel_etd:
-                        vessel_instance.vessel_etd = timezone.make_aware(vessel_etd)
+                    if vessel_etd and vessel_instance.vessel_etd != vessel_etd:
+                        vessel_instance.vessel_etd = vessel_etd
+                        has_update = True
 
-                    if destination_port:
+                    if destination_port and vessel_instance.destination_port != destination_port:
                         vessel_instance.destination_port = destination_port
+                        has_update = True
 
-                    vessel_instance.save()
+                    if has_update:
+                        vessel_instance.save()
+                        updated_count += 1
 
-                return True
+                return True, f"成功更新 {updated_count} 条订单数据"
 
-            update_success = await update_order_data()
+            # 执行更新并获取结果
+            update_success, msg = await update_order_data()
 
+            # 重新获取搜索结果页面
             template, context = await self.information_update_search(request)
             if update_success:
-                context["success_msg"] = "数据更新成功！"
+                context["success_msg"] = msg
             else:
-                context["error_msg"] = f"未找到柜号为【{container_number}】的有效订单，更新失败"
+                context["error_msg"] = msg
 
             return template, context
 
