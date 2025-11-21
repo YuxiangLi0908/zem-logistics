@@ -386,7 +386,7 @@
                 <th data-sort="destination">目的地</th>
                 <th data-sort="destination">放行状态</th>
                 <th class="delivery-method-col" data-sort="delivery_method">派送方式</th>
-                <th class="vessel-col" data-sort="vessels">船名</th>
+                <th class="vessel-col" data-sort="vessels">是否特操</th>
                 <th class="container-col" data-sort="containers">柜号</th>
                 <th class="offload-time">入仓时间</th>
                 <th data-sort="delivery_window">派送时间窗口</th>
@@ -438,8 +438,8 @@
                     {% endif %}
                 </td>              
                 <td class="delivery-method-col">{{ cargo.custom_delivery_method|default:"-" }}</td>
-                <td class="vessel-col" style="white-space: pre-line;" id="container-{{ forloop.counter }}">
-                    {{ cargo.vessel_name }}
+                <td class="vessel-col" style="white-space: pre-line; text-align: center;" id="container-{{ forloop.counter }}">
+                    {% if cargo.is_zhunshida %}<span style="color: #3498db; font-weight: bold;">特操</span>{% endif %}
                 </td>                
                 <td class="container-col" style="white-space: pre-line;" id="container-{{ forloop.counter }}">
                     {{ cargo.container_numbers }}

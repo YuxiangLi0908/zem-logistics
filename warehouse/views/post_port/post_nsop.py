@@ -3667,7 +3667,11 @@ class PostNsop(View):
                         function='to_char',
                         output_field=CharField()
                     ),
-                    
+                    is_zhunshida=Case(
+                        When(container_number__order__customer_name__zem_name__icontains='准时达', then=Value(True)),
+                        default=Value(False),
+                        output_field=BooleanField()
+                    ),
                     # 创建完整的组合字段，通过前缀区分状态
                     container_with_eta_retrieval=Concat(
                         Value("[已入仓]"),
@@ -3707,6 +3711,7 @@ class PostNsop(View):
                     "shipment_batch_number__fleet_number__fleet_number",
                     "location",  # 添加location用于比较
                     "is_pass",
+                    "is_zhunshida",
                     warehouse=F(
                         "container_number__order__retrieval_id__retrieval_destination_precise"
                     ),               
@@ -3778,6 +3783,11 @@ class PostNsop(View):
                         ),
                         default=Value(0),
                         output_field=IntegerField()
+                    ),
+                    is_zhunshida=Case(
+                        When(container_number__order__customer_name__zem_name__icontains='准时达', then=Value(True)),
+                        default=Value(False),
+                        output_field=BooleanField()
                     ),
                     custom_delivery_method=Case(
                         When(
@@ -3918,6 +3928,7 @@ class PostNsop(View):
                     "has_actual_retrieval",
                     "has_appointment_retrieval", 
                     "has_estimated_retrieval",
+                    "is_zhunshida", 
                     warehouse=F(
                         "container_number__order__retrieval_id__retrieval_destination_precise"
                     ),
