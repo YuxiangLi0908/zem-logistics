@@ -135,14 +135,14 @@
                         </td>
                         <td class="ref-ids-col" data-full="{{ cargo.ref_ids|default:'' }}">{{ cargo.ref_ids|default:"-"|truncatechars:20 }}</td>
                         <td class="fba-ids-col" data-full="{{ cargo.fba_ids|default:'' }}">{{ cargo.fba_ids|default:"-"|truncatechars:20 }}</td>
-                        <td>
+                        <td class="pallet-col">
                             {% if cargo.label == 'ACT' %}
                                 {{ cargo.total_n_pallet_act|default:0 }} ACT
                             {% else %}
                                 {{ cargo.total_n_pallet_est|default:0 }} EST
                             {% endif %}
                         </td>
-                        <td>{{ cargo.total_cbm|default:0 }}</td>
+                        <td class="cbm-col">{{ cargo.total_cbm|default:0 }}</td>
                         <td>
                             <form method="post">
                                 {% csrf_token %}
@@ -169,7 +169,6 @@
                                     <input type="hidden" name="appointment_id" value="{{ shipment_group.appointment_id }}">                                  
                                     <input type="hidden" name="warehouse" value="{{ warehouse }}">
                                     <input type="hidden" name="step" value="sp_notified_customer">
-                                    <input type="hidden" name="page" value="arm_appointment">
                                     <input type="hidden" name="active_tab" value="scheduled"> 
                                     <button class="action-btn btn-info" data-notified="0">
                                         <i class="fas fa-bell"></i> 通知客户
@@ -264,7 +263,6 @@
                                 <input type="hidden" name="appointment_id" value="{{ shipment_group.appointment_id }}">                                  
                                 <input type="hidden" name="warehouse" value="{{ warehouse }}">
                                 <input type="hidden" name="step" value="sp_notified_customer">
-                                <input type="hidden" name="page" value="arm_appointment">
                                 <input type="hidden" name="active_tab" value="scheduled"> 
                                 <button class="action-btn btn-info" data-notified="0">
                                     <i class="fas fa-bell"></i> 通知客户
