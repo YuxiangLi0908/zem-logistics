@@ -626,6 +626,7 @@
             });
         });
     }
+    const CURRENT_TIME = new Date('{{ current_time|date:"Y-m-d H:i" }}' || new Date());
     function markScheduledFleetRows() {
         const rows = document.querySelectorAll('#scheduledFleet-section .data-table tbody tr');
         

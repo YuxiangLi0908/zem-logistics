@@ -454,7 +454,7 @@
                         {{ cargo.delivery_window_start|date:"M. j" }} ~ {{ cargo.delivery_window_end|date:"M. j" }}
                     {% endif %}
                 </td>
-                <td>
+                <td class="pallet-col">
                     {% if cargo.label == 'ACT' %}
                         <span class="pallet-badge pallet-actual">
                             <span style="font-size: 16px; font-weight: bold;">{{ cargo.total_n_pallet_act|default:0 }}</span> ACT
@@ -465,7 +465,7 @@
                         </span>
                     {% endif %}
                 </td>
-                <td>
+                <td class="cbm-col">
                     <span class="status-badge status-expired">{{ cargo.total_cbm }}</span>
                 </td>
                 <td>

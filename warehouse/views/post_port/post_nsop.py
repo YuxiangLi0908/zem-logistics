@@ -78,6 +78,15 @@ class PostNsop(View):
         "ARM-AMF": "ARM-AMF",
         "walmart": "walmart",
     }
+    arm_account_options = {
+        "": "",
+        "Carrier Central ADWG": "Carrier Central ADWG",
+        "Carrier Central1": "Carrier Central1",
+        "Carrier Central2": "Carrier Central2",
+        "ZEM-AMF": "ZEM-AMF",
+        "ARM-AMF": "ARM-AMF",
+        "walmart": "walmart",
+    }
     abnormal_fleet_options = {
         "": "",
         "司机未按时提货": "司机未按时提货",
@@ -1386,9 +1395,24 @@ class PostNsop(View):
         else:
             return await self.handle_td_shipment_post(request,context)
     
+    async def _get_unique_pickup_number(self, pickup_number: str) -> str:
+        """
+        获取唯一的pickup_number，如果有重复则自动添加序号
+        """
+        base_number = pickup_number
+        counter = 1
+        
+        while await Shipment.objects.filter(pickup_number=pickup_number).aexists():
+            pickup_number = f"{base_number}-{counter}"
+            counter += 1
+        
+        return pickup_number
+
     async def handle_appointment_post(
         self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:    
+        pickup_number_raw = request.POST.get('pickupNumber')
+        pickup_number = await self._get_unique_pickup_number(pickup_number_raw)
         appointment_id = request.POST.get('appointment_id')
         ids = request.POST.get("cargo_ids")
         plt_ids = request.POST.get("plt_ids")
@@ -1503,7 +1527,7 @@ class PostNsop(View):
                 'origin': request.POST.get('warehouse'),
                 'note': request.POST.get('note'),
                 'address': address,
-                'pickup_number': request.POST.get('pickupNumber'),
+                'pickup_number': pickup_number,
                 'pickup_time': request.POST.get('pickup_time'),
             }
             request.POST = request.POST.copy()
@@ -1520,12 +1544,12 @@ class PostNsop(View):
             request.POST['shipment_type'] = request.POST.get('shipment_type')  
             request.POST['appointment_id'] = request.POST.get('appointment_id')  
             request.POST['shipment_cargo_id'] = request.POST.get('shipment_cargo_id')  
-            request.POST['pickup_number'] = request.POST.get('pickupNumber')  
+            request.POST['pickup_number'] = pickup_number  
             request.POST['pickup_time'] = request.POST.get('pickup_time') 
             
             sm = ShippingManagement()
             info = await sm.handle_appointment_post(request,'post_nsop') 
-            context.update({"success_messages": f"绑定成功，批次号是{shipment_batch_number}"})
+            context.update({"success_messages": f"绑定成功，批次号是{shipment_batch_number},pickupNumber是{pickup_number}"})
             if page == "arm_appointment":
                 return await self.handle_unscheduled_pos_post(request,context)
             else:
@@ -3397,7 +3421,7 @@ class PostNsop(View):
             'appointment_count': len(shipments),
             "vessel_dict": vessel_dict,
             "destination_list": destination_list,
-            'account_options': self.account_options,
+            'account_options': self.arm_account_options,
             'load_type_options': LOAD_TYPE_OPTIONS,
             "scheduled_data": scheduled_data,
             "schedule_fleet_data": schedule_fleet_data,
