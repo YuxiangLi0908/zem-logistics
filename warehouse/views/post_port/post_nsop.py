@@ -3261,6 +3261,7 @@ class PostNsop(View):
                         'shipment_batch_number': shipment.shipment_batch_number or '-',
                         'appointment_id': shipment.appointment_id or '-',
                         'destination': shipment.destination or '-',
+                        'shipment_appointment': shipment.shipment_appointment,
                         'cargos': []
                     }
                 
