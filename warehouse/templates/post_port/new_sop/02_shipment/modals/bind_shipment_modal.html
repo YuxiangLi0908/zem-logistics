@@ -629,12 +629,6 @@
 
     document.querySelector('#bindShipmentModal .close').addEventListener('click', closeBindModal);
 
-    window.addEventListener('click', function (event) {
-        const modal = document.getElementById('bindShipmentModal');
-        if (event.target === modal) {
-            closeBindModal();
-        }
-    });
 
     document.getElementById('bindShipmentForm').addEventListener('submit', function(e) {
         e.preventDefault();
