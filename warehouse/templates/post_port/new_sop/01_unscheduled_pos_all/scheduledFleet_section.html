@@ -144,7 +144,8 @@
                         data-total-cbm="{{ f.total_cbm|default_if_none:'' }}"
                         data-total-pallet="{{ f.total_pallet|default_if_none:'' }}"
                         data-shipment-batches="{{ f.shipment_batch_numbers|default_if_none:'' }}"
-                        data-appointment-ids="{{ f.appointment_ids|default_if_none:'' }}"                        
+                        data-appointment-ids="{{ f.appointment_ids|default_if_none:'' }}"     
+                        data-fleet-cost="{{ f.fleet_cost|default_if_none:'' }}"                 
                         data-json-id="fleet-json-{{ forloop.counter0 }}"
                         style="color: var(--primary-color); font-weight: 600; cursor: pointer; text-decoration: underline;">
                         {{ f.fleet_number }}
@@ -264,9 +265,13 @@
                                     <label style="font-size: 0.8rem; font-weight: 600; color: var(--secondary-color); display: block; margin-bottom: 5px;">提货时间</label>
                                     <input type="datetime-local" name="appointment_datetime" id="s_fleetModalAppointmentDatetime" class="table-input" style="width: 100%;" required>
                                 </td>
-                                <td colspan="2">
+                                <td>
                                     <label style="font-size: 0.8rem; font-weight: 600; color: var(--secondary-color); display: block; margin-bottom: 5px;">备注</label>
                                     <input type="text" name="note" id="s_fleetModalNote" class="table-input" style="width: 100%;">
+                                </td>
+                                <td>
+                                    <label style="font-size: 0.8rem; font-weight: 600; color: var(--secondary-color); display: block; margin-bottom: 5px;">费用</label>
+                                    <input type="number" name="fleet_cost" id="s_fleetCost" class="table-input" style="width: 100%;">
                                 </td>
                             </tr>
                         </tbody>
@@ -338,6 +343,7 @@
             safeSetValueById('s_fleetModalMotorCarrierNumber', data.motorCarrierNumber);
             safeSetValueById('s_fleetModalDotNumber', data.dotNumber);
             safeSetValueById('s_fleetModalNote', data.note);
+            safeSetValueById('s_fleetCost', data.fleetCost);
             console.log('传来的时间',data.appointmentDatetime);
             if (data.appointmentDatetime) {
                 const formatted = formatDateForInput(data.appointmentDatetime.replace(' ', 'T'));
