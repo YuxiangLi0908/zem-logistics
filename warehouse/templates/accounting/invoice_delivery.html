@@ -84,6 +84,7 @@
                         <tr style="position: sticky; top: 0;">
                             <th class="th">客户</th>
                             <th class="th">柜号</th>
+                            <th class="th">仓库</th>   
                             <th class="th">未出库数</th>
                             <th class="th">已出库数</th>
                             <th class="th">驳回原因</th>
@@ -92,6 +93,7 @@
                         <tr style="position: sticky; top: 28px;">
                             <th class="th"></th>
                             <th class="th"><input type="text" id="containerSearchInput" placeholder="搜索柜号..." oninput="filterTable(this, 1)" size="16" style="font-size: 14px;"></th>                           
+                            <th class="th"><input type="text" id="warehouseSearchInput" placeholder="搜索仓库..." oninput="filterTable(this, 2)" size="16" style="font-size: 14px; width:80px;"></th>
                             <th class="th"></th>
                             <th class="th"></th>      
                             <th class="th"></th>
@@ -108,6 +110,7 @@
                                         (有暂扣)
                                     {% endif %}
                                 </td>
+                                <td class="td">{{ c.warehouse|default_if_none:"" }}</td>
                                 <td class="td">{{ c.unshipped_shipment_groups }}/{{ c.total_shipment_groups }}</td>
                                 <td class="td" style="{% if c.shipped_shipment_groups == c.total_shipment_groups %}background-color: #d4edda; color: #155724; font-weight: bold;{% else %}background-color: #fff3cd; color: #856404;{% endif %}">
                                     {{ c.shipped_shipment_groups }}/{{ c.total_shipment_groups }}
@@ -133,6 +136,7 @@
                         <tr style="position: sticky; top: 0;">
                             <th class="th">客户</th>
                             <th class="th">货柜号</th>
+                            <th class="th">仓库</th>
                             <th class="th">建单日期</th>
                             <th class="th">状态</th>
                             
@@ -140,6 +144,7 @@
                         <tr style="position: sticky; top: 28px;">
                             <th class="th"></th>
                             <th class="th"><input type="text" id="containerSearchInput" placeholder="搜索柜号..." oninput="filterTable(this, 1)" size="16" style="font-size: 14px;"></th>
+                            <th class="th"><input type="text" id="warehouseSearchInput" placeholder="搜索仓库..." oninput="filterTable(this, 2)" size="16" style="font-size: 14px; width:80px;"></th>
                             <th class="th"></th>
                             <th class="th"></th>
                         </tr>
@@ -151,6 +156,7 @@
                                 <td class="td" style="vertical-align: middle;">
                                     <a href="/accounting/?step=container_delivery&container_number={{ c.container_number.container_number }}&start_date={{ start_date }}&end_date={{ end_date }}&warehouse={{ warehouse }}">{{ c.container_number.container_number }}</a>
                                 </td>
+                                <td class="td" style="vertical-align: middle;">{{ c.warehouse }}</td>
                                 <td class="td" style="vertical-align: middle;">{{ c.created_at|date:"Y-m-d" }}</td>
                                 <td class="td" style="vertical-align: middle; white-space: pre-line;">{{ c.display_stage }}</td>
                             </tr>
