@@ -1210,6 +1210,7 @@ class FleetManagement(View):
                     "note": request.POST.get("note", ""),
                     "multipule_destination": True if len(shipment_ids) > 1 else False,
                     "fleet_type": request.POST.get("fleet_type",""),
+                    "fleet_cost": request.POST.get("fleet_cost")
                 }
             )
             fleet = Fleet(**fleet_data)
@@ -1244,6 +1245,7 @@ class FleetManagement(View):
         fleet.pickup_number = request.POST.get("pickup_number", "")
         fleet.appointment_datetime = request.POST.get("appointment_datetime")
         fleet.note = request.POST.get("note", "")
+        fleet.fleet_cost = float(request.POST.get("fleet_cost"))
         await sync_to_async(fleet.save)()
         mutable_get = request.GET.copy()
         mutable_get["warehouse"] = request.POST.get("warehouse")

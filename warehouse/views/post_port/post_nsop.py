@@ -1588,7 +1588,15 @@ class PostNsop(View):
     ) -> tuple[str, dict[str, Any]]:     
         page = request.POST.get("page")
         selected_ids_str = request.POST.get("selected_ids")
-        
+        fleet_cost = request.POST.get("fleet_cost")
+
+        if fleet_cost:
+            try:
+                fleet_cost_value = float(fleet_cost)
+            except (ValueError, TypeError):
+                fleet_cost_value = 0.0
+        else:
+            fleet_cost_value = 0.0  
         error_message = None
         if selected_ids_str:
             try:
@@ -1637,11 +1645,12 @@ class PostNsop(View):
                 'total_cbm': total_cbm,
                 'total_pallet': total_pallet,
                 'total_pcs': total_pcs,
+                'fleet_cost': fleet_cost_value,
             }
             request.POST['fleet_number'] = fleet_number
             request.POST['fleet_type'] = fleet_type
         request.POST['fleet_data'] = str(fleet_data_dict)
-        
+        request.POST['fleet_cost'] = fleet_cost_value
         request.POST['selected_ids'] = selected_ids
         fm = FleetManagement()
         info = await fm.handle_fleet_confirmation_post(request,'post_nsop')
