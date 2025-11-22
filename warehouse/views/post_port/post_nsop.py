@@ -545,6 +545,13 @@ class PostNsop(View):
         packing_list_not_scheduled = await self._get_packing_list(
             request.user,pl_criteria, plt_criteria
         )
+        # 过滤掉每组中 is_pass=False 的内容
+        filtered_packing_list = []
+        for po in packing_list_not_scheduled:
+            if getattr(po, 'is_pass', True):  # 如果 is_pass 为 True 或者不存在该属性，则保留
+                filtered_packing_list.append(po)
+
+        packing_list_not_scheduled = filtered_packing_list
         context.update({
             "warehouse": warehouse,
             "destination": destination,
