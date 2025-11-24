@@ -63,11 +63,12 @@
                     <th>预约时间</th>
                     <th>装车类型</th>
                     <th>柜号</th>
+                    <th>目的地</th>
                     <th>入仓时间</th>
                     <th>REF ID</th>
                     <th>FBA ID</th>
                     <th>板数</th>
-                    <th>CBM</th>
+                    <th>CBM</th>                    
                     <th>备注</th>
                     <th>通知客户</th>
                     <th>操作</th>
@@ -79,11 +80,12 @@
                     <td><input type="text" class="header-search" placeholder="搜索预约时间" data-column="3"></td>
                     <td><input type="text" class="header-search" placeholder="搜索装车类型" data-column="4"></td>
                     <td><input type="text" class="header-search" placeholder="搜索柜号" data-column="5"></td>
-                    <td><input type="text" class="header-search" placeholder="搜索REF ID" data-column="6"></td>
-                    <td><input type="text" class="header-search" placeholder="搜索FBA ID" data-column="7"></td>
-                    <td><input type="text" class="header-search" placeholder="搜索板数" data-column="8"></td>
-                    <td><input type="text" class="header-search" placeholder="搜索CBM" data-column="9"></td>
-                    <td><input type="text" class="header-search" placeholder="搜索备注" data-column="10"></td>
+                    <td><input type="text" class="header-search" placeholder="搜索仓点" data-column="6"></td>
+                    <td><input type="text" class="header-search" placeholder="搜索REF ID" data-column="7"></td>
+                    <td><input type="text" class="header-search" placeholder="搜索FBA ID" data-column="8"></td>
+                    <td><input type="text" class="header-search" placeholder="搜索板数" data-column="9"></td>
+                    <td><input type="text" class="header-search" placeholder="搜索CBM" data-column="10"></td>
+                    <td><input type="text" class="header-search" placeholder="搜索备注" data-column="11"></td>
                     <td>
                         <select class="notification-select" data-column="11" onchange="applyMultiFilter()" style="width: 100%; padding: 4px 8px; border: 1px solid #ced4da; border-radius: 4px; font-size: 0.8rem;">
                             <option value="">全部</option>
@@ -128,6 +130,9 @@
                         {% endif %}
                         <td class="container-no-col" style="max-width: 150px; white-space: pre-line; font-size: 0.8rem;">
                             {{ cargo.cns|linebreaks_cn }}
+                        </td>
+                        <td class="location-col" style="max-width: 150px; white-space: pre-line; font-size: 0.8rem;">
+                            {{ cargo.destination }}
                         </td>
                         <td class="offload-time-col">
                             {{ cargo.offload_time }}
@@ -248,7 +253,7 @@
                     <td style="vertical-align: middle; background-color: #f8f9fa;">
                         {{ shipment_group.load_type }}
                     </td>
-                    <td colspan="6" style="text-align: center; color: #999; background-color: #f8f9fa;">
+                    <td colspan="7" style="text-align: center; color: #999; background-color: #f8f9fa;">
                         无PO
                     </td>
                     <td>
@@ -420,7 +425,7 @@
             }
         });
 
-        // 运行你原来的搜索逻辑
+        // 搜索逻辑
         const groups = new Set();
         rows.forEach(tr => {
             const groupId = tr.dataset.shipmentGroup;

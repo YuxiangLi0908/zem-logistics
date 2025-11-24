@@ -105,15 +105,16 @@
                     <table class="modal-table">
                         <thead>
                             <tr>
-                                <th style="width: 50px;">
+                                <th style="width: 50px; min-width: 50px;">
                                     <input type="checkbox" id="selectAllCargos">
                                 </th>
-                                <th>REF ID</th>
-                                <th>FBA ID</th>
-                                <th>柜号</th>
-                                <th>板数</th>
-                                <th>CBM</th>
-                                <th>入仓时间</th>
+                                <th style="width: 180px; min-width: 180px;">REF ID</th>
+                                <th style="width: 180px; min-width: 180px;">FBA ID</th>
+                                <th style="width: 150px; min-width: 150px;">柜号</th>
+                                <th style="width: 100px; min-width: 100px;">目的地</th>
+                                <th style="width: 80px; min-width: 80px;">板数</th>
+                                <th style="width: 80px; min-width: 80px;">CBM</th>
+                                <th style="width: 120px; min-width: 120px;">入仓时间</th>
                             </tr>
                         </thead>
                         <tbody id="cargoSelectionBody">
@@ -359,6 +360,7 @@
                     ref_ids: row.querySelector('.ref-ids-col')?.innerText.trim() || '-',
                     fba_ids: row.querySelector('.fba-ids-col')?.innerText.trim() || '-',
                     container_no: containerTd?.textContent.trim().replace(/\s+/g, '\n') || '-',
+                    location: row.querySelector('.location-col')?.innerText.trim() || '-',
                     total_pallet: row.querySelector('.pallet-col')?.innerText.trim() || '-',
                     total_cbm: row.querySelector('.cbm-col')?.innerText.trim() || '-',
                     offload_time: offload_timeTd ? offload_timeTd.textContent.trim() : '无入仓时间',
@@ -564,6 +566,7 @@
                 <td>${c.ref_ids}</td>
                 <td>${c.fba_ids}</td>
                 <td>${c.container_no}</td>
+                <td>${c.location}</td>
                 <td>${c.total_pallet}</td>
                 <td>${c.total_cbm}</td>
                 <td>${c.offload_time}</td>
