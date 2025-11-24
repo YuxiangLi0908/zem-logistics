@@ -141,14 +141,12 @@
         tabsContainer.innerHTML = '';
         contentsContainer.innerHTML = '';
         multiGroupForms = {};
-        console.log('开始生成Tab，大组数量:', selectedVirtualGroups.length);
         if (selectedVirtualGroups.length === 0) {
             console.error('selectedVirtualGroups 为空，无法生成Tab');
             alert('没有选择大组数据');
             return;
         }
         selectedVirtualGroups.forEach((group, index) => {
-            console.log(`处理第${index}个大组:`, group.suggestionId);
             const suggestion = group.suggestion;
             const pg = suggestion.primary_group;
             
@@ -182,7 +180,6 @@
         const modal = document.getElementById('multiGroupBookingModal');
         if (modal) {
             modal.style.display = 'block';
-            console.log('多组预约模态框显示成功，Tab数量:', document.querySelectorAll('.tab-button').length);
         } else {
             console.error('找不到多组预约模态框元素');
         }
@@ -190,7 +187,6 @@
 
     // 生成预约表单
     function generateBookingForm(group, index) {
-        console.log(`生成第${index}个大组的表单:`, group.suggestionId);
         const pg = group.suggestion.primary_group;
         const hasAppointment = !!pg.matched_shipment;
         
@@ -354,13 +350,11 @@
             </form>
         `;
         
-        console.log(`第${index}个大组表单生成完成`);
         return formHTML;
     }
 
     // 切换Tab
     function switchMultiGroupTab(index) {
-        console.log('切换到Tab:', index);
         
         // 隐藏所有Tab内容
         document.querySelectorAll('.tab-content').forEach(content => {
@@ -376,7 +370,6 @@
         const targetTab = document.getElementById(`multiGroupTab${index}`);
         if (targetTab) {
             targetTab.classList.add('active');
-            console.log(`Tab ${index} 显示成功`);
         } else {
             console.error(`找不到Tab ${index} 的内容元素`);
         }
@@ -389,9 +382,8 @@
 
     // 初始化多组表单数据
     function initializeMultiGroupForm(group, index) {
-        console.log(`初始化第${index}个大组表单数据:`, group.suggestionId);
+        console.log(`初始化111第${index}个大组表单数据:`, group.suggestionId);
         const pg = group.suggestion.primary_group;
-        
         multiGroupForms[index] = {
             suggestion_id: group.suggestionId,
             cargo_ids: group.suggestion.cargos ? group.suggestion.cargos.map(c => c.ids).filter(id => id).join(',') : '',
@@ -414,14 +406,11 @@
             } : {})
         };
         
-        console.log(`第${index}个大组表单数据:`, multiGroupForms[index]);
-        
         // 设置表单默认值
         setTimeout(() => {
             const form = document.querySelector(`.multi-group-form[data-index="${index}"]`);
             if (form && multiGroupForms[index]) {
                 const formData = multiGroupForms[index];
-                console.log(`设置第${index}个大组表单默认值:`, formData);
                 
                 Object.keys(formData).forEach(key => {
                     const element = form.querySelector(`[name="${key}"]`);
@@ -430,10 +419,8 @@
                             // 格式化时间字段，移除秒和时区信息
                             const formattedTime = formatDateTimeForInput(formData[key]);
                             element.value = formattedTime;
-                            console.log(`设置 ${key} = ${formattedTime} (原始值: ${formData[key]})`);
                         } else {
                             element.value = formData[key];
-                            console.log(`设置 ${key} = ${formData[key]}`);
                         }
                     }
                 });
@@ -452,26 +439,21 @@
         if (!dateTimeStr) return '';
         
         // 移除时区信息并截取到分钟
-        const date = new Date(dateTimeStr);
-        if (isNaN(date)) {
-            // 如果 Date 解析失败，尝试手动处理
-            const cleanedStr = dateTimeStr.replace('Z', '').split('.')[0]; // 移除时区和毫秒
+        if (typeof dateTimeStr === 'string') {
+            // 移除时区信息和秒部分
+            let cleanedStr = dateTimeStr.replace('Z', ''); // 移除Z时区标识
+            cleanedStr = cleanedStr.split('.')[0]; // 移除毫秒部分
+            
+            // 提取日期和时间部分
             const parts = cleanedStr.split('T');
             if (parts.length === 2) {
-                const timePart = parts[1].substring(0, 5); // 只取小时和分钟
-                return `${parts[0]}T${timePart}`;
+                const datePart = parts[0]; // YYYY-MM-DD
+                const timePart = parts[1].substring(0, 5); // HH:mm (只取小时和分钟)
+                return `${datePart}T${timePart}`;
             }
-            return dateTimeStr.substring(0, 16); // 截取前16个字符 (YYYY-MM-DDTHH:mm)
         }
         
-        // 使用 Date 对象格式化
-        const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const day = String(date.getDate()).padStart(2, '0');
-        const hours = String(date.getHours()).padStart(2, '0');
-        const minutes = String(date.getMinutes()).padStart(2, '0');
-        
-        return `${year}-${month}-${day}T${hours}:${minutes}`;
+        return dateTimeStr.substring(0, 16);
     }
     // 为多组预约生成 pickupNumber 的函数
     function generateMultiGroupPickupNumber(index) {
@@ -539,7 +521,6 @@
             pickupNumberInput.value = pickupNumber;
         }
         
-        console.log(`第${groupNumber}组 pickupNumber 生成:`, pickupNumber);
         return pickupNumber;
     }
 
@@ -568,7 +549,6 @@
     }
     // 提交多组预约
     function submitMultiGroupBooking() {
-        console.log('提交多组预约，表单数据:', multiGroupForms);
         // 收集所有表单数据
         const bookingData = [];
         
@@ -582,7 +562,6 @@
                 formElements.forEach(element => {
                     const fieldName = element.name;
                     formData[fieldName] = element.value;
-                    console.log(`大组${index} ${fieldName}: ${element.value}`);
                 });
             } else {
                 console.error(`找不到第${index}个大组的表单`);
@@ -591,8 +570,6 @@
             bookingData.push(formData);
         });
         
-        console.log('最终提交的数据:', bookingData);
-        
         // 设置表单数据并提交
         document.getElementById('multiGroupBookingData').value = JSON.stringify(bookingData);
         document.getElementById('multiGroupBookingForm').submit();
@@ -600,7 +577,6 @@
 
     // 关闭多组预约模态框
     function closeMultiGroupBookingModal() {
-        console.log('关闭多组预约模态框');
         document.getElementById('multiGroupBookingModal').style.display = 'none';
         selectedVirtualGroups = [];
         multiGroupForms = {};
