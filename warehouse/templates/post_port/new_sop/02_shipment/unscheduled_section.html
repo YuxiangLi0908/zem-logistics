@@ -577,6 +577,7 @@
 
         // 按 suggestionId 分组
         rows.forEach(row => {
+            if (row.classList.contains('group-separator')) return;
             const suggestionId = row.getAttribute('data-suggestion-id');
             if (suggestionId) {
                 if (!groupMap.has(suggestionId)) {
@@ -640,7 +641,7 @@
         });
     }
 
-    function clearHighlights() {
+    function clearHighlightsUnscheduledSection() {
         const rows = document.querySelectorAll('#unscheduled-section tbody tr');
         
         rows.forEach(row => {
@@ -660,7 +661,7 @@
 
     function applyHighlightsUnscheduledSP(searchTerms) {
         if (searchTerms.length === 0) {
-            clearHighlights();
+            clearHighlightsUnscheduledSection();
             return;
         }
         
@@ -725,18 +726,23 @@
     }
 
     // 多列 AND 条件搜索
-    function applyMultiFilter() {
-        clearHighlights();
-        
+    function applyMultiFilterUnscheduledSection() {
+
+        clearHighlightsUnscheduledSection();
+
         const searchInputs = document.querySelectorAll('#unscheduled-section .header-search');
         const rows = document.querySelectorAll('#unscheduled-section tbody tr');
         
         // 收集搜索条件
         searchState = {};
+        let hasSearchCondition = false;
         searchInputs.forEach(input => {
             const col = input.dataset.column;
             const val = input.value.trim().toLowerCase();
-            if (val) searchState[col] = val;
+            if (val) {
+                searchState[col] = val;
+                hasSearchCondition = true;
+            }
         });
 
         const searchTerms = Object.values(searchState);
@@ -751,7 +757,6 @@
             updateGroupSeparators();
             return;
         }
-
         let firstRound = true;
 
         // 应用AND搜索逻辑
@@ -762,6 +767,7 @@
             } else {
                 handleUnscheduledSearchForVisible(rows, term);
             }
+            const visibleRows = document.querySelectorAll('#unscheduled-section tbody tr:not(.group-separator)[style=""]');
         }
         // 处理组间隔行的显示
         updateGroupSeparators();
@@ -769,29 +775,33 @@
         applyHighlightsUnscheduledSP(searchTerms);
     }
 
-    // 清除搜索
-    function clearSearch() {
-        const searchInputs = document.querySelectorAll('#unscheduled-section .header-search');
-
-        searchInputs.forEach(input => input.value = '');
-        applyMultiFilter();
-    }
-
+    let searchTimers = {};
     // 初始化搜索功能
     function initSearch() {
         const searchInputs = document.querySelectorAll('#unscheduled-section .header-search');
         
         searchInputs.forEach(input => {
+            // 清除现有事件监听器（避免重复绑定）
+            const newInput = input.cloneNode(true);
+            input.parentNode.replaceChild(newInput, input);
+        });
+        
+        // 重新获取输入框
+        const freshInputs = document.querySelectorAll('#unscheduled-section .header-search');
+        
+        freshInputs.forEach(input => {
+            const column = input.dataset.column;
+            
             input.addEventListener('input', function() {
-                clearTimeout(searchTimer);
-                searchTimer = setTimeout(applyMultiFilter, 250);
-            });
-
-            input.addEventListener('keypress', function(e) {
-                if (e.key === 'Enter') {
-                    clearTimeout(searchTimer);
-                    applyMultiFilter();
+                // 清除该列之前的定时器
+                if (searchTimers[column]) {
+                    clearTimeout(searchTimers[column]);
                 }
+                
+                // 设置新的定时器
+                searchTimers[column] = setTimeout(() => {
+                    applyMultiFilterUnscheduledSection();
+                }, 250);
             });
         });
     }
