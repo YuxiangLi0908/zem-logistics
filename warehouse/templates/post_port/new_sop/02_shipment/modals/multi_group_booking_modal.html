@@ -384,6 +384,7 @@
     function initializeMultiGroupForm(group, index) {
         console.log(`初始化111第${index}个大组表单数据:`, group.suggestionId);
         const pg = group.suggestion.primary_group;
+        console.log('pg',pg.matched_shipment);
         multiGroupForms[index] = {
             suggestion_id: group.suggestionId,
             cargo_ids: group.suggestion.cargos ? group.suggestion.cargos.map(c => c.ids).filter(id => id).join(',') : '',
