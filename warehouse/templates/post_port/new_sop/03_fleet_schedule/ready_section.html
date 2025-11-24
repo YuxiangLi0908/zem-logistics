@@ -115,7 +115,10 @@
                                                 </td>
                                             {% endif %}
 
-                                            <td style="vertical-align: middle; background-color: #f8f9fa;">{{ shipment.shipment_batch_number }}</td>
+                                            <td style="vertical-align: middle; background-color: #f8f9fa;">
+                                                {{ shipment.shipment_batch_number }}<br>
+                                                <span style="color: #3498db; font-size: 0.85em;">预计送仓 {{ shipment.shipment_appointment|date:"Y-m-d"}}</span>
+                                            </td>
                                             <td style="vertical-align: middle; background-color: #f8f9fa;">{{ shipment.appointment_id }}</td>
                                             <td style="vertical-align: middle; background-color: #f8f9fa;">{{ shipment.destination }}</td>
 

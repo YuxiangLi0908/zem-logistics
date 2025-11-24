@@ -3500,7 +3500,7 @@ class PostNsop(View):
             
         #if await self._validate_user_four_major_whs(request.user):
         vessel_dict = {}       
-        destination_list = list(set(destination_list))
+        destination_list = sorted(list(set(destination_list)))
         if not context:
             context = {}
         context.update({
@@ -3600,7 +3600,7 @@ class PostNsop(View):
         vessel_dict = OrderedDict(
             sorted(vessel_dict.items(), key=lambda x: vessel_eta_dict[x[0]])
         )        
-        destination_list = list(set(destination_list))
+        destination_list = sorted(list(set(destination_list)))
         if not context:
             context = {}
         context.update({
