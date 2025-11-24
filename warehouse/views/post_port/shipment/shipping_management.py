@@ -1845,13 +1845,12 @@ class ShippingManagement(View):
             container_number = set()
             selections = request.POST.getlist("is_shipment_added")
             # 添加PO，更新pl
-            try:
+            if pl_ids:
                 packing_list = await sync_to_async(list)(
                     PackingList.objects.select_related("container_number").filter(
                         id__in=pl_ids
                     )
                 )
-                print('要加的pl',packing_list)
                 pl_master_po_ids = set()
                 for pl in packing_list:
                     pl.shipment_batch_number = shipment
@@ -1884,52 +1883,49 @@ class ShippingManagement(View):
                 )()
                 for cn in container_numbers:
                     await self._update_container_unpacking_priority(cn)
-            except:
-                pass
-
+            
             # 添加PO，是直接添加的板子
-            #try:
-            pallet = await sync_to_async(list)(
-                Pallet.objects.select_related("container_number").filter(
-                    id__in=plt_ids
+            if plt_ids:
+                pallet = await sync_to_async(list)(
+                    Pallet.objects.select_related("container_number").filter(
+                        id__in=plt_ids
+                    )
                 )
-            )
-            p_master_po_ids = set()  # 需要改主约的
-            p_shipment_po_ids = set()  # 需要改实际约的
-            for p in pallet:
-                p.shipment_batch_number = shipment
-                p_shipment_po_ids.add(p.PO_ID)
+                p_master_po_ids = set()  # 需要改主约的
+                p_shipment_po_ids = set()  # 需要改实际约的
+                for p in pallet:
+                    p.shipment_batch_number = shipment
+                    p_shipment_po_ids.add(p.PO_ID)
 
-                p_master_shipment = await self.get_master_shipment(p)
-                if p_master_shipment is None:
-                    p_master_po_ids.add(p.PO_ID)
-                    p.master_shipment_batch_number = shipment
-            await sync_to_async(bulk_update_with_history)(
-                pallet,
-                Pallet,
-                fields=["shipment_batch_number", "master_shipment_batch_number"],
-            )
-            # 改同一PO_ID的板子的主约
-            if p_master_po_ids:
-                await sync_to_async(
-                    Pallet.objects.filter(PO_ID__in=p_master_po_ids).update
-                )(master_shipment_batch_number=shipment)
+                    p_master_shipment = await self.get_master_shipment(p)
+                    if p_master_shipment is None:
+                        p_master_po_ids.add(p.PO_ID)
+                        p.master_shipment_batch_number = shipment
+                await sync_to_async(bulk_update_with_history)(
+                    pallet,
+                    Pallet,
+                    fields=["shipment_batch_number", "master_shipment_batch_number"],
+                )
+                # 改同一PO_ID的板子的主约
+                if p_master_po_ids:
+                    await sync_to_async(
+                        Pallet.objects.filter(PO_ID__in=p_master_po_ids).update
+                    )(master_shipment_batch_number=shipment)
 
-            # 因为pl和板子的PO_ID相同，所以根据PO_ID去找pl
-            # 改同一PO_ID的pl的主约
-            if p_master_po_ids:
-                await sync_to_async(
-                    PackingList.objects.filter(PO_ID__in=p_master_po_ids).update
-                )(master_shipment_batch_number=shipment)
-            # 改板子对应的pl的实际约
-            if p_shipment_po_ids:
-                await sync_to_async(
-                    PackingList.objects.filter(PO_ID__in=p_shipment_po_ids).update
-                )(shipment_batch_number=shipment)
-            shipment.total_pallet += len(set([p.pallet_id for p in pallet]))
+                # 因为pl和板子的PO_ID相同，所以根据PO_ID去找pl
+                # 改同一PO_ID的pl的主约
+                if p_master_po_ids:
+                    await sync_to_async(
+                        PackingList.objects.filter(PO_ID__in=p_master_po_ids).update
+                    )(master_shipment_batch_number=shipment)
+                # 改板子对应的pl的实际约
+                if p_shipment_po_ids:
+                    await sync_to_async(
+                        PackingList.objects.filter(PO_ID__in=p_shipment_po_ids).update
+                    )(shipment_batch_number=shipment)
+                shipment.total_pallet += len(set([p.pallet_id for p in pallet]))
 
-            # except:
-            #     pass
+          
             order = await sync_to_async(list)(
                 Order.objects.select_related(
                     "retrieval_id", "warehouse", "container_number"
@@ -1963,7 +1959,7 @@ class ShippingManagement(View):
             # 记录要删除PO的PO_ID,因为pl和plt的相同，所以不用区分
             fleet_po_ids = set()
             # 未打板的
-            try:
+            if pl_ids:
                 packing_list = await sync_to_async(list)(
                     PackingList.objects.select_related("container_number").filter(
                         id__in=pl_ids
@@ -1999,77 +1995,77 @@ class ShippingManagement(View):
                     await sync_to_async(
                         PackingList.objects.filter(PO_ID__in=pl_master_po_ids).update
                     )(master_shipment_batch_number=None)
-            except:
-                pass
+           
             # 打板的
-            pallet = await sync_to_async(list)(
-                Pallet.objects.select_related("container_number").filter(id__in=plt_ids)
-            )
-            plt_master_po_ids = set()  # 需要改主约的
-            plt_shipment_po_ids = set()  # 需要改实际约的
-            for plt in pallet:
-                fleet_po_ids.add(plt.PO_ID)
-                plt_shipment_po_ids.add(plt.PO_ID)
+            if plt_ids:
+                pallet = await sync_to_async(list)(
+                    Pallet.objects.select_related("container_number").filter(id__in=plt_ids)
+                )
+                plt_master_po_ids = set()  # 需要改主约的
+                plt_shipment_po_ids = set()  # 需要改实际约的
+                for plt in pallet:
+                    fleet_po_ids.add(plt.PO_ID)
+                    plt_shipment_po_ids.add(plt.PO_ID)
 
-                plt_master_shipment = await sync_to_async(
-                    lambda: plt.master_shipment_batch_number
-                )()
-                plt_shipment = await sync_to_async(lambda: plt.shipment_batch_number)()
-                if plt_shipment == plt_master_shipment:
-                    plt_master_po_ids.add(plt.PO_ID)
-                    await sync_to_async(
-                        lambda: setattr(plt, "master_shipment_batch_number", None)
+                    plt_master_shipment = await sync_to_async(
+                        lambda: plt.master_shipment_batch_number
                     )()
-                await sync_to_async(
-                    lambda: setattr(plt, "shipment_batch_number", None)
-                )()
+                    plt_shipment = await sync_to_async(lambda: plt.shipment_batch_number)()
+                    if plt_shipment == plt_master_shipment:
+                        plt_master_po_ids.add(plt.PO_ID)
+                        await sync_to_async(
+                            lambda: setattr(plt, "master_shipment_batch_number", None)
+                        )()
+                    await sync_to_async(
+                        lambda: setattr(plt, "shipment_batch_number", None)
+                    )()
 
-            await sync_to_async(bulk_update_with_history)(
-                pallet,
-                Pallet,
-                fields=["shipment_batch_number", "master_shipment_batch_number"],
-            )
-
-            # 把fleet_shipment_pallet表里，以上PO_ID相同并且shipment相同的记录都删除
-            if fleet_po_ids:
-                deleted_count, _ = await sync_to_async(
-                    FleetShipmentPallet.objects.filter(
-                        PO_ID__in=fleet_po_ids,
-                        shipment_batch_number=shipment,
-                        fleet_number=shipment.fleet_number,
-                    ).delete
-                )()
-            # 改同一PO_ID的板子的主约
-            if plt_master_po_ids:
-                await sync_to_async(
-                    Pallet.objects.filter(PO_ID__in=plt_master_po_ids).update
-                )(master_shipment_batch_number=None)
-
-            # 因为pl和板子的PO_ID相同，所以根据PO_ID去找pl
-            # 改同一PO_ID的pl的主约f
-            if plt_master_po_ids:
-                await sync_to_async(
-                    PackingList.objects.filter(PO_ID__in=plt_master_po_ids).update
-                )(master_shipment_batch_number=None)
-            # 改板子对应的pl的实际约
-            if plt_shipment_po_ids:
-                await sync_to_async(
-                    PackingList.objects.filter(PO_ID__in=plt_shipment_po_ids).update
-                )(shipment_batch_number=None)
-            shipment.total_pallet -= len(set([p.pallet_id for p in pallet]))
-            # except:
-            #     pass
-            # 删除完PO之后，查找这个约是不是空了，如果空了，就令约的in_use为no
-            pls = await sync_to_async(list)(
-                PackingList.objects.select_related("shipment_batch_number").filter(
-                    shipment_batch_number__shipment_batch_number=shipment_batch_number
+                await sync_to_async(bulk_update_with_history)(
+                    pallet,
+                    Pallet,
+                    fields=["shipment_batch_number", "master_shipment_batch_number"],
                 )
-            )
-            plts = await sync_to_async(list)(
-                Pallet.objects.select_related("shipment_batch_number").filter(
-                    shipment_batch_number__shipment_batch_number=shipment_batch_number
+
+                # 把fleet_shipment_pallet表里，以上PO_ID相同并且shipment相同的记录都删除
+                if fleet_po_ids:
+                    deleted_count, _ = await sync_to_async(
+                        FleetShipmentPallet.objects.filter(
+                            PO_ID__in=fleet_po_ids,
+                            shipment_batch_number=shipment,
+                            fleet_number=shipment.fleet_number,
+                        ).delete
+                    )()
+                # 改同一PO_ID的板子的主约
+                if plt_master_po_ids:
+                    await sync_to_async(
+                        Pallet.objects.filter(PO_ID__in=plt_master_po_ids).update
+                    )(master_shipment_batch_number=None)
+
+                # 因为pl和板子的PO_ID相同，所以根据PO_ID去找pl
+                # 改同一PO_ID的pl的主约f
+                if plt_master_po_ids:
+                    await sync_to_async(
+                        PackingList.objects.filter(PO_ID__in=plt_master_po_ids).update
+                    )(master_shipment_batch_number=None)
+                # 改板子对应的pl的实际约
+                if plt_shipment_po_ids:
+                    await sync_to_async(
+                        PackingList.objects.filter(PO_ID__in=plt_shipment_po_ids).update
+                    )(shipment_batch_number=None)
+                shipment.total_pallet -= len(set([p.pallet_id for p in pallet]))
+                # except:
+                #     pass
+                # 删除完PO之后，查找这个约是不是空了，如果空了，就令约的in_use为no
+                pls = await sync_to_async(list)(
+                    PackingList.objects.select_related("shipment_batch_number").filter(
+                        shipment_batch_number__shipment_batch_number=shipment_batch_number
+                    )
                 )
-            )
+                plts = await sync_to_async(list)(
+                    Pallet.objects.select_related("shipment_batch_number").filter(
+                        shipment_batch_number__shipment_batch_number=shipment_batch_number
+                    )
+                )
             if len(pls) == 0 and len(plts) == 0:
                 shipment = await sync_to_async(Shipment.objects.get)(
                     shipment_batch_number=shipment_batch_number
