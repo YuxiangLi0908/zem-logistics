@@ -37,10 +37,28 @@
         font-size: 0.8rem;
         background: white;
     }
+    .filter-notice {
+        background-color: #f8f9fa;
+        border-left: 4px solid #6c757d;
+        padding: 10px 15px;
+        margin-bottom: 15px;
+        border-radius: 4px;
+        font-size: 14px;
+        color: #495057;
+    }
 </style>
 <!-- 未排车批次标签页 -->
 <div class="content-section" id="unscheduled-fleet-section">
     <div class="search-box">
+        <div class="filter-notice">
+            <i class="fas fa-filter"></i> 
+            当前显示 <strong>{{ warehouse }}</strong> 仓库的未排车货物，筛选条件：          
+            <strong>未排车</strong>、
+            <strong>约在使用中</strong>、
+            <strong>约未取消</strong>、
+            <strong>约类型为FTL</strong>、
+            <strong>约已通知客户</strong>
+        </div>
         <div style="display: flex; gap: 10px; flex: 1; align-items: center;">
             <button class="btn btn-primary" id="confirmScheduleBtn" style="margin-left: auto;">
                 <i class="fas fa-truck"></i> 确认排车
@@ -111,7 +129,7 @@
                             {{ s.shipment_appointment|date:"Y-m-d" }} {{ s.shipment_appointment|time:"H:i" }}
                             {% endif %}
                         </td>
-                        <td>
+                        <td data-pickup-time="{{ s.pickup_time|date:'Y-m-d\TH:i' }}">
                             {{ s.pickup_time|date:"Y-m-d" }} {{ s.pickup_time|time:"H:i" }}
                         </td>
                         <td>{{ s.total_weight|floatformat:2 }}</td>
@@ -135,27 +153,6 @@
 <!-- 排车模态框 -->
 <div id="fleetModal" class="modal">
   <div class="modal-content" style="width: 90%; max-width: 1200px; min-width: 800px;">
-    <span class="close-btn" onclick="closeUnscheduledFleetModal()" style="
-        font-size: 28px;
-        font-weight: bold;
-        color: #2c3e50;
-        background: #f8f9fa;
-        width: 44px;
-        height: 44px;
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        cursor: pointer;
-        transition: all 0.3s ease;
-        position: absolute;
-        top: 20px;
-        left: 20px;  /* 改为左上角显示 */
-        z-index: 9999;
-        border: 2px solid #e9ecef;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        line-height: 1;
-    ">&times;</span>
 
     <div id="fleetModalBody" style="padding-top: 10px;">
         <div style="border-radius: 12px; padding: 20px; margin-top: 10px;">
@@ -167,14 +164,12 @@
                 <input type="hidden" name="selected_ids" id="fleetModalSelectedIds">
                 <input type="hidden" name="warehouse" value="{{ warehouse }}">
                 
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 20px; margin-bottom: 20px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
                     <h4 style="color: var(--secondary-color); margin: 0;">
                         <i class="fas fa-truck-loading"></i> 出库批次信息
                     </h4>
                     <div>
-                        <button type="submit" class="action-btn btn-success" id="fleetModalConfirmBtn">
-                            <i class="fas fa-check"></i> 确认出库
-                        </button>
+                        <span class="close-btn" onclick="closeUnscheduledFleetModal()" style="width: 35px; height: 35px; background: #e74c3c; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 22px; font-weight: bold; cursor: pointer; box-shadow: 0 3px 10px rgba(231, 76, 60, 0.3); transition: all 0.3s ease;">&times;</span>
                     </div>
                 </div>
 
@@ -224,21 +219,28 @@
                                     <label style="font-size: 0.8rem; font-weight: 600; color: var(--secondary-color); display: block; margin-bottom: 5px;">提货时间</label>
                                     <input type="datetime-local" name="appointment_datetime" id="fleetModalAppointmentDatetime" class="table-input" style="width: 100%;" required>
                                 </td>
-                                <td colspan="2">
+                                <td>
                                     <label style="font-size: 0.8rem; font-weight: 600; color: var(--secondary-color); display: block; margin-bottom: 5px;">备注</label>
                                     <input type="text" name="note" id="fleetModalNote" class="table-input" style="width: 100%;">
+                                </td>
+                                <td>
+                                    <label style="font-size: 0.8rem; font-weight: 600; color: var(--secondary-color); display: block; margin-bottom: 5px;">费用</label>
+                                    <input type="number" name="fleet_cost" id="fleetCost" class="table-input" style="width: 100%;">
                                 </td>
                             </tr>
                         </tbody>
                     </table>
+                </div>          
+
+                <div style="display: flex; justify-content: space-between; align-items: center; margin: 25px 0 15px 0;">
+                    <h4 style="color: var(--secondary-color); margin: 0;">
+                        <i class="fas fa-list-alt"></i> 预约批次
+                    </h4>
+                    <button type="submit" class="action-btn btn-success" id="fleetModalConfirmBtn">
+                        <i class="fas fa-check"></i> 确认排车
+                    </button>
                 </div>
             </form>
-
-            <div style="display: flex; justify-content: space-between; align-items: center; margin: 25px 0 15px 0;">
-                <h4 style="color: var(--secondary-color); margin: 0;">
-                    <i class="fas fa-list-alt"></i> 预约批次
-                </h4>
-            </div>
 
             <div class="table-container" style="max-height: 300px;">
                 <table class="data-table">
@@ -280,11 +282,21 @@
             }
 
             const selectedIds = [];
+            let pickupTime = '';
+
             checkboxes.forEach(cb => {
                 const hiddenInput = cb.closest('tr').querySelector('input[name="shipment_ids"]');
                 if (hiddenInput && hiddenInput.value) {
                     selectedIds.push(hiddenInput.value);
-                }
+                    // 获取第一条选中记录的Pickup Time
+                    if (!pickupTime) {
+                        const tr = cb.closest('tr');
+                        const pickupTimeCell = tr.querySelector('td[data-pickup-time]');
+                        if (pickupTimeCell) {
+                            pickupTime = pickupTimeCell.dataset.pickupTime;
+                        }
+                    }
+                    }
             });
 
             // 设置选中的ID到隐藏字段
@@ -318,6 +330,10 @@
             const form = document.querySelector('#fleetModal form');
             form.reset();
             
+            // 设置提货时间到弹框 - 直接使用，不进行转换
+            if (pickupTime) {
+                document.getElementById('fleetModalAppointmentDatetime').value = pickupTime;
+            }
             // 显示弹窗
             document.getElementById("fleetModal").style.display = "block";
         });

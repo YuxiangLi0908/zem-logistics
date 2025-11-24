@@ -43,193 +43,276 @@
         font-size: 14px;
         color: #495057;
     }
+    #editAppointmentModal .modal-table th {
+        padding-left: 20px !important;
+    }
 </style>
-<div class="content-section" id="scheduled-section">
+<div class="search-box">
     <div class="filter-notice">
         <i class="fas fa-filter"></i> 
         当前显示 <strong>{{ warehouse }}</strong> 仓库的
-        <strong>已排约</strong>的货物，筛选条件：
+        <strong>已排约</strong>的<strong>四大仓</strong>货物，筛选条件：
         <strong>送仓时间在 2025-10-10 之后</strong>、
         <strong>未排车</strong>、
         <strong>PO类型为公仓</strong>、
     </div>
-    <div class="table-container">
-        <table class="data-table">
-            <thead>
-                <tr>
-                    <th>预约批次</th>
-                    <th>预约号</th>
-                    <th>目的地</th>
-                    <th>预约时间</th>
-                    <th>装车类型</th>
-                    <th>柜号</th>
-                    <th>入仓时间</th>
-                    <th>REF ID</th>
-                    <th>FBA ID</th>
-                    <th>板数</th>
-                    <th>CBM</th>
-                    <th>备注</th>
-                    <th>通知客户</th>
-                    <th>操作</th>
-                </tr>
-                <tr class="search-row">
-                    <td><input type="text" class="header-search" placeholder="搜索预约批次" data-column="0"></td>
-                    <td><input type="text" class="header-search" placeholder="搜索预约号" data-column="1"></td>
-                    <td><input type="text" class="header-search" placeholder="搜索目的地" data-column="2"></td>
-                    <td><input type="text" class="header-search" placeholder="搜索预约时间" data-column="3"></td>
-                    <td><input type="text" class="header-search" placeholder="搜索装车类型" data-column="4"></td>
-                    <td><input type="text" class="header-search" placeholder="搜索柜号" data-column="5"></td>
-                    <td><input type="text" class="header-search" placeholder="搜索REF ID" data-column="6"></td>
-                    <td><input type="text" class="header-search" placeholder="搜索FBA ID" data-column="7"></td>
-                    <td><input type="text" class="header-search" placeholder="搜索板数" data-column="8"></td>
-                    <td><input type="text" class="header-search" placeholder="搜索CBM" data-column="9"></td>
-                    <td><input type="text" class="header-search" placeholder="搜索备注" data-column="10"></td>
-                    <td>
-                        <select class="notification-select" data-column="11" onchange="applyMultiFilter()" style="width: 100%; padding: 4px 8px; border: 1px solid #ced4da; border-radius: 4px; font-size: 0.8rem;">
-                            <option value="">全部</option>
-                            <option value="已通知">已通知</option>
-                            <option value="未通知">未通知</option>
-                        </select>
+    <div style="display: flex; gap: 10px; flex: 1; align-items: center;">
+        <button class="btn btn-primary" onclick="openFleetModal()" style="margin-left: auto;">
+            <i class="fas fa-truck"></i> 确认排车
+        </button>
+    </div>
+</div>
+<div class="table-container">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th style="min-width: 40px; text-align: center;"></th>
+                <th>预约批次</th>
+                <th>预约号</th>
+                <th>目的地</th>
+                <th>预约时间</th>
+                <th>装车类型</th>
+                <th>柜号</th>
+                <th>REF ID</th>
+                <th>FBA ID</th>
+                <th>板数</th>
+                <th>CBM</th>
+                <th>备注</th>
+                <th>通知客户</th>
+                <th>操作</th>
+            </tr>
+            <tr class="search-row">
+                <td></td>
+                <td><input type="text" class="header-search" placeholder="搜索预约批次" data-column="1"></td>
+                <td><input type="text" class="header-search" placeholder="搜索预约号" data-column="2"></td>
+                <td><input type="text" class="header-search" placeholder="搜索目的地" data-column="3"></td>
+                <td><input type="text" class="header-search" placeholder="搜索预约时间" data-column="4"></td>
+                <td><input type="text" class="header-search" placeholder="搜索装车类型" data-column="5"></td>
+                <td><input type="text" class="header-search" placeholder="搜索柜号" data-column="6"></td>
+                <td><input type="text" class="header-search" placeholder="搜索REF ID" data-column="7"></td>
+                <td><input type="text" class="header-search" placeholder="搜索FBA ID" data-column="8"></td>
+                <td><input type="text" class="header-search" placeholder="搜索板数" data-column="9"></td>
+                <td><input type="text" class="header-search" placeholder="搜索CBM" data-column="10"></td>
+                <td><input type="text" class="header-search" placeholder="搜索备注" data-column="11"></td>
+                <td>
+                    <select class="notification-select" data-column="12" onchange="applyMultiFilter()" style="width: 100%; padding: 4px 8px; border: 1px solid #ced4da; border-radius: 4px; font-size: 0.8rem;">
+                        <option value="">全部</option>
+                        <option value="已通知">已通知</option>
+                        <option value="未通知">未通知</option>
+                    </select>
+                </td>
+                <td></td>
+            </tr>
+        </thead>
+        <tbody>
+            {% for shipment_group in scheduled_data %}
+            <td colspan="13" style="background: linear-gradient(90deg, #3498db, #6c8bc7); 
+                                            height: 2px; padding: 0;"></td>
+            {% if shipment_group.cargos %}
+                <!-- 有PO的-->
+                {% for cargo in shipment_group.cargos %}
+                <tr data-suggestion-id="{{ suggestion.suggestion_id }}"
+                            data-cargo-id="{{ cargo.ids|default:'' }}"
+                            data-plt-id="{{ cargo.plt_ids|default:'' }}"
+                            data-shipment-group="{{ shipment_group.appointment_id }}">
+                    {% if forloop.first %}
+                    <td rowspan="{{ shipment_group.cargos|length }}" style="min-width: 40px; text-align: center; vertical-align: middle;">
+                        <input type='checkbox' name='is_appointment_added' onclick="toggleRowBackground(this)" data-appointment-id="{{ shipment_group.appointment_id }}">
+                        <input type="hidden" name="appointment_id" value="{{ shipment_group.appointment_id }}">
                     </td>
-                </tr>
-            </thead>
-            <tbody>
-                {% for shipment_group in scheduled_data %}
-                <td colspan="12" style="background: linear-gradient(90deg, #3498db, #6c8bc7); 
-                                                height: 2px; padding: 0;"></td>
-                {% if shipment_group.cargos %}
-                    <!-- 有PO的-->
-                    {% for cargo in shipment_group.cargos %}
-                    <tr data-suggestion-id="{{ suggestion.suggestion_id }}"
-                                data-cargo-id="{{ cargo.ids|default:'' }}"
-                                data-plt-id="{{ cargo.plt_ids|default:'' }}"
-                                data-shipment-group="{{ shipment_group.appointment_id }}">
-                        {% if forloop.first %}
-                        <td rowspan="{{ shipment_group.cargos|length }}" style="vertical-align: middle; background-color: #f8f9fa;">
-                            {{ shipment_group.shipment_batch_number|default_if_none:'' }}
-                        </td>
-                        <td rowspan="{{ shipment_group.cargos|length }}" style="vertical-align: middle; background-color: #f8f9fa;">
-                            <strong>{{ shipment_group.appointment_id|default_if_none:'' }}</strong>
-                            {% if shipment_group.shipment_cargo_id %}
-                            <div style="font-size: 12px; color: #666;">
-                                shipment: {{ shipment_group.shipment_cargo_id }}
-                            </div>
-                            {% endif %}
-                        </td>
-                        <td rowspan="{{ shipment_group.cargos|length }}" style="vertical-align: middle; background-color: #f8f9fa;">
-                            {{ shipment_group.destination }}
-                        </td>
-                        <td rowspan="{{ shipment_group.cargos|length }}" style="vertical-align: middle; background-color: #f8f9fa;">
-                            {{ shipment_group.shipment_appointment|date:"Y-m-d H:i" }}
-                        </td>
-                        <td rowspan="{{ shipment_group.cargos|length }}" style="vertical-align: middle; background-color: #f8f9fa;">
-                            {{ shipment_group.load_type }}
-                        </td>
-                        {% endif %}
-                        <td class="container-no-col" style="max-width: 150px; white-space: pre-line; font-size: 0.8rem;">
-                            {{ cargo.cns|linebreaks_cn }}
-                        </td>
-                        <td class="offload-time-col">
-                            {{ cargo.offload_time }}
-                        </td>
-                        <td class="ref-ids-col" data-full="{{ cargo.ref_ids|default:'' }}">{{ cargo.ref_ids|default:"-"|truncatechars:20 }}</td>
-                        <td class="fba-ids-col" data-full="{{ cargo.fba_ids|default:'' }}">{{ cargo.fba_ids|default:"-"|truncatechars:20 }}</td>
-                        <td class="pallet-col">
-                            {% if cargo.label == 'ACT' %}
-                                {{ cargo.total_n_pallet_act|default:0 }} ACT
-                            {% else %}
-                                {{ cargo.total_n_pallet_est|default:0 }} EST
-                            {% endif %}
-                        </td>
-                        <td class="cbm-col">{{ cargo.total_cbm|default:0 }}</td>
-                        <td>
-                            <form method="post">
-                                {% csrf_token %}
-                                <input type="hidden" name="step" value="edit_note_sp">
-                                <input type="hidden" name="warehouse" value="{{ warehouse }}">
-                                <input type="hidden" name="cargo_ids" value="{{ cargo.ids|default:'' }}">
-                                <input type="hidden" name="plt_ids" value="{{ cargo.plt_ids|default:'' }}">
-                                <div style="margin-bottom: 5px;">
-                                    <input type="text" name="note_sp" class="form-input" value="{{ cargo.note_sp|default:'' }}" style="width: 80px;">
-                                </div>
-                                <button type="submit" class="btn btn-sm btn-primary" style="margin-top: 2px;">保存</button>
-                            </form>
-                        </td>
-                        {% if forloop.first %}
-                        <td>
-                            {% if shipment_group.is_notified_customer %}
-                                <button class="action-btn btn-success" disabled style="opacity: 0.6;" data-notified="1">
-                                    <i class="fas fa-check-circle"></i> 已通知客户
-                                </button>
-                            {% else %}
-                                <button class="hidden-notify-flag" style="display: none;"></button>
-                                <form method="post" action="" class="notify-customer-form">
-                                    {% csrf_token %}
-                                    <input type="hidden" name="appointment_id" value="{{ shipment_group.appointment_id }}">                                  
-                                    <input type="hidden" name="warehouse" value="{{ warehouse }}">
-                                    <input type="hidden" name="step" value="sp_notified_customer">
-                                    <input type="hidden" name="active_tab" value="scheduled"> 
-                                    <button class="action-btn btn-info" data-notified="0">
-                                        <i class="fas fa-bell"></i> 通知客户
-                                    </button>
-                                </form>                        
-                            {% endif %}
-                        </td>
-                        <td rowspan="{{ shipment_group.cargos|length }}" style="vertical-align: middle;">
-                            
-                            <button class="action-btn btn-secondary" onclick="unassignShipment('{{ shipment_group.appointment_id }}')">
-                                <i class="fas fa-unlink"></i> 取消排约
-                            </button>
-                            
-                            <form method="post" action="">
+                    <td rowspan="{{ shipment_group.cargos|length }}" style="vertical-align: middle; background-color: #f8f9fa;">
+                        {{ shipment_group.shipment_batch_number|default_if_none:'' }}
+                        <div style="margin-top: 5px;">
+                            <form method="post" action="" class="notify-customer-form" style="display: inline-block;">
                                 {% csrf_token %}
                                 <input type="hidden" name="appointment_id" value="{{ shipment_group.appointment_id }}">                                  
                                 <input type="hidden" name="warehouse" value="{{ warehouse }}">
-                                <input type="hidden" name="destination" value="{{ shipment_group.destination }}">
-                                <input type="hidden" name="step" value="search_addable_po">
+                                <input type="hidden" name="step" value="export_bol">
+                                <input type="hidden" name="page" value="arm_appointment">
                                 <input type="hidden" name="active_tab" value="scheduled"> 
-
-                                <button class="action-btn btn-success" onclick="">
-                                    <i class="fas fa-square-plus"></i> 添加PO
+                                <button class="action-btn" style="
+                                    background: linear-gradient(135deg, #3498db, #2980b9);
+                                    border: none;
+                                    color: white;
+                                    padding: 6px 12px;
+                                    border-radius: 6px;
+                                    font-size: 0.8rem;
+                                    cursor: pointer;
+                                    transition: all 0.3s ease;
+                                    box-shadow: 0 2px 4px rgba(52, 152, 219, 0.3);
+                                    display: flex;
+                                    align-items: center;
+                                    gap: 5px;
+                                ">
+                                    <i class="fas fa-file-word" style="font-size: 0.9rem;"></i>
+                                    BOL下载
                                 </button>
                             </form>
-        
-                            <button class="action-btn btn-warning open-bind-modal"
-                                    data-has-appointment="1"
-                                    data-appointment-id="{{ shipment_group.appointment_id }}"
-                                    data-load-type="{{ shipment_group.load_type }}"
-                                    data-destination="{{ shipment_group.destination }}"
-                                    data-delivery-method="{{ shipment_group.load_type }}"
-                                    data-scheduled-time="{{ shipment_group.shipment_appointment|date:'Y-m-d H:i' }}"
-                                    data-shipment-account="{{ shipment_group.shipment_account }}"
-                                    data-origin="{{ warehouse }}"
-                                    data-note=""
-                                    data-address-detail="{{ shipment_group.address_detail }}"
-                                    data-operation-type="remove_po"
-                                    data-pickup-time="{{ shipment_group.pickup_time|date:'Y-m-d H:i' }}"
-                                    data-pickup-number="{{ shipment_group.pickup_number }}">
-                                <i class="fas fa-square-minus"></i> 删除PO
-                            </button>
-                            <button class="action-btn btn-primary open-edit-modal"
-                                    data-appointment-id="{{ shipment_group.appointment_id }}"
-                                    data-destination="{{ shipment_group.destination }}"
-                                    data-scheduled-time="{{ shipment_group.shipment_appointment|date:'Y-m-d H:i' }}"
-                                    data-load-type="{{ shipment_group.load_type }}"
-                                    data-origin="{{ warehouse }}"
-                                    data-pickup-time="{{ shipment_group.pickup_time|date:'Y-m-d H:i' }}"
-                                    data-pickup-number="{{ shipment_group.pickup_number }}"
-                                    data-shipment-id="{{ shipment_group.shipment_cargo_id }}">
-                                <i class="fas fa-edit"></i> 修改约
-                            </button>
-                        </td>
+                        </div>
+                    </td>
+                    <td rowspan="{{ shipment_group.cargos|length }}" style="vertical-align: middle; background-color: #f8f9fa;">
+                        <strong>{{ shipment_group.appointment_id|default_if_none:'' }}</strong>
+                        {% if shipment_group.shipment_cargo_id %}
+                        <div style="font-size: 12px; color: #666;">
+                            shipment: {{ shipment_group.shipment_cargo_id }}
+                        </div>
                         {% endif %}
-                    </tr>
-                    {% endfor %}
-                {% else %}
-                    <!-- 没有PO的 -->
-                    <tr data-shipment-group="{{ shipment_group.appointment_id }}">
+                    </td>
+                    <td rowspan="{{ shipment_group.cargos|length }}" style="vertical-align: middle; background-color: #f8f9fa;">
+                        {{ shipment_group.destination }}
+                    </td>
+                    <td rowspan="{{ shipment_group.cargos|length }}" style="vertical-align: middle; background-color: #f8f9fa;">
+                        {{ shipment_group.shipment_appointment|date:"Y-m-d H:i" }}
+                    </td>
+                    <td rowspan="{{ shipment_group.cargos|length }}" style="vertical-align: middle; background-color: #f8f9fa;">
+                        {{ shipment_group.load_type }}
+                    </td>
+                    {% endif %}
+                    <td class="container-no-col" style="max-width: 150px; white-space: pre-line; font-size: 0.8rem;">
+                        {{ cargo.cns|linebreaks_cn }}
+                    </td>
+                    <td class="ref-ids-col" data-full="{{ cargo.ref_ids|default:'' }}">{{ cargo.ref_ids|default:"-"|truncatechars:20 }}</td>
+                    <td class="fba-ids-col" data-full="{{ cargo.fba_ids|default:'' }}">{{ cargo.fba_ids|default:"-"|truncatechars:20 }}</td>
+                    <td>
+                        {% if cargo.label == 'ACT' %}
+                            {{ cargo.total_n_pallet_act|default:0 }} ACT
+                        {% else %}
+                            {{ cargo.total_n_pallet_est|default:0 }} EST
+                        {% endif %}
+                    </td>
+                    <td>{{ cargo.total_cbm|default:0 }}</td>
+                    <td>
+                        <form method="post">
+                            {% csrf_token %}
+                            <input type="hidden" name="step" value="edit_note_sp">
+                            <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                            <input type="hidden" name="cargo_ids" value="{{ cargo.ids|default:'' }}">
+                            <input type="hidden" name="plt_ids" value="{{ cargo.plt_ids|default:'' }}">
+                            <input type="hidden" name="page" value="arm_appointment">
+                            <input type="hidden" name="active_tab" value="scheduled">
+                            <div style="margin-bottom: 5px;">
+                                <input type="text" name="note_sp" class="form-input" value="{{ cargo.note_sp|default:'' }}" style="width: 80px;">
+                            </div>
+                            <button type="submit" class="btn btn-sm btn-primary" style="margin-top: 2px;">保存</button>
+                        </form>
+                    </td>
+                    {% if forloop.first %}
+                    <td>
+                        {% if shipment_group.is_notified_customer %}
+                            <button class="action-btn btn-success" disabled style="opacity: 0.6;" data-notified="1">
+                                <i class="fas fa-check-circle"></i> 已通知客户
+                            </button>
+                        {% else %}
+                            <button class="hidden-notify-flag" style="display: none;"></button>
+                            <form method="post" action="" class="notify-customer-form">
+                                {% csrf_token %}
+                                <input type="hidden" name="appointment_id" value="{{ shipment_group.appointment_id }}">                                  
+                                <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                                <input type="hidden" name="step" value="sp_notified_customer">
+                                <input type="hidden" name="page" value="arm_appointment">
+                                <input type="hidden" name="active_tab" value="scheduled"> 
+                                <button class="action-btn btn-info" data-notified="0">
+                                    <i class="fas fa-bell"></i> 通知客户
+                                </button>
+                            </form>                        
+                        {% endif %}     
+                    </td>
+                    <td rowspan="{{ shipment_group.cargos|length }}" style="vertical-align: middle;">
+                        <form method="post" action="">
+                            {% csrf_token %}
+                            <input type="hidden" name="appointment_id" value="{{ shipment_group.appointment_id }}">                                  
+                            <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                            <input type="hidden" name="step" value="unassign_shipment">
+                            <input type="hidden" name="page" value="arm_appointment">
+                            <input type="hidden" name="active_tab" value="scheduled"> 
+
+                            <button class="action-btn btn-secondary">
+                                <i class="fas fa-unlink"></i> 取消排约
+                            </button>
+                        </form>
+                        
+                        
+                        <form method="post" action="">
+                            {% csrf_token %}
+                            <input type="hidden" name="appointment_id" value="{{ shipment_group.appointment_id }}">                                  
+                            <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                            <input type="hidden" name="destination" value="{{ shipment_group.destination }}">
+                            <input type="hidden" name="step" value="search_addable_po">
+                            <input type="hidden" name="page" value="arm_appointment">
+                            <input type="hidden" name="active_tab" value="scheduled"> 
+
+                            <button class="action-btn btn-success" onclick="">
+                                <i class="fas fa-square-plus"></i> 添加PO
+                            </button>
+                        </form>
+    
+                        <button class="action-btn btn-warning open-bind-modal"
+                                data-has-appointment="1"
+                                data-appointment-id="{{ shipment_group.appointment_id }}"
+                                data-load-type="{{ shipment_group.load_type }}"
+                                data-destination="{{ shipment_group.destination }}"
+                                data-delivery-method="{{ shipment_group.load_type }}"
+                                data-scheduled-time="{{ shipment_group.shipment_appointment|date:'Y-m-d H:i' }}"
+                                data-shipment-account="{{ shipment_group.shipment_account }}"
+                                data-origin="{{ warehouse }}"
+                                data-note=""
+                                data-address-detail="{{ shipment_group.address_detail }}"
+                                data-operation-type="remove_po"
+                                data-pickup-time="{{ shipment_group.pickup_time|date:'Y-m-d H:i' }}"
+                                data-pickup-number="{{ shipment_group.pickup_number }}">
+                            <i class="fas fa-square-minus"></i> 删除PO
+                        </button>
+                        <button class="action-btn btn-primary open-edit-modal"
+                                data-appointment-id="{{ shipment_group.appointment_id }}"
+                                data-destination="{{ shipment_group.destination }}"
+                                data-scheduled-time="{{ shipment_group.shipment_appointment|date:'Y-m-d H:i' }}"
+                                data-load-type="{{ shipment_group.load_type }}"
+                                data-origin="{{ warehouse }}"
+                                data-pickup-time="{{ shipment_group.pickup_time|date:'Y-m-d H:i' }}"
+                                data-pickup-number="{{ shipment_group.pickup_number }}"
+                                data-shipment-id="{{ shipment_group.shipment_cargo_id }}">
+                            <i class="fas fa-edit"></i> 修改约
+                        </button>
+                    </td>
+                    {% endif %}
+                </tr>
+                {% endfor %}
+            {% else %}
+                <!-- 没有PO的 -->
+                <tr data-shipment-group="{{ shipment_group.appointment_id }}">
+                    <td style="min-width: 40px; text-align: center; vertical-align: middle;">
+                        <input type='checkbox' name='is_appointment_added' onclick="toggleRowBackground(this)" data-appointment-id="{{ shipment_group.appointment_id }}">
+                        <input type="hidden" name="appointment_id" value="{{ shipment_group.appointment_id }}">
+                    </td>
                     <td style="vertical-align: middle; background-color: #f8f9fa;">
                         {{ shipment_group.shipment_batch_number|default_if_none:'' }}
+                        <div style="margin-top: 5px;">
+                            <form method="post" action="" class="notify-customer-form" style="display: inline-block;">
+                                {% csrf_token %}
+                                <input type="hidden" name="appointment_id" value="{{ shipment_group.appointment_id }}">                                  
+                                <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                                <input type="hidden" name="step" value="export_bol">
+                                <input type="hidden" name="page" value="arm_appointment">
+                                <input type="hidden" name="active_tab" value="scheduled"> 
+                                <button class="action-btn" style="
+                                    background: linear-gradient(135deg, #3498db, #2980b9);
+                                    border: none;
+                                    color: white;
+                                    padding: 6px 12px;
+                                    border-radius: 6px;
+                                    font-size: 0.8rem;
+                                    cursor: pointer;
+                                    transition: all 0.3s ease;
+                                    box-shadow: 0 2px 4px rgba(52, 152, 219, 0.3);
+                                    display: flex;
+                                    align-items: center;
+                                    gap: 5px;
+                                ">
+                                    <i class="fas fa-file-word" style="font-size: 0.9rem;"></i>
+                                    BOL下载
+                                </button>
+                            </form>
+                        </div>
                     </td>
                     <td style="vertical-align: middle; background-color: #f8f9fa;">
                         <strong>{{ shipment_group.appointment_id|default_if_none:'' }}</strong>
@@ -263,6 +346,7 @@
                                 <input type="hidden" name="appointment_id" value="{{ shipment_group.appointment_id }}">                                  
                                 <input type="hidden" name="warehouse" value="{{ warehouse }}">
                                 <input type="hidden" name="step" value="sp_notified_customer">
+                                <input type="hidden" name="page" value="arm_appointment">
                                 <input type="hidden" name="active_tab" value="scheduled"> 
                                 <button class="action-btn btn-info" data-notified="0">
                                     <i class="fas fa-bell"></i> 通知客户
@@ -271,9 +355,18 @@
                         {% endif %}
                     </td>
                     <td style="vertical-align: middle;">
-                        <button class="action-btn btn-secondary" onclick="unassignShipment('{{ shipment_group.appointment_id }}')">
-                            <i class="fas fa-unlink"></i> 取消排约
-                        </button>
+                        <form method="post" action="">
+                            {% csrf_token %}
+                            <input type="hidden" name="appointment_id" value="{{ shipment_group.appointment_id }}">                                  
+                            <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                            <input type="hidden" name="step" value="unassign_shipment">
+                            <input type="hidden" name="page" value="arm_appointment">
+                            <input type="hidden" name="active_tab" value="scheduled"> 
+
+                            <button class="action-btn btn-secondary">
+                                <i class="fas fa-unlink"></i> 取消排约
+                            </button>
+                        </form>
                         
                         <form method="post" action="">
                             {% csrf_token %}
@@ -281,6 +374,7 @@
                             <input type="hidden" name="warehouse" value="{{ warehouse }}">
                             <input type="hidden" name="destination" value="{{ shipment_group.destination }}">
                             <input type="hidden" name="step" value="search_addable_po">
+                            <input type="hidden" name="page" value="arm_appointment">
                             <input type="hidden" name="active_tab" value="scheduled"> 
                             <button class="action-btn btn-success" onclick="">
                                 <i class="fas fa-square-plus"></i> 添加PO
@@ -299,17 +393,16 @@
                         </button>
                     </td>
                 </tr>
-            {% endif %}
-                {% empty %}
-                <tr>
-                    <td colspan="9" style="text-align: center; padding: 20px;">
-                        暂无已排约货物
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
+        {% endif %}
+            {% empty %}
+            <tr>
+                <td colspan="14" style="text-align: center; padding: 20px;">
+                    暂无已排约货物
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
 </div>
 <div id="editAppointmentModal" class="modal">
     <div class="modal-content" style="width: 600px; max-width: 90%;">
@@ -317,12 +410,14 @@
             <h3><i class="fas fa-edit"></i> 修改预约</h3>
             <span class="close" onclick="closeEditModal()">&times;</span>
         </div>
-        <div class="modal-body">
+        <div class="modal-body" style="padding:10px;">
             <form id="editAppointmentForm" method="post">
                 {% csrf_token %}
                 <input type="hidden" name="step" value="edit_appointment">
+                <input type="hidden" name="page" value="arm_appointment">
                 <input type="hidden" name="appointment_id" id="editModalAppointmentId">
                 <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                <input type="hidden" name="active_tab" value="scheduled"> 
                 <input type="hidden" name="st_type" value="{{ st_type }}">
 
                 <table class="modal-table">
@@ -387,14 +482,11 @@
     </div>
 </div>
 <script>
+    let searchTimer;
     document.addEventListener('DOMContentLoaded', function() {
         const searchInputs = document.querySelectorAll('#scheduled-section .header-search');
         const rows = document.querySelectorAll('#scheduled-section tbody tr');
-
-        let searchState = {};   // 保存每列搜索值
-        let searchTimer;
-        
-        
+             
         // 输入框监听
         searchInputs.forEach(input => {
             input.addEventListener('input', function () {
@@ -589,7 +681,7 @@
             document.getElementById('editModalAppointmentInput').value = appointmentId;
             document.getElementById('editModalScheduledTime').value = scheduledTime;
             document.getElementById('editModalPickupTime').value = pickupTime;
-            document.getElementById('editModalPickupNumber').value = pickupNumber;          
+            document.getElementById('editModalPickupNumber').value = pickupNumber;
             document.getElementById('editModalShipmentId').value = shipmentId;
             
             document.getElementById('editModalDestination').value = destination;

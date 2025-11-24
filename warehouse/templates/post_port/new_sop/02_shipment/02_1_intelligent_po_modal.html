@@ -1,148 +1,173 @@
 <style>
-/* 智能PO弹窗专用样式 - 新增样式 */
-.intelligent-group {
-    margin-bottom: 25px;
-    border: 1px solid #e0e0e0;
-    border-radius: 8px;
-    overflow: hidden;
-}
+    /* 智能PO弹窗专用样式 - 新增样式 */
+    .intelligent-group {
+        margin-bottom: 25px;
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        overflow: hidden;
+    }
 
-.intelligent-group h4 {
-    background: #f8f9fa;
-    padding: 12px 15px;
-    margin: 0;
-    font-size: 16px;
-    font-weight: 600;
-    color: #2c3e50;
-    border-bottom: 1px solid #e0e0e0;
-}
+    .intelligent-group h4 {
+        background: #f8f9fa;
+        padding: 12px 15px;
+        margin: 0;
+        font-size: 16px;
+        font-weight: 600;
+        color: #2c3e50;
+        border-bottom: 1px solid #e0e0e0;
+    }
 
-.intelligent-group table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 13px;
-}
+    .intelligent-group table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+    }
 
-.intelligent-group th {
-    background: #34495e;
-    color: white;
-    padding: 10px 8px;
-    text-align: left;
-    font-weight: 600;
-    border: none;
-}
+    .intelligent-group th {
+        background: #34495e;
+        color: white;
+        padding: 10px 8px;
+        text-align: left;
+        font-weight: 600;
+        border: none;
+    }
 
-.intelligent-group td {
-    padding: 8px;
-    border-bottom: 1px solid #f0f0f0;
-}
+    .intelligent-group td {
+        padding: 8px;
+        border-bottom: 1px solid #f0f0f0;
+    }
 
-.intelligent-group tr:nth-child(even) {
-    background-color: #f9f9f9;
-}
+    .intelligent-group tr:nth-child(even) {
+        background-color: #f9f9f9;
+    }
 
-.intelligent-group tr:hover {
-    background-color: #edf2f7;
-}
+    .intelligent-group tr:hover {
+        background-color: #edf2f7;
+    }
 
-/* Ref ID列样式 - 新增 */
-.ref-id-cell {
-    max-width: 180px;
-    min-width: 150px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    position: relative;
-    cursor: help;
-}
+    /* Ref ID列样式 - 新增 */
+    .ref-id-cell {
+        max-width: 180px;
+        min-width: 150px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        position: relative;
+        cursor: help;
+    }
 
-.ref-id-cell:hover::after {
-    content: attr(data-full-text);
-    position: absolute;
-    left: 0;
-    top: 100%;
-    background: #333;
-    color: white;
-    padding: 8px 12px;
-    border-radius: 4px;
-    white-space: normal;
-    max-width: 400px;
-    z-index: 1000;
-    font-size: 12px;
-    line-height: 1.4;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-}
+    .ref-id-cell:hover::after {
+        content: attr(data-full-text);
+        position: absolute;
+        left: 0;
+        top: 100%;
+        background: #333;
+        color: white;
+        padding: 8px 12px;
+        border-radius: 4px;
+        white-space: normal;
+        max-width: 400px;
+        z-index: 1000;
+        font-size: 12px;
+        line-height: 1.4;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    }
 
-.container-cell {
-    max-width: 300px;
-    min-width: 200px;
-    white-space: normal;  /* 改为normal允许换行 */
-    word-wrap: break-word;  /* 允许长单词换行 */
-    word-break: break-all;  /* 允许在任何字符间断行 */
-    overflow: visible;  /* 改为visible显示全部内容 */
-    position: relative;
-    cursor: help;
-    line-height: 1.4;  /* 增加行高，让换行后更美观 */
-}
+    .container-cell {
+        max-width: 300px;
+        min-width: 200px;
+        white-space: normal;  /* 改为normal允许换行 */
+        word-wrap: break-word;  /* 允许长单词换行 */
+        word-break: break-all;  /* 允许在任何字符间断行 */
+        overflow: visible;  /* 改为visible显示全部内容 */
+        position: relative;
+        cursor: help;
+        line-height: 1.4;  /* 增加行高，让换行后更美观 */
+    }
 
-.container-cell:hover::after {
-    content: attr(data-full-text);
-    position: absolute;
-    left: 0;
-    top: 100%;
-    background: #333;
-    color: white;
-    padding: 8px 12px;
-    border-radius: 4px;
-    white-space: normal;
-    max-width: 400px;
-    z-index: 1000;
-    font-size: 12px;
-    line-height: 1.4;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-}
+    .container-cell:hover::after {
+        content: attr(data-full-text);
+        position: absolute;
+        left: 0;
+        top: 100%;
+        background: #333;
+        color: white;
+        padding: 8px 12px;
+        border-radius: 4px;
+        white-space: normal;
+        max-width: 400px;
+        z-index: 1000;
+        font-size: 12px;
+        line-height: 1.4;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    }
 
-/* 其他列样式 - 新增 */
-.checkbox-cell {
-    width: 40px;
-    text-align: center;
-}
+    /* 其他列样式 - 新增 */
+    .checkbox-cell {
+        width: 40px;
+        text-align: center;
+    }
 
-.destination-cell {
-    width: 120px;
-    min-width: 100px;
-}
+    .destination-cell {
+        width: 120px;
+        min-width: 100px;
+    }
 
-.delivery-method-cell {
-    max-width: 120px;
-    min-width: 80px;
-}
+    .delivery-method-cell {
+        max-width: 120px;
+        min-width: 80px;
+    }
 
-.cbm-cell, .pallet-cell, .status-cell {
-    width: 80px;
-    text-align: center;
-}
+    .cbm-cell, .pallet-cell, .status-cell {
+        width: 80px;
+        text-align: center;
+    }
 
-/* 统计信息样式 - 修改 */
-.intelligent-group-stats {
-    position: sticky;
-    top: 0;
-    background: #f8f9fa;
-    padding: 12px 15px;
-    border-bottom: 2px solid #e0e0e0;
-    font-weight: 600;
-    color: #2c3e50;
-    z-index: 10;
-    font-size: 14px;
-}
+    /* 统计信息样式 - 修改 */
+    .intelligent-group-stats {
+        position: sticky;
+        top: 0;
+        background: #f8f9fa;
+        padding: 12px 15px;
+        border-bottom: 2px solid #e0e0e0;
+        font-weight: 600;
+        color: #2c3e50;
+        z-index: 10;
+        font-size: 14px;
+    }
 
-.intelligent-group-stats span {
-    margin-right: 20px;
-    padding: 4px 8px;
-    background: white;
-    border-radius: 4px;
-    border: 1px solid #e0e0e0;
-}
+    .intelligent-group-stats span {
+        margin-right: 20px;
+        padding: 4px 8px;
+        background: white;
+        border-radius: 4px;
+        border: 1px solid #e0e0e0;
+    }
+    .table-search-row {
+        background: #f8f9fa !important;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+    }
+
+    .search-input-cell {
+        padding: 4px 6px !important;
+        background: white;
+    }
+
+    .search-input-cell input {
+        width: 100%;
+        padding: 4px 8px;
+        border: 1px solid #bdc3c7;
+        border-radius: 3px;
+        font-size: 12px;
+    }
+
+    .search-input-cell input:focus {
+        outline: none;
+        border-color: #3498db;
+        box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+    }
 </style>
 
 <div id="intelligentPoModal" class="modal" style="display:none; position:fixed; z-index:2000; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,0.5);">
@@ -168,248 +193,405 @@
 
 
 <script>
-let currentSuggestionData = null;
-
-/* 按 order_number 分组 intelligent_cargos */
-function groupIntelligentCargos(cargos) {
-    const groups = {};
-    cargos.forEach(cargo => {
-        const key = cargo.order_number || "";
-        if (!groups[key]) groups[key] = [];
-        groups[key].push(cargo);
-    });
-    return groups;
-}
-
-function closeIntelligentPoModal() {
-    document.getElementById("intelligentPoModal").style.display = "none";
-}
-/* 渲染分组表格 */
-function renderGroupedTables(groups, stats) {
-    let html = "";
-    if (stats) {
-        html += `
-        <div class="intelligent-group-stats" 
-            <span>总计: ${stats.total_count}</span>
-            <span>已拆正常派送组: ${stats.ACT_normal_count}</span>
-            <span>已拆暂扣组: ${stats.ACT_hold_count}</span>
-            <span>未拆正常派送组: ${stats.EST_normal_count}</span>
-            <span>未拆暂扣组: ${stats.EST_hold_count}</span>
-        </div>
-        `;
+    let currentSuggestionData = null;
+    function groupIntelligentCargos(cargos) {
+        const groups = {};
+        cargos.forEach(cargo => {
+            const key = cargo.order_number || "";
+            if (!groups[key]) groups[key] = [];
+            groups[key].push(cargo);
+        });
+        return groups;
     }
-    for (const [orderNumber, items] of Object.entries(groups)) {
-        html += `
-            <div class="intelligent-group">
-                <h4>${orderNumber}</h4>
-                <table>
-                    <thead>
-                        <tr>
-                            <th class="checkbox-cell"><input type="checkbox" class="select-all"></th>
-                            <th class="destination-cell">仓库</th>
-                            <th class="destination-cell">目的地</th>
-                            <th class="delivery-method-cell">派送方式</th>
-                            <th class="ref-id-cell">Ref ID</th>
-                            <th class="container-cell">柜号</th>
-                            <th class="cbm-cell">CBM</th>
-                            <th class="pallet-cell">板数</th>
-                            <th class="status-cell">状态</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${items.map(item => `
-                            <tr>
-                                <td><input type="checkbox" class="cargo-checkbox" value="${item.ids}" data-cargo='${JSON.stringify(item).replace(/'/g, "&apos;")}'></td>
-                                <td class="location-cell">${item.warehouse}</td>
-                                <td class="location-cell">${item.location}</td>
-                                <td class="destination-cell">${item.destination || ''}</td>
-                                <td class="delivery-method-cell">${item.custom_delivery_method || ''}</td>
-                                <td class="ref-id-cell" data-full-text="${item.ref_ids || ''}">${item.ref_ids || ''}</td>
-                                <td class="container-cell">${item.container_numbers || ''}</td>
-                                <td class="cbm-cell">${item.total_cbm || ''}</td>
-                                <td class="pallet-cell">${item.total_n_pallet_act || ''}</td>
-                                <td class="status-cell">${item.label === 'ACT' ? '已打板' : '未打板'}</td>
-                            </tr>
-                        `).join('')}
-                    </tbody>
-                </table>
+
+    function closeIntelligentPoModal() {
+        document.getElementById("intelligentPoModal").style.display = "none";
+    }
+    /* 渲染分组表格 */
+    function renderGroupedTables(groups, stats) {
+        console.log('groups',groups);
+        let html = "";
+        if (stats) {
+            html += `
+            <div class="intelligent-group-stats">
+                <span>总计: ${stats.total_count}</span>
+                <span>已拆正常派送组: ${stats.ACT_normal_count}</span>
+                <span>已拆暂扣组: ${stats.ACT_hold_count}</span>
+                <span>未拆正常派送组: ${stats.EST_normal_count}</span>
+                <span>未拆暂扣组: ${stats.EST_hold_count}</span>
             </div>
-        `;
-    }
-    return html;
-}
-
-/* 打开弹窗 */
-function openModalForSuggestion(suggestionData) {
-    currentSuggestionData = suggestionData;
-
-    const modal = document.getElementById("intelligentPoModal");
-    const container = document.getElementById("intelligentPoTablesContainer");
-    const groups = groupIntelligentCargos(suggestionData.intelligent_cargos || []);
-    const stats = suggestionData.intelligent_pos_stats || null;
-    container.innerHTML = renderGroupedTables(groups, stats);
-
-    modal.style.display = "block";
-}
-
-/* -------------------- 全局事件 -------------------- */
-document.addEventListener("click", e => {
-    const btn = e.target.closest(".open-intelligent-modal");
-    if (!btn) return;
-
-    const scriptId = btn.dataset.scriptId;
-    const scriptTag = document.getElementById(scriptId);
-    if (!scriptTag) {
-        alert("未找到智能推荐数据");
-        return;
-    }
-
-    const suggestionData = JSON.parse(scriptTag.textContent);
-    const allSuggestions = window.matching_suggestions;
-    openModalForSuggestion(suggestionData);
-});
-
-/* -------------------- 弹窗逻辑 -------------------- */
-document.addEventListener("DOMContentLoaded", () => {
-    const modal = document.getElementById("intelligentPoModal");
-    const container = document.getElementById("intelligentPoTablesContainer");
-    const cancelBtn = document.getElementById("cancelIntelligentPoBtn");
-    const confirmBtn = document.getElementById("confirmIntelligentPoBtn");
-
-    // 关闭弹窗
-    cancelBtn.onclick = () => modal.style.display = "none";
-
-    // 分组全选
-    container.addEventListener("change", e => {
-        if (e.target.classList.contains("select-all")) {
-            const table = e.target.closest("table");
-            table.querySelectorAll(".cargo-checkbox").forEach(cb => cb.checked = e.target.checked);
+            `;
         }
+        for (const [orderNumber, items] of Object.entries(groups)) {
+            html += `
+                <div class="intelligent-group">
+                    <h4>${orderNumber}</h4>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th class="checkbox-cell"><input type="checkbox" class="select-all"></th>
+                                <th class="destination-cell">仓库</th>
+                                <th class="destination-cell">目的地</th>
+                                <th class="delivery-method-cell">派送方式</th>
+                                <th class="ref-id-cell">Ref ID</th>
+                                <th class="container-cell">柜号</th>
+                                <th class="cbm-cell">CBM</th>
+                                <th class="pallet-cell">板数</th>
+                                <th class="status-cell">状态</th>
+                            </tr>
+                            <!-- 搜索行 -->
+                            <tr class="table-search-row">
+                                <td class="checkbox-cell"></td>
+                                <td class="search-input-cell"><input type="text" placeholder="搜索仓库" data-field="warehouse"></td>
+                                <td class="search-input-cell"><input type="text" placeholder="搜索目的地" data-field="location"></td>
+                                <td class="search-input-cell"><input type="text" placeholder="搜索派送方式" data-field="custom_delivery_method"></td>
+                                <td class="search-input-cell"><input type="text" placeholder="搜索Ref ID" data-field="ref_ids"></td>
+                                <td class="search-input-cell"><input type="text" placeholder="搜索柜号" data-field="container_numbers"></td>
+                                <td class="search-input-cell"><input type="text" data-field="total_cbm"></td>
+                                <td class="search-input-cell"><input type="text" data-field="total_n_pallet_act"></td>
+                                <td class="search-input-cell"><input type="text" data-field="status"></td>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${items.map(item => `
+                                <tr>
+                                    <td class="checkbox-cell"><input type="checkbox" class="cargo-checkbox"
+                                        value="${item.unique_id}"
+                                        data-cargo='${JSON.stringify(item).replace(/'/g, "&apos;")}' />
+                                    </td>
+                                    <td class="destination-cell">${item.location || item.warehouse || ''}</td>
+                                    <td class="destination-cell">${item.destination || ''}</td>
+                                    <td class="delivery-method-cell">${item.custom_delivery_method || ''}</td>
+                                    <td class="ref-id-cell" data-full-text="${item.ref_ids || ''}">${item.ref_ids || ''}</td>
+                                    <td class="container-cell" data-full-text="${item.container_numbers || ''}">${item.container_numbers || ''}</td>
+                                    <td class="cbm-cell">${item.total_cbm || ''}</td>
+                                    <td class="pallet-cell">${item.total_n_pallet_act || ''}</td>
+                                    <td class="status-cell">${item.label === 'ACT' ? '已打板' : '未打板'}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+        }
+        return html;
+    }
+
+    /* 打开弹窗 */
+    function openModalForSuggestion(suggestionData) {
+        currentSuggestionData = suggestionData;
+
+        const modal = document.getElementById("intelligentPoModal");
+        const container = document.getElementById("intelligentPoTablesContainer");
+        const groups = groupIntelligentCargos(suggestionData.intelligent_cargos || []);
+        const stats = suggestionData.intelligent_pos_stats || null;
+        container.innerHTML = renderGroupedTables(groups, stats);
+
+        modal.style.display = "block";
+    }
+
+    /* -------------------- 全局事件 -------------------- */
+    document.addEventListener("click", e => {
+        const btn = e.target.closest(".open-intelligent-modal");
+        if (!btn) return;
+
+        const scriptId = btn.dataset.scriptId;
+        const scriptTag = document.getElementById(scriptId);
+        if (!scriptTag) {
+            alert("未找到智能推荐数据");
+            return;
+        }
+
+        const suggestionData = JSON.parse(scriptTag.textContent);
+        const allSuggestions = window.matching_suggestions;
+        openModalForSuggestion(suggestionData);
     });
 
-    // 确认选择
-    confirmBtn.onclick = () => {
-        const checkedBoxes = Array.from(container.querySelectorAll(".cargo-checkbox:checked"));
-        if (!checkedBoxes.length) return alert("请至少选择一个PO");
-        
-        // 获取所有选中的ids
-        const selectedIds = checkedBoxes.map(cb => cb.value);
-        
-        // 从currentSuggestionData中查找对应的cargo数据
-        const selectedCargos = currentSuggestionData.intelligent_cargos.filter(cargo => 
-            selectedIds.includes(cargo.ids)
-        );
-        
-        const warehouse = window.warehouse;
-        // 获取全局数据
-        const allSuggestions = window.matching_suggestions;
-        
-        // 创建隐藏表单并提交
-        const form = document.createElement('form');
-        form.method = 'POST';
-        form.action = ''; // 设置您的后端处理URL
-        
-        // step值
-        const stepInput = document.createElement('input');
-        stepInput.type = 'hidden';
-        stepInput.name = 'step';
-        stepInput.value = 'modify_intelligent_po';
-        form.appendChild(stepInput);
+    /* -------------------- 弹窗逻辑 -------------------- */
+    document.addEventListener("DOMContentLoaded", () => {
+        const modal = document.getElementById("intelligentPoModal");
+        const container = document.getElementById("intelligentPoTablesContainer");
+        const cancelBtn = document.getElementById("cancelIntelligentPoBtn");
+        const confirmBtn = document.getElementById("confirmIntelligentPoBtn");
+        console.log('打印打印打印打印');
 
-        // 仓库值
-        const warehouseInputField = document.createElement('input');
-        warehouseInputField.type = 'hidden';
-        warehouseInputField.name = 'warehouse';
-        warehouseInputField.value = warehouse;  // 这里使用获取到的warehouse
-        form.appendChild(warehouseInputField);
+        // 关闭弹窗
+        cancelBtn.onclick = () => modal.style.display = "none";
 
-        // 添加selectedCargos数据
-        const selectedCargosInput = document.createElement('input');
-        selectedCargosInput.type = 'hidden';
-        selectedCargosInput.name = 'selected_cargos';
-        selectedCargosInput.value = JSON.stringify(selectedCargos);
-        form.appendChild(selectedCargosInput);
-        
-        // 添加suggestionData数据
-        const suggestionDataInput = document.createElement('input');
-        suggestionDataInput.type = 'hidden';
-        suggestionDataInput.name = 'suggestion_data';
-        suggestionDataInput.value = JSON.stringify(currentSuggestionData);
-        form.appendChild(suggestionDataInput);
-        
-        // 添加allSuggestions数据
-        const allSuggestionsInput = document.createElement('input');
-        allSuggestionsInput.type = 'hidden';
-        allSuggestionsInput.name = 'all_suggestions';
-        allSuggestionsInput.value = JSON.stringify(allSuggestions);
-        form.appendChild(allSuggestionsInput);
-        
-        // 添加CSRF token
-        const csrfToken = document.querySelector('input[name="csrfmiddlewaretoken"]');
-        if (csrfToken) {
-            const csrfInput = document.createElement('input');
-            csrfInput.type = 'hidden';
-            csrfInput.name = 'csrfmiddlewaretoken';
-            csrfInput.value = csrfToken.value;
-            form.appendChild(csrfInput);
-        } else {
-            console.warn('CSRF token not found');
-            // 如果找不到CSRF token，可以尝试从cookie获取（Django）
-            const csrfCookie = getCookie('csrftoken');
-            if (csrfCookie) {
+        // 分组全选
+        container.addEventListener("change", e => {
+            if (e.target.classList.contains("select-all")) {
+                const table = e.target.closest("table");
+                table.querySelectorAll(".cargo-checkbox").forEach(cb => cb.checked = e.target.checked);
+            }
+        });
+
+        // 确认选择
+        confirmBtn.onclick = () => {
+            const checkedBoxes = Array.from(container.querySelectorAll(".cargo-checkbox:checked"));
+            if (!checkedBoxes.length) return alert("请至少选择一个PO");
+            
+            // 获取所有选中的ids
+            const selectedIds = checkedBoxes.map(cb => cb.value);
+            
+            const warehouse = window.warehouse;
+            // 获取全局数据
+            const allSuggestions = window.matching_suggestions;
+            
+            // 创建隐藏表单并提交
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = ''; // 设置您的后端处理URL
+            
+            // step值
+            const stepInput = document.createElement('input');
+            stepInput.type = 'hidden';
+            stepInput.name = 'step';
+            stepInput.value = 'modify_intelligent_po';
+            form.appendChild(stepInput);
+
+            // 仓库值
+            const warehouseInputField = document.createElement('input');
+            warehouseInputField.type = 'hidden';
+            warehouseInputField.name = 'warehouse';
+            warehouseInputField.value = warehouse;  // 这里使用获取到的warehouse
+            form.appendChild(warehouseInputField);
+
+            // 添加selectedCargos数据
+            const selectedIdsInput = document.createElement('input');
+            selectedIdsInput.type = 'hidden';
+            selectedIdsInput.name = 'selected_ids';
+            selectedIdsInput.value = JSON.stringify(selectedIds);
+            form.appendChild(selectedIdsInput);
+            
+            // 添加suggestionData数据
+            const suggestionDataInput = document.createElement('input');
+            suggestionDataInput.type = 'hidden';
+            suggestionDataInput.name = 'suggestion_data';
+            suggestionDataInput.value = JSON.stringify(currentSuggestionData);
+            form.appendChild(suggestionDataInput);
+            
+            // 添加allSuggestions数据
+            const allSuggestionsInput = document.createElement('input');
+            allSuggestionsInput.type = 'hidden';
+            allSuggestionsInput.name = 'all_suggestions';
+            allSuggestionsInput.value = JSON.stringify(allSuggestions);
+            form.appendChild(allSuggestionsInput);
+            
+            // 添加CSRF token
+            const csrfToken = document.querySelector('input[name="csrfmiddlewaretoken"]');
+            if (csrfToken) {
                 const csrfInput = document.createElement('input');
                 csrfInput.type = 'hidden';
                 csrfInput.name = 'csrfmiddlewaretoken';
-                csrfInput.value = csrfCookie;
+                csrfInput.value = csrfToken.value;
                 form.appendChild(csrfInput);
+            } else {
+                console.warn('CSRF token not found');
+                // 如果找不到CSRF token，可以尝试从cookie获取（Django）
+                const csrfCookie = getCookie('csrftoken');
+                if (csrfCookie) {
+                    const csrfInput = document.createElement('input');
+                    csrfInput.type = 'hidden';
+                    csrfInput.name = 'csrfmiddlewaretoken';
+                    csrfInput.value = csrfCookie;
+                    form.appendChild(csrfInput);
+                }
+            }
+            // 提交表单
+            document.body.appendChild(form);
+            form.submit();
+            
+            // 关闭弹窗
+            modal.style.display = "none";
+        };
+         // 初始化表格搜索
+        initTableSearch();
+    });
+
+    function submitIntelligentSelection(selectedPOs) {
+        // 处理选中的PO，生成更新后的cargos数组
+        const updatedCargos = processSelectedPOs(selectedPOs);
+        
+        // 获取suggestionId（从隐藏字段或URL参数等）
+        const suggestionId = document.getElementById('suggestion_id').value;
+        
+        // 调用主页面的回调函数
+        if (window.opener && window.opener.handleIntelligentPoResult) {
+            window.opener.handleIntelligentPoResult(updatedCargos, suggestionId);
+            window.close(); // 关闭分页面
+        } else {
+            // 备用方案：如果opener不存在，使用其他方式传递数据
+            console.error('无法访问主页面');
+        }
+    }
+
+    // 处理选中的PO数据（根据您的业务逻辑实现）
+    function processSelectedPOs(selectedPOs) {
+        const updatedCargos = [];
+        
+        selectedPOs.forEach(po => {
+            updatedCargos.push({
+                ids: po.id,
+                plt_ids: po.plt_id,
+                ref_ids: po.ref_id,
+                fba_ids: po.fba_id,
+                cns: po.container_no,
+                delivery_window_start: po.delivery_start,
+                delivery_window_end: po.delivery_end,
+                total_n_pallet_act: po.pallet_actual,
+                total_n_pallet_est: po.pallet_estimated,
+                total_cbm: po.cbm,
+                label: po.label
+            });
+        });
+        
+        return updatedCargos;
+    }
+    // 表格搜索功能
+    function initTableSearch() {
+        const container = document.getElementById('intelligentPoTablesContainer');
+        
+        container.addEventListener('input', function(e) {
+            if (e.target.matches('.table-search-row input')) {
+                performTableSearch();
+            }
+        });
+        
+        // 添加清除搜索按钮事件
+        container.addEventListener('click', function(e) {
+            if (e.target.matches('.clear-search-btn')) {
+                clearTableSearch();
+            }
+        });
+    }
+
+    function performTableSearch() {
+        const searchInputs = document.querySelectorAll('.table-search-row input');
+        const filters = {};
+        
+        // 收集所有搜索条件
+        searchInputs.forEach(input => {
+            const field = input.getAttribute('data-field');
+            const value = input.value.trim().toLowerCase();
+            if (value && field) {
+                filters[field] = value;
+            }
+        });
+        
+        // 如果没有搜索条件，显示所有行
+        if (Object.keys(filters).length === 0) {
+            const allRows = document.querySelectorAll('.intelligent-group tbody tr');
+            allRows.forEach(row => {
+                row.style.display = '';
+            });
+
+            clearHighlights();
+            updateSearchStats(allRows.length);
+            return;
+        }
+        
+        // 应用筛选
+        const allRows = document.querySelectorAll('.intelligent-group tbody tr');
+        let visibleCount = 0;
+        
+        allRows.forEach(row => {
+            let match = true;
+            
+            for (const [field, searchValue] of Object.entries(filters)) {
+                const cell = getCellByField(row, field);
+                if (cell) {
+                    const cellText = (cell.getAttribute('data-full-text') || cell.textContent || '').toLowerCase();
+                    if (!cellText.includes(searchValue)) {
+                        match = false;
+                        break;
+                    }
+                }
+            }
+            
+            if (match) {
+                row.style.display = '';
+                visibleCount++;
+                // 高亮匹配的文本
+                highlightRowMatches(row, filters);
+            } else {
+                row.style.display = 'none';
+            }
+        });
+        
+        updateSearchStats(visibleCount);
+    }
+
+    function clearTableSearch() {
+        // 清空所有搜索框
+        const searchInputs = document.querySelectorAll('.table-search-row input');
+        searchInputs.forEach(input => input.value = '');
+        
+        // 显示所有行
+        const allRows = document.querySelectorAll('.intelligent-group tbody tr');
+        allRows.forEach(row => {
+            row.style.display = '';
+        });
+        
+        // 清除高亮
+        clearHighlights();
+        
+        // 重置统计
+        updateSearchStats(allRows.length);
+    }
+
+    function getCellByField(row, field) {
+        const fieldIndexMap = {
+            'warehouse': 1,
+            'location': 2,
+            'custom_delivery_method': 3,
+            'ref_ids': 4,
+            'container_numbers': 5,
+            'total_cbm': 6,
+            'total_n_pallet_act': 7,
+            'status': 8
+        };
+        
+        const index = fieldIndexMap[field];
+        return index !== undefined ? row.cells[index] : null;
+    }
+
+    function highlightRowMatches(row, filters) {
+        for (const [field, searchValue] of Object.entries(filters)) {
+            const cell = getCellByField(row, field);
+            if (cell && searchValue) {
+                const originalText = cell.getAttribute('data-full-text') || cell.textContent;
+                const highlightedText = originalText.replace(
+                    new RegExp(searchValue, 'gi'),
+                    match => `<span class="highlight-match">${match}</span>`
+                );
+                cell.innerHTML = highlightedText;
             }
         }
-        // 提交表单
-        document.body.appendChild(form);
-        form.submit();
-        
-        // 关闭弹窗
-        modal.style.display = "none";
-    };
-});
-
-function submitIntelligentSelection(selectedPOs) {
-    // 处理选中的PO，生成更新后的cargos数组
-    const updatedCargos = processSelectedPOs(selectedPOs);
-    
-    // 获取suggestionId（从隐藏字段或URL参数等）
-    const suggestionId = document.getElementById('suggestion_id').value;
-    
-    // 调用主页面的回调函数
-    if (window.opener && window.opener.handleIntelligentPoResult) {
-        window.opener.handleIntelligentPoResult(updatedCargos, suggestionId);
-        window.close(); // 关闭分页面
-    } else {
-        // 备用方案：如果opener不存在，使用其他方式传递数据
-        console.error('无法访问主页面');
     }
-}
 
-// 处理选中的PO数据（根据您的业务逻辑实现）
-function processSelectedPOs(selectedPOs) {
-    const updatedCargos = [];
-    
-    selectedPOs.forEach(po => {
-        updatedCargos.push({
-            ids: po.id,
-            plt_ids: po.plt_id,
-            ref_ids: po.ref_id,
-            fba_ids: po.fba_id,
-            cns: po.container_no,
-            delivery_window_start: po.delivery_start,
-            delivery_window_end: po.delivery_end,
-            total_n_pallet_act: po.pallet_actual,
-            total_n_pallet_est: po.pallet_estimated,
-            total_cbm: po.cbm,
-            label: po.label
+    function clearHighlights() {
+        const highlightedCells = document.querySelectorAll('.highlight-match');
+        highlightedCells.forEach(span => {
+            const parent = span.parentNode;
+            parent.innerHTML = parent.getAttribute('data-full-text') || parent.textContent;
         });
-    });
-    
-    return updatedCargos;
-}
+    }
+
+    function updateSearchStats(visibleCount) {
+        const totalCount = document.querySelectorAll('.intelligent-group tbody tr').length;
+        const statsElement = document.querySelector('.intelligent-group-stats') || 
+                            document.getElementById('intelligentPoTablesContainer').querySelector('.intelligent-group-stats');
+        
+        if (statsElement) {
+            const originalStats = statsElement.getAttribute('data-original-stats') || statsElement.innerHTML;
+            statsElement.setAttribute('data-original-stats', originalStats);
+            
+            if (visibleCount < totalCount) {
+                statsElement.innerHTML = originalStats + ` | 筛选结果: ${visibleCount}/${totalCount} 条`;
+            } else {
+                statsElement.innerHTML = originalStats;
+            }
+        }
+    }
 </script>

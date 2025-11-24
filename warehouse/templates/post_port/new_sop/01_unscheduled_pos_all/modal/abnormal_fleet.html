@@ -1,0 +1,61 @@
+<div id="abnormalModal" class="modal">
+    <div class="modal-content" style="max-width: 500px; padding: 30px;">
+        <span class="close-btn" onclick="closeAbnormalModal()" style="
+            position: absolute;
+            top: 15px;
+            right: 20px;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            color: #aaa;
+            line-height: 1;
+        ">&times;</span>
+        <h4 style="color: var(--secondary-color); margin-bottom: 20px;">
+        <i class="fas fa-exclamation-triangle"></i> 车次异常报告
+        </h4>
+        <form method="post" enctype="multipart/form-data" action="">
+        {% csrf_token %}
+        <input type="hidden" name="step" value="abnormal_fleet">
+        <input type="hidden" name="warehouse" value="{{ warehouse }}">
+        <input type="hidden" name="fleet_number" id="abnormalFleetNumber" value="">
+        <input type="hidden" name="page" value="arm_appointment">
+        <input type="hidden" name="active_tab" value="ready">
+        <input type="hidden" name="shipment_batch_number" id="abnormalShipmentNumber" value="">
+        
+        <div class="table-container" style="margin-bottom: 20px;">
+            <table class="data-table">
+            <thead>
+                <tr>
+                <th>异常状态</th>
+                <th>异常说明</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                <td>
+                    <select name="abnormal_status" class="table-input" style="width: 100%;" required>
+                    <option value="">请选择异常状态</option>
+                    {% for k, v in abnormal_fleet_options.items %}
+                    <option value="{{ v }}">{{ k }}</option>
+                    {% endfor %}
+                    </select>
+                </td>
+                <td>
+                    <input type="text" name="abnormal_description" class="table-input" style="width: 100%;" placeholder="请输入异常说明..." required>
+                </td>
+                </tr>
+            </tbody>
+            </table>
+        </div>
+        
+        <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+            <button type="submit" class="action-btn btn-success">
+            <i class="fas fa-check"></i> 确认提交
+            </button>
+            <button type="button" class="action-btn btn-danger" onclick="closeAbnormalModal()">
+            <i class="fas fa-times"></i> 取消
+            </button>
+        </div>
+        </form>
+    </div>
+</div>

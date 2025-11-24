@@ -229,7 +229,7 @@
                 <tbody>
                     <tr>
                         <td>
-                            <select name="shipment_account" id="shipment-account-select">
+                            <select name="shipment_account" id="manage-shipment-account-select">
                                 {% for k, v in account_options.items %}
                                 <option value="{{ v }}">{{ k }}</option>
                                 {% endfor %}
@@ -242,7 +242,7 @@
                          <td><input type="text" name="pickup_number" ></td>
                         <td><input type="datetime-local" name="shipment_appointment" required></td>
                         <td>
-                            <select name="load_type" id="load-type-select">
+                            <select name="load_type" id="manage-load-type-select">
                                 {% for k, v in load_type_options %}
                                 <option value="{{ v }}">{{ k }}</option>
                                 {% endfor %}
@@ -377,7 +377,7 @@
     });
     // 自动生成 pickup number 的函数
     function generateAppointmentPickupNumber() {
-        const shipmentAccountSelect = document.getElementById('shipment-account-select');
+        const shipmentAccountSelect = document.getElementById('manage-shipment-account-select');
         const destinationInput = document.querySelector('input[name="destination"]');
         const pickupNumberInput = document.querySelector('input[name="pickup_number"]');
         
@@ -446,7 +446,7 @@
 
     // 为添加备约表单添加事件监听
     function addAppointmentFormEventListeners() {
-        const shipmentAccountSelect = document.getElementById('shipment-account-select');
+        const shipmentAccountSelect = document.getElementById('manage-shipment-account-select');
         const destinationInput = document.querySelector('input[name="destination"]');
         
         if (shipmentAccountSelect) {
@@ -514,20 +514,17 @@
         // 如果 originalValue 包含空格（例如 "YYYY-MM-DD HH:MM"），把空格换成 'T'
         if (originalValue && originalValue.includes(' ')) {
             originalValue = originalValue.replace(' ', 'T');
-            console.log('[appointment] originalValue replaced space->T =', originalValue);
         }
 
         // 如果还是空，回退到当前本地时间
         if (!originalValue) {
             const now = new Date();
             originalValue = formatDateToLocalNoSeconds(now);
-            console.log('[appointment] originalValue was empty, fallback to now =', originalValue);
         }
 
         // 有时 originalValue 可能包含秒或时区，确保被截断为前 16 位 "YYYY-MM-DDTHH:MM"
         if (originalValue.length > 16) {
             originalValue = originalValue.slice(0, 16);
-            console.log('[appointment] originalValue truncated to 16 chars =', originalValue);
         }
 
         // 最终赋值 —— 对 datetime-local，空字符串或不合格式都会让控件显示为空

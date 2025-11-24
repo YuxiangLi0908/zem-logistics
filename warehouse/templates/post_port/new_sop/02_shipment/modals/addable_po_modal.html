@@ -53,6 +53,102 @@
         opacity: 1;
         visibility: visible;
     }
+    .filter-info-tooltip {
+        position: relative;
+        display: inline-block;
+    }
+
+    .filter-info-tooltip::after {
+        content: attr(data-tooltip);
+        white-space: pre-line; /* 支持多行 */
+        position: absolute;
+        top: calc(50% + 6px);
+        left: 120%; /* 在问号右侧一点 */
+        transform: translateY(-35%); /* 垂直居中，与问号齐平 */
+        background-color: rgba(60, 60, 60, 0.95);
+        color: #fff;
+        padding: 6px 10px;
+        border-radius: 6px;
+        font-size: 12px;
+        line-height: 1.4;
+        width: max-content;
+        max-width: 260px;
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity 0.2s ease;
+        z-index: 1000;
+        pointer-events: none;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    }
+
+    /* 悬停时显示 */
+    .filter-info-tooltip:hover::after {
+        opacity: 1;
+        visibility: visible;
+    }
+
+    /* 加一个右侧的小箭头 */
+    .filter-info-tooltip::before {
+        content: "";
+        position: absolute;
+        top: 50%;
+        left: 100%;
+        transform: translateY(-50%);
+        border-width: 6px;
+        border-style: solid;
+        border-color: transparent rgba(60, 60, 60, 0.95) transparent transparent;
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity 0.2s ease;
+    }
+
+    .filter-info-tooltip:hover::before {
+        opacity: 1;
+        visibility: visible;
+    }
+
+    /* 搜索行样式 */
+    .search-row {
+        background-color: #f8f9fa !important;
+    }
+    .search-row td {
+        padding: 5px !important;
+        border-bottom: 1px solid #dee2e6;
+    }
+    .header-search {
+        width: 100%;
+        padding: 4px 8px;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+        font-size: 0.8rem;
+        background: white;
+    }
+    .header-select {
+        width: 100%;
+        padding: 4px 8px;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+        font-size: 0.8rem;
+        background: white;
+    }
+    
+    /* 高亮样式 */
+    .highlight-color-1 {
+        background: yellow;
+        font-weight: bold;
+    }
+    .highlight-color-2 {
+        background: #8ef5a6;
+        font-weight: bold;
+    }
+    .highlight-color-3 {
+        background: #ffb4b4;
+        font-weight: bold;
+    }
+    .highlight-color-4 {
+        background: #b4c9ff;
+        font-weight: bold;
+    }
 </style>
 <form method="post" id="addablePOForm">
     {% csrf_token %}
@@ -70,7 +166,7 @@
                         data-tooltip="可添加PO筛选条件：
                     • 柜子类型：转运 或 转运组合
                     • 建单时间：2024年9月1日之后
-                    • 状态：未绑定预约
+                    • 状态：未绑定预约、已放行
                     • 所在地：{{ warehouse }}
                     • 仓库类型：公仓">
                         <i class="fas fa-question-circle" style="color: #6c757d; font-size: 0.8em; cursor: help; margin-left: 8px;"></i>
@@ -89,13 +185,37 @@
                             <th style="width: 20%; word-break: break-word; white-space: normal;">FBA ID</th>
                             <th style="width: 15%; word-break: break-word; white-space: normal;">柜号</th>
                             <th style="width: 20%; word-break: break-word; white-space: normal;">目的地</th>
+                            <th style="width: 20%; word-break: break-word; white-space: normal;">入仓时间</th>
+                            <th style="width: 20%; word-break: break-word; white-space: normal;">甩板</th>
                             <th style="width: 10%; text-align:center;">板数</th>
+                        </tr>
+                        <tr class="search-row">
+                            <td style="text-align:center;"></td>
+                            <td><input type="text" class="header-search" placeholder="搜索REF ID" data-column="1"></td>
+                            <td><input type="text" class="header-search" placeholder="搜索FBA ID" data-column="2"></td>
+                            <td><input type="text" class="header-search" placeholder="搜索柜号" data-column="3"></td>
+                            <td><input type="text" class="header-search" placeholder="搜索目的地" data-column="4"></td>
+                            <td><input type="text" class="header-search" placeholder="搜索入仓时间" data-column="5"></td>
+                            <td>
+                                <select class="header-select" data-column="6">
+                                    <option value="">全部</option>
+                                    <option value="是">是</option>
+                                    <option value="否">否</option>
+                                </select>
+                            </td>
+                            <td><input type="text" class="header-search" placeholder="搜索板数" data-column="7"></td>
                         </tr>
                     </thead>
                     <tbody id="addablePOTableBody">
                         {% if packing_list_not_scheduled %}
                             {% for po in packing_list_not_scheduled %}
-                            <tr>
+                            <tr data-ref-id="{{ po.ref_ids|default:''|lower }}" 
+                                data-fba-id="{{ po.fba_ids|default:''|lower }}" 
+                                data-cn="{{ po.cns|lower }}" 
+                                data-destination="{{ po.destination|lower }}" 
+                                data-offload-time="{{ po.offload_time|default:''|lower }}"
+                                data-is-dropped="{% if po.is_dropped_pallet == True %}是{% else %}否{% endif %}"
+                                data-pallet="{{ po.total_n_pallet_act }}">
                                 <td style="text-align:center;">
                                     <input type="checkbox" class="plt-checkbox" value="{{ po.id }}">
                                     <input type="hidden"  name="plt_ids" value="{{ po.plt_ids }}">
@@ -105,6 +225,16 @@
                                 <td style="word-break: break-word; white-space: normal;">{{ po.fba_ids|default:"-" }}</td>
                                 <td style="word-break: break-word; white-space: normal;">{{ po.cns }}</td>
                                 <td style="word-break: break-word; white-space: normal;">{{ po.destination }}</td>
+                                <td style="word-break: break-word; white-space: normal;">{{ po.offload_time }}</td>
+                                <td style="word-break: break-word; white-space: normal;">
+                                    {% if po.is_dropped_pallet == True %}
+                                    {% if po.rebuilt_is_dropped_pallet %}
+                                        {{ po.rebuilt_is_dropped_pallet }}
+                                    {% else %}
+                                        无主约时间
+                                    {% endif %}
+                                {% endif %}
+                                </td>
                                 <td style="text-align:center;">
                                     {{ po.total_n_pallet_act }}
                                     <input type="hidden" name="scheduled_pallet" value="{{ po.total_n_pallet_act }}">
@@ -112,7 +242,7 @@
                             </tr>
                             {% endfor %}
                         {% else %}
-                            <tr><td colspan="7" style="text-align:center; color:#888; padding: 20px;">暂无可添加的PO</td></tr>
+                            <tr><td colspan="8" style="text-align:center; color:#888; padding: 20px;">暂无可添加的PO</td></tr>
                         {% endif %}
                     </tbody>
                 </table>
@@ -181,6 +311,165 @@ function handleAddablePOFormSubmit() {
     return true;
 }
 
+// 搜索相关变量
+let addablePOSearchTimer;
+
+// 初始化搜索功能
+function initAddablePOSearch() {
+    const searchInputs = document.querySelectorAll('#addablePOModal .header-search');
+    const selectInputs = document.querySelectorAll('#addablePOModal .header-select');
+    
+    searchInputs.forEach(input => {
+        input.addEventListener('input', function() {
+            clearTimeout(addablePOSearchTimer);
+            addablePOSearchTimer = setTimeout(applyAddablePOSearch, 250);
+        });
+    });
+    
+    selectInputs.forEach(select => {
+        select.addEventListener('change', function() {
+            clearTimeout(addablePOSearchTimer);
+            addablePOSearchTimer = setTimeout(applyAddablePOSearch, 250);
+        });
+    });
+}
+
+// 多列AND搜索函数
+function applyAddablePOSearch() {
+    const searchInputs = document.querySelectorAll('#addablePOModal .header-search, #addablePOModal .header-select');
+    const tbody = document.getElementById('addablePOTableBody');
+    if (!tbody) return;
+    
+    const rows = tbody.querySelectorAll('tr');
+    
+    // 收集每一列的搜索条件
+    const columnFilters = {};
+    let hasSearchTerm = false;
+    
+    searchInputs.forEach(input => {
+        const colIndex = input.dataset.column;
+        let value = input.value.trim().toLowerCase();
+        
+        // 对于选择框，空值表示"全部"，不需要筛选
+        if (input.tagName === 'SELECT' && value === '') {
+            return;
+        }
+        
+        if (value) {
+            columnFilters[colIndex] = value;
+            hasSearchTerm = true;
+        }
+    });
+    
+    // 清除旧的高亮
+    clearAddablePOHighlights();
+    
+    // 没有搜索条件时显示所有行
+    if (!hasSearchTerm) {
+        rows.forEach(row => {
+            row.style.display = '';
+        });
+        return;
+    }
+    
+    // 应用筛选
+    rows.forEach(row => {
+        let allColumnsMatch = true;
+        
+        // 检查每一列的筛选条件（AND关系）
+        Object.keys(columnFilters).forEach(colIndex => {
+            const searchValue = columnFilters[colIndex];
+            const cell = getAddablePOCellByColumnIndex(row, parseInt(colIndex));
+            
+            if (!cell) {
+                allColumnsMatch = false;
+                return;
+            }
+            
+            // 获取单元格数据（优先使用data属性，如果没有则使用文本内容）
+            let cellValue = '';
+            switch(parseInt(colIndex)) {
+                case 1: // REF ID
+                    cellValue = row.dataset.refId || '';
+                    break;
+                case 2: // FBA ID
+                    cellValue = row.dataset.fbaId || '';
+                    break;
+                case 3: // 柜号
+                    cellValue = row.dataset.cn || '';
+                    break;
+                case 4: // 目的地
+                    cellValue = row.dataset.destination || '';
+                    break;
+                case 5: // 入仓时间
+                    cellValue = row.dataset.offloadTime || '';
+                    break;
+                case 6: // 甩板
+                    cellValue = row.dataset.isDropped || '';
+                    break;
+                case 7: // 板数
+                    cellValue = row.dataset.pallet ? row.dataset.pallet.toString() : '';
+                    break;
+                default:
+                    cellValue = cell.textContent.toLowerCase();
+            }
+            
+            if (!cellValue.includes(searchValue)) {
+                allColumnsMatch = false;
+            }
+        });
+        
+        row.style.display = allColumnsMatch ? '' : 'none';
+        
+        // 高亮匹配的内容
+        if (allColumnsMatch) {
+            Object.keys(columnFilters).forEach((colIndex, termIndex) => {
+                highlightAddablePOMatches(getAddablePOCellByColumnIndex(row, parseInt(colIndex)), columnFilters[colIndex], termIndex);
+            });
+        }
+    });
+}
+
+// 辅助函数：根据列索引获取单元格
+function getAddablePOCellByColumnIndex(row, targetColIndex) {
+    const cells = row.querySelectorAll('td');
+    // 跳过第一列（复选框列）
+    return cells[targetColIndex] || null;
+}
+
+// 高亮匹配内容
+function highlightAddablePOMatches(element, searchTerm, termIndex) {
+    if (!element || !searchTerm) return;
+    
+    let html = element.innerHTML;
+    
+    // 清除旧高亮
+    html = html.replace(/<span class="highlight-color-\d">([^<]*)<\/span>/gi, "$1");
+    
+    // 应用新高亮
+    const colorClass = `highlight-color-${(termIndex % 4) + 1}`;
+    const regex = new RegExp(`(${escapeRegExp(searchTerm)})`, 'gi');
+    
+    html = html.replace(regex, `<span class="${colorClass}">$1</span>`);
+    element.innerHTML = html;
+}
+
+// 清除高亮
+function clearAddablePOHighlights() {
+    document.querySelectorAll('#addablePOModal tbody td').forEach(td => {
+        const originalText = td.getAttribute('data-original-text');
+        if (originalText) {
+            td.textContent = originalText;
+            td.removeAttribute('data-original-text');
+        }
+    });
+}
+
+// 转义正则表达式特殊字符
+function escapeRegExp(string) {
+    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 // 全选功能
 document.addEventListener('DOMContentLoaded', function() {
     const selectAll = document.getElementById('selectAllAddablePos');
@@ -191,6 +480,8 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         });
     }
+    // 初始化搜索功能
+    initAddablePOSearch();
 });
 
 // 关闭模态框事件

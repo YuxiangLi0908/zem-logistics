@@ -325,6 +325,9 @@
     <button class="action-btn btn-success" onclick="openUploadModal()">
         <i class="fas fa-file-upload"></i> 上传文件
     </button>
+    <button class="action-btn btn-primary open-bind-modal">
+        <i class="fas fa-file-export"></i> 预约出库
+    </button>
 </div>
 <div id="uploadModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; justify-content: center; align-items: center;">
     <div style="background: white; padding: 30px; border-radius: 10px; width: 500px; max-width: 90%;">
@@ -383,8 +386,9 @@
                 <th data-sort="destination">目的地</th>
                 <th data-sort="destination">放行状态</th>
                 <th class="delivery-method-col" data-sort="delivery_method">派送方式</th>
-                <th class="vessel-col" data-sort="vessels">船名</th>
+                <th class="vessel-col" data-sort="vessels">是否特操</th>
                 <th class="container-col" data-sort="containers">柜号</th>
+                <th class="offload-time">入仓时间</th>
                 <th data-sort="delivery_window">派送时间窗口</th>
                 <th data-sort="pallets">板数</th>
                 <th data-sort="cbm">CBM</th>
@@ -404,6 +408,7 @@
                 data-delivery-method="{{ cargo.custom_delivery_method }}"
                 data-vessel-name="{{ cargo.vessel_name|default:'' }}"
                 data-container-number="{{ cargo.cns|default:'' }}"
+                data-offload-time="{{ cargo.offload_time|default:'' }}"
                 >
                 <td class="checkbox-cell">
                     <input type="checkbox" class="cargo-checkbox" 
@@ -424,7 +429,7 @@
                         -
                     {% endif %}
                 </td>
-                <td>{{ cargo.destination|default:"-" }}</td>
+                <td class="destination-col">{{ cargo.destination|default:"-" }}</td>
                 <td style="text-align: center;">
                     {% if cargo.is_pass %}
                         <i class="fas fa-check-circle" style="color: #28a745; font-size: 1.2rem;" title="已放行"></i>
@@ -433,11 +438,14 @@
                     {% endif %}
                 </td>              
                 <td class="delivery-method-col">{{ cargo.custom_delivery_method|default:"-" }}</td>
-                <td class="container-col" style="white-space: pre-line;" id="container-{{ forloop.counter }}">
-                    {{ cargo.vessel_name }}
+                <td class="vessel-col" style="white-space: pre-line; text-align: center;" id="container-{{ forloop.counter }}">
+                    {% if cargo.is_zhunshida %}<span style="color: #3498db; font-weight: bold;">特操</span>{% endif %}
                 </td>                
                 <td class="container-col" style="white-space: pre-line;" id="container-{{ forloop.counter }}">
                     {{ cargo.container_numbers }}
+                </td>
+                <td class="offload-time-col">
+                    {{ cargo.offload_time }}
                 </td>
                 <td>
                     {% if not cargo.delivery_window_start and not cargo.delivery_window_end %}
@@ -446,7 +454,7 @@
                         {{ cargo.delivery_window_start|date:"M. j" }} ~ {{ cargo.delivery_window_end|date:"M. j" }}
                     {% endif %}
                 </td>
-                <td>
+                <td class="pallet-col">
                     {% if cargo.label == 'ACT' %}
                         <span class="pallet-badge pallet-actual">
                             <span style="font-size: 16px; font-weight: bold;">{{ cargo.total_n_pallet_act|default:0 }}</span> ACT
@@ -457,7 +465,7 @@
                         </span>
                     {% endif %}
                 </td>
-                <td>
+                <td class="cbm-col">
                     <span class="status-badge status-expired">{{ cargo.total_cbm }}</span>
                 </td>
                 <td>
@@ -1060,4 +1068,5 @@
             }
         });
     }
+    
 </script>

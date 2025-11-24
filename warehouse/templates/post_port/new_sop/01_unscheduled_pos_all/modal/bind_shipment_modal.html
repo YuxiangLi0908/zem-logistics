@@ -1,11 +1,211 @@
 <!-- 绑定预约模态框 -->
+<style>
+    .modal {
+        display: none;
+        position: fixed;
+        z-index: 1000;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0,0,0,0.5);
+        backdrop-filter: blur(2px);
+    }
+
+    .modal-content {
+        background-color: #fefefe;
+        margin: auto;
+        padding: 0;
+        border: none;
+        border-radius: 12px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        max-height: 85vh;
+        overflow-y: auto;
+        animation: modalSlideIn 0.3s ease-out;
+    }
+
+    @keyframes modalSlideIn {
+        from {
+            opacity: 0;
+            transform: translate(-50%, -60%);
+        }
+        to {
+            opacity: 1;
+            transform: translate(-50%, -50%);
+        }
+    }
+
+    .modal-header {
+        background: linear-gradient(135deg, var(--secondary-color), #4a6491);
+        color: white;
+        padding: 20px 25px;
+        border-radius: 12px 12px 0 0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .modal-header h3 {
+        margin: 0;
+        font-size: 1.3rem;
+        font-weight: 600;
+    }
+
+    .modal-header .close {
+        color: white;
+        font-size: 28px;
+        font-weight: bold;
+        cursor: pointer;
+        opacity: 0.8;
+        transition: opacity 0.3s;
+    }
+
+    .modal-header .close:hover {
+        opacity: 1;
+    }
+
+    .modal-body {
+        padding: 25px;
+    }
+
+    .modal-form-section {
+        margin-bottom: 20px;
+    }
+
+    .modal-form-section h4 {
+        color: var(--secondary-color);
+        margin-bottom: 15px;
+        font-size: 1.1rem;
+        border-bottom: 2px solid var(--light-color);
+        padding-bottom: 8px;
+    }
+
+    .modal-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 15px 0;
+        font-size: 0.9rem;
+    }
+
+    .modal-table th {
+        background-color: #f8f9fa;
+        padding: 12px 8px;
+        text-align: left;
+        font-weight: 600;
+        color: var(--secondary-color);
+        border-bottom: 2px solid #e9ecef;
+    }
+
+    .modal-table td {
+        padding: 10px 8px;
+        border-bottom: 1px solid #f1f3f4;
+        vertical-align: top; /* 确保提示文本对齐 */
+    }
+
+    .modal-table tr:hover {
+        background-color: #f8f9fa;
+    }
+
+    .modal-actions {
+        display: flex;
+        justify-content: center;
+        gap: 15px;
+        margin-top: 25px;
+        padding-top: 20px;
+        border-top: 1px solid #e9ecef;
+    }
+
+    .modal-btn {
+        padding: 12px 25px;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-weight: 600;
+        font-size: 0.95rem;
+        transition: all 0.3s ease;
+        min-width: 120px;
+    }
+
+    .modal-btn-success {
+        background: var(--success-color);
+        color: white;
+    }
+
+    .modal-btn-success:hover {
+        background: #27ae60;
+        transform: translateY(-1px);
+    }
+
+    .modal-btn-danger {
+        background: var(--danger-color);
+        color: white;
+    }
+
+    .modal-btn-danger:hover {
+        background: #c0392b;
+        transform: translateY(-1px);
+    }
+
+    .modal-btn-primary {
+        background: var(--primary-color);
+        color: white;
+    }
+
+    .modal-btn-primary:hover {
+        background: #2980b9;
+        transform: translateY(-1px);
+    }
+
+    .form-select, .form-input {
+        width: 100%;
+        padding: 8px 12px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 0.9rem;
+    }
+
+    .form-select:focus, .form-input:focus {
+        outline: none;
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+    }
+    #shipment-account-select,
+    #pickup_number {
+        min-width: 200px;
+        width: 100%;
+    }
+
+    /* 提示文本样式 */
+    .field-hint {
+        font-size: 11px;
+        color: #7f8c8d;
+        margin-top: 4px;
+        font-style: italic;
+        line-height: 1.3;
+    }
+
+    /* 调整表格列宽 */
+    .modal-table th:nth-child(2), /* 预约账号列 */
+    .modal-table td:nth-child(2) {
+        min-width: 180px;
+    }
+
+    .modal-table th:nth-child(3), /* Pickup Number列 */
+    .modal-table td:nth-child(3) {
+        min-width: 200px;
+    }
+</style>
 <div id="bindShipmentModal" class="modal">
     <div class="modal-content" style="width: 100%; max-width: 1200px; max-height: 700px;">
         <div class="modal-header">
             <h3><i class="fas fa-link"></i> 绑定预约信息</h3>
             <span class="close">&times;</span>
         </div>
-        <div class="modal-body">
+        <div class="modal-body" style="padding: 20px;">
             <form id="bindShipmentForm" method="post">
                 {% csrf_token %}
                 <input type="hidden" name="step" value="bind_group_shipment">
@@ -14,11 +214,13 @@
                 <input type="hidden" name="plt_ids" id="modalPltIds">
                 <input type="hidden" name="warehouse" value="{{ warehouse }}">
                 <input type="hidden" name="st_type" value="{{ st_type }}">
+                <input type="hidden" name="page" value="arm_appointment">
+                <input type="hidden" name="active_tab" value="cargo">
                 <input type="hidden" name="operation_type" id="operationType" value="bind">
 
                 <!-- FTL 表单 -->
                 <div class="modal-form-section">
-                    <h4><i class="fas fa-truck"></i> 预约信息</h4>
+                    <h4 style="margin-top: 20px;"><i class="fas fa-truck"></i> 预约信息</h4>
                     <table class="modal-table">
                         <thead>
                             <tr>
@@ -81,13 +283,15 @@
                                     </select>
                                 </td>
                                 <td>
-                                    <input type="text" name="pickupNumber" id="pickup_number" class="form-input">                                   
+                                    <input type="text" name="pickupNumber" id="pickup_number" class="form-input">        
+                                    <div class="field-hint">后台会自动查询，如果有重复会自动加-x</div>                           
                                 </td>
                                 <td>
                                     <input type="text" name="destination" id="ftl-destination" class="form-input" required>
                                 </td>
                                 <td>
                                     <input type="text" name="address" id="address_detail" class="form-input">
+                                     <div class="field-hint">后台会自动查询地址，无需填写</div>
                                 </td>
                                 <td>
                                     <input type="text" name="note" id="note" class="form-input">
@@ -106,11 +310,12 @@
                         <thead>
                             <tr>
                                 <th style="width: 50px;">
-                                    <input type="checkbox" id="selectAllCargos">
+                                    <input type="checkbox" id="modal-selectAllCargos">
                                 </th>
                                 <th>REF ID</th>
                                 <th>FBA ID</th>
                                 <th>柜号</th>
+                                <th>仓点</th>
                                 <th>板数</th>
                                 <th>CBM</th>
                                 <th>入仓时间</th>
@@ -314,21 +519,24 @@
     // 在相关输入框变化时自动更新 pickupNumber
     document.addEventListener('DOMContentLoaded', function() {
         const shipmentAccountSelect = document.getElementById('shipment-account-select');
+        const loadTypeSelect = document.getElementById('load-type-select');
         
         if (shipmentAccountSelect) {
             shipmentAccountSelect.addEventListener('change', generatePickupNumber);
+        }
+        if (loadTypeSelect) {
+            loadTypeSelect.addEventListener('change', generatePickupNumber);
         }
     });
     // 绑定预约模态框的JavaScript
     document.querySelectorAll('.open-bind-modal').forEach(btn => {
         btn.addEventListener('click', function() {
-            console.log('this.dataset',this.dataset);
             const suggestionId = this.dataset.suggestionId;
             const hasAppointment = this.dataset.hasAppointment === '1';
             const appointmentId = this.dataset.appointmentId || '';
             const shipmentType = this.dataset.shipmentType || '';
             const loadType = this.dataset.loadType || '';
-            const destination = this.dataset.destination || '';
+            let destination = this.dataset.destination || '';
             const deliveryMethod = this.dataset.deliveryMethod || '';
             const scheduledTime = this.dataset.scheduledTime || '';
             const pickupTime = this.dataset.pickupTime || '';
@@ -341,30 +549,62 @@
             const operationType = this.dataset.operationType || 'bind';
 
             let groupRows;
+            let cargos = [];
+            let isFromPOSelection = false;
+
             if (suggestionId) {
                 groupRows = document.querySelectorAll(`tr[data-suggestion-id="${suggestionId}"]`);
-            } else {
-                const appointmentRow = this.closest('tr');
-                groupRows = getRowsByAppointment(appointmentRow, appointmentId);
-            }
-
-            const cargos = [];
-            groupRows.forEach(row => {
-                const containerTd = row.querySelector('td.container-no-col') || row.querySelector('.cns-col');
-                const offload_timeTd = row.querySelector('td.offload-time-col');
-                
-                cargos.push({
-                    cargo_id: row.dataset.cargoId || '',
-                    plt_ids: row.dataset.pltId || '',
-                    ref_ids: row.querySelector('.ref-ids-col')?.innerText.trim() || '-',
-                    fba_ids: row.querySelector('.fba-ids-col')?.innerText.trim() || '-',
-                    container_no: containerTd?.textContent.trim().replace(/\s+/g, '\n') || '-',
-                    total_pallet: row.querySelector('.pallet-col')?.innerText.trim() || '-',
-                    total_cbm: row.querySelector('.cbm-col')?.innerText.trim() || '-',
-                    offload_time: offload_timeTd ? offload_timeTd.textContent.trim() : '无入仓时间',
+                groupRows.forEach(row => {
+                    const containerTd = row.querySelector('td.container-no-col') || row.querySelector('.cns-col');
+                    const offload_timeTd = row.querySelector('td.offload-time-col');
+                    const destinationTd = row.querySelector('td.destination-col');
+                    cargos.push({
+                        cargo_id: row.dataset.cargoId || '',
+                        plt_ids: row.dataset.pltId || '',
+                        ref_ids: row.querySelector('.ref-ids-col')?.innerText.trim() || '-',
+                        fba_ids: row.querySelector('.fba-ids-col')?.innerText.trim() || '-',
+                        container_no: containerTd?.textContent.trim().replace(/\s+/g, '\n') || '-',
+                        total_pallet: row.querySelector('.pallet-col')?.innerText.trim() || '-',
+                        total_cbm: row.querySelector('.cbm-col')?.innerText.trim() || '-',
+                        offload_time: offload_timeTd ? offload_timeTd.textContent.trim() : '无入仓时间',
+                        destination: destinationTd ? destinationTd.textContent.trim() : '',
+                    });
                 });
-            });
-
+            } else {
+                isFromPOSelection = true;
+                const selectedCheckboxes = Array.from(document.querySelectorAll('.cargo-checkbox:checked')).filter(checkbox => checkbox.closest('tr').style.display !== 'none');
+            
+                selectedCheckboxes.forEach(checkbox => {
+                    const row = checkbox.closest('tr');
+                    const containerTd = row.querySelector('.container-col');
+                    const palletTd = row.querySelector('.pallet-col');
+                    const cbmTd = row.querySelector('.cbm-col');
+                    const refIdsTd = row.querySelector('.ref-ids-col');
+                    const fbaIdsTd = row.querySelector('.fba-ids-col');
+                    const offload_timeTd = row.querySelector('.offload-time-col');
+                    
+                    cargos.push({
+                        cargo_id: row.dataset.cargoId || '',
+                        plt_ids: checkbox.value.startsWith('plt_') ? checkbox.value.replace('plt_', '') : '',
+                        ref_ids: refIdsTd ? refIdsTd.textContent.trim() : '-',
+                        fba_ids: fbaIdsTd ? fbaIdsTd.textContent.trim() : '-',
+                        container_no: containerTd ? containerTd.textContent.trim().replace(/\s+/g, '\n') : '-',
+                        total_pallet: palletTd ? palletTd.textContent.trim() : '-',
+                        total_cbm: cbmTd ? cbmTd.textContent.trim() : '-',
+                        offload_time: offload_timeTd? offload_timeTd.textContent.trim() : '-',
+                        destination: row.dataset.destination || ''
+                    });
+                });
+            }
+            // 处理destination逻辑：如果dataset中没有destination，则从cargos中获取
+            if (!destination && cargos.length > 0) {
+                const destinations = [...new Set(cargos.map(cargo => cargo.destination).filter(dest => dest && dest.trim() !== ''))];            
+                if (destinations.length === 1) {
+                    destination = destinations[0];
+                } else if (destinations.length > 1) {
+                    destination = destinations.join('-');
+                }
+            }
             openBindModal({
                 suggestionId,
                 cargos,
@@ -382,7 +622,8 @@
                 shipmentType,
                 addressDetail,
                 shipmentCargoId,
-                operationType
+                operationType,
+                isFromPOSelection
             });
             setTimeout(() => {
                 if (!pickupNumber || pickupNumber === 'None' || pickupNumber === 'none') {
@@ -403,13 +644,15 @@
     function generatePickupNumber() {
         const shipmentAccountSelect = document.getElementById('shipment-account-select');
         const destinationInput = document.getElementById('ftl-destination');
+        const loadTypeSelect = document.getElementById('load-type-select');
         
         // 获取各部分值
         const shipmentAccount = shipmentAccountSelect?.options[shipmentAccountSelect.selectedIndex]?.text || '';
         const destination = destinationInput?.value || '';
+        const loadType = loadTypeSelect?.value || '';
         
         // 基础前缀
-        const prefix = 'ZEM-RC-';
+        const prefix = 'ZEM-LA-';
         
         // 获取当天月日（MMDD格式）
         const today = new Date();
@@ -419,7 +662,9 @@
         
         // 预约账号（完整账号，去除空格）
         let accountPart = '';
-        if (shipmentAccount.includes('Central') || shipmentAccount.includes('walmart')) {
+        if (shipmentAccount.includes('ADWG')) {
+            accountPart = 'ADWG';
+        } else if (shipmentAccount.includes('Central') || shipmentAccount.includes('walmart')) {
             accountPart = 'ASH';
         } else {
             // 用 - 分组，取第一个组
@@ -437,12 +682,14 @@
             // 如果不包含 -，使用整个目的地
             destinationPart = destination.replace(/\s+/g, '');
         }
-        
-        // 生成4位随机数字
-        const randomNum = generateRandomCode();
-        
+
+        // 判断装车类型，如果是地板就加上FLOOR
+        let loadTypePart = '';
+        if (loadType === '地板') {
+            loadTypePart = 'FLOOR';
+        }
         // 组合成完整的 pickupNumber
-        const pickupNumber = `${prefix}${monthDay}${accountPart}-${destinationPart}-${randomNum}`;
+        const pickupNumber = `${prefix}${monthDay}${accountPart}-${destinationPart}${loadTypePart ? '-' + loadTypePart : ''}`;
         
         // 设置到输入框
         const pickupNumberInput = document.getElementById('pickup_number');
@@ -487,7 +734,8 @@
             appointmentId, loadType, destination, deliveryMethod,
             scheduledTime, pickupTime, pickupNumber, shipmentAccount, 
             origin, note, addressDetail,shipmentCargoId,shipmentType,
-            operationType = 'bind'
+            operationType = 'bind',
+            isFromPOSelection = false
         } = data;
         
         document.getElementById('modalSuggestionId').value = suggestionId || '';
@@ -497,14 +745,19 @@
         const submitButton = document.querySelector('#bindShipmentModal .modal-btn-success');
         const cargoSelectionTitle = document.querySelector('#cargoSelectionArea h4');
         
-        if (operationType === 'remove_po') {
+        if (isFromPOSelection) {
+            // 来自PO管理页面选择 - 隐藏预约信息区域
+            modalHeader.innerHTML = '<i class="fas fa-truck-loading"></i> 预约出库';
+            submitButton.innerHTML = '<i class="fas fa-check"></i> 确认预约出库';
+            cargoSelectionTitle.innerHTML = '<i class="fas fa-box"></i> 选择的PO列表';
+        } else if (operationType === 'remove_po') {
             modalHeader.innerHTML = '<i class="fas fa-minus-circle"></i> 删除PO';
             submitButton.innerHTML = '<i class="fas fa-check"></i> 确认减掉';
             cargoSelectionTitle.innerHTML = '<i class="fas fa-box"></i> 选择要删除的PO'; 
         } else {
-            modalHeader.innerHTML = '<i class="fas fa-link"></i> 绑定预约信息';
-            submitButton.innerHTML = '<i class="fas fa-check"></i> 确认绑定';
-            cargoSelectionTitle.innerHTML = '<i class="fas fa-box"></i> 选择要绑定/预约的PO';
+            modalHeader.innerHTML = '<i class="fas fa-link"></i> 修改预约信息';
+            submitButton.innerHTML = '<i class="fas fa-check"></i> 确认修改';
+            cargoSelectionTitle.innerHTML = '<i class="fas fa-box"></i> 选择要修改的PO';
         }
 
         const shipmentTypeSelect = document.getElementById('shipment-type-select');
@@ -564,6 +817,8 @@
                 <td>${c.ref_ids}</td>
                 <td>${c.fba_ids}</td>
                 <td>${c.container_no}</td>
+                
+                <td>${c.destination}</td>
                 <td>${c.total_pallet}</td>
                 <td>${c.total_cbm}</td>
                 <td>${c.offload_time}</td>
@@ -582,9 +837,17 @@
     }
 
     function initializeCargoSelection() {
-        const selectAll = document.getElementById('selectAllCargos');
+        const selectAll = document.getElementById('modal-selectAllCargos');
         const checkboxes = document.querySelectorAll('.cargo-checkbox');
+        if (!selectAll) {
+            console.error('未找到全选框元素');
+            return;
+        }
         
+        if (checkboxes.length === 0) {
+            console.warn('没有货物复选框');
+            return;
+        }
         const newSelectAll = selectAll.cloneNode(true);
         selectAll.parentNode.replaceChild(newSelectAll, selectAll);
         
@@ -624,11 +887,25 @@
     }
 
     function closeBindModal() {
+        const tbody = document.getElementById('cargoSelectionBody');
+        if (tbody) {
+            tbody.innerHTML = '';
+        }
+        
+        // 重置隐藏字段
+        document.getElementById('modalCargoIds').value = '';
+        document.getElementById('modalPltIds').value = '';
         document.getElementById('bindShipmentModal').style.display = 'none';
     }
 
     document.querySelector('#bindShipmentModal .close').addEventListener('click', closeBindModal);
 
+    window.addEventListener('click', function (event) {
+        const modal = document.getElementById('bindShipmentModal');
+        if (event.target === modal) {
+            closeBindModal();
+        }
+    });
 
     document.getElementById('bindShipmentForm').addEventListener('submit', function(e) {
         e.preventDefault();

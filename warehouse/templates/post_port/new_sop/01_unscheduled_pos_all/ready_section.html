@@ -49,194 +49,199 @@
     }
  </style>
  
-<div class="content-section" id="readyShip-section">
-    <div class="table-container">
-        <table class="data-table">
-            <thead>
-                <tr>
-                    <th>车次号</th>
-                    <th>提货时间</th>
-                    <th>预约批次</th>
-                    <th>预约号</th>
-                    <th>目的地</th>
-                    <th>柜号</th>
-                    <th>REF ID</th>
-                    <th>FBA ID</th>
-                    <th>板数</th>
-                    <th>CBM</th>
-                    <th>加塞</th>
-                    <th>出库</th>
-                </tr>
-                <tr class="search-row">
-                    <td><input type="text" class="header-search" placeholder="搜索车次号" data-column="0"></td>
-                    <td>
-                        <div style="display: flex; gap: 5px; align-items: center;">
-                            <input type="date" class="date-filter" id="pickupDateFilter" placeholder="筛选日期">
-                            <button class="search-btn" id="clearDateFilter" style="padding: 4px 8px; min-width: auto; font-size: 0.7rem;">
-                                <i class="fas fa-times"></i>
-                            </button>
-                        </div>
-                    </td>
-                    <td><input type="text" class="header-search" placeholder="搜索预约批次" data-column="2"></td>
-                    <td><input type="text" class="header-search" placeholder="搜索预约号" data-column="3"></td>
-                    <td><input type="text" class="header-search" placeholder="搜索目的地" data-column="4"></td>
-                    <td><input type="text" class="header-search" placeholder="搜索柜号" data-column="5"></td>
-                    <td><input type="text" class="header-search" placeholder="搜索REF ID" data-column="6"></td>
-                    <td><input type="text" class="header-search" placeholder="搜索FBA ID" data-column="7"></td>
-                    <td><input type="text" class="header-search" placeholder="搜索板数" data-column="8"></td>
-                    <td><input type="text" class="header-search" placeholder="搜索CBM" data-column="9"></td>
-                    <td></td>
-                    <td></td>
-                </tr>
-            </thead>
-            <tbody>
-                {% for fleet_group in ready_to_ship_data %}
-                    {% with fleet_rowspan=fleet_group.total_cargos %}
-                        <tr class="group-separator">
-                            <td colspan="12" style="background: linear-gradient(90deg, #3498db, #6c8bc7); 
-                                                height: 2px; padding: 0;"></td>
-                        </tr>
-                        {% for shipment_id, shipment in fleet_group.shipments.items %}
-                            {% with shipment_rowspan=shipment.cargos|length|default:0 %}
-                                {% with is_first_shipment=forloop.first %}
-                                    {% if shipment_rowspan == 0 %}
-                                        <tr data-appointment-id="{{ shipment.appointment_id }}"
-                                            data-destination="{{ shipment.destination }}">
-                                            {% if is_first_shipment %}
-                                                <td rowspan="{{ fleet_rowspan }}" class="fleet-number-cell" style="vertical-align: middle; background-color: #f8f9fa;">
+<div class="table-container">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>车次号</th>
+                <th>提货时间</th>
+                <th>预约批次</th>
+                <th>预约号</th>
+                <th>目的地</th>
+                <th>柜号</th>
+                <th>REF ID</th>
+                <th>FBA ID</th>
+                <th>板数</th>
+                <th>CBM</th>
+                <th>加塞</th>
+                <th>出库</th>
+            </tr>
+            <tr class="search-row">
+                <td><input type="text" class="header-search" placeholder="搜索车次号" data-column="0"></td>
+                <td>
+                    <div style="display: flex; gap: 5px; align-items: center;">
+                        <input type="date" class="date-filter" id="pickupDateFilter" placeholder="筛选日期">
+                        <button class="search-btn" id="clearDateFilter" style="padding: 4px 8px; min-width: auto; font-size: 0.7rem;">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                </td>
+                <td><input type="text" class="header-search" placeholder="搜索预约批次" data-column="2"></td>
+                <td><input type="text" class="header-search" placeholder="搜索预约号" data-column="3"></td>
+                <td><input type="text" class="header-search" placeholder="搜索目的地" data-column="4"></td>
+                <td><input type="text" class="header-search" placeholder="搜索柜号" data-column="5"></td>
+                <td><input type="text" class="header-search" placeholder="搜索REF ID" data-column="6"></td>
+                <td><input type="text" class="header-search" placeholder="搜索FBA ID" data-column="7"></td>
+                <td><input type="text" class="header-search" placeholder="搜索板数" data-column="8"></td>
+                <td><input type="text" class="header-search" placeholder="搜索CBM" data-column="9"></td>
+                <td></td>
+                <td></td>
+            </tr>
+        </thead>
+        <tbody>
+            {% for fleet_group in ready_to_ship_data %}
+                {% with fleet_rowspan=fleet_group.total_cargos %}
+                    <tr class="group-separator">
+                        <td colspan="12" style="background: linear-gradient(90deg, #3498db, #6c8bc7); 
+                                            height: 2px; padding: 0;"></td>
+                    </tr>
+                    {% for shipment_id, shipment in fleet_group.shipments.items %}
+                        {% with shipment_rowspan=shipment.cargos|length|default:0 %}
+                            {% with is_first_shipment=forloop.first %}
+                                {% if shipment_rowspan == 0 %}
+                                    <tr data-appointment-id="{{ shipment.appointment_id }}"
+                                        data-destination="{{ shipment.destination }}">
+                                        {% if is_first_shipment %}
+                                            <td rowspan="{{ fleet_rowspan }}" class="fleet-number-cell" style="vertical-align: middle; background-color: #f8f9fa;">
+                                                <strong style="color: #3498db; text-decoration: underline;">{{ fleet_group.fleet_number }}</strong>
+                                                {% if fleet_group.is_virtual %}
+                                                    <br><small style="color:#7f8c8d;font-size:10px;">虚拟车次待编辑</small>
+                                                {% endif %}
+                                            </td>
+                                            <td rowspan="{{ fleet_rowspan }}" style="vertical-align: middle; background-color: #f8f9fa;">
+                                                {{ fleet_group.appointment_datetime|date:"Y-m-d" }}
+                                            </td>
+                                        {% endif %}
+
+                                        <td style="vertical-align: middle; background-color: #f8f9fa;">
+                                            {{ shipment.shipment_batch_number }}<br>
+                                            <span style="color: #3498db; font-size: 0.85em;">预计送仓 {{ shipment.shipment_appointment|date:"Y-m-d"}}</span>
+                                        </td>
+                                        <td style="vertical-align: middle; background-color: #f8f9fa;">{{ shipment.appointment_id }}</td>
+                                        <td style="vertical-align: middle; background-color: #f8f9fa;">{{ shipment.destination }}</td>
+
+                                        <td colspan="5" style="text-align:center; color:#aaa;">无可出库货物</td>
+
+                                        <td>
+                                            <form method="post" action="">
+                                                {% csrf_token %}
+                                                <input type="hidden" name="destination" value="{{ shipment.destination }}">
+                                                <input type="hidden" name="add_pallet_ISA" value="{{ shipment.appointment_id }}">
+                                                <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                                                <input type="hidden" name="step" value="add_pallet">
+                                                <input type="hidden" name="page" value="arm_appointment">
+                                                <input type="hidden" name="active_tab" value="readyShip">
+                                                <button type="submit" class="action-btn btn-primary" onclick="handleAddPallet(this)">
+                                                    <i class="fas fa-plus"></i> 加塞
+                                                </button>
+                                            </form>
+                                        </td>
+
+                                        {% if is_first_shipment %}
+                                            <td rowspan="{{ fleet_rowspan }}">
+                                                <button class="action-btn btn-disabled" disabled onclick="confirmFleetDeparture('{{ fleet_group.fleet_number }}')">出库</button>
+                                            </td>
+                                        {% endif %}
+                                    </tr>
+                                {% else %}
+                                    {% for cargo in shipment.cargos %}
+                                        <tr data-plt-id="{{ cargo.plt_ids }}"
+                                            data-cargo-id="{{ cargo.cargo_ids }}"
+                                            data-appointment-id="{{ shipment.appointment_id }}"
+                                            data-destination="{{ shipment.destination }}"
+                                            data-container-no="{{ cargo.cns }}"
+                                            data-ref-ids="{{ cargo.ref_ids|default:'' }}"
+                                            data-fba-ids="{{ cargo.fba_ids|default:'' }}"
+                                            data-planned="{{ cargo.total_n_pallet_act|default:0 }}"
+                                            data-label="{{ cargo.label|default:'' }}"
+                                            data-cbm="{{ cargo.total_cbm|default:0 }}">
+                                            {% if forloop.first and forloop.parentloop.first %}
+                                                <td rowspan="{{ fleet_rowspan }}" style="vertical-align: middle; background-color: #f8f9fa; cursor: pointer;" 
+                                                    class="fleet-number-cell" 
+                                                    data-fleet-number="{{ fleet_group.fleet_number }}"
+                                                    data-third-party-address="{{ fleet_group.third_party_address }}"
+                                                    data-pickup-number="{{ fleet_group.pickup_number }}"
+                                                    data-motor-carrier-number="{{ fleet_group.motor_carrier_number }}"
+                                                    data-license-plate="{{ fleet_group.license_plate }}"
+                                                    data-dot-number="{{ fleet_group.dot_number }}"
+                                                    data-appointment-datetime="{{ fleet_group.appointment_datetime }}"
+                                                    data-carrier="{{ fleet_group.carrier }}">
                                                     <strong style="color: #3498db; text-decoration: underline;">{{ fleet_group.fleet_number }}</strong>
-                                                    {% if fleet_group.is_virtual %}
-                                                        <br><small style="color:#7f8c8d;font-size:10px;">虚拟车次待编辑</small>
+                                                    <br>
+                                                    {% if fleet_group.is_virtual%}
+                                                    <small style="color: #7f8c8d; font-size: 10px;">虚拟车次待编辑</small>
                                                     {% endif %}
-                                                </td>
-                                                <td rowspan="{{ fleet_rowspan }}" style="vertical-align: middle; background-color: #f8f9fa;"
-                                                    data-pickup-time="{{ fleet_group.appointment_datetime|date:'c' }}">
+                                                </td> 
+                                                <td rowspan="{{ fleet_rowspan }}" style="vertical-align: middle; background-color: #f8f9fa;">
                                                     {{ fleet_group.appointment_datetime|date:"Y-m-d" }}
+                                                </td> 
+                                            {% endif %}
+
+                                            {% if forloop.first %}
+                                                <td rowspan="{{ shipment_rowspan }}" style="vertical-align: middle; background-color: #f8f9fa;">
+                                                    {{ shipment.shipment_batch_number }}<br>
+                                                    <span style="color: #3498db; font-size: 0.85em;">预计送仓 {{ shipment.shipment_appointment|date:"Y-m-d"}}</span>
+                                                </td>
+                                                <td rowspan="{{ shipment_rowspan }}" style="vertical-align: middle; background-color: #f8f9fa;">
+                                                    {{ shipment.appointment_id }}
+                                                </td>
+                                                <td rowspan="{{ shipment_rowspan }}" style="vertical-align: middle; background-color: #f8f9fa;">
+                                                    {{ shipment.destination }}
                                                 </td>
                                             {% endif %}
 
-                                            <td style="vertical-align: middle; background-color: #f8f9fa;">{{ shipment.shipment_batch_number }}</td>
-                                            <td style="vertical-align: middle; background-color: #f8f9fa;">{{ shipment.appointment_id }}</td>
-                                            <td style="vertical-align: middle; background-color: #f8f9fa;">{{ shipment.destination }}</td>
-
-                                            <td colspan="5" style="text-align:center; color:#aaa;">无可出库货物</td>
-
+                                            <td class="cns-col">{{ cargo.cns|linebreaksbr }}</td>
+                                            <td class="ref-ids-col" data-full="{{ cargo.ref_ids|default:'' }}">{{ cargo.ref_ids|default:"-"|truncatechars:20 }}</td>
+                                            <td class="fba-ids-col" data-full="{{ cargo.fba_ids|default:'' }}">{{ cargo.fba_ids|default:"-"|truncatechars:20 }}</td>
                                             <td>
-                                                <form method="post" action="">
-                                                    {% csrf_token %}
-                                                    <input type="hidden" name="destination" value="{{ shipment.destination }}">
-                                                    <input type="hidden" name="add_pallet_ISA" value="{{ shipment.appointment_id }}">
-                                                    <input type="hidden" name="warehouse" value="{{ warehouse }}">
-                                                    <input type="hidden" name="step" value="add_pallet">
-                                                    <button type="submit" class="action-btn btn-primary" onclick="handleAddPallet(this)">
-                                                        <i class="fas fa-plus"></i> 加塞
-                                                    </button>
-                                                </form>
+                                                {% if cargo.label == "ACT" %}
+                                                    {{ cargo.total_n_pallet_act|default:0 }}
+                                                {% elif cargo.label == "EST" %}
+                                                    {{ cargo.total_n_pallet_est|default:0 }}
+                                                {% else %}
+                                                    0
+                                                {% endif %}
                                             </td>
+                                            <td>{{ cargo.total_cbm|default:0 }}</td>
 
-                                            {% if is_first_shipment %}
+                                            {% if forloop.first %}
+                                                <td rowspan="{{ shipment_rowspan }}" style="vertical-align: middle;">
+                                                    <form method="post" action="">
+                                                        {% csrf_token %}
+                                                        <input type="hidden" name="destination" value="{{ shipment.destination }}">
+                                                        <input type="hidden" name="add_pallet_ISA" value="{{ shipment.appointment_id }}">
+                                                        <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                                                        <input type="hidden" name="step" value="add_pallet">
+                                                        <input type="hidden" name="page" value="arm_appointment">
+                                                        <input type="hidden" name="active_tab" value="readyShip">
+                                                        <button type="submit" class="action-btn btn-primary" onclick="handleAddPallet(this)">
+                                                            <i class="fas fa-plus"></i> 加塞
+                                                        </button>
+                                                    </form>
+                                                </td>
+                                            {% endif %}
+
+                                            {% if forloop.first and forloop.parentloop.first %}
                                                 <td rowspan="{{ fleet_rowspan }}">
-                                                    <button class="action-btn btn-disabled" disabled onclick="confirmFleetDeparture('{{ fleet_group.fleet_number }}')">出库</button>
+                                                    <button class="action-btn btn-success" onclick="confirmFleetDeparture('{{ fleet_group.fleet_number }}')">出库</button>
                                                 </td>
                                             {% endif %}
                                         </tr>
-                                    {% else %}
-                                        {% for cargo in shipment.cargos %}
-                                            <tr data-plt-id="{{ cargo.plt_ids }}"
-                                                data-cargo-id="{{ cargo.cargo_ids }}"
-                                                data-appointment-id="{{ shipment.appointment_id }}"
-                                                data-destination="{{ shipment.destination }}"
-                                                data-container-no="{{ cargo.cns }}"
-                                                data-ref-ids="{{ cargo.ref_ids|default:'' }}"
-                                                data-fba-ids="{{ cargo.fba_ids|default:'' }}"
-                                                data-planned="{{ cargo.total_n_pallet_act|default:0 }}"
-                                                data-label="{{ cargo.label|default:'' }}"
-                                                data-cbm="{{ cargo.total_cbm|default:0 }}">
-                                                {% if forloop.first and forloop.parentloop.first %}
-                                                    <td rowspan="{{ fleet_rowspan }}" style="vertical-align: middle; background-color: #f8f9fa; cursor: pointer;" 
-                                                        class="fleet-number-cell" 
-                                                        data-fleet-number="{{ fleet_group.fleet_number }}"
-                                                        data-third-party-address="{{ fleet_group.third_party_address }}"
-                                                        data-pickup-number="{{ fleet_group.pickup_number }}"
-                                                        data-motor-carrier-number="{{ fleet_group.motor_carrier_number }}"
-                                                        data-license-plate="{{ fleet_group.license_plate }}"
-                                                        data-dot-number="{{ fleet_group.dot_number }}"
-                                                        data-appointment-datetime="{{ fleet_group.appointment_datetime }}"
-                                                        data-carrier="{{ fleet_group.carrier }}">
-                                                        <strong style="color: #3498db; text-decoration: underline;">{{ fleet_group.fleet_number }}</strong>
-                                                        <br>
-                                                        {% if fleet_group.is_virtual%}
-                                                        <small style="color: #7f8c8d; font-size: 10px;">虚拟车次待编辑</small>
-                                                        {% endif %}
-                                                    </td> 
-                                                    <td rowspan="{{ fleet_rowspan }}" style="vertical-align: middle; background-color: #f8f9fa;"
-                                                        data-pickup-time="{{ fleet_group.appointment_datetime|date:'c' }}">
-                                                        {{ fleet_group.appointment_datetime|date:"Y-m-d" }}
-                                                    </td> 
-                                                {% endif %}
-
-                                                {% if forloop.first %}
-                                                    <td rowspan="{{ shipment_rowspan }}" style="vertical-align: middle; background-color: #f8f9fa;">
-                                                        {{ shipment.shipment_batch_number }}
-                                                    </td>
-                                                    <td rowspan="{{ shipment_rowspan }}" style="vertical-align: middle; background-color: #f8f9fa;">
-                                                        {{ shipment.appointment_id }}
-                                                    </td>
-                                                    <td rowspan="{{ shipment_rowspan }}" style="vertical-align: middle; background-color: #f8f9fa;">
-                                                        {{ shipment.destination }}
-                                                    </td>
-                                                {% endif %}
-
-                                                <td class="cns-col">{{ cargo.cns|linebreaksbr }}</td>
-                                                <td class="ref-ids-col" data-full="{{ cargo.ref_ids|default:'' }}">{{ cargo.ref_ids|default:"-"|truncatechars:20 }}</td>
-                                                <td class="fba-ids-col" data-full="{{ cargo.fba_ids|default:'' }}">{{ cargo.fba_ids|default:"-"|truncatechars:20 }}</td>
-                                                <td>
-                                                    {% if cargo.label == "ACT" %}
-                                                        {{ cargo.total_n_pallet_act|default:0 }}
-                                                    {% elif cargo.label == "EST" %}
-                                                        {{ cargo.total_n_pallet_est|default:0 }}
-                                                    {% else %}
-                                                        0
-                                                    {% endif %}
-                                                </td>
-                                                <td>{{ cargo.total_cbm|default:0 }}</td>
-
-                                                {% if forloop.first %}
-                                                    <td rowspan="{{ shipment_rowspan }}" style="vertical-align: middle;">
-                                                        <form method="post" action="">
-                                                            {% csrf_token %}
-                                                            <input type="hidden" name="destination" value="{{ shipment.destination }}">
-                                                            <input type="hidden" name="add_pallet_ISA" value="{{ shipment.appointment_id }}">
-                                                            <input type="hidden" name="warehouse" value="{{ warehouse }}">
-                                                            <input type="hidden" name="step" value="add_pallet">
-                                                            <button type="submit" class="action-btn btn-primary" onclick="handleAddPallet(this)">
-                                                                <i class="fas fa-plus"></i> 加塞
-                                                            </button>
-                                                        </form>
-                                                    </td>
-                                                {% endif %}
-
-                                                {% if forloop.first and forloop.parentloop.first %}
-                                                    <td rowspan="{{ fleet_rowspan }}">
-                                                        <button class="action-btn btn-success" onclick="confirmFleetDeparture('{{ fleet_group.fleet_number }}')">出库</button>
-                                                    </td>
-                                                {% endif %}
-                                            </tr>
-                                        {% endfor %}
-                                    {% endif %}
-                                {% endwith %}
+                                    {% endfor %}
+                                {% endif %}
                             {% endwith %}
-                        {% endfor %}
-                    {% endwith %}
-                {% empty %}
-                    <tr>
-                        <td colspan="12" style="text-align:center; padding:20px;">暂无待出库货物</td>
-                    </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
+                        {% endwith %}
+                    {% endfor %}
+                {% endwith %}
+            {% empty %}
+                <tr>
+                    <td colspan="12" style="text-align:center; padding:20px;">暂无待出库货物</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
 </div>
+
 
 <script>
     function handleAddPallet(button) {

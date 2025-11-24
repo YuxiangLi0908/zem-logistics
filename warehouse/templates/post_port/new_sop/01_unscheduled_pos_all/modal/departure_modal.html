@@ -309,6 +309,8 @@
                 <input type="hidden" name="debug_info" id="debugInfo">
                 <input type="hidden" name="scheduled_pallet" id="formScheduledPallet">
                 <input type="hidden" name="actual_shipped_pallet" id="formActualShippedPallet">
+                <input type="hidden" name="page" value="arm_appointment">
+                <input type="hidden" name="active_tab" value="readyShip">
                 <input type="hidden" name="plt_ids" id="formPltIds">
                 <div id="cargoDataContainer" style="display: none;"></div>
                 
@@ -403,27 +405,12 @@
         const tbody = document.getElementById('departureCargoBody');
         const fleetNumberInput = document.getElementById('fleetNumber');
         const modalFleetSpan = document.getElementById('modalFleetNumber');
-        const departuredAtInput = document.getElementById('departuredAt');
 
         if (!modal || !tbody) return console.error('Modal elements not found');
         
         if (fleetNumberInput) fleetNumberInput.value = fleetNumber;
         if (modalFleetSpan) modalFleetSpan.textContent = fleetNumber;
 
-        // 获取提货时间并设置到出库时间字段
-        const fleetCell = document.querySelector(`#readyShip-section td.fleet-number-cell[data-fleet-number="${fleetNumber}"]`);
-        if (fleetCell) {
-            const fleetRow = fleetCell.closest('tr');
-            // 找到提货时间单元格（包含 data-pickup-time 属性的单元格）
-            const pickupTimeCell = fleetRow.querySelector('td[data-pickup-time]');
-            if (pickupTimeCell && departuredAtInput) {
-                const pickupTimeISO = pickupTimeCell.dataset.pickupTime;
-                const formattedTime = formatISOTimeForInput(pickupTimeISO);
-                if (formattedTime) {
-                    departuredAtInput.value = formattedTime;
-                }
-            }
-        }
         tbody.innerHTML = '';
 
         let totalPlanned = 0;
@@ -497,7 +484,9 @@
 
                 // 决定状态：只有 cargoId -> 未打板；只有 pltId -> 已打板；两者都有/都没有 -> 异常
                 const hasPlt = Boolean((tr.dataset.pltId || '').trim());
+                console.log('hasPlt',hasPlt,tr.dataset.pltId);
                 const hasCargoId = Boolean((tr.dataset.cargoId || '').trim());
+                console.log('hasCargoId',hasCargoId,tr.dataset.cargoId);
 
                 let statusText = '';
                 if (hasPlt && !hasCargoId) {
@@ -563,32 +552,6 @@
         updateTotalsAndWarning();
     }
 
-    // 时间格式转换函数
-    function formatISOTimeForInput(isoTimeStr) {
-        if (!isoTimeStr) return null;
-        
-        try {
-            // 直接解析ISO格式字符串，避免时区转换
-            // ISO格式：2024-11-26T23:33:00Z 或 2024-11-26T23:33:00+08:00
-            const match = isoTimeStr.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
-            if (match) {
-                const year = match[1];
-                const month = match[2];
-                const day = match[3];
-                const hours = match[4];
-                const minutes = match[5];
-                
-                return `${year}-${month}-${day}T${hours}:${minutes}`;
-            }
-            
-            // 如果ISO格式不匹配，尝试其他常见格式
-            console.warn('ISO格式不匹配，尝试其他格式:', isoTimeStr);
-            return null;
-        } catch (e) {
-            console.error('时间格式转换错误:', e);
-            return null;
-        }
-    }
     function updateTotalsAndWarning() {
         const tbody = document.getElementById('departureCargoBody');
         const totalScheduledElem = document.getElementById('totalScheduledPallets');
@@ -792,6 +755,7 @@
             form.appendChild(batchInput);
         }
         // 所有校验通过，提交表单
+        console.log('提交表单...');
         form.submit();
     }
 </script>

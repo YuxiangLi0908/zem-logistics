@@ -108,6 +108,7 @@ class FleetManagement(View):
         "NJ-08817": "NJ-08817",
         "SAV-31326": "SAV-31326",
         "LA-91761": "LA-91761",
+        "LA-91748": "LA-91748",
         "MO-62025": "MO-62025",
         "TX-77503": "TX-77503",
         "LA-91789": "LA-91789",
@@ -1208,6 +1209,8 @@ class FleetManagement(View):
                     "scheduled_at": current_time,
                     "note": request.POST.get("note", ""),
                     "multipule_destination": True if len(shipment_ids) > 1 else False,
+                    "fleet_type": request.POST.get("fleet_type",""),
+                    "fleet_cost": request.POST.get("fleet_cost")
                 }
             )
             fleet = Fleet(**fleet_data)
@@ -1242,6 +1245,7 @@ class FleetManagement(View):
         fleet.pickup_number = request.POST.get("pickup_number", "")
         fleet.appointment_datetime = request.POST.get("appointment_datetime")
         fleet.note = request.POST.get("note", "")
+        fleet.fleet_cost = float(request.POST.get("fleet_cost"))
         await sync_to_async(fleet.save)()
         mutable_get = request.GET.copy()
         mutable_get["warehouse"] = request.POST.get("warehouse")
@@ -1535,6 +1539,7 @@ class FleetManagement(View):
                 if shipment.fleet_number and shipment.fleet_number.pickup_number
                 else None
             ),
+            "pickup_time": shipment.pickup_time,
             "fleet_number": shipment.fleet_number.fleet_number,
             "shipment": shipment,
             "packing_list": packing_list,
@@ -2006,10 +2011,17 @@ class FleetManagement(View):
             SP_DOC_LIB, f"{SYSTEM_FOLDER}/pod/{APP_ENV}"
         )  # 文档库名称，系统文件夹名称，当前环境
         # 上传到SharePoint
-        sp_folder = conn.web.get_folder_by_server_relative_url(file_path)
-        resp = sp_folder.upload_file(
-            f"{shipment_batch_number}{file_extension}", file
-        ).execute_query()
+        try:
+            sp_folder = conn.web.get_folder_by_server_relative_url(file_path)
+            resp = sp_folder.upload_file(
+                f"{shipment_batch_number}{file_extension}", file
+            ).execute_query()
+        except:
+            conn = await self._get_sharepoint_auth()
+            sp_folder = conn.web.get_folder_by_server_relative_url(file_path)
+            resp = sp_folder.upload_file(
+                f"{shipment_batch_number}{file_extension}", file
+            ).execute_query()
         # 生成并获取链接
         link = (
             resp.share_link(SharingLinkKind.AnonymousView)
@@ -2443,10 +2455,8 @@ class FleetManagement(View):
             if zh_font_path and os.path.exists(zh_font_path):
                 zh_font = fm.FontProperties(fname=zh_font_path)
                 plt.rcParams["font.family"] = zh_font.get_name()
-                print(f"✅ 中文字体已加载: {zh_font_path}")
             else:
                 plt.rcParams["font.family"] = "DejaVu Sans"
-                print("⚠️ 未找到中文字体，使用默认英文字体。")
 
             plt.rcParams["axes.unicode_minus"] = False  # 防止负号乱码
 

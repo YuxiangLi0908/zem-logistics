@@ -83,114 +83,114 @@
     }
     
  </style>
-<div class="content-section active" id="scheduledFleet-section">
-    <div class="filter-notice">
-        <i class="fas fa-filter"></i> 
-        当前显示 <strong>{{ warehouse }}</strong> 仓库的未排车货物，筛选条件：          
-        <strong>未出库</strong>、
-        <strong>车次未取消</strong>、
-        <strong>车次类型为FTL</strong>
-    </div>
-    <div class="table-container">
-        <table class="data-table">
-            <thead>
-                <tr>
-                    <th>出库批次</th>
-                    <th>预约批次</th>
-                    <th>ISA</th>
-                    <th>carrier</th>
-                    <th>提货时间</th>
-                    <th>总重lbs</th>
-                    <th>总CBM</th>
-                    <th>总卡板数</th>
-                    <th>note</th>
-                    <th>撤销批次</th>
-                </tr>
-                <tr class="search-row">
-                    <td><input type="text" class="header-search" placeholder="搜索出库批次" data-column="0"></td>
-                    <td><input type="text" class="header-search" placeholder="搜索预约批次" data-column="1"></td>
-                    <td><input type="text" class="header-search" placeholder="搜索ISA" data-column="2"></td>
-                    <td><input type="text" class="header-search" placeholder="搜索carrier" data-column="3"></td>
-                    <td><input type="text" class="header-search" placeholder="搜索提货时间" data-column="4"></td>
-                    <td><input type="text" class="header-search" placeholder="搜索总重" data-column="5"></td>
-                    <td><input type="text" class="header-search" placeholder="搜索CBM" data-column="6"></td>
-                    <td><input type="text" class="header-search" placeholder="搜索卡板数" data-column="7"></td>
-                    <td><input type="text" class="header-search" placeholder="搜索备注" data-column="8"></td>
-                    <td></td>
-                </tr>
-            </thead>
-            <tbody>
-                {% for f in fleet_list %}
-                <tr 
-                    data-pickup-number="{{ f.pickup_number|default_if_none:'' }}"
-                    data-third-party-address="{{ f.third_party_address|default_if_none:'' }}"
-                    data-license-plate="{{ f.license_plate|default_if_none:'' }}"
-                    data-motor-carrier-number="{{ f.motor_carrier_number|default_if_none:'' }}"
-                    data-dot-number="{{ f.dot_number|default_if_none:'' }}"
-                    >
-                    <td style="max-width: 120px; word-break: break-all;">
-                        <span 
-                            class="fleet-link"
-                            data-fleet-number="{{ f.fleet_number }}"
-                            data-pickup-number="{{ f.pickup_number|default_if_none:'' }}"
-                            data-third-party-address="{{ f.third_party_address|default_if_none:'' }}"
-                            data-license-plate="{{ f.license_plate|default_if_none:'' }}"
-                            data-motor-carrier-number="{{ f.motor_carrier_number|default_if_none:'' }}"
-                            data-dot-number="{{ f.dot_number|default_if_none:'' }}"
-                            data-carrier="{{ f.carrier|default_if_none:'' }}"
-                            data-appointment-datetime="{{ f.appointment_datetime|date:'Y-m-d H:i' }}"
-                            data-note="{{ f.note|default_if_none:'' }}"
-                            data-total-weight="{{ f.total_weight|default_if_none:'' }}"
-                            data-total-cbm="{{ f.total_cbm|default_if_none:'' }}"
-                            data-total-pallet="{{ f.total_pallet|default_if_none:'' }}"
-                            data-shipment-batches="{{ f.shipment_batch_numbers|default_if_none:'' }}"
-                            data-appointment-ids="{{ f.appointment_ids|default_if_none:'' }}"   
-                            data-fleet-cost="{{ f.fleet_cost|default_if_none:'' }}"                      
-                            data-json-id="fleet-json-{{ forloop.counter0 }}"
-                            style="color: var(--primary-color); font-weight: 600; cursor: pointer; text-decoration: underline;">
-                            {{ f.fleet_number }}
-                        </span>
-                        <script type="application/json" id="fleet-json-{{ forloop.counter0 }}">
-                            {{ f.detailed_shipments|default:"[]"|safe }}
-                        </script>
-                    </td>
-                    <td class="shipment-batch-cell">
-                        {{ f.shipment_batch_numbers }}
-                    </td>
-                    <td>{{ f.appointment_ids }}</td>
-                    <td>{{ f.carrier }}</td>
-                    <td>
-                        {% if f.departure_status == "past_due" %}
-                        <span class="status-span-red">{{ f.appointment_datetime|date:"Y-m-d" }} {{ f.appointment_datetime|time:"H:i" }}</span>
-                        {% elif f.departure_status == "need_attention" %}
-                        <span class="status-span-yellow">{{ f.appointment_datetime|date:"Y-m-d" }} {{ f.appointment_datetime|time:"H:i" }}</span>
-                        {% else %}
-                        {{ f.appointment_datetime|date:"Y-m-d" }} {{ f.appointment_datetime|time:"H:i" }}
-                        {% endif %}
-                    </td>
-                    <td>{{ f.total_weight|floatformat:2 }}</td>
-                    <td>{{ f.total_cbm|floatformat:2 }}</td>
-                    <td>{{ f.total_pallet }}</td>
-                    <td style="max-width: 120px; word-break: break-all;">{{ f.note|default_if_none:"" }}</td>
-                    <td>
-                        {% if f.fleet_type != 'LTL' %}
-                        <form method="post" action="" onsubmit="showLoadingBar()">
-                            {% csrf_token %}
-                            <input type="hidden" name="step" value="cancel_fleet">
-                            <input type="hidden" name="fleet_number" value="{{ f.fleet_number }}">
-                            <input type="hidden" name="warehouse" value="{{ warehouse }}">
-                            <input type="hidden" name="active_tab" value="scheduledFleet">
-                            <button type="submit" class="action-btn btn-danger">
-                                <i class="fas fa-times"></i> 撤销
-                            </button>
-                        </form>
-                        {% endif %}
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
+<div class="filter-notice">
+    <i class="fas fa-filter"></i> 
+    当前显示 <strong>{{ warehouse }}</strong> 仓库的未排车货物，筛选条件：          
+    <strong>未出库</strong>、
+    <strong>车次未取消</strong>、
+    <strong>车次类型为FTL</strong>、
+    <strong>约仓点为四大仓</strong>
+</div>
+<div class="table-container">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>出库批次</th>
+                <th>预约批次</th>
+                <th>ISA</th>
+                <th>carrier</th>
+                <th>提货时间</th>
+                <th>总重lbs</th>
+                <th>总CBM</th>
+                <th>总卡板数</th>
+                <th>note</th>
+                <th>撤销批次</th>
+            </tr>
+            <tr class="search-row">
+                <td><input type="text" class="header-search" placeholder="搜索出库批次" data-column="0"></td>
+                <td><input type="text" class="header-search" placeholder="搜索预约批次" data-column="1"></td>
+                <td><input type="text" class="header-search" placeholder="搜索ISA" data-column="2"></td>
+                <td><input type="text" class="header-search" placeholder="搜索carrier" data-column="3"></td>
+                <td><input type="text" class="header-search" placeholder="搜索提货时间" data-column="4"></td>
+                <td><input type="text" class="header-search" placeholder="搜索总重" data-column="5"></td>
+                <td><input type="text" class="header-search" placeholder="搜索CBM" data-column="6"></td>
+                <td><input type="text" class="header-search" placeholder="搜索卡板数" data-column="7"></td>
+                <td><input type="text" class="header-search" placeholder="搜索备注" data-column="8"></td>
+                <td></td>
+            </tr>
+        </thead>
+        <tbody>
+            {% for f in schedule_fleet_data %}
+            <tr 
+                data-pickup-number="{{ f.pickup_number|default_if_none:'' }}"
+                data-third-party-address="{{ f.third_party_address|default_if_none:'' }}"
+                data-license-plate="{{ f.license_plate|default_if_none:'' }}"
+                data-motor-carrier-number="{{ f.motor_carrier_number|default_if_none:'' }}"
+                data-dot-number="{{ f.dot_number|default_if_none:'' }}"
+                >
+                <td style="max-width: 120px; word-break: break-all;">
+                    <span 
+                        class="fleet-link"
+                        data-fleet-number="{{ f.fleet_number }}"
+                        data-pickup-number="{{ f.pickup_number|default_if_none:'' }}"
+                        data-third-party-address="{{ f.third_party_address|default_if_none:'' }}"
+                        data-license-plate="{{ f.license_plate|default_if_none:'' }}"
+                        data-motor-carrier-number="{{ f.motor_carrier_number|default_if_none:'' }}"
+                        data-dot-number="{{ f.dot_number|default_if_none:'' }}"
+                        data-carrier="{{ f.carrier|default_if_none:'' }}"
+                        data-appointment-datetime="{{ f.appointment_datetime|date:'Y-m-d H:i' }}"
+                        data-note="{{ f.note|default_if_none:'' }}"
+                        data-total-weight="{{ f.total_weight|default_if_none:'' }}"
+                        data-total-cbm="{{ f.total_cbm|default_if_none:'' }}"
+                        data-total-pallet="{{ f.total_pallet|default_if_none:'' }}"
+                        data-shipment-batches="{{ f.shipment_batch_numbers|default_if_none:'' }}"
+                        data-appointment-ids="{{ f.appointment_ids|default_if_none:'' }}"     
+                        data-fleet-cost="{{ f.fleet_cost|default_if_none:'' }}"                 
+                        data-json-id="fleet-json-{{ forloop.counter0 }}"
+                        style="color: var(--primary-color); font-weight: 600; cursor: pointer; text-decoration: underline;">
+                        {{ f.fleet_number }}
+                    </span>
+                    <script type="application/json" id="fleet-json-{{ forloop.counter0 }}">
+                        {{ f.detailed_shipments|default:"[]"|safe }}
+                    </script>
+                </td>
+                <td class="shipment-batch-cell">
+                    {{ f.shipment_batch_numbers }}
+                </td>
+                <td>{{ f.appointment_ids }}</td>
+                <td>{{ f.carrier }}</td>
+                <td>
+                    {% if f.departure_status == "past_due" %}
+                    <span class="status-span-red">{{ f.appointment_datetime|date:"Y-m-d" }} {{ f.appointment_datetime|time:"H:i" }}</span>
+                    {% elif f.departure_status == "need_attention" %}
+                    <span class="status-span-yellow">{{ f.appointment_datetime|date:"Y-m-d" }} {{ f.appointment_datetime|time:"H:i" }}</span>
+                    {% else %}
+                    {{ f.appointment_datetime|date:"Y-m-d" }} {{ f.appointment_datetime|time:"H:i" }}
+                    {% endif %}
+                </td>
+                <td>{{ f.total_weight|floatformat:2 }}</td>
+                <td>{{ f.total_cbm|floatformat:2 }}</td>
+                <td>{{ f.total_pallet }}</td>
+                <td style="max-width: 120px; word-break: break-all;">{{ f.note|default_if_none:"" }}</td>
+                <td>
+                    {% if f.fleet_type != 'LTL' %}
+                    <form method="post" action="" onsubmit="showLoadingBar()">
+                        {% csrf_token %}
+                        <input type="hidden" name="step" value="cancel_fleet">
+                        <input type="hidden" name="fleet_number" value="{{ f.fleet_number }}">
+                        <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                        <input type="hidden" name="page" value="arm_appointment">
+                        <input type="hidden" name="active_tab" value="scheduledFleet">
+                        <button type="submit" class="action-btn btn-danger">
+                            <i class="fas fa-times"></i> 撤销
+                        </button>
+                    </form>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
 </div>
 
 <div id="fleetModaLModify" class="modal">
@@ -203,6 +203,7 @@
                 <input type="hidden" name="step" id="fleetModalStep" value="update_fleet">
                 <input type="hidden" name="fleet_number" id="fleetModalModifyFleetNumber">
                 <input type="hidden" name="selected_ids" id="fleetModalSelectedIds">        
+                <input type="hidden" name="page" value="arm_appointment">
                 <input type="hidden" name="active_tab" value="scheduledFleet">
                 <input type="hidden" name="warehouse" value="{{ warehouse }}">
                 
@@ -318,6 +319,7 @@
         link.addEventListener('click', function(e) {
             e.preventDefault();
             e.stopPropagation();
+            console.log('fleet-link click start', this.dataset);
            
             const modal = document.getElementById("fleetModaLModify");
             modal.style.display = "block";
@@ -342,8 +344,10 @@
             safeSetValueById('s_fleetModalDotNumber', data.dotNumber);
             safeSetValueById('s_fleetModalNote', data.note);
             safeSetValueById('s_fleetCost', data.fleetCost);
+            console.log('传来的时间',data.appointmentDatetime);
             if (data.appointmentDatetime) {
                 const formatted = formatDateForInput(data.appointmentDatetime.replace(' ', 'T'));
+                console.log('时间是',formatted);
                 safeSetValueById('s_fleetModalAppointmentDatetime', formatted);
             }
 
@@ -628,6 +632,7 @@
             });
         });
     }
+    const CURRENT_TIME = new Date('{{ current_time|date:"Y-m-d H:i" }}' || new Date());
     function markScheduledFleetRows() {
         const rows = document.querySelectorAll('#scheduledFleet-section .data-table tbody tr');
         
