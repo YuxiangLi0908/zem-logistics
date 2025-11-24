@@ -552,6 +552,7 @@ class PostNsop(View):
                 filtered_packing_list.append(po)
 
         packing_list_not_scheduled = filtered_packing_list
+        
         context.update({
             "warehouse": warehouse,
             "destination": destination,
@@ -1373,6 +1374,9 @@ class PostNsop(View):
     async def handle_shipment_add_pallet_post(
         self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
+        print('添加PO')
+        print(request.POST)
+        raise ValueError('00')
         context = {}
         appointment_id = request.POST.get("appointment_id")
         pl_ids_str = request.POST.getlist("cargo_ids")
