@@ -149,6 +149,9 @@
                             data-json-id="fleet-json-{{ forloop.counter0 }}"
                             style="color: var(--primary-color); font-weight: 600; cursor: pointer; text-decoration: underline;">
                             {{ f.fleet_number }}
+                            {% if f.is_virtual %}
+                                <br><small style="color:#7f8c8d;font-size:10px;">虚拟车次待编辑</small>
+                            {% endif %}
                         </span>
                         <script type="application/json" id="fleet-json-{{ forloop.counter0 }}">
                             {{ f.detailed_shipments|default:"[]"|safe }}
