@@ -179,7 +179,7 @@
                     <thead>
                         <tr>
                             <th style="width: 5%; text-align:center;">
-                                <input type="hidden" id="selectAllAddablePos">
+                                <input type="checkbox" id="selectAllAddablePos">
                             </th>
                             <th style="width: 20%; word-break: break-word; white-space: normal;">REF ID</th>
                             <th style="width: 20%; word-break: break-word; white-space: normal;">FBA ID</th>
@@ -219,7 +219,7 @@
                                 <td style="text-align:center;">
                                     <input type="checkbox" class="plt-checkbox" value="{{ po.id }}">
                                     <input type="hidden"  name="plt_ids" value="{{ po.plt_ids }}">
-                                    <input type="hidden"  name="cargo_ids" value="{{ po.pl_ids }}">
+                                    <input type="hidden"  name="cargo_ids" value="{{ po.ids }}">
                                 </td>
                                 <td style="word-break: break-word; white-space: normal;">{{ po.ref_ids|default:"-" }}</td>
                                 <td style="word-break: break-word; white-space: normal;">{{ po.fba_ids|default:"-" }}</td>
@@ -256,242 +256,255 @@
 </form>
 
 <script>
-// 未排车时添加PO模态框的JavaScript
-function closeAddablePOModal() {
-    const modal = document.getElementById('addablePOModal');
-    if (modal) modal.style.display = 'none';
-}
-
-function handleAddablePOFormSubmit() {
-    const form = document.getElementById('addablePOForm');
-    
-    // 收集选中的行数据
-    const selectedRowsData = [];
-    const selectedCheckboxes = document.querySelectorAll('#addablePOModal .plt-checkbox:checked');
-    
-    selectedCheckboxes.forEach(checkbox => {
-        const row = checkbox.closest('tr');
-        const pltIdInput = row.querySelector('input[name="plt_ids"]');
-        const cargoIdInput = row.querySelector('input[name="cargo_ids"]');
-        
-        // 判断是 plt_ids 还是 cargo_ids
-        const idType = pltIdInput && pltIdInput.value ? 'plt_ids' : 'cargo_ids';
-        const idValue = pltIdInput && pltIdInput.value ? pltIdInput.value : 
-                       (cargoIdInput && cargoIdInput.value ? cargoIdInput.value : '');
-        
-        if (idValue) {
-            selectedRowsData.push({
-                idType: idType,
-                idValue: idValue,
-            });
-        }
-    });
-    
-    if (selectedRowsData.length === 0) {
-        alert('请至少选择一个PO！');
-        return false;
+    // 未排车时添加PO模态框的JavaScript
+    function closeAddablePOModal() {
+        const modal = document.getElementById('addablePOModal');
+        if (modal) modal.style.display = 'none';
     }
-    
-    // 移除原有的所有相关输入
-    const existingInputs = form.querySelectorAll('input[name="plt_ids"], input[name="cargo_ids"], input[name="scheduled_pallet"], input[name="actual_shipped_pallet"]');
-    existingInputs.forEach(input => input.remove());
-    
-    // 添加选中的数据
-    selectedRowsData.forEach(rowData => {
-        // 添加 plt_ids 或 cargo_ids
-        const idInput = document.createElement('input');
-        idInput.type = 'hidden';
-        idInput.name = rowData.idType;
-        idInput.value = rowData.idValue;
-        form.appendChild(idInput);
-    });
-    
-    // 提交表单
-    form.submit();
-    return true;
-}
 
-// 搜索相关变量
-let addablePOSearchTimer;
-
-// 初始化搜索功能
-function initAddablePOSearch() {
-    const searchInputs = document.querySelectorAll('#addablePOModal .header-search');
-    const selectInputs = document.querySelectorAll('#addablePOModal .header-select');
-    
-    searchInputs.forEach(input => {
-        input.addEventListener('input', function() {
-            clearTimeout(addablePOSearchTimer);
-            addablePOSearchTimer = setTimeout(applyAddablePOSearch, 250);
-        });
-    });
-    
-    selectInputs.forEach(select => {
-        select.addEventListener('change', function() {
-            clearTimeout(addablePOSearchTimer);
-            addablePOSearchTimer = setTimeout(applyAddablePOSearch, 250);
-        });
-    });
-}
-
-// 多列AND搜索函数
-function applyAddablePOSearch() {
-    const searchInputs = document.querySelectorAll('#addablePOModal .header-search, #addablePOModal .header-select');
-    const tbody = document.getElementById('addablePOTableBody');
-    if (!tbody) return;
-    
-    const rows = tbody.querySelectorAll('tr');
-    
-    // 收集每一列的搜索条件
-    const columnFilters = {};
-    let hasSearchTerm = false;
-    
-    searchInputs.forEach(input => {
-        const colIndex = input.dataset.column;
-        let value = input.value.trim().toLowerCase();
+    function handleAddablePOFormSubmit() {
+        const form = document.getElementById('addablePOForm');
         
-        // 对于选择框，空值表示"全部"，不需要筛选
-        if (input.tagName === 'SELECT' && value === '') {
-            return;
-        }
+        // 收集选中的行数据
+        const selectedRowsData = [];
+        const selectedCheckboxes = document.querySelectorAll('#addablePOModal .plt-checkbox:checked');
         
-        if (value) {
-            columnFilters[colIndex] = value;
-            hasSearchTerm = true;
-        }
-    });
-    
-    // 清除旧的高亮
-    clearAddablePOHighlights();
-    
-    // 没有搜索条件时显示所有行
-    if (!hasSearchTerm) {
-        rows.forEach(row => {
-            row.style.display = '';
-        });
-        return;
-    }
-    
-    // 应用筛选
-    rows.forEach(row => {
-        let allColumnsMatch = true;
-        
-        // 检查每一列的筛选条件（AND关系）
-        Object.keys(columnFilters).forEach(colIndex => {
-            const searchValue = columnFilters[colIndex];
-            const cell = getAddablePOCellByColumnIndex(row, parseInt(colIndex));
+        selectedCheckboxes.forEach(checkbox => {
+            const row = checkbox.closest('tr');
+            const pltIdInput = row.querySelector('input[name="plt_ids"]');
+            const cargoIdInput = row.querySelector('input[name="cargo_ids"]');
             
-            if (!cell) {
-                allColumnsMatch = false;
+            // 判断是 plt_ids 还是 cargo_ids
+            const pltIds = pltIdInput && pltIdInput.value ? pltIdInput.value : '';
+            const cargoIds = cargoIdInput && cargoIdInput.value ? cargoIdInput.value : '';
+            
+            if (pltIds || cargoIds) {
+                selectedRowsData.push({
+                    pltIds: pltIds,
+                    cargoIds: cargoIds
+                });
+            }
+        });
+        
+        if (selectedRowsData.length === 0) {
+            alert('请至少选择一个PO！');
+            return false;
+        }
+        
+        // 移除原有的所有相关输入
+        const existingInputs = form.querySelectorAll('input[name="plt_ids"], input[name="cargo_ids"], input[name="scheduled_pallet"], input[name="actual_shipped_pallet"]');
+        existingInputs.forEach(input => input.remove());
+        
+        // 添加选中的数据
+        selectedRowsData.forEach(rowData => {
+            // 添加 plt_ids
+            if (rowData.pltIds) {
+                const pltInput = document.createElement('input');
+                pltInput.type = 'hidden';
+                pltInput.name = 'plt_ids';
+                pltInput.value = rowData.pltIds;
+                form.appendChild(pltInput);
+            }
+            
+            // 添加 cargo_ids
+            if (rowData.cargoIds) {
+                const cargoInput = document.createElement('input');
+                cargoInput.type = 'hidden';
+                cargoInput.name = 'cargo_ids';
+                cargoInput.value = rowData.cargoIds;
+                form.appendChild(cargoInput);
+            }
+        });
+        
+        // 提交表单
+        form.submit();
+        return true;
+    }
+
+    // 搜索相关变量
+    let addablePOSearchTimer;
+
+    // 初始化搜索功能
+    function initAddablePOSearch() {
+        const searchInputs = document.querySelectorAll('#addablePOModal .header-search');
+        const selectInputs = document.querySelectorAll('#addablePOModal .header-select');
+        
+        searchInputs.forEach(input => {
+            input.addEventListener('input', function() {
+                clearTimeout(addablePOSearchTimer);
+                addablePOSearchTimer = setTimeout(applyAddablePOSearch, 250);
+            });
+        });
+        
+        selectInputs.forEach(select => {
+            select.addEventListener('change', function() {
+                clearTimeout(addablePOSearchTimer);
+                addablePOSearchTimer = setTimeout(applyAddablePOSearch, 250);
+            });
+        });
+    }
+
+    // 多列AND搜索函数
+    function applyAddablePOSearch() {
+        const searchInputs = document.querySelectorAll('#addablePOModal .header-search, #addablePOModal .header-select');
+        const tbody = document.getElementById('addablePOTableBody');
+        if (!tbody) return;
+        
+        const rows = tbody.querySelectorAll('tr');
+        
+        // 收集每一列的搜索条件
+        const columnFilters = {};
+        let hasSearchTerm = false;
+        
+        searchInputs.forEach(input => {
+            const colIndex = input.dataset.column;
+            let value = input.value.trim().toLowerCase();
+            
+            // 对于选择框，空值表示"全部"，不需要筛选
+            if (input.tagName === 'SELECT' && value === '') {
                 return;
             }
             
-            // 获取单元格数据（优先使用data属性，如果没有则使用文本内容）
-            let cellValue = '';
-            switch(parseInt(colIndex)) {
-                case 1: // REF ID
-                    cellValue = row.dataset.refId || '';
-                    break;
-                case 2: // FBA ID
-                    cellValue = row.dataset.fbaId || '';
-                    break;
-                case 3: // 柜号
-                    cellValue = row.dataset.cn || '';
-                    break;
-                case 4: // 目的地
-                    cellValue = row.dataset.destination || '';
-                    break;
-                case 5: // 入仓时间
-                    cellValue = row.dataset.offloadTime || '';
-                    break;
-                case 6: // 甩板
-                    cellValue = row.dataset.isDropped || '';
-                    break;
-                case 7: // 板数
-                    cellValue = row.dataset.pallet ? row.dataset.pallet.toString() : '';
-                    break;
-                default:
-                    cellValue = cell.textContent.toLowerCase();
+            if (value) {
+                columnFilters[colIndex] = value;
+                hasSearchTerm = true;
             }
+        });
+        
+        // 清除旧的高亮
+        clearAddablePOHighlights();
+        
+        // 没有搜索条件时显示所有行
+        if (!hasSearchTerm) {
+            rows.forEach(row => {
+                row.style.display = '';
+            });
+            return;
+        }
+        
+        // 应用筛选
+        rows.forEach(row => {
+            let allColumnsMatch = true;
             
-            if (!cellValue.includes(searchValue)) {
-                allColumnsMatch = false;
+            // 检查每一列的筛选条件（AND关系）
+            Object.keys(columnFilters).forEach(colIndex => {
+                const searchValue = columnFilters[colIndex];
+                const cell = getAddablePOCellByColumnIndex(row, parseInt(colIndex));
+                
+                if (!cell) {
+                    allColumnsMatch = false;
+                    return;
+                }
+                
+                // 获取单元格数据（优先使用data属性，如果没有则使用文本内容）
+                let cellValue = '';
+                switch(parseInt(colIndex)) {
+                    case 1: // REF ID
+                        cellValue = row.dataset.refId || '';
+                        break;
+                    case 2: // FBA ID
+                        cellValue = row.dataset.fbaId || '';
+                        break;
+                    case 3: // 柜号
+                        cellValue = row.dataset.cn || '';
+                        break;
+                    case 4: // 目的地
+                        cellValue = row.dataset.destination || '';
+                        break;
+                    case 5: // 入仓时间
+                        cellValue = row.dataset.offloadTime || '';
+                        break;
+                    case 6: // 甩板
+                        cellValue = row.dataset.isDropped || '';
+                        break;
+                    case 7: // 板数
+                        cellValue = row.dataset.pallet ? row.dataset.pallet.toString() : '';
+                        break;
+                    default:
+                        cellValue = cell.textContent.toLowerCase();
+                }
+                
+                if (!cellValue.includes(searchValue)) {
+                    allColumnsMatch = false;
+                }
+            });
+            
+            row.style.display = allColumnsMatch ? '' : 'none';
+            
+            // 高亮匹配的内容
+            if (allColumnsMatch) {
+                Object.keys(columnFilters).forEach((colIndex, termIndex) => {
+                    highlightAddablePOMatches(getAddablePOCellByColumnIndex(row, parseInt(colIndex)), columnFilters[colIndex], termIndex);
+                });
             }
         });
+    }
+
+    // 辅助函数：根据列索引获取单元格
+    function getAddablePOCellByColumnIndex(row, targetColIndex) {
+        const cells = row.querySelectorAll('td');
+        // 跳过第一列（复选框列）
+        return cells[targetColIndex] || null;
+    }
+
+    // 高亮匹配内容
+    function highlightAddablePOMatches(element, searchTerm, termIndex) {
+        if (!element || !searchTerm) return;
         
-        row.style.display = allColumnsMatch ? '' : 'none';
+        let html = element.innerHTML;
         
-        // 高亮匹配的内容
-        if (allColumnsMatch) {
-            Object.keys(columnFilters).forEach((colIndex, termIndex) => {
-                highlightAddablePOMatches(getAddablePOCellByColumnIndex(row, parseInt(colIndex)), columnFilters[colIndex], termIndex);
-            });
-        }
-    });
-}
+        // 清除旧高亮
+        html = html.replace(/<span class="highlight-color-\d">([^<]*)<\/span>/gi, "$1");
+        
+        // 应用新高亮
+        const colorClass = `highlight-color-${(termIndex % 4) + 1}`;
+        const regex = new RegExp(`(${escapeRegExp(searchTerm)})`, 'gi');
+        
+        html = html.replace(regex, `<span class="${colorClass}">$1</span>`);
+        element.innerHTML = html;
+    }
 
-// 辅助函数：根据列索引获取单元格
-function getAddablePOCellByColumnIndex(row, targetColIndex) {
-    const cells = row.querySelectorAll('td');
-    // 跳过第一列（复选框列）
-    return cells[targetColIndex] || null;
-}
-
-// 高亮匹配内容
-function highlightAddablePOMatches(element, searchTerm, termIndex) {
-    if (!element || !searchTerm) return;
-    
-    let html = element.innerHTML;
-    
-    // 清除旧高亮
-    html = html.replace(/<span class="highlight-color-\d">([^<]*)<\/span>/gi, "$1");
-    
-    // 应用新高亮
-    const colorClass = `highlight-color-${(termIndex % 4) + 1}`;
-    const regex = new RegExp(`(${escapeRegExp(searchTerm)})`, 'gi');
-    
-    html = html.replace(regex, `<span class="${colorClass}">$1</span>`);
-    element.innerHTML = html;
-}
-
-// 清除高亮
-function clearAddablePOHighlights() {
-    document.querySelectorAll('#addablePOModal tbody td').forEach(td => {
-        const originalText = td.getAttribute('data-original-text');
-        if (originalText) {
-            td.textContent = originalText;
-            td.removeAttribute('data-original-text');
-        }
-    });
-}
-
-// 转义正则表达式特殊字符
-function escapeRegExp(string) {
-    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
-// 全选功能
-document.addEventListener('DOMContentLoaded', function() {
-    const selectAll = document.getElementById('selectAllAddablePos');
-    if (selectAll) {
-        selectAll.addEventListener('click', function() {
-            document.querySelectorAll('#addablePOModal .plt-checkbox').forEach(cb => {
-                cb.checked = this.checked;
-            });
+    // 清除高亮
+    function clearAddablePOHighlights() {
+        document.querySelectorAll('#addablePOModal tbody td').forEach(td => {
+            const originalText = td.getAttribute('data-original-text');
+            if (originalText) {
+                td.textContent = originalText;
+                td.removeAttribute('data-original-text');
+            }
         });
     }
-    // 初始化搜索功能
-    initAddablePOSearch();
-});
 
-// 关闭模态框事件
-document.querySelector('#addablePOModal .close').addEventListener('click', closeAddablePOModal);
-
-// 点击外部关闭
-window.addEventListener('click', function(event) {
-    const modal = document.getElementById('addablePOModal');
-    if (event.target === modal) {
-        closeAddablePOModal();
+    // 转义正则表达式特殊字符
+    function escapeRegExp(string) {
+        return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     }
-});
+
+    // 全选功能
+    document.addEventListener('DOMContentLoaded', function() {
+        const selectAll = document.getElementById('selectAllAddablePos');
+        if (selectAll) {
+            selectAll.addEventListener('click', function() {
+                document.querySelectorAll('#addablePOModal tbody tr').forEach(row => {
+                    if (row.style.display !== 'none') {          // 当前是显示的
+                        const cb = row.querySelector('.plt-checkbox');
+                        if (cb) cb.checked = selectAll.checked;
+                    }
+                });
+            });
+        }
+        // 初始化搜索功能
+        initAddablePOSearch();
+    });
+
+    // 关闭模态框事件
+    document.querySelector('#addablePOModal .close').addEventListener('click', closeAddablePOModal);
+
+    // 点击外部关闭
+    window.addEventListener('click', function(event) {
+        const modal = document.getElementById('addablePOModal');
+        if (event.target === modal) {
+            closeAddablePOModal();
+        }
+    });
 </script>
