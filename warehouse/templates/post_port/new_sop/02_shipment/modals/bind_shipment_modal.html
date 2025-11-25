@@ -320,77 +320,80 @@
             shipmentAccountSelect.addEventListener('change', generatePickupNumber);
         }
     });
+
     // 绑定预约模态框的JavaScript
     document.querySelectorAll('.open-bind-modal').forEach(btn => {
         btn.addEventListener('click', function() {
-            console.log('this.dataset',this.dataset);
-            const suggestionId = this.dataset.suggestionId;
-            const hasAppointment = this.dataset.hasAppointment === '1';
-            const appointmentId = this.dataset.appointmentId || '';
-            const shipmentType = this.dataset.shipmentType || '';
-            const loadType = this.dataset.loadType || '';
-            const destination = this.dataset.destination || '';
-            const deliveryMethod = this.dataset.deliveryMethod || '';
-            const scheduledTime = this.dataset.scheduledTime || '';
-            const pickupTime = this.dataset.pickupTime || '';
-            const pickupNumber = this.dataset.pickupNumber || '';
-            const shipmentAccount = this.dataset.shipmentAccount || '';
-            const origin = this.dataset.origin || '';
-            const note = this.dataset.note || '';
-            const addressDetail = this.dataset.addressDetail || '';
-            const shipmentCargoId = this.dataset.shipmentCargoId || '';
-            const operationType = this.dataset.operationType || 'bind';
-
-            let groupRows;
-            if (suggestionId) {
-                groupRows = document.querySelectorAll(`tr[data-suggestion-id="${suggestionId}"]`);
-            } else {
-                const appointmentRow = this.closest('tr');
-                groupRows = getRowsByAppointment(appointmentRow, appointmentId);
-            }
-
-            const cargos = [];
-            groupRows.forEach(row => {
-                const containerTd = row.querySelector('td.container-no-col') || row.querySelector('.cns-col');
-                const offload_timeTd = row.querySelector('td.offload-time-col');
-                
-                cargos.push({
-                    cargo_id: row.dataset.cargoId || '',
-                    plt_ids: row.dataset.pltId || '',
-                    ref_ids: row.querySelector('.ref-ids-col')?.innerText.trim() || '-',
-                    fba_ids: row.querySelector('.fba-ids-col')?.innerText.trim() || '-',
-                    container_no: containerTd?.textContent.trim().replace(/\s+/g, '\n') || '-',
-                    location: row.querySelector('.location-col')?.innerText.trim() || '-',
-                    total_pallet: row.querySelector('.pallet-col')?.innerText.trim() || '-',
-                    total_cbm: row.querySelector('.cbm-col')?.innerText.trim() || '-',
-                    offload_time: offload_timeTd ? offload_timeTd.textContent.trim() : '无入仓时间',
-                });
-            });
-
-            openBindModal({
-                suggestionId,
-                cargos,
-                hasAppointment,
-                appointmentId,
-                loadType,
-                destination,
-                deliveryMethod,
-                scheduledTime,
-                pickupTime,
-                pickupNumber,
-                shipmentAccount,
-                origin,
-                note,
-                shipmentType,
-                addressDetail,
-                shipmentCargoId,
-                operationType
-            });
             setTimeout(() => {
-                if (!pickupNumber || pickupNumber === 'None' || pickupNumber === 'none') {
-                    generatePickupNumber();
+                console.log('this.dataset',this.dataset);
+                const suggestionId = this.dataset.suggestionId;
+                const hasAppointment = this.dataset.hasAppointment === '1';
+                const appointmentId = this.dataset.appointmentId || '';
+                const shipmentType = this.dataset.shipmentType || '';
+                const loadType = this.dataset.loadType || '';
+                const destination = this.dataset.destination || '';
+                const deliveryMethod = this.dataset.deliveryMethod || '';
+                const scheduledTime = this.dataset.scheduledTime || '';
+                const pickupTime = this.dataset.pickupTime || '';
+                const pickupNumber = this.dataset.pickupNumber || '';
+                const shipmentAccount = this.dataset.shipmentAccount || '';
+                const origin = this.dataset.origin || '';
+                const note = this.dataset.note || '';
+                const addressDetail = this.dataset.addressDetail || '';
+                const shipmentCargoId = this.dataset.shipmentCargoId || '';
+                const operationType = this.dataset.operationType || 'bind';
+
+                let groupRows;
+                if (suggestionId) {
+                    groupRows = document.querySelectorAll(`tr[data-suggestion-id="${suggestionId}"]`);
+                } else {
+                    const appointmentRow = this.closest('tr');
+                    groupRows = getRowsByAppointment(appointmentRow, appointmentId);
                 }
-            }, 100);
+
+                const cargos = [];
+                groupRows.forEach(row => {
+                    const containerTd = row.querySelector('td.container-no-col') || row.querySelector('.cns-col');
+                    const offload_timeTd = row.querySelector('td.offload-time-col');
+                    
+                    cargos.push({
+                        cargo_id: row.dataset.cargoId || '',
+                        plt_ids: row.dataset.pltId || '',
+                        ref_ids: row.querySelector('.ref-ids-col')?.innerText.trim() || '-',
+                        fba_ids: row.querySelector('.fba-ids-col')?.innerText.trim() || '-',
+                        container_no: containerTd?.textContent.trim().replace(/\s+/g, '\n') || '-',
+                        location: row.querySelector('.location-col')?.innerText.trim() || '-',
+                        total_pallet: row.querySelector('.pallet-col')?.innerText.trim() || '-',
+                        total_cbm: row.querySelector('.cbm-col')?.innerText.trim() || '-',
+                        offload_time: offload_timeTd ? offload_timeTd.textContent.trim() : '无入仓时间',
+                    });
+                });
+
+                openBindModal({
+                    suggestionId,
+                    cargos,
+                    hasAppointment,
+                    appointmentId,
+                    loadType,
+                    destination,
+                    deliveryMethod,
+                    scheduledTime,
+                    pickupTime,
+                    pickupNumber,
+                    shipmentAccount,
+                    origin,
+                    note,
+                    shipmentType,
+                    addressDetail,
+                    shipmentCargoId,
+                    operationType
+                });
+                setTimeout(() => {
+                    if (!pickupNumber || pickupNumber === 'None' || pickupNumber === 'none') {
+                        generatePickupNumber();
+                    }
+                }, 100);
+            }, 0);
         });
     });
 

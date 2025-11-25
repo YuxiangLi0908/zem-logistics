@@ -202,20 +202,34 @@
                             
                             <!-- 建议预约号 -->
                             {% if forloop.first %}
-                            <td rowspan="{{ suggestion.cargos|length }}" style="vertical-align: middle; background-color: #f8f9fa;">
-                                <div style="font-weight: bold; color: #28a745; margin-bottom: 5px;">
-                                    {{ suggestion.primary_group.matched_shipment.appointment_id|default:"未分配预约号" }}
-                                </div>
-                                {% if suggestion.primary_group.matched_shipment.shipment_cargo_id %}
-                                <div style="font-size: 12px; color: #666;">
-                                    shipment: {{ suggestion.primary_group.matched_shipment.shipment_cargo_id }}
-                                </div>
-                                {% endif %}
-                                {% if suggestion.primary_group.matched_shipment.shipment_appointment %}
-                                <div style="font-size: 12px; color: #666;">
-                                    {{ suggestion.primary_group.matched_shipment.shipment_appointment|date:"Y-m-d H:i" }}
-                                </div>
-                                {% endif %}
+                            <td rowspan="{{ suggestion.cargos|length }}" style="vertical-align: middle; background-color: #f8f9fa; padding: 2px;">
+                                <select class="shipment-select" data-suggestion-id="{{ suggestion.suggestion_id }}" 
+                                        style="width: 100%; padding: 2px 4px; border: 1px solid #d1d5db; border-radius: 4px; 
+                                            font-size: 0.65rem; background: white; cursor: pointer;
+                                            box-shadow: 0 1px 1px rgba(0,0,0,0.05); margin: 0;">
+                                    {% for shipment in suggestion.primary_group.matched_shipment %}
+                                    <option value="{{ forloop.counter0 }}" 
+                                            data-appointment-id="{{ shipment.appointment_id|default:'' }}"
+                                            data-shipment-type="{{ shipment.shipment_type|default:'' }}"
+                                            data-load-type="{{ shipment.load_type|default:'' }}"
+                                            data-scheduled-time="{{ shipment.shipment_appointment|date:'Y-m-d H:i' }}"
+                                            data-shipment-account="{{ shipment.shipment_account|default:'' }}"
+                                            data-note="{{ shipment.note|default:'' }}"
+                                            data-address-detail="{{ shipment.address_detail|default:'' }}"
+                                            data-shipment-cargo-id="{{ shipment.shipment_cargo_id|default:'' }}"
+                                            data-pickup-time="{{ shipment.pickup_time|date:'Y-m-d H:i' }}"
+                                            data-pickup-number="{{ shipment.pickup_number|default:'' }}">
+                                        {% if shipment.appointment_id %}
+                                            {{ shipment.appointment_id }}
+                                        {% else %}
+                                            未分配预约号
+                                        {% endif %}
+                                        {% if shipment.shipment_appointment %}
+                                            - {{ shipment.shipment_appointment|date:"m/d H:i" }}
+                                        {% endif %}
+                                    </option>
+                                    {% endfor %}
+                                </select>
                             </td>
                             {% endif %}
                             
@@ -805,10 +819,72 @@
             });
         });
     }
+
+    window.addEventListener('DOMContentLoaded', function () {
+        const firstSelect = document.querySelector('.shipment-select');
+        if (firstSelect) {
+            firstSelect.dispatchEvent(new Event('change'));
+        }
+    });
+
+    document.addEventListener('click', function (e) {
+        const btn = e.target.closest('.open-bind-modal');
+        if (!btn) return;
+
+        // 如果按钮上没有 appointmentId（说明没有被 change 初始化）
+        if (!btn.dataset.appointmentId) {
+            const suggestionId = btn.dataset.suggestionId;
+            const sel = document.querySelector(`select.shipment-select[data-suggestion-id="${suggestionId}"]`);
+            if (sel) {
+                const opt = sel.options[sel.selectedIndex];
+
+                btn.dataset.appointmentId = opt.dataset.appointmentId || '';
+                btn.dataset.shipmentType = opt.dataset.shipmentType || '';
+                btn.dataset.loadType = opt.dataset.loadType || '';
+                btn.dataset.scheduledTime = opt.dataset.scheduledTime || '';
+                btn.dataset.shipmentAccount = opt.dataset.shipmentAccount || '';
+                btn.dataset.note = opt.dataset.note || '';
+                btn.dataset.addressDetail = opt.dataset.addressDetail || '';
+                btn.dataset.shipmentCargoId = opt.dataset.shipmentCargoId || '';
+                btn.dataset.pickupTime = opt.dataset.pickupTime || '';
+                btn.dataset.pickupNumber = opt.dataset.pickupNumber || '';
+
+                console.log('点击兜底：写入后的 dataset:', btn.dataset);
+            }
+        }
+    });
+
+    document.addEventListener('change', function(e) {
+        console.log('监听绑定');
+        if (e.target.classList.contains('shipment-select')) {
+            const select = e.target;
+            const selectedOption = select.options[select.selectedIndex];
+            const suggestionId = select.dataset.suggestionId;
+
+            // 找到对应分组中的绑定按钮
+            const bindButton = document.querySelector(
+                `button.open-bind-modal[data-suggestion-id="${suggestionId}"]`
+            );
+
+            if (!bindButton) return;
+
+            // 更新按钮上所有 shipment 信息
+            bindButton.dataset.appointmentId = selectedOption.dataset.appointmentId || '';
+            bindButton.dataset.shipmentType = selectedOption.dataset.shipmentType || '';
+            bindButton.dataset.loadType = selectedOption.dataset.loadType || '';
+            bindButton.dataset.scheduledTime = selectedOption.dataset.scheduledTime || '';
+            bindButton.dataset.shipmentAccount = selectedOption.dataset.shipmentAccount || '';
+            bindButton.dataset.note = selectedOption.dataset.note || '';
+            bindButton.dataset.addressDetail = selectedOption.dataset.addressDetail || '';
+            bindButton.dataset.shipmentCargoId = selectedOption.dataset.shipmentCargoId || '';
+            bindButton.dataset.pickupTime = selectedOption.dataset.pickupTime || '';
+            bindButton.dataset.pickupNumber = selectedOption.dataset.pickupNumber || '';
+        }
+    });
     // 未排约页面特定的JavaScript
     document.addEventListener('DOMContentLoaded', function() {
         initSearch();
-
+        
         // 导出PO功能
         document.querySelectorAll('.export-group-po').forEach(btn => {
             btn.addEventListener('click', function () {
@@ -895,5 +971,6 @@
             document.getElementById('actionForm').submit();
         });
     });
+    
     
 </script>
