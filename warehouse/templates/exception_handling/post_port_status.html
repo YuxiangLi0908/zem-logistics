@@ -234,6 +234,7 @@
             <th>目的地</th>
             <th>绑定车次</th>
             <th>供应商</th>
+            <th>picktime</th>
             <th>预约时间</th>
             <th>预约时间utc</th>
             <th>发货时间</th>
@@ -275,6 +276,7 @@
             <td>{{ shipment.destination|default:"-" }}</td>
             <td>{{ shipment.fleet_number}}</td>
             <td>{{ shipment.carrier|default:"-" }}</td>
+            <td>{{ shipment.pickup_time|default:"-" }}</td>
             <td>{{ shipment.shipment_appointment|default:"-" }}</td>
             <td>{{ shipment.shipment_appointment_utc|default:"-" }}</td>
             <td>{{ shipment.shipped_at|default:"-" }}</td>
