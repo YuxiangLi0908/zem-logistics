@@ -1,5 +1,6 @@
 from datetime import datetime
 
+from django.db import transaction
 from django.utils import timezone
 from typing import Any, Coroutine
 
@@ -11,6 +12,7 @@ from django.shortcuts import redirect, render
 from django.views import View
 
 from warehouse.models.order import Order
+from warehouse.models.vessel import Vessel
 from warehouse.utils.constants import PORT_TO_WAREHOUSE_AREA
 
 
@@ -35,6 +37,10 @@ class InformationUpdate(View):
         elif step == "information_update_edit":
             template, context = await self.information_update_edit(request)
             return render(request, template, context)
+        elif step == "batch_update":
+            template, context = await self.information_update_batch(request)
+            return render(request, template, context)
+
 
     async def _user_authenticate(self, request: HttpRequest) -> bool:
         if await sync_to_async(lambda: request.user.is_authenticated)():
@@ -255,6 +261,80 @@ class InformationUpdate(View):
             template, context = await self.information_update_search(request)
             context["error_msg"] = f"更新失败：{str(e)}"
             return template, context
+
+    async def information_update_batch(self, request: HttpRequest):
+        batch_field = request.POST.get('batch_field')  # vessel_eta 或 vessel_etd
+        batch_time = request.POST.get('batch_time')  # 时间字符串（格式：YYYY-MM-DD HH:MM:SS）
+        selected_containers = request.POST.get('selected_containers', '').split(',')  # 选中的柜号列表
+        warehouse = request.POST.get('warehouse')
+
+        selected_containers = [container.strip() for container in selected_containers if container.strip()]
+
+        success_msg = None
+        error_msg = None
+
+        try:
+            if not batch_field or batch_field not in ['vessel_eta', 'vessel_etd']:
+                error_msg = '无效的更新字段！仅支持ETA时间和ETD时间更新'
+                template, context = await self.information_update_search(request)
+                context.update({'error_msg': error_msg})
+                return template, context
+
+            if not batch_time:
+                error_msg = '请选择目标时间！'
+                template, context = await self.information_update_search(request)
+                context.update({'error_msg': error_msg})
+                return template, context
+
+            if not selected_containers:
+                error_msg = '请至少选择一个柜号！'
+                template, context = await self.information_update_search(request)
+                context.update({'error_msg': error_msg})
+                return template, context
+
+            if not warehouse:
+                error_msg = '仓库参数缺失！'
+                template, context = await self.information_update_search(request)
+                context.update({'error_msg': error_msg})
+                return template, context
+
+            @sync_to_async
+            def sync_batch_update():
+                """批量更新函数：先查Order，再更新关联的Vessel字段"""
+                with transaction.atomic():
+                    orders = Order.objects.select_related(
+                        "vessel_id", "container_number"
+                    ).filter(
+                        container_number__container_number__in=selected_containers,
+                        cancel_notification=False,
+                        vessel_id__isnull=False,
+
+                    )
+                    vessel_ids = orders.values_list('vessel_id__id', flat=True).distinct()
+                    if not vessel_ids:
+                        return 0
+                    update_data = {batch_field: batch_time}  # batch_field 是 'vessel_eta' 或 'vessel_etd'
+                    updated_count = Vessel.objects.filter(id__in=vessel_ids).update(**update_data)
+                    return updated_count
+
+            updated_count = await sync_batch_update()
+            success_msg = f'成功更新 {updated_count} 艘船舶的{"ETA" if batch_field == "vessel_eta" else "ETD"}时间（选中 {len(selected_containers)} 个柜号）！'
+
+        except Exception as e:
+            error_msg = f'批量更新失败：{str(e)}'
+            print(f'批量更新异常详情：{repr(e)}')
+
+        template, context = await self.information_update_search(request)
+        context.update({
+            'success_msg': success_msg,
+            'error_msg': error_msg,
+            'warehouse': warehouse,
+            'eta_start': request.POST.get('eta_start', ''),
+            'eta_end': request.POST.get('eta_end', ''),
+            'container_search': request.POST.get('container_search', ''),
+            'search_vessel': request.POST.get('search_vessel', ''),
+        })
+        return template, context
 
     warehouse_options = {
         "所有仓库": "NJ,SAV,LA,MO,TX",

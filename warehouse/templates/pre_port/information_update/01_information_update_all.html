@@ -1,9 +1,12 @@
 {% extends 'base.html' %}
 {% block content %}
-    <!-- 修复1：调整资源加载顺序，优先加载Layui JS，避免依赖冲突 -->
+    <!-- 修复1：替换为完整版本jQuery，解决兼容性问题 -->
     <script src="https://cdn.bootcdn.net/ajax/libs/jquery/3.6.4/jquery.min.js"></script>
     <script src="//unpkg.com/layui@2.12.0/dist/layui.js"></script>
     <link href="//unpkg.com/layui@2.12.0/dist/css/layui.css" rel="stylesheet">
+
+    <!-- 修复2：预加载Layui字体（避免网络慢导致的 fallback 问题） -->
+    <link rel="preload" href="//unpkg.com/layui@2.12.0/dist/font/iconfont.woff2?v=293" as="font" type="font/woff2" crossorigin>
 
     <style>
         /* 全局样式重置与基础配置 */
@@ -83,6 +86,36 @@
             width: 180px;
         }
 
+        /* 批量操作区样式 */
+        .batch-operation {
+            margin-bottom: 16px;
+            padding: 16px;
+            background-color: #f0f9fb;
+            border-radius: 8px;
+            border: 1px solid #e6f7ff;
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 16px;
+        }
+
+        .batch-title {
+            font-size: 14px;
+            font-weight: 500;
+            color: #165dff;
+            margin-right: 8px;
+        }
+
+        .batch-btn {
+            background-color: #165dff !important;
+            border-color: #165dff !important;
+        }
+
+        .batch-btn:hover {
+            background-color: #0d47a1 !important;
+            border-color: #0d47a1 !important;
+        }
+
         /* 时间范围组样式 */
         .time-range-group {
             display: flex;
@@ -124,7 +157,7 @@
         }
 
         /* 下拉框和输入框样式 */
-        .layui-select, .layui-input {
+        .layui-select, .layui-input, .layui-form-checkbox {
             border-radius: 6px !important;
             border-color: #e2e8f0 !important;
             font-size: 14px;
@@ -141,7 +174,7 @@
         /* 表格样式优化 - 表头固定+列宽一致核心样式 */
         .table-container {
             overflow-x: auto;
-            max-height: 695px;
+            max-height: 620px; /* 预留批量操作区高度 */
             position: relative;
         }
 
@@ -153,8 +186,7 @@
             border-collapse: collapse !important;
             width: 100%;
             table-layout: fixed !important;
-            /* 修复2：覆盖Layui默认margin，避免表格偏移 */
-            margin: 0 !important;
+            margin: 0 !important; /* 覆盖Layui默认margin */
         }
 
         /* 表头容器 - 固定顶部 */
@@ -163,11 +195,10 @@
             top: 0;
             z-index: 10;
             background-color: #fff;
-            /* 修复3：添加边框底部，与表体区分 */
-            border-bottom: 1px solid #e2e8f0;
+            border-bottom: 1px solid #e2e8f0; /* 与表体区分 */
         }
 
-        /* 表头样式 - 所有列统一设置宽度 */
+        /* 表头样式 - 所有列统一设置宽度（新增复选框列宽度） */
         .layui-table th {
             background-color: #f8fafc !important;
             color: #334155 !important;
@@ -181,8 +212,7 @@
             word-wrap: break-word !important;
             word-break: break-all !important;
             min-height: 40px;
-            /* 修复4：强制继承宽度，避免Layui默认样式覆盖 */
-            width: inherit !important;
+            width: inherit !important; /* 强制继承宽度 */
         }
 
         /* 表体单元格样式 - 与表头列宽完全对应 */
@@ -199,91 +229,26 @@
             vertical-align: middle !important;
             min-height: 40px;
             line-height: 1.5 !important;
-            /* 修复5：强制继承宽度，确保列宽一致 */
-            width: inherit !important;
+            width: inherit !important; /* 强制继承宽度 */
         }
 
-        /* 列宽统一设置（11列，时间列加宽适配时分秒） */
-        .layui-table th:nth-child(1),
-        .layui-table td:nth-child(1) {
-            width: 140px !important;
-        }
+        /* 列宽统一设置（12列：新增复选框列） */
+        .layui-table th:nth-child(1), .layui-table td:nth-child(1) { width: 60px !important; } /* 复选框 */
+        .layui-table th:nth-child(2), .layui-table td:nth-child(2) { width: 140px !important; } /* 柜号 */
+        .layui-table th:nth-child(3), .layui-table td:nth-child(3) { width: 130px !important; } /* 船名航次 */
+        .layui-table th:nth-child(4), .layui-table td:nth-child(4) { width: 130px !important; } /* 船名航次(T49) */
+        .layui-table th:nth-child(5), .layui-table td:nth-child(5) { width: 160px !important; } /* ETA 时间 */
+        .layui-table th:nth-child(6), .layui-table td:nth-child(6) { width: 160px !important; } /* ETA 时间(T49) */
+        .layui-table th:nth-child(7), .layui-table td:nth-child(7) { width: 160px !important; } /* ETD 时间 */
+        .layui-table th:nth-child(8), .layui-table td:nth-child(8) { width: 160px !important; } /* ETD 时间(T49) */
+        .layui-table th:nth-child(9), .layui-table td:nth-child(9) { width: 100px !important; } /* 码头 */
+        .layui-table th:nth-child(10), .layui-table td:nth-child(10) { width: 100px !important; } /* 码头(T49) */
+        .layui-table th:nth-child(11), .layui-table td:nth-child(11) { width: 100px !important; } /* 所属仓库 */
+        .layui-table th:nth-child(12), .layui-table td:nth-child(12) { width: 80px !important; } /* 操作 */
 
-        /* 柜号 */
-
-        .layui-table th:nth-child(2),
-        .layui-table td:nth-child(2) {
-            width: 130px !important;
-        }
-
-        /* 船名航次 */
-
-        .layui-table th:nth-child(3),
-        .layui-table td:nth-child(3) {
-            width: 130px !important;
-        }
-
-        /* 船名航次(T49) */
-
-        .layui-table th:nth-child(4),
-        .layui-table td:nth-child(4) {
-            width: 160px !important;
-        }
-
-        /* ETA 时间 */
-
-        .layui-table th:nth-child(5),
-        .layui-table td:nth-child(5) {
-            width: 160px !important;
-        }
-
-        /* ETA 时间(T49) */
-
-        .layui-table th:nth-child(6),
-        .layui-table td:nth-child(6) {
-            width: 160px !important;
-        }
-
-        /* ETD 时间 */
-
-        .layui-table th:nth-child(7),
-        .layui-table td:nth-child(7) {
-            width: 160px !important;
-        }
-
-        /* ETD 时间(T49) */
-
-        .layui-table th:nth-child(8),
-        .layui-table td:nth-child(8) {
-            width: 100px !important;
-        }
-
-        /* 码头 */
-
-        .layui-table th:nth-child(9),
-        .layui-table td:nth-child(9) {
-            width: 100px !important;
-        }
-
-        /* 码头(T49) */
-
-        .layui-table th:nth-child(10),
-        .layui-table td:nth-child(10) {
-            width: 100px !important;
-        }
-
-        /* 所属仓库 */
-
-        .layui-table th:nth-child(11),
-        .layui-table td:nth-child(11) {
-            width: 80px !important;
-        }
-
-        /* 操作 */
-
-        /* 柜号搜索框样式 - 适配表头宽度 */
-        .container-search-input {
-            width: 100%;
+        /* 搜索框样式 - 所有列统一适配 */
+        .column-search-input {
+            width: 95%;
             padding: 4px 8px;
             border: 1px solid #e2e8f0;
             border-radius: 4px;
@@ -291,9 +256,10 @@
             height: 28px;
             transition: all 0.2s ease;
             box-sizing: border-box;
+            text-align: center;
         }
 
-        .container-search-input:focus {
+        .column-search-input:focus {
             border-color: #165dff;
             box-shadow: 0 0 0 2px rgba(22, 93, 255, 0.1);
             outline: none;
@@ -318,10 +284,19 @@
             bottom: 0;
             width: 3px;
             background-color: #ff4d4f;
-            /* 修复6：提高层级，避免被覆盖 */
-            z-index: 1;
+            z-index: 1; /* 提高层级，避免被覆盖 */
         }
 
+        /* 复选框列样式 */
+        .checkbox-cell {
+            padding: 0 !important;
+        }
+
+        .layui-form-checkbox[lay-skin="primary"] {
+            margin: 0 auto;
+        }
+
+        /* 输入框样式 */
         .table-input {
             width: 95%;
             padding: 8px 10px !important; /* 加大内边距，提升舒适度 */
@@ -398,26 +373,21 @@
             background-color: #f8fafc;
             border: 1px solid #e2e8f0;
             border-bottom: none;
-            /* 修复7：添加margin-bottom:0，避免与表格间距过大 */
-            margin-bottom: 0 !important;
+            margin-bottom: 0 !important; /* 避免与表格间距过大 */
         }
 
         /* 响应式适配 - 小屏幕横向滚动 */
         @media (max-width: 1400px) {
-            .layui-table th:nth-child(4),
-            .layui-table td:nth-child(4),
-            .layui-table th:nth-child(5),
-            .layui-table td:nth-child(5),
-            .layui-table th:nth-child(6),
-            .layui-table td:nth-child(6),
-            .layui-table th:nth-child(7),
-            .layui-table td:nth-child(7) {
+            .layui-table th:nth-child(5), .layui-table td:nth-child(5),
+            .layui-table th:nth-child(6), .layui-table td:nth-child(6),
+            .layui-table th:nth-child(7), .layui-table td:nth-child(7),
+            .layui-table th:nth-child(8), .layui-table td:nth-child(8) {
                 width: 140px !important;
             }
         }
 
         @media (max-width: 1200px) {
-            .form-item-group {
+            .form-item-group, .batch-operation {
                 gap: 16px;
             }
         }
@@ -428,7 +398,7 @@
                 padding: 16px;
             }
 
-            .form-item-group {
+            .form-item-group, .batch-operation {
                 flex-direction: column;
                 align-items: flex-start;
                 gap: 16px;
@@ -448,39 +418,24 @@
                 max-height: 400px;
             }
 
-            .layui-table th:nth-child(4),
-            .layui-table td:nth-child(4),
-            .layui-table th:nth-child(5),
-            .layui-table td:nth-child(5),
-            .layui-table th:nth-child(6),
-            .layui-table td:nth-child(6),
-            .layui-table th:nth-child(7),
-            .layui-table td:nth-child(7) {
+            .layui-table th:nth-child(5), .layui-table td:nth-child(5),
+            .layui-table th:nth-child(6), .layui-table td:nth-child(6),
+            .layui-table th:nth-child(7), .layui-table td:nth-child(7),
+            .layui-table th:nth-child(8), .layui-table td:nth-child(8) {
                 width: 120px !important;
             }
 
-            .layui-table th:nth-child(1),
-            .layui-table td:nth-child(1) {
-                width: 110px !important;
-            }
-
-            .layui-table th:nth-child(2),
-            .layui-table td:nth-child(2) {
-                width: 100px !important;
-            }
-
-            .layui-table th:nth-child(3),
-            .layui-table td:nth-child(3) {
-                width: 100px !important;
-            }
+            .layui-table th:nth-child(2), .layui-table td:nth-child(2) { width: 110px !important; }
+            .layui-table th:nth-child(3), .layui-table td:nth-child(3) { width: 100px !important; }
+            .layui-table th:nth-child(4), .layui-table td:nth-child(4) { width: 100px !important; }
         }
 
-        /* 修复8：覆盖Layui表格默认样式，确保表头固定生效 */
+        /* 覆盖Layui表格默认样式，确保表头固定生效 */
         .layui-table-header, .layui-table-header th {
             position: relative !important;
         }
 
-        /* 修复9：确保表格滚动时表头不偏移 */
+        /* 确保表格滚动时表头不偏移 */
         .table-header .layui-table {
             margin-bottom: 0 !important;
             border-bottom: none !important;
@@ -551,13 +506,45 @@
             <input type="hidden" name="step" value="warehouse">
         </form>
 
-        <!-- 数据表格（表头固定 + 多柜号空格分隔搜索） -->
+        <!-- 新增：批量操作区 -->
+        <div class="batch-operation layui-form">
+            <span class="batch-title">批量操作：</span>
+            <div style="display: flex; align-items: center;">
+                <label class="layui-form-label" style="margin: 0;">批量修改字段：</label>
+                <div class="layui-input-inline" style="width: 160px;">
+                    <select id="batchField" class="layui-select" lay-verify="required">
+                        <option value="">请选择字段</option>
+                        <option value="vessel_eta">ETA时间</option>
+                        <option value="vessel_etd">ETD时间</option>
+                    </select>
+                </div>
+            </div>
+            <div style="display: flex; align-items: center;">
+                <label class="layui-form-label" style="margin: 0;">目标时间：</label>
+                <div class="layui-input-inline" style="width: 200px;">
+                    <input type="datetime-local" id="batchTime" class="layui-input" step="1"
+                           placeholder="选择目标时间" lay-verify="required">
+                </div>
+            </div>
+            <button class="layui-btn batch-btn" id="batchUpdateBtn">
+                <i class="layui-icon layui-icon-edit"></i> 批量更新
+            </button>
+            <button class="layui-btn layui-btn-primary" id="selectAllBtn">
+                <i class="layui-icon layui-icon-checkbox"></i> 全选
+            </button>
+            <button class="layui-btn layui-btn-primary" id="cancelSelectBtn">
+                <i class="layui-icon layui-icon-close"></i> 取消选择
+            </button>
+        </div>
+
+        <!-- 数据表格（表头固定 + 所有列搜索框 + 复选框列） -->
         <div class="table-container">
             <!-- 表头（固定） -->
             <div class="table-header">
                 <table class="layui-table" lay-size="sm">
                     <thead>
                     <tr>
+                        <th class="checkbox-cell">选择</th> <!-- 新增复选框列 -->
                         <th>柜号</th>
                         <th>船名航次</th>
                         <th>船名航次(T49)</th>
@@ -570,21 +557,60 @@
                         <th>所属仓库</th>
                         <th>操作</th>
                     </tr>
+                    <!-- 所有列搜索框行 -->
                     <tr>
+                        <th class="checkbox-cell"></th> <!-- 复选框列无搜索框 -->
+                        <!-- 1. 柜号搜索（保留多柜号空格分隔功能） -->
                         <th>
-                            <input type="text" id="containerSearch" class="container-search-input"
-                                   placeholder="多柜号用空格分隔（如：CBHU 1234 ABC）"
-                                   value="{{ container_search|default:'' }}">
+                            <input type="text" class="column-search-input" data-col="container"
+                                   placeholder="多柜号用空格分隔" value="{{ container_search|default:'' }}">
                         </th>
-                        <th></th>
-                        <th></th>
-                        <th></th>
-                        <th></th>
-                        <th></th>
-                        <th></th>
-                        <th></th>
-                        <th></th>
-                        <th></th>
+                        <!-- 2. 船名航次搜索 -->
+                        <th>
+                            <input type="text" class="column-search-input" data-col="vessel"
+                                   placeholder="搜索船名航次" value="{{ search_vessel|default:'' }}">
+                        </th>
+                        <!-- 3. 船名航次(T49)搜索 -->
+                        <th>
+                            <input type="text" class="column-search-input" data-col="vessel_t49"
+                                   placeholder="搜索船名航次(T49)" value="{{ search_vessel_t49|default:'' }}">
+                        </th>
+                        <!-- 4. ETA 时间搜索 -->
+                        <th>
+                            <input type="text" class="column-search-input" data-col="vessel_eta"
+                                   placeholder="搜索ETA时间（YYYY-MM-DD）" value="{{ search_eta|default:'' }}">
+                        </th>
+                        <!-- 5. ETA 时间(T49)搜索 -->
+                        <th>
+                            <input type="text" class="column-search-input" data-col="vessel_eta_t49"
+                                   placeholder="搜索ETA时间(T49)" value="{{ search_eta_t49|default:'' }}">
+                        </th>
+                        <!-- 6. ETD 时间搜索 -->
+                        <th>
+                            <input type="text" class="column-search-input" data-col="vessel_etd"
+                                   placeholder="搜索ETD时间" value="{{ search_etd|default:'' }}">
+                        </th>
+                        <!-- 7. ETD 时间(T49)搜索 -->
+                        <th>
+                            <input type="text" class="column-search-input" data-col="vessel_etd_t49"
+                                   placeholder="搜索ETD时间(T49)" value="{{ search_etd_t49|default:'' }}">
+                        </th>
+                        <!-- 8. 码头搜索 -->
+                        <th>
+                            <input type="text" class="column-search-input" data-col="destination_port"
+                                   placeholder="搜索码头" value="{{ search_port|default:'' }}">
+                        </th>
+                        <!-- 9. 码头(T49)搜索 -->
+                        <th>
+                            <input type="text" class="column-search-input" data-col="destination_port_t49"
+                                   placeholder="搜索码头(T49)" value="{{ search_port_t49|default:'' }}">
+                        </th>
+                        <!-- 10. 所属仓库搜索 -->
+                        <th>
+                            <input type="text" class="column-search-input" data-col="retrieval_destination_area"
+                                   placeholder="搜索所属仓库" value="{{ search_warehouse|default:'' }}">
+                        </th>
+                        <!-- 11. 操作列（无搜索框） -->
                         <th></th>
                     </tr>
                     </thead>
@@ -600,8 +626,26 @@
             <table class="layui-table" lay-size="sm">
                 <tbody id="tableBody">
                 {% for item in datas|default:"" %}
-                    <tr class="table-row">
-                        <!-- 柜号（添加标识类，方便JS定位） -->
+                    <!-- 修复3：确保data-*属性值是字符串类型（避免非字符串导致的JS报错） -->
+                    <tr class="table-row"
+                        data-container="{{ item.container|default:''|lower|stringformat:"s" }}"
+                        data-vessel="{{ item.vessel|default:''|lower|stringformat:"s" }}"
+                        data-vessel_t49="{{ item.vessel_t49|default:''|lower|stringformat:"s" }}"
+                        data-vessel_eta="{{ item.vessel_eta|date:"Y-m-d H:i:s"|default:''|lower|stringformat:"s" }}"
+                        data-vessel_eta_t49="{{ item.vessel_eta_t49|date:"Y-m-d H:i:s"|default:''|lower|stringformat:"s" }}"
+                        data-vessel_etd="{{ item.vessel_etd|date:"Y-m-d H:i:s"|default:''|lower|stringformat:"s" }}"
+                        data-vessel_etd_t49="{{ item.vessel_etd_t49|date:"Y-m-d H:i:s"|default:''|lower|stringformat:"s" }}"
+                        data-destination_port="{{ item.destination_port|default:''|lower|stringformat:"s" }}"
+                        data-destination_port_t49="{{ item.destination_port_t49|default:''|lower|stringformat:"s" }}"
+                        data-retrieval_destination_area="{{ item.retrieval_destination_area|default:''|lower|stringformat:"s" }}">
+
+                        <!-- 新增：复选框列 -->
+                        <td class="checkbox-cell">
+                            <input type="checkbox" name="batchSelect" lay-skin="primary"
+                                   data-container="{{ item.container|default:''|stringformat:"s" }}">
+                        </td>
+
+                        <!-- 柜号 -->
                         <td class="container-cell">{{ item.container|default:"-" }}</td>
 
                         <!-- 船名航次 -->
@@ -701,7 +745,7 @@
                     </tr>
                 {% empty %}
                     <tr>
-                        <td colspan="11" class="empty-tip">
+                        <td colspan="12" class="empty-tip">
                             <i class="layui-icon layui-icon-search"></i>
                             {% if warehouse or eta_start or eta_end %}
                                 未找到符合条件的数据
@@ -716,8 +760,20 @@
         </div>
     </div>
 
+    <!-- 批量更新表单（隐藏，用于提交后端） -->
+    <form id="batchUpdateForm" method="post" action="">
+        {% csrf_token %}
+        <input type="hidden" name="step" value="batch_update">
+        <input type="hidden" name="warehouse" value="{{ warehouse }}">
+        <input type="hidden" name="eta_start" value="{{ eta_start }}">
+        <input type="hidden" name="eta_end" value="{{ eta_end }}">
+        <input type="hidden" name="batch_field" id="batchFieldInput">
+        <input type="hidden" name="batch_time" id="batchTimeInput">
+        <input type="hidden" name="selected_containers" id="selectedContainersInput">
+    </form>
+
     <script>
-        // 修复10：确保Layui加载完成后执行
+        // 确保Layui加载完成后执行
         layui.use(['form', 'laydate', 'layer'], function () {
             const form = layui.form;
             const laydate = layui.laydate;
@@ -770,9 +826,9 @@
                 }, 1500);
             });
 
-            // 核心功能：多柜号空格分隔搜索（支持批量模糊匹配）
-            const $containerSearch = $('#containerSearch');
+            // ---------------------- 核心修复：搜索功能（彻底解决报错） ----------------------
             const $rows = $('.table-row');
+            const $searchInputs = $('.column-search-input');
             const $searchCountTip = $('#searchCountTip');
             const $matchCount = $('#matchCount');
             const $totalCount = $('#totalCount');
@@ -781,88 +837,219 @@
             // 初始化总条数
             $totalCount.text(totalRowCount);
 
-            // 实时搜索逻辑
-            $containerSearch.on('input', function () {
-                const searchVal = $(this).val().trim().toLowerCase();
+            // 修复4：增强型cleanStr函数（确保处理后是字符串，避免trim()报错）
+            function cleanStr(str) {
+                // 第一步：将非字符串类型转为字符串（null→"", undefined→"", 数字→字符串）
+                const strVal = String(str || '');
+                // 第二步：去首尾空格，转小写
+                return strVal.trim().toLowerCase();
+            }
 
-                if (!searchVal) {
-                    $rows.show();
-                    $searchCountTip.hide();
+            // 修复5：简化搜索逻辑，减少报错点，确保稳定运行
+            function doSearch() {
+                try {
+                    // 收集所有搜索框的值（去空、转小写）
+                    const searchConditions = {};
+                    $searchInputs.each(function () {
+                        const $input = $(this);
+                        const col = $input.attr('data-col');
+                        const val = cleanStr($input.val());
+                        if (col && val) {
+                            searchConditions[col] = val;
+                        }
+                    });
+
+                    // 无搜索条件：显示所有行
+                    if (Object.keys(searchConditions).length === 0) {
+                        $rows.show();
+                        $searchCountTip.hide();
+                        return;
+                    }
+
+                    let matchCount = 0;
+
+                    // 遍历所有行，匹配搜索条件
+                    $rows.each(function () {
+                        const $row = $(this);
+                        let isMatch = true;
+
+                        // 逐列匹配（必须满足所有搜索条件）
+                        Object.keys(searchConditions).forEach(col => {
+                            const searchVal = searchConditions[col];
+                            // 从tr的data-*属性获取数据，强制转为字符串后清理
+                            const rowVal = cleanStr($row.data(col));
+
+                            // 柜号：多关键词空格分隔
+                            if (col === 'container') {
+                                const keywords = searchVal.split(/\s+/).filter(k => k);
+                                const hasMatch = keywords.some(keyword => rowVal.includes(keyword));
+                                if (!hasMatch) isMatch = false;
+                            }
+                            // 其他列：模糊匹配（包含即可）
+                            else {
+                                if (!rowVal.includes(searchVal)) {
+                                    isMatch = false;
+                                }
+                            }
+                        });
+
+                        // 显示/隐藏行
+                        if (isMatch) {
+                            $row.show();
+                            matchCount++;
+                        } else {
+                            $row.hide();
+                        }
+                    });
+
+                    // 更新统计信息
+                    $matchCount.text(matchCount);
+                    $searchCountTip.show();
+
+                    // 无匹配结果提示
+                    if (matchCount === 0) {
+                        layer.msg('未找到符合条件的数据', {icon: 0, time: 1500});
+                    }
+                } catch (e) {
+                    // 异常捕获：避免搜索报错导致页面卡死
+                    console.error('搜索功能异常：', e);
+                    layer.msg('搜索出错，请重试', {icon: 2, time: 1500});
+                    $rows.show(); // 异常时显示所有行，不影响用户操作
+                }
+            }
+
+            // 绑定搜索事件（输入、改变、失去焦点都触发）
+            $searchInputs.on('input change blur', function () {
+                doSearch();
+            });
+
+            // 页面加载完成后强制触发一次搜索（保留上次搜索条件）
+            $(window).on('load', function () {
+                setTimeout(doSearch, 100); // 延迟100ms，确保DOM完全渲染
+                form.render(); // 渲染Layui组件
+            });
+
+            // ---------------------- 核心修复：全选仅选中搜索后可见数据 ----------------------
+            const $batchField = $('#batchField');
+            const $batchTime = $('#batchTime');
+            const $batchUpdateBtn = $('#batchUpdateBtn');
+            const $selectAllBtn = $('#selectAllBtn');
+            const $cancelSelectBtn = $('#cancelSelectBtn');
+            const $batchCheckboxes = $('input[name="batchSelect"]');
+            const $batchUpdateForm = $('#batchUpdateForm');
+            const $batchFieldInput = $('#batchFieldInput');
+            const $batchTimeInput = $('#batchTimeInput');
+            const $selectedContainersInput = $('#selectedContainersInput');
+
+            // 1. 全选功能（仅选中当前可见的行）
+            $selectAllBtn.on('click', function () {
+                // 遍历所有复选框，只选中所在行可见的
+                $batchCheckboxes.each(function () {
+                    const $checkbox = $(this);
+                    const $row = $checkbox.closest('.table-row');
+                    // 判断行是否可见（:visible 不包含display:none的元素）
+                    if ($row.is(':visible')) {
+                        $checkbox.prop('checked', true);
+                    } else {
+                        $checkbox.prop('checked', false); // 隐藏行取消选中
+                    }
+                });
+                form.render('checkbox'); // 重新渲染Layui复选框样式
+            });
+
+            // 2. 取消选择功能（取消所有选中，包括隐藏行）
+            $cancelSelectBtn.on('click', function () {
+                $batchCheckboxes.prop('checked', false);
+                form.render('checkbox');
+            });
+
+            // 3. 批量更新功能（提交到后端）
+            $batchUpdateBtn.on('click', function () {
+                const field = $batchField.val();
+                const time = $batchTime.val();
+                // 只收集可见行中被选中的复选框
+                const selectedBoxes = $batchCheckboxes.filter(function () {
+                    const $row = $(this).closest('.table-row');
+                    return $(this).is(':checked') && $row.is(':visible');
+                });
+
+                // 前端验证
+                if (!field) {
+                    layer.msg('请选择要修改的字段', {icon: 2, time: 1500});
+                    return;
+                }
+                if (!time) {
+                    layer.msg('请选择目标时间', {icon: 2, time: 1500});
+                    return;
+                }
+                if (selectedBoxes.length === 0) {
+                    layer.msg('请至少选择一行可见数据', {icon: 2, time: 1500});
                     return;
                 }
 
-                const keywords = searchVal.split(/\s+/).filter(keyword => keyword.trim() !== '');
-                let matchCount = 0;
-
-                $rows.each(function () {
-                    const $row = $(this);
-                    const containerText = $row.find('.container-cell').text().trim().toLowerCase();
-                    const isMatch = keywords.some(keyword => containerText.includes(keyword));
-
-                    if (isMatch) {
-                        $row.show();
-                        matchCount++;
-                    } else {
-                        $row.hide();
+                // 收集选中的柜号
+                const selectedContainers = [];
+                selectedBoxes.each(function () {
+                    const container = $(this).data('container');
+                    if (container) {
+                        selectedContainers.push(container);
                     }
                 });
 
-                $matchCount.text(matchCount);
-                $searchCountTip.show();
+                // 确认弹窗
+                layer.confirm(`确定批量更新${field === 'vessel_eta' ? 'ETA' : 'ETD'}时间为：${time.replace('T', ' ')}？`, {
+                    title: '批量修改确认',
+                    icon: 3
+                }, function (index) {
+                    // 给隐藏表单赋值
+                    $batchFieldInput.val(field);
+                    $batchTimeInput.val(time.replace('T', ' ')); // 转换为后端识别的时间格式
+                    $selectedContainersInput.val(selectedContainers.join(',')); // 柜号用逗号分隔
 
-                if (matchCount === 0) {
-                    layer.msg(`未找到包含关键词"${keywords.join('、')}"的柜号`, {icon: 0, time: 2000});
-                }
+                    // 提交表单（后端处理逻辑需要对应）
+                    $batchUpdateForm.submit();
+
+                    // 显示加载状态
+                    $batchUpdateBtn.html('<i class="layui-icon layui-icon-loading"></i> 提交中...').prop('disabled', true);
+                    layer.close(index);
+                });
             });
 
-            // 页面加载时执行一次搜索（保留上次搜索条件）
-            $(document).ready(function () {
-                if ($containerSearch.val().trim()) {
-                    $containerSearch.trigger('input');
-                }
-                // 修复11：强制渲染Layui表单，避免样式失效
-                form.render();
-            });
-
-            // 新增：textarea 高度自适应（适配多行输入）
+            // ---------------------- 其他优化 ----------------------
+            // textarea高度自适应
             $('.table-input:not(.datetime-input)').on('input change', function () {
                 const $this = $(this);
-                // 临时移除高度限制，获取真实内容高度
                 $this.css('height', 'auto');
-                // 设置高度为内容高度（加8px预留内边距）
                 const contentHeight = $this[0].scrollHeight;
-                // 限制最大高度，避免过度拉伸
                 const maxHeight = parseInt($this.css('max-height'));
                 $this.css('height', contentHeight > maxHeight ? maxHeight : contentHeight + 8 + 'px');
             });
 
-            // 页面加载时初始化 textarea 高度（适配初始内容）
-            $(document).ready(function () {
+            // 初始化textarea高度
+            $(window).on('load', function () {
                 $('.table-input:not(.datetime-input)').each(function () {
-                    $(this).trigger('input'); // 初始化高度
+                    $(this).trigger('input');
                 });
-                if ($containerSearch.val().trim()) {
-                    $containerSearch.trigger('input');
-                }
-                form.render();
             });
         });
 
-        // 提交表单前，同步输入框实时值到隐藏字段（适配datetime-local格式）
+        // 提交表单前同步输入框值到隐藏字段
         function setFormValues(form) {
             const $form = $(form);
             const $row = $form.closest('tr');
 
-            // 修复：查找 textarea 标签（或用 [name="vessel"] 兼容）
+            // 同步船名航次
             $form.find('.hidden-vessel').val($row.find('textarea[name="vessel"]').val().trim() || '');
 
+            // 同步ETA时间
             const etaVal = $row.find('input[name="vessel_eta"]').val();
             $form.find('.hidden-vessel_eta').val(etaVal ? etaVal.replace('T', ' ') : '');
 
+            // 同步ETD时间
             const etdVal = $row.find('input[name="vessel_etd"]').val();
             $form.find('.hidden-vessel_etd').val(etdVal ? etdVal.replace('T', ' ') : '');
 
-            // 修复：查找 textarea 标签
+            // 同步码头
             $form.find('.hidden-destination_port').val($row.find('textarea[name="destination_port"]').val().trim() || '');
 
             return true;
