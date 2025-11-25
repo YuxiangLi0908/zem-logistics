@@ -1345,18 +1345,20 @@ class PostNsop(View):
             return await self.handle_td_shipment_post(request,context)
         else:
             context = await self._check_ISA_is_repetition(appointment_id_new,destination)
-            old_shipment.destination = destination
-            old_shipment.load_type = load_type
-            old_shipment.origin = origin
-            old_shipment.pickup_time = pickup_time if pickup_time else None
-            old_shipment.pickup_number = pickup_number
-            old_shipment.shipment_cargo_id = shipment_cargo_id
-            old_shipment.is_canceled = False
-            old_shipment.status = ""
-            old_shipment.shipment_appointment = shipment_appointment if shipment_appointment else None
-            if page != "01_appointment":
-                old_shipment.in_use = True
-            await sync_to_async(old_shipment.save)()
+            if context.get('success_messages'):
+                old_shipment.appointment_id = appointment_id_new
+                old_shipment.destination = destination
+                old_shipment.load_type = load_type
+                old_shipment.origin = origin
+                old_shipment.pickup_time = pickup_time if pickup_time else None
+                old_shipment.pickup_number = pickup_number
+                old_shipment.shipment_cargo_id = shipment_cargo_id
+                old_shipment.is_canceled = False
+                old_shipment.status = ""
+                old_shipment.shipment_appointment = shipment_appointment if shipment_appointment else None
+                if page != "01_appointment":
+                    old_shipment.in_use = True
+                await sync_to_async(old_shipment.save)()
             if name == "fleet_departure":
                 return await self.handle_fleet_schedule_post(request,context)
             page = request.POST.get("page")
