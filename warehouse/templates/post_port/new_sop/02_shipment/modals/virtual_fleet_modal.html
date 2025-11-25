@@ -484,7 +484,7 @@
         `;
         
         // 添加装车类型选项
-        {% for k, v in load_type_options %}
+        {% for k, v in load_type_options.items %}
             formHTML += `<option value="{{ v }}">{{ k }}</option>`;
         {% endfor %}
         
@@ -556,7 +556,7 @@
         console.log(`初始化第${index}个大组表单数据:`, group.suggestionId);
         
         const pg = group.suggestion.primary_group;
-        
+        console.log('pg',pg);
         multiGroupForms[index] = {
             suggestion_id: group.suggestionId,
             cargo_ids: group.suggestion.cargos.map(c => c.ids).filter(id => id).join(','),

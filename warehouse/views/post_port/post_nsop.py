@@ -70,6 +70,10 @@ class PostNsop(View):
     template_unscheduled_pos_all = "post_port/new_sop/01_unscheduled_pos_all/01_unscheduled_main.html"
     area_options = {"NJ": "NJ", "SAV": "SAV", "LA": "LA", "MO": "MO", "TX": "TX", "LA": "LA"}
     warehouse_options = {"":"", "NJ-07001": "NJ-07001", "SAV-31326": "SAV-31326", "LA-91761": "LA-91761", "LA-91789": "LA-91789"}
+    load_type_options = {
+        "卡板": "卡板",
+        "地板": "地板",
+    }
     account_options = {
         "": "",
         "Carrier Central1": "Carrier Central1",
@@ -2611,7 +2615,7 @@ class PostNsop(View):
             'max_pallet': max_pallet,
             'warehouse_options': self.warehouse_options,
             "account_options": self.account_options,
-            "load_type_options": LOAD_TYPE_OPTIONS,
+            "load_type_options": self.load_type_options,
             "shipment_type_options": self.shipment_type_options,
             "carrier_options": self.carrier_options,
             'active_tab': request.POST.get('active_tab')
@@ -2657,15 +2661,14 @@ class PostNsop(View):
         
         
         # 获取可用的shipment记录（shipment_batch_number为空的）
-        shipments = await self.get_available_shipments(warehouse)
-        
+        shipments = await self._get_available_shipments(warehouse)
         # 生成智能匹配建议
-        matching_suggestions = await self.generate_matching_suggestions(unshipment_pos, shipments, warehouse, max_cbm, max_pallet,st_type, user)
+        matching_suggestions = await self._generate_matching_suggestions(unshipment_pos, shipments, warehouse, max_cbm, max_pallet,st_type, user)
         
         # 只返回匹配建议，不返回原始未排约数据
         return matching_suggestions
 
-    async def get_available_shipments(self, warehouse: str):
+    async def _get_available_shipments(self, warehouse: str):
         """获取可用的shipment记录"""
         now = timezone.now()
         # 这里需要根据您的实际模型调整查询条件
@@ -2679,7 +2682,7 @@ class PostNsop(View):
         )
         return shipments
 
-    async def generate_matching_suggestions(self, unshipment_pos, shipments, warehouse, max_cbm, max_pallet,st_type, user):
+    async def _generate_matching_suggestions(self, unshipment_pos, shipments, warehouse, max_cbm, max_pallet,st_type, user):
         """生成智能匹配建议 - 基于功能A的逻辑但适配shipment匹配"""
         suggestions = []
 
@@ -2704,7 +2707,6 @@ class PostNsop(View):
                 pre_groups[group_key]['cargos'].append(cargo)
 
         # 在预分组循环之前初始化已使用的shipment集合
-        used_shipment_ids = set()
         # 对每个预分组按容量限制创建大组
         for group_key, pre_group in pre_groups.items():
             cargos = pre_group['cargos']
@@ -2762,11 +2764,10 @@ class PostNsop(View):
                 pallets_percentage = min(100, (primary_group['total_pallets'] / max_pallet) * 100) if max_pallet > 0 else 0
                 cbm_percentage = min(100, (primary_group['total_cbm'] / max_cbm) * 100) if max_cbm > 0 else 0
                 
-                # 寻找匹配的shipment
-                matched_shipment = await self.find_matching_shipment(primary_group, shipments, warehouse, used_shipment_ids)
+                # 寻找匹配的shipment，这里改成返回列表
+                matched_shipment = await self._find_matching_shipment(primary_group, shipments, warehouse)
+                
                 # 如果匹配到shipment，将其标记为已使用
-                if matched_shipment and 'shipment_id' in matched_shipment:
-                    used_shipment_ids.add(matched_shipment['shipment_id'])
 
                 result_intel = await self._find_intelligent_po_for_group(
                     primary_group, warehouse, user
@@ -3004,48 +3005,60 @@ class PostNsop(View):
             'intelligent_pos_stats':intelligent_pos_stats
             }
     
-    async def find_matching_shipment(self, primary_group, shipments, warehouse, used_shipments=None):
+    async def _find_matching_shipment(self, primary_group, shipments, warehouse):
         """为货物大组寻找匹配的shipment"""
         destination = primary_group['destination']
         matched_shipments = []
         
         for shipment in shipments:
             # 检查这个shipment是否已经被其他组使用了
-            if used_shipments and shipment.id in used_shipments:
-                continue
             # 检查目的地是否匹配
-            if shipment.destination != destination:
+            shipment_destination = (shipment.destination or '').strip().upper()
+            if not self._is_destination_match(destination, shipment_destination):
                 continue
+
             if shipment.origin != warehouse:
                 continue
             # 检查时间窗口条件
-            if await self.check_time_window_match(primary_group, shipment):
-                matched_shipments.append(shipment)
-
-        # 这里简单返回第一个匹配的，您可以根据需要调整策略
-        if matched_shipments:
-            matched = matched_shipments[0]
-            return {
-                'appointment_id': matched.appointment_id,
-                'shipment_cargo_id': matched.shipment_cargo_id,
-                'shipment_type': matched.shipment_type,
-                'shipment_appointment': matched.shipment_appointment,
-                'pickup_time': matched.pickup_time,
-                'pickup_number': matched.pickup_number,
-                'origin': matched.origin,
-                'load_type': matched.load_type,
-                'shipment_account': matched.shipment_account,
-                'shipment_type': matched.shipment_type,
-                'address': matched.address,
-                'carrier': matched.carrier,
-                'note': matched.note,
-                'ARM_BOL': matched.ARM_BOL,
-                'ARM_PRO': matched.ARM_PRO,
-                'express_number': matched.express_number,
-                'address_detail': await self.get_address(destination),
+            if not await self.check_time_window_match(primary_group, shipment):
+                continue         
+            # 匹配成功，添加到匹配列表
+            matched_shipment = {
+                'shipment_id': shipment.id,
+                'appointment_id': shipment.appointment_id,
+                'shipment_cargo_id': shipment.shipment_cargo_id,
+                'shipment_type': shipment.shipment_type,
+                'shipment_appointment': shipment.shipment_appointment,
+                'pickup_time': shipment.pickup_time,
+                'pickup_number': shipment.pickup_number,
+                'origin': shipment.origin,
+                'load_type': shipment.load_type,
+                'shipment_account': shipment.shipment_account,
+                'address': shipment.address,
+                'carrier': shipment.carrier,
+                'note': shipment.note,
+                'ARM_BOL': shipment.ARM_BOL,
+                'ARM_PRO': shipment.ARM_PRO,
+                'express_number': shipment.express_number,
+                'address_detail': await self.get_address(destination),            
+                'destination': shipment.destination
             }
-        return None
+            matched_shipments.append(matched_shipment)
+        if matched_shipments:
+            matched_shipments.sort(key=lambda x: x.get('shipment_appointment') or datetime.max)
+        return matched_shipments
     
+    def _is_destination_match(self, group_destination, shipment_destination):
+        """检查目的地是否匹配"""
+        if not shipment_destination:
+            return False
+        
+        # 简单的目的地匹配逻辑，您可以根据实际需求调整
+        group_dest_clean = group_destination.split('-')[-1].strip().upper()
+        shipment_dest_clean = shipment_destination.split('-')[-1].strip().upper()
+        
+        return group_dest_clean == shipment_dest_clean
+
     async def get_address(self,destination):
         if destination in amazon_fba_locations:
             fba = amazon_fba_locations[destination]

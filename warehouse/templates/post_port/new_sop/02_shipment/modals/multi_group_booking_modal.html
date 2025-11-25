@@ -222,6 +222,11 @@
         {% for key, value in warehouse_options.items %}
             warehouseOptionsHTML += `<option value="{{ value }}">{{ key }}</option>`;
         {% endfor %}
+        
+        let loadTypeOptionsHTML = '';
+        {% for key, value in load_type_options.items %}
+            loadTypeOptionsHTML += `<option value="{{ value }}">{{ key }}</option>`;
+        {% endfor %}
         const formHTML = `
             <form class="multi-group-form" data-index="${index}">
                 <div class="form-section">
@@ -305,8 +310,7 @@
                             <tr>
                                 <td>
                                     <select name="load_type" class="form-select multi-group-field">
-                                        <option value="pallet">卡板</option>
-                                        <option value="floor">地板</option>
+                                        ${loadTypeOptionsHTML}
                                     </select>
                                 </td>
                                 <td>
@@ -385,6 +389,17 @@
         console.log(`初始化111第${index}个大组表单数据:`, group.suggestionId);
         const pg = group.suggestion.primary_group;
         console.log('pg',pg.matched_shipment);
+        let selectedShipment = null;
+        if (pg.matched_shipment && Array.isArray(pg.matched_shipment)) {
+            // 找到被选中的下拉框 option
+            const selectEl = document.querySelector(`select.shipment-select[data-suggestion-id="${group.suggestionId}"]`);
+            const selectedIndex = selectEl ? selectEl.selectedIndex : 0; // 默认选第一个
+            selectedShipment = pg.matched_shipment[selectedIndex];
+        } else if (pg.matched_shipment) {
+            // 兼容原来的单条记录情况
+            selectedShipment = pg.matched_shipment;
+        }
+
         multiGroupForms[index] = {
             suggestion_id: group.suggestionId,
             cargo_ids: group.suggestion.cargos ? group.suggestion.cargos.map(c => c.ids).filter(id => id).join(',') : '',
@@ -392,18 +407,18 @@
             destination: pg.destination,
             delivery_method: pg.delivery_method,
             // 如果有匹配的shipment，使用匹配的数据
-            ...(pg.matched_shipment ? {
-                appointment_id: pg.matched_shipment.appointment_id || '',
-                shipment_type: pg.matched_shipment.shipment_type || '',
-                load_type: pg.matched_shipment.load_type || '',
-                shipment_appointment: pg.matched_shipment.shipment_appointment || '',
-                shipment_account: pg.matched_shipment.shipment_account || '',
-                origin: pg.matched_shipment.origin || '',
-                note: pg.matched_shipment.note || '',
-                address: pg.matched_shipment.address_detail || '',
-                shipment_cargo_id: pg.matched_shipment.shipment_cargo_id || '',
-                pickup_time: pg.matched_shipment.pickup_time || '',
-                pickupNumber: pg.matched_shipment.pickup_number || ''
+            ...(selectedShipment ? {
+                appointment_id: selectedShipment.appointment_id || '',
+                shipment_type: selectedShipment.shipment_type || '',
+                load_type: selectedShipment.load_type || '',
+                shipment_appointment: selectedShipment.shipment_appointment || '',
+                shipment_account: selectedShipment.shipment_account || '',
+                origin: selectedShipment.origin || '',
+                note: selectedShipment.note || '',
+                address: selectedShipment.address_detail || '',
+                shipment_cargo_id: selectedShipment.shipment_cargo_id || '',
+                pickup_time: selectedShipment.pickup_time || '',
+                pickupNumber: selectedShipment.pickup_number || ''
             } : {})
         };
         
