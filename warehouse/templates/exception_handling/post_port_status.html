@@ -446,6 +446,11 @@
     未找到相关数据
 </div>
 {% endif %}
+<form method="post" style="display: inline-block; margin: 2px;">
+    {% csrf_token %}
+    <input type="hidden" name="step" value="update_shipment_type_to_fleet_type">
+    <button type="submit" class="search-btn">给空的fleet_type赋值</button>
+</form>
 
 <script>
 // 自动隐藏消息提示

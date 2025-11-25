@@ -207,9 +207,54 @@ class ExceptionHandling(View):
         elif step == "receivale_status_search":
             template, context = await self.handle_receivale_status_search(request)
             return await sync_to_async(render)(request, template, context) 
+        elif step == "update_shipment_type_to_fleet_type":
+            template, context = await self.handle_update_shipment_type_to_fleet_type(request)
+            return await sync_to_async(render)(request, template, context) 
         else:
             return await sync_to_async(T49Webhook().post)(request)
     
+    async def handle_update_shipment_type_to_fleet_type(self, request):
+        fleets_without_type = await sync_to_async(list)(
+            Fleet.objects.filter(
+                fleet_type__isnull=True
+            ) | Fleet.objects.filter(fleet_type='')
+        )
+        
+        results = {
+            'success': 0,
+            'errors': 0,
+            'error_details': []
+        }
+        
+        for fleet in fleets_without_type:
+            # 获取关联的shipment
+            shipments_list = []
+            async for shipment in Shipment.objects.filter(fleet_number=fleet):
+                shipments_list.append(shipment)
+            
+            if not shipments_list:
+                continue
+            
+            # 获取所有shipment_type并去重
+            shipment_types = set()
+            for shipment in shipments_list:
+                if shipment.shipment_type:
+                    shipment_types.add(shipment.shipment_type)
+            
+            if not shipment_types:
+                continue
+            
+            if len(shipment_types) == 1:
+                fleet_type = list(shipment_types)[0]
+                fleet.fleet_type = fleet_type
+                await fleet.asave()
+                results['success'] += 1
+            else:
+                raise ValueError(shipment_types)
+                    
+        
+        return await self.handle_search_shipment(request)
+
     async def handle_search_outbound_pos(self, request):
         """查询未绑定的出库记录"""
         context = {}
