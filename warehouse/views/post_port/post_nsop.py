@@ -34,6 +34,7 @@ from django.db.models import (
     When,
 )
 import asyncio
+from io import BytesIO
 from django.core.exceptions import MultipleObjectsReturned
 from django.db.models.functions import Cast, Concat
 from django.http import HttpRequest, HttpResponse
@@ -317,9 +318,42 @@ class PostNsop(View):
             return render(request, template, context) 
         elif step == "export_bol":
             return await self.handle_bol_post(request)
+        elif step =="export_bol_fleet":
+            return await self.handle_bol_fleet_post(request)
         else:
             raise ValueError('输入错误',step)
     
+    async def handle_bol_fleet_post(self, request: HttpRequest) -> HttpResponse:
+        #准备参数
+        mutable_post = request.POST.copy()
+        fleet_number = request.POST.get("fleet_number")
+        mutable_post["customerInfo"] = None
+        mutable_post["pickupList"] = None
+
+        request.POST = mutable_post
+        fm = FleetManagement()
+        fleet = await sync_to_async(Fleet.objects.get)(fleet_number=fleet_number)
+            
+        #if fleet.fleet_type == 'FTL': 
+        shipment = await sync_to_async(list)(Shipment.objects.filter(fleet_number=fleet))
+        if len(shipment) > 1:
+            zip_buffer = BytesIO()
+            with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
+                for s in shipment:
+                    s_number = s.shipment_batch_number
+                    mutable_post["shipment_batch_number"] = s_number
+                    pdf_response = await fm.handle_export_bol_post(request)
+                    zip_file.writestr(f"BOL_{s_number}.pdf", pdf_response.content)
+            response = HttpResponse(zip_buffer.getvalue(), content_type="application/zip")
+            response["Content-Disposition"] = 'attachment; filename="orders.zip"'
+            zip_buffer.close()
+            return response
+        else:
+            mutable_post["shipment_batch_number"] = shipment[0].shipment_batch_number
+        return await fm.handle_export_bol_post(request)
+        # else:
+        #     raise ValueError('出库类型异常！')
+        
     async def handle_bol_post(self, request: HttpRequest) -> Any:
         fm = FleetManagement()
         mutable_post = request.POST.copy()

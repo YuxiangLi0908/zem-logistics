@@ -1530,6 +1530,8 @@ class FleetManagement(View):
                     shipment_batch_number__shipment_batch_number=batch_number
                 ).count
             )()
+        pickup_time = shipment.pickup_time
+        print('时间',pickup_time,shipment.pickup_time)
         context = {
             "warehouse_obj": warehouse_obj.address,
             "warehouse": warehouse,
