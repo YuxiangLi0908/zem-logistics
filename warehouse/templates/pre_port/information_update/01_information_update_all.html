@@ -929,7 +929,7 @@
                 form.render(); // 渲染Layui组件
             });
 
-            // ---------------------- 批量更新功能（完整后端提交） ----------------------
+            // ---------------------- 核心修复：全选仅选中搜索后可见数据 ----------------------
             const $batchField = $('#batchField');
             const $batchTime = $('#batchTime');
             const $batchUpdateBtn = $('#batchUpdateBtn');
@@ -941,13 +941,23 @@
             const $batchTimeInput = $('#batchTimeInput');
             const $selectedContainersInput = $('#selectedContainersInput');
 
-            // 1. 全选功能
+            // 1. 全选功能（仅选中当前可见的行）
             $selectAllBtn.on('click', function () {
-                $batchCheckboxes.prop('checked', true);
-                form.render('checkbox');
+                // 遍历所有复选框，只选中所在行可见的
+                $batchCheckboxes.each(function () {
+                    const $checkbox = $(this);
+                    const $row = $checkbox.closest('.table-row');
+                    // 判断行是否可见（:visible 不包含display:none的元素）
+                    if ($row.is(':visible')) {
+                        $checkbox.prop('checked', true);
+                    } else {
+                        $checkbox.prop('checked', false); // 隐藏行取消选中
+                    }
+                });
+                form.render('checkbox'); // 重新渲染Layui复选框样式
             });
 
-            // 2. 取消选择功能
+            // 2. 取消选择功能（取消所有选中，包括隐藏行）
             $cancelSelectBtn.on('click', function () {
                 $batchCheckboxes.prop('checked', false);
                 form.render('checkbox');
@@ -957,7 +967,11 @@
             $batchUpdateBtn.on('click', function () {
                 const field = $batchField.val();
                 const time = $batchTime.val();
-                const selectedBoxes = $batchCheckboxes.filter(':checked');
+                // 只收集可见行中被选中的复选框
+                const selectedBoxes = $batchCheckboxes.filter(function () {
+                    const $row = $(this).closest('.table-row');
+                    return $(this).is(':checked') && $row.is(':visible');
+                });
 
                 // 前端验证
                 if (!field) {
@@ -969,7 +983,7 @@
                     return;
                 }
                 if (selectedBoxes.length === 0) {
-                    layer.msg('请至少选择一行数据', {icon: 2, time: 1500});
+                    layer.msg('请至少选择一行可见数据', {icon: 2, time: 1500});
                     return;
                 }
 
