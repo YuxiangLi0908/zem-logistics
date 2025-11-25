@@ -75,7 +75,7 @@
                             <tr>
                                 <td>
                                     <select name="load_type" id="load-type-select" class="form-select">
-                                        {% for k, v in load_type_options %}
+                                        {% for k, v in load_type_options.items %}
                                             <option value="{{ v }}">{{ k }}</option>
                                         {% endfor %}
                                     </select>

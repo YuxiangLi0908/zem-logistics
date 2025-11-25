@@ -334,10 +334,8 @@
         contentsContainer.innerHTML = '';
         multiGroupForms = {};
         
-        console.log('开始生成Tab，大组数量:', selectedVirtualGroups.length);
         
         selectedVirtualGroups.forEach((group, index) => {
-            console.log(`处理第${index}个大组:`, group.suggestionId);
             const suggestion = group.suggestion;
             const pg = suggestion.primary_group;
             
@@ -363,7 +361,6 @@
         const modal = document.getElementById('multiGroupBookingModal');
         if (modal) {
             modal.style.display = 'block';
-            console.log('多组预约模态框显示成功');
             addMultiGroupEventListeners();
         } else {
             console.error('找不到多组预约模态框元素');
@@ -372,7 +369,6 @@
 
     // 生成预约表单
     function generateBookingForm(group, index) {
-        console.log(`生成第${index}个大组的表单:`, group.suggestionId);
         
         const pg = group.suggestion.primary_group;
         const hasAppointment = !!pg.matched_shipment;
@@ -547,16 +543,11 @@
                 </div>
             </form>
         `;
-        
-        console.log(`第${index}个大组表单生成完成，货物数量:`, group.suggestion.cargos.length);
         return formHTML;
     }
     // 初始化多组表单数据
-    function initializeMultiGroupForm(group, index) {
-        console.log(`初始化第${index}个大组表单数据:`, group.suggestionId);
-        
+    function initializeMultiGroupForm(group, index) {      
         const pg = group.suggestion.primary_group;
-        console.log('pg',pg);
         multiGroupForms[index] = {
             suggestion_id: group.suggestionId,
             cargo_ids: group.suggestion.cargos.map(c => c.ids).filter(id => id).join(','),
@@ -579,14 +570,11 @@
             } : {})
         };
         
-        console.log(`第${index}个大组表单数据:`, multiGroupForms[index]);
-        
         // 设置表单默认值
         setTimeout(() => {
             const form = document.querySelector(`.multi-group-form[data-index="${index}"]`);
             if (form && multiGroupForms[index]) {
                 const formData = multiGroupForms[index];
-                console.log(`设置第${index}个大组表单默认值:`, formData);
                 
                 Object.keys(formData).forEach(key => {
                     const element = form.querySelector(`[name="${key}"]`);
@@ -595,10 +583,8 @@
                             // 格式化时间字段，移除秒和时区信息
                             const formattedTime = formatDateTimeForInput(formData[key]);
                             element.value = formattedTime;
-                            console.log(`设置 ${key} = ${formattedTime} (原始值: ${formData[key]})`);
                         } else {
                             element.value = formData[key];
-                            console.log(`设置 ${key} = ${formData[key]}`);
                         }
                     }
                 });
