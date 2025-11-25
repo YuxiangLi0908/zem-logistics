@@ -153,6 +153,20 @@
                     <script type="application/json" id="fleet-json-{{ forloop.counter0 }}">
                         {{ f.detailed_shipments|default:"[]"|safe }}
                     </script>
+                    <div style="margin-top: 5px;">
+                        <form method="post" class="action-form">
+                            {% csrf_token %}
+                            <input type="hidden" name="step" value="export_bol_fleet">
+                            <input type="hidden" name="file_type" value="BOL">
+                            <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                            <input type="hidden" name="page" value="arm_appointment">
+                            <input type="hidden" name="active_tab" value="scheduledFleet"> 
+                            <input type="hidden" name="fleet_number" value="{{ f.fleet_number }}">
+                            <button type="submit" class="action-btn btn-primary">
+                                <i class="fas fa-download"></i> BOL
+                            </button>
+                        </form>
+                    </div>
                 </td>
                 <td class="shipment-batch-cell">
                     {{ f.shipment_batch_numbers }}
