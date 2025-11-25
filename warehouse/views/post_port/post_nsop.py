@@ -2694,8 +2694,7 @@ class PostNsop(View):
                 delivery_type='public',
             ), True
         )
-        
-        
+             
         # 获取可用的shipment记录（shipment_batch_number为空的）
         shipments = await self._get_available_shipments(warehouse)
         # 生成智能匹配建议
@@ -2804,7 +2803,6 @@ class PostNsop(View):
                 matched_shipment = await self._find_matching_shipment(primary_group, shipments, warehouse)
                 
                 # 如果匹配到shipment，将其标记为已使用
-
                 result_intel = await self._find_intelligent_po_for_group(
                     primary_group, warehouse, user
                 )
@@ -2871,9 +2869,7 @@ class PostNsop(View):
             try:
                 return float(val)
             except (TypeError, ValueError):
-                return 0.0
-
-        
+                return 0.0       
         if st_type == "卡板":
             suggestions.sort(
                 key=lambda s: (
@@ -3082,6 +3078,30 @@ class PostNsop(View):
             matched_shipments.append(matched_shipment)
         if matched_shipments:
             matched_shipments.sort(key=lambda x: x.get('shipment_appointment') or datetime.max)
+            # 在结尾添加空的shipment选项
+            empty_shipment = {
+                'shipment_id': None,
+                'appointment_id': "不选择预约号",
+                'shipment_cargo_id': None,
+                'shipment_type': None,
+                'shipment_appointment': None,
+                'pickup_time': None,
+                'pickup_number': None,
+                'origin': None,
+                'load_type': None,
+                'shipment_account': None,
+                'address': None,
+                'carrier': None,
+                'note': "",
+                'ARM_BOL': None,
+                'ARM_PRO': None,
+                'express_number': None,
+                'address_detail': await self.get_address(destination),
+                'destination': destination,
+                'is_empty_option': True
+            }
+            
+            matched_shipments.append(empty_shipment)
         return matched_shipments
     
     def _is_destination_match(self, group_destination, shipment_destination):
