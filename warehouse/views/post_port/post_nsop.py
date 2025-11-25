@@ -2231,7 +2231,6 @@ class PostNsop(View):
                 if pallet.cbm:
                     total_cbm += pallet.cbm
                 total_pallet += 1
-            
             # 更新shipment的总重量和总体积
             shipment.total_weight = float(round(total_weight, 3))
             shipment.total_cbm = float(round(total_cbm, 3))
@@ -2893,8 +2892,8 @@ class PostNsop(View):
             current_pallets = current_group['total_pallets']
             
             # 计算当前大组的剩余容量
-            remaining_cbm = max_cbm - current_cbm
-            remaining_pallets = max_pallet - current_pallets
+            remaining_cbm = 100 - current_cbm
+            remaining_pallets = 50 - current_pallets
             
             # 寻找可以合并的其他大组
             compatible_groups = []
