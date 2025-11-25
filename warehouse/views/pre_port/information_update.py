@@ -1,6 +1,7 @@
 from datetime import datetime
 
 from django.db import transaction
+from django.db.models.functions import TruncDate
 from django.utils import timezone
 from typing import Any, Coroutine
 
@@ -114,8 +115,14 @@ class InformationUpdate(View):
         # 关键修复：CharField 不支持 __ne，改用 ~Q(字段=F("对比字段")) 表示不等于
         t49_diff_conditions = (
                 ~Q(vessel_id__vessel=F("vessel_id__vessel_t49")) |  # 船名不一致（取反等于）
-                ~Q(vessel_id__vessel_etd=F("vessel_id__vessel_etd_t49")) |  # ETD 不一致（DateTimeField 也适用）
-                ~Q(vessel_id__vessel_eta=F("vessel_id__vessel_eta_t49")) |  # ETA 不一致
+                # ETD 仅比较日期部分（忽略时分秒）
+                ~Q(
+                    vessel_id__vessel_etd__date=TruncDate(F("vessel_id__vessel_etd_t49"))
+                ) |
+                # ETA 仅比较日期部分（忽略时分秒）
+                ~Q(
+                    vessel_id__vessel_eta__date=TruncDate(F("vessel_id__vessel_eta_t49"))
+                ) |
                 ~Q(vessel_id__destination_port=F("vessel_id__destination_port_t49"))  # 码头不一致
         )
 
@@ -181,24 +188,34 @@ class InformationUpdate(View):
 
             def parse_datetime(time_str: str):
                 """
-                修正：支持两种时间格式（兼容纯日期和年月日时分秒）
-                - 前端传递格式：Y-m-d H:i:s（时分秒）或 Y-m-d（纯日期）
-                - 返回带时区的 datetime 对象（与后端时区一致）
+                强制补全纯日期为 00:00:00，确保格式统一：
+                - 输入 Y-m-d → 解析为 Y-m-d 00:00:00（带时区）
+                - 输入 Y-m-d H:i:s / Y-m-d H:i → 保持原时分秒（带时区）
+                - 无效格式返回 None
                 """
                 if not time_str:
                     return None
-                # 定义支持的时间格式（优先匹配时分秒格式）
-                formats = ["%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M", "%Y-%m-%d"]
+
+                # 定义格式：优先匹配纯日期（前端主要传递格式），再匹配带时分秒格式
+                formats = [
+                    "%Y-%m-%d",  # 纯日期（优先）
+                    "%Y-%m-%d %H:%M:%S",  # 完整时间
+                    "%Y-%m-%d %H:%M"  # 带时分无秒
+                ]
+
                 for fmt in formats:
                     try:
-                        # 解析为本地时间（datetime 对象）
                         date_obj = datetime.strptime(time_str, fmt)
-                        # 转换为带时区的时间（使用 Django 配置的时区，如 UTC+8）
+                        # 关键：如果是纯日期格式，强制补全时分秒为 00:00:00
+                        if fmt == "%Y-%m-%d":
+                            date_obj = date_obj.replace(hour=0, minute=0, second=0)
+                        # 转换为带时区的 datetime（与 Django 配置一致）
                         aware_date = timezone.make_aware(date_obj)
                         return aware_date
                     except ValueError:
                         continue
-                print(f"时间解析失败：不支持的时间格式（输入值：{time_str}）")
+
+                print(f"时间解析失败：不支持的时间格式（输入值：{time_str}），仅支持 Y-m-d 或 Y-m-d H:i:s 格式")
                 return None
 
             @sync_to_async
@@ -227,13 +244,16 @@ class InformationUpdate(View):
                         vessel_instance.vessel = vessel
                         has_update = True
 
-                    if vessel_eta and vessel_instance.vessel_eta != vessel_eta:
-                        vessel_instance.vessel_eta = vessel_eta
-                        has_update = True
+                    # 关键：允许时分秒从非00:00:00更新为00:00:00（比如用户只改日期）
+                    if vessel_eta is not None:  # 注意：这里用 is not None（允许用户清空？根据需求调整）
+                        if vessel_instance.vessel_eta != vessel_eta:
+                            vessel_instance.vessel_eta = vessel_eta
+                            has_update = True
 
-                    if vessel_etd and vessel_instance.vessel_etd != vessel_etd:
-                        vessel_instance.vessel_etd = vessel_etd
-                        has_update = True
+                    if vessel_etd is not None:
+                        if vessel_instance.vessel_etd != vessel_etd:
+                            vessel_instance.vessel_etd = vessel_etd
+                            has_update = True
 
                     if destination_port and vessel_instance.destination_port != destination_port:
                         vessel_instance.destination_port = destination_port
@@ -264,7 +284,7 @@ class InformationUpdate(View):
 
     async def information_update_batch(self, request: HttpRequest):
         batch_field = request.POST.get('batch_field')  # vessel_eta 或 vessel_etd
-        batch_time = request.POST.get('batch_time')  # 时间字符串（格式：YYYY-MM-DD HH:MM:SS）
+        batch_time = request.POST.get('batch_time')  # 前端传递格式：YYYY-MM-DD
         selected_containers = request.POST.get('selected_containers', '').split(',')  # 选中的柜号列表
         warehouse = request.POST.get('warehouse')
 
@@ -298,6 +318,35 @@ class InformationUpdate(View):
                 context.update({'error_msg': error_msg})
                 return template, context
 
+            # 统一日期解析逻辑：纯日期补全 00:00:00
+            def parse_datetime(time_str: str):
+                if not time_str:
+                    return None
+                formats = [
+                    "%Y-%m-%d",  # 纯日期（优先）
+                    "%Y-%m-%d %H:%M:%S",  # 完整时间
+                    "%Y-%m-%d %H:%M"  # 带时分无秒
+                ]
+                for fmt in formats:
+                    try:
+                        date_obj = datetime.strptime(time_str, fmt)
+                        if fmt == "%Y-%m-%d":
+                            date_obj = date_obj.replace(hour=0, minute=0, second=0)
+                        aware_date = timezone.make_aware(date_obj)
+                        return aware_date
+                    except ValueError:
+                        continue
+                raise ValueError(f"不支持的时间格式：{time_str}（仅支持 Y-m-d 或 Y-m-d H:i:s）")
+
+            # 解析前端传递的日期（强制补全 00:00:00）
+            try:
+                parsed_datetime = parse_datetime(batch_time)
+            except ValueError as e:
+                error_msg = str(e)
+                template, context = await self.information_update_search(request)
+                context.update({'error_msg': error_msg})
+                return template, context
+
             @sync_to_async
             def sync_batch_update():
                 """批量更新函数：先查Order，再更新关联的Vessel字段"""
@@ -308,22 +357,26 @@ class InformationUpdate(View):
                         container_number__container_number__in=selected_containers,
                         cancel_notification=False,
                         vessel_id__isnull=False,
-
                     )
+
                     vessel_ids = orders.values_list('vessel_id__id', flat=True).distinct()
                     if not vessel_ids:
                         return 0
-                    update_data = {batch_field: batch_time}  # batch_field 是 'vessel_eta' 或 'vessel_etd'
+
+                    # 构造更新数据（使用解析后的带时区 datetime）
+                    update_data = {batch_field: parsed_datetime}
                     updated_count = Vessel.objects.filter(id__in=vessel_ids).update(**update_data)
                     return updated_count
 
+            # 执行批量更新
             updated_count = await sync_batch_update()
-            success_msg = f'成功更新 {updated_count} 艘船舶的{"ETA" if batch_field == "vessel_eta" else "ETD"}时间（选中 {len(selected_containers)} 个柜号）！'
+            success_msg = f'成功更新 {updated_count} 艘船舶的{"ETA" if batch_field == "vessel_eta" else "ETD"}日期（选中 {len(selected_containers)} 个柜号）！'
 
         except Exception as e:
             error_msg = f'批量更新失败：{str(e)}'
             print(f'批量更新异常详情：{repr(e)}')
 
+        # 重新返回搜索结果页面，保留筛选条件
         template, context = await self.information_update_search(request)
         context.update({
             'success_msg': success_msg,
@@ -335,7 +388,6 @@ class InformationUpdate(View):
             'search_vessel': request.POST.get('search_vessel', ''),
         })
         return template, context
-
     warehouse_options = {
         "所有仓库": "NJ,SAV,LA,MO,TX",
         "NJ": "NJ",
