@@ -229,6 +229,7 @@
             <th>ID</th>
             <th>预约批次号</th>
             <th>预约号</th>
+            <th>预约类型</th>
             <th>当前状态</th>
             <th>目的地</th>
             <th>绑定车次</th>
@@ -252,6 +253,20 @@
             <td>{{ shipment.id }}</td>
             <td>{{ shipment.shipment_batch_number|default:"-" }}</td>
             <td>{{ shipment.appointment_id|default:"-" }}</td>
+            <td>
+                <form method="post" style="display: inline-block; margin: 2px;">
+                    {% csrf_token %}
+                    <input type="hidden" name="step" value="update_shipment_type">
+                    <input type="hidden" name="shipment_id" value="{{ shipment.id }}">
+                    <input type="hidden" name="search_value" value="{{ search_value }}">
+                    <input type="hidden" name="search_type" value="{{ search_type }}">
+                    <select name="shipment_type" class="shipment-type-select" onchange="this.form.submit()">
+                        {% for key, value in shipment_type_options.items %}
+                        <option value="{{ value }}" {% if shipment.shipment_type == value %}selected{% endif %}>{{ key }}</option>
+                        {% endfor %}
+                    </select>
+                </form>
+            </td>
             <td>
                 <span class="status-badge status-{{ shipment.current_status }}">
                     {{ shipment.status_display }}

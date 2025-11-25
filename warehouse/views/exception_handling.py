@@ -153,6 +153,9 @@ class ExceptionHandling(View):
             return await sync_to_async(render)(request, template, context)
         elif step == "update_fleet_type":
             template, context = await self.handle_update_fleet_type(request)
+            return await sync_to_async(render)(request, template, context) 
+        elif step == "update_shipment_type":
+            template, context = await self.handle_update_shipment_type(request)
             return await sync_to_async(render)(request, template, context)
         elif step == "update_fleet_origin":
             template, context = await self.handle_update_fleet_origin(request)
@@ -1566,6 +1569,23 @@ class ExceptionHandling(View):
             messages.success(request, f"成功更新 Shipment ID {shipment_id} 的取消状态为: {'是' if is_canceled_bool else '否'}")
         else:
             messages.error(request, f"未找到 ID 为 {shipment_id} 的 Shipment")
+        return await self.handle_search_shipment(request)
+    
+    async def handle_update_shipment_type(self, request: HttpRequest):
+        shipment_id = request.POST.get('shipment_id')
+        shipment_type = request.POST.get('shipment_type')
+        
+        shipment = await sync_to_async(
+            lambda: Shipment.objects.filter(id=shipment_id).first()
+        )()
+        
+        if shipment:
+            shipment.shipment_type = shipment_type
+            await sync_to_async(shipment.save)()
+            
+            messages.success(request, f"成功更新预约批次 {shipment.shipment_batch_number} 的类型为: {shipment_type}")
+        else:
+            messages.error(request, f"未找到 ID 为 {shipment_id} 的车次")
         return await self.handle_search_shipment(request)
     
     async def handle_update_fleet_type(self, request: HttpRequest):
