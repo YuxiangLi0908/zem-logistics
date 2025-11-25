@@ -104,6 +104,7 @@
                 <th>总CBM</th>
                 <th>总卡板数</th>
                 <th>note</th>
+                <th>通知客户</th>
                 <th>撤销批次</th>
             </tr>
             <tr class="search-row">
@@ -111,11 +112,18 @@
                 <td><input type="text" class="header-search" placeholder="搜索预约批次" data-column="1"></td>
                 <td><input type="text" class="header-search" placeholder="搜索ISA" data-column="2"></td>
                 <td><input type="text" class="header-search" placeholder="搜索carrier" data-column="3"></td>
-                <td><input type="text" class="header-search" placeholder="搜索提货时间" data-column="4"></td>
+                <td data-column="pickup-time"><input type="text" class="header-search" placeholder="搜索提货时间" data-column="4"></td>
                 <td><input type="text" class="header-search" placeholder="搜索总重" data-column="5"></td>
                 <td><input type="text" class="header-search" placeholder="搜索CBM" data-column="6"></td>
                 <td><input type="text" class="header-search" placeholder="搜索卡板数" data-column="7"></td>
                 <td><input type="text" class="header-search" placeholder="搜索备注" data-column="8"></td>
+                <td>
+                    <select class="notification-select" data-column="9" onchange="applyMultiFilterFleet()" style="width: 100%; padding: 4px 8px; border: 1px solid #ced4da; border-radius: 4px; font-size: 0.8rem;">
+                        <option value="">全部</option>
+                        <option value="已通知">已通知</option>
+                        <option value="未通知">未通知</option>
+                    </select>
+                </td>
                 <td></td>
             </tr>
         </thead>
@@ -173,7 +181,7 @@
                 </td>
                 <td>{{ f.appointment_ids }}</td>
                 <td>{{ f.carrier }}</td>
-                <td>
+                <td data-column="pickup-time">
                     {% if f.departure_status == "past_due" %}
                     <span class="status-span-red">{{ f.appointment_datetime|date:"Y-m-d" }} {{ f.appointment_datetime|time:"H:i" }}</span>
                     {% elif f.departure_status == "need_attention" %}
@@ -186,6 +194,26 @@
                 <td>{{ f.total_cbm|floatformat:2 }}</td>
                 <td>{{ f.total_pallet }}</td>
                 <td style="max-width: 120px; word-break: break-all;">{{ f.note|default_if_none:"" }}</td>
+                <td>
+                    {% if f.is_notified_customer %}
+                        <button class="action-btn btn-success" disabled style="opacity: 0.6;" data-notified="1">
+                            <i class="fas fa-check-circle"></i> 已通知客户
+                        </button>
+                    {% else %}
+                        <button class="hidden-notify-flag" style="display: none;"></button>
+                        <form method="post" action="" class="notify-customer-form">
+                            {% csrf_token %}
+                            <input type="hidden" name="fleet_number" value="{{ f.fleet_number }}">                                  
+                            <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                            <input type="hidden" name="step" value="fl_notified_customer">
+                            <input type="hidden" name="page" value="arm_appointment">
+                            <input type="hidden" name="active_tab" value="scheduledFleet"> 
+                            <button class="action-btn btn-info" data-notified="0">
+                                <i class="fas fa-bell"></i> 通知客户
+                            </button>
+                        </form>                        
+                    {% endif %}
+                </td>
                 <td>
                     {% if f.fleet_type != 'LTL' %}
                     <form method="post" action="" onsubmit="showLoadingBar()">
@@ -328,6 +356,11 @@
 </div>
 
 <script>
+    const searchFleetInputs = document.querySelectorAll('#scheduledFleet-section .header-search');
+    const rows = document.querySelectorAll('#scheduledFleet-section tbody tr');
+
+    var searchStateFleet = {};
+    var searchTimerFleet = null;
     // 打开车次模态框函数
     document.querySelectorAll('.fleet-link').forEach(link => {
         link.addEventListener('click', function(e) {
@@ -515,105 +548,82 @@
         const mm = String(date.getMinutes()).padStart(2, '0');
         return `${yyyy}-${MM}-${dd}T${hh}:${mm}`;
     }
-    document.addEventListener('DOMContentLoaded', function() {
-        // 添加时间标记
-        markScheduledFleetRows();
-        const closeBtn = document.querySelector('#fleetModaLModify .close-btn');
-        if (closeBtn) {
-            closeBtn.addEventListener('click', function(e) {
-                e.preventDefault();
-                e.stopPropagation();
-                closeFleetModalModify();
-            });
-        }
-        const searchInputs = document.querySelectorAll('#scheduledFleet-section .header-search');
-        const rows = document.querySelectorAll('#scheduledFleet-section tbody tr');
-
-        let searchState = {};
-        let searchTimer;
-        
-        function handleScheduledFleetSearchForVisible(rows, searchTerm) {
-            const visibleRows = Array.from(rows).filter(r => r.style.display !== 'none');
-            
-            const matchedFleetNumbers = new Set();
-            visibleRows.forEach(tr => {
-                const fleetNumber = tr.dataset.fleetNumber;
-                if (!fleetNumber) return;
-
-                const text = tr.innerText.toLowerCase();
-                if (text.includes(searchTerm)) matchedFleetNumbers.add(fleetNumber);
-            });
-
-            rows.forEach(tr => {
-                const fleetNumber = tr.dataset.fleetNumber;
-                if (!fleetNumber) return;
-
-                if (!matchedFleetNumbers.has(fleetNumber)) {
-                    tr.style.display = 'none';
-                }
-            });
-        }
-
-        // 多列 AND 条件搜索
-        function applyMultiFilter() {
-            clearHighlights();
-            searchState = {};
-            searchInputs.forEach(input => {
-                const col = input.dataset.column;
-                const val = input.value.trim().toLowerCase();
-                if (val) searchState[col] = val;
-            });
-
-            if (Object.keys(searchState).length === 0) {
-                rows.forEach(r => r.style.display = '');
-                return;
-            }
-
-            let firstRound = true;
-            let searchTerms = Object.values(searchState);
-
-            for (let term of searchTerms) {
-                if (firstRound) {
-                    handleScheduledFleetSearch(rows, term);
-                    firstRound = false;
-                } else {
-                    handleScheduledFleetSearchForVisible(rows, term);
-                }
-            }
-            applyHighlights(searchTerms);
-        }
-
-        // 输入框监听
-        searchInputs.forEach(input => {
-            input.addEventListener('input', function () {
-                clearTimeout(searchTimer);
-                searchTimer = setTimeout(applyMultiFilter, 250);
-            });
-
-            input.addEventListener('keypress', function (e) {
-                if (e.key === 'Enter') {
-                    clearTimeout(searchTimer);
-                    applyMultiFilter();
-                }
-            });
+    
+    // 多列 AND 条件搜索
+    function applyMultiFilterFleet() {
+        clearHighlights();
+        var searchStateFleet = {};
+        searchFleetInputs.forEach(input => {
+            const col = input.dataset.column;
+            const val = input.value.trim().toLowerCase();
+            if (val) searchStateFleet[col] = val;
         });
-    });
 
+        // 获取通知客户选择框的值
+        var notificationSelect = document.querySelector('#scheduledFleet-section .notification-select');
+        if (notificationSelect && notificationSelect.value) {
+            searchStateFleet['notification'] = notificationSelect.value;
+        }
+
+        if (Object.keys(searchStateFleet).length === 0) {
+            rows.forEach(r => r.style.display = '');
+            return;
+        }
+        // 先显示所有行，然后逐层筛选
+        rows.forEach(r => r.style.display = '');
+
+        var searchTerms = Object.values(searchStateFleet)
+            .filter(t => t !== '已通知' && t !== '未通知');
+
+        searchTerms.forEach((term, idx) => {
+            if (idx === 0) {
+                handleScheduledFleetSearch(rows, term);
+            } else {
+                handleScheduledFleetSearchForVisible(rows, term);
+            }
+        });
+        // 单独处理通知客户的筛选
+        handleNotificationSearch();
+        applyHighlights(searchTerms);
+    }
+    function handleScheduledFleetSearchForVisible(rows, searchTerm) {
+        rows.forEach(tr => {
+            if (tr.style.display === 'none') return;
+            if (!tr.innerText.toLowerCase().includes(searchTerm)) {
+                tr.style.display = 'none';
+            }
+        });
+    }
+    // 通知客户筛选逻辑
+    function handleNotificationSearch() {
+        const notificationSelect = document.querySelector('#scheduledFleet-section .notification-select');
+        if (!notificationSelect || !notificationSelect.value) return;
+
+        const visibleRows = Array.from(rows).filter(r => r.style.display !== 'none');
+        const filterValue = notificationSelect.value;
+
+        visibleRows.forEach(row => {
+            const notificationCell = row.cells[9]; // 通知客户列是第10列
+            const notifyButton = notificationCell.querySelector('.action-btn');
+            const isNotified = notifyButton ? notifyButton.dataset.notified === '1' : false;
+
+            let shouldShow = false;
+            if (filterValue === '已通知' && isNotified) {
+                shouldShow = true;
+            } else if (filterValue === '未通知' && !isNotified) {
+                shouldShow = true;
+            } else if (filterValue === '') {
+                shouldShow = true; // 选择"全部"时显示所有
+            }
+
+            if (!shouldShow) {
+                row.style.display = 'none';
+            }
+        });
+    }
     function handleScheduledFleetSearch(rows, searchTerm) {
-        const matchedFleetNumbers = new Set();
         rows.forEach(tr => {
-            const fleetNumber = tr.dataset.fleetNumber;
-            if (!fleetNumber) return;
-
-            const text = tr.innerText.toLowerCase();
-            if (text.includes(searchTerm)) matchedFleetNumbers.add(fleetNumber);
-        });
-
-        rows.forEach(tr => {
-            const fleetNumber = tr.dataset.fleetNumber;
-            if (!fleetNumber) return;
-
-            if (!matchedFleetNumbers.has(fleetNumber)) {
+            if (!tr.innerText.toLowerCase().includes(searchTerm)) {
                 tr.style.display = 'none';
             }
         });
@@ -651,7 +661,8 @@
         const rows = document.querySelectorAll('#scheduledFleet-section .data-table tbody tr');
         
         rows.forEach((row, index) => {
-            const timeCell = row.cells[4]; // 提货时间在第5列
+            const timeCell = row.querySelector('td[data-column="pickup-time"]'); // 提货时间
+            if (!timeCell) return;
             let timeText = timeCell.textContent.trim();
             
             // 如果有状态span，获取span内的文本
@@ -745,4 +756,31 @@
         const d2 = new Date(date2.getFullYear(), date2.getMonth(), date2.getDate());
         return Math.floor((d2 - d1) / (1000 * 60 * 60 * 24));
     }
+    document.addEventListener('DOMContentLoaded', function() {
+        // 添加时间标记
+        markScheduledFleetRows();
+        const closeBtn = document.querySelector('#fleetModaLModify .close-btn');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                closeFleetModalModify();
+            });
+        }
+        
+        // 输入框监听
+        searchFleetInputs.forEach(input => {
+            input.addEventListener('input', function () {
+                clearTimeout(searchTimerFleet);
+                searchTimerFleet = setTimeout(applyMultiFilterFleet, 250);
+            });
+
+            input.addEventListener('keypress', function (e) {
+                if (e.key === 'Enter') {
+                    clearTimeout(searchTimerFleet);
+                    applyMultiFilterFleet();
+                }
+            });
+        });
+    });
 </script>

@@ -235,6 +235,9 @@ class PostNsop(View):
             return render(request, template, context)
         elif step == "sp_notified_customer":
             template, context = await self.handle_sp_notified_customer_post(request)
+            return render(request, template, context)       
+        elif step == "fl_notified_customer":
+            template, context = await self.handle_fl_notified_customer_post(request)
             return render(request, template, context)
         elif step == "search_addable_po":
             template, context = await self.handle_search_addable_po_post(request)
@@ -517,6 +520,50 @@ class PostNsop(View):
         else:
             return await self.handle_fleet_schedule_post(request,context)
     
+    async def handle_fl_notified_customer_post(
+        self, request: HttpRequest
+    ) -> tuple[str, dict[str, Any]]:
+        page = request.POST.get("page")
+        fleet_number = request.POST.get("fleet_number")
+        context = {}
+        if not bool(fleet_number) or not fleet_number or 'None' in fleet_number:
+            context.update({
+                'error_messages':'fleet_number为空！',
+            })
+            if page == "arm_appointment":
+                return await self.handle_unscheduled_pos_post(request,context)
+            else:
+                return await self.handle_td_shipment_post(request, context)
+        try:
+            fleet = await sync_to_async(Fleet.objects.get)(
+                fleet_number=fleet_number
+            )
+            shipments = await sync_to_async(list)(
+                Shipment.objects.filter(fleet_number=fleet)
+            )
+            if not shipments:
+                context.update({
+                    'error_messages': f"找不到车次号为 {fleet_number} 相关联的预约批次记录",
+                })
+            else:
+                for shipment in shipments:
+                    shipment.is_notified_customer = True
+                    await sync_to_async(shipment.save)()
+                context = {'success_messages': f"{fleet_number}通知客户成功！"}
+        except Fleet.DoesNotExist:
+            context.update({
+                'error_messages': f"找不到车次号为 {fleet_number} 的记录",
+            })
+        except Exception as e:
+            context.update({
+                'error_messages': f"通知客户失败: {str(e)}",
+            })
+        
+        if page == "arm_appointment":
+            return await self.handle_unscheduled_pos_post(request,context)
+        else:
+            return await self.handle_td_shipment_post(request, context)
+        
     async def handle_sp_notified_customer_post(
         self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
@@ -2289,7 +2336,12 @@ class PostNsop(View):
             
             # 获取该车队的所有shipment
             shipments = await sync_to_async(list)(fleet_obj.shipment.all())
-            
+            if shipments:
+                all_notified = all(shipment.is_notified_customer for shipment in shipments)
+                fleet_obj.is_notified_customer = all_notified
+            else:
+                fleet_obj.is_notified_customer = False
+                
             for shipment in shipments:
                 shipment_batch_number = shipment.shipment_batch_number
                 
