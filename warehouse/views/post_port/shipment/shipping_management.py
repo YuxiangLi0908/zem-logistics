@@ -2055,17 +2055,17 @@ class ShippingManagement(View):
                 shipment.total_pallet -= len(set([p.pallet_id for p in pallet]))
                 # except:
                 #     pass
-                # 删除完PO之后，查找这个约是不是空了，如果空了，就令约的in_use为no
-                pls = await sync_to_async(list)(
-                    PackingList.objects.select_related("shipment_batch_number").filter(
-                        shipment_batch_number__shipment_batch_number=shipment_batch_number
-                    )
+            # 删除完PO之后，查找这个约是不是空了，如果空了，就令约的in_use为no
+            pls = await sync_to_async(list)(
+                PackingList.objects.select_related("shipment_batch_number").filter(
+                    shipment_batch_number__shipment_batch_number=shipment_batch_number
                 )
-                plts = await sync_to_async(list)(
-                    Pallet.objects.select_related("shipment_batch_number").filter(
-                        shipment_batch_number__shipment_batch_number=shipment_batch_number
-                    )
+            )
+            plts = await sync_to_async(list)(
+                Pallet.objects.select_related("shipment_batch_number").filter(
+                    shipment_batch_number__shipment_batch_number=shipment_batch_number
                 )
+            )
             if len(pls) == 0 and len(plts) == 0:
                 shipment = await sync_to_async(Shipment.objects.get)(
                     shipment_batch_number=shipment_batch_number
