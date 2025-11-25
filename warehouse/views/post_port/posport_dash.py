@@ -546,7 +546,6 @@ class PostportDash(View):
                     "container_number__order__retrieval_id__actual_retrieval_timestamp",
                     "container_number__order__vessel_id__vessel_eta",
                     "schedule_status",
-                    "pcs",
                     "shipment_batch_number__shipment_batch_number",
                     "shipment_batch_number__appointment_id",
                     "shipment_batch_number__shipment_appointment",
