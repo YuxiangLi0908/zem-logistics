@@ -1022,11 +1022,12 @@ class PostNsop(View):
         success_groups = []
         failed_groups = []
         success_appointment_ids = []
+        print('传的全部参数',request.POST)
         # 为每个大组分别处理预约
         for group_index, group_data in enumerate(booking_data, 1):
             # 准备调用 handle_appointment_post 所需的参数
-            cargo_ids = group_data.get('cargo_ids', '')
-            plt_ids = group_data.get('plt_ids', '')
+            cargo_ids = group_data.get('cargo_ids_checked', '')
+            plt_ids = group_data.get('plt_ids_checked', '')
             destination = group_data.get('destination', '')
             appointment_id = group_data.get('appointment_id', '')
             shipment_cargo_id = group_data.get('shipment_cargo_id', '')
@@ -1214,20 +1215,20 @@ class PostNsop(View):
             plt_id_list = [int(id.strip()) for id in plt_ids.split(',') if id.strip()]
         # 设置货物ID参数（与handle_appointment_post保持一致）
         
+        
         total_weight, total_cbm, total_pcs, total_pallet = 0.0, 0.0, 0, 0
         pallet_records = await sync_to_async(list)(
             Pallet.objects.filter(
                 id__in=plt_id_list,
             )
         )
-        
+       
         # 获取所有PackingList记录  
         packinglist_records = await sync_to_async(list)(
             PackingList.objects.filter(
                 id__in=cargo_id_list,
             )
         )
-        
         # 汇总Pallet数据
         for p in pallet_records:
             total_weight += p.weight_lbs or 0
@@ -2341,7 +2342,7 @@ class PostNsop(View):
                 fleet_obj.is_notified_customer = all_notified
             else:
                 fleet_obj.is_notified_customer = False
-                
+
             for shipment in shipments:
                 shipment_batch_number = shipment.shipment_batch_number
                 
@@ -2663,10 +2664,10 @@ class PostNsop(View):
         st_type = request.POST.get("st_type", "pallet")
         # 生成匹配建议
         max_cbm, max_pallet = await self.get_capacity_limits(st_type)
-
+        
         # 获取三类数据：未排约、已排约、待出库
         if not matching_suggestions:
-            matching_suggestions = await self.sp_unscheduled_data(warehouse, st_type, max_cbm, max_pallet,request.user)
+            matching_suggestions = await self.sp_unscheduled_data(warehouse, st_type, 1000, 1000,request.user)
         #已排约
         scheduled_data = await self.sp_scheduled_data(warehouse, request.user)
 
@@ -2873,6 +2874,7 @@ class PostNsop(View):
                     'delivery_window_end': pos.get('delivery_window_end'),
                     'total_n_pallet_act': pos.get('total_n_pallet_act') or pos.get('total_n_pallet_est', 0),
                     'total_cbm': pos.get('total_cbm', 0),
+                    'total_weight': pos.get('total_weight_lbs', 0),
                     'label': pos.get('label', ''),
                     'destination': pos.get('destination', ''),
                     'location': pos.get('location') if pos.get('location') else pos.get('warehouse', ''),
@@ -2899,12 +2901,14 @@ class PostNsop(View):
                         'fba_ids': cargo.get('fba_ids', ''),
                         'container_numbers': cargo.get('container_numbers', ''),
                         'cns': cargo.get('cns', ''),
+                        'destination': cargo.get('destination', ''),
                         'offload_time': cargo.get('offload_time', ''),
                         'delivery_window_start': cargo.get('delivery_window_start'),
                         'delivery_window_end': cargo.get('delivery_window_end'),
                         'total_n_pallet_act': cargo.get('total_n_pallet_act', 0),
                         'total_n_pallet_est': cargo.get('total_n_pallet_est', 0),
                         'total_cbm': cargo.get('total_cbm', 0),
+                        'total_weight': cargo.get('total_weight_lbs', 0),
                         'label': cargo.get('label', ''),
                         'is_dropped_pallet': cargo.get('is_dropped_pallet'),
                         'rebuilt_is_dropped_pallet': cargo.get('rebuilt_is_dropped_pallet'),
@@ -3046,6 +3050,7 @@ class PostNsop(View):
             'total_n_pallet_act': pos.get('total_n_pallet_act', 0),
             'total_n_pallet_est': pos.get('total_n_pallet_est', 0),
             'total_cbm': pos.get('total_cbm', 0),
+            'total_weight': pos.get('total_weight_lbs', 0),
             'label': pos.get('label', ''),
             'destination': pos.get('destination', ''),
             'custom_delivery_method': pos.get('custom_delivery_method', ''),

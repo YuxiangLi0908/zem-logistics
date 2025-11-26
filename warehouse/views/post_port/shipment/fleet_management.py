@@ -1531,7 +1531,6 @@ class FleetManagement(View):
                 ).count
             )()
         pickup_time = shipment.pickup_time
-        print('时间',pickup_time,shipment.pickup_time)
         context = {
             "warehouse_obj": warehouse_obj.address,
             "warehouse": warehouse,
