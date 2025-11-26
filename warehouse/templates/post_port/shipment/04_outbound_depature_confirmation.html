@@ -4,6 +4,53 @@
 {% load static custom_floor_division %}
 
 {% block depature_confirmation %}
+<style>
+    .th {
+        text-align:center; border:1px solid #ccc; padding:6px; 
+        white-space:nowrap;
+    }
+    .cell {
+        text-align:center; border:1px solid #ccc; padding:8px;
+        background:#fff; word-break:break-word;
+        cursor:text;
+    }
+    .cell input {
+        width: 100%;
+        box-sizing: border-box;
+        height: 80px;          /* 输入框高度变大 */
+        padding: 6px 8px;      /* 内边距更舒适 */
+        font-size: 14px;       /* 字体稍大，更易阅读 */
+        border: 1px solid #ccc;
+        border-radius: 4px;    /* 更现代样式，可选 */
+    }
+
+    .cell input:focus {
+        outline: none;
+        border-color: #4a9eff; /* 聚焦时边框高亮，可选 */
+        background-color: #eef7ff;
+    }
+    .cell:hover {
+        background:#f4fbff;
+    }
+    .input-wrapper {
+        width: 100%;
+        min-height: 80px;
+        box-sizing: border-box;
+        padding: 6px 8px;
+        font-size: 14px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        white-space: pre-wrap;  /* 自动换行 */
+        word-break: break-word; /* 长字符串换行 */
+        overflow-y: auto;       /* 超出滚动 */
+    }
+
+    .input-wrapper:focus {
+        outline: none;
+        border-color: #4a9eff;
+        background-color: #eef7ff;
+    }
+</style>
 <div style="max-height: 800px; width: 55%; margin-top: .5%; margin-right: .5%; margin-bottom: 1%;">
     <div style="max-height: 100%; width: 100%; border: 2px solid rgb(180, 180, 180); border-radius: 12px; padding: 1%;">
         <div style="display: flex; position: sticky; top: 0; background-color: #f8f9fa;">
@@ -143,8 +190,11 @@
                     <i class="bi bi-cloud-arrow-down-fill"></i>
                 </button>
                 <button id="editButton" type="button" class="btn btn-primary" onclick="editBOL(this, '{{ selected_fleet.fleet_number }}')" style="font-size: 11px;">编辑</button>
-                <div class="popup-{{ selected_fleet.fleet_number }}" style="display: none; z-index:999; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background-color: white; border: 1px solid gray; padding: 20px; max-height: 80vh; width: 90%; overflow: auto;">
-                    <div style="margin-bottom: 5px; text-align: right;">
+                <div class="popup-{{ selected_fleet.fleet_number }}" style="display:none; z-index:999; position:fixed; top:50%; left:50%; 
+                    transform:translate(-50%, -50%); background:#fff; border-radius:10px;
+                    border:1px solid #ccc; padding:20px; max-height:85vh; width:92%;
+                    box-shadow:0 0 12px rgba(0,0,0,0.25); overflow:auto;">
+                    <div style="margin-bottom:10px; text-align:right;">
                         <button type="button" class="btn btn-success" 
                                 style="height: 35px; font-size: 12px; margin-left: 5px;" 
                                 onclick="addRowBelow('arm_pickup','{{ selected_fleet.fleet_number }}')">
@@ -156,57 +206,59 @@
                             编辑
                         </button>
                     </div>    
-                    <div style="max-height: 60vh; overflow: auto;">
-                        <table style="width: 100%; border-collapse: collapse; margin-bottom: 5px;" 
+                    <div style="max-height:65vh; overflow:auto; border:1px solid #ddd; border-radius:6px;">
+                        <table style="width:100%; border-collapse:collapse; font-size:13px;" 
                             cellpadding="15" 
                             id="arm_pickup-container-{{ selected_fleet.fleet_number }}">
-                            <thead>                       
-                                <th class="th" style="text-align: center; border: 1px solid #141414">柜号</th>
-                                <th class="th" style="text-align: center; border: 1px solid #141414">目的地</th>
-                                <th class="th" style="text-align: center; border: 1px solid #141414">唛头</th>
-                                <th class="th" style="text-align: center; border: 1px solid #141414">PRO</th>
-                                <th class="th" style="text-align: center; border: 1px solid #141414">板数</th> 
-                                <th class="th" style="text-align: center; border: 1px solid #141414">箱数</th>  
-                                <th class="th" style="text-align: center; border: 1px solid #141414">Carrier</th>  
-                                <th class="th" style="text-align: center; border: 1px solid #141414">address</th> 
-                                <th class="th" style="text-align: center; border: 1px solid #141414">地址详情</th> 
-                                <th class="th" style="text-align: center; border: 1px solid #141414">备注</th>
-                                <th class="th" style="text-align: center; border: 1px solid #141414; min-width: 80px;">库位</th>
+                            <thead style="background:#f6f8fa; font-weight:600;">                       
+                                <th class="th">柜号</th>
+                                <th class="th">目的地</th>
+                                <th class="th">邮编</th>
+                                <th class="th">唛头</th>
+                                <th class="th">PRO</th>
+                                <th class="th">板数</th> 
+                                <th class="th">箱数</th>  
+                                <th class="th">Carrier</th>  
+                                <th class="th">address</th> 
+                                <th class="th" title="用 ; 分隔，最多 5 组">地址详情<br><span style="font-size:10px;color:#888;">(用; 分隔)</span></th> 
+                                <th class="th">备注</th>
+                                <th class="th">库位</th>
                             </thead>
                             {% for s in arm_pickup %}
                             <tr id="arm_pickup-row">
-                                <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true">{{ s.container_number__container_number }}</td>
-                                <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding:10px;" data-editable="true">{{ s.destination }}</td>
-                                <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding:10px;" data-editable="true">{{ s.zipcode }}</td>
-                                <td style="text-align: center; border: 1px solid #141414; word-wrap: wrap; padding:10px;" data-editable="true">{{ s.shipping_mark }}</td>
-                                <td style="text-align: center; border: 1px solid #141414; word-wrap: break-word; padding:10px;" data-editable="true">{{ s.shipment_batch_number__ARM_PRO }}</td>
-                                <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true">{{ s.total_pallet }}</td>
-                                <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true">{{ s.total_pcs }}</td>
-                                <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true">{{ s.shipment_batch_number__fleet_number__carrier }}</td>
-                                <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true">{{ s.address }}</td>
-                                <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true">{{ s.shipment_batch_number__note }}</td>
-                                <td style="text-align: center; border: 1px solid #141414; padding:8px;" data-editable="true">{{ s.slot }}</td>
+                                <td class="cell" data-editable="true">{{ s.container_number__container_number }}</td>
+                                <td class="cell" data-editable="true">{{ s.destination }}</td>
+                                <td class="cell" data-editable="true">{{ s.zipcode }}</td>
+                                <td class="cell" data-editable="true">{{ s.shipping_mark }}</td>
+                                <td class="cell" data-editable="true">{{ s.shipment_batch_number__ARM_PRO }}</td>
+                                <td class="cell" data-editable="true">{{ s.total_pallet }}</td>
+                                <td class="cell" data-editable="true">{{ s.total_pcs }}</td>
+                                <td class="cell" data-editable="true">{{ s.shipment_batch_number__fleet_number__carrier }}</td>
+                                <td class="cell" data-editable="true">{{ s.address }}</td>
+                                <td class="cell" data-editable="true">{{ s.address }}</td>
+                                <td class="cell" data-editable="true">{{ s.shipment_batch_number__note }}</td>
+                                <td class="cell" data-editable="true">{{ s.slot|default_if_none:'' }}</td>
                             </tr>
                             {% endfor %}
                             <tr id="arm_pickup-row-empty-{{ selected_fleet.fleet_number }}" style="display: none;">
-                                <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true"></td>
-                                <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding:10px;" data-editable="true"></td>
-                                <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding:10px;" data-editable="true"></td>
-                                <td style="text-align: center; border: 1px solid #141414; text-wrap: wrap; padding:10px;" data-editable="true"></td>
-                                <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true"></td>
-                                <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true"></td>
-                                <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true"></td>
-                                <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true"></td>
-                                <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true"></td>
-                                <td style="text-align: center; border: 1px solid #141414; padding:10px;" data-editable="true"></td>
-                                <td style="text-align: center; border: 1px solid #141414; padding:8px;" data-editable="true"></td>
+                                <td class="cell" data-editable="true"></td>
+                                <td class="cell" data-editable="true"></td>
+                                <td class="cell"data-editable="true"></td>
+                                <td class="cell" data-editable="true"></td>
+                                <td class="cell" data-editable="true"></td>
+                                <td class="cell" data-editable="true"></td>
+                                <td class="cell" data-editable="true"></td>
+                                <td class="cell" data-editable="true"></td>
+                                <td class="cell" data-editable="true"></td>
+                                <td class="cell" data-editable="true"></td>
+                                <td class="cell" data-editable="true"></td>
                             </tr>  
                         </table>
                     </div>
-                    <div style="margin-top: 5px; text-align: right;">
+                    <div style="margin-top:10px; text-align:right;">
                         <button id="confirmButton" type="button" 
                                 class="btn btn-primary" 
-                                style="font-size: 12px; margin-left: 5px;" 
+                                style="font-size:12px; margin-left:5px;" 
                                 onclick="editTable('arm_pickup', false, '{{ selected_fleet.fleet_number }}')">
                             确认
                         </button>
