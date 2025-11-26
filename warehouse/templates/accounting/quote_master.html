@@ -41,17 +41,33 @@
         <thead style="background: #e9ecef;">
             <tr>
                 <th style="padding: 15px; border-bottom: 2px solid #dee2e6; text-align: center;width:320px;">文件名</th>
-                <th style="padding: 15px; border-bottom: 2px solid #dee2e6; text-align: center; width:120px;">生效时间</th>
-                <th style="padding: 15px; border-bottom: 2px solid #dee2e6; text-align: center;width:100px;">上传时间</th>            
+                <th style="padding: 15px; border-bottom: 2px solid #dee2e6; text-align: center; width:150px;">
+                    生效时间
+                    <button type="button" onclick="sortTable(1)" class="sort-btn" title="排序">
+                        ↕️
+                    </button>
+                </th>
+                <th style="padding: 15px; border-bottom: 2px solid #dee2e6; text-align: center;width:150px;">
+                    上传时间
+                    <button type="button" onclick="sortTable(2)" class="sort-btn" title="排序">
+                        ↕️
+                    </button>
+                </th>            
                 <th style="padding: 15px; border-bottom: 2px solid #dee2e6; text-align: center;width:100px;">是否通用</th>
-                <th style="padding: 15px; border-bottom: 2px solid #dee2e6; text-align: center;width:100px;">专属客户</th>         
+                <th style="padding: 15px; border-bottom: 2px solid #dee2e6; text-align: center;width:120px;">专属客户</th>         
             </tr>
             <tr style="position: sticky; top: 52px;" id="fleet-table-filter">
                 <th class="th"><input type="text" style="width:110px;" id="filenameSearchInput" placeholder="搜索文件名..." oninput="filterTable()"></th>
+                <th class="th">
+                    <input type="date" style="width:110px;" id="effectiveDateSearchInput" placeholder="生效日期..." oninput="filterTable()">
+                </th>
+                <th class="th">
+                    <input type="date" style="width:110px;" id="uploadDateSearchInput" placeholder="上传日期..." oninput="filterTable()">
+                </th>
                 <th class="th"></th>
-                <th class="th"></th>
-                <th class="th"></th>
-                <th class="th"><input type="text" style="width:110px;" id="customerSearchInput" placeholder="搜索客户..." oninput="filterTable()"></th>
+                <th class="th">
+                    <input type="text" style="width:110px;" id="customerSearchInput" placeholder="(空值输入#)..." oninput="filterTable()" title="搜索客户，输入#null查找空值">
+                </th>
             </tr>
         </thead>
         <tbody>
@@ -60,10 +76,12 @@
                 {% csrf_token %}
                 <tr style="background: {% cycle '#ffffff' '#f8f9fa' %};">
                     <td style="padding: 15px; text-align: center;">{{ q.filename }}</td>
-                    <td style="padding: 15px; text-align: center;">{{ q.effective_date|date:"Y-M-j" }}</td>   
-                    <td style="padding: 15px; text-align: center;">{{ q.upload_date|date:"M-j" }}</td>             
+                    <td style="padding: 15px; text-align: center;"
+                    data-sort-value="{{ q.effective_date|date:'Y-m-d' }}">{{ q.effective_date|date:"Y-M-j" }}</td>   
+                    <td style="padding: 15px; text-align: center;"
+                    data-sort-value="{{ q.upload_date|date:'Y-m-d' }}">{{ q.upload_date|date:"Y-M-j" }}</td>             
                     <td style="padding: 15px; text-align: center;">{{ q.is_user_exclusive|yesno:"否,是" }}</td>
-                    <td style="padding: 15px; text-align: center;">{{ q.exclusive_user|default:"" }}</td>
+                    <td style="padding: 15px; text-align: center;" data-customer-value="{{ q.exclusive_user|default:'' }}">{{ q.exclusive_user|default:"" }}</td>
                     {% comment %} <td style="padding: 15px; text-align: center; {% if q.active %}color: #28a745; font-weight: bold;{% else %}color: #dc3545; font-style: italic;{% endif %}">
                         {% if q.active %}已启用{% else %}未启用{% endif %}
                     </td>
@@ -106,6 +124,18 @@
         overflow: hidden;
         text-overflow: ellipsis;
     } 
+    .sort-btn {
+        background: none;
+        border: none;
+        cursor: pointer;
+        margin-left: 5px;
+        font-size: 12px;
+        color: #6c757d;
+    }
+    
+    .sort-btn:hover {
+        color: #495057;
+    }
 </style>
 
 <script>
@@ -119,34 +149,109 @@
             userSelection.querySelector('select').removeAttribute('required');
         }
     });
+    let currentSortColumn = -1;
+    let currentSortDirection = 1; // 1: 升序, -1: 降序
+
+    function sortTable(columnIndex) {
+        const table = document.getElementById("quote-table");
+        const tbody = table.getElementsByTagName("tbody")[0];
+        const rows = Array.from(tbody.getElementsByTagName("tr"));
+        
+        // 如果点击的是同一列，切换排序方向
+        if (currentSortColumn === columnIndex) {
+            currentSortDirection = -currentSortDirection;
+        } else {
+            currentSortColumn = columnIndex;
+            currentSortDirection = 1;
+        }
+        
+        // 排序
+        rows.sort((a, b) => {
+            const aValue = a.cells[columnIndex].getAttribute('data-sort-value') || a.cells[columnIndex].textContent;
+            const bValue = b.cells[columnIndex].getAttribute('data-sort-value') || b.cells[columnIndex].textContent;
+            
+            // 日期比较
+            if (columnIndex === 1 || columnIndex === 2) {
+                const aDate = new Date(aValue);
+                const bDate = new Date(bValue);
+                return (aDate - bDate) * currentSortDirection;
+            }
+            
+            // 文本比较
+            return aValue.localeCompare(bValue) * currentSortDirection;
+        });
+        
+        // 重新插入排序后的行
+        rows.forEach(row => tbody.appendChild(row));
+        
+        // 更新排序按钮显示
+        updateSortButtons(columnIndex);
+    }
+
+    function updateSortButtons(sortedColumn) {
+        // 重置所有排序按钮
+        const sortButtons = document.querySelectorAll('.sort-btn');
+        sortButtons.forEach(btn => {
+            btn.textContent = '↕️';
+        });
+        
+        // 更新当前排序列的按钮
+        if (sortedColumn >= 0) {
+            const currentBtn = document.querySelector(`th:nth-child(${sortedColumn + 1}) .sort-btn`);
+            if (currentBtn) {
+                currentBtn.textContent = currentSortDirection === 1 ? '⬆️' : '⬇️';
+            }
+        }
+    }
+
     function filterTable() {
         const filenameInput = document.getElementById("filenameSearchInput");
+        const effectiveDateInput = document.getElementById("effectiveDateSearchInput");
+        const uploadDateInput = document.getElementById("uploadDateSearchInput");
         const customerInput = document.getElementById("customerSearchInput");
 
         const filenameFilter = filenameInput.value.trim().toUpperCase();
-        const customerFilter = customerInput.value.trim().toUpperCase();
+        const effectiveDateFilter = effectiveDateInput.value;
+        const uploadDateFilter = uploadDateInput.value;
+        const customerFilter = customerInput.value.trim();
 
         const table = document.getElementById("quote-table");
         const tbody = table.getElementsByTagName("tbody")[0];
         const tr = tbody.getElementsByTagName("tr");
 
-        const filenameParts = filenameFilter.split(/\W+/).filter(p => p); // 非空分组
+        const filenameParts = filenameFilter.split(/\W+/).filter(p => p);
 
         for (let i = 0; i < tr.length; i++) {
             const tds = tr[i].getElementsByTagName("td");
             const filenameTd = tds[0]; 
+            const effectiveDateTd = tds[1];
+            const uploadDateTd = tds[2];
             const customerTd = tds[4]; 
 
             if (filenameTd && customerTd) {
                 const filenameTxt = filenameTd.textContent.toUpperCase();
+                const effectiveDateValue = effectiveDateTd.getAttribute('data-sort-value');
+                const uploadDateValue = uploadDateTd.getAttribute('data-sort-value');
+                const customerValue = customerTd.getAttribute('data-customer-value');
                 const customerTxt = customerTd.textContent.toUpperCase();
 
                 let filenameMatch = filenameParts.length === 0 ? true :
                     filenameParts.some(part => filenameTxt.includes(part));
 
-                const customerMatch = customerTxt.includes(customerFilter);
+                const effectiveDateMatch = !effectiveDateFilter || effectiveDateValue === effectiveDateFilter;
+                const uploadDateMatch = !uploadDateFilter || uploadDateValue === uploadDateFilter;
+                let customerMatch = true;
+                if (customerFilter) {
+                    if (customerFilter.toUpperCase() === '#') {
+                        // 搜索空值
+                        customerMatch = customerValue === '';
+                    } else {
+                        // 正常搜索
+                        customerMatch = customerTxt.includes(customerFilter.toUpperCase());
+                    }
+                }
 
-                tr[i].style.display = (filenameMatch && customerMatch) ? "" : "none";
+                tr[i].style.display = (filenameMatch && effectiveDateMatch && uploadDateMatch && customerMatch) ? "" : "none";
             }
         }
     };

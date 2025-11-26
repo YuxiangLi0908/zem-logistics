@@ -81,6 +81,54 @@
         border-bottom: 1px solid #e9ecef;
         padding-bottom: 8px;
     }
+    .modalPO-table {
+        width: 100%;
+        table-layout: fixed;        /* 关键：让列宽可控且均等 */
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; /* 统一字体 */
+        font-size: 14px;            /* 统一字体大小 */
+        line-height: 1.4;           /* 统一行高 */
+        color: #333;                /* 统一字体颜色 */
+    }
+
+    .modalPO-table th,
+    .modalPO-table td {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        padding: 8px 12px;          /* 统一内边距 */
+        border-bottom: 1px solid #e9ecef; /* 统一边框 */
+    }
+
+    .modalPO-table th {
+        background-color: #f8f9fa;  /* 表头背景色 */
+        font-weight: 600;           /* 表头字体加粗 */
+        color: #495057;             /* 表头字体颜色 */
+        text-align: left;           /* 统一文本对齐 */
+    }
+
+    .modalPO-table td {
+        background-color: #fff;     /* 单元格背景色 */
+        font-weight: 400;           /* 正常字体粗细 */
+    }
+
+    .modalPO-table th:nth-child(2),
+    .modalPO-table td:nth-child(2) {
+        width: 200px;     /* REF */
+    }
+
+    .modalPO-table th:nth-child(3),
+    .modalPO-table td:nth-child(3) {
+        width: 180px;     /* FBA */
+    }
+    .modalPO-table th:nth-child(4),
+    .modalPO-table td:nth-child(4) {
+        width: 130px;     /* 柜号 */
+    }
+
+    /* 可选：添加行悬停效果 */
+    .modalPO-table tbody tr:hover td {
+        background-color: #f8f9fa;  /* 行悬停背景色 */
+    }
     .modal-table th:nth-child(1),
     .modal-table td:nth-child(1) {
         width: 200px; /* REF ID 列宽度 */
@@ -196,17 +244,27 @@
             group.suggestion.cargos.forEach(cargo => {
                 cargoRowsHTML += `
                     <tr>
+                        <td>
+                           <input type="checkbox"
+                            class="multi-cargo-checkbox"
+                            data-group-index="${index}"
+                            data-cargo-id="${cargo.ids}" 
+                            data-plt-id="${cargo.plt_ids}"
+                            checked>
+                        </td>
                         <td>${cargo.ref_ids || '-'}</td>
                         <td>${cargo.fba_ids || '-'}</td>
                         <td style="max-width: 150px; white-space: pre-line; font-size: 0.8rem;">${cargo.cns || '-'}</td>
+                        <td>${cargo.destination || '-'}</td>
                         <td>${cargo.offload_time || '-'}</td>
                         <td>${cargo.label === 'ACT' ? (cargo.total_n_pallet_act || 0) : (cargo.total_n_pallet_est || 0)}</td>
                         <td>${cargo.total_cbm || 0}</td>
+                        <td>${cargo.total_weight || 0}</td>
                     </tr>
                 `;
             });
         } else {
-            cargoRowsHTML = `<tr><td colspan="6" style="text-align: center; color: #999;">暂无货物数据</td></tr>`;
+            cargoRowsHTML = `<tr><td colspan="6" style="text-align: center; color: #999;">暂PO数据</td></tr>`;
         }
         let shipmentTypeOptionsHTML = '';
         {% for key, value in shipment_type_options.items %}
@@ -334,16 +392,23 @@
                 </div>
                 
                 <div class="form-section">
-                    <h4><i class="fas fa-box"></i> 货物列表 (${group.suggestion.cargos ? group.suggestion.cargos.length : 0}个货物)</h4>
-                    <table class="modal-table">
+                    <h4><i class="fas fa-box"></i> PO列表 (${group.suggestion.cargos ? group.suggestion.cargos.length : 0}组PO)</h4>
+                    <table class="modalPO-table">
                         <thead>
                             <tr>
+                                <th>
+                                    <input type="checkbox"
+                                        class="multi-cargo-check-all"
+                                        data-group-index="${index}" checked>
+                                </th>
                                 <th>REF ID</th>
                                 <th>FBA ID</th>
                                 <th>柜号</th>
+                                <th>目的地</th>
                                 <th>入仓时间</th>
                                 <th>板数</th>
                                 <th>CBM</th>
+                                <th>重量</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -386,9 +451,7 @@
 
     // 初始化多组表单数据
     function initializeMultiGroupForm(group, index) {
-        console.log(`初始化111第${index}个大组表单数据:`, group.suggestionId);
         const pg = group.suggestion.primary_group;
-        console.log('pg',pg.matched_shipment);
         let selectedShipment = null;
         if (pg.matched_shipment && Array.isArray(pg.matched_shipment)) {
             // 找到被选中的下拉框 option
@@ -582,6 +645,22 @@
             } else {
                 console.error(`找不到第${index}个大组的表单`);
             }
+            // ⬇️ 找所有勾选的 cargo
+            const checkedCargo = form.querySelectorAll('.multi-cargo-checkbox:checked');
+            const cargo_ids_checked = [];
+            const plt_ids_checked = [];
+
+            checkedCargo.forEach(cb => {
+                if (cb.dataset.cargoId) {  // 只收集非空 cargo_id
+                    cargo_ids_checked.push(cb.dataset.cargoId);
+                }
+                if (cb.dataset.pltId) {    // 只收集非空 plt_id
+                    plt_ids_checked.push(cb.dataset.pltId);
+                }
+            });
+
+            formData.cargo_ids_checked = cargo_ids_checked.join(',');
+            formData.plt_ids_checked = plt_ids_checked.join(',');
             
             bookingData.push(formData);
         });
@@ -600,5 +679,15 @@
     // 在页面加载完成后添加事件监听
     document.addEventListener('DOMContentLoaded', function() {
         addMultiGroupEventListeners();
+    });
+    document.addEventListener("change", function(e) {
+        if (e.target.classList.contains("multi-cargo-check-all")) {
+            const groupIndex = e.target.dataset.groupIndex;
+            const checked = e.target.checked;
+
+            document.querySelectorAll(
+                `.multi-group-form[data-index="${groupIndex}"] .multi-cargo-checkbox`
+            ).forEach(cb => cb.checked = checked);
+        }
     });
 </script>
