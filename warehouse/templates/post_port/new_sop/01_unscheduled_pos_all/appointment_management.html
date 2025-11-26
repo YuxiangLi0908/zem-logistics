@@ -188,6 +188,47 @@
     .btn:hover {
         opacity: 0.9;
     }
+    #editAppointmentModalSp .modal-content {
+        top: 55%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        position: fixed;
+    }
+    #editAppointmentModalSp .modal-body {
+        padding: 20px;
+    }
+
+    #editAppointmentModalSp .modal-table {
+        margin: 15px 0;
+        width: 100%;
+        border-collapse: collapse; /* 确保边框合并 */
+        border: 1px solid #dee2e6; /* 表格外边框 */
+    }
+
+    #editAppointmentModalSp .modal-table th,
+    #editAppointmentModalSp .modal-table td {
+        padding: 10px 12px;
+        border: 1px solid #dee2e6; /* 所有单元格边框 */
+    }
+
+    #editAppointmentModalSp .modal-table th {
+        background-color: #f8f9fa;
+        font-weight: 600;
+        text-align: left;
+        border-bottom: 2px solid #dee2e6; /* 表头底部加粗边框 */
+    }
+
+    #editAppointmentModalSp .modal-table tr:hover {
+        background-color: #f8f9fa; /* 行悬停效果 */
+    }
+    .search-inputa {
+        width: 80%;
+        padding: 4px 8px;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+        font-size: 0.8rem;
+        box-sizing: border-box;
+    }
 </style>
 
 <!-- 功能A：添加备约 -->
@@ -303,6 +344,37 @@
                 <th>Scheduled Time</th>
                 <th>装车类型</th>
                 <th>发货仓库</th>
+                <th>操作</th> 
+            </tr>
+            <tr class="search-row">
+                <td><input type="text" class="search-inputa" data-column="0" placeholder="搜索预约账号..."></td>
+                <td><input type="text" class="search-inputa" data-column="1" placeholder="搜索预约号..."></td>
+                <td><input type="text" class="search-inputa" data-column="2" placeholder="搜索shipment ID..."></td>
+                <td><input type="text" class="search-inputa" data-column="3" placeholder="搜索目的地..."></td>
+                <td>
+                    <div style="display: flex; gap: 5px; align-items: center;">
+                        <input type="date" class="datea-filter" id="pickupDateaFilter" data-column="4" placeholder="筛选日期">
+                        <button type="button" class="clear-datea-filter" onclick="clearDateFilter('pickupDateaFilter')" style="padding: 4px 8px; min-width: auto; font-size: 0.7rem; border: none; background: #dc3545; color: white; border-radius: 3px; cursor: pointer;">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                </td>
+                <td><input type="text" class="search-inputa" data-column="5" placeholder="搜索Pickup Number..."></td>
+                <td>
+                    <div style="display: flex; gap: 5px; align-items: center;">
+                        <input type="date" class="datea-filter" id="scheduledDateaFilter" data-column="6" placeholder="筛选日期">
+                        <button type="button" class="clear-datea-filter" onclick="clearDateFilter('scheduledDateaFilter')" style="padding: 4px 8px; min-width: auto; font-size: 0.7rem; border: none; background: #dc3545; color: white; border-radius: 3px; cursor: pointer;">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                </td>
+                <td><input type="text" class="search-inputa" data-column="7" placeholder="搜索装车类型..."></td>
+                <td><input type="text" class="search-inputa" data-column="8" placeholder="搜索发货仓库..."></td>
+                <td>
+                    <button type="button" class="btn btn-sm" onclick="clearSearch()" style="font-size: 0.75rem; padding: 4px 8px;">
+                        清除搜索
+                    </button>
+                </td>
             </tr>
         </thead>
         <tbody>
@@ -345,6 +417,11 @@
                     {{ s.load_type|default_if_none:"" }}
                 </td>
                 <td>{% if s.origin %}{{ s.origin }}{% endif %}</td>
+                <td>
+                    <button type="button" class="btn btn-warning" onclick="openEditModalSp('{{ s.appointment_id }}', '{{ s.shipment_account }}', '{{ s.shipment_cargo_id|default_if_none:"" }}', '{{ s.destination }}', '{{ s.pickup_time|date:"Y-m-d\\TH:i" }}', '{{ s.pickup_number }}', '{{ s.shipment_appointment|date:"Y-m-d\\TH:i" }}', '{{ s.load_type }}', '{{ s.origin }}')">
+                        <i class="fas fa-edit"></i> 修改
+                    </button>
+                </td>
             </tr>
             {% empty %}
             <tr>
@@ -371,10 +448,213 @@
     <button type="submit">提交</button>
 </form>
 
+<div id="editAppointmentModalSp" class="modal">
+    <div class="modal-content" style="width: 600px; max-width: 90%;">
+        <div class="modal-header">
+            <h3><i class="fas fa-edit"></i> 修改预约</h3>
+            <span class="close" onclick="closeEditModalSp()">&times;</span>
+        </div>
+        <div class="modal-body">
+            <form id="editAppointmentForm" method="post">
+                {% csrf_token %}
+                <input type="hidden" name="step" value="edit_appointment">
+                <input type="hidden" name="appointment_id" id="editModalAppointmentSpId">
+                <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                <input type="hidden" name="page" value="arm_appointment">          
+                <input type="hidden" name="active_tab" value="appointments">
+                <input type="hidden" name="st_type" value="{{ st_type }}">
+
+                <table class="modal-table">
+                    <tbody>
+                        <tr>
+                            <th>预约号</th>
+                            <td><input type="text" name="appointment_id_input" id="editModalAppointmentSpInput" class="form-input" required></td>
+                        </tr>
+                        <tr>
+                            <th>Scheduled Time</th>
+                            <td><input type="datetime-local" name="shipment_appointment" id="editModalScheduledTimeSp" class="form-input" required></td>
+                        </tr>
+                        <tr>
+                            <th>目的地</th>
+                            <td><input type="text" name="destination" id="editModalDestinationSp" class="form-input" required></td>
+                        </tr>
+                        <tr>
+                            <th>装车类型</th>
+                            <td>
+                                <select name="load_type" id="editModalLoadTypeSp" class="form-select">
+                                    {% for k, v in load_type_options %}
+                                    <option value="{{ v }}">{{ k }}</option>
+                                    {% endfor %}
+                                </select>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>发货仓库</th>
+                            <td>
+                                <select name="origin" id="editModalOriginSp" class="form-select">
+                                    {% for k, v in warehouse_options.items %}
+                                    <option value="{{ v }}">{{ k }}</option>
+                                    {% endfor %}
+                                </select>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>Pickup Time</th>
+                            <td><input type="datetime-local" name="pickup_time" id="editModalPickupTimeSp" class="form-input"></td>
+                        </tr>
+                        <tr>
+                            <th>Pickup Number</th>
+                            <td><input type="text" name="pickup_number" id="editModalPickupNumberSp" class="form-input"></td>
+                        </tr>
+                        <tr>
+                            <th>Shipment id</th>
+                            <td><input type="text" name="shipment_cargo_id" id="editModalShipmentIdSp" class="form-input"></td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <div class="modal-actions">
+                    <button type="submit" class="modal-btn modal-btn-success">
+                        <i class="fas fa-check"></i> 保存修改
+                    </button>
+                    <button type="button" class="modal-btn modal-btn-danger" onclick="closeEditModalSp()">
+                        <i class="fas fa-times"></i> 取消
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         addAppointmentFormEventListeners();
+        // 为所有搜索框添加输入事件监听
+        const searchInputs = document.querySelectorAll('.search-inputa');
+        searchInputs.forEach(input => {
+            input.addEventListener('input', function() {
+                performSearch();
+            });
+        });
+        
+        // 为日期筛选器添加事件监听
+        const dateFilters = document.querySelectorAll('.datea-filter');
+        dateFilters.forEach(filter => {
+            filter.addEventListener('change', function() {
+                performSearch();
+            });
+        });
     });
+    function performSearch() {
+        const searchInputs = document.querySelectorAll('.search-inputa');
+        const dateFilters = document.querySelectorAll('.datea-filter');
+        const rows = document.querySelectorAll('.appointment-data-table tbody tr');
+        let hasSearch = false;
+        
+        // 收集所有搜索条件
+        const searchConditions = [];
+        
+        // 文本搜索条件
+        searchInputs.forEach(input => {
+            const value = input.value.trim().toLowerCase();
+            const column = parseInt(input.getAttribute('data-column'));
+            if (value) {
+                searchConditions.push({ column, value, type: 'text' });
+                hasSearch = true;
+            }
+        });
+        
+        // 日期搜索条件
+        dateFilters.forEach(filter => {
+            const value = filter.value.trim();
+            const column = parseInt(filter.getAttribute('data-column'));
+            if (value) {
+                searchConditions.push({ column, value, type: 'date' });
+                hasSearch = true;
+            }
+        });
+        
+        rows.forEach(row => {
+            const cells = row.querySelectorAll('td');
+            let shouldShow = true;
+            
+            // 检查是否满足所有搜索条件
+            searchConditions.forEach(condition => {
+                const cell = cells[condition.column];
+                if (cell) {
+                    const cellText = cell.textContent.toLowerCase().trim();
+                    
+                    if (condition.type === 'text') {
+                        // 文本搜索
+                        if (!cellText.includes(condition.value)) {
+                            shouldShow = false;
+                        }
+                    } else if (condition.type === 'date') {
+                        // 日期搜索 - 精确匹配日期部分
+                        const cellDate = cellText.split(' ')[0]; // 取日期部分（忽略时间）
+                        if (cellDate !== condition.value) {
+                            shouldShow = false;
+                        }
+                    }
+                }
+            });
+            
+            // 显示或隐藏行
+            row.style.display = shouldShow ? '' : 'none';
+            
+            // 高亮显示匹配的文本（只对文本搜索有效）
+            if (shouldShow && hasSearch) {
+                cells.forEach((cell, index) => {
+                    const originalHTML = cell.innerHTML;
+                    let newHTML = originalHTML;
+                    
+                    searchConditions.forEach(condition => {
+                        if (condition.type === 'text' && condition.column === index) {
+                            const regex = new RegExp(`(${escapeRegExp(condition.value)})`, 'gi');
+                            newHTML = newHTML.replace(regex, '<span class="highlight">$1</span>');
+                        }
+                    });
+                    
+                    cell.innerHTML = newHTML;
+                });
+            } else if (!hasSearch) {
+                // 清除所有高亮
+                cells.forEach(cell => {
+                    const originalHTML = cell.innerHTML;
+                    const newHTML = originalHTML.replace(/<span class="highlight">(.*?)<\/span>/g, '$1');
+                    cell.innerHTML = newHTML;
+                });
+            }
+        });
+    }
+
+    function clearSearch() {
+        // 清空所有搜索框
+        const searchInputs = document.querySelectorAll('.search-inputa');
+        searchInputs.forEach(input => {
+            input.value = '';
+        });
+        
+        // 清空日期筛选器
+        const dateFilters = document.querySelectorAll('.datea-filter');
+        dateFilters.forEach(filter => {
+            filter.value = '';
+        });
+        
+        // 重新执行搜索（会清除高亮和显示所有行）
+        performSearch();
+    }
+
+    function clearDateFilter(filterId) {
+        const filter = document.getElementById(filterId);
+        if (filter) {
+            filter.value = '';
+            performSearch();
+        }
+    }
+
+    function escapeRegExp(string) {
+        return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
     // 自动生成 pickup number 的函数
     function generateAppointmentPickupNumber() {
         const shipmentAccountSelect = document.getElementById('manage-shipment-account-select');
@@ -432,6 +712,28 @@
         }
         
         return pickupNumber;
+    }
+    // 打开修改模态框并填充数据
+    function openEditModalSp(appointmentId, shipmentAccount, shipmentCargoId, destination, pickupTime, pickupNumber, shipmentAppointment, loadType, origin) {
+        // 填充到模态框
+        const safePickupNumber = (pickupNumber === 'None' || pickupNumber === 'null' || pickupNumber === '') ? '' : pickupNumber;
+        document.getElementById('editModalAppointmentSpId').value = appointmentId;
+        document.getElementById('editModalAppointmentSpInput').value = appointmentId;
+        document.getElementById('editModalScheduledTimeSp').value = shipmentAppointment;
+        document.getElementById('editModalDestinationSp').value = destination;
+        document.getElementById('editModalLoadTypeSp').value = loadType;
+        document.getElementById('editModalOriginSp').value = origin;
+        document.getElementById('editModalPickupTimeSp').value = pickupTime;
+        document.getElementById('editModalPickupNumberSp').value = pickupNumber;
+        document.getElementById('editModalShipmentIdSp').value = shipmentCargoId;
+
+        // 显示模态框
+        document.getElementById('editAppointmentModalSp').style.display = 'block';
+    }
+
+    // 关闭模态框
+    function closeEditModalSp() {
+        document.getElementById('editAppointmentModalSp').style.display = 'none';
     }
 
     // 生成随机码函数
