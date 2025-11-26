@@ -2149,6 +2149,7 @@ class FleetManagement(View):
             arm_pickup = [
                 [
                     "container_number__container_number",
+                    "zipcode",
                     "destination",
                     "shipping_mark",
                     "shipment_batch_number__ARM_PRO",
@@ -2162,9 +2163,9 @@ class FleetManagement(View):
             if has_slot_column:
                 arm_pickup[0].append("slot")
             for row in customerInfo:
-                if row[8] != "" and "None" not in row[8]:
+                if row[9] != "" and "None" not in row[8]:
                     contact_flag = True
-                    contact = row[8]
+                    contact = row[9]
                     contact = re.sub("[\u4e00-\u9fff]", " ", contact)
                     contact = re.sub(r"\uFF0C", ",", contact)
                     new_contact = contact.split(";")
@@ -2184,7 +2185,7 @@ class FleetManagement(View):
                         int(row[4].strip()),
                         int(row[5].strip()),
                         row[6].strip(),
-                        row[9].strip(),
+                        row[7].strip(),
                         (
                             row[10].strip()
                             if len(row) > 10 and row[10] is not None
@@ -2235,7 +2236,7 @@ class FleetManagement(View):
             arm_pro = arm["shipment_batch_number__ARM_PRO"]
             carrier = arm["shipment_batch_number__fleet_number__carrier"]
             pallet += arm["total_pallet"]
-            pcs += arm["total_pcs"]
+            pcs += int(arm["total_pcs"])
             container_number = arm["container_number__container_number"]
             destination = arm["destination"]
             shipping_mark += arm["shipping_mark"]
