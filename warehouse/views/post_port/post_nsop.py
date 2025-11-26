@@ -3280,14 +3280,23 @@ class PostNsop(View):
             grouped_data[batch_number]['cargos'].append(item)
         
         # 查询没有货物的shipment记录
-        base_q = Q(
-            Q(fleet_number__isnull=False, fleet_number__is_virtual=True) |
-            Q(fleet_number__isnull=True),
-            shipment_appointment__gt=target_date,
-            shipment_type='FTL',
-            is_canceled=False,
-            in_use=True,
-        )
+        if four_major_whs == "four_major_whs":
+            base_q = Q(
+                shipped_at__isnull=True,
+                shipment_appointment__gt=target_date,
+                shipment_type='FTL',
+                is_canceled=False,
+                in_use=True,
+            )
+        else:
+            base_q = Q(
+                Q(fleet_number__isnull=False, fleet_number__is_virtual=True) |
+                Q(fleet_number__isnull=True),
+                shipment_appointment__gt=target_date,
+                shipment_type='FTL',
+                is_canceled=False,
+                in_use=True,
+            )
         if four_major_whs == "four_major_whs":
             base_q &= models.Q(destination__in=FOUR_MAJOR_WAREHOUSES)
         exclude_q = ~Q(shipment_batch_number__in=processed_batch_numbers)
