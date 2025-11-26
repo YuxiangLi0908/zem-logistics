@@ -1379,7 +1379,7 @@ class PostNsop(View):
             old_shipment.shipment_cargo_id = shipment_cargo_id           
             old_shipment.is_canceled = False
             old_shipment.status = ""
-            if page != "01_appointment":
+            if page != "01_appointment" and page != "arm_appointment":
                 old_shipment.in_use = True
             await sync_to_async(old_shipment.save)()         
             context.update( {'success_messages':f"{appointment_id_old}预约信息修改成功！"})
@@ -1404,7 +1404,7 @@ class PostNsop(View):
                 old_shipment.is_canceled = False
                 old_shipment.status = ""
                 old_shipment.shipment_appointment = shipment_appointment if shipment_appointment else None
-                if page != "01_appointment":
+                if page != "01_appointment" and page != "arm_appointment":
                     old_shipment.in_use = True
                 await sync_to_async(old_shipment.save)()
             if name == "fleet_departure":
