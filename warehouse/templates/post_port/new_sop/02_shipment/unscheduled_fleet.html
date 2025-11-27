@@ -247,13 +247,13 @@
                     <thead>
                         <tr>
                             <th>预约批次</th>
-                            <th>目的地</th>
                             <th>预约号</th>
-                            <th>Scheduled Time</th>
-                            <th>备注</th>
+                            <th>目的地</th>                         
+                            <th>Scheduled Time</th>                         
                             <th>总重lbs</th>
                             <th>总CBM</th>
                             <th>总卡板数</th>
+                            <th>备注</th>
                         </tr>
                     </thead>
                     <tbody id="fleetShipmentTableBody">
@@ -312,13 +312,14 @@
                 const newRow = document.createElement("tr");
                 newRow.innerHTML = `
                     <td style="max-width: 120px; word-break: break-all;">${cells[1].innerText}</td>
-                    <td>${cells[2].innerText}</td>
                     <td>${cells[3].innerText}</td>
+                    <td>${cells[2].innerText}</td>                
                     <td style="max-width: 150px; word-break: break-all;">${cells[4].innerText}</td>
-                    <td style="max-width: 120px; word-break: break-all;">${cells[8].innerText}</td>
-                    <td>${cells[5].innerText}</td>
                     <td>${cells[6].innerText}</td>
                     <td>${cells[7].innerText}</td>
+                    <td style="max-width: 120px; word-break: break-all;">${cells[8].innerText}</td>
+                    <td>${cells[9].innerText}</td>
+                    
                 `;
                 tbody.appendChild(newRow);
             });
