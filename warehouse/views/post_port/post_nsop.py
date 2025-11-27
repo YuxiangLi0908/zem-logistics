@@ -60,6 +60,7 @@ from warehouse.views.po import PO
 from warehouse.utils.constants import (
     LOAD_TYPE_OPTIONS,
     amazon_fba_locations,
+    NJ_DES,SAV_DES,LA_DES
 )
 FOUR_MAJOR_WAREHOUSES = ["ONT8", "LAX9", "LGB8", "SBD1"]
 
@@ -69,6 +70,7 @@ class PostNsop(View):
     template_td_unshipment = "post_port/new_sop/02_1_shipment/unscheduled_section.html"
     template_fleet_schedule = "post_port/new_sop/03_fleet_schedule/03_fleet_schedule.html"
     template_unscheduled_pos_all = "post_port/new_sop/01_unscheduled_pos_all/01_unscheduled_main.html"
+    template_history_shipment = "post_port/new_sop/04_history_shipment/04_history_shipment_main.html"
     area_options = {"NJ": "NJ", "SAV": "SAV", "LA": "LA", "MO": "MO", "TX": "TX", "LA": "LA"}
     warehouse_options = {"":"", "NJ-07001": "NJ-07001", "SAV-31326": "SAV-31326", "LA-91761": "LA-91761", "LA-91789": "LA-91789"}
     load_type_options = {
@@ -136,6 +138,9 @@ class PostNsop(View):
         elif step == "unscheduled_pos_all":
             template, context = await self.handle_unscheduled_pos_all_get(request)
             return render(request, template, context)
+        elif step == "history_shipment":
+            context = {"warehouse_options": self.warehouse_options}
+            return render(request, self.template_history_shipment, context)
         else:
             raise ValueError('输入错误')
 
@@ -158,6 +163,9 @@ class PostNsop(View):
             return render(request, template, context)
         elif step == "fleet_schedule_warehouse":
             template, context = await self.handle_fleet_schedule_post(request)
+            return render(request, template, context)
+        elif step == "history_shipment_warehouse":
+            template, context = await self.handle_history_shipment_post(request)
             return render(request, template, context)
         elif step == "export_pos":
             return await self.handle_export_pos(request)
@@ -2401,11 +2409,7 @@ class PostNsop(View):
                         "is_dropped_pallet": item["is_dropped_pallet"],
                     })         
             fleet_obj.detailed_shipments = json.dumps(detailed_shipments) 
-        context = {
-            "shipment_list": shipment_list,
-            "fleet_list": fleet,
-        }
-        return context
+        return fleet
 
     async def _fl_delivery_get(
         self, warehouse:str, four_major_whs: str | None = None
@@ -2644,7 +2648,318 @@ class PostNsop(View):
         context["matching_suggestions_json"] = json.dumps(matching_suggestions, cls=DjangoJSONEncoder)
         context["warehouse_json"] = json.dumps(warehouse, cls=DjangoJSONEncoder)
         return self.template_td_unshipment, context
+    
+    async def _history_scheduled_data(self, warehouse: str, user, start_date, end_date) -> list:
+        """获取已排约数据 - 按shipment_batch_number分组"""
+        # 获取有shipment_batch_number但fleet_number为空的货物
+        base_q = models.Q(
+            shipment_appointment__gte=start_date,
+            shipment_appointment__lte=end_date,
+        )
+        if "LA" in warehouse:
+            # LA仓库：目的地要在LA_DES内，或者不在NJ_DES和SAV_DES内
+            base_q &= (
+                models.Q(destination__in=LA_DES) |
+                ~models.Q(destination__in=NJ_DES + SAV_DES)
+            )
+        elif "NJ" in warehouse:
+            # NJ仓库：目的地要在NJ_DES内，或者不在LA_DES和SAV_DES内
+            base_q &= (
+                models.Q(destination__in=NJ_DES) |
+                ~models.Q(destination__in=LA_DES + SAV_DES)
+            )
+        elif "SAV" in warehouse:
+            # SAV仓库：目的地要在SAV_DES内，或者不在LA_DES和NJ_DES内
+            base_q &= (
+                models.Q(destination__in=SAV_DES) |
+                ~models.Q(destination__in=LA_DES + NJ_DES)
+            )
+        else:
+            # 其他仓库：使用默认逻辑，或者根据具体需求调整
+            pass
+        shipment_list = await sync_to_async(list)(
+            Shipment.objects.filter(base_q)
+            .order_by("shipment_appointment")
+        )
+        result = []
+    
+        for shipment in shipment_list:
+            # 初始化统计变量
+            total_weight = 0.0
+            total_cbm = 0.0
+            total_pallet = 0  # 从0开始计数
+            
+            # 构建基础shipment信息
+            shipment_data = {
+                'shipment_batch_number': shipment.shipment_batch_number,
+                'appointment_id': shipment.appointment_id,
+                'shipment_cargo_id': shipment.shipment_cargo_id,
+                'destination': shipment.destination,
+                'shipment_appointment': shipment.shipment_appointment,
+                'pickup_time': shipment.pickup_time,
+                'load_type': shipment.load_type,
+                'shipment_account': shipment.shipment_account,
+                'origin': shipment.origin,
+                'pickup_time': shipment.pickup_time,
+                'pickup_number': shipment.pickup_number,
+                'in_use': shipment.in_use,
+                'is_canceled': shipment.is_canceled,
+                'is_notified_customer': shipment.is_notified_customer,
+                'cargos': []  # 绑定的PO列表
+            }
+            
+            # 查询关联的packinglist (有入仓时间的)
+            packinglists = await sync_to_async(list)(
+                PackingList.objects.select_related("container_number").filter(
+                    shipment_batch_number=shipment,
+                    container_number__order__offload_id__offload_at__isnull=False
+                )
+            )
+            
+            # 查询关联的pallet (有入仓时间的)
+            pallets = await sync_to_async(list)(
+                Pallet.objects.select_related("container_number").filter(
+                    shipment_batch_number=shipment,
+                    container_number__order__offload_id__offload_at__isnull=False
+                )
+            )
+            containers = []
+            # 处理packinglist数据并计算统计
+            for pl in packinglists:
+                # 计算重量
+                pl_weight = pl.total_weight_lbs or 0.0
+                total_weight += pl_weight
+                
+                # 计算体积
+                pl_cbm = pl.cbm or 0.0
+                total_cbm += pl_cbm
+                
+                # 计算板数 - 优先使用实际板数，如果没有则根据CBM估算
+                pl_pallet = math.ceil(pl_cbm / 2) if pl_cbm > 0 else 0
+                
+                total_pallet += pl_pallet
+                
+                cargo_data = {
+                    'ids': str(pl.id),
+                    'plt_ids': '',
+                    'ref_ids': pl.ref_id or '',
+                    'fba_ids': pl.fba_id or '',
+                    'cns': pl.container_number.container_number if pl.container_number else '',
+                    'destination': pl.destination or '',
+                    'total_pallet': total_pallet,
+                    'total_weight_lbs': pl_weight,
+                    'total_cbm': pl_cbm,
+                    'label': 'EST',
+                    'offload_time': None,
+                    'note_sp': pl.note_sp or ''
+                }
+                shipment_data['cargos'].append(cargo_data)
+                containers.append(f"{pl.container_number.container_number} - {pl.destination}")
+            
+            # 处理pallet数据并计算统计
+            for pallet in pallets:
+                # 计算重量
+                pallet_weight = pallet.weight_lbs or 0.0
+                total_weight += pallet_weight
+                
+                # 计算体积
+                pallet_cbm = pallet.cbm or 0.0
+                total_cbm += pallet_cbm
+                
+                # 每个pallet算1板
+                pallet_count = 1
+                total_pallet += pallet_count
+                
+                cargo_data = {
+                    'ids': '',
+                    'plt_ids': str(pallet.id),
+                    'ref_ids': pallet.ref_id or '',
+                    'fba_ids': pallet.fba_id or '',
+                    'cns': pallet.container_number.container_number if pallet.container_number else '',
+                    'destination': pallet.destination or '',
+                    'total_pallet': total_pallet,  # 实际计算的板数
+                    'total_weight_lbs': pallet_weight,
+                    'total_cbm': pallet_cbm,
+                    'label': 'ACT',
+                    'offload_time': None,
+                    'note_sp': pallet.note_sp or ''
+                }
+                shipment_data['cargos'].append(cargo_data)
+                containers.append(f"{pallet.container_number.container_number} - {pallet.destination}")
+            containers = list(set(containers))
+            new_containers = '\n'.join(set(containers))
+            # 更新shipment的总统计信息
+            shipment_data.update({
+                'total_weight': float(round(total_weight, 3)),
+                'total_cbm': float(round(total_cbm, 3)),
+                'total_pallet': int(total_pallet),
+                'shipped_weight': float(round(total_weight, 3)),
+                'shipped_cbm': float(round(total_cbm, 3)),
+                'shipped_pallet': int(total_pallet),
+                'container_numbers': new_containers
+            })
+            
+            # 异步更新数据库中的shipment记录
+            shipment.total_weight = total_weight
+            shipment.total_cbm = total_cbm
+            shipment.total_pallet = total_pallet
+            shipment.shipped_weight = total_weight
+            shipment.shipped_cbm = total_cbm
+            shipment.shipped_pallet = total_pallet
+            await sync_to_async(shipment.save)()
+            
+            result.append(shipment_data)
+    
+
+        return result
+    
+    async def _history_scheduled_fleet_data(self, warehouse: str, user, start_date, end_date) -> list:
+        fl_base_q = models.Q(
+            origin=warehouse,
+            fleet_type="FTL",
+            appointment_datetime__gte=start_date,
+            appointment_datetime__lte=end_date,
+        )
+        fleet = await sync_to_async(list)(
+            Fleet.objects.filter(fl_base_q)
+            .prefetch_related("shipment")
+            .annotate(
+                shipment_batch_numbers=StringAgg(
+                    "shipment__shipment_batch_number", delimiter=","
+                ),
+                appointment_ids=StringAgg("shipment__appointment_id", delimiter=","),
+            )
+            .order_by("appointment_datetime")
+        )
+        # 在获取fleet列表后，添加具体柜号、仓点等详情
+        for fleet_obj in fleet:
+            detailed_shipments = []
+            
+            # 获取该车队的所有shipment
+            shipments = await sync_to_async(list)(fleet_obj.shipment.all())
+            if shipments:
+                all_notified = all(shipment.is_notified_customer for shipment in shipments)
+                fleet_obj.is_notified_customer = all_notified
+            else:
+                fleet_obj.is_notified_customer = False
+
+            for shipment in shipments:
+                shipment_batch_number = shipment.shipment_batch_number
+                
+                packinglists = await sync_to_async(list)(
+                    PackingList.objects.filter(
+                        shipment_batch_number__shipment_batch_number=shipment_batch_number,
+                        container_number__order__offload_id__offload_at__isnull=True
+                    ).select_related('container_number')
+                    .values('container_number__container_number', 'destination')
+                    .annotate(
+                        total_cbm=Sum('cbm'),
+                        pallet_count=ExpressionWrapper(
+                            Sum('cbm') / 2, 
+                            output_field=FloatField()
+                        )
+                    )
+                )
+                pallets = await sync_to_async(list)(
+                    Pallet.objects.filter(
+                        shipment_batch_number__shipment_batch_number=shipment_batch_number,
+                        container_number__order__offload_id__offload_at__isnull=False
+                    ).select_related('container_number')
+                    .values('container_number__container_number', 'destination','is_dropped_pallet')
+                    .annotate(
+                        total_cbm=Sum('cbm'),
+                        pallet_count=Count('id')  # pallet的板数就是数量
+                    )
+                )
+                
+                # 构建统一格式的数据
+                for item in packinglists:
+                    detailed_shipments.append({
+                        "type": "EST",
+                        "container_number": item["container_number__container_number"],
+                        "destination": item["destination"],
+                        "cbm": float(item["total_cbm"]) if item["total_cbm"] else 0,
+                        "pallet_count": math.ceil(float(item["pallet_count"])) if item["pallet_count"] else 0,  # 向上取整
+                        "shipment_batch_number": shipment_batch_number if shipment_batch_number else "",
+                        "appointment_id": shipment.appointment_id,
+                        "scheduled_time": shipment.shipment_appointment.strftime("%Y-%m-%d %H:%M") if shipment.shipment_appointment else "",
+                        "note": shipment.note or "",
+                        "is_dropped_pallet": False,
+                    })
+                
+                for item in pallets:
+                    detailed_shipments.append({
+                        "type": "ACT",
+                        "container_number": item["container_number__container_number"],
+                        "destination": item["destination"],
+                        "cbm": float(item["total_cbm"]) if item["total_cbm"] else 0,
+                        "pallet_count": item["pallet_count"] or 0,
+                        "shipment_batch_number": shipment_batch_number if shipment_batch_number else "",
+                        "appointment_id": shipment.appointment_id,
+                        "scheduled_time": shipment.shipment_appointment.strftime("%Y-%m-%d %H:%M") if shipment.shipment_appointment else "",
+                        "note": shipment.note or "",
+                        "is_dropped_pallet": item["is_dropped_pallet"],
+                    })         
+            fleet_obj.detailed_shipments = json.dumps(detailed_shipments) 
+        return fleet
+    
+    async def handle_history_shipment_post(
+        self, request: HttpRequest, context: dict| None = None, 
+    ) -> tuple[str, dict[str, Any]]:
+        warehouse = request.POST.get("warehouse")
+        if not warehouse:
+            if context:
+                context.update({
+                    "error_messages": "未选择仓库!",
+                    'warehouse_options': self.warehouse_options
+                })
+            else:
+                context = {
+                    "error_messages":"未选择仓库!",
+                    'warehouse_options': self.warehouse_options,
+                }
+            return self.template_history_shipment, context
+        start_date = request.POST.get("start_date")
+        end_date = request.POST.get("end_date")
+        current_date = datetime.now().date()
+        start_date = (
+            (current_date + timedelta(days=-30)).strftime("%Y-%m-%d")
+            if not start_date
+            else start_date
+        )
+        end_date = current_date.strftime("%Y-%m-%d") if not end_date else end_date
         
+        #已排约
+        scheduled_data = await self._history_scheduled_data(warehouse, request.user, start_date, end_date)
+
+        #已排车
+        schedule_fleet_data = await self._fl_unscheduled_data(request, warehouse)
+        print('已排车',schedule_fleet_data)
+        if not context:
+            context = {}
+        else:
+            # 防止传入的 context 被意外修改
+            context = context.copy()
+        summary = {
+            'shipments':len(scheduled_data),
+            'fleets': len(schedule_fleet_data),
+        }
+        context.update({
+            'warehouse': warehouse,
+            'scheduled_data': scheduled_data,
+            'fleet_list': schedule_fleet_data,   #已排车
+            'warehouse_options': self.warehouse_options,
+            "account_options": self.account_options,
+            "load_type_options": self.load_type_options,
+            "shipment_type_options": self.shipment_type_options,
+            "carrier_options": self.carrier_options,
+            'active_tab': request.POST.get('active_tab'),
+            'summary': summary,
+            'start_date': start_date,
+            'end_date': end_date,
+        }) 
+        return self.template_history_shipment, context
+    
     async def handle_td_shipment_post(
         self, request: HttpRequest, context: dict| None = None, matching_suggestions: dict | None = None,
     ) -> tuple[str, dict[str, Any]]:
@@ -3215,13 +3530,12 @@ class PostNsop(View):
                 container_number__order__warehouse__name=warehouse,
                 shipment_batch_number__isnull=False,             
                 container_number__order__offload_id__offload_at__isnull=True,
-                shipment_batch_number__shipment_batch_number__isnull=False,
                 shipment_batch_number__shipment_appointment__gt=target_date,
                 shipment_batch_number__fleet_number__isnull=True,
                 delivery_type='public',
             )
         plt_criteria = models.Q(
-                shipment_batch_number__shipment_batch_number__isnull=False,
+                shipment_batch_number__isnull=False,
                 shipment_batch_number__shipment_appointment__gt=target_date,
                 container_number__order__offload_id__offload_at__isnull=False,
                 shipment_batch_number__fleet_number__isnull=True,

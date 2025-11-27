@@ -523,8 +523,27 @@ PORT_TO_WAREHOUSE_AREA = {
     "TraPac LA": "LA",
     "NTCT": "NJ",
 }
-
-
+NJ_DES = [
+    "ABE3", "ABE4", "ABE8", "ACY2", "AKR1", "ALB1", "AVP1", "AVP9", "BOS7", 
+    "BWI4", "CHO1", "CLT2", "CMH2", "CMH3", "DCA6", "DET1", "DET2", "FWA4", 
+    "HEA2", "HGR2", "HGR6", "HIA1", "ILG1", "IUSL", "IUST", "LBE1", "MDT1", 
+    "MDT4", "ORF2", "PHL4", "PHL5", "PHL6", "PIT2", "RMN3", "SWF1", "SWF2", 
+    "TEB3", "TEB4", "TEB6", "TEB9", "TTN2", "WBW2", "XEW5", "XLX1", "XRI3"
+]
+SAV_DES = [
+    "BNA2", "BNA6", "CHA2", "CLT2", "CLT3", "CLT6", "GSO1", "GSP1", "HSV1",
+    "HSV2", "IUSR", "JAX3", "MCO2", "MEM1", "MEM6", "MEM8", "MGE1", "MGE3",
+    "PBI2", "PBI3", "RDU2", "RDU4", "RYY2", "SAV3", "TMB8", "TPA2", "TPA3",
+    "TPA6", "XLX6"
+]
+LA_DES = [
+    "ABQ2", "FAT2", "FTW5", "FTW1", "FWA4", "GEU2", "GEU3", "GEU5", "GYR2",
+    "GYR3", "HLI2", "IND9", "IUSJ", "IUSP", "IUSQ", "IUTE", "IUTH", "LAS1",
+    "LAX9", "LGB4", "LGB6", "LGB8", "LIT2", "MCE1", "MDW6", "MEM1", "MIT2",
+    "MQJ1", "OAK3", "ONT8", "ORD2", "POC1", "POC2", "POC3", "PHX7", "PHX5",
+    "SBD1", "SBD2", "SCK1", "SCK4", "SCK8", "SMF3", "SMF6", "SNA4", "TCY1",
+    "TCY2", "VGT2", "XLX7"
+]
 file_path = Path(__file__).parent.resolve().joinpath("fba_fulfillment_center.yaml")
 with open(file_path, "r", encoding="utf-8") as f:
     amazon_fba_locations = yaml.safe_load(f)
