@@ -109,7 +109,7 @@
                         <tr style="position: sticky; top: 0;">
                             <th class="th">客户</th>
                             <th class="th">货柜号</th>
-                            <th class="th">建单日期</th>
+                            <th class="th">实际提柜日期</th>
                         </tr>
                         <tr style="position: sticky; top: 28px;">
                             <th class="th"></th>
@@ -124,7 +124,7 @@
                                 <td class="td">
                                     <a href="/accounting/?step=container_preport&container_number={{ c.container_number }}&start_date={{ start_date }}&end_date={{ end_date }}">{{ c.container_number }}</a>
                                 </td>
-                                <td class="td">{{ c.created_at|date:"Y-m-d" }}</td>
+                                <td class="td">{{ c.retrieval_id.actual_retrieval_timestamp|date:"Y-m-d" }}</td>
                             </tr>
                         {% endfor %}
                     </tbody>
