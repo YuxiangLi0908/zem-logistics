@@ -1,0 +1,433 @@
+{% load custom_filters %}
+<style>
+    .search-row {
+        background-color: #f8f9fa;
+    }
+    .search-row td {
+        padding: 5px !important;
+        border-bottom: 1px solid #dee2e6;
+    }
+    .header-search {
+        width: 100%;
+        padding: 4px 8px;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+        font-size: 0.8rem;
+    }
+    .date-search {
+        width: 100%;
+        padding: 4px 8px;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+        font-size: 0.8rem;
+    }
+    
+    .shipment-batch-link {
+        color: var(--primary-color);
+        cursor: pointer;
+        text-decoration: underline;
+        font-weight: bold;
+    }
+    .shipment-batch-link:hover {
+        color: #2980b9;
+    }
+    
+    .status-badge {
+        display: inline-block;
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-size: 0.7rem;
+        font-weight: 600;
+        margin: 0 2px;
+    }
+    .status-active { background: #d4edda; color: #155724; }
+    .status-inactive { background: #e2e3e5; color: #383d41; }
+    
+    .cancel-status-badge {
+        display: inline-block;
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-size: 0.7rem;
+        font-weight: 600;
+        margin: 0 2px;
+    }
+    .cancel-status-yes { background: #f8d7da; color: #721c24; }
+    .cancel-status-no { background: #d4edda; color: #155724; }
+    
+    .filter-notice {
+        background-color: #f8f9fa;
+        border-left: 4px solid #6c757d;
+        padding: 10px 15px;
+        margin-bottom: 15px;
+        border-radius: 4px;
+        font-size: 14px;
+        color: #495057;
+    }
+    
+    .container-numbers-col {
+        max-width: 200px;
+        min-width: 150px;
+        white-space: pre-line;
+        word-break: break-all;
+        font-size: 0.8rem;
+        line-height: 1.4;
+    }
+    
+    .note-col {
+        max-width: 150px;
+        min-width: 100px;
+        word-break: break-word;
+        font-size: 0.8rem;
+    }
+    
+    .notification-col {
+        text-align: center;
+    }
+    
+    .action-btn {
+        display: block;
+        width: 100%;
+        padding: 4px 8px;
+        margin: 2px 0;
+        font-size: 0.75rem;
+        border: none;
+        border-radius: 3px;
+        cursor: pointer;
+        text-align: center;
+    }
+    .btn-primary { background: #007bff; color: white; }
+    .btn-secondary { background: #6c757d; color: white; }
+    .btn-success { background: #28a745; color: white; }
+    .btn-warning { background: #ffc107; color: black; }
+    .btn-info { background: #17a2b8; color: white; }
+</style>
+
+<div class="filter-notice">
+    <i class="fas fa-filter"></i> 
+    当前显示 <strong>{{ warehouse }}</strong> 仓库的
+    <strong>所有</strong>历史排约
+</div>
+
+<div class="table-container">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th data-field="shipment_batch">预约批次</th>
+                <th data-field="appointment_id">预约号</th>
+                <th data-field="destination">目的地</th>
+                <th data-field="shipment_appointment">预约时间</th>
+                <th data-field="pickup_time">Pickup Time</th>
+                <th data-field="load_type">装车类型</th>
+                <th data-field="container_numbers">柜号</th>
+                <th data-field="status">使用状态</th>
+                <th data-field="cancel_status">取消状态</th>
+                <th data-field="pallet_count">板数</th>
+                <th data-field="cbm">CBM</th>                    
+                <th data-field="note">备注</th>
+                <th data-field="notification">通知客户</th>
+                {% if user.is_authenticated %}
+                <th data-field="actions">操作</th>
+                {% endif %}
+            </tr>
+            <tr class="search-row">
+                <td><input type="text" class="header-search" placeholder="搜索预约批次" data-field="shipment_batch"></td>
+                <td><input type="text" class="header-search" placeholder="搜索预约号" data-field="appointment_id"></td>
+                <td><input type="text" class="header-search" placeholder="搜索目的地" data-field="destination"></td>
+                <td><input type="date" class="date-search" data-field="shipment_appointment"></td>
+                <td><input type="date" class="date-search" data-field="pickup_time"></td>
+                <td><input type="text" class="header-search" placeholder="搜索装车类型" data-field="load_type"></td>
+                <td><input type="text" class="header-search" placeholder="搜索柜号" data-field="container_numbers"></td>
+                <td>
+                    <select class="header-search" data-field="status" style="width: 100%;">
+                        <option value="">全部状态</option>
+                        <option value="使用">使用</option>
+                        <option value="未使用">未使用</option>
+                    </select>
+                </td>
+                <td>
+                    <select class="header-search" data-field="cancel_status" style="width: 100%;">
+                        <option value="">全部状态</option>
+                        <option value="取消">取消</option>
+                        <option value="未取消">未取消</option>
+                    </select>
+                </td>
+                <td><input type="text" class="header-search" placeholder="搜索板数" data-field="pallet_count"></td>
+                <td><input type="text" class="header-search" placeholder="搜索CBM" data-field="cbm"></td>
+                <td><input type="text" class="header-search" placeholder="搜索备注" data-field="note"></td>
+                <td>
+                    <select class="header-search" data-field="notification" style="width: 100%;">
+                        <option value="">全部</option>
+                        <option value="已通知">已通知</option>
+                        <option value="未通知">未通知</option>
+                    </select>
+                </td>
+                <td></td>
+            </tr>
+        </thead>
+        <tbody>
+            {% for shipment_group in scheduled_data %}
+            <tr data-shipment-group="{{ shipment_group.shipment_batch_number }}"
+                data-shipment-batch="{{ shipment_group.shipment_batch_number }}"
+                data-status="{% if shipment_group.in_use %}使用{% else %}未使用{% endif %}"
+                data-cancel-status="{% if shipment_group.is_canceled %}取消{% else %}未取消{% endif %}"
+                data-notification="{% if shipment_group.is_notified_customer %}已通知{% else %}未通知{% endif %}">
+                <!-- 预约批次 -->
+                <td style="vertical-align: middle;">
+                    <span class="shipment-batch-link" onclick="openShipmentDetail('{{ shipment_group.shipment_batch_number }}')" data-field="shipment_batch">
+                        {% if shipment_group.shipment_batch_number %}
+                            {{ shipment_group.shipment_batch_number }}
+                        {% else %}
+                            <span style="color: #999; font-style: italic;">未曾预约出库</span>
+                        {% endif %}
+                    </span>
+                </td>
+                
+                <!-- 预约号 -->
+                <td style="vertical-align: middle;">
+                    <strong data-field="appointment_id">{{ shipment_group.appointment_id|default_if_none:'' }}</strong>
+                    {% if shipment_group.shipment_cargo_id %}
+                    <div style="font-size: 12px; color: #666;">
+                        shipment: {{ shipment_group.shipment_cargo_id }}
+                    </div>
+                    {% endif %}
+                </td>
+                
+                <!-- 目的地 -->
+                <td style="vertical-align: middle;">
+                    <span data-field="destination">{{ shipment_group.destination }}</span>
+                </td>
+                
+                <!-- 预约时间 -->
+                <td style="vertical-align: middle;">
+                    <span data-field="shipment_appointment" data-date="{{ shipment_group.shipment_appointment|date:'Y-m-d' }}">
+                        {{ shipment_group.shipment_appointment|date:"Y-m-d H:i" }}
+                    </span>
+                </td>
+                
+                <!-- Pickup Time -->
+                <td style="vertical-align: middle;">
+                    <span data-field="pickup_time" data-date="{{ shipment_group.pickup_time|date:'Y-m-d' }}">
+                        {{ shipment_group.pickup_time|date:"Y-m-d H:i"|default:"-" }}
+                    </span>
+                </td>
+                
+                <!-- 装车类型 -->
+                <td style="vertical-align: middle;">
+                    <span data-field="load_type">{{ shipment_group.load_type }}</span>
+                </td>
+                
+                <!-- 聚合的柜号信息 -->
+                <td data-field="container_numbers" class="container-numbers-col">
+                    {{ shipment_group.container_numbers|default:"-"|linebreaks }}
+                </td>
+                
+                <!-- 使用状态 -->
+                <td style="vertical-align: middle;">
+                    <span data-field="status">
+                        {% if shipment_group.in_use %}
+                            <span class="status-badge status-active">使用</span>
+                        {% else %}
+                            <span class="status-badge status-inactive">未使用</span>
+                        {% endif %}
+                    </span>
+                </td>
+                
+                <!-- 取消状态 -->
+                <td style="vertical-align: middle;">
+                    <span data-field="cancel_status">
+                        {% if shipment_group.is_canceled %}
+                            <span class="cancel-status-badge cancel-status-yes">取消</span>
+                        {% else %}
+                            <span class="cancel-status-badge cancel-status-no">未取消</span>
+                        {% endif %}
+                    </span>
+                </td>
+                
+                <!-- 统计信息 -->
+                <td data-field="pallet_count" style="vertical-align: middle;">
+                    {{ shipment_group.total_pallet|default:0 }}
+                </td>
+                
+                <td data-field="cbm" style="vertical-align: middle;">
+                    {{ shipment_group.total_cbm|default:0|floatformat:2 }}
+                </td>
+                
+                <!-- 备注 -->
+                <td data-field="note" class="note-col">
+                    {{ shipment_group.note_sp|default:"" }}
+                </td>
+                
+                <!-- 通知客户 -->
+                <td data-field="notification" class="notification-col">
+                    {% if shipment_group.is_notified_customer %}
+                        <span style="color: #28a745;">已通知</span>
+                    {% else %}
+                        <span style="color: #dc3545;">未通知</span>
+                    {% endif %}
+                </td>
+                
+                <!-- 操作列 -->
+                 {% if user.is_authenticated %}
+                <td data-field="actions" style="vertical-align: middle;">
+                    <button class="action-btn btn-secondary" onclick="unassignShipment('{{ shipment_group.appointment_id }}')">
+                        <i class="fas fa-unlink"></i> 取消排约
+                    </button>
+                    
+                    <form method="post" action="">
+                        {% csrf_token %}
+                        <input type="hidden" name="appointment_id" value="{{ shipment_group.appointment_id }}">                                  
+                        <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                        <input type="hidden" name="destination" value="{{ shipment_group.destination }}">
+                        <input type="hidden" name="step" value="search_addable_po">
+                        <input type="hidden" name="active_tab" value="exception"> 
+                        <button class="action-btn btn-success">
+                            <i class="fas fa-square-plus"></i> 添加PO
+                        </button>
+                    </form>
+
+                    <button class="action-btn btn-warning open-bind-modal"
+                            data-has-appointment="1"
+                            data-appointment-id="{{ shipment_group.appointment_id }}"
+                            data-load-type="{{ shipment_group.load_type }}"
+                            data-destination="{{ shipment_group.destination }}"
+                            data-delivery-method="{{ shipment_group.load_type }}"
+                            data-scheduled-time="{{ shipment_group.shipment_appointment|date:'Y-m-d H:i' }}"
+                            data-shipment-account="{{ shipment_group.shipment_account }}"
+                            data-origin="{{ warehouse }}"
+                            data-note=""
+                            data-address-detail="{{ shipment_group.address_detail }}"
+                            data-operation-type="remove_po"
+                            data-pickup-time="{{ shipment_group.pickup_time|date:'Y-m-d H:i' }}"
+                            data-pickup-number="{{ shipment_group.pickup_number }}">
+                        <i class="fas fa-square-minus"></i> 删除PO
+                    </button>
+                    <button class="action-btn btn-primary open-edit-modal"
+                            data-appointment-id="{{ shipment_group.appointment_id }}"
+                            data-destination="{{ shipment_group.destination }}"
+                            data-scheduled-time="{{ shipment_group.shipment_appointment|date:'Y-m-d H:i' }}"
+                            data-load-type="{{ shipment_group.load_type }}"
+                            data-origin="{{ warehouse }}"
+                            data-pickup-time="{{ shipment_group.pickup_time|date:'Y-m-d H:i' }}"
+                            data-pickup-number="{{ shipment_group.pickup_number }}"
+                            data-shipment-id="{{ shipment_group.shipment_cargo_id }}">
+                        <i class="fas fa-edit"></i> 修改约
+                    </button>
+                </td>
+                {% endif %}
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="14" style="text-align: center; padding: 80px 20px; color: #999;">
+                    <i class="fas fa-inbox" style="font-size: 3rem; margin-bottom: 15px; display: block; opacity: 0.5;"></i>
+                    <div style="font-size: 1.1rem; font-weight: 500; margin-bottom: 8px;">
+                        暂无已排约货物
+                    </div>
+                    <div style="font-size: 0.9rem; opacity: 0.7;">
+                        请尝试调整搜索条件或日期范围
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<script>
+    // 搜索功能
+    document.addEventListener('DOMContentLoaded', function() {
+        const searchInputs = document.querySelectorAll('#exception-section .header-search');
+        const dateInputs = document.querySelectorAll('#exception-section .date-search');
+        
+        // 文本搜索
+        searchInputs.forEach(input => {
+            input.addEventListener('input', function() {
+                applyMultiFilter();
+            });
+        });
+        
+        // 日期搜索
+        dateInputs.forEach(input => {
+            input.addEventListener('change', function() {
+                applyMultiFilter();
+            });
+        });
+    });
+
+    function applyMultiFilter() {
+        const rows = document.querySelectorAll('#exception-section tbody tr[data-shipment-group]');
+        const searchInputs = document.querySelectorAll('#exception-section .header-search');
+        const dateInputs = document.querySelectorAll('#exception-section .date-search');
+        
+        // 收集文本搜索条件
+        const searchConditions = {};
+        searchInputs.forEach(input => {
+            const field = input.dataset.field;
+            const value = input.value.trim();
+            if (value) {
+                searchConditions[field] = value;
+            }
+        });
+        
+        // 收集日期搜索条件
+        const dateConditions = {};
+        dateInputs.forEach(input => {
+            const field = input.dataset.field;
+            const value = input.value;
+            if (value) {
+                dateConditions[field] = value;
+            }
+        });
+        
+        // 显示/隐藏行
+        rows.forEach(row => {
+            let match = true;
+            
+            // 检查文本搜索条件
+            for (const [field, value] of Object.entries(searchConditions)) {
+                if (field === 'status' || field === 'cancel_status' || field === 'notification') {
+                    // 对于状态字段，使用data属性进行精确匹配
+                    const dataValue = row.dataset[field.replace('_', '-')];
+                    if (dataValue !== value) {
+                        match = false;
+                        break;
+                    }
+                } else {
+                    // 对于其他字段，使用文本内容进行模糊匹配
+                    const element = row.querySelector(`[data-field="${field}"]`);
+                    if (element) {
+                        const text = element.textContent.trim();
+                        if (!text.includes(value)) {
+                            match = false;
+                            break;
+                        }
+                    }
+                }
+            }
+            
+            // 检查日期搜索条件
+            if (match) {
+                for (const [field, value] of Object.entries(dateConditions)) {
+                    const element = row.querySelector(`[data-field="${field}"]`);
+                    if (element) {
+                        const dateValue = element.dataset.date;
+                        if (!dateValue || dateValue !== value) {
+                            match = false;
+                            break;
+                        }
+                    }
+                }
+            }
+            
+            row.style.display = match ? '' : 'none';
+        });
+    }
+
+    // 简单的取消排约函数
+    function unassignShipment(appointmentId) {
+        if (confirm('确定要取消这个预约吗？')) {
+            // 这里可以添加取消预约的逻辑
+            console.log('取消预约:', appointmentId);
+            alert('取消预约功能待实现');
+        }
+    }
+</script>

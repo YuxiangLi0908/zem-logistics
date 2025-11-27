@@ -1,0 +1,759 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load custom_filters %}
+
+{% block content %}
+
+<style>
+    :root {
+        --primary-color: #3498db;
+        --secondary-color: #2c3e50;
+        --success-color: #2ecc71;
+        --warning-color: #f39c12;
+        --danger-color: #e74c3c;
+        --light-color: #f8f9fa;
+        --dark-color: #343a40;
+    }
+
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    body {
+        background-color: #f5f7fa;
+        color: #333;
+        line-height: 1.6;
+    }
+
+    .shipment-system {
+        max-width: 1800px;
+        margin: 20px auto;
+        background: white;
+        border-radius: 10px;
+        box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+    }
+
+    .system-header {
+        background: linear-gradient(135deg, var(--secondary-color), #4a6491);
+        color: white;
+        padding: 20px 30px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+
+    .system-logo {
+        display: flex;
+        align-items: center;
+        font-size: 1.5rem;
+        font-weight: bold;
+    }
+
+    .system-logo i {
+        margin-right: 10px;
+        font-size: 1.8rem;
+    }
+
+    .warehouse-selector {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        background: rgba(255, 255, 255, 0.15);
+        padding: 10px 20px;
+        border-radius: 8px;
+    }
+
+    .warehouse-selector label {
+        font-weight: 600;
+    }
+
+    .warehouse-selector select {
+        padding: 8px 15px;
+        border: none;
+        border-radius: 5px;
+        background: white;
+        font-size: 1rem;
+        min-width: 200px;
+    }
+
+    .warehouse-selector button {
+        padding: 8px 16px;
+        background: var(--success-color);
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        font-weight: 600;
+        transition: background 0.3s ease;
+    }
+
+    .warehouse-selector button:hover {
+        background: #27ae60;
+    }
+
+    .system-main {
+        padding: 20px;
+    }
+
+    .summary-cards {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 15px;
+        margin-bottom: 25px;
+    }
+
+    .summary-card {
+        background: white;
+        border-radius: 8px;
+        padding: 15px;
+        box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
+        display: flex;
+        flex-direction: column;
+        border-left: 4px solid var(--primary-color);
+    }
+
+    .summary-card.scheduled {
+        border-left-color: var(--primary-color);
+    }
+
+    .summary-card.ready {
+        border-left-color: var(--success-color);
+    }
+
+    .summary-card.pallets {
+        border-left-color: var(--danger-color);
+    }
+
+    .summary-card .card-title {
+        font-size: 0.8rem;
+        color: #7f8c8d;
+        margin-bottom: 8px;
+    }
+
+    .summary-card .card-value {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--secondary-color);
+    }
+
+    .tab-navigation {
+        display: flex;
+        margin-bottom: 20px;
+        border-bottom: 1px solid #eaecef;
+    }
+
+    .tab {
+        padding: 12px 25px;
+        cursor: pointer;
+        border-bottom: 3px solid transparent;
+        transition: all 0.3s;
+        font-weight: 500;
+        position: relative;
+    }
+
+    .tab.active {
+        color: var(--primary-color);
+        border-bottom: 3px solid var(--primary-color);
+        font-weight: 600;
+    }
+
+    .tab .badge {
+        position: absolute;
+        top: 5px;
+        right: 5px;
+        background: var(--primary-color);
+        color: white;
+        border-radius: 50%;
+        width: 20px;
+        height: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.7rem;
+    }
+
+    .content-section {
+        display: none;
+    }
+
+    .content-section.active {
+        display: block;
+    }
+
+    .search-box {
+        display: flex;
+        gap: 15px;
+        margin-bottom: 20px;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+    }
+
+    .search-input {
+        padding: 10px 15px;
+        border: 1px solid #dce1e6;
+        border-radius: 5px;
+        font-size: 0.9rem;
+        min-width: 250px;
+    }
+
+    .search-btn {
+        padding: 10px 20px;
+        background: var(--primary-color);
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        font-weight: 600;
+    }
+
+    .sort-options {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        margin-bottom: 0;
+    }
+
+    .sort-btn {
+        padding: 8px 16px;
+        background: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 0.85rem;
+        transition: all 0.3s;
+    }
+    
+    .sort-btn.active {
+        background: var(--primary-color);
+        color: white;
+        border-color: var(--primary-color);
+    }
+
+    .table-container {
+        overflow-x: auto;
+        overflow-y: auto;
+        max-height: 600px;
+        border-radius: 8px;
+        box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
+        margin-bottom: 20px;
+    }
+
+    .data-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .data-table th {
+        position: sticky;
+        top: 0;
+        background: var(--secondary-color);
+        color: white;
+        padding: 12px;
+        text-align: left;
+        font-weight: 600;
+        font-size: 0.9rem;
+        cursor: pointer;
+    }
+
+    .data-table th:hover {
+        background: #34495e;
+    }
+
+    .data-table td {
+        padding: 12px;
+        border-bottom: 1px solid #eaecef;
+        font-size: 0.85rem;
+    }
+
+    .data-table tr:nth-child(even) {
+        background-color: #f9fafb;
+    }
+
+    .data-table tr:hover {
+        background-color: #edf2f7;
+    }
+
+    .checkbox-cell {
+        width: 40px;
+        text-align: center;
+    }
+
+    .status-badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 4px 8px;
+        border-radius: 12px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+
+    .status-scheduled {
+        background-color: #d1ecf1;
+        color: #0c5460;
+        border: 1px solid #bee5eb;
+    }
+
+    .status-ready {
+        background-color: #d4edda;
+        color: #155724;
+        border: 1px solid #c3e6cb;
+    }
+
+    .pallet-badge {
+        display: inline-block;
+        padding: 2px 6px;
+        border-radius: 8px;
+        font-size: 0.7rem;
+        font-weight: 600;
+        margin-left: 5px;
+    }
+
+    .pallet-actual {
+        background-color: #e8f5e9;
+        color: #2e7d32;
+    }
+
+    .pallet-estimated {
+        background-color: #fff3e0;
+        color: #ef6c00;
+    }
+
+    .action-btn {
+        padding: 6px 12px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 0.8rem;
+        transition: all 0.3s ease;
+        margin: 2px;
+    }
+
+    .btn-primary {
+        background: var(--primary-color);
+        color: white;
+    }
+
+    .btn-success {
+        background: var(--success-color);
+        color: white;
+    }
+
+    .btn-warning {
+        background: var(--warning-color);
+        color: white;
+    }
+
+    .btn-danger {
+        background: var(--danger-color);
+        color: white;
+    }
+
+    .batch-actions {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 15px;
+        padding: 15px;
+        background: #f8f9fa;
+        border-radius: 8px;
+        align-items: center;
+    }
+
+    .selected-count {
+        font-weight: 600;
+        color: var(--secondary-color);
+    }
+
+    /* 限制列宽度 */
+    .delivery-method-col {
+        max-width: 120px;
+        min-width: 100px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .container-col {
+        max-width: 200px;
+        min-width: 120px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    /* 鼠标悬停时显示完整内容 */
+    .container-col:hover,
+    .ref-ids-col:hover,
+    .fba-ids-col:hover {
+        overflow: visible;
+        white-space: normal;
+        word-break: break-all;
+        position: relative;
+        z-index: 2;
+        background: white;
+        box-shadow: 0 0 8px rgba(0,0,0,0.15);
+    }
+
+    .container-col {
+        max-width: 220px;
+        min-width: 180px;
+        white-space: pre-line;
+        word-break: break-all;
+        font-size: 0.8rem;
+        line-height: 1.6;
+    }
+
+    .data-table td[rowspan] {
+        background-color: #f8f9fa;
+        border-right: 2px solid #dee2e6;
+    }
+
+    /* 进度条样式 */
+    .progress-container {
+        background: #e9ecef;
+        border-radius: 4px;
+        height: 8px;
+        overflow: hidden;
+        width: 80px;
+    }
+
+    .progress-bar {
+        height: 100%;
+        background: #28a745;
+        border-radius: 4px;
+        transition: width 0.3s ease;
+    }
+
+    /* 状态标签样式 */
+    .status-span-red {
+        background-color: #e74c3c;
+        color: white;
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-size: 0.7rem;
+        font-weight: 600;
+    }
+
+    .status-span-yellow {
+        background-color: #f39c12;
+        color: white;
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-size: 0.7rem;
+        font-weight: 600;
+    }
+
+    /* 表格内输入框样式 */
+    .table-input {
+        padding: 4px 8px;
+        border: 1px solid #dce1e6;
+        border-radius: 4px;
+        font-size: 0.8rem;
+        width: 100%;
+    }
+
+    /* 表格内按钮样式 */
+    .table-btn {
+        padding: 4px 8px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 0.75rem;
+        transition: all 0.3s ease;
+    }
+
+    .btn-success-small {
+        background: var(--success-color);
+        color: white;
+    }
+
+    .btn-danger-small {
+        background: var(--danger-color);
+        color: white;
+    }
+    .search-row {
+        background-color: #f8f9fa;
+    }
+    .search-row td {
+        padding: 5px !important;
+        border-bottom: 1px solid #dee2e6;
+    }
+    .header-search {
+        width: 100%;
+        padding: 4px 8px;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+        font-size: 0.8rem;
+    }
+
+    /* 高亮样式 */
+    .highlight-color-1 {
+        background: yellow;
+        font-weight: bold;
+    }
+    .highlight-color-2 {
+        background: #8ef5a6;
+        font-weight: bold;
+    }
+    .highlight-color-3 {
+        background: #ffb4b4;
+        font-weight: bold;
+    }
+    .highlight-color-4 {
+        background: #b4c9ff;
+        font-weight: bold;
+    }
+    @media (max-width: 768px) {
+        .system-header {
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .warehouse-selector {
+            width: 100%;
+            justify-content: center;
+        }
+
+        .summary-cards {
+            grid-template-columns: 1fr 1fr;
+        }
+        
+        .tab-navigation {
+            flex-wrap: wrap;
+        }
+        
+        .tab {
+            flex: 1;
+            text-align: center;
+            min-width: 50%;
+        }
+
+        .batch-actions {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+    }
+
+    @media (max-width: 576px) {
+        .system-main {
+            padding: 10px;
+        }
+        
+        .summary-cards {
+            grid-template-columns: 1fr;
+        }
+        
+        .search-box {
+            flex-direction: column;
+            align-items: stretch;
+        }
+        
+        .search-input {
+            width: 100%;
+        }
+
+        .sort-options {
+            justify-content: flex-start;
+            margin-top: 10px;
+        }
+    }
+
+    .message-success {
+        color: var(--success-color);
+    }
+
+    .message-error {
+        color: var(--danger-color);
+    }
+
+    .message-warning {
+        color: var(--warning-color);
+    }
+
+    .message-info {
+        color: var(--primary-color);
+    }
+    @keyframes modalIn {
+        from {
+            opacity: 0;
+            transform: translate(-50%, -60%); /* 从上方进入 */
+        }
+        to {
+            opacity: 1;
+            transform: translate(-50%, -50%); /* 精确居中 */
+        }
+    }
+    .close-btn {
+        float: right;
+        font-size: 24px;
+        font-weight: bold;
+        cursor: pointer;
+        color: #888;
+    }
+    .close-btn:hover {
+        color: #000;
+    }
+</style>
+
+<div class="shipment-system">
+    <div class="system-header">
+        <div class="system-logo">
+            <i class="fas fa-truck-loading"></i>
+            <span>历史预约及车次 - {{ warehouse }}</span>
+        </div>
+        <div class="warehouse-selector">
+            <form method="post" action="" onsubmit="showLoadingBar()" class="warehouse-selector">
+                {% csrf_token %}
+                <label for="warehouse">仓库:</label>
+                <select name="warehouse" style="padding: 5px; border-radius: 4px; border: 1px solid #ced4da;">
+                    {% for k, v in warehouse_options.items %}
+                    <option value="{{ v }}" {% if k == warehouse %}selected{% endif %}>{{ k }}</option>
+                    {% endfor %}
+                </select>
+                <input type="hidden" id="warehouse" value="{{ warehouse }}">
+                <!-- 修复日期输入框 -->
+                <input type="date" name="start_date" value="{{ start_date }}">             
+                <input type="date" name="end_date" value="{{ end_date }}" style="margin-right: 5px;">
+                <input type="hidden" name="step" value="history_shipment_warehouse">
+                <input type="hidden" name="active_tab" id="activeTabInput" value="{{ active_tab|default:'exception' }}">
+                <button id="confirmWarehouse">
+                    <i class="fas fa-check"></i> 确认
+                </button>
+            </form>
+        </div>
+    </div>
+    <div class="system-main">
+
+        <!-- 标签导航 -->
+        <div class="tab-navigation">
+            <div class="tab {% if active_tab == 'exception' or not active_tab %}active{% endif %}" data-tab="exception" onclick="switchTab('exception')">
+                预约批次 <span class="badge">{{ summary.shipments }}</span>
+            </div>
+            <div class="tab {% if active_tab == 'readyShip' %}active{% endif %}" data-tab="readyShip" onclick="switchTab('readyShip')">
+                出库批次 <span class="badge">{{ summary.fleets }}</span>
+            </div>       
+        </div>
+        
+        <!-- 预约批次标签页 -->
+        <div class="content-section {% if active_tab == 'exception' or not active_tab %}active{% endif %}" id="exception-section">
+            {% include 'post_port/new_sop/04_history_shipment/scheduled_section.html' %}
+        </div>
+
+        <!-- 出库批次标签页 -->
+        <div class="content-section {% if active_tab == 'readyShip' %}active{% endif %}" id="readyShip-section">
+            {% include 'post_port/new_sop/04_history_shipment/scheduledFleet_section.html' %}
+        </div>
+
+    </div>
+</div>
+
+
+
+<script>
+    function switchTab(tabName) {
+        // 更新隐藏字段
+        document.getElementById('activeTabInput').value = tabName;
+        
+        // 移除所有激活状态
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.classList.remove('active');
+        });
+        document.querySelectorAll('.content-section').forEach(section => {
+            section.classList.remove('active');
+        });
+        
+        // 添加激活状态
+        const activeTab = document.querySelector(`.tab[data-tab="${tabName}"]`);
+        const activeSection = document.getElementById(`${tabName}-section`);
+        
+        if (activeTab && activeSection) {
+            activeTab.classList.add('active');
+            activeSection.classList.add('active');
+        }
+        
+        // 触发自定义事件，让子页面知道标签切换
+        window.dispatchEvent(new CustomEvent('tabChanged', { detail: { tab: tabName } }));
+    }
+    function setActiveTabFromParams() {     
+        // 方式二：从隐藏字段获取（如果有）
+        let activeTab = null;
+        if (!activeTab) {
+            const activeTabInput = document.querySelector('input[name="active_tab"]');
+            if (activeTabInput && activeTabInput.value) {
+                activeTab = activeTabInput.value;
+            }
+        }
+        
+        if (activeTab) {
+            // 移除所有激活状态
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.content-section').forEach(s => s.classList.remove('active'));
+            
+            // 设置对应的标签页和内容区域为激活状态
+            const targetTab = document.querySelector(`.tab[data-tab="${activeTab}"]`);
+            const targetSection = document.getElementById(activeTab + '-section');
+            
+            if (targetTab && targetSection) {
+                targetTab.classList.add('active');
+                targetSection.classList.add('active');
+            } else {
+                console.warn('未找到对应的标签页或内容区域:', activeTab);
+            }
+        }
+    }
+
+    // 页面加载完成后添加时间标记
+    document.addEventListener('DOMContentLoaded', function() {
+        const activeTabInput = document.querySelector('input[name="active_tab"]');
+        let activeTab = 'exception'; // 默认标签
+        
+        if (activeTabInput && activeTabInput.value) {
+            activeTab = activeTabInput.value;
+        }
+        
+        // 设置激活标签页
+        switchTab(activeTab);
+    });
+    // 显示加载条函数（如果不存在则创建）
+    function showLoadingBar() {
+        let loadingBar = document.getElementById('loadingBar');
+        if (!loadingBar) {
+            loadingBar = document.createElement('div');
+            loadingBar.id = 'loadingBar';
+            loadingBar.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 3px;
+                background: linear-gradient(90deg, #3498db, #2ecc71);
+                z-index: 9999;
+                animation: loading 1.5s infinite;
+            `;
+            document.body.appendChild(loadingBar);
+            
+            // 添加动画样式
+            const style = document.createElement('style');
+            style.textContent = `
+                @keyframes loading {
+                    0% { transform: translateX(-100%); }
+                    100% { transform: translateX(100%); }
+                }
+            `;
+            document.head.appendChild(style);
+        }
+        
+        // 3秒后自动隐藏
+        setTimeout(() => {
+            if (loadingBar && loadingBar.parentNode) {
+                loadingBar.parentNode.removeChild(loadingBar);
+            }
+        }, 3000);
+    }
+</script>
+{% endblock %}
