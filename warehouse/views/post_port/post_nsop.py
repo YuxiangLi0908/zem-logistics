@@ -2835,6 +2835,7 @@ class PostNsop(View):
             )
             .order_by("appointment_datetime")
         )
+        print('车',fleet)
         # 在获取fleet列表后，添加具体柜号、仓点等详情
         for fleet_obj in fleet:
             detailed_shipments = []
@@ -2937,8 +2938,7 @@ class PostNsop(View):
         scheduled_data = await self._history_scheduled_data(warehouse, request.user, start_date, end_date)
 
         #已排车
-        schedule_fleet_data = await self._fl_unscheduled_data(request, warehouse)
-        print('已排车',schedule_fleet_data)
+        schedule_fleet_data = await self._history_scheduled_fleet_data(request, warehouse,start_date, end_date)
         if not context:
             context = {}
         else:

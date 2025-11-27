@@ -2033,9 +2033,9 @@ class FleetManagement(View):
         if customerInfo and customerInfo != "[]":
             customerInfo = json.loads(customerInfo)
             for row in customerInfo:
-                if row[8] != "":
+                if row[9] != "":
                     contact_flag = True
-                    contact = row[8]
+                    contact = row[9]
                     contact = re.sub("[\u4e00-\u9fff]", " ", contact)
                     contact = re.sub(r"\uFF0C", ",", contact)
                     new_contact = contact.split(";")
