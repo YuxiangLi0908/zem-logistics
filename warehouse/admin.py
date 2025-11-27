@@ -13,6 +13,11 @@ from warehouse.models.invoice import (
     InvoiceStatement,
     InvoiceStatus,
 )
+from warehouse.models.invoicev2 import (
+    Invoicev2,
+    InvoiceItemv2,
+    InvoiceStatusv2,
+)
 from warehouse.models.invoice_details import (
     InvoiceDelivery,
     InvoicePreport,
