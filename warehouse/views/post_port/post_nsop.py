@@ -2409,7 +2409,11 @@ class PostNsop(View):
                         "is_dropped_pallet": item["is_dropped_pallet"],
                     })         
             fleet_obj.detailed_shipments = json.dumps(detailed_shipments) 
-        return fleet
+        context = {
+            "shipment_list": shipment_list,
+            "fleet_list": fleet,
+        }
+        return context
 
     async def _fl_delivery_get(
         self, warehouse:str, four_major_whs: str | None = None
