@@ -1516,11 +1516,12 @@ class PostNsop(View):
         """
         base_number = pickup_number
         counter = 1
+        pickup_number = f"{base_number}-{counter}"
         
         while await Shipment.objects.filter(pickup_number=pickup_number).aexists():
-            pickup_number = f"{base_number}-{counter}"
             counter += 1
-        
+            pickup_number = f"{base_number}-{counter}"
+                 
         return pickup_number
 
     async def handle_appointment_post(
