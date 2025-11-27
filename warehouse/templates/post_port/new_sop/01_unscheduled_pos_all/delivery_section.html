@@ -96,16 +96,16 @@
 <table class="data-table">
     <thead>
         <tr>
-            <th>出库批次</th>
-            <th>预约批次</th>
+            <th style="width:160px;">出库批次</th>
+            <th style="width:150px;">预约批次</th>
             <th>预约号</th>
             <th>Carrier</th>
             <th>预约发车日期</th>
-            <th>实际发车日期</th>
+            <th style="width:140px;">实际发车日期</th>
             <th>总重lbs</th>
-            <th>总CBM</th>
-            <th>总卡板数</th>
-            <th>一提两卸</th>
+            <th style="width:80px;">总CBM</th>
+            <th style="width:80px;">总卡板数</th>
+            <th style="width:80px;">一提两卸</th>
             <th>备注</th>
             <th>实际送达时间</th>
             <th>车次异常</th>
@@ -129,7 +129,10 @@
     <tbody>
         {% for s in delivery_shipments %}
         <tr>
-            <td style="max-width: 120px; word-break: break-all;">{{ s.fleet_number.fleet_number }}</td>
+            <td style="max-width: 120px; word-break: break-all;">
+                {{ s.fleet_number.fleet_number }}<br>
+                <span style="color: #7f8c8d; font-size: 0.8em;">{{ s.fleet_number.pickup_number|default_if_none:'' }}</span>
+            </td>
             <td style="max-width: 120px; word-break: break-all;">{{ s.shipment_batch_number }}</td>
             <td style="max-width: 120px; word-break: break-all;">{{ s.appointment_id }}</td>
             <td>{{ s.fleet_number.carrier }}</td>

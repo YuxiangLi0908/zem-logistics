@@ -104,6 +104,8 @@
                                         {% if is_first_shipment %}
                                             <td rowspan="{{ fleet_rowspan }}" class="fleet-number-cell" style="vertical-align: middle; background-color: #f8f9fa;">
                                                 <strong style="color: #3498db; text-decoration: underline;">{{ fleet_group.fleet_number }}</strong>
+                                                <br>
+                                                <span style="color: #7f8c8d; font-size: 0.85em;">{{ fleet_group.pickup_number|default_if_none:'' }}</span>
                                                 {% if fleet_group.is_virtual %}
                                                     <br><small style="color:#7f8c8d;font-size:10px;">虚拟车次待编辑</small>
                                                 {% endif %}
@@ -167,9 +169,10 @@
                                                     data-appointment-datetime="{{ fleet_group.appointment_datetime }}"
                                                     data-carrier="{{ fleet_group.carrier }}">
                                                     <strong style="color: #3498db; text-decoration: underline;">{{ fleet_group.fleet_number }}</strong>
-                                                    <br>
+                                                    
+                                                    <br><span style="color: #7f8c8d; font-size: 0.85em;">{{ fleet_group.pickup_number }}</span>
                                                     {% if fleet_group.is_virtual%}
-                                                    <small style="color: #7f8c8d; font-size: 10px;">虚拟车次待编辑</small>
+                                                    <br><small style="color: #7f8c8d; font-size: 10px;">虚拟车次待编辑</small>
                                                     {% endif %}
                                                 </td> 
                                                 <td rowspan="{{ fleet_rowspan }}" style="vertical-align: middle; background-color: #f8f9fa;">
