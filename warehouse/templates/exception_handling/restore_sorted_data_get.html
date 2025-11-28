@@ -1,0 +1,283 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container-fluid mt-3">
+    <!-- 页面标题 -->
+    <h4 class="mb-4">Pallet历史记录查询与批量恢复/删除</h4>
+
+    <!-- 查询表单（修复嵌套问题，用单个form提交） -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form id="query-form" class="row g-3 align-items-end" method="post" action="">
+                {% csrf_token %}
+                <input type="hidden" name="step" value="query_history">
+
+                <div class="col-md-8">
+                    <label for="pallet-ids" class="form-label fw-bold">Pallet ID（多个ID用空格隔开）</label>
+                    <input
+                        type="text"
+                        name="pallet_ids"
+                        class="form-control"
+                        id="pallet-ids"
+                        placeholder="例如：26 29 35"
+                        required
+                        value="{{ pallet_ids|default:'' }}"
+                    >
+                    <div class="form-text">支持输入多个Pallet主表ID，空格分隔，查询对应历史记录</div>
+                    {% if error_msg %}
+                        <div class="text-danger mt-1">{{ error_msg }}</div>
+                    {% endif %}
+                </div>
+
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="bi bi-search"></i> 查询历史记录
+                    </button>
+                </div>
+
+                <div class="col-md-2">
+                    <button type="button" id="clear-btn" class="btn btn-secondary w-100">
+                        <i class="bi bi-trash"></i> 清空结果
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 批量操作按钮（有结果时显示） -->
+    <div id="operation-section" class="mb-3" style="display: {% if has_result %}flex{% else %}none{% endif %}; gap: 10px; align-items: center;">
+        <!-- 批量恢复按钮 -->
+        <form id="batch-restore-form" method="post" action="" style="display: inline;">
+            {% csrf_token %}
+            <input type="hidden" name="step" value="batch_restore">
+            <input type="hidden" name="selected_history_ids" id="selected-history-ids" value="">
+            <input type="hidden" name="selected_pallet_ids" id="selected-pallet-ids" value="">
+            <button type="submit" class="btn btn-success" onclick="return confirmBatchRestore()">
+                <i class="bi bi-arrow-counterclockwise"></i> 批量恢复选中记录
+            </button>
+        </form>
+
+        <!-- 批量删除按钮 -->
+        <form id="batch-delete-form" method="post" action="" style="display: inline;">
+            {% csrf_token %}
+            <input type="hidden" name="step" value="batch_delete">
+            <input type="hidden" name="selected_history_ids" id="selected-delete-history-ids" value="">
+            <input type="hidden" name="selected_pallet_ids" id="selected-delete-pallet-ids" value="">
+            <button type="submit" class="btn btn-danger" onclick="return confirmBatchDelete()">
+                <i class="bi bi-trash3"></i> 批量删除主表记录
+            </button>
+        </form>
+
+        <span class="ms-3 text-muted" id="selected-count">已选中：0 条</span>
+    </div>
+
+    <!-- 加载中提示（查询时显示，这里通过后端has_result控制，也可加JS异步加载） -->
+    <div id="loading" class="text-center py-5" style="display: none;">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+        <p class="mt-2">查询中，请稍候...</p>
+    </div>
+
+    <!-- 无结果提示（无查询结果且有输入时显示） -->
+    <div id="no-result" class="text-center py-5 text-muted" style="display: {% if pallet_ids and not has_result and not error_msg %}block{% else %}none{% endif %};">
+        <i class="bi bi-search-heart" style="font-size: 3rem;"></i>
+        <p class="mt-3">未查询到相关历史记录</p>
+    </div>
+
+    <!-- 历史记录表格（有结果时显示） -->
+    {% if has_result %}
+    <div id="table-container" class="card">
+        <div class="card-body">
+            <div class="table-responsive" style="max-height: 600px; overflow-y: auto;">
+                <table class="table table-striped table-hover table-sm">
+                    <thead class="table-light sticky-top">
+                        <tr>
+                            <th style="width: 50px;">
+                                <input type="checkbox" id="select-all" class="form-check-input">
+                            </th>
+                            <th>历史记录ID</th>
+                            <th>Pallet主表ID</th>
+                            <th>操作时间</th>
+                            <th>操作类型</th>
+                            <th>操作人</th>
+                            <th>变更原因</th>
+                            <th>目的地</th>
+                            <th>FBA号</th>
+                            <th>REF号</th>
+                            <th>件数</th>
+                            <th>卡板数</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="history-table-body">
+                        {% for record in history_records %}
+                        <tr>
+                            <td>
+                                <input type="checkbox" class="form-check-input history-checkbox"
+                                       data-history-id="{{ record.history_id }}"
+                                       data-pallet-id="{{ record.id }}">
+                            </td>
+                            <td>{{ record.history_id }}</td>
+                            <td>{{ record.id }}</td>  <!-- 关联主表Pallet的ID -->
+                            <td>
+                                {% if record.history_date %}
+                                    {{ record.history_date|date:"Y-m-d H:i:s" }}
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if record.history_type == '+' %}
+                                    <span class="badge bg-success">创建</span>
+                                {% elif record.history_type == '~' %}
+                                    <span class="badge bg-primary">更新</span>
+                                {% elif record.history_type == '-' %}
+                                    <span class="badge bg-danger">删除</span>
+                                {% else %}
+                                    {{ record.history_type }}
+                                {% endif %}
+                            </td>
+                            <td>{{ record.history_user__username|default:"未知" }}</td>
+                            <td>{{ record.history_change_reason|default:"-" }}</td>
+                            <td>{{ record.destination|default:"-" }}</td>
+                            <td>{{ record.fba_id|default:"-" }}</td>
+                            <td>{{ record.ref_id|default:"-" }}</td>
+                            <td>{{ record.pcs|floatformat:0|default:0 }}</td>
+                            <td>{{ record.n_pallet|floatformat:0|default:0 }}</td>
+                            <td>
+                                <!-- 单行恢复按钮 -->
+                                <form method="post" action="" style="display: inline;">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="step" value="single_restore">
+                                    <input type="hidden" name="history_id" value="{{ record.history_id }}">
+                                    <input type="hidden" name="pallet_id" value="{{ record.id }}">
+                                    <button type="submit" class="btn btn-sm btn-outline-success"
+                                            onclick="return confirm('确定要恢复这条历史记录对应的Pallet吗？')">
+                                        <i class="bi bi-arrow-counterclockwise"></i> 恢复
+                                    </button>
+                                </form>
+
+                                <!-- 单行删除按钮（新增） -->
+                                <form method="post" action="" style="display: inline; margin-left: 5px;">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="step" value="single_delete">
+                                    <input type="hidden" name="history_id" value="{{ record.history_id }}">
+                                    <input type="hidden" name="pallet_id" value="{{ record.id }}">  <!-- 传递主表ID -->
+                                    <button type="submit" class="btn btn-sm btn-outline-danger"
+                                            onclick="return confirm('确定要删除主表中Pallet ID为 {{ record.id }} 的记录吗？\n此操作不可逆，请谨慎！')">
+                                        <i class="bi bi-trash3"></i> 删除主表记录
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- 操作结果提示（通过后端传递的message显示） -->
+    {% if message %}
+    <div class="alert alert-{{ message_type|default:'info' }} mt-3">
+        {{ message }}
+    </div>
+    {% endif %}
+</div>
+
+<!-- 引入Bootstrap图标和JS -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+<script>
+// 全局变量：存储选中的历史记录ID和主表Pallet ID
+let selectedHistoryIds = new Set();  // 用于恢复
+let selectedPalletIds = new Set();   // 用于删除（关联主表ID）
+
+// DOM加载完成后初始化
+document.addEventListener('DOMContentLoaded', function() {
+    // 全选/取消全选
+    document.getElementById('select-all').addEventListener('change', function() {
+        const isChecked = this.checked;
+        const checkboxes = document.querySelectorAll('.history-checkbox');
+
+        checkboxes.forEach(checkbox => {
+            checkbox.checked = isChecked;
+            const historyId = checkbox.getAttribute('data-history-id');
+            const palletId = checkbox.getAttribute('data-pallet-id');
+
+            if (isChecked) {
+                selectedHistoryIds.add(historyId);
+                selectedPalletIds.add(palletId);
+            } else {
+                selectedHistoryIds.delete(historyId);
+                selectedPalletIds.delete(palletId);
+            }
+        });
+        updateSelectedCount();
+    });
+
+    // 单个复选框点击
+    document.querySelectorAll('.history-checkbox').forEach(checkbox => {
+        checkbox.addEventListener('change', function() {
+            const historyId = this.getAttribute('data-history-id');
+            const palletId = this.getAttribute('data-pallet-id');
+
+            if (this.checked) {
+                selectedHistoryIds.add(historyId);
+                selectedPalletIds.add(palletId);
+            } else {
+                selectedHistoryIds.delete(historyId);
+                selectedPalletIds.delete(palletId);
+            }
+            updateSelectedCount();
+        });
+    });
+
+    // 清空结果按钮
+    document.getElementById('clear-btn').addEventListener('click', function() {
+        document.getElementById('pallet-ids').value = '';
+        selectedHistoryIds.clear();
+        selectedPalletIds.clear();
+        updateSelectedCount();
+        // 隐藏表格和操作区域
+        document.getElementById('table-container').style.display = 'none';
+        document.getElementById('operation-section').style.display = 'none';
+        document.getElementById('no-result').style.display = 'none';
+        // 清空错误提示
+        document.querySelector('.text-danger')?.remove();
+    });
+});
+
+// 更新选中计数
+function updateSelectedCount() {
+    document.getElementById('selected-count').textContent = `已选中：${selectedHistoryIds.size} 条`;
+    // 同步选中ID到恢复和删除的隐藏字段
+    document.getElementById('selected-history-ids').value = Array.from(selectedHistoryIds).join(',');
+    document.getElementById('selected-pallet-ids').value = Array.from(selectedPalletIds).join(',');
+    document.getElementById('selected-delete-history-ids').value = Array.from(selectedHistoryIds).join(',');  // 传递主表ID
+    document.getElementById('selected-delete-pallet-ids').value = Array.from(selectedPalletIds).join(',');  // 传递主表ID
+}
+
+// 批量恢复确认
+function confirmBatchRestore() {
+    if (selectedHistoryIds.size === 0) {
+        alert('请先选中要恢复的历史记录！');
+        return false;
+    }
+    return confirm(`确定要恢复选中的 ${selectedHistoryIds.size} 条历史记录对应的Pallet吗？\n恢复后会覆盖主表现有记录（若存在），请谨慎操作！`);
+}
+
+// 批量删除确认（新增）
+function confirmBatchDelete() {
+    if (selectedPalletIds.size === 0) {
+        alert('请先选中要删除的历史记录对应的主表ID！');
+        return false;
+    }
+    return confirm(`确定要删除主表中 ${selectedPalletIds.size} 条Pallet记录吗？\n此操作不可逆，删除后仅保留历史记录，主表数据将永久删除！`);
+}
+</script>
+{% endblock %}
