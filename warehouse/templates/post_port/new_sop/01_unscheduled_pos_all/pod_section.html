@@ -87,16 +87,16 @@
 <table class="data-table">
     <thead>
         <tr>
-            <th>出库批次</th>
-            <th>预约批次</th>
+            <th style="width:160px;">出库批次</th>
+            <th style="width:150px;">预约批次</th>
             <th>客户名</th>
             <th>预约号</th>
             <th>Carrier</th>
             <th>预约发车日期</th>
             <th>实际发车日期</th>
             <th>总重lbs</th>
-            <th>总CBM</th>
-            <th>总卡板数</th>
+            <th style="width:80px;">总CBM</th>
+            <th style="width:80px;">总卡板数</th>
             <th>备注</th>
             <th>POD上传</th>
         </tr>
@@ -118,7 +118,10 @@
     <tbody>
         {% for f in pod_shipments %}
         <tr>
-            <td style="max-width: 120px; word-break: break-all;">{{ f.fleet_number.fleet_number }}</td>
+            <td style="max-width: 120px; word-break: break-all;">
+                {{ f.fleet_number.fleet_number }}<br>
+                <span style="color: #7f8c8d; font-size: 0.8em;">{{ f.fleet_number.pickup_number|default_if_none:'' }}</span>
+            </td>
             <td>{{ f.shipment_batch_number }}</td>
             <td>{{ f.customer }}</td>
             <td>{{ f.appointment_id|default_if_none:"" }}</td>

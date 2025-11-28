@@ -1682,23 +1682,28 @@ class Accounting(View):
         if customer:
             criteria &= models.Q(customer_name__zem_name=customer)
         # 查找待录入账单（未操作过的）
-        order = Order.objects.select_related(
-            "invoice_id",
-            "customer_name",
-            "container_number",
-            "invoice_id__statement_id",
-            "offload_id",
-            "receivable_status" 
-        ).filter(
-            criteria,
-            models.Q(receivable_status__isnull=True) |
-            (
-                models.Q(receivable_status__invoice_type="receivable") &
-                (
-                    models.Q(receivable_status__preport_status="unstarted") |
-                    models.Q(receivable_status__preport_status="in_progress")
-                )
-            ),
+        order = (
+            Order.objects.select_related(
+                "invoice_id",
+                "customer_name",
+                "container_number",
+                "invoice_id__statement_id",
+                "offload_id",
+                "receivable_status",
+                "retrieval_id",
+            )
+            .filter(
+                criteria,
+                models.Q(receivable_status__isnull=True)
+                | (
+                    models.Q(receivable_status__invoice_type="receivable")
+                    & (
+                        models.Q(receivable_status__preport_status="unstarted")
+                        | models.Q(receivable_status__preport_status="in_progress")
+                    )
+                ),
+            )
+            .order_by("retrieval_id__actual_retrieval_timestamp")
         )
         # 查找驳回账单
         order_reject = Order.objects.filter(

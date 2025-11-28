@@ -1516,11 +1516,12 @@ class PostNsop(View):
         """
         base_number = pickup_number
         counter = 1
+        pickup_number = f"{base_number}-{counter}"
         
         while await Shipment.objects.filter(pickup_number=pickup_number).aexists():
-            pickup_number = f"{base_number}-{counter}"
             counter += 1
-        
+            pickup_number = f"{base_number}-{counter}"
+                 
         return pickup_number
 
     async def handle_appointment_post(
@@ -2409,7 +2410,11 @@ class PostNsop(View):
                         "is_dropped_pallet": item["is_dropped_pallet"],
                     })         
             fleet_obj.detailed_shipments = json.dumps(detailed_shipments) 
-        return fleet
+        context = {
+            "shipment_list": shipment_list,
+            "fleet_list": fleet,
+        }
+        return context
 
     async def _fl_delivery_get(
         self, warehouse:str, four_major_whs: str | None = None
@@ -2831,6 +2836,7 @@ class PostNsop(View):
             )
             .order_by("appointment_datetime")
         )
+        print('车',fleet)
         # 在获取fleet列表后，添加具体柜号、仓点等详情
         for fleet_obj in fleet:
             detailed_shipments = []
@@ -2933,8 +2939,7 @@ class PostNsop(View):
         scheduled_data = await self._history_scheduled_data(warehouse, request.user, start_date, end_date)
 
         #已排车
-        schedule_fleet_data = await self._fl_unscheduled_data(request, warehouse)
-        print('已排车',schedule_fleet_data)
+        schedule_fleet_data = await self._history_scheduled_fleet_data(request, warehouse,start_date, end_date)
         if not context:
             context = {}
         else:

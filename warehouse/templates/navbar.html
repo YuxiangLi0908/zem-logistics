@@ -216,11 +216,24 @@
                                 <a href="{% url 'receivable_accounting' %}?step=alert" target="_blank">预警监控</a>
                                 <!-- 录入工作 -->
                                 <a href="{% url 'receivable_accounting' %}?step=preport" target="_blank">提拆账单录入</a>
-                                <a href="{% url 'receivable_accounting' %}?step=warehouse" target="_blank">库内账单录入</a>
-                                <a href="{% url 'receivable_accounting' %}?step=delivery" target="_blank">派送账单录入</a>
+                                <div class="nested-dropdown" >
+                                    <a>库内账单录入</a>
+                                    <div class="nested-dropdown-content">
+                                        <a href="{% url 'receivable_accounting' %}?step=public_warehouse" target="_blank">公仓</a>
+                                        <a href="{% url 'receivable_accounting' %}?step=self_warehouse" target="_blank">私仓</a>
+                                    </div>
+                                </div>
+                                <div class="nested-dropdown" >
+                                    <a>派送账单录入</a>
+                                    <div class="nested-dropdown-content">
+                                        <a href="{% url 'receivable_accounting' %}?step=public_delivery" target="_blank">公仓</a>
+                                        <a href="{% url 'receivable_accounting' %}?step=self_delivery" target="_blank">私仓</a>
+                                    </div>
+                                </div>
                                 <!-- 财务管理 -->
                                 <a href="{% url 'receivable_accounting' %}?step=confirm" target="_blank">待确认账单</a>
                                 <a href="{% url 'receivable_accounting' %}?step=completed" target="_blank">已完成账单</a>
+                                <a href="{% url 'receivable_accounting' %}?step=supplementary" target="_blank">补开账单</a>
                                 <a href="{% url 'receivable_accounting' %}?step=finance_stats" target="_blank">财务统计分析</a>
                                  <!-- 报价管理 -->
                                 <a href="{% url 'receivable_accounting' %}?step=quotation_management" target="_blank">报价表管理</a>

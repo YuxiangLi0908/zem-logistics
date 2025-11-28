@@ -436,29 +436,37 @@ class ExceptionHandling(View):
             processing_logs.append({
                 'row': row_number,
                 'type': 'info',
-                'message': f'开始处理: 柜号={container_number}, 仓点={destination}, ISA={isa_value}'
+                'message': f'开始处理: 柜号={container_number}, 仓点={destination}, 批次号={isa_value}'
             })
             
             # 处理ISA值（去空格取整数）
-            try:
-                isa_int = int(isa_value.strip())
-            except (ValueError, AttributeError):
-                processing_logs.append({
-                    'row': row_number,
-                    'type': 'error',
-                    'message': f'ISA值格式错误: {isa_value}'
-                })
-                error_count += 1
-                continue
+            # try:
+            #     isa_int = int(isa_value.strip())
+            # except (ValueError, AttributeError):
+            #     processing_logs.append({
+            #         'row': row_number,
+            #         'type': 'error',
+            #         'message': f'ISA值格式错误: {isa_value}'
+            #     })
+            #     error_count += 1
+            #     continue
             
             # 查找shipment记录
             try:
-                shipment = await self.get_shipment_by_appointment_id(isa_int)
+                shipment = await self.get_shipment_by_appointment_id(isa_value) #传的是批次号
                 if not shipment:
                     processing_logs.append({
                         'row': row_number,
                         'type': 'warning',
-                        'message': f'未找到对应的shipment记录: appointment_id={isa_int}'
+                        'message': f'未找到对应的shipment记录: appointment_id={isa_value}'
+                    })
+                    skipped_count += 1
+                    continue
+                elif shipment.is_canceled:
+                    processing_logs.append({
+                        'row': row_number,
+                        'type': 'warning',
+                        'message': f'约已被取消: appointment_id={isa_value}'
                     })
                     skipped_count += 1
                     continue
@@ -541,7 +549,7 @@ class ExceptionHandling(View):
         """根据appointment_id查找shipment记录"""
         try:          
             shipment = await Shipment.objects.aget(
-                appointment_id=appointment_id,
+                shipment_batch_number=appointment_id,
             )
             return shipment
         except Shipment.DoesNotExist:

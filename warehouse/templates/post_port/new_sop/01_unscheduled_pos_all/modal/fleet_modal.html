@@ -47,7 +47,7 @@
                                 </td>
                                 <td style="width: 33%;">
                                     <label style="font-size: 0.8rem; font-weight: 600; color: var(--secondary-color); display: block; margin-bottom: 5px;">PickUp Number</label>
-                                    <input type="text" name="pickup_number" id="fleetModalPickupNumber" class="table-input" style="width: 100%;">
+                                    <input type="text" name="pickup_number" id="fleetModalPickupNumber" class="table-input" style="width: 100%;" required>
                                 </td>
                             </tr>
                             <tr>
@@ -97,13 +97,13 @@
                     <thead>
                         <tr>
                             <th>预约批次</th>
-                            <th>目的地</th>
                             <th>预约号</th>
-                            <th>Scheduled Time</th>
-                            <th>备注</th>
-                            <th>总重lbs</th>
+                            <th>柜号</th>
+                            <th>目的地</th>                           
+                            <th>Scheduled Time</th>                          
                             <th>总CBM</th>
                             <th>总卡板数</th>
+                             <th>备注</th>
                         </tr>
                     </thead>
                     <tbody id="fleetShipmentTableBody">
@@ -169,16 +169,26 @@
         }
 
         const selectedAppointments = [];
+        let pickupNumebr = '';
         checkboxes.forEach(cb => {
             const appointmentId = cb.dataset.appointmentId;
             if (appointmentId) {
                 selectedAppointments.push(appointmentId);
+                // 获取 pickup_number
+                const tr = cb.closest("tr");
+                // 从按钮的 data 属性中获取 pickup_number
+                const editBtn = tr.querySelector('.open-edit-modal');
+                if (editBtn && editBtn.dataset.pickupNumber) {
+                    pickupNumber = editBtn.dataset.pickupNumber;
+                }
             }
         });
-
+        console.log('pickupNumber',pickupNumber);
         // 设置选中的预约号到隐藏字段
         document.getElementById('fleetModalSelectedAppointments').value = JSON.stringify(selectedAppointments);
-        
+        if (pickupNumber) {
+            document.getElementById('fleetModalPickupNumber').value = pickupNumber;
+        }
         // 将选中的记录信息填入弹窗表格
         const tbody = document.getElementById("fleetShipmentTableBody");
         tbody.innerHTML = ""; // 清空旧内容
@@ -186,28 +196,39 @@
         checkboxes.forEach(cb => {
             const tr = cb.closest("tr");
             const cells = tr.querySelectorAll("td");
-            console.log('cells',cells);
             
             // 获取预约信息
-            const appointmentBatch = cells[1].innerText; // 预约批次
-            const destination = cells[2].innerText; // 目的地
-            const appointmentId = cells[3].innerText; // 预约号
+            //预约批次
+            const appointmentBatchCell = cells[1];
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = appointmentBatchCell.innerHTML;
+            const buttons = tempDiv.querySelectorAll('button, form');
+            buttons.forEach(btn => btn.remove());
+            const appointmentBatch = tempDiv.textContent.trim();
+
+            // 预约号
+            const appointmentIdCell = cells[2];          
+            const strongElement = appointmentIdCell.querySelector('strong');
+            const appointmentId = strongElement ? strongElement.textContent.trim() : appointmentIdCell.textContent.trim();
+            const container_number = cells[6].innerText;
+            const destination = cells[3].innerText; // 目的地          
             const scheduledTime = cells[4].innerText; // Scheduled Time
-            const note = cells[10].innerText; // 备注
-            const totalWeight = cells[5].innerText; // 总重
-            const totalCbm = cells[6].innerText; // 总CBM
-            const totalPallet = cells[7].innerText; // 总卡板数
+            
+            const totalPallet = cells[9].innerText; // 总卡板数
+            const totalCbm = cells[10].innerText; // 总CBM
+            
+            const note = cells[11].innerText; // 备注
 
             const newRow = document.createElement("tr");
             newRow.innerHTML = `
                 <td style="max-width: 120px; word-break: break-all;">${appointmentBatch}</td>
-                <td>${destination}</td>
                 <td>${appointmentId}</td>
-                <td style="max-width: 150px; word-break: break-all;">${scheduledTime}</td>
-                <td style="max-width: 120px; word-break: break-all;">${note}</td>
-                <td>${totalWeight}</td>
+                <td>${container_number}</td>
+                <td>${destination}</td>              
+                <td style="max-width: 150px; word-break: break-all;">${scheduledTime}</td>              
                 <td>${totalCbm}</td>
                 <td>${totalPallet}</td>
+                <td style="max-width: 120px; word-break: break-all;">${note}</td>
             `;
             tbody.appendChild(newRow);
         });
@@ -217,8 +238,10 @@
         
         // 清空其他表单字段
         const form = document.querySelector('#fleetModal form');
+        const pickupInput = document.getElementById('fleetModalPickupNumber');
+        const savedPickupValue = pickupInput.value; // 保存 pickup_number 的值
         form.reset();
-        
+        pickupInput.value = savedPickupValue;
         // 显示弹窗
         document.getElementById("fleetModal").style.display = "block";
     }
