@@ -436,6 +436,14 @@ class ExceptionHandling(View):
                     })
                     skipped_count += 1
                     continue
+                elif shipment.is_canceled:
+                    processing_logs.append({
+                        'row': row_number,
+                        'type': 'warning',
+                        'message': f'约已被取消: appointment_id={isa_int}'
+                    })
+                    skipped_count += 1
+                    continue
                 else:
                     processing_logs.append({
                         'row': row_number,
