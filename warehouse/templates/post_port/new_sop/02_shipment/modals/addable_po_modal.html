@@ -356,26 +356,44 @@
         const columnFilters = {};
         let hasSearchTerm = false;
         
+        console.log('=== 开始搜索 ===');
+        
         searchInputs.forEach(input => {
             const colIndex = input.dataset.column;
             let value = input.value.trim().toLowerCase();
             
+            console.log(`列 ${colIndex} 输入值: "${value}"`, '元素:', input);
+            
             // 对于选择框，空值表示"全部"，不需要筛选
             if (input.tagName === 'SELECT' && value === '') {
+                console.log(`列 ${colIndex} 是选择框且为空，跳过`);
                 return;
             }
             
             if (value) {
-                columnFilters[colIndex] = value;
+                // 如果是柜号列（第3列），支持多值搜索
+                if (colIndex === '3') {
+                    console.log('是柜号查询，原始值:', value);
+                    const terms = value.split(/\s+/).filter(term => term.length > 0);
+                    console.log('分割后的搜索词:', terms);
+                    columnFilters[colIndex] = terms;
+                } else {
+                    columnFilters[colIndex] = value;
+                }
+                // 重要：只要有任意列有值，就设置 hasSearchTerm 为 true
                 hasSearchTerm = true;
             }
         });
+        
+        console.log('最终搜索条件:', columnFilters);
+        console.log('是否有搜索条件:', hasSearchTerm);
         
         // 清除旧的高亮
         clearAddablePOHighlights();
         
         // 没有搜索条件时显示所有行
         if (!hasSearchTerm) {
+            console.log('没有搜索条件，显示所有行');
             rows.forEach(row => {
                 row.style.display = '';
             });
@@ -383,7 +401,8 @@
         }
         
         // 应用筛选
-        rows.forEach(row => {
+        let visibleCount = 0;
+        rows.forEach((row, rowIndex) => {
             let allColumnsMatch = true;
             
             // 检查每一列的筛选条件（AND关系）
@@ -392,6 +411,7 @@
                 const cell = getAddablePOCellByColumnIndex(row, parseInt(colIndex));
                 
                 if (!cell) {
+                    console.log(`行 ${rowIndex} 列 ${colIndex} 没有找到单元格`);
                     allColumnsMatch = false;
                     return;
                 }
@@ -407,6 +427,10 @@
                         break;
                     case 3: // 柜号
                         cellValue = row.dataset.cn || '';
+                        console.log(`行 ${rowIndex} 柜号数据:`, {
+                            datasetCn: row.dataset.cn,
+                            cellText: cell.textContent
+                        });
                         break;
                     case 4: // 目的地
                         cellValue = row.dataset.destination || '';
@@ -424,20 +448,73 @@
                         cellValue = cell.textContent.toLowerCase();
                 }
                 
-                if (!cellValue.includes(searchValue)) {
+                console.log(`行 ${rowIndex} 列 ${colIndex} 数据:`, {
+                    dataset: row.dataset,
+                    cellValue: cellValue,
+                    searchValue: searchValue
+                });
+                
+                // 特殊处理柜号列的多值搜索
+                if (parseInt(colIndex) === 3 && Array.isArray(searchValue)) {
+                    console.log(`处理柜号多值搜索: 单元格值="${cellValue}", 搜索词=`, searchValue);
+                    // 检查是否包含任意一个搜索词（OR关系）
+                    let anyTermMatches = false;
+                    for (const term of searchValue) {
+                        console.log(`  比较: "${cellValue}" 包含 "${term}" ?`, cellValue.includes(term));
+                        if (cellValue.includes(term)) {
+                            anyTermMatches = true;
+                            console.log(`  匹配成功: "${term}"`);
+                            break;
+                        }
+                    }
+                    if (!anyTermMatches) {
+                        console.log(`行 ${rowIndex} 柜号列没有匹配任何搜索词`);
+                        allColumnsMatch = false;
+                    } else {
+                        console.log(`行 ${rowIndex} 柜号列匹配成功`);
+                    }
+                } else if (!cellValue.includes(searchValue)) {
+                    console.log(`行 ${rowIndex} 列 ${colIndex} 不匹配: "${cellValue}" 不包含 "${searchValue}"`);
                     allColumnsMatch = false;
+                } else {
+                    console.log(`行 ${rowIndex} 列 ${colIndex} 匹配成功`);
                 }
             });
             
-            row.style.display = allColumnsMatch ? '' : 'none';
-            
-            // 高亮匹配的内容
             if (allColumnsMatch) {
+                row.style.display = '';
+                visibleCount++;
+                console.log(`行 ${rowIndex} 显示`);
+                
+                // 高亮匹配的内容
                 Object.keys(columnFilters).forEach((colIndex, termIndex) => {
-                    highlightAddablePOMatches(getAddablePOCellByColumnIndex(row, parseInt(colIndex)), columnFilters[colIndex], termIndex);
+                    const searchValue = columnFilters[colIndex];
+                    const cell = getAddablePOCellByColumnIndex(row, parseInt(colIndex));
+                    
+                    console.log(`准备高亮 行 ${rowIndex} 列 ${colIndex}:`, {
+                        searchValue: searchValue,
+                        cell: cell
+                    });
+                    
+                    if (parseInt(colIndex) === 3 && Array.isArray(searchValue)) {
+                        // 柜号列：高亮所有匹配的搜索词
+                        searchValue.forEach((term, subIndex) => {
+                            console.log(`高亮柜号搜索词: "${term}"`);
+                            highlightAddablePOMatches(cell, term, (termIndex * 10 + subIndex) % 4);
+                        });
+                    } else {
+                        console.log(`高亮普通搜索词: "${searchValue}"`);
+                        highlightAddablePOMatches(cell, searchValue, termIndex);
+                    }
                 });
+            } else {
+                row.style.display = 'none';
+                console.log(`行 ${rowIndex} 隐藏`);
             }
         });
+        
+        console.log(`搜索完成，显示 ${visibleCount} 行`);
+        console.log('=== 结束搜索 ===');
     }
 
     // 辅助函数：根据列索引获取单元格
