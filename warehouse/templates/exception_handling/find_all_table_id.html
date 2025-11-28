@@ -201,6 +201,7 @@
                 <option value="PackingList" {% if table_name == 'PackingList' %}selected{% endif %}>PackingList - 装箱单</option>
                 <option value="PalletDestroyed" {% if table_name == 'PalletDestroyed' %}selected{% endif %}>PalletDestroyed - 销毁托盘</option>
                 <option value="Pallet" {% if table_name == 'Pallet' %}selected{% endif %}>Pallet - 托盘信息</option>
+                <option value="Historicalpallet" {% if table_name == 'Historicalpallet' %}selected{% endif %}>Historicalpallet - 历史托盘信息</option>
                 <option value="PoCheckEtaSeven" {% if table_name == 'PoCheckEtaSeven' %}selected{% endif %}>PoCheckEtaSeven - PO查验</option>
                 <option value="QuotationMaster" {% if table_name == 'QuotationMaster' %}selected{% endif %}>QuotationMaster - 报价主表</option>
                 <option value="TransferLocation" {% if table_name == 'TransferLocation' %}selected{% endif %}>TransferLocation - 转运位置</option>
@@ -401,6 +402,12 @@
                 ['container_number', '柜号']
             ],
             'Pallet': [
+                ['id', 'ID'],
+                ['container_number', '柜号'],
+                ['PO_ID', 'PO编号'],
+                ['slot', '槽位']
+            ],
+            'Historicalpallet':[
                 ['id', 'ID'],
                 ['container_number', '柜号'],
                 ['PO_ID', 'PO编号'],
