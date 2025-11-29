@@ -2608,6 +2608,9 @@ class FleetManagement(View):
         shipment.status = "Exception"
         shipment.status_description = f"{status}-{description}"
         shipment.fleet_number = None
+        shipment.is_shipped = False
+        shipment.shipped_at = None
+        shipment.shipped_at_utc = None
         await sync_to_async(shipment.save)()
         if fleet:
             await sync_to_async(fleet.save)()
