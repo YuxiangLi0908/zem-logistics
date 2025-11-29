@@ -2425,6 +2425,7 @@ class PostNsop(View):
             is_shipped=True,
             origin=warehouse,
             shipment_type="FTL",
+            fleet_number__isnull=False,
         ) & ~Q(status="Exception")
 
         if four_major_whs == "four_major_whs":
