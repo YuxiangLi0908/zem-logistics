@@ -246,6 +246,7 @@
             <th>已经取消</th>
             <th>POD链接</th>
             <th>操作</th>
+            <th>删约（慎点）</th>
         </tr>
     </thead>
     <tbody>
@@ -339,6 +340,18 @@
                     </button>
                 </form>
                 {% endfor %}
+            </td>
+            <td>
+                <form method="post" style="display: inline-block; margin: 2px;">
+                    {% csrf_token %}
+                    <input type="hidden" name="step" value="delete_shipment">
+                    <input type="hidden" name="shipment_id" value="{{ shipment.id }}">
+                    <input type="hidden" name="search_batch_number" value="{{ search_value }}">
+                    <input type="hidden" name="search_type" value="{{ search_type }}">
+                    <button type="submit" class="action-btn">
+                        删除
+                    </button>
+                </form>
             </td>
         </tr>
         {% endfor %}
