@@ -3578,7 +3578,8 @@ class PostNsop(View):
                     continue
                 except MultipleObjectsReturned:
                     raise ValueError(f"shipment_batch_number={batch_number} 查询到多条记录，请检查数据")
-                
+                if shipment.status == "Exception": #异常的约不展示
+                    continue
                 address = await self.get_address(shipment.destination)
                 grouped_data[batch_number] = {
                     'appointment_id': shipment.appointment_id,
