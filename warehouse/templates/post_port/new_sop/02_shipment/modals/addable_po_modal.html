@@ -5,29 +5,6 @@
         display: inline-block;
     }
 
-    .filter-info-tooltip::after {
-        content: attr(data-tooltip);
-        white-space: pre-line; /* 支持多行 */
-        position: absolute;
-        top: calc(50% + 6px);
-        left: 120%; /* 在问号右侧一点 */
-        transform: translateY(-35%); /* 垂直居中，与问号齐平 */
-        background-color: rgba(60, 60, 60, 0.95);
-        color: #fff;
-        padding: 6px 10px;
-        border-radius: 6px;
-        font-size: 12px;
-        line-height: 1.4;
-        width: max-content;
-        max-width: 260px;
-        opacity: 0;
-        visibility: hidden;
-        transition: opacity 0.2s ease;
-        z-index: 1000;
-        pointer-events: none;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-    }
-
     /* 悬停时显示 */
     .filter-info-tooltip:hover::after {
         opacity: 1;
@@ -53,10 +30,6 @@
         opacity: 1;
         visibility: visible;
     }
-    .filter-info-tooltip {
-        position: relative;
-        display: inline-block;
-    }
 
     .filter-info-tooltip::after {
         content: attr(data-tooltip);
@@ -79,32 +52,6 @@
         z-index: 1000;
         pointer-events: none;
         box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-    }
-
-    /* 悬停时显示 */
-    .filter-info-tooltip:hover::after {
-        opacity: 1;
-        visibility: visible;
-    }
-
-    /* 加一个右侧的小箭头 */
-    .filter-info-tooltip::before {
-        content: "";
-        position: absolute;
-        top: 50%;
-        left: 100%;
-        transform: translateY(-50%);
-        border-width: 6px;
-        border-style: solid;
-        border-color: transparent rgba(60, 60, 60, 0.95) transparent transparent;
-        opacity: 0;
-        visibility: hidden;
-        transition: opacity 0.2s ease;
-    }
-
-    .filter-info-tooltip:hover::before {
-        opacity: 1;
-        visibility: visible;
     }
 
     /* 搜索行样式 */
@@ -185,6 +132,7 @@
                             <th style="width: 20%; word-break: break-word; white-space: normal;">FBA ID</th>
                             <th style="width: 15%; word-break: break-word; white-space: normal;">柜号</th>
                             <th style="width: 20%; word-break: break-word; white-space: normal;">目的地</th>
+                            <th style="width: 15%; word-break: break-word; white-space: normal;">派送方式</th>
                             <th style="width: 20%; word-break: break-word; white-space: normal;">入仓时间</th>
                             <th style="width: 20%; word-break: break-word; white-space: normal;">甩板</th>
                             <th style="width: 10%; text-align:center;">板数</th>
@@ -195,15 +143,16 @@
                             <td><input type="text" class="header-search" placeholder="搜索FBA ID" data-column="2"></td>
                             <td><input type="text" class="header-search" placeholder="搜索柜号" data-column="3"></td>
                             <td><input type="text" class="header-search" placeholder="搜索目的地" data-column="4"></td>
-                            <td><input type="text" class="header-search" placeholder="搜索入仓时间" data-column="5"></td>
+                            <td><input type="text" class="header-search" placeholder="搜索派送方式" data-column="5"></td>
+                            <td><input type="text" class="header-search" placeholder="搜索入仓时间" data-column="6"></td>
                             <td>
-                                <select class="header-select" data-column="6">
+                                <select class="header-select" data-column="7">
                                     <option value="">全部</option>
                                     <option value="是">是</option>
                                     <option value="否">否</option>
                                 </select>
                             </td>
-                            <td><input type="text" class="header-search" placeholder="搜索板数" data-column="7"></td>
+                            <td><input type="text" class="header-search" placeholder="搜索板数" data-column="8"></td>
                         </tr>
                     </thead>
                     <tbody id="addablePOTableBody">
@@ -213,6 +162,7 @@
                                 data-fba-id="{{ po.fba_ids|default:''|lower }}" 
                                 data-cn="{{ po.cns|lower }}" 
                                 data-destination="{{ po.destination|lower }}" 
+                                data-delivery-method="{{ po.delivery_method|default:''|lower }}"
                                 data-offload-time="{{ po.offload_time|default:''|lower }}"
                                 data-is-dropped="{% if po.is_dropped_pallet == True %}是{% else %}否{% endif %}"
                                 data-pallet="{{ po.total_n_pallet_act }}">
@@ -225,6 +175,7 @@
                                 <td style="word-break: break-word; white-space: normal;">{{ po.fba_ids|default:"-" }}</td>
                                 <td style="word-break: break-word; white-space: normal;">{{ po.cns }}</td>
                                 <td style="word-break: break-word; white-space: normal;">{{ po.destination }}</td>
+                                <td style="word-break: break-word; white-space: normal;">{{ po.delivery_method|default:"-" }}</td>
                                 <td style="word-break: break-word; white-space: normal;">{{ po.offload_time }}</td>
                                 <td style="word-break: break-word; white-space: normal;">
                                     {% if po.is_dropped_pallet == True %}
@@ -242,7 +193,7 @@
                             </tr>
                             {% endfor %}
                         {% else %}
-                            <tr><td colspan="8" style="text-align:center; color:#888; padding: 20px;">暂无可添加的PO</td></tr>
+                            <tr><td colspan="9" style="text-align:center; color:#888; padding: 20px;">暂无可添加的PO</td></tr>
                         {% endif %}
                     </tbody>
                 </table>
@@ -435,24 +386,21 @@
                     case 4: // 目的地
                         cellValue = row.dataset.destination || '';
                         break;
-                    case 5: // 入仓时间
+                    case 5: // 新增：派送方式
+                        cellValue = row.dataset.deliveryMethod || '';
+                        break;
+                    case 6: // 入仓时间
                         cellValue = row.dataset.offloadTime || '';
                         break;
-                    case 6: // 甩板
+                    case 7: // 甩板
                         cellValue = row.dataset.isDropped || '';
                         break;
-                    case 7: // 板数
+                    case 8: // 板数
                         cellValue = row.dataset.pallet ? row.dataset.pallet.toString() : '';
                         break;
                     default:
                         cellValue = cell.textContent.toLowerCase();
                 }
-                
-                console.log(`行 ${rowIndex} 列 ${colIndex} 数据:`, {
-                    dataset: row.dataset,
-                    cellValue: cellValue,
-                    searchValue: searchValue
-                });
                 
                 // 特殊处理柜号列的多值搜索
                 if (parseInt(colIndex) === 3 && Array.isArray(searchValue)) {
