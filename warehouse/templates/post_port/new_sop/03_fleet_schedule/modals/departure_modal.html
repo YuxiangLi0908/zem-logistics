@@ -434,7 +434,7 @@
 
         fleetData.shipments.forEach(shipment => {
             const appointment = shipment.appointmentId || '-';
-            const destination = shipment.destination || '-';
+            
             (shipment.cargos || []).forEach(cargo => {
                 const tr = document.createElement('tr');
 
@@ -445,7 +445,7 @@
 
                 // 目的地
                 const destTd = document.createElement('td');
-                destTd.textContent = destination;
+                destTd.textContent = cargo.destination
                 tr.appendChild(destTd);
 
                 // REF ID

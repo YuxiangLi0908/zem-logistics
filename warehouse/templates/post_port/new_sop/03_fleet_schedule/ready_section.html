@@ -62,6 +62,7 @@
                     <th>柜号</th>
                     <th>REF ID</th>
                     <th>FBA ID</th>
+                    <th>目的地</th>
                     <th>板数</th>
                     <th>CBM</th>
                     <th>加塞</th>
@@ -83,8 +84,9 @@
                     <td><input type="text" class="header-search" placeholder="搜索柜号" data-column="5"></td>
                     <td><input type="text" class="header-search" placeholder="搜索REF ID" data-column="6"></td>
                     <td><input type="text" class="header-search" placeholder="搜索FBA ID" data-column="7"></td>
-                    <td><input type="text" class="header-search" placeholder="搜索板数" data-column="8"></td>
-                    <td><input type="text" class="header-search" placeholder="搜索CBM" data-column="9"></td>
+                    <td><input type="text" class="header-search" placeholder="搜索目的地" data-column="8"></td>
+                    <td><input type="text" class="header-search" placeholder="搜索板数" data-column="9"></td>
+                    <td><input type="text" class="header-search" placeholder="搜索CBM" data-column="10"></td>
                     <td></td>
                     <td></td>
                 </tr>
@@ -122,7 +124,7 @@
                                             <td style="vertical-align: middle; background-color: #f8f9fa;">{{ shipment.appointment_id }}</td>
                                             <td style="vertical-align: middle; background-color: #f8f9fa;">{{ shipment.destination }}</td>
 
-                                            <td colspan="5" style="text-align:center; color:#aaa;">无可出库货物</td>
+                                            <td colspan="7" style="text-align:center; color:#aaa;">无可出库货物</td>
 
                                             <td>
                                                 <form method="post" action="">
@@ -152,6 +154,7 @@
                                                 data-container-no="{{ cargo.cns }}"
                                                 data-ref-ids="{{ cargo.ref_ids|default:'' }}"
                                                 data-fba-ids="{{ cargo.fba_ids|default:'' }}"
+                                                data-cargo-destination="{{ cargo.destination|default:'' }}"
                                                 data-planned="{{ cargo.total_n_pallet_act|default:0 }}"
                                                 data-label="{{ cargo.label|default:'' }}"
                                                 data-cbm="{{ cargo.total_cbm|default:0 }}">
@@ -193,6 +196,7 @@
                                                 <td class="cns-col">{{ cargo.cns|linebreaksbr }}</td>
                                                 <td class="ref-ids-col" data-full="{{ cargo.ref_ids|default:'' }}">{{ cargo.ref_ids|default:"-"|truncatechars:20 }}</td>
                                                 <td class="fba-ids-col" data-full="{{ cargo.fba_ids|default:'' }}">{{ cargo.fba_ids|default:"-"|truncatechars:20 }}</td>
+                                                <td class="cargo-destination">{{ cargo.destination }}</td>
                                                 <td>
                                                     {% if cargo.label == "ACT" %}
                                                         {{ cargo.total_n_pallet_act|default:0 }}
@@ -612,6 +616,7 @@
             const planned = parseFloat(row.dataset.planned || 0) || 0;
             const label = row.dataset.label || '';
             const cbm = row.dataset.cbm || '';
+            const cargoDestination = row.dataset.cargoDestination || dest;
 
             let pltId = '';
             let cargoId = '';
@@ -638,6 +643,7 @@
                 palletLabel: label,
                 actualPallets: planned,
                 cbm,
+                destination: cargoDestination, 
                 // keep separate fields
                 pltId: pltId || '',
                 cargoId: cargoId || ''

@@ -3749,7 +3749,12 @@ class PostNsop(View):
             #if fleet_group['shipments']:
             grouped_data.append(fleet_group)
         # 按 appointment_datetime 排序，时间早的排在前面
-        grouped_data.sort(key=lambda x: x['appointment_datetime'] or datetime.max)
+        grouped_data.sort(
+            key=lambda x: (
+                x['appointment_datetime'].replace(tzinfo=None)
+                if x['appointment_datetime'] else datetime.max
+            )
+        )
         return grouped_data
 
     async def sp_available_shipments(self, warehouse: str, st_type: str) -> list:
