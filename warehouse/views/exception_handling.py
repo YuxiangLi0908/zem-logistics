@@ -210,6 +210,9 @@ class ExceptionHandling(View):
         elif step == "update_shipment_type_to_fleet_type":
             template, context = await self.handle_update_shipment_type_to_fleet_type(request)
             return await sync_to_async(render)(request, template, context) 
+        elif step == "delete_shipment":
+            template, context = await self.handle_delete_shipment(request)
+            return await sync_to_async(render)(request, template, context)
         else:
             return await sync_to_async(T49Webhook().post)(request)
     
@@ -1711,6 +1714,39 @@ class ExceptionHandling(View):
             messages.error(request, f"未找到 ID 为 {shipment_id} 的 Shipment")
         return await self.handle_search_shipment(request)
 
+    async def handle_delete_shipment(self, request: HttpRequest):
+        """删除约，非必要不删除"""
+        context = {}
+        shipment_id = request.POST.get('shipment_id')
+        search_batch_number = request.POST.get('search_batch_number')
+        search_type = request.POST.get('search_type', 'batch')
+        if not shipment_id:
+            messages.error(request, "缺少必要参数")
+            return self.template_post_port_status, context
+        # 异步获取shipment对象
+        shipment = await sync_to_async(
+            lambda: Shipment.objects.select_related('fleet_number').filter(id=shipment_id).first()
+        )()
+        if not shipment:
+            messages.error(request, "未找到要删除的记录")
+        else:
+            has_related_data = await sync_to_async(
+                lambda: (
+                    PackingList.objects.filter(shipment_batch_number=shipment).exists() or
+                    Pallet.objects.filter(shipment_batch_number=shipment).exists()
+                )
+            )()
+            if has_related_data:
+                messages.error(request, "存在po绑定在这条约上，不能直接删除！")
+            if shipment.fleet_number:
+                messages.error(request, "这条约已排车，不能直接删除！")
+            else:
+                try:
+                    await sync_to_async(shipment.delete)()
+                    messages.success(request, "记录删除成功")
+                except Exception as e:
+                    messages.error(request, f"记录删除失败: {str(e)}")
+        return self.template_post_port_status, context
 
     async def handle_update_shipment_status(self, request: HttpRequest):
         """处理更新shipment状态请求"""
