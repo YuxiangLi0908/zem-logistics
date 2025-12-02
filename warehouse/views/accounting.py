@@ -6270,7 +6270,8 @@ class Accounting(View):
             dest_matches = []
             matched = False
             # 遍历所有区域和location
-            if 'UPS' not in destination or 'FEDEX' not in destination:
+            dest_upper = destination.upper()
+            if ('UPS' not in dest_upper) or ('FEDEX' not in dest_upper):
                 for region, fee_data_list in combina_fee.items():           
                     for fee_data in fee_data_list:
                         prices_obj = fee_data["prices"]
