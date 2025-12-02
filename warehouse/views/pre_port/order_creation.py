@@ -522,7 +522,7 @@ class OrderCreation(View):
             if not end_date_eta and not end_date_etd
             else end_date_eta
         )
-        criteria = None
+        criteria = models.Q(cancel_notification=False)
         if start_date_eta and end_date_eta:
             criteria = models.Q(
                 vessel_id__vessel_eta__gte=start_date_eta,
