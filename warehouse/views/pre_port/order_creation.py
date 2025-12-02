@@ -522,23 +522,25 @@ class OrderCreation(View):
             if not end_date_eta and not end_date_etd
             else end_date_eta
         )
-        criteria = models.Q(cancel_notification=False)
+        criteria = None
         if start_date_eta and end_date_eta:
-            criteria = models.Q(
+            criteria = (models.Q(
                 vessel_id__vessel_eta__gte=start_date_eta,
                 vessel_id__vessel_eta__lte=end_date_eta,
-            ) | models.Q(created_at__gte=start_date_eta, created_at__lte=end_date_eta)
+            ) | models.Q(created_at__gte=start_date_eta, created_at__lte=end_date_eta)) & models.Q(cancel_notification=False)
         if start_date_etd:
             if end_date_etd:
                 if criteria == None:
                     criteria = models.Q(
                         vessel_id__vessel_etd__gte=start_date_etd,
                         vessel_id__vessel_etd__lte=end_date_etd,
+                        cancel_notification=False
                     )
                 else:
                     criteria &= models.Q(
                         vessel_id__vessel_etd__gte=start_date_etd,
                         vessel_id__vessel_etd__lte=end_date_etd,
+                        cancel_notification=False
                     )
         orders = await sync_to_async(list)(
             Order.objects.select_related(
@@ -552,9 +554,7 @@ class OrderCreation(View):
         )
         # 判断一下柜子的状态
         for order in orders:
-            if order.cancel_notification:
-                status = "已取消"
-            elif not order.add_to_t49:
+            if not order.add_to_t49:
                 status = "T49待追踪"
             else:
                 if not order.retrieval_id.actual_retrieval_timestamp:
