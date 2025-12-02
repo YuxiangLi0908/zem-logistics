@@ -127,8 +127,8 @@ class ReceivableAccounting(View):
     template_warehouse_entry = "receivable_accounting/warehouse_entry.html"
     template_warehouse_edit = "receivable_accounting/warehouse_edit.html"
 
-    template_public_delivery_entry = "receivable_accounting/public_delivery_entry.html"
-    template_self_delivery_entry = "receivable_accounting/self_delivery_entry.html"
+    template_delivery_entry = "receivable_accounting/delivery_entry.html"
+    template_delivery_edit = "receivable_accounting/delivery_edit.html"
 
     template_pending_confirmation = "receivable_accounting/pending_confirmation.html"
     template_completed_bills = "receivable_accounting/completed_bills.html"
@@ -172,11 +172,11 @@ class ReceivableAccounting(View):
             return render(request, self.template_preport_entry, context)
         elif step == "warehouse":  #库内
             context = {"warehouse_options": self.warehouse_options,"order_form": OrderForm()}
-            return render(request, self.template_warehouse_entry, context)
-        
-        elif step == "delivery_public":  # 公仓派送
+            return render(request, self.template_warehouse_entry, context)    
+        elif step == "delivery":  # 派送
             context = {"warehouse_options": self.warehouse_options,"order_form": OrderForm()}
-            return render(request, self.template_public_delivery_entry, context)
+            return render(request, self.template_delivery_entry, context)
+        
         elif step == "delivery_other":  # 私仓派送
             context = {"warehouse_options": self.warehouse_options,"order_form": OrderForm()}
             return render(request, self.template_self_delivery_entry, context)
@@ -215,13 +215,10 @@ class ReceivableAccounting(View):
         elif step == "warehouse_search":  #库内
             context = self.handle_warehouse_entry_post(request)
             return render(request, self.template_warehouse_entry, context)
+        elif step == "delivery_search":
+            context = self.handle_delivery_entry_post(request)
+            return render(request, self.template_delivery_entry, context)
         
-        elif step == "delivery_public_search":  # 公仓派送
-            context = self.query_invoice_basic(request, "delivery_public")
-            return render(request, self.template_public_delivery_entry, context)
-        elif step == "delivery_other_search":  # 私仓派送
-            context = self.query_invoice_basic(request, "delivery_other")
-            return render(request, self.template_self_delivery_entry, context)
         elif step == "preport_save":
             context = self.handle_invoice_preport_save(request)
             return render(request, self.template_preport_entry, context)
@@ -429,7 +426,18 @@ class ReceivableAccounting(View):
             
             if not container:
                 continue
-                
+            
+            container_delivery_type = getattr(container, 'delivery_type', 'mixed')
+        
+            # 判断是否应该处理公仓或私仓
+            should_process_public = container_delivery_type in ['public', 'mixed']
+            should_process_self = container_delivery_type in ['other', 'mixed']
+            
+            # 如果没有柜子类型信息，默认都处理
+            if container_delivery_type not in ['public', 'other', 'mixed']:
+                should_process_public = True
+                should_process_self = True
+
             # 查询这个柜子的所有应收账单
             invoices = Invoicev2.objects.filter(container_number=container)
             
@@ -446,8 +454,11 @@ class ReceivableAccounting(View):
                     'has_invoice': False,
                     'offload_time': order.offload_time,
                 }
-                wh_public_to_record_orders.append(order_data)
-                wh_self_to_record_orders.append(order_data)
+                # 根据柜子类型决定添加到哪个列表
+                if should_process_public:
+                    wh_public_to_record_orders.append(order_data)
+                if should_process_self:
+                    wh_self_to_record_orders.append(order_data)
             else:
                 # 有账单的情况 - 每个账单都要单独处理
                 for invoice in invoices:
@@ -478,16 +489,18 @@ class ReceivableAccounting(View):
                         'offload_time': order.offload_time,
                     }
                     
-                    # 根据状态分组
-                    if public_status in ["unstarted", "in_progress"] or public_status is None:
-                        wh_public_to_record_orders.append(order_data)
-                    elif public_status in ["completed", "rejected"]:
-                        wh_public_recorded_orders.append(order_data)
+                    # 根据状态分组，同时考虑柜子类型
+                    if should_process_public:
+                        if public_status in ["unstarted", "in_progress"] or public_status is None:
+                            wh_public_to_record_orders.append(order_data)
+                        elif public_status in ["completed", "rejected", "confirmed"]:
+                            wh_public_recorded_orders.append(order_data)
 
-                    if self_status in ["unstarted", "in_progress"] or self_status is None:
-                        wh_self_to_record_orders.append(order_data)
-                    elif self_status in ["completed", "rejected"]:
-                        wh_self_recorded_orders.append(order_data)
+                    if should_process_self:
+                        if self_status in ["unstarted", "in_progress"] or self_status is None:
+                            wh_self_to_record_orders.append(order_data)
+                        elif self_status in ["completed", "rejected", "confirmed"]:
+                            wh_self_recorded_orders.append(order_data)
         
         #按照出库比例排序
         wh_self_to_record_orders = self._add_shipment_group_stats(wh_self_to_record_orders, "other")
@@ -498,10 +511,10 @@ class ReceivableAccounting(View):
             context = {}
 
         # 根据权限，决定打开的标签页
-        if 'warehouse_public' in groups:
-            default_tab = 'public'
-        else:
+        if 'warehouse_other' in groups:
             default_tab = 'self'
+        else:
+            default_tab = 'public'
         context.update({
             'start_date': start_date,
             'end_date': end_date,
@@ -509,6 +522,181 @@ class ReceivableAccounting(View):
             'wh_public_recorded_orders': wh_public_recorded_orders,
             'wh_self_to_record_orders': wh_self_to_record_orders,
             'wh_self_recorded_orders': wh_self_recorded_orders,
+            "order_form": OrderForm(),
+            "warehouse_options": self.warehouse_options,
+            "warehouse_filter": warehouse,
+            "default_tab": default_tab, 
+        })
+        return context
+    
+    def handle_delivery_entry_post(self, request:HttpRequest, context: dict| None = None,) -> Dict[str, Any]:
+        warehouse = request.POST.get("warehouse_filter")
+        customer = request.POST.get("customer")
+        start_date = request.POST.get("start_date")
+        end_date = request.POST.get("end_date")
+
+        current_date = datetime.now().date()
+        start_date = (
+            (current_date + timedelta(days=-90)).strftime("%Y-%m-%d")
+            if not start_date
+            else start_date
+        )
+        end_date = current_date.strftime("%Y-%m-%d") if not end_date else end_date
+
+        criteria = (
+            Q(cancel_notification=False)
+            & (Q(order_type="转运") | Q(order_type="转运组合"))
+            & Q(vessel_id__vessel_etd__gte=start_date)
+            & Q(vessel_id__vessel_etd__lte=end_date)
+            & Q(offload_id__offload_at__isnull=False)
+        )
+
+        if warehouse:
+            criteria &= Q(retrieval_id__retrieval_destination_precise=warehouse)
+        if customer:
+            criteria &= Q(customer_name__zem_name=customer)
+    
+        # 获取基础订单数据
+        base_orders = (
+            Order.objects
+            .select_related(
+                'retrieval_id', 
+                'offload_id', 
+                'container_number',
+                'customer_name'
+            )
+            .annotate(
+                retrieval_time=F("retrieval_id__actual_retrieval_timestamp"),
+                empty_returned_time=F("retrieval_id__empty_returned_at"),
+                offload_time=F("offload_id__offload_at"),
+            )
+            .filter(criteria)
+            .distinct()
+        )
+        dl_public_to_record_orders = [] #公仓待录入
+        dl_public_recorded_orders = []  #公仓已录入
+        dl_self_to_record_orders = []  #私仓待录入
+        dl_self_recorded_orders = []  #私仓已录入
+        
+        for order in base_orders:
+            container = order.container_number
+            
+            if not container:
+                continue
+
+            container_delivery_type = getattr(container, 'delivery_type', 'mixed')   
+            # 判断是否应该处理公仓或私仓 
+            should_process_public = container_delivery_type in ['public', 'mixed']
+            should_process_self = container_delivery_type in ['other', 'mixed']
+            # 如果没有柜子类型信息，默认都处理
+            if container_delivery_type not in ['public', 'other', 'mixed']:
+                should_process_public = True
+                should_process_self = True
+
+            is_hold = False
+            if should_process_public:
+                public_hold_subquery = Pallet.objects.filter(
+                    container_number=container,
+                    delivery_method__contains="暂扣留仓",
+                    delivery_type="public"
+                )
+                if public_hold_subquery.exists():
+                    is_hold = True
+            
+            # 私仓暂扣板子查询（只查询delivery_type为other的）
+            if should_process_self:
+                self_hold_subquery = Pallet.objects.filter(
+                    container_number=container,
+                    delivery_method__contains="暂扣留仓",
+                    delivery_type="other"
+                )
+                if self_hold_subquery.exists():
+                    is_hold = True
+
+            # 查询这个柜子的所有应收账单
+            invoices = Invoicev2.objects.filter(container_number=container)
+            
+            if not invoices.exists():
+                # 没有账单的情况 - 归到待录入
+                order_data = {
+                    'order': order,
+                    'container_number': order.container_number,
+                    'invoice_number': None,
+                    'invoice_id': None,
+                    'invoice_created_at': None,
+                    'preport_status': None,
+                    'finance_status': None,
+                    'has_invoice': False,
+                    'offload_time': order.offload_time,
+                    "is_hold": is_hold,
+                }
+                if should_process_public:
+                    dl_public_to_record_orders.append(order_data)
+                if should_process_self:
+                    dl_self_to_record_orders.append(order_data)
+            else:
+                # 有账单的情况 - 每个账单都要单独处理
+                for invoice in invoices:
+                    # 查询这个账单对应的状态
+                    try:
+                        status_obj = InvoiceStatusv2.objects.get(
+                            invoice=invoice,
+                            invoice_type='receivable'
+                        )
+                        public_status = status_obj.delivery_public_status #公仓状态
+                        self_status = status_obj.delivery_other_status  #私仓状态
+                        finance_status = status_obj.finance_status #财务状态
+                    except InvoiceStatusv2.DoesNotExist:
+                        public_status = None
+                        self_status = None
+                        finance_status = None
+                    
+                    order_data = {
+                        'order': order,
+                        'container_number': order.container_number,
+                        'invoice_number': invoice.invoice_number,
+                        'invoice_id': invoice.id,
+                        'invoice_created_at': invoice.created_at if hasattr(invoice, 'created_at') else invoice.history.first().history_date if invoice.history.exists() else None,
+                        'public_status': public_status,
+                        'self_status': self_status,
+                        'finance_status': finance_status,
+                        'has_invoice': True,
+                        'offload_time': order.offload_time,
+                        'is_hold': is_hold,
+                    }
+                    # 根据状态分组
+                    if should_process_public:                 
+                        if public_status in ["unstarted", "in_progress"] or public_status is None:
+                            dl_public_to_record_orders.append(order_data)
+                        elif public_status in ["completed", "rejected"]:
+                            dl_public_recorded_orders.append(order_data)
+                    if should_process_self:
+                        if self_status in ["unstarted", "in_progress"] or self_status is None:
+                            dl_self_to_record_orders.append(order_data)
+                        elif self_status in ["completed", "rejected"]:
+                            dl_self_recorded_orders.append(order_data)
+        
+        #按照出库比例排序
+        dl_public_to_record_orders = self._add_shipment_group_stats(dl_public_to_record_orders, "public")
+        dl_self_to_record_orders = self._add_shipment_group_stats(dl_self_to_record_orders, "other")
+        
+        # 判断用户权限，决定默认标签页
+        groups = [group.name for group in request.user.groups.all()]
+        if not context:
+            context = {}
+
+        # 根据权限，决定打开的标签页
+        if 'warehouse_other' in groups:
+            default_tab = 'self'
+        else:
+            default_tab = 'public'
+        context.update({
+            'start_date': start_date,
+            'end_date': end_date,
+            'wh_public_to_record_orders': dl_public_to_record_orders,
+            'wh_public_recorded_orders': dl_public_recorded_orders,
+            'wh_self_to_record_orders': dl_self_to_record_orders,
+            'wh_self_recorded_orders': dl_self_recorded_orders,
             "order_form": OrderForm(),
             "warehouse_options": self.warehouse_options,
             "warehouse_filter": warehouse,
@@ -882,10 +1070,8 @@ class ReceivableAccounting(View):
                 'amount': item.amount or 0,
                 'note': item.note or ''
             })
-        print('已录的项目',existing_items)
         # 如果是第一次录入且没有费用记录，添加所有标准费用项目为默认
         if not existing_items.exists():
-            print('没有已录的项目')
             status_field = f"warehouse_{delivery_type}_status"
             current_status = getattr(invoice_status, status_field, 'unstarted')
             
@@ -961,6 +1147,8 @@ class ReceivableAccounting(View):
                 "customer_name", "container_number"
             ).get(container_number__container_number=container_number)
             
+            container = order.container_number  # 获取柜子对象
+            container_delivery_type = getattr(container, 'delivery_type', 'mixed')
             # 设置item_category
             item_category = f"warehouse_{delivery_type}"
             
@@ -999,10 +1187,7 @@ class ReceivableAccounting(View):
                     
                     # 如果单价、数量和附加费都为0，则跳过
                     if qty == 0 and surcharge == 0:
-                        print('都是0，不保存')
                         continue
-                    else:
-                        print('要保存',rate,qty,surcharge)
                         
                     total_amount += amount
 
@@ -1079,10 +1264,17 @@ class ReceivableAccounting(View):
                     reason_field = f"warehouse_{delivery_type}_reason"
                     setattr(invoice_status, reason_field, request.POST.get("reject_reason", ""))
                 
+                # 根据柜子类型自动更新另一边的状态
+                if delivery_type == "public" and container_delivery_type == "public":
+                    invoice_status.warehouse_other_status = "completed"
+
+                elif delivery_type == "other" and container_delivery_type == "other":
+                    invoice_status.warehouse_public_status = "completed"
+                    
                 invoice_status.save()
             delivery_type_chinese = "公仓" if delivery_type == "public" else "私仓"
             status_mapping = {
-                'pending_review': '待审核',
+                'unstarted': '未录入',
                 'in_progress': '录入中',
                 'completed': '已完成',
                 'rejected': '已拒绝'
