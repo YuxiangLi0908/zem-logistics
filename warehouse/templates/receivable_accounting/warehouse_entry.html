@@ -226,27 +226,67 @@
         border-right: none;
     }
     
-    /* 调整列宽 */
-    .th:nth-child(1), .td:nth-child(1) { /* 客户列 */
+    .th[data-column="customer"],
+    .td[data-column="customer"] {
         width: 12%;
     }
-    .th:nth-child(2), .td:nth-child(2) { /* 柜号列 */
+
+    .th[data-column="container"],
+    .td[data-column="container"] {
         width: 15%;
     }
-    .th:nth-child(3), .td:nth-child(3) { /* 仓库列 */
+
+    .th[data-column="warehouse"],
+    .td[data-column="warehouse"] {
         width: 12%;
     }
-    .th:nth-child(4), .td:nth-child(4) { /* 入库时间列 */
+
+    .th[data-column="warehouse-in"],
+    .td[data-column="warehouse-in"] {
+        width: 12%;
+    }
+
+    .th[data-column="empty-returned"],
+    .td[data-column="empty-returned"] {
+        width: 15%;
+    }
+
+    .th[data-column="status"],
+    .td[data-column="status"] {
+        width: 12%;
+    }
+
+    .th[data-column="reject-reason"],
+    .td[data-column="reject-reason"] {
+        width: 15%;
+    }
+
+    .th[data-column="unshipped-count"],
+    .td[data-column="unshipped-count"] {
+        width: 10%;
+        text-align: center;
+    }
+
+    .th[data-column="shipped-count"],
+    .td[data-column="shipped-count"] {
+        width: 10%;
+        text-align: center;
+    }
+
+    /* 对于某些需要特定宽度的列 */
+    .th[data-column="warehouse-in-long"],
+    .td[data-column="warehouse-in-long"] {
         width: 20%;
     }
-    .th:nth-child(5), .td:nth-child(5) { /* 还空时间/状态列 */
-        width: 15%;
+
+    .th[data-column="empty-returned-long"],
+    .td[data-column="empty-returned-long"] {
+        width: 18%;
     }
-    .th:nth-child(6), .td:nth-child(6) { /* 状态/驳回原因列 */
+
+    .th[data-column="status-long"],
+    .td[data-column="status-long"] {
         width: 15%;
-    }
-    .th:nth-child(7), .td:nth-child(7) { /* 私仓表格的额外列 */
-        width: 14%;
     }
     
     .td {
@@ -500,6 +540,11 @@
         .container-section {
             height: 500px;
         }
+        .th[data-column],
+        .td[data-column] {
+            width: auto !important;
+            min-width: 100px;
+        }
     }
 
     @media (max-width: 768px) {
@@ -606,11 +651,11 @@
                         <table class="table" id="to-record-table">
                             <thead>
                                 <tr>
-                                    <th class="th">客户</th>
-                                    <th class="th">柜号</th>
-                                    <th class="th">仓库</th>
-                                    <th class="th">入库时间</th>
-                                    <th class="th">还空时间</th>
+                                    <th class="th" data-column="customer">客户</th>
+                                    <th class="th" data-column="container">柜号</th>
+                                    <th class="th" data-column="warehouse">仓库</th>
+                                    <th class="th" data-column="warehouse-in-long">入库时间</th>
+                                    <th class="th" data-column="empty-returned-long">还空时间</th>
                                 </tr>
                                 <tr class="search-row">
                                     <th class="th">
@@ -698,12 +743,12 @@
                         <table class="table" id="recorded-table">
                             <thead>
                                 <tr>
-                                    <th class="th">客户</th>
-                                    <th class="th">柜号</th>
-                                    <th class="th">仓库</th>
-                                    <th class="th">入库时间</th>
-                                    <th class="th">状态</th>
-                                    <th class="th">驳回原因</th>
+                                    <th class="th" data-column="customer">客户</th>
+                                    <th class="th" data-column="container">柜号</th>
+                                    <th class="th" data-column="warehouse">仓库</th>
+                                    <th class="th" data-column="warehouse-in-long">入库时间</th>
+                                    <th class="th" data-column="status-long">状态</th>
+                                    <th class="th" data-column="reject-reason">驳回原因</th>
                                 </tr>
                                 <tr class="search-row">
                                     <th class="th">
@@ -811,13 +856,13 @@
                         <table class="table" id="pending-review-table">
                             <thead>
                                 <tr>
-                                    <th class="th">客户</th>
-                                    <th class="th">柜号</th>
-                                    <th class="th">仓库</th>
-                                    <th class="th">入库时间</th>
-                                    <th class="th">未出库数</th>
-                                    <th class="th">已出库数</th>
-                                    <th class="th">状态</th>
+                                    <th class="th" data-column="customer">客户</th>
+                                    <th class="th" data-column="container">柜号</th>
+                                    <th class="th" data-column="warehouse">仓库</th>
+                                    <th class="th" data-column="warehouse-in-long">入库时间</th>
+                                    <th class="th" data-column="unshipped-count">未出库</th>
+                                    <th class="th" data-column="shipped-count">已出库</th>
+                                    <th class="th" data-column="status-long">状态</th>
                                 </tr>
                                 <tr class="search-row">
                                     <th class="th">
@@ -925,12 +970,12 @@
                         <table class="table" id="completed-table">
                             <thead>
                                 <tr>
-                                    <th class="th">客户</th>
-                                    <th class="th">柜号</th>
-                                    <th class="th">仓库</th>
-                                    <th class="th">入库时间</th>
-                                    <th class="th">状态</th>
-                                    <th class="th">驳回原因</th>
+                                    <th class="th" data-column="customer">客户</th>
+                                    <th class="th" data-column="container">柜号</th>
+                                    <th class="th" data-column="warehouse">仓库</th>
+                                    <th class="th" data-column="warehouse-in-long">入库时间</th>
+                                    <th class="th" data-column="status-long">状态</th>
+                                    <th class="th" data-column="reject-reason">驳回原因</th>
                                 </tr>
                                 <tr class="search-row">
                                     <th class="th">

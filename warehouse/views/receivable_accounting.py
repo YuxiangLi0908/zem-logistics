@@ -882,9 +882,10 @@ class ReceivableAccounting(View):
                 'amount': item.amount or 0,
                 'note': item.note or ''
             })
-        
+        print('已录的项目',existing_items)
         # 如果是第一次录入且没有费用记录，添加所有标准费用项目为默认
         if not existing_items.exists():
+            print('没有已录的项目')
             status_field = f"warehouse_{delivery_type}_status"
             current_status = getattr(invoice_status, status_field, 'unstarted')
             
@@ -905,14 +906,14 @@ class ReceivableAccounting(View):
         
         # 获取已存在的费用描述列表，用于前端过滤
         existing_descriptions = [item.description for item in existing_items]
-        
+        # 计算可用的标准费用项目（还没有被添加的）
+        available_standard_items = [item for item in standard_fee_items if item not in existing_descriptions]
         # 确定当前状态
         if invoice_status.finance_status == "completed":
             current_status = "confirmed"
         else:
             status_field = f"warehouse_{delivery_type}_status"
             current_status = getattr(invoice_status, status_field, 'unstarted')
-        
         context.update({
             "warehouse": order.retrieval_id.retrieval_destination_area,
             "container_number": container_number,
@@ -936,6 +937,7 @@ class ReceivableAccounting(View):
                 "filename": quotation.filename,
             },
             "standard_fee_items": standard_fee_items,
+            "available_standard_items": available_standard_items,
             "existing_descriptions": existing_descriptions,
             "status": current_status,
             "warehouse_status": current_status,  # 兼容性
@@ -996,8 +998,11 @@ class ReceivableAccounting(View):
                     note = notes[i] or ""
                     
                     # 如果单价、数量和附加费都为0，则跳过
-                    if rate == 0 and qty == 0 and surcharge == 0:
+                    if qty == 0 and surcharge == 0:
+                        print('都是0，不保存')
                         continue
+                    else:
+                        print('要保存',rate,qty,surcharge)
                         
                     total_amount += amount
 
@@ -1043,22 +1048,27 @@ class ReceivableAccounting(View):
                     invoice.receivable_wh_public_amount = total_amount
                 else:
                     invoice.receivable_wh_other_amount = total_amount
-                
+                def to_decimal(value, default='0.0'):
+                    """安全转换为 Decimal"""
+                    if value is None:
+                        return Decimal(default)
+                    if isinstance(value, Decimal):
+                        return value
+                    if isinstance(value, float):
+                        return Decimal(str(value))
+                    return Decimal(str(value))
                 # 计算仓库总金额
-                warehouse_total = (
-                    (invoice.receivable_wh_public_amount or Decimal('0.0')) +
-                    (invoice.receivable_wh_other_amount or Decimal('0.0'))
-                )
-                delivery_total = (
-                    (invoice.receivable_delivery_public_amount or Decimal('0.0'))+
-                    (invoice.receivable_delivery_other_amount or Decimal('0.0'))
-                )
+                wh_public = to_decimal(invoice.receivable_wh_public_amount)
+                wh_other = to_decimal(invoice.receivable_wh_other_amount)
+                warehouse_total = wh_public + wh_other
+
+                delivery_public = to_decimal(invoice.receivable_delivery_public_amount)
+                delivery_other = to_decimal(invoice.receivable_delivery_other_amount)
+                delivery_total = delivery_public + delivery_other
+
+                preport_amount = to_decimal(invoice.receivable_preport_amount)
                 # 更新总金额
-                invoice.receivable_total_amount = (
-                    (invoice.receivable_preport_amount or Decimal('0.0')) +
-                    warehouse_total +
-                    delivery_total
-                )            
+                invoice.receivable_total_amount = preport_amount + warehouse_total + delivery_total      
                 invoice.save()
 
                 # 更新仓库账单状态
@@ -1174,12 +1184,21 @@ class ReceivableAccounting(View):
                         )
 
                 # 更新账单总金额
+                def to_decimal(value, default='0.0'):
+                    """安全转换为 Decimal"""
+                    if value is None:
+                        return Decimal(default)
+                    if isinstance(value, Decimal):
+                        return value
+                    if isinstance(value, float):
+                        return Decimal(str(value))
+                    return Decimal(str(value))
                 invoice.receivable_preport_amount = total_amount
-                invoice.receivable_total_amount = (
-                    (invoice.receivable_warehouse_amount or Decimal('0.0')) +
-                    (total_amount or Decimal('0.0')) +
-                    (invoice.receivable_delivery_amount or Decimal('0.0'))
-                )            
+                warehouse_amount = to_decimal(invoice.receivable_wh_public_amount) + to_decimal(invoice.receivable_wh_other_amount)
+                delivery_amount = to_decimal(invoice.receivable_delivery_public_amount) + to_decimal(invoice.receivable_delivery_other_amount)
+                preport_amount = to_decimal(total_amount)  # 当前保存的金额
+
+                invoice.receivable_total_amount = warehouse_amount + preport_amount + delivery_amount        
                 invoice.save()
 
                 # 更新港前账单状态

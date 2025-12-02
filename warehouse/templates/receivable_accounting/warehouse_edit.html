@@ -702,14 +702,16 @@
         <h3 class="modal-title">选择费用项目</h3>
         
         <div id="standard-fee-list" style="max-height: 300px; overflow-y: auto;">
-            {% for fee_item in standard_fee_items %}
-            {% if fee_item not in existing_descriptions %}
+            {% for fee_item in available_standard_items %}
             <div class="fee-option" data-fee-name="{{ fee_item }}"
                 onclick="selectStandardFee('{{ fee_item }}', '{{ FS|get_item:fee_item }}')">
                 <span class="fee-option-name">{{ fee_item }}</span>
                 <span class="fee-option-price">参考: {{ FS|get_item:fee_item }}</span>
             </div>
-            {% endif %}
+            {% empty %}
+            <div style="text-align: center; color: #666; padding: 20px;">
+                所有标准费用项目已添加
+            </div>
             {% endfor %}
         </div>
         
@@ -783,21 +785,24 @@
         }
     }
     
-    // 判断费用是否已存在表格里
+    // 获取所有已存在的费用名称
+    function getExistingFeeNames() {
+        const existingNames = new Set();
+        document.querySelectorAll('input[name="fee_description"]').forEach(input => {
+            existingNames.add(input.value.trim());
+        });
+        return existingNames;
+    }
+    
+    // 检查费用是否已存在
     function isFeeAlreadyAdded(feeName) {
-        const existingItems = document.querySelectorAll('input[name="fee_description"]');
-        for (let item of existingItems) {
-            if (item.value.trim() === feeName.trim()) {
-                return true;
-            }
-        }
-        return false;
+        return getExistingFeeNames().has(feeName.trim());
     }
 
     // 选择标准费用
     function selectStandardFee(feeName, referencePrice) {
         if (isFeeAlreadyAdded(feeName)) {
-            alert('该费用项目已存在');
+            alert('该费用项目已存在，无法重复添加');
             return;
         }
         addFeeItem(feeName, referencePrice);
@@ -829,26 +834,51 @@
     // 添加自定义费用
     function addCustomFee() {
         const customFeeName = document.getElementById('custom-fee-name').value.trim();
-        if (customFeeName) {
-            addFeeItem(customFeeName, 'N/A');
-            closeAddFeeModal();
-        } else {
+        if (!customFeeName) {
             alert('请输入费用名称');
+            return;
         }
+        
+        if (isFeeAlreadyAdded(customFeeName)) {
+            alert('该费用项目已存在，无法重复添加');
+            return;
+        }
+        
+        // 检查是否与标准费用项目同名
+        const standardFeeItems = [
+            "分拣费", "拦截费", "亚马逊PO激活", "客户自提", "重新打板",
+            "货品清点费", "仓租", "指定贴标", "内外箱", "托盘标签",
+            "开封箱", "销毁", "拍照", "拍视频", "重复操作费"
+        ];
+        
+        if (standardFeeItems.includes(customFeeName)) {
+            alert('"' + customFeeName + '" 是标准费用项目，请从标准费用列表中选择添加');
+            return;
+        }
+        
+        addFeeItem(customFeeName, 'N/A');
+        closeAddFeeModal();
     }
-    
+    function extractSingleNumber(str) {
+        // 匹配整数或小数（正负都行）
+        const matches = str.match(/-?\d+(\.\d+)?/g);
+
+        if (!matches || matches.length !== 1) {
+            return 0;   // 没数字或数字太多，都返回 0
+        }
+
+        return parseFloat(matches[0]);
+    }
     // 添加费用项目到列表
     function addFeeItem(feeName, referencePrice) {
-        // 检查是否已存在
-        const existingItems = document.querySelectorAll('input[name="fee_description"]');
-        for (let item of existingItems) {
-            if (item.value === feeName) {
-                alert('该费用项目已存在');
-                return;
-            }
+        // 再次检查是否已存在（防止并发添加）
+        if (isFeeAlreadyAdded(feeName)) {
+            alert('该费用项目已存在');
+            return;
         }
         
         const container = document.getElementById('fee-items-container');
+        const ref = extractSingleNumber(referencePrice);
         const newRow = document.createElement('div');
         newRow.className = 'fee-row';
         newRow.innerHTML = `
@@ -865,7 +895,7 @@
             
             <div class="fee-cell">
                 <input type="number" class="input-field rate-input" name="fee_rate" 
-                       value="0" step="0.01" min="0"
+                       value="${ref}" step="0.01" min="0"
                        onchange="calculateFeeTotal(this)">
             </div>
             
@@ -883,8 +913,8 @@
             </div>
             
             <div class="fee-cell">
-                <span class="amount-display">0.00</span>
-                <input type="hidden" name="fee_amount" value="0">
+                <span class="amount-display">${ref.toFixed(2)}</span>
+                <input type="hidden" name="fee_amount" value="${ref}">
             </div>
             
             <div class="fee-cell">
@@ -900,8 +930,42 @@
         `;
         container.appendChild(newRow);
         calculateTotalAmount();
+        
+        // 添加后刷新可用费用列表
+        refreshAvailableFeeOptions();
     }
-    
+    // 刷新可用的费用选项
+    function refreshAvailableFeeOptions() {
+        const existingNames = getExistingFeeNames();
+        const allFeeOptions = document.querySelectorAll('.fee-option');
+        let hasVisibleOptions = false;
+        
+        allFeeOptions.forEach(option => {
+            const feeName = option.dataset.feeName.trim();
+            if (existingNames.has(feeName)) {
+                option.style.display = 'none';
+            } else {
+                option.style.display = 'flex';
+                hasVisibleOptions = true;
+            }
+        });
+        
+        // 如果没有可用的标准费用选项，显示提示
+        const standardFeeList = document.getElementById('standard-fee-list');
+        const noItemsMsg = standardFeeList.querySelector('.no-items-msg');
+        
+        if (!hasVisibleOptions && !noItemsMsg) {
+            const msg = document.createElement('div');
+            msg.className = 'no-items-msg';
+            msg.style.textAlign = 'center';
+            msg.style.color = '#666';
+            msg.style.padding = '20px';
+            msg.textContent = '所有标准费用项目已添加';
+            standardFeeList.appendChild(msg);
+        } else if (hasVisibleOptions && noItemsMsg) {
+            noItemsMsg.remove();
+        }
+    }
     // 设置保存类型
     function setSaveType(type) {
         document.getElementById('save_type').value = type;
@@ -912,10 +976,14 @@
         calculateTotalAmount();
         
         // 为所有现有的输入框添加事件监听
-        document.querySelectorAll('.rate-input, .qty-input, .surcharge-input').forEach(input => {
-            input.addEventListener('input', function() {
-                calculateFeeTotal(this);
-            });
+        const container = document.getElementById('fee-items-container');
+        container.addEventListener('input', function(event) {
+            if (event.target.classList.contains('rate-input') ||
+                event.target.classList.contains('qty-input') ||
+                event.target.classList.contains('surcharge-input')) {
+
+                calculateFeeTotal(event.target);
+            }
         });
     });
 </script>
