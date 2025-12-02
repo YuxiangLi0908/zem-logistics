@@ -1752,7 +1752,7 @@ class ExceptionHandling(View):
                     await sync_to_async(shipment.save)()
                     messages.success(request, "批次号删除成功")
                 except Exception as e:
-                    messages.error(request, f"记录删除失败: {str(e)}")
+                    messages.error(request, f"批次号删除失败: {str(e)}")
         return self.template_post_port_status, context
     
     async def handle_delete_shipment(self, request: HttpRequest):
@@ -1784,7 +1784,7 @@ class ExceptionHandling(View):
             if shipment.fleet_number:
                 messages.error(request, "这条约已排车，不能直接删除！")
                 del_able = False
-                
+
             if del_able:
                 try:
                     await sync_to_async(shipment.delete)()
