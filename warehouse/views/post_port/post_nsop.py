@@ -3082,7 +3082,6 @@ class PostNsop(View):
         # 这里需要根据您的实际模型调整查询条件
         shipments = await sync_to_async(list)(
             Shipment.objects.filter(
-                models.Q(shipment_batch_number__isnull=True) | models.Q(shipment_batch_number=''),
                 in_use=False,
                 is_canceled=False,
                 shipment_appointment__gt=now  
