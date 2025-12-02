@@ -253,7 +253,19 @@
         {% for shipment in shipments %}
         <tr>
             <td>{{ shipment.id }}</td>
-            <td>{{ shipment.shipment_batch_number|default:"-" }}</td>
+            <td>
+                {{ shipment.shipment_batch_number|default:"-" }}
+                <form method="post" style="display: inline-block; margin: 2px;">
+                    {% csrf_token %}
+                    <input type="hidden" name="step" value="delete_shipment_batch_number">
+                    <input type="hidden" name="shipment_id" value="{{ shipment.id }}">
+                    <input type="hidden" name="search_batch_number" value="{{ search_value }}">
+                    <input type="hidden" name="search_type" value="{{ search_type }}">
+                    <button type="submit" class="action-btn">
+                        删除批次号
+                    </button>
+                </form>
+            </td>
             <td>{{ shipment.appointment_id|default:"-" }}</td>
             <td>
                 <form method="post" style="display: inline-block; margin: 2px;">
