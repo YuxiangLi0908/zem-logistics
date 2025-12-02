@@ -17,7 +17,7 @@ from django.db import transaction
 from django.db.models.fields.json import KeyTextTransform
 from django.core.paginator import Paginator
 
-from typing import Any
+from typing import Any, Dict
 
 import openpyxl
 import openpyxl.workbook
@@ -45,7 +45,12 @@ from django.db.models import (
     Sum,
     Value,
     When,
+    Q
 )
+import logging
+import traceback
+from decimal import Decimal
+from django.db import transaction
 from django.db.models.fields.json import KeyTextTransform
 from django.db.models.functions import Cast, Coalesce
 from django.db.models.query import QuerySet
@@ -69,11 +74,10 @@ from warehouse.models.container import Container
 from warehouse.models.customer import Customer
 from warehouse.models.fee_detail import FeeDetail
 from warehouse.models.fleet_shipment_pallet import FleetShipmentPallet
-from warehouse.models.invoice import (
-    Invoice,
-    InvoiceItem,
-    InvoiceStatement,
-    InvoiceStatus,
+from warehouse.models.invoicev2 import (
+    Invoicev2,
+    InvoiceItemv2,
+    InvoiceStatusv2,
 )
 from warehouse.models.invoice_details import (
     InvoiceDelivery,
@@ -114,11 +118,17 @@ from warehouse.views.export_file import export_invoice
 class ReceivableAccounting(View):
     template_progress_overview = "receivable_accounting/progress_overview.html"
     template_alert_monitoring = "receivable_accounting/alert_monitoring.html"
+
     template_preport_entry = "receivable_accounting/preport_entry.html"
-    template_warehouse_entry = "receivable_accounting/warehouse_entry.html"
-    template_delivery_entry = "receivable_accounting/delivery_entry.html"
+    template_preport_edit= "receivable_accounting/preport_edit.html"
+    template_public_warehouse_entry = "receivable_accounting/public_warehouse_entry.html"
+    template_self_warehouse_entry = "receivable_accounting/self_warehouse_entry.html"
+    template_public_delivery_entry = "receivable_accounting/public_delivery_entry.html"
+    template_self_delivery_entry = "receivable_accounting/self_delivery_entry.html"
+
     template_pending_confirmation = "receivable_accounting/pending_confirmation.html"
     template_completed_bills = "receivable_accounting/completed_bills.html"
+    template_supplementary = "receivable_accounting/supplementary.html"
     template_financial_statistics = "receivable_accounting/financial_statistics.html"
     template_quotation_management = "receivable_accounting/quotation_management.html"
     
@@ -135,39 +145,58 @@ class ReceivableAccounting(View):
         "LA-91789": "LA-91789",
         "直送": "直送",
     }
+    CATEGORY_STATUS_FIELD = {
+        "preport": "preport_status",
+        "warehouse_public": "warehouse_public_status",
+        "warehouse_other": "warehouse_other_status",
+        "delivery_public": "delivery_public_status",
+        "delivery_other": "delivery_other_status",
+    }
 
     def get(self, request: HttpRequest) -> HttpResponse:
         # if not self._validate_user_group(request.user):
         #     return HttpResponseForbidden("You are not authenticated to access this page!")
         step = request.GET.get("step", None)
-        if step == "progress":
+        if step == "progress":  #账单进度
             template, context = self.handle_progress_overview_get()
             return render(request, template, context)
-        elif step == "alert":
+        elif step == "alert":  #预警监控
             template, context = self.handle_alert_monitoring_get()
             return render(request, template, context)
-        elif step == "preport":
-            template, context = self.handle_preport_entry_get(request)
-            return render(request, template, context)
-        elif step == "warehouse":
-            template, context = self.handle_warehouse_entry_get(request)
-            return render(request, template, context)
-        elif step == "delivery":  # 提拆柜账单录入
-            template, context = self.handle_delivery_entry_get(request)
-            return render(request, template, context)
-        elif step == "confirm":  # 库内账单录入
+        elif step == "preport":  #港前
+            context = {"warehouse_options": self.warehouse_options,"order_form": OrderForm()}
+            return render(request, self.template_preport_entry, context)
+        elif step == "warehouse_public":  #公仓库内
+            context = {"warehouse_options": self.warehouse_options,"order_form": OrderForm()}
+            return render(request, self.template_public_warehouse_entry, context)
+        elif step == "warehouse_other":  #私仓库内
+            context = {"warehouse_options": self.warehouse_options,"order_form": OrderForm()}
+            return render(request, self.template_self_warehouse_entry, context)
+        elif step == "delivery_public":  # 公仓派送
+            context = {"warehouse_options": self.warehouse_options,"order_form": OrderForm()}
+            return render(request, self.template_public_delivery_entry, context)
+        elif step == "delivery_other":  # 私仓派送
+            context = {"warehouse_options": self.warehouse_options,"order_form": OrderForm()}
+            return render(request, self.template_self_delivery_entry, context)
+        elif step == "confirm":  # 财务确认
             template, context = self.handle_pending_confirmation_get(request)
             return render(request, template, context)
-        elif step == "completed":
+        elif step == "completed": #历史完成账单
             template, context = self.handle_completed_bills_get(request)
             return render(request, template, context)
-        elif step == "finance_stats":
+        elif step == "supplementary": #补开账单
+            template, context = self.handle_supplementary_get(request)
+            return render(request, template, context)
+        elif step == "finance_stats": #财务统计分析
             template, context = self.handle_financial_statistics_get(request)
             return render(request, template, context)
-        elif step == "quotation_management":
+        elif step == "quotation_management": #报价表管理
             quotes = QuotationMaster.objects.filter(quote_type="receivable")
             context = {"order_form": OrderForm(), "quotes": quotes}
             return render(request, self.template_quotation_management, context)  
+        elif step == "container_preport":
+            context = self.handle_container_preport_post(request)
+            return render(request, self.template_preport_edit, context)
             
         else:
             raise ValueError(f"unknow request {step}")
@@ -176,7 +205,999 @@ class ReceivableAccounting(View):
         # if not self._validate_user_group(request.user):
         #     return HttpResponseForbidden("You are not authenticated to access this page!")
         step = request.POST.get("step", None)
+        if step == "preport_search":  #港前
+            context = self.handle_preport_entry_post(request)
+            return render(request, self.template_preport_entry, context)
+        elif step == "warehouse_public_search":  #公仓库内
+            context = self.query_invoice_basic(request, "warehouse_public")
+            return render(request, self.template_public_warehouse_entry, context)
+        elif step == "warehouse_other_search":  #私仓库内
+            context = self.query_invoice_basic(request, "warehouse_other")
+            return render(request, self.template_self_warehouse_entry, context)
+        elif step == "delivery_public_search":  # 公仓派送
+            context = self.query_invoice_basic(request, "delivery_public")
+            return render(request, self.template_public_delivery_entry, context)
+        elif step == "delivery_other_search":  # 私仓派送
+            context = self.query_invoice_basic(request, "delivery_other")
+            return render(request, self.template_self_delivery_entry, context)
+        elif step == "preport_save":
+            context = self.handle_invoice_preport_save(request)
+            return render(request, self.template_preport_entry, context)
+        elif step == "modify_order_type":
+            context = self.handle_modify_order_type(request)
+            return render(request, self.template_preport_edit, context)
+            
+
+    def handle_preport_entry_post(self, request:HttpRequest, context: dict| None = None,) -> Dict[str, Any]:
+        warehouse = request.POST.get("warehouse_filter")
+        customer = request.POST.get("customer")
+        start_date = request.POST.get("start_date")
+        end_date = request.POST.get("end_date")
+
+        current_date = datetime.now().date()
+        start_date = (
+            (current_date + timedelta(days=-90)).strftime("%Y-%m-%d")
+            if not start_date
+            else start_date
+        )
+        end_date = current_date.strftime("%Y-%m-%d") if not end_date else end_date
+
+        criteria = (
+            Q(cancel_notification=False)
+            & (Q(order_type="转运") | Q(order_type="转运组合"))
+            & Q(vessel_id__vessel_etd__gte=start_date)
+            & Q(vessel_id__vessel_etd__lte=end_date)
+            & Q(offload_id__offload_at__isnull=False)
+        )
+
+        if warehouse:
+            criteria &= Q(retrieval_id__retrieval_destination_precise=warehouse)
+        if customer:
+            criteria &= Q(customer_name__zem_name=customer)
+
+        # 获取基础订单数据
+        base_orders = (
+            Order.objects
+            .select_related(
+                'retrieval_id', 
+                'offload_id', 
+                'container_number',
+                'customer_name'
+            )
+            .annotate(
+                retrieval_time=F("retrieval_id__actual_retrieval_timestamp"),
+                empty_returned_time=F("retrieval_id__empty_returned_at"),
+                offload_time=F("offload_id__offload_at"),
+            )
+            .filter(criteria)
+            .order_by("-retrieval_time")
+            .distinct()
+        )
+
+        preport_to_record_orders = [] #待录入
+        preport_recorded_orders = []  #已录入
+        preport_pending_review_orders = []  #待审核
+        preport_completed_orders = []  #已审核
+
+        for order in base_orders:
+            container = order.container_number
+            
+            if not container:
+                continue
+                
+            # 查询这个柜子的所有应收账单
+            invoices = Invoicev2.objects.filter(container_number=container)
+            
+            if not invoices.exists():
+                # 没有账单的情况 - 归到待录入
+                order_data = {
+                    'order': order,
+                    'invoice_number': None,
+                    'invoice_id': None,
+                    'invoice_created_at': None,
+                    'preport_status': None,
+                    'finance_status': None,
+                    'has_invoice': False
+                }
+                preport_to_record_orders.append(order_data)
+            else:
+                # 有账单的情况 - 每个账单都要单独处理
+                for invoice in invoices:
+                    # 查询这个账单对应的状态
+                    try:
+                        status_obj = InvoiceStatusv2.objects.get(
+                            invoice=invoice,
+                            invoice_type='receivable'
+                        )
+                        preport_status = status_obj.preport_status
+                        finance_status = status_obj.finance_status
+                    except InvoiceStatusv2.DoesNotExist:
+                        preport_status = None
+                        finance_status = None
+                    
+                    order_data = {
+                        'order': order,
+                        'invoice_number': invoice.invoice_number,
+                        'invoice_id': invoice.id,
+                        'invoice_created_at': invoice.created_at if hasattr(invoice, 'created_at') else invoice.history.first().history_date if invoice.history.exists() else None,
+                        'preport_status': preport_status,
+                        'finance_status': finance_status,
+                        'has_invoice': True
+                    }
+                    
+                    # 根据状态分组
+                    if preport_status in ["unstarted", "in_progress"] or preport_status is None:
+                        preport_to_record_orders.append(order_data)
+                    elif preport_status == "pending_review":
+                        preport_pending_review_orders.append(order_data)
+                        preport_recorded_orders.append(order_data)
+                    elif preport_status == "completed":
+                        preport_completed_orders.append(order_data)
+                        preport_recorded_orders.append(order_data)
+                    elif preport_status == "rejected":
+                        preport_recorded_orders.append(order_data)
+
+        # 对已录入的订单按状态排序（rejected置顶）
+        preport_recorded_orders.sort(key=lambda x: {
+            "rejected": 0,
+            "pending_review": 1, 
+            "completed": 2
+        }.get(x['preport_status'], 3))
+
+        # 判断用户权限，决定默认标签页
+        groups = [group.name for group in request.user.groups.all()]
+        if not context:
+            context = {}
+        # 如果用户有 invoice_preport_leader 权限，默认打开审核标签页，否则打开录入标签页
+        is_leader = False
+        if 'invoice_preport_leader' in groups:
+            is_leader = True
+            default_tab = 'review'
+        else:
+            default_tab = 'entry'
+        context.update({
+            'start_date': start_date,
+            'end_date': end_date,
+            'preport_to_record_orders': preport_to_record_orders,
+            'preport_recorded_orders': preport_recorded_orders,
+            'preport_pending_review_orders': preport_pending_review_orders,
+            'preport_completed_orders': preport_completed_orders,
+            "order_form": OrderForm(),
+            "warehouse_options": self.warehouse_options,
+            "warehouse_filter": warehouse,
+            "default_tab": default_tab, 
+            "is_leader": is_leader,
+        })
+        return context
+
+    def handle_modify_order_type(self, request:HttpRequest) -> Dict[str, Any]:
+        container_number = request.POST.get("container_number")
+        new_order_type = request.POST.get("new_order_type")
+
+        container = Container.objects.get(container_number=container_number)
+        if new_order_type == "转运":
+            actual_non_combina_reason = request.POST.get("actual_non_combina_reason")
+            container.manually_order_type = "转运"
+            container.non_combina_reason = actual_non_combina_reason
+        elif new_order_type == "转运组合":
+            container.manually_order_type = "转运组合"
+        container.save()
+        context = {"success_messages": f"{container_number}修改类型成功！"}
+        return self.handle_container_preport_post(request, context)
+
+    def handle_container_preport_post(self, request:HttpRequest, context: dict|None=None) -> Dict[str, Any]:
+        """处理柜号点击进入港前账单编辑页面"""
+        if not context:
+            context = {}
+        start_date = request.GET.get("start_date")
+        end_date = request.GET.get("end_date")
+
+        container_number = request.GET.get("container_number")
+        invoice_id = request.GET.get("invoice_id")
         
+        #获取订单信息
+        order = Order.objects.select_related(
+            "retrieval_id", "container_number", "warehouse"
+        ).get(container_number__container_number=container_number)
+        if invoice_id:
+            #找到要修改的那份账单
+            invoice = Invoicev2.objects.get(id=invoice_id)
+            invoice_status, created = InvoiceStatusv2.objects.get_or_create(
+                invoice=invoice,
+                invoice_type="receivable",
+                defaults={
+                    "container_number": order.container_number,
+                    "invoice": invoice,
+                }
+            )
+        else:
+            #说明这个柜子没有创建过账单，需要创建
+            invoice, invoice_status = self._create_invoice_and_status(container_number)
+
+        # 查看仓库和柜型，计算提拆费
+        warehouse = order.retrieval_id.retrieval_destination_area
+        container_type = order.container_number.container_type
+        
+        #查找报价表
+        quotation, quotation_error = self._get_quotation_for_order(order, 'receivable')
+        if quotation_error:
+            context.update({"error_messages": quotation_error})
+            return context
+
+        order_type = order.order_type
+        if order_type == "转运":
+            iscombina = False
+            non_combina_reason = None
+        else:
+            container = Container.objects.get(container_number=container_number)
+            if container.manually_order_type == "转运":
+                iscombina = False
+                non_combina_reason = container.non_combina_reason
+            elif container.manually_order_type == "转运组合":
+                iscombina = True
+                non_combina_reason = None
+            else:
+                combina_context, iscombina,non_combina_reason = self._is_combina(container_number)
+                if combina_context.get("error_messages"):
+                    return combina_context
+            
+        fee_detail, fee_error = self._get_fee_details_from_quotation(quotation, "preport")
+        if fee_error:
+            context.update({"error_messages": fee_error})
+            return context
+        
+        # 计算提拆费   
+        match = re.match(r"\d+", container_type)
+        pickup_fee = 0
+        if match:
+            pick_subkey = match.group()
+            try:
+                pickup_fee = fee_detail.details[warehouse][pick_subkey]
+            except KeyError:
+                pickup_fee = 0
+                context.update({"error_messages": f"在报价表中找不到{warehouse}仓库{pick_subkey}柜型的提拆费"})
+                return context
+        # 构建费用提示信息
+        FS = {
+            "提拆/打托缠膜": f"{pickup_fee}",
+            "托架费": f"{fee_detail.details.get('托架费', 'N/A')}",
+            "托架提取费": f"{fee_detail.details.get('托架提取费', 'N/A')}",
+            "预提费": f"{fee_detail.details.get('预提费', 'N/A')}",
+            "货柜放置费": f"{fee_detail.details.get('货柜放置费', 'N/A')}",
+            "操作处理费": f"{fee_detail.details.get('操作处理费', 'N/A')}",
+            "码头": fee_detail.details.get("码头", "N/A"),
+            "港口拥堵费": f"{fee_detail.details.get('港口拥堵费', 'N/A')}",
+            "吊柜费": f"{fee_detail.details.get('火车站吊柜费', 'N/A')}",
+            "空跑费": f"{fee_detail.details.get('空跑费', 'N/A')}",
+            "查验费": f"{fee_detail.details.get('查验费', 'N/A')}",
+            "危险品": f"{fee_detail.details.get('危险品', 'N/A')}",
+            "超重费": f"{fee_detail.details.get('超重费', 'N/A')}",
+            "加急费": f"{fee_detail.details.get('加急费', 'N/A')}",
+            "其他服务": f"{fee_detail.details.get('其他服务', 'N/A')}",
+            "港内滞期费": f"{fee_detail.details.get('港内滞期费', 'N/A')}",
+            "港外滞期费": f"{fee_detail.details.get('港外滞期费', 'N/A')}",
+            "二次提货": f"{fee_detail.details.get('二次提货', 'N/A')}",
+        }
+        # 获取现有的费用项目
+        existing_items = InvoiceItemv2.objects.filter(
+            invoice_number=invoice,
+            item_category="preport"
+        )
+        # 获取已存在的费用描述列表，用于前端过滤
+        existing_descriptions = [item.description for item in existing_items]
+
+        # 标准费用项目列表
+        standard_fee_items = [
+            "提拆/打托缠膜", "托架费", "托架提取费", "预提费", "货柜放置费", 
+            "操作处理费", "码头", "港口拥堵费", "吊柜费", "空跑费", 
+            "查验费", "危险品", "超重费", "加急费", "其他服务", 
+            "港内滞期费", "港外滞期费", "二次提货"
+        ]
+        # 构建费用数据
+        fee_data = []
+        for item in existing_items:
+            fee_data.append({
+                'id': item.id,
+                'description': item.description,
+                'qty': item.qty or 1,
+                'rate': item.rate or 0,
+                'surcharges': item.surcharges or 0, 
+                'amount': item.amount or 0,
+                'note': item.note or ''
+            })
+        # 如果是第一次录入且没有费用记录，添加提拆费作为默认
+        if not existing_items.exists() and invoice_status.preport_status == 'unstarted' and pickup_fee > 0:
+            for fee_name in standard_fee_items:              
+                if fee_name == '提拆/打托缠膜':
+                    # 提拆费特殊处理
+                    pickup_qty = 0 if iscombina else 1
+                    pickup_amount = pickup_fee * pickup_qty
+                    fee_data.append({
+                        'id': None,
+                        'description': fee_name,
+                        'qty': pickup_qty,
+                        'rate': pickup_fee,
+                        'surcharges': 0,
+                        'amount': pickup_amount,
+                        'note': '',
+                    })
+                else:
+                    ref_price = FS.get(fee_name, 0)
+                    numeric_price = self._extract_number(ref_price)
+                    # 其他费用默认显示，但数量和金额为0
+                    fee_data.append({
+                        'id': None,
+                        'description': fee_name,
+                        'qty': 0,
+                        'rate': numeric_price,
+                        'surcharges': 0,
+                        'amount': 0,
+                        'note': '',
+                    })
+        groups = [group.name for group in request.user.groups.all()]
+        if request.user.is_staff:
+            groups.append("staff")
+            
+        context.update({
+            "warehouse": warehouse,
+            "order_type": order_type,
+            "container_type": container_type,
+            "reject_reason": order.invoice_reject_reason,
+            "container_number": container_number,
+            "groups": groups,
+            "start_date": start_date,
+            "end_date": end_date,
+            "FS": FS,
+            "receivable_is_locked": invoice.receivable_is_locked,
+            "invoice_type": "receivable",
+            "non_combina_reason": non_combina_reason,
+            "fee_data": fee_data,
+            "invoice_number": invoice.invoice_number,
+            "invoice": invoice,  # 传递整个invoice对象
+            "quotation_info": {
+                "quotation_id": quotation.quotation_id,
+                "version": quotation.version,
+                "effective_date": quotation.effective_date,
+                "is_user_exclusive": quotation.is_user_exclusive,
+                "exclusive_user": quotation.exclusive_user,
+                "filename": quotation.filename,  # 添加文件名
+            },
+            "pickup_fee": pickup_fee,
+            "standard_fee_items": standard_fee_items,
+            "existing_descriptions": existing_descriptions,  # 用于前端过滤
+            "preport_status": invoice_status.preport_status,
+        })
+        return context
+
     
+    def handle_invoice_preport_save(self, request:HttpRequest) -> Dict[str, Any]:
+        context = {} 
+        save_type = request.POST.get("save_type")       
+        invoice_id = request.POST.get("invoice_id")
+    
+        try:
+            invoice = Invoicev2.objects.get(id=invoice_id)
+            invoice_status = InvoiceStatusv2.objects.get(invoice=invoice, invoice_type="receivable")
+            
+            container_number = request.POST.get("container_number")
+            order = Order.objects.select_related(
+                "customer_name", "container_number"
+            ).get(container_number__container_number=container_number)
+            #费用详情
+            fee_ids = request.POST.getlist("fee_id")
+            descriptions = request.POST.getlist("fee_description")
+            rates = request.POST.getlist("fee_rate")
+            qtys = request.POST.getlist("fee_qty")
+            surcharges = request.POST.getlist("fee_surcharges")
+            notes = request.POST.getlist("fee_note")
+
+            total_amount = Decimal("0.00")
+            with transaction.atomic():
+                #找下港前账单之前存的费用记录，和现在所有费用比较，差集就是前端删除的记录
+                existing_items = InvoiceItemv2.objects.filter(invoice_number=invoice, item_category="preport")
+                existing_ids = set(item.id for item in existing_items if item.id is not None)
+                submitted_ids = set(int(fid) for fid in fee_ids if fid)  # 只包含已有的id
+                to_delete_ids = existing_ids - submitted_ids
+                if to_delete_ids:
+                    InvoiceItemv2.objects.filter(id__in=to_delete_ids).delete()
+
+                for i in range(len(descriptions)):
+                    fee_id = fee_ids[i] or None
+                    description = descriptions[i]
+                    rate = Decimal(rates[i] or 0)
+                    qty = Decimal(qtys[i] or 0)
+                    surcharge = Decimal(surcharges[i] or 0)
+
+                    amount = rate * qty + surcharge
+                    note = notes[i] or ""
+                    if rate == 0 and qty == 0 and surcharge == 0:
+                        continue
+                    total_amount += amount
+
+                    if fee_id:  # 已存在的费用项，更新
+                        try:
+                            item = InvoiceItemv2.objects.get(id=fee_id, invoice_number=invoice)
+                            item.rate = rate
+                            item.qty = qty
+                            item.surcharges = surcharge
+                            item.amount = amount
+                            item.note = note
+                            item.save()
+                        except InvoiceItemv2.DoesNotExist:
+                            # 防止前端传了错误 id，查不到就新增
+                            InvoiceItemv2.objects.create(
+                                container_number=order.container_number,
+                                invoice_number=invoice,
+                                invoice_type="receivable",
+                                item_category="preport",
+                                description=description,
+                                rate=rate,
+                                qty=qty,
+                                surcharges=surcharge,
+                                amount=amount,
+                                note=note
+                            )
+                    else:  # 新增费用项
+                        InvoiceItemv2.objects.create(
+                            container_number=order.container_number,
+                            invoice_number=invoice,
+                            invoice_type="receivable",
+                            item_category="preport",
+                            description=description,
+                            rate=rate,
+                            qty=qty,
+                            surcharges=surcharge,
+                            amount=amount,
+                            note=note
+                        )
+
+                # 更新账单总金额
+                invoice.receivable_preport_amount = total_amount
+                invoice.receivable_total_amount = (
+                    (invoice.receivable_warehouse_amount or Decimal('0.0')) +
+                    (total_amount or Decimal('0.0')) +
+                    (invoice.receivable_delivery_amount or Decimal('0.0'))
+                )            
+                invoice.save()
+
+                # 更新港前账单状态
+                invoice_status.preport_status = save_type
+                if save_type == "rejected":
+                    invoice_status.preport_reason = request.POST.get("reject_reason", "")
+                invoice_status.save()
+            context["success_messages"] = f"{container_number} 柜号港前账单保存成功！"
+        except Exception as e:
+            # 失败消息
+            context["error_messages"] = f"操作失败: {str(e)}"    
+        return self.handle_preport_entry_post(request,context)
+
+    def _extract_number(self, value):
+        """从字符串里提取数字，失败则返回 0"""
+        if value is None:
+            return 0
+        try:
+            # 直接是数字
+            return float(value)
+        except:
+            pass
+
+        # 尝试从文本里提取数字
+        match = re.search(r"[-+]?\d*\.?\d+", str(value))
+        if match:
+            try:
+                return float(match.group())
+            except:
+                return 0
+
+        return 0
+        
+    def query_invoice_basic(
+        self,
+        request,
+        category: str,    
+    ):
+        """统一查询方法，用于五种账单类型"""
+        
+        warehouse = request.GET.get("warehouse", None)
+        customer = request.GET.get("customer", None)
+
+        status_field = self.CATEGORY_STATUS_FIELD[category]
+
+        status_kwargs = {f"{status_field}__in": ["unstarted", "in_progress"]}
+
+        # --- 基础过滤（Container） ---
+        container_filter = Q()
+        if warehouse:
+            container_filter &= Q(retrieval_destination_precise=warehouse)
+
+        # --- 所有应收账单对应的 InvoiceStatus ---
+        qs = InvoiceStatusv2.objects.select_related(
+            "invoice",
+            "container_number",
+            "invoice__customer",
+        ).filter(
+            invoice_type="receivable",
+            container_number__in=Container.objects.filter(container_filter),
+        )
+
+        # =========================
+        # 待录入（unstarted + in_progress）
+        # =========================
+        pending_input = qs.filter(**{status_field + "__in": ["unstarted", "in_progress"]})
+
+        # =========================
+        # 驳回
+        # =========================
+        rejected = qs.filter(**{status_field: "rejected"})
+
+        # =========================
+        # 待审核（pending_review）
+        # =========================
+        pending_review = qs.filter(**{status_field: "pending_review"})
+
+        # =========================
+        # 已完成（completed）
+        # =========================
+        completed = qs.filter(**{status_field: "completed"}).order_by("-invoice__invoice_date")
+
+        context = {
+            "pending_input": pending_input,
+            "rejected": rejected,
+            "pending_review": pending_review,
+            "completed": completed,
+            "warehouse_options": self.warehouse_options,
+            "warehouse_filter": warehouse,
+            "category": category,
+        }
+
+        return context
+        
+    def _create_invoice_and_status(self, container_number: str) -> tuple[Invoicev2, InvoiceStatusv2]:
+        """创建账单和状态记录"""
+        order = Order.objects.select_related(
+            "customer_name", "container_number"
+        ).get(container_number__container_number=container_number)
+        # 创建 Invoicev2
+        current_date = datetime.now().date()
+        order_id = str(order.id)
+        customer_id = order.customer_name.id
+        invoice = Invoicev2.objects.create(
+            container_number=order.container_number,
+            invoice_number=f"{current_date.strftime('%Y-%m-%d').replace('-', '')}C{customer_id}{order_id}",
+            invoice_date=current_date
+        )
+        
+        # 创建 InvoiceStatusv2
+        invoice_status = InvoiceStatusv2.objects.create(
+            container_number=order.container_number,
+            invoice=invoice,
+            invoice_type="receivable"
+        )
+        invoice.save()
+        invoice_status.save()
+        return invoice, invoice_status
+    
+    def _is_combina(self, container_number: str) -> Any:
+        context = {}
+        try:
+            container = Container.objects.get(container_number=container_number)
+            order = Order.objects.select_related(
+                "retrieval_id", "container_number", "vessel_id"
+            ).get(container_number__container_number=container_number)
+            customer = order.customer_name
+            customer_name = customer.zem_name
+            # 从报价表找+客服录的数据
+            warehouse = order.retrieval_id.retrieval_destination_area
+            vessel_etd = order.vessel_id.vessel_etd
+
+            container_type = container.container_type
+            #  基础数据统计
+            plts = Pallet.objects.filter(
+                container_number__container_number=container_number
+            ).aggregate(
+                unique_destinations=Count("destination", distinct=True),
+                total_weight=Sum("weight_lbs"),
+                total_cbm=Sum("cbm"),
+                total_pallets=Count("id"),
+            )
+            plts["total_cbm"] = round(plts["total_cbm"], 2)
+            plts["total_weight"] = round(plts["total_weight"], 2)
+            # 获取匹配的报价表
+            matching_quotation = (
+                QuotationMaster.objects.filter(
+                    effective_date__lte=vessel_etd,
+                    is_user_exclusive=True,
+                    exclusive_user=customer_name,
+                    quote_type='receivable',
+                )
+                .order_by("-effective_date")
+                .first()
+            )
+            if not matching_quotation:
+                matching_quotation = (
+                    QuotationMaster.objects.filter(
+                        effective_date__lte=vessel_etd,
+                        is_user_exclusive=False,  # 非用户专属的通用报价单
+                        quote_type='receivable',
+                    )
+                    .order_by("-effective_date")
+                    .first()
+                )
+            if not matching_quotation:
+                context.update({"error_messages": f"找不到{container_number}可用的报价表！"})
+                return context, None, None
+            # 获取组合柜规则
+            try:
+                stipulate_fee_detail = FeeDetail.objects.get(
+                    quotation_id=matching_quotation.id, fee_type="COMBINA_STIPULATE"
+                )
+                stipulate = stipulate_fee_detail.details
+            except FeeDetail.DoesNotExist:
+                context.update({
+                    "error_messages": f"报价表《{matching_quotation.filename}》-{matching_quotation.id}中找不到<报价表规则>分表，请截此图给技术员！"
+                })
+                return context, None, None
+            
+            combina_fee = FeeDetail.objects.get(
+                quotation_id=matching_quotation.id, fee_type=f"{warehouse}_COMBINA"
+            ).details
+            if isinstance(combina_fee, str):
+                combina_fee = json.loads(combina_fee)
+            # 看是否超出组合柜限定仓点,NJ/SAV是14个
+            default_combina = stipulate["global_rules"]["max_mixed"]["default"]
+            exceptions = stipulate["global_rules"]["max_mixed"].get("exceptions", {})
+            combina_threshold = exceptions.get(warehouse, default_combina) if exceptions else default_combina
+
+            default_threshold = stipulate["global_rules"]["bulk_threshold"]["default"]
+            exceptions = stipulate["global_rules"]["bulk_threshold"].get("exceptions", {})
+            uncombina_threshold = exceptions.get(warehouse, default_threshold) if exceptions else default_threshold
+            if plts["unique_destinations"] > uncombina_threshold:
+                container.account_order_type = "转运"
+                container.non_combina_reason = (
+                    f"总仓点超过{uncombina_threshold}个"
+                )
+                container.save()
+                return context, False, f"总仓点超过{uncombina_threshold}个" # 不是组合柜
+
+            # 按区域统计
+            destinations = (
+                Pallet.objects.filter(container_number__container_number=container_number)
+                .values_list("destination", flat=True)
+                .distinct()
+            )
+            plts_by_destination = (
+                Pallet.objects.filter(container_number__container_number=container_number)
+                .values("destination")
+                .annotate(total_cbm=Sum("cbm"))
+            )
+            total_cbm_sum = sum(item["total_cbm"] for item in plts_by_destination)
+            # 区分组合柜区域和非组合柜区域
+            container_type_temp = 0 if container_type == "40HQ/GP" else 1
+            matched_regions = self.find_matching_regions(
+                plts_by_destination, combina_fee, container_type_temp, total_cbm_sum, combina_threshold
+            )
+            # 判断是否混区，False表示满足混区条件
+            is_mix = self.is_mixed_region(
+                matched_regions["matching_regions"], warehouse, vessel_etd
+            )
+            if is_mix:
+                container.account_order_type = "转运"
+                container.non_combina_reason = "混区不符合标准"
+                container.save()
+                return context, False, "混区不符合标准"
+            
+            filtered_non_destinations = [key for key in matched_regions["non_combina_dests"].keys() if "UPS" not in key]
+            # 非组合柜区域
+            non_combina_region_count = len(filtered_non_destinations)
+            # 组合柜区域
+            combina_region_count = len(matched_regions["combina_dests"])
+
+            filtered_destinations = self._filter_ups_destinations(destinations)
+            if combina_region_count + non_combina_region_count != len(filtered_destinations):
+                raise ValueError(
+                    f"计算组合柜和非组合柜区域有误\n"
+                    f"组合柜目的地：{matched_regions['combina_dests']}，数量：{combina_region_count}\n"
+                    f"非组合柜目的地：{filtered_non_destinations}，数量：{non_combina_region_count}\n"
+                    f"目的地集合：{filtered_destinations}\n"
+                    f"目的地总数：{len(filtered_destinations)}"
+                )
+            if non_combina_region_count > (
+                uncombina_threshold
+                - combina_threshold
+            ):
+                # 当非组合柜的区域数量超出时，不能按转运组合
+                container.account_order_type = "转运"
+                container.non_combina_reason = "非组合柜区的数量不符合标准"
+                container.save()
+                return context, False,"非组合柜区的数量不符合标准"
+            container.non_combina_reason = None
+            container.account_order_type = "转运组合"
+            container.save()
+            return context, True, None
+        except Exception as e:
+            error_message = f"组合柜检查错误: {str(e)[:200]}"
+            context.update({
+                "error_messages": error_message,
+            })
+            return context, False, None
+
+    def is_mixed_region(self, matched_regions, warehouse, vessel_etd) -> bool:
+        regions = list(matched_regions.keys())
+        # LA仓库的特殊规则：CDEF区不能混
+        if warehouse == "LA":
+            if vessel_etd.month > 7 or (
+                vessel_etd.month == 7 and vessel_etd.day >= 15
+            ):  # 715之后没有混区限制
+                return False
+            if len(regions) <= 1:  # 只有一个区，就没有混区的情况
+                return False
+            if set(regions) == {"A区", "B区"}:  # 如果只有A区和B区，也满足混区规则
+                return False
+            return True
+        # 其他仓库无限制
+        return False
+         
+    def _filter_ups_destinations(self, destinations):
+        """过滤掉包含UPS的目的地，支持列表和QuerySet"""
+        if hasattr(destinations, '__iter__') and not isinstance(destinations, (str, dict)):
+            destinations_list = list(destinations)
+        else:
+            destinations_list = destinations
+        filtered_destinations = [dest for dest in destinations_list if 'UPS' not in str(dest) and 'FEDEX' not in str(dest)]
+        return filtered_destinations
+    
+    def find_matching_regions(
+        self,
+        plts_by_destination: dict,
+        combina_fee: dict,
+        container_type,
+        total_cbm_sum: FloatField,
+        combina_threshold: int,
+    ) -> dict:
+        matching_regions = defaultdict(float)  # 各区的cbm总和
+        des_match_quote = {}  # 各仓点的匹配详情
+        destination_matches = set()  # 组合柜的仓点
+        non_combina_dests = {}  # 非组合柜的仓点
+        price_display = defaultdict(
+            lambda: {"price": 0.0, "location": set()}
+        )  # 各区的价格和仓点
+        dest_cbm_list = []  # 临时存储初筛组合柜内的cbm和匹配信息
+
+        region_counter = {}
+        region_price_map = {}
+        for plts in plts_by_destination:
+            destination = plts["destination"]
+            if ('UPS' in destination) or ('FEDEX' in destination):
+                continue
+            # 如果是沃尔玛的，只保留后面的名字，因为报价表里就是这么保留的
+            dest = destination.replace("沃尔玛", "").split("-")[-1].strip()
+            cbm = plts["total_cbm"]
+            dest_matches = []
+            matched = False
+            # 遍历所有区域和location
+            for region, fee_data_list in combina_fee.items():           
+                for fee_data in fee_data_list:
+                    prices_obj = fee_data["prices"]
+                    price = self._extract_price(prices_obj, container_type)
+                    
+                    # 如果匹配到组合柜仓点，就登记到组合柜集合中
+                    if dest in fee_data["location"]:
+                        # 初始化
+                        if region not in region_price_map:
+                            region_price_map[region] = [price]
+                            region_counter[region] = 0
+                            actual_region = region
+                        else:
+                            # 如果该 region 下已有相同价格 → 不加编号
+                            found = None
+                            for r_key, r_val in price_display.items():
+                                if r_key.startswith(region) and r_val["price"] == price:
+                                    found = r_key
+                                    break
+                            if found:
+                                actual_region = found
+                            else:                                
+                                # 新价格 → 需要编号
+                                region_counter[region] += 1
+                                actual_region = f"{region}{region_counter[region]}"
+                                region_price_map[region].append(price)
+
+                        temp_cbm = matching_regions.get(actual_region, 0) + cbm
+                        matching_regions[actual_region] = temp_cbm
+                        dest_matches.append(
+                            {
+                                "region": actual_region,
+                                "location": dest,
+                                "prices": fee_data["prices"],
+                                "cbm": cbm,
+                            }
+                        )
+                        if actual_region not in price_display:
+                            price_display[actual_region] = {
+                                "price": price,
+                                "location": set([dest]),
+                            }
+                        else:
+                            # 不要覆盖，更新集合
+                            price_display[actual_region]["location"].add(dest)
+                        matched = True
+            
+            if not matched:
+                # 非组合柜仓点
+                non_combina_dests[dest] = {"cbm": cbm}
+            # 记录匹配结果
+            if dest_matches:
+                des_match_quote[dest] = dest_matches
+                # 将组合柜内的记录下来，后续方便按照cbm排序
+                dest_cbm_list.append(
+                    {"dest": dest, "cbm": cbm, "matches": dest_matches}
+                )
+                destination_matches.add(dest)
+        if len(destination_matches) > combina_threshold:
+            # 按cbm降序排序，将cbm大的归到非组合
+            sorted_dests = sorted(dest_cbm_list, key=lambda x: x["cbm"], reverse=True)
+            # 重新将排序后的前12个加入里面
+            destination_matches = set()
+            matching_regions = defaultdict(float)
+            price_display = defaultdict(lambda: {"price": 0.0, "location": set()})
+            for item in sorted_dests[:combina_threshold]:
+                dest = item["dest"]
+                destination_matches.add(dest)
+
+                # 重新计算各区域的CBM总和
+                for match in item["matches"]:
+                    region = match["region"]
+                    matching_regions[region] += item["cbm"]
+                    price_display[region]["price"] = self._extract_price(match["prices"], container_type)
+                    
+                    price_display[region]["location"].add(dest)
+
+            # 其余仓点转为非组合柜
+            for item in sorted_dests[combina_threshold:]:
+                non_combina_dests[item["dest"]] = {"cbm": item["cbm"]}
+                # 将cbm大的从组合柜集合中删除
+                des_match_quote.pop(item["dest"], None)
+
+        # 下面开始计算组合柜和非组合柜各仓点占总体积的比例
+        total_ratio = 0.0
+        ratio_info = []
+
+        # 处理组合柜仓点的cbm_ratio
+        for dest, matches in des_match_quote.items():
+            cbm = matches[0]["cbm"]  # 同一个dest的cbm在所有matches中相同
+            ratio = round(cbm / total_cbm_sum, 4)
+            total_ratio += ratio
+            ratio_info.append((dest, ratio, cbm, True))  # 最后一个参数表示是否是组合柜
+            for match in matches:
+                match["cbm_ratio"] = ratio
+
+        # 处理非组合柜仓点的cbm_ratio
+        for dest, data in non_combina_dests.items():
+            cbm = data["cbm"]
+            ratio = round(cbm / total_cbm_sum, 4)
+            total_ratio += ratio
+            ratio_info.append((dest, ratio, cbm, False))
+            data["cbm_ratio"] = ratio
+
+        # 处理四舍五入导致的误差
+        if abs(total_ratio - 1.0) > 0.0001:  # 考虑浮点数精度
+            # 找到CBM最大的仓点
+            ratio_info.sort(key=lambda x: x[2], reverse=True)
+            largest_dest, largest_ratio, largest_cbm, is_combi = ratio_info[0]
+
+            # 调整最大的仓点的ratio
+            diff = 1.0 - total_ratio
+            if is_combi:
+                for match in des_match_quote[largest_dest]:
+                    match["cbm_ratio"] = round(match["cbm_ratio"] + diff, 4)
+            else:
+                non_combina_dests[largest_dest]["cbm_ratio"] = round(
+                    non_combina_dests[largest_dest]["cbm_ratio"] + diff, 4
+                )
+        return {
+            "des_match_quote": des_match_quote,
+            "matching_regions": matching_regions,
+            "combina_dests": destination_matches,
+            "non_combina_dests": non_combina_dests,
+            "price_display": price_display,
+        }
+    
+    def _extract_price(self, prices_obj, container_type):
+        """
+        安全地从 prices_obj 中提取数值 price：
+        - 如果 prices_obj 是 dict，按键取（container_type 可为字符串或整型）。
+        - 如果是 list/tuple，且 container_type 是 int，则尝试取 prices_obj[container_type]。
+        若越界或该项不是数值，则回退到列表中第一个数值项。
+        - 如果是单值（int/float），直接返回。
+        - 其它情况返回 None。
+        """
+        # 优先处理 dict
+        if isinstance(prices_obj, dict):
+            # 允许 container_type 是 str 或 int（int 转为索引的情况不常见）
+            val = prices_obj.get(container_type)
+            if isinstance(val, (int, float)):
+                return val
+            # 如果取到的不是数字，尝试找 dict 的第一个数字值作为回退
+            for v in prices_obj.values():
+                if isinstance(v, (int, float)):
+                    return v
+            return None
+
+        # list/tuple 按 index 选
+        if isinstance(prices_obj, (list, tuple)):
+            # 当 container_type 是整数索引时，优先使用该索引
+            if isinstance(container_type, int):
+                try:
+                    candidate = prices_obj[container_type]
+                    if isinstance(candidate, (int, float)):
+                        return candidate
+                except Exception:
+                    pass
+            # 回退：选第一个数字项
+            first_num = next((x for x in prices_obj if isinstance(x, (int, float))), None)
+            return first_num
+
+        # 直接是数字
+        if isinstance(prices_obj, (int, float)):
+            return prices_obj
+
+        # 其他（字符串等），不能作为 price
+        return None
+    
+    def _get_quotation_for_order(self, order: Order, quote_type: str = 'receivable') :
+        """获取订单对应的报价表"""
+        try:
+            vessel_etd = order.vessel_id.vessel_etd
+            customer = order.customer_name
+            customer_name = customer.zem_name
+            
+            # 先查找用户专属报价表
+            quotation = (
+                QuotationMaster.objects.filter(
+                    effective_date__lte=vessel_etd,
+                    is_user_exclusive=True,
+                    exclusive_user=customer_name,
+                    quote_type=quote_type,
+                )
+                .order_by("-effective_date")
+                .first()
+            )
+            
+            if not quotation:
+                # 查找通用报价表
+                quotation = (
+                    QuotationMaster.objects.filter(
+                        effective_date__lte=vessel_etd,
+                        is_user_exclusive=False,
+                        quote_type=quote_type,
+                    )
+                    .order_by("-effective_date")
+                    .first()
+                )
+            
+            if quotation:
+                return quotation, None
+            else:
+                error_msg = f"找不到生效日期在{vessel_etd}之前的{quote_type}报价表"
+                return None, error_msg
+                
+        except Exception as e:
+            error_msg = f"查询报价表时发生错误: {str(e)}"
+            return None, error_msg
+
+    def _get_fee_details_from_quotation(self, quotation: QuotationMaster, fee_type: str = "preport") :
+        """从报价表中获取费用详情"""
+        try:
+            fee_detail = FeeDetail.objects.get(
+                quotation_id=quotation.id,
+                fee_type=fee_type
+            )
+            return fee_detail, None
+        except FeeDetail.DoesNotExist:
+            error_msg = f"报价表中找不到{fee_type}类型的费用详情"
+            return None, error_msg
+        except Exception as e:
+            error_msg = f"获取费用详情时发生错误: {str(e)}"
+            return None, error_msg
    
         
