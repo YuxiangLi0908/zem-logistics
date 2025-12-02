@@ -1528,7 +1528,11 @@ class PostNsop(View):
         self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:    
         pickup_number_raw = request.POST.get('pickupNumber')
-        pickup_number = await self._get_unique_pickup_number(pickup_number_raw)
+        page = request.POST.get("page")
+        if page == "arm_appointment":
+            pickup_number = await self._get_unique_pickup_number(pickup_number_raw)
+        else:
+            pickup_number = pickup_number_raw
         appointment_id = request.POST.get('appointment_id')
         ids = request.POST.get("cargo_ids")
         plt_ids = request.POST.get("plt_ids")
@@ -1537,7 +1541,7 @@ class PostNsop(View):
         context = {}
         operation_type = request.POST.get('operation_type')
         shipment_cargo_id = request.POST.get('shipment_cargo_id')
-        page = request.POST.get("page")
+        
         if operation_type == "remove_po":            
             shipment = await sync_to_async(Shipment.objects.get)(
                 appointment_id=appointment_id
@@ -1669,12 +1673,12 @@ class PostNsop(View):
             if page == "arm_appointment":
                 return await self.handle_unscheduled_pos_post(request,context)
             else:
-                return await self.handle_td_unshipment_post(request,context)
+                return await self.handle_td_shipment_post(request,context)
         else:
             context.update({"error_messages": f"没有选择PO！"}) 
-        template_name = request.POST.get('template_name')
-        if template_name and template_name == "unshipment":
-            return await self.handle_td_unshipment_post(request,context)
+        # template_name = request.POST.get('template_name')
+        # if template_name and template_name == "unshipment":
+        #     return await self.handle_td_unshipment_post(request,context)
         page = request.POST.get("page")
         if page == "arm_appointment":          
             return await self.handle_unscheduled_pos_post(request,context)
