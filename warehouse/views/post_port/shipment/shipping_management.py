@@ -2075,6 +2075,7 @@ class ShippingManagement(View):
                 shipment.total_pcs = 0
                 shipment.total_cbm = 0
                 shipment.total_pallet = 0
+                shipment.shipment_batch_number = None
         else:
             raise ValueError(f"Unknown shipment alter type: {alter_type}")
         await sync_to_async(shipment.save)()
