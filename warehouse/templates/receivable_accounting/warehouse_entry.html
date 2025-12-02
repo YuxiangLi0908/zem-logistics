@@ -225,17 +225,28 @@
     .th:last-child {
         border-right: none;
     }
+    
+    /* 调整列宽 */
     .th:nth-child(1), .td:nth-child(1) { /* 客户列 */
-        width: 10%;
+        width: 12%;
     }
     .th:nth-child(2), .td:nth-child(2) { /* 柜号列 */
-        width: 18%;
-    }
-    .th:nth-child(5), .td:nth-child(5) { /* 驳回原因列 */
-        width: 16%;
-    }
-    .th:nth-child(6), .td:nth-child(6) { /* 驳回原因列 */
         width: 15%;
+    }
+    .th:nth-child(3), .td:nth-child(3) { /* 仓库列 */
+        width: 12%;
+    }
+    .th:nth-child(4), .td:nth-child(4) { /* 入库时间列 */
+        width: 20%;
+    }
+    .th:nth-child(5), .td:nth-child(5) { /* 还空时间/状态列 */
+        width: 15%;
+    }
+    .th:nth-child(6), .td:nth-child(6) { /* 状态/驳回原因列 */
+        width: 15%;
+    }
+    .th:nth-child(7), .td:nth-child(7) { /* 私仓表格的额外列 */
+        width: 14%;
     }
     
     .td {
@@ -284,6 +295,7 @@
     .table thead tr:first-child th:last-child {
         border-top-right-radius: 0;
     }
+    
     .search-row .th {
         background: #e9ecef;
         position: sticky;
@@ -371,6 +383,7 @@
         background: #dc3545;
         color: white;
     }
+    
     /* 状态徽章样式升级 - 增大 */
     .status-badge {
         padding: 8px 14px;  /* 增加内边距 */
@@ -384,10 +397,10 @@
         line-height: 1.2;
     }
 
-    .status-badge.pending {
-        background: linear-gradient(135deg, #fff3cd, #ffeaa7);
-        color: #856404;
-        border-color: #ffeaa7;
+    .status-badge.unstarted {
+        background: linear-gradient(135deg, #e9ecef, #dee2e6);
+        color: #495057;
+        border-color: #dee2e6;
     }
 
     .status-badge.in-progress {
@@ -414,16 +427,22 @@
         border-color: #ffeaa7;
     }
 
-    .status-badge.unstarted {
-        background: linear-gradient(135deg, #e9ecef, #dee2e6);
-        color: #495057;
-        border-color: #dee2e6;
+    .status-badge.pending {
+        background: linear-gradient(135deg, #fff3cd, #ffeaa7);
+        color: #856404;
+        border-color: #ffeaa7;
     }
 
     .status-badge.tobeconfirmed {
         background: linear-gradient(135deg, #ffe6cc, #ffd9b3);
         color: #cc6600;
         border-color: #ffd9b3;
+    }
+    
+    .status-badge.confirmed {
+        background: linear-gradient(135deg, #d1edff, #b3e0ff);
+        color: var(--primary-color);
+        border-color: #b3e0ff;
     }
 
     .container-link {
@@ -447,6 +466,29 @@
         display: block;
         margin-top: 3px;  /* 增加间距 */
         font-style: italic;
+    }
+    
+    /* 出库统计数字样式 */
+    .shipment-count {
+        font-weight: 600;
+        font-size: 13px;
+        padding: 4px 8px;
+        border-radius: 6px;
+        display: inline-block;
+        min-width: 40px;
+        text-align: center;
+    }
+    
+    .shipment-count.remaining {
+        background: #ffebee;
+        color: #c62828;
+        border: 1px solid #ffcdd2;
+    }
+    
+    .shipment-count.completed {
+        background: #e8f5e9;
+        color: #2e7d32;
+        border: 1px solid #c8e6c9;
     }
 
     @media (max-width: 1200px) {
@@ -506,7 +548,7 @@
         <div class="finance-header">
             <div class="finance-logo">
                 <i class="fas fa-file-invoice-dollar"></i>
-                <span>港前账单管理 - 应收</span>
+                <span>库内账单管理 - 应收</span>
             </div>       
             <div class="filter-controls">                      
                     <div class="filter-group">
@@ -535,7 +577,7 @@
                     <button type="submit" class="btn-filter">
                         <i class="fas fa-search"></i> 查询
                     </button>
-                    <input type="hidden" name="step" value="preport_search">
+                    <input type="hidden" name="step" value="warehouse_search">
                 
             </div>      
         </div>
@@ -543,22 +585,22 @@
 
     <div class="finance-main">
         <div class="content-tabs">
-            <div class="content-tab" data-tab="entry" id="tab-entry">
-                提拆录入 <span class="tab-badge">{{ preport_to_record_orders|length }}</span>
+            <div class="content-tab" data-tab="public" id="tab-entry">
+                公仓待录入 <span class="tab-badge">{{ wh_public_to_record_orders|length }}</span>
             </div>
-            <div class="content-tab" data-tab="review" id="tab-review">
-                提拆审核 <span class="tab-badge">{{ preport_pending_review_orders|length }}</span>
+            <div class="content-tab" data-tab="self" id="tab-review">
+                私仓待录入 <span class="tab-badge">{{ wh_self_to_record_orders|length }}</span>
             </div>
         </div>
 
-        <!-- 提拆录入标签页 -->
-        <div class="tab-content" id="entry-section">
+        <!-- 公仓标签页 -->
+        <div class="tab-content" id="public-section">
             <div class="tables-grid">
-                <!-- 待录入订单 -->
+                <!-- 公仓待录入 -->
                 <div class="container-section">
                     <div class="section-header">
-                        <h3>待录入订单</h3>
-                        <span class="section-count">{{ preport_to_record_orders|length }}</span>
+                        <h3>公仓待录入</h3>
+                        <span class="section-count">{{ wh_public_to_record_orders|length }}</span>
                     </div>
                     <div class="table-container">
                         <table class="table" id="to-record-table">
@@ -566,52 +608,63 @@
                                 <tr>
                                     <th class="th">客户</th>
                                     <th class="th">柜号</th>
-                                    <th class="th">实际提柜日期</th>
+                                    <th class="th">仓库</th>
+                                    <th class="th">入库时间</th>
                                     <th class="th">还空时间</th>
                                 </tr>
                                 <tr class="search-row">
-                                    <th class="th"></th>
-                                    <th class="th"><input type="text" class="search-input" placeholder="搜索柜号..." oninput="filterTable(this, 1, 'to-record-table')"></th>
+                                    <th class="th">
+                                        <input type="text" class="search-input" placeholder="搜索客户..." oninput="filterTable(this, 0, 'to-record-table')">
+                                    </th>
+                                    <th class="th">
+                                        <input type="text" class="search-input" placeholder="搜索柜号..." oninput="filterTable(this, 1, 'to-record-table')">
+                                    </th>
+                                    <th class="th">
+                                        <input type="text" class="search-input" placeholder="搜索仓库..." oninput="filterTable(this, 2, 'to-record-table')">
+                                    </th>
                                     <th class="th">
                                         <div class="date-search-container">
-                                            <input type="date" class="date-search-input" placeholder="搜索提柜日期..." onchange="filterTableByDate(this, 2, 'to-record-table')">
-                                            <button type="button" class="clear-date-btn" onclick="clearDateFilter(this, 'to-record-table')">清除</button>
+                                            <input type="date" class="date-search-input" placeholder="搜索入库时间..." onchange="filterTableByDate(this, 'warehouse_in', 'to-record-table')">
+                                            <button type="button" class="clear-date-btn" onclick="clearDateFilter('warehouse_in', 'to-record-table')">清空</button>
                                         </div>
                                     </th>
                                     <th class="th">
                                         <div class="date-search-container">
-                                            <input type="date" class="date-search-input" placeholder="搜索还空时间..." onchange="filterTableByDate(this, 3, 'to-record-table')">
-                                            <button type="button" class="clear-date-btn" onclick="clearDateFilter(this, 'to-record-table')">清除</button>
+                                            <input type="date" class="date-search-input" placeholder="搜索还空时间..." onchange="filterTableByDate(this, 'empty_returned', 'to-record-table')">
+                                            <button type="button" class="clear-date-btn" onclick="clearDateFilter('empty_returned', 'to-record-table')">清空</button>
                                         </div>
                                     </th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {% if preport_to_record_orders %}
-                                    {% for item in preport_to_record_orders %}
-                                    <tr data-container="{{ item.order.container_number.container_number|lower }}" 
-                                        data-retrieval="{% if item.order.retrieval_time %}{{ item.order.retrieval_time|date:'Y-m-d' }}{% endif %}" 
-                                        data-empty="{% if item.order.empty_returned_time %}{{ item.order.empty_returned_time|date:'Y-m-d' }}{% endif %}">
+                                {% if wh_public_to_record_orders %}
+                                    {% for item in wh_public_to_record_orders %}
+                                    <tr data-customer="{{ item.order.customer_name.zem_name|lower }}" 
+                                        data-container="{{ item.order.container_number.container_number|lower }}" 
+                                        data-warehouse="{{ item.order.retrieval_id.retrieval_destination_precise|default:''|lower }}"
+                                        data-warehouse_in="{% if item.order.offload_time %}{{ item.order.offload_time|date:'Y-m-d' }}{% endif %}" 
+                                        data-empty_returned="{% if item.order.empty_returned_time %}{{ item.order.empty_returned_time|date:'Y-m-d' }}{% endif %}">
                                         <td class="td">{{ item.order.customer_name.zem_name }}</td>
                                         <td class="td">
                                             {% if item.has_invoice %}
-                                                <a href="/receivable_accounting/?step=container_preport&container_number={{ item.order.container_number.container_number }}&invoice_id={{ item.invoice_id }}&start_date={{ start_date }}&end_date={{ end_date }}" class="container-link">
+                                                <a href="/receivable_accounting/?step=container_warehouse&container_number={{ item.order.container_number.container_number }}&invoice_id={{ item.invoice_id }}&delivery_type=public&start_date={{ start_date }}&end_date={{ end_date }}" class="container-link">
                                                     {{ item.order.container_number.container_number }}
                                                 </a>
                                                 {% if item.invoice_created_at %}
                                                     <span class="invoice-date">创建: {{ item.invoice_created_at|date:"m/d H:i" }}</span>
                                                 {% endif %}
                                             {% else %}
-                                                <a href="/receivable_accounting/?step=container_preport&container_number={{ item.order.container_number.container_number }}&start_date={{ start_date }}&end_date={{ end_date }}" class="container-link">
+                                                <a href="/receivable_accounting/?step=container_warehouse&container_number={{ item.order.container_number.container_number }}&delivery_type=public&start_date={{ start_date }}&end_date={{ end_date }}" class="container-link">
                                                     {{ item.order.container_number.container_number }}
                                                 </a>
                                             {% endif %}
                                         </td>
+                                        <td class="td">{{ item.order.retrieval_id.retrieval_destination_precise|default:"-" }}</td>
                                         <td class="td">
-                                            {% if item.order.retrieval_time %}
-                                                {{ item.order.retrieval_time|date:"Y-m-d" }}
+                                            {% if item.order.offload_time %}
+                                                {{ item.order.offload_time|date:"Y-m-d" }}
                                             {% else %}
-                                                <span style="color: var(--warning-color);">待提柜</span>
+                                                <span style="color: var(--warning-color);">待入库</span>
                                             {% endif %}
                                         </td>
                                         <td class="td">
@@ -625,8 +678,8 @@
                                     {% endfor %}
                                 {% else %}
                                     <tr>
-                                        <td colspan="4" class="td" style="text-align: center; color: #6c757d;">
-                                            暂无待录入订单
+                                        <td colspan="5" class="td" style="text-align: center; color: #6c757d;">
+                                            暂无公仓待录入订单
                                         </td>
                                     </tr>
                                 {% endif %}
@@ -635,11 +688,11 @@
                     </div>
                 </div>
 
-                <!-- 已录入订单 -->
+                <!-- 公仓已录入 -->
                 <div class="container-section">
                     <div class="section-header">
-                        <h3>已录入订单</h3>
-                        <span class="section-count">{{ preport_recorded_orders|length }}</span>
+                        <h3>公仓已录入</h3>
+                        <span class="section-count">{{ wh_public_recorded_orders|length }}</span>
                     </div>
                     <div class="table-container">
                         <table class="table" id="recorded-table">
@@ -647,105 +700,94 @@
                                 <tr>
                                     <th class="th">客户</th>
                                     <th class="th">柜号</th>
-                                    <th class="th">实际提柜日期</th>
-                                    <th class="th">还空时间</th>
+                                    <th class="th">仓库</th>
+                                    <th class="th">入库时间</th>
                                     <th class="th">状态</th>
                                     <th class="th">驳回原因</th>
                                 </tr>
                                 <tr class="search-row">
-                                    <th class="th"></th>
-                                    <th class="th"><input type="text" class="search-input" placeholder="搜索柜号..." oninput="filterTable(this, 1, 'recorded-table')"></th>
                                     <th class="th">
-                                        <div class="date-search-container">
-                                            <input type="date" class="date-search-input" placeholder="搜索提柜日期..." onchange="filterTableByDate(this, 2, 'recorded-table')">
-                                            <button type="button" class="clear-date-btn" onclick="clearDateFilter(this, 'recorded-table')">清除</button>
-                                        </div>
+                                        <input type="text" class="search-input" placeholder="搜索客户..." oninput="filterTable(this, 0, 'recorded-table')">
+                                    </th>
+                                    <th class="th">
+                                        <input type="text" class="search-input" placeholder="搜索柜号..." oninput="filterTable(this, 1, 'recorded-table')">
+                                    </th>
+                                    <th class="th">
+                                        <input type="text" class="search-input" placeholder="搜索仓库..." oninput="filterTable(this, 2, 'recorded-table')">
                                     </th>
                                     <th class="th">
                                         <div class="date-search-container">
-                                            <input type="date" class="date-search-input" placeholder="搜索还空时间..." onchange="filterTableByDate(this, 3, 'recorded-table')">
-                                            <button type="button" class="clear-date-btn" onclick="clearDateFilter(this, 'recorded-table')">清除</button>
+                                            <input type="date" class="date-search-input" placeholder="搜索入库时间..." onchange="filterTableByDate(this, 'warehouse_in', 'recorded-table')">
+                                            <button type="button" class="clear-date-btn" onclick="clearDateFilter('warehouse_in', 'recorded-table')">清空</button>
                                         </div>
                                     </th>
                                     <th class="th">
                                         <!-- 状态筛选下拉框 -->
                                         <select class="status-filter-select" onchange="filterTableByStatus(this, 'recorded-table')">
                                             <option value="">全部状态</option>
-                                            <option value="未开始">未开始</option>
-                                            <option value="录入中">录入中</option>
-                                            <option value="待审核">待审核</option>
-                                            <option value="已驳回">已驳回</option>
-                                            <option value="财务未确认">财务未确认</option>
-                                            <option value="财务已确认">财务已确认</option>
+                                            <option value="unstarted">未开始</option>
+                                            <option value="in_progress">录入中</option>
+                                            <option value="pending_review">待审核</option>
+                                            <option value="rejected">已驳回</option>
+                                            <option value="completed">已完成</option>
+                                            <option value="confirmed">已确认</option>
                                         </select>
                                     </th>
-                                    <th class="th"></th>
+                                    <th class="th">
+                                        <input type="text" class="search-input" placeholder="搜索驳回原因..." oninput="filterTable(this, 5, 'recorded-table')">
+                                    </th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {% if preport_recorded_orders %}
-                                    {% for item in preport_recorded_orders %}
-                                    <tr data-container="{{ item.order.container_number.container_number|lower }}" 
-                                        data-retrieval="{% if item.order.retrieval_time %}{{ item.order.retrieval_time|date:'Y-m-d' }}{% endif %}" 
-                                        data-empty="{% if item.order.empty_returned_time %}{{ item.order.empty_returned_time|date:'Y-m-d' }}{% endif %}"
-                                        data-status="{% if item.preport_status != 'completed' %}{% if item.preport_status == 'unstarted' %}未开始{% elif item.preport_status == 'in_progress' %}录入中{% elif item.preport_status == 'pending_review' %}待审核{% elif item.preport_status == 'rejected' %}已驳回{% endif %}{% else %}{% if item.finance_status == 'unstarted' %}财务未确认{% elif item.finance_status == 'tobeconfirmed' %}财务未确认{% elif item.finance_status == 'completed' %}财务已确认{% endif %}{% endif %}">
+                                {% if wh_public_recorded_orders %}
+                                    {% for item in wh_public_recorded_orders %}
+                                    <tr data-customer="{{ item.order.customer_name.zem_name|lower }}" 
+                                        data-container="{{ item.order.container_number.container_number|lower }}" 
+                                        data-warehouse="{{ item.order.retrieval_id.retrieval_destination_precise|default:''|lower }}"
+                                        data-warehouse_in="{% if item.order.offload_time %}{{ item.order.offload_time|date:'Y-m-d' }}{% endif %}" 
+                                        data-status="{{ item.public_status|default:'unstarted' }}"
+                                        data-reject-reason="{{ item.warehouse_public_reason|default:''|lower }}">
                                         <td class="td">{{ item.order.customer_name.zem_name }}</td>
                                         <td class="td">
-                                            <a href="/receivable_accounting/?step=container_preport&container_number={{ item.order.container_number.container_number }}&invoice_id={{ item.invoice_id }}&start_date={{ start_date }}&end_date={{ end_date }}" class="container-link">
+                                            <a href="/receivable_accounting/?step=container_warehouse&container_number={{ item.order.container_number.container_number }}&invoice_id={{ item.invoice_id }}&delivery_type=public&start_date={{ start_date }}&end_date={{ end_date }}" class="container-link">
                                                 {{ item.order.container_number.container_number }}
                                             </a>
                                             {% if item.invoice_created_at %}
                                                 <span class="invoice-date">创建: {{ item.invoice_created_at|date:"m/d H:i" }}</span>
                                             {% endif %}
                                         </td>
+                                        <td class="td">{{ item.order.retrieval_id.retrieval_destination_precise|default:"-" }}</td>
                                         <td class="td">
-                                            {% if item.order.retrieval_time %}
-                                                {{ item.order.retrieval_time|date:"Y-m-d" }}
+                                            {% if item.order.offload_time %}
+                                                {{ item.order.offload_time|date:"Y-m-d" }}
                                             {% else %}
-                                                <span style="color: var(--warning-color);">待提柜</span>
+                                                <span style="color: var(--warning-color);">待入库</span>
                                             {% endif %}
                                         </td>
                                         <td class="td">
-                                            {% if item.order.empty_returned_time %}
-                                                {{ item.order.empty_returned_time|date:"Y-m-d" }}
-                                            {% else %}
-                                                <span style="color: #6c757d;">-</span>
-                                            {% endif %}
-                                        </td>
-                                        <td class="td">
-                                            {% if item.preport_status != 'completed' %}
-                                                <span class="status-badge 
-                                                    {% if item.preport_status == 'unstarted' %}unstarted
-                                                    {% elif item.preport_status == 'in_progress' %}in-progress
-                                                    {% elif item.preport_status == 'pending_review' %}review
-                                                    {% elif item.preport_status == 'rejected' %}rejected{% endif %}">
-
-                                                    {% if item.preport_status == 'unstarted' %}未开始
-                                                    {% elif item.preport_status == 'in_progress' %}录入中
-                                                    {% elif item.preport_status == 'pending_review' %}待审核
-                                                    {% elif item.preport_status == 'rejected' %}已驳回{% endif %}
+                                            {% if item.public_status %}
+                                                <span class="status-badge {{ item.public_status }}">
+                                                    {% if item.public_status == 'unstarted' %}未开始
+                                                    {% elif item.public_status == 'in_progress' %}录入中
+                                                    {% elif item.public_status == 'pending_review' %}待审核
+                                                    {% elif item.public_status == 'rejected' %}已驳回
+                                                    {% elif item.public_status == 'completed' %}已完成
+                                                    {% elif item.public_status == 'confirmed' %}已确认
+                                                    {% else %}{{ item.public_status }}{% endif %}
                                                 </span>
                                             {% else %}
-                                                <span class="status-badge 
-                                                    {% if item.finance_status == 'unstarted' %}unstarted
-                                                    {% elif item.finance_status == 'tobeconfirmed' %}tobeconfirmed
-                                                    {% elif item.finance_status == 'completed' %}completed{% endif %}">
-
-                                                    {% if item.finance_status == 'unstarted' %}财务未确认
-                                                    {% elif item.finance_status == 'tobeconfirmed' %}财务未确认
-                                                    {% elif item.finance_status == 'completed' %}财务已确认{% endif %}
-                                                </span>
+                                                <span class="status-badge unstarted">未开始</span>
                                             {% endif %}
                                         </td>
                                         <td class="td">
-                                            {{ item.preport_reason|default_if_none:'-' }}
+                                            {{ item.warehouse_public_reason|default_if_none:'-' }}
                                         </td>
                                     </tr>
                                     {% endfor %}
                                 {% else %}
                                     <tr>
                                         <td colspan="6" class="td" style="text-align: center; color: #6c757d;">
-                                            暂无已录入订单
+                                            暂无公仓已录入订单
                                         </td>
                                     </tr>
                                 {% endif %}
@@ -756,92 +798,115 @@
             </div>
         </div>
 
-        <!-- 提拆审核标签页 -->
-        <div class="tab-content" id="review-section">
+        <!-- 私仓标签页 -->
+        <div class="tab-content" id="self-section">
             <div class="tables-grid">
-                <!-- 待审核订单 -->
+                <!-- 私仓未录入 -->
                 <div class="container-section">
                     <div class="section-header">
-                        <h3>待审核订单</h3>
-                        <span class="section-count">{{ preport_pending_review_orders|length }}</span>
+                        <h3>私仓未录入</h3>
+                        <span class="section-count">{{ wh_self_to_record_orders|length }}</span>
                     </div>
                     <div class="table-container">
                         <table class="table" id="pending-review-table">
                             <thead>
                                 <tr>
                                     <th class="th">客户</th>
-                                    <th class="th">货柜号</th>
-                                    <th class="th">实际提柜日期</th>
-                                    <th class="th">还空时间</th>
+                                    <th class="th">柜号</th>
+                                    <th class="th">仓库</th>
+                                    <th class="th">入库时间</th>
+                                    <th class="th">未出库数</th>
+                                    <th class="th">已出库数</th>
                                     <th class="th">状态</th>
                                 </tr>
                                 <tr class="search-row">
-                                    <th class="th"></th>
-                                    <th class="th"><input type="text" class="search-input" placeholder="搜索柜号..." oninput="filterTable(this, 1, 'pending-review-table')"></th>
                                     <th class="th">
-                                        <div class="date-search-container">
-                                            <input type="date" class="date-search-input" placeholder="搜索提柜日期..." onchange="filterTableByDate(this, 2, 'pending-review-table')">
-                                            <button type="button" class="clear-date-btn" onclick="clearDateFilter(this, 'pending-review-table')">清除</button>
-                                        </div>
+                                        <input type="text" class="search-input" placeholder="搜索客户..." oninput="filterTable(this, 0, 'pending-review-table')">
+                                    </th>
+                                    <th class="th">
+                                        <input type="text" class="search-input" placeholder="搜索柜号..." oninput="filterTable(this, 1, 'pending-review-table')">
+                                    </th>
+                                    <th class="th">
+                                        <input type="text" class="search-input" placeholder="搜索仓库..." oninput="filterTable(this, 2, 'pending-review-table')">
                                     </th>
                                     <th class="th">
                                         <div class="date-search-container">
-                                            <input type="date" class="date-search-input" placeholder="搜索还空时间..." onchange="filterTableByDate(this, 3, 'pending-review-table')">
-                                            <button type="button" class="clear-date-btn" onclick="clearDateFilter(this, 'pending-review-table')">清除</button>
+                                            <input type="date" class="date-search-input" placeholder="搜索入库时间..." onchange="filterTableByDate(this, 'warehouse_in', 'pending-review-table')">
+                                            <button type="button" class="clear-date-btn" onclick="clearDateFilter('warehouse_in', 'pending-review-table')">清空</button>
                                         </div>
                                     </th>
                                     <th class="th">
-                                        <!-- 待审核状态筛选下拉框 -->
+                                        
+                                    </th>
+                                    <th class="th">
+                                        
+                                    </th>
+                                    <th class="th">
+                                        <!-- 状态筛选下拉框 -->
                                         <select class="status-filter-select" onchange="filterTableByStatus(this, 'pending-review-table')">
                                             <option value="">全部状态</option>
-                                            <option value="待审核">待审核</option>
+                                            <option value="unstarted">未开始</option>
+                                            <option value="in_progress">录入中</option>
+                                            <option value="pending_review">待审核</option>
                                         </select>
                                     </th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {% if preport_pending_review_orders %}
-                                    {% for item in preport_pending_review_orders %}
-                                    <tr data-container="{{ item.order.container_number.container_number|lower }}" 
-                                        data-retrieval="{% if item.order.retrieval_time %}{{ item.order.retrieval_time|date:'Y-m-d' }}{% endif %}" 
-                                        data-empty="{% if item.order.empty_returned_time %}{{ item.order.empty_returned_time|date:'Y-m-d' }}{% endif %}"
-                                        data-status="待审核">
+                                {% if wh_self_to_record_orders %}
+                                    {% for item in wh_self_to_record_orders %}
+                                    <tr data-customer="{{ item.order.customer_name.zem_name|lower }}" 
+                                        data-container="{{ item.order.container_number.container_number|lower }}" 
+                                        data-warehouse="{{ item.order.retrieval_id.retrieval_destination_precise|default:''|lower }}"
+                                        data-warehouse_in="{% if item.order.offload_time %}{{ item.order.offload_time|date:'Y-m-d' }}{% endif %}" 
+                                        data-unshipped="{{ item.shipment_stats.unshipped_count|default:0 }}"
+                                        data-shipped="{{ item.shipment_stats.shipped_count|default:0 }}"
+                                        data-status="{{ item.self_status|default:'unstarted' }}">
                                         <td class="td">{{ item.order.customer_name.zem_name }}</td>
                                         <td class="td">
-                                            <a href="/receivable_accounting/?step=container_preport&container_number={{ item.order.container_number.container_number }}&invoice_id={{ item.invoice_id }}&start_date={{ start_date }}&end_date={{ end_date }}" class="container-link">
+                                            <a href="/receivable_accounting/?step=container_warehouse&container_number={{ item.order.container_number.container_number }}&invoice_id={{ item.invoice_id }}&delivery_type=other&start_date={{ start_date }}&end_date={{ end_date }}" class="container-link">
                                                 {{ item.order.container_number.container_number }}
                                             </a>
                                             {% if item.invoice_created_at %}
                                                 <span class="invoice-date">创建: {{ item.invoice_created_at|date:"m/d H:i" }}</span>
                                             {% endif %}
                                         </td>
+                                        <td class="td">{{ item.order.retrieval_id.retrieval_destination_precise|default:"-" }}</td>
                                         <td class="td">
-                                            {% if item.order.retrieval_time %}
-                                                {{ item.order.retrieval_time|date:"Y-m-d" }}
+                                            {% if item.order.offload_time %}
+                                                {{ item.order.offload_time|date:"Y-m-d" }}
                                             {% else %}
-                                                <span style="color: var(--warning-color);">待提柜</span>
+                                                <span style="color: var(--warning-color);">待入库</span>
                                             {% endif %}
                                         </td>
                                         <td class="td">
-                                            {% if item.order.empty_returned_time %}
-                                                {{ item.order.empty_returned_time|date:"Y-m-d" }}
-                                            {% else %}
-                                                <span style="color: #6c757d;">-</span>
-                                            {% endif %}
+                                            <span class="shipment-count remaining">
+                                                {{ item.unshipped_shipment_groups }} / {{ item.total_shipment_groups }}
+                                            </span>
                                         </td>
                                         <td class="td">
-                                            <span class="status-badge review">待审核</span>
+                                            <span class="shipment-count completed">
+                                                {{ item.shipped_shipment_groups }} / {{ item.total_shipment_groups }}
+                                            </span>
+                                        </td>
+                                        <td class="td">
+                                            {% if item.self_status %}
+                                                <span class="status-badge {{ item.self_status }}">
+                                                    {% if item.self_status == 'unstarted' %}未开始
+                                                    {% elif item.self_status == 'in_progress' %}录入中
+                                                    {% elif item.self_status == 'pending_review' %}待审核
+                                                    {% else %}{{ item.self_status }}{% endif %}
+                                                </span>
+                                            {% else %}
+                                                <span class="status-badge unstarted">未开始</span>
+                                            {% endif %}
                                         </td>
                                     </tr>
                                     {% endfor %}
                                 {% else %}
                                     <tr>
-                                        <td colspan="5" class="td" style="text-align: center; color: #6c757d;">
-                                            {% if not is_leader %}
-                                                没有审核权限
-                                            {% else %}
-                                                暂无待审核订单
-                                            {% endif %}
+                                        <td colspan="7" class="td" style="text-align: center; color: #6c757d;">
+                                            暂无私仓未录入订单
                                         </td>
                                     </tr>
                                 {% endif %}
@@ -850,98 +915,100 @@
                     </div>
                 </div>
 
-                <!-- 已审核订单 -->
+                <!-- 私仓已录入 -->
                 <div class="container-section">
                     <div class="section-header">
-                        <h3>已审核订单</h3>
-                        <span class="section-count">{{ preport_completed_orders|length }}</span>
+                        <h3>私仓已录入订单</h3>
+                        <span class="section-count">{{ wh_self_recorded_orders|length }}</span>
                     </div>
                     <div class="table-container">
                         <table class="table" id="completed-table">
                             <thead>
                                 <tr>
                                     <th class="th">客户</th>
-                                    <th class="th">货柜号</th>
-                                    <th class="th">实际提柜日期</th>
-                                    <th class="th">还空时间</th>
+                                    <th class="th">柜号</th>
+                                    <th class="th">仓库</th>
+                                    <th class="th">入库时间</th>
                                     <th class="th">状态</th>
+                                    <th class="th">驳回原因</th>
                                 </tr>
                                 <tr class="search-row">
-                                    <th class="th"></th>
-                                    <th class="th"><input type="text" class="search-input" placeholder="搜索柜号..." oninput="filterTable(this, 1, 'completed-table')"></th>
                                     <th class="th">
-                                        <div class="date-search-container">
-                                            <input type="date" class="date-search-input" placeholder="搜索提柜日期..." onchange="filterTableByDate(this, 2, 'completed-table')">
-                                            <button type="button" class="clear-date-btn" onclick="clearDateFilter(this, 'completed-table')">清除</button>
-                                        </div>
+                                        <input type="text" class="search-input" placeholder="搜索客户..." oninput="filterTable(this, 0, 'completed-table')">
+                                    </th>
+                                    <th class="th">
+                                        <input type="text" class="search-input" placeholder="搜索柜号..." oninput="filterTable(this, 1, 'completed-table')">
+                                    </th>
+                                    <th class="th">
+                                        <input type="text" class="search-input" placeholder="搜索仓库..." oninput="filterTable(this, 2, 'completed-table')">
                                     </th>
                                     <th class="th">
                                         <div class="date-search-container">
-                                            <input type="date" class="date-search-input" placeholder="搜索还空时间..." onchange="filterTableByDate(this, 3, 'completed-table')">
-                                            <button type="button" class="clear-date-btn" onclick="clearDateFilter(this, 'completed-table')">清除</button>
+                                            <input type="date" class="date-search-input" placeholder="搜索入库时间..." onchange="filterTableByDate(this, 'warehouse_in', 'completed-table')">
+                                            <button type="button" class="clear-date-btn" onclick="clearDateFilter('warehouse_in', 'completed-table')">清空</button>
                                         </div>
                                     </th>
                                     <th class="th">
-                                        <!-- 已审核状态筛选下拉框 -->
+                                        <!-- 状态筛选下拉框 -->
                                         <select class="status-filter-select" onchange="filterTableByStatus(this, 'completed-table')">
                                             <option value="">全部状态</option>
-                                            <option value="财务未确认">财务未确认</option>
-                                            <option value="财务已确认">财务已确认</option>
+                                            <option value="completed">已完成</option>
+                                            <option value="rejected">已驳回</option>
+                                            <option value="confirmed">已确认</option>
                                         </select>
+                                    </th>
+                                    <th class="th">
+                                        <input type="text" class="search-input" placeholder="搜索驳回原因..." oninput="filterTable(this, 5, 'completed-table')">
                                     </th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {% if preport_completed_orders %}
-                                    {% for item in preport_completed_orders %}
-                                    <tr data-container="{{ item.order.container_number.container_number|lower }}" 
-                                        data-retrieval="{% if item.order.retrieval_time %}{{ item.order.retrieval_time|date:'Y-m-d' }}{% endif %}" 
-                                        data-empty="{% if item.order.empty_returned_time %}{{ item.order.empty_returned_time|date:'Y-m-d' }}{% endif %}"
-                                        data-status="{% if item.finance_status == 'unstarted' %}财务未确认{% elif item.finance_status == 'tobeconfirmed' %}财务未确认{% elif item.finance_status == 'completed' %}财务已确认{% endif %}">
+                                {% if wh_self_recorded_orders %}
+                                    {% for item in wh_self_recorded_orders %}
+                                    <tr data-customer="{{ item.order.customer_name.zem_name|lower }}" 
+                                        data-container="{{ item.order.container_number.container_number|lower }}" 
+                                        data-warehouse="{{ item.order.retrieval_id.retrieval_destination_precise|default:''|lower }}"
+                                        data-warehouse_in="{% if item.order.offload_time %}{{ item.order.offload_time|date:'Y-m-d' }}{% endif %}" 
+                                        data-status="{{ item.self_status|default:'unstarted' }}"
+                                        data-reject-reason="{{ item.warehouse_other_reason|default:''|lower }}">
                                         <td class="td">{{ item.order.customer_name.zem_name }}</td>
                                         <td class="td">
-                                            <a href="/receivable_accounting/?step=container_preport&container_number={{ item.order.container_number.container_number }}&invoice_id={{ item.invoice_id }}&start_date={{ start_date }}&end_date={{ end_date }}" class="container-link">
+                                            <a href="/receivable_accounting/?step=container_warehouse&container_number={{ item.order.container_number.container_number }}&invoice_id={{ item.invoice_id }}&delivery_type=other&start_date={{ start_date }}&end_date={{ end_date }}" class="container-link">
                                                 {{ item.order.container_number.container_number }}
                                             </a>
                                             {% if item.invoice_created_at %}
                                                 <span class="invoice-date">创建: {{ item.invoice_created_at|date:"m/d H:i" }}</span>
                                             {% endif %}
                                         </td>
+                                        <td class="td">{{ item.order.retrieval_id.retrieval_destination_precise|default:"-" }}</td>
                                         <td class="td">
-                                            {% if item.order.retrieval_time %}
-                                                {{ item.order.retrieval_time|date:"Y-m-d" }}
+                                            {% if item.order.offload_time %}
+                                                {{ item.order.offload_time|date:"Y-m-d" }}
                                             {% else %}
-                                                <span style="color: var(--warning-color);">待提柜</span>
+                                                <span style="color: var(--warning-color);">待入库</span>
                                             {% endif %}
                                         </td>
                                         <td class="td">
-                                            {% if item.order.empty_returned_time %}
-                                                {{ item.order.empty_returned_time|date:"Y-m-d" }}
+                                            {% if item.self_status %}
+                                                <span class="status-badge {{ item.self_status }}">
+                                                    {% if item.self_status == 'completed' %}已完成
+                                                    {% elif item.self_status == 'rejected' %}已驳回
+                                                    {% elif item.self_status == 'confirmed' %}已确认
+                                                    {% else %}{{ item.self_status }}{% endif %}
+                                                </span>
                                             {% else %}
-                                                <span style="color: #6c757d;">-</span>
+                                                <span class="status-badge unstarted">未开始</span>
                                             {% endif %}
                                         </td>
                                         <td class="td">
-                                            <span class="status-badge 
-                                                {% if item.finance_status == 'unstarted' %}unstarted
-                                                {% elif item.finance_status == 'tobeconfirmed' %}tobeconfirmed
-                                                {% elif item.finance_status == 'completed' %}completed{% endif %}">
-
-                                                {% if item.finance_status == 'unstarted' %}财务未确认
-                                                {% elif item.finance_status == 'tobeconfirmed' %}财务未确认
-                                                {% elif item.finance_status == 'completed' %}财务已确认{% endif %}
-                                            </span>
+                                            {{ item.warehouse_other_reason|default_if_none:'-' }}
                                         </td>
                                     </tr>
                                     {% endfor %}
                                 {% else %}
                                     <tr>
-                                        <td colspan="5" class="td" style="text-align: center; color: #6c757d;">
-                                            {% if not is_leader %}
-                                                没有审核权限
-                                            {% else %}
-                                                暂无已审核订单
-                                            {% endif %}
+                                        <td colspan="6" class="td" style="text-align: center; color: #6c757d;">
+                                            暂无私仓已录入订单
                                         </td>
                                     </tr>
                                 {% endif %}
@@ -959,7 +1026,7 @@
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         // 从后端获取默认打开的标签页
-        const defaultTab = "{{ default_tab|default:'entry' }}";
+        const defaultTab = "{{ default_tab|default:'public' }}";
         
         // 初始化标签页
         function initializeTabs() {
@@ -1021,43 +1088,61 @@
 
     // 全局变量存储每个表格的筛选状态
     const tableFilters = {
-        'to-record-table': { container: '', retrieval: '', empty: '' },
-        'recorded-table': { container: '', retrieval: '', empty: '', status: '' },
-        'pending-review-table': { container: '', retrieval: '', empty: '', status: '' },
-        'completed-table': { container: '', retrieval: '', empty: '', status: '' }
+        'to-record-table': { customer: '', container: '', warehouse: '', warehouse_in: '', empty_returned: '' },
+        'recorded-table': { customer: '', container: '', warehouse: '', warehouse_in: '', status: '', rejectReason: '' },
+        'pending-review-table': { customer: '', container: '', warehouse: '', warehouse_in: '', unshipped: '', shipped: '', status: '' },
+        'completed-table': { customer: '', container: '', warehouse: '', warehouse_in: '', status: '', rejectReason: '' }
     };
 
-    // 柜号搜索函数
+    // 通用文本搜索函数
     function filterTable(input, columnIndex, tableId) {
         const filterValue = input.value.toLowerCase();
-        tableFilters[tableId].container = filterValue;
+        const columnName = getColumnName(tableId, columnIndex);
+        tableFilters[tableId][columnName] = filterValue;
         applyFilters(tableId);
     }
 
-    // 日期搜索函数
-    function filterTableByDate(input, columnIndex, tableId) {
-        const filterType = columnIndex === 2 ? 'retrieval' : 'empty';
+    // 获取列名
+    function getColumnName(tableId, columnIndex) {
+        const columnMap = {
+            'to-record-table': ['customer', 'container', 'warehouse', 'warehouse_in', 'empty_returned'],
+            'recorded-table': ['customer', 'container', 'warehouse', 'warehouse_in', 'status', 'rejectReason'],
+            'pending-review-table': ['customer', 'container', 'warehouse', 'warehouse_in', 'unshipped', 'shipped', 'status'],
+            'completed-table': ['customer', 'container', 'warehouse', 'warehouse_in', 'status', 'rejectReason']
+        };
+        return columnMap[tableId][columnIndex] || '';
+    }
+
+    // 日期筛选函数
+    function filterTableByDate(input, dateType, tableId) {
         const filterValue = input.value;
-        tableFilters[tableId][filterType] = filterValue;
+        tableFilters[tableId][dateType] = filterValue;
         applyFilters(tableId);
+    }
+
+    // 清空日期筛选
+    function clearDateFilter(dateType, tableId) {
+        tableFilters[tableId][dateType] = '';
+        const dateInput = document.querySelector(`#${tableId} .date-search-input[placeholder*="${getDatePlaceholder(dateType)}"]`);
+        if (dateInput) {
+            dateInput.value = '';
+        }
+        applyFilters(tableId);
+    }
+
+    // 获取日期输入框的placeholder
+    function getDatePlaceholder(dateType) {
+        const placeholderMap = {
+            'warehouse_in': '入库时间',
+            'empty_returned': '还空时间'
+        };
+        return placeholderMap[dateType] || '日期';
     }
 
     // 状态筛选函数
     function filterTableByStatus(select, tableId) {
         const filterValue = select.value;
         tableFilters[tableId].status = filterValue;
-        applyFilters(tableId);
-    }
-
-    // 清除日期筛选
-    function clearDateFilter(button, tableId) {
-        const container = button.closest('.date-search-container');
-        const dateInput = container.querySelector('.date-search-input');
-        const columnIndex = container.closest('th').cellIndex;
-        const filterType = columnIndex === 2 ? 'retrieval' : 'empty';
-        
-        dateInput.value = '';
-        tableFilters[tableId][filterType] = '';
         applyFilters(tableId);
     }
 
@@ -1069,32 +1154,36 @@
 
         for (let i = 0; i < rows.length; i++) {
             const row = rows[i];
-            
-            // 柜号匹配
-            const containerMatch = !filters.container || 
-                row.getAttribute('data-container').includes(filters.container);
-            
-            // 提柜日期匹配
-            const retrievalMatch = !filters.retrieval || 
-                (row.getAttribute('data-retrieval') && 
-                 row.getAttribute('data-retrieval') === filters.retrieval);
-            
-            // 还空时间匹配
-            const emptyMatch = !filters.empty || 
-                (row.getAttribute('data-empty') && 
-                 row.getAttribute('data-empty') === filters.empty);
-            
-            // 状态匹配
-            const statusMatch = !filters.status || 
-                (row.getAttribute('data-status') && 
-                 row.getAttribute('data-status') === filters.status);
+            let showRow = true;
 
-            // 只有当所有条件都满足时才显示行 (AND 关系)
-            if (containerMatch && retrievalMatch && emptyMatch && statusMatch) {
-                row.style.display = '';
-            } else {
-                row.style.display = 'none';
+            // 检查所有筛选条件 (AND 关系)
+            for (const [filterKey, filterValue] of Object.entries(filters)) {
+                if (filterValue) {
+                    const rowValue = row.getAttribute(`data-${filterKey}`) || '';
+                    if (filterKey === 'status') {
+                        // 状态筛选需要精确匹配
+                        if (rowValue !== filterValue) {
+                            showRow = false;
+                            break;
+                        }
+                    } else if (filterKey.includes('date') || filterKey === 'warehouse_in' || filterKey === 'empty_returned') {
+                        // 日期精确匹配
+                        if (rowValue !== filterValue) {
+                            showRow = false;
+                            break;
+                        }
+                    } else {
+                        // 文本包含匹配
+                        if (!rowValue.includes(filterValue.toLowerCase())) {
+                            showRow = false;
+                            break;
+                        }
+                    }
+                }
             }
+
+            // 根据AND结果显示或隐藏行
+            row.style.display = showRow ? '' : 'none';
         }
     }
 </script>

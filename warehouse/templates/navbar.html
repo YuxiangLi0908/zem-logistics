@@ -216,13 +216,8 @@
                                 <a href="{% url 'receivable_accounting' %}?step=alert" target="_blank">预警监控</a>
                                 <!-- 录入工作 -->
                                 <a href="{% url 'receivable_accounting' %}?step=preport" target="_blank">提拆账单录入</a>
-                                <div class="nested-dropdown" >
-                                    <a>库内账单录入</a>
-                                    <div class="nested-dropdown-content">
-                                        <a href="{% url 'receivable_accounting' %}?step=warehouse_public" target="_blank">公仓</a>
-                                        <a href="{% url 'receivable_accounting' %}?step=warehouse_other" target="_blank">私仓</a>
-                                    </div>
-                                </div>
+                                <a href="{% url 'receivable_accounting' %}?step=warehouse" target="_blank">库内账单录入</a>
+                                
                                 <div class="nested-dropdown" >
                                     <a>派送账单录入</a>
                                     <div class="nested-dropdown-content">

@@ -50,6 +50,8 @@ from django.db.models import (
 import logging
 import traceback
 from decimal import Decimal
+from django.utils.safestring import mark_safe
+
 from django.db import transaction
 from django.db.models.fields.json import KeyTextTransform
 from django.db.models.functions import Cast, Coalesce
@@ -71,6 +73,7 @@ from sqlalchemy.util import await_only
 
 from warehouse.forms.order_form import OrderForm
 from warehouse.models.container import Container
+from warehouse.models.shipment import Shipment
 from warehouse.models.customer import Customer
 from warehouse.models.fee_detail import FeeDetail
 from warehouse.models.fleet_shipment_pallet import FleetShipmentPallet
@@ -121,8 +124,9 @@ class ReceivableAccounting(View):
 
     template_preport_entry = "receivable_accounting/preport_entry.html"
     template_preport_edit= "receivable_accounting/preport_edit.html"
-    template_public_warehouse_entry = "receivable_accounting/public_warehouse_entry.html"
-    template_self_warehouse_entry = "receivable_accounting/self_warehouse_entry.html"
+    template_warehouse_entry = "receivable_accounting/warehouse_entry.html"
+    template_warehouse_edit = "receivable_accounting/warehouse_edit.html"
+
     template_public_delivery_entry = "receivable_accounting/public_delivery_entry.html"
     template_self_delivery_entry = "receivable_accounting/self_delivery_entry.html"
 
@@ -166,12 +170,10 @@ class ReceivableAccounting(View):
         elif step == "preport":  #港前
             context = {"warehouse_options": self.warehouse_options,"order_form": OrderForm()}
             return render(request, self.template_preport_entry, context)
-        elif step == "warehouse_public":  #公仓库内
+        elif step == "warehouse":  #库内
             context = {"warehouse_options": self.warehouse_options,"order_form": OrderForm()}
-            return render(request, self.template_public_warehouse_entry, context)
-        elif step == "warehouse_other":  #私仓库内
-            context = {"warehouse_options": self.warehouse_options,"order_form": OrderForm()}
-            return render(request, self.template_self_warehouse_entry, context)
+            return render(request, self.template_warehouse_entry, context)
+        
         elif step == "delivery_public":  # 公仓派送
             context = {"warehouse_options": self.warehouse_options,"order_form": OrderForm()}
             return render(request, self.template_public_delivery_entry, context)
@@ -197,7 +199,9 @@ class ReceivableAccounting(View):
         elif step == "container_preport":
             context = self.handle_container_preport_post(request)
             return render(request, self.template_preport_edit, context)
-            
+        elif step == "container_warehouse":
+            context = self.handle_container_warehouse_post(request)
+            return render(request, self.template_warehouse_edit, context)          
         else:
             raise ValueError(f"unknow request {step}")
 
@@ -208,12 +212,10 @@ class ReceivableAccounting(View):
         if step == "preport_search":  #港前
             context = self.handle_preport_entry_post(request)
             return render(request, self.template_preport_entry, context)
-        elif step == "warehouse_public_search":  #公仓库内
-            context = self.query_invoice_basic(request, "warehouse_public")
-            return render(request, self.template_public_warehouse_entry, context)
-        elif step == "warehouse_other_search":  #私仓库内
-            context = self.query_invoice_basic(request, "warehouse_other")
-            return render(request, self.template_self_warehouse_entry, context)
+        elif step == "warehouse_search":  #库内
+            context = self.handle_warehouse_entry_post(request)
+            return render(request, self.template_warehouse_entry, context)
+        
         elif step == "delivery_public_search":  # 公仓派送
             context = self.query_invoice_basic(request, "delivery_public")
             return render(request, self.template_public_delivery_entry, context)
@@ -226,6 +228,9 @@ class ReceivableAccounting(View):
         elif step == "modify_order_type":
             context = self.handle_modify_order_type(request)
             return render(request, self.template_preport_edit, context)
+        elif step == "warehouse_save":
+            context = self.handle_invoice_warehouse_save(request)
+            return render(request, self.template_warehouse_entry, context)
             
 
     def handle_preport_entry_post(self, request:HttpRequest, context: dict| None = None,) -> Dict[str, Any]:
@@ -370,6 +375,221 @@ class ReceivableAccounting(View):
         })
         return context
 
+    def handle_warehouse_entry_post(self, request:HttpRequest, context: dict| None = None,) -> Dict[str, Any]:
+        warehouse = request.POST.get("warehouse_filter")
+        customer = request.POST.get("customer")
+        start_date = request.POST.get("start_date")
+        end_date = request.POST.get("end_date")
+
+        current_date = datetime.now().date()
+        start_date = (
+            (current_date + timedelta(days=-90)).strftime("%Y-%m-%d")
+            if not start_date
+            else start_date
+        )
+        end_date = current_date.strftime("%Y-%m-%d") if not end_date else end_date
+
+        criteria = (
+            Q(cancel_notification=False)
+            & (Q(order_type="转运") | Q(order_type="转运组合"))
+            & Q(vessel_id__vessel_etd__gte=start_date)
+            & Q(vessel_id__vessel_etd__lte=end_date)
+            & Q(offload_id__offload_at__isnull=False)
+        )
+
+        if warehouse:
+            criteria &= Q(retrieval_id__retrieval_destination_precise=warehouse)
+        if customer:
+            criteria &= Q(customer_name__zem_name=customer)
+
+        # 获取基础订单数据
+        base_orders = (
+            Order.objects
+            .select_related(
+                'retrieval_id', 
+                'offload_id', 
+                'container_number',
+                'customer_name'
+            )
+            .annotate(
+                retrieval_time=F("retrieval_id__actual_retrieval_timestamp"),
+                empty_returned_time=F("retrieval_id__empty_returned_at"),
+                offload_time=F("offload_id__offload_at"),
+            )
+            .filter(criteria)
+            .distinct()
+        )
+        wh_public_to_record_orders = [] #公仓待录入
+        wh_public_recorded_orders = []  #公仓已录入
+        wh_self_to_record_orders = []  #私仓待录入
+        wh_self_recorded_orders = []  #私仓已录入
+        
+        for order in base_orders:
+            container = order.container_number
+            
+            if not container:
+                continue
+                
+            # 查询这个柜子的所有应收账单
+            invoices = Invoicev2.objects.filter(container_number=container)
+            
+            if not invoices.exists():
+                # 没有账单的情况 - 归到待录入
+                order_data = {
+                    'order': order,
+                    'container_number': order.container_number,
+                    'invoice_number': None,
+                    'invoice_id': None,
+                    'invoice_created_at': None,
+                    'preport_status': None,
+                    'finance_status': None,
+                    'has_invoice': False,
+                    'offload_time': order.offload_time,
+                }
+                wh_public_to_record_orders.append(order_data)
+                wh_self_to_record_orders.append(order_data)
+            else:
+                # 有账单的情况 - 每个账单都要单独处理
+                for invoice in invoices:
+                    # 查询这个账单对应的状态
+                    try:
+                        status_obj = InvoiceStatusv2.objects.get(
+                            invoice=invoice,
+                            invoice_type='receivable'
+                        )
+                        public_status = status_obj.warehouse_public_status #公仓状态
+                        self_status = status_obj.warehouse_other_status  #私仓状态
+                        finance_status = status_obj.finance_status #财务状态
+                    except InvoiceStatusv2.DoesNotExist:
+                        public_status = None
+                        self_status = None
+                        finance_status = None
+                    
+                    order_data = {
+                        'order': order,
+                        'container_number': order.container_number,
+                        'invoice_number': invoice.invoice_number,
+                        'invoice_id': invoice.id,
+                        'invoice_created_at': invoice.created_at if hasattr(invoice, 'created_at') else invoice.history.first().history_date if invoice.history.exists() else None,
+                        'public_status': public_status,
+                        'self_status': self_status,
+                        'finance_status': finance_status,
+                        'has_invoice': True,
+                        'offload_time': order.offload_time,
+                    }
+                    
+                    # 根据状态分组
+                    if public_status in ["unstarted", "in_progress"] or public_status is None:
+                        wh_public_to_record_orders.append(order_data)
+                    elif public_status in ["completed", "rejected"]:
+                        wh_public_recorded_orders.append(order_data)
+
+                    if self_status in ["unstarted", "in_progress"] or self_status is None:
+                        wh_self_to_record_orders.append(order_data)
+                    elif self_status in ["completed", "rejected"]:
+                        wh_self_recorded_orders.append(order_data)
+        
+        #按照出库比例排序
+        wh_self_to_record_orders = self._add_shipment_group_stats(wh_self_to_record_orders, "other")
+        
+        # 判断用户权限，决定默认标签页
+        groups = [group.name for group in request.user.groups.all()]
+        if not context:
+            context = {}
+
+        # 根据权限，决定打开的标签页
+        if 'warehouse_public' in groups:
+            default_tab = 'public'
+        else:
+            default_tab = 'self'
+        context.update({
+            'start_date': start_date,
+            'end_date': end_date,
+            'wh_public_to_record_orders': wh_public_to_record_orders,
+            'wh_public_recorded_orders': wh_public_recorded_orders,
+            'wh_self_to_record_orders': wh_self_to_record_orders,
+            'wh_self_recorded_orders': wh_self_recorded_orders,
+            "order_form": OrderForm(),
+            "warehouse_options": self.warehouse_options,
+            "warehouse_filter": warehouse,
+            "default_tab": default_tab, 
+        })
+        return context
+    
+    def _add_shipment_group_stats(self, orders, display_mix):
+        """
+        为每个order添加分组统计信息
+        """
+        # 获取用户权限对应的delivery_type筛选条件
+        for order in orders:
+            # 查找该order关联的packinglist和pallet
+            packinglist_stats = self.get_shipment_group_stats(
+                PackingList.objects.filter(
+                    container_number__container_number=order["container_number"],
+                    container_number__order__offload_id__offload_at__isnull=True,
+                ).select_related('shipment_batch_number'),
+                Q(delivery_type=display_mix)
+            )
+            pallet_stats = self.get_shipment_group_stats(
+                Pallet.objects.filter(
+                    container_number__container_number=order['container_number'],
+                    container_number__order__offload_id__offload_at__isnull=False,
+                ).select_related('shipment_batch_number'),
+                Q(delivery_type=display_mix)
+            )
+            
+            # 合并统计结果
+            total_groups = packinglist_stats['total_groups'] + pallet_stats['total_groups']
+            shipped_groups = packinglist_stats['shipped_groups'] + pallet_stats['shipped_groups']
+            unshipped_groups = packinglist_stats['unshipped_groups'] + pallet_stats['unshipped_groups']
+            
+            # 添加到order对象（不改变原有结构）
+            order['total_shipment_groups'] = total_groups
+            order['shipped_shipment_groups'] = shipped_groups
+            order['unshipped_shipment_groups'] = unshipped_groups
+            order['completion_ratio'] = shipped_groups / total_groups if total_groups > 0 else 0
+            
+        sorted_orders = sorted(orders, key=lambda x: x['completion_ratio'], reverse=True)
+        return sorted_orders
+    
+    def get_shipment_group_stats(self, queryset, delivery_type_q):
+        """
+        获取分组统计信息
+        """
+        # 应用delivery_type筛选
+        if delivery_type_q:
+            queryset = queryset.filter(delivery_type_q)
+        
+        # 按destination和shipment_batch_number分组
+        groups = queryset.values('destination', 'shipment_batch_number__shipment_batch_number').annotate(
+            group_count=Count('id')
+        )
+        total_groups = groups.count()
+        
+        # 统计已出库和未出库的分组
+        shipped_groups = 0
+        unshipped_groups = 0
+        
+        for group in groups:
+            shipment_batch_number = group['shipment_batch_number__shipment_batch_number']
+            
+            if shipment_batch_number:
+                # 检查shipment是否已出库
+                shipment = Shipment.objects.get(shipment_batch_number=shipment_batch_number)
+                if shipment.shipped_at:
+                    shipped_groups += 1
+                else:
+                    unshipped_groups += 1
+            else:
+                # 没有shipment_batch_number的视为未出库
+                unshipped_groups += 1
+        
+        return {
+            'total_groups': total_groups,
+            'shipped_groups': shipped_groups,
+            'unshipped_groups': unshipped_groups
+        }
+    
     def handle_modify_order_type(self, request:HttpRequest) -> Dict[str, Any]:
         container_number = request.POST.get("container_number")
         new_order_type = request.POST.get("new_order_type")
@@ -568,8 +788,310 @@ class ReceivableAccounting(View):
             "preport_status": invoice_status.preport_status,
         })
         return context
-
     
+    def  handle_container_warehouse_post(self, request:HttpRequest, context: dict|None=None) -> Dict[str, Any]:
+        if not context:
+            context = {}
+        start_date = request.GET.get("start_date")
+        end_date = request.GET.get("end_date")
+        container_number = request.GET.get("container_number")
+        invoice_id = request.GET.get("invoice_id")
+        delivery_type = request.GET.get("delivery_type")
+        # 获取订单信息
+        order = Order.objects.select_related(
+            "retrieval_id", "container_number", "warehouse", "customer_name", "vessel_id"
+        ).get(container_number__container_number=container_number)
+        
+        # 获取或创建账单和状态
+        if invoice_id:
+            #找到要修改的那份账单
+            invoice = Invoicev2.objects.get(id=invoice_id)
+            invoice_status, created = InvoiceStatusv2.objects.get_or_create(
+                invoice=invoice,
+                invoice_type="receivable",
+                defaults={
+                    "container_number": order.container_number,
+                    "invoice": invoice,
+                }
+            )
+        else:
+            #说明这个柜子没有创建过账单，需要创建
+            invoice, invoice_status = self._create_invoice_and_status(container_number)
+        
+        # 确定delivery_type
+        groups = [group.name for group in request.user.groups.all()]
+        if request.user.is_staff:
+            groups.append("staff")
+        
+        # 设置item_category
+        item_category = f"warehouse_{delivery_type}"
+        
+        # 获取报价表
+        quotation, quotation_error = self._get_quotation_for_order(order, 'receivable')
+        if quotation_error:
+            context.update({"error_messages": quotation_error})
+            return context
+        
+        # 获取仓库费用详情
+        fee_detail, fee_error = self._get_fee_details_from_quotation(quotation, "warehouse")
+        if fee_error:
+            context.update({"error_messages": fee_error})
+            return context
+        
+        # 仓库费用项目列表
+        standard_fee_items = [
+            "分拣费", "拦截费", "亚马逊PO激活", "客户自提", "重新打板",
+            "货品清点费", "仓租", "指定贴标", "内外箱", "托盘标签",
+            "开封箱", "销毁", "拍照", "拍视频", "重复操作费"
+        ]
+        
+        # 构建参考费用信息
+        FS = {
+            "分拣费": fee_detail.details.get("分拣费", "N/A"),
+            "拦截费": fee_detail.details.get("拦截费", "N/A"),
+            "亚马逊PO激活": fee_detail.details.get("亚马逊PO激活", "N/A"),
+            "客户自提": fee_detail.details.get("客户自提", "N/A"),
+            "重新打板": fee_detail.details.get("重新打板", "N/A"),
+            "货品清点费": fee_detail.details.get("货品清点费", "N/A"),
+            "仓租": fee_detail.details.get("仓租", "N/A"),
+            "指定贴标": fee_detail.details.get("指定贴标", "N/A"),
+            "内外箱": fee_detail.details.get("内外箱", "N/A"),
+            "托盘标签": fee_detail.details.get("托盘标签", "N/A"),
+            "开封箱": fee_detail.details.get("开封箱", "N/A"),
+            "销毁": fee_detail.details.get("销毁", "N/A"),
+            "拍照": fee_detail.details.get("拍照", "N/A"),
+            "拍视频": fee_detail.details.get("拍视频", "N/A"),
+            "重复操作费": fee_detail.details.get("重复操作费", "N/A"),
+        }
+        
+        # 获取现有的费用项目
+        existing_items = InvoiceItemv2.objects.filter(
+            invoice_number=invoice,
+            item_category=item_category
+        )
+        
+        # 构建费用数据
+        fee_data = []
+        for item in existing_items:
+            fee_data.append({
+                'id': item.id,
+                'description': item.description,
+                'qty': item.qty or 0,
+                'rate': item.rate or 0,
+                'surcharges': item.surcharges or 0,
+                'amount': item.amount or 0,
+                'note': item.note or ''
+            })
+        
+        # 如果是第一次录入且没有费用记录，添加所有标准费用项目为默认
+        if not existing_items.exists():
+            status_field = f"warehouse_{delivery_type}_status"
+            current_status = getattr(invoice_status, status_field, 'unstarted')
+            
+            if current_status == 'unstarted':
+                for fee_name in standard_fee_items:
+                    ref_price = FS.get(fee_name, 0)
+                    numeric_price = self._extract_number(str(ref_price)) if ref_price != "N/A" else 0
+                    
+                    fee_data.append({
+                        'id': None,
+                        'description': fee_name,
+                        'qty': 0,
+                        'rate': numeric_price,
+                        'surcharges': 0,
+                        'amount': 0,
+                        'note': '',
+                    })
+        
+        # 获取已存在的费用描述列表，用于前端过滤
+        existing_descriptions = [item.description for item in existing_items]
+        
+        # 确定当前状态
+        if invoice_status.finance_status == "completed":
+            current_status = "confirmed"
+        else:
+            status_field = f"warehouse_{delivery_type}_status"
+            current_status = getattr(invoice_status, status_field, 'unstarted')
+        
+        context.update({
+            "warehouse": order.retrieval_id.retrieval_destination_area,
+            "container_number": container_number,
+            "groups": groups,
+            "start_date": start_date,
+            "end_date": end_date,
+            "FS": FS,
+            "receivable_is_locked": invoice.receivable_is_locked,
+            "invoice_type": "receivable",
+            "delivery_type": delivery_type,
+            "item_category": item_category,
+            "fee_data": fee_data,
+            "invoice_number": invoice.invoice_number,
+            "invoice": invoice,
+            "quotation_info": {
+                "quotation_id": quotation.quotation_id,
+                "version": quotation.version,
+                "effective_date": quotation.effective_date,
+                "is_user_exclusive": quotation.is_user_exclusive,
+                "exclusive_user": quotation.exclusive_user,
+                "filename": quotation.filename,
+            },
+            "standard_fee_items": standard_fee_items,
+            "existing_descriptions": existing_descriptions,
+            "status": current_status,
+            "warehouse_status": current_status,  # 兼容性
+        })
+        
+        return context
+
+    def handle_invoice_warehouse_save(self, request:HttpRequest) -> Dict[str, Any]:
+        """保存仓库账单"""
+        context = {} 
+        save_type = request.POST.get("save_type")       
+        invoice_id = request.POST.get("invoice_id")
+        delivery_type = request.POST.get("delivery_type")
+
+        try:
+            invoice = Invoicev2.objects.get(id=invoice_id)
+            invoice_status = InvoiceStatusv2.objects.get(invoice=invoice, invoice_type="receivable")
+            
+            container_number = request.POST.get("container_number")
+            order = Order.objects.select_related(
+                "customer_name", "container_number"
+            ).get(container_number__container_number=container_number)
+            
+            # 设置item_category
+            item_category = f"warehouse_{delivery_type}"
+            
+            # 费用详情
+            fee_ids = request.POST.getlist("fee_id")
+            descriptions = request.POST.getlist("fee_description")
+            rates = request.POST.getlist("fee_rate")
+            qtys = request.POST.getlist("fee_qty")
+            surcharges = request.POST.getlist("fee_surcharges")
+            notes = request.POST.getlist("fee_note")
+
+            total_amount = Decimal("0.00")
+            with transaction.atomic():
+                # 找下仓库账单之前存的费用记录，和现在所有费用比较，差集就是前端删除的记录
+                existing_items = InvoiceItemv2.objects.filter(
+                    invoice_number=invoice, 
+                    item_category=item_category
+                )
+                existing_ids = set(item.id for item in existing_items if item.id is not None)
+                submitted_ids = set(int(fid) for fid in fee_ids if fid)  # 只包含已有的id
+                to_delete_ids = existing_ids - submitted_ids
+                if to_delete_ids:
+                    InvoiceItemv2.objects.filter(id__in=to_delete_ids).delete()
+
+                for i in range(len(descriptions)):
+                    fee_id = fee_ids[i] or None
+                    description = descriptions[i]
+                    rate = Decimal(rates[i] or 0)
+                    qty = Decimal(qtys[i] or 0)
+                    surcharge = Decimal(surcharges[i] or 0)
+                    
+                    # 计算总价：总价 = 单价 * 数量 + 附加费
+                    amount = rate * qty + surcharge
+                    
+                    note = notes[i] or ""
+                    
+                    # 如果单价、数量和附加费都为0，则跳过
+                    if rate == 0 and qty == 0 and surcharge == 0:
+                        continue
+                        
+                    total_amount += amount
+
+                    if fee_id:  # 已存在的费用项，更新
+                        try:
+                            item = InvoiceItemv2.objects.get(id=fee_id, invoice_number=invoice)
+                            item.rate = rate
+                            item.qty = qty
+                            item.surcharges = surcharge
+                            item.amount = amount
+                            item.note = note
+                            item.save()
+                        except InvoiceItemv2.DoesNotExist:
+                            # 防止前端传了错误 id，查不到就新增
+                            InvoiceItemv2.objects.create(
+                                container_number=order.container_number,
+                                invoice_number=invoice,
+                                invoice_type="receivable",
+                                item_category=item_category,
+                                description=description,
+                                rate=rate,
+                                qty=qty,
+                                surcharges=surcharge,
+                                amount=amount,
+                                note=note
+                            )
+                    else:  # 新增费用项
+                        InvoiceItemv2.objects.create(
+                            container_number=order.container_number,
+                            invoice_number=invoice,
+                            invoice_type="receivable",
+                            item_category=item_category,
+                            description=description,
+                            rate=rate,
+                            qty=qty,
+                            surcharges=surcharge,
+                            amount=amount,
+                            note=note
+                        )
+
+                # 更新账单总金额
+                if delivery_type == "public":
+                    invoice.receivable_wh_public_amount = total_amount
+                else:
+                    invoice.receivable_wh_other_amount = total_amount
+                
+                # 计算仓库总金额
+                warehouse_total = (
+                    (invoice.receivable_wh_public_amount or Decimal('0.0')) +
+                    (invoice.receivable_wh_other_amount or Decimal('0.0'))
+                )
+                delivery_total = (
+                    (invoice.receivable_delivery_public_amount or Decimal('0.0'))+
+                    (invoice.receivable_delivery_other_amount or Decimal('0.0'))
+                )
+                # 更新总金额
+                invoice.receivable_total_amount = (
+                    (invoice.receivable_preport_amount or Decimal('0.0')) +
+                    warehouse_total +
+                    delivery_total
+                )            
+                invoice.save()
+
+                # 更新仓库账单状态
+                status_field = f"warehouse_{delivery_type}_status"
+                setattr(invoice_status, status_field, save_type)
+                
+                if save_type == "rejected":
+                    reason_field = f"warehouse_{delivery_type}_reason"
+                    setattr(invoice_status, reason_field, request.POST.get("reject_reason", ""))
+                
+                invoice_status.save()
+            delivery_type_chinese = "公仓" if delivery_type == "public" else "私仓"
+            status_mapping = {
+                'pending_review': '待审核',
+                'in_progress': '录入中',
+                'completed': '已完成',
+                'rejected': '已拒绝'
+            }
+            status_chinese = status_mapping.get(save_type, '未知状态')
+            success_msg = mark_safe(
+                f"{container_number} 仓库账单保存成功！<br>"
+                f"总费用: <strong>${total_amount:.2f}</strong><br>"
+                f"类型: {delivery_type_chinese}<br>"
+                f"状态更新为:{status_chinese}"
+            )
+            context["success_messages"] = success_msg
+            
+        except Exception as e:
+            context["error_messages"] = f"操作失败: {str(e)}"
+        
+        # 重新加载页面
+        return self.handle_warehouse_entry_post(request, context)
+
     def handle_invoice_preport_save(self, request:HttpRequest) -> Dict[str, Any]:
         context = {} 
         save_type = request.POST.get("save_type")       
@@ -665,7 +1187,19 @@ class ReceivableAccounting(View):
                 if save_type == "rejected":
                     invoice_status.preport_reason = request.POST.get("reject_reason", "")
                 invoice_status.save()
-            context["success_messages"] = f"{container_number} 柜号港前账单保存成功！"
+            status_mapping = {
+                'pending_review': '待审核',
+                'in_progress': '录入中',
+                'completed': '已完成',
+                'rejected': '已拒绝'
+            }
+            status_chinese = status_mapping.get(save_type, '未知状态')
+            success_msg = mark_safe(
+                f"{container_number} 柜号仓库账单保存成功！<br>"
+                f"总费用: <strong>${total_amount:.2f}</strong><br>"
+                f"状态更新为:{status_chinese}"
+            )
+            context["success_messages"] = success_msg
         except Exception as e:
             # 失败消息
             context["error_messages"] = f"操作失败: {str(e)}"    
