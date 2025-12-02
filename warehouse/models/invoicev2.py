@@ -17,8 +17,10 @@ class Invoicev2(models.Model):
 
     receivable_total_amount = models.FloatField(null=True, blank=True)
     receivable_preport_amount = models.FloatField(null=True, blank=True)
-    receivable_warehouse_amount = models.FloatField(null=True, blank=True)
-    receivable_delivery_amount = models.FloatField(null=True, blank=True)
+    receivable_wh_public_amount = models.FloatField(null=True, blank=True)
+    receivable_wh_other_amount = models.FloatField(null=True, blank=True)
+    receivable_delivery_public_amount = models.FloatField(null=True, blank=True)
+    receivable_delivery_other_amount = models.FloatField(null=True, blank=True)
     receivable_direct_amount = models.FloatField(null=True, blank=True)
     receivable_is_locked = models.BooleanField(default=False)  # 财务确认后锁定
     is_invoice_delivered = models.BooleanField(default=False) # 是否通知客户
