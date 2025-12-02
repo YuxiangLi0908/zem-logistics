@@ -6599,7 +6599,8 @@ class Accounting(View):
 
         # 非组合柜区域
         filtered_non_destinations = [key for key in matched_regions["non_combina_dests"].keys() if "UPS" not in key]
-        non_combina_region_count = len(filtered_non_destinations)
+        temp_non_combina_region_count = len(filtered_non_destinations)
+        non_combina_region_count = len(matched_regions["non_combina_dests"])
         # 组合柜区域
         combina_region_count = len(matched_regions["combina_dests"])
         # 组合柜对应的区
@@ -6608,11 +6609,11 @@ class Accounting(View):
         matching_regions = matched_regions["matching_regions"]
 
         filtered_destinations = self._filter_ups_destinations(destinations)
-        if combina_region_count + non_combina_region_count != len(filtered_destinations):
+        if combina_region_count + temp_non_combina_region_count != len(filtered_destinations):
             raise ValueError(
                 f"计算组合柜和非组合柜区域有误\n"
                 f"组合柜目的地：{matched_regions['combina_dests']}，数量：{combina_region_count}\n"
-                f"非组合柜目的地：{filtered_non_destinations}，数量：{non_combina_region_count}\n"
+                f"非组合柜目的地：{filtered_non_destinations}，数量：{temp_non_combina_region_count}\n"
                 f"目的地集合：{filtered_destinations}\n"
                 f"目的地总数：{len(filtered_destinations)}"
             )
