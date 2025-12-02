@@ -35,14 +35,12 @@ class Invoicev2(models.Model):
     def __str__(self) -> str:
         try:
             return (
-                self.customer.zem_name
-                + " - "
-                + self.container_number.container_number
+                self.container_number.container_number
                 + " - "
                 + self.invoice_number
             )
         except:
-            return self.customer.zem_name + " - " + "None" + " - " + self.invoice_number
+            return "None" + " - " + self.invoice_number
 
 
 class InvoiceStatusv2(models.Model):
@@ -178,6 +176,7 @@ class InvoiceItemv2(models.Model):
     amount = models.FloatField(null=True, blank=True) #总价
     PO_ID = models.CharField(max_length=20, null=True, blank=True)
     warehouse_code = models.CharField(max_length=200, null=True, blank=True) #目的地
+    surcharges = models.FloatField(null=True, blank=True) #附加费
     note = models.CharField(max_length=2000, null=True, blank=True) #备注
     history = HistoricalRecords()
 
