@@ -6270,52 +6270,53 @@ class Accounting(View):
             dest_matches = []
             matched = False
             # 遍历所有区域和location
-            for region, fee_data_list in combina_fee.items():           
-                for fee_data in fee_data_list:
-                    prices_obj = fee_data["prices"]
-                    price = self._extract_price(prices_obj, container_type)
-                    
-                    # 如果匹配到组合柜仓点，就登记到组合柜集合中
-                    if dest in fee_data["location"]:
-                        # 初始化
-                        if region not in region_price_map:
-                            region_price_map[region] = [price]
-                            region_counter[region] = 0
-                            actual_region = region
-                        else:
-                            # 如果该 region 下已有相同价格 → 不加编号
-                            found = None
-                            for r_key, r_val in price_display.items():
-                                if r_key.startswith(region) and r_val["price"] == price:
-                                    found = r_key
-                                    break
-                            if found:
-                                actual_region = found
-                            else:                                
-                                # 新价格 → 需要编号
-                                region_counter[region] += 1
-                                actual_region = f"{region}{region_counter[region]}"
-                                region_price_map[region].append(price)
+            if 'UPS' or 'FEDEX' not in destination:
+                for region, fee_data_list in combina_fee.items():           
+                    for fee_data in fee_data_list:
+                        prices_obj = fee_data["prices"]
+                        price = self._extract_price(prices_obj, container_type)
+                        
+                        # 如果匹配到组合柜仓点，就登记到组合柜集合中
+                        if dest in fee_data["location"]:
+                            # 初始化
+                            if region not in region_price_map:
+                                region_price_map[region] = [price]
+                                region_counter[region] = 0
+                                actual_region = region
+                            else:
+                                # 如果该 region 下已有相同价格 → 不加编号
+                                found = None
+                                for r_key, r_val in price_display.items():
+                                    if r_key.startswith(region) and r_val["price"] == price:
+                                        found = r_key
+                                        break
+                                if found:
+                                    actual_region = found
+                                else:                                
+                                    # 新价格 → 需要编号
+                                    region_counter[region] += 1
+                                    actual_region = f"{region}{region_counter[region]}"
+                                    region_price_map[region].append(price)
 
-                        temp_cbm = matching_regions.get(actual_region, 0) + cbm
-                        matching_regions[actual_region] = temp_cbm
-                        dest_matches.append(
-                            {
-                                "region": actual_region,
-                                "location": dest,
-                                "prices": fee_data["prices"],
-                                "cbm": cbm,
-                            }
-                        )
-                        if actual_region not in price_display:
-                            price_display[actual_region] = {
-                                "price": price,
-                                "location": set([dest]),
-                            }
-                        else:
-                            # 不要覆盖，更新集合
-                            price_display[actual_region]["location"].add(dest)
-                        matched = True
+                            temp_cbm = matching_regions.get(actual_region, 0) + cbm
+                            matching_regions[actual_region] = temp_cbm
+                            dest_matches.append(
+                                {
+                                    "region": actual_region,
+                                    "location": dest,
+                                    "prices": fee_data["prices"],
+                                    "cbm": cbm,
+                                }
+                            )
+                            if actual_region not in price_display:
+                                price_display[actual_region] = {
+                                    "price": price,
+                                    "location": set([dest]),
+                                }
+                            else:
+                                # 不要覆盖，更新集合
+                                price_display[actual_region]["location"].add(dest)
+                            matched = True
             
             if not matched:
                 # 非组合柜仓点
