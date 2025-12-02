@@ -6263,8 +6263,7 @@ class Accounting(View):
         region_price_map = {}
         for plts in plts_by_destination:
             destination = plts["destination"]
-            if ('UPS' in destination) or ('FEDEX' in destination):
-                continue
+            
             # 如果是沃尔玛的，只保留后面的名字，因为报价表里就是这么保留的
             dest = destination.replace("沃尔玛", "").split("-")[-1].strip()
             cbm = plts["total_cbm"]
@@ -6601,6 +6600,7 @@ class Accounting(View):
         filtered_non_destinations = [key for key in matched_regions["non_combina_dests"].keys() if "UPS" not in key]
         temp_non_combina_region_count = len(filtered_non_destinations)
         non_combina_region_count = len(matched_regions["non_combina_dests"])
+  
         # 组合柜区域
         combina_region_count = len(matched_regions["combina_dests"])
         # 组合柜对应的区
@@ -6792,6 +6792,7 @@ class Accounting(View):
         extra_fees["overpallets"] = max_price
 
         # 计算非组合柜费用的提拆费和派送费
+  
         if non_combina_region_count:
             # 提拆费，要计算下非组合柜区域占当前柜子的cbm比例*对应的提拆费
             container_type = order.container_number.container_type
