@@ -153,3 +153,15 @@ def linebreaks_comma(value):
     # 按逗号分割，然后每个元素用<br>连接
     parts = [part.strip() for part in str(value).split(',') if part.strip()]
     return '<br>'.join(parts)
+
+register.filter
+def get_item(dictionary, key):
+    """从字典中获取值，如果不存在返回空字符串"""
+    if isinstance(dictionary, dict):
+        return dictionary.get(key, '')
+    return ''
+
+@register.filter
+def add_str(str1, str2):
+    """字符串连接"""
+    return str(str1) + str(str2)

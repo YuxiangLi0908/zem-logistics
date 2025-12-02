@@ -1,0 +1,1013 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load custom_filters %}
+
+{% block content %}
+<style>
+    :root {
+        --primary-color: #166534;
+        --secondary-color: #0f3e1e;
+        --success-color: #15803d;
+        --warning-color: #ea580c;
+        --danger-color: #b91c1c;
+        --light-bg: #f1f5f9;
+        --text-dark: #0f172a;
+        --radius: 14px;
+        --shadow-strong: 0 10px 40px rgba(0,0,0,0.12);
+        --shadow-soft: 0 4px 18px rgba(0,0,0,0.06);
+
+        --page-padding: 40px;
+        --content-max-width: 1800px;
+        --font-large: 1.1rem;
+        --font-xl: 1.4rem;
+    }
+    body {
+        
+        transform-origin: top center;
+        background: #eef2f7;
+        padding: var(--page-padding);
+        font-size: var(--font-large);
+    }
+    .invoice-container {
+        zoom: 0.8; 
+        width: 100%;
+        max-width: var(--content-max-width);
+        margin: auto;
+        background: white;
+        border-radius: var(--radius);
+        box-shadow: var(--shadow-strong);
+        overflow: hidden;
+    }
+
+    .invoice-header {
+        background: linear-gradient(135deg, #0f3e1e, #166534);
+        padding: 40px 50px;
+        color: white;
+    }
+
+    .header-main {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
+    }
+
+    .header-title {
+        font-size: 2.4rem;
+        font-weight: 700;
+        letter-spacing: 1px;
+    }
+
+    .header-badges {
+        margin-top: 12px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+    }
+    .badge {
+        padding: 8px 18px;
+        font-size: 1rem;
+        background: rgba(255,255,255,0.18);
+        border-radius: 999px;
+        backdrop-filter: blur(4px);
+    }
+
+
+    .quotation-info {
+        margin-top: 22px;
+        padding: 16px 20px;
+        background: rgba(255,255,255,0.16);
+        border-radius: var(--radius);
+        font-size: var(--font-large);
+    }
+
+    .quotation-text {
+        font-size: 0.9rem;
+        margin: 0;
+    }
+
+    .invoice-content {
+        padding: 40px 50px;
+    }
+
+    .fee-section {
+        margin-bottom: 30px;
+    }
+    .amount-zero {
+        color: #94a3b8 !important;  /* 浅灰色 */
+        font-style: italic;
+        opacity: 0.7;
+        font-weight: 400;
+    }
+
+    .amount-zero-row .fee-cell:not(:first-child):not(:last-child) {
+        opacity: 0.8;
+    }
+    .section-title {
+        font-size: 1.8rem;
+        margin: 0;
+        color: var(--text-dark);
+        font-weight: 700;
+        border-left: 6px solid var(--primary-color);
+        padding-left: 14px;
+    }
+    .fee-section-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 25px;
+    }
+    .fee-table {
+        width: 100%;
+        background: white;
+        overflow: hidden;
+        border-radius: var(--radius);
+        box-shadow: var(--shadow-soft);
+        margin-top: 20px;
+    }
+
+    .table-header {
+        display: grid;
+        grid-template-columns: 2.2fr 1.5fr 1.2fr 1.2fr 1.2fr 1.4fr 2fr 80px; 
+        background: #f8fafc;
+        font-size: 1.5rem;
+    }
+
+    .table-header-cell {
+        padding: 22px 10px;
+        font-weight: 700;
+        text-align: center;
+        color: #000000; 
+        font-size: 1.3rem;
+        text-shadow: 0 1px 0 rgba(255, 255, 255, 0.5); /* 可选：增加文字阴影提升可读性 */
+        letter-spacing: 0.5px; /* 可选：增加字间距 */
+    }
+
+    .table-header-cell:first-child {
+        text-align: center !important;  /* 费用名称居中 */
+        font-size: 1.3rem;  /* 字体变大 */
+        color: #000000; 
+    }
+
+    .fee-row {
+        display: grid;
+        grid-template-columns: 2.2fr 1.5fr 1.2fr 1.2fr 1.2fr 1.4fr 2fr 80px; 
+        padding: 8px 0;
+        border-bottom: 1px solid #e2e8f0;
+        font-size: 1.3rem;
+        transition: background 0.15s;
+    }
+    .fee-row:hover {
+        background: #f9fafb;
+    }
+
+    .fee-cell {
+        padding: 14px 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        font-size: inherit;
+    }
+
+    .fee-name {
+        font-weight: 500;
+        color: var(--secondary-color);
+    }
+
+    .reference-price {
+        color: #718096;
+        font-size: 1rem;
+        text-align: center;
+    }
+    .surcharge-input {
+        background-color: #fff8e1 !important; /* 浅黄色背景 */
+        border-color: #ffd54f !important;
+    }
+
+    .surcharge-input:focus {
+        border-color: #ffb300 !important;
+        box-shadow: 0 0 0 3px rgba(255, 179, 0, 0.2) !important;
+    }
+
+    /* 正数附加费显示绿色 */
+    .surcharge-input.positive {
+        background-color: #e8f5e9 !important;
+        border-color: #66bb6a !important;
+    }
+
+    /* 负数附加费显示粉色 */
+    .surcharge-input.negative {
+        background-color: #fce4ec !important;
+        border-color: #f48fb1 !important;
+    }
+    .input-field {
+        padding: 12px 10px;
+        font-size: 1.2rem;
+        border-radius: 8px;
+        border: 1px solid #cbd5e1;
+        width: 100%;
+    }
+
+    .input-field:focus {
+        outline: none;
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 3px rgba(27, 94, 32, 0.1);
+    }
+
+    .amount-display {
+        font-size: 1.4rem;
+        font-weight: 700;
+        color: var(--text-dark);
+    }
+
+    .note-input {
+        text-align: left !important;
+    }
+
+    .remove-btn {
+        width: 42px;
+        height: 42px;
+        font-size: 1.4rem;
+        border-radius: 8px;
+    }
+
+    .remove-btn:hover {
+        background: #c62828;
+        transform: scale(1.05);
+    }
+
+    .action-buttons {
+        margin-top: 40px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 18px;
+        justify-content: center;
+    }
+
+    .btn {
+        padding: 14px 30px;
+        font-size: 1.1rem;
+        font-weight: 700;
+        border-radius: 10px;
+        box-shadow: var(--shadow-soft);
+    }
+
+    .btn-primary {
+        background: var(--primary-color);
+        color: white;
+    }
+
+    .btn-primary:hover {
+        background: #1b5e20;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(27, 94, 32, 0.3);
+    }
+
+    .btn-success {
+        background: var(--success-color);
+        color: white;
+    }
+
+    .btn-success:hover {
+        background: #2e7d32;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(46, 125, 50, 0.3);
+    }
+
+    .btn-warning {
+        background: var(--warning-color);
+        color: white;
+    }
+
+    .btn-warning:hover {
+        background: #f57c00;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(255, 111, 0, 0.3);
+    }
+
+    .btn-danger {
+        background: var(--danger-color);
+        color: white;
+    }
+
+    .btn-danger:hover {
+        background: #c62828;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(183, 28, 28, 0.3);
+    }
+
+    .total-section {
+        margin-top: 40px;
+        padding: 25px;
+        border-radius: var(--radius);
+        background: #f1f5f9;
+        border: 1px solid #e2e8f0;
+        text-align: center;
+    }
+
+    .total-amount {
+        font-size: 2.4rem;
+        font-weight: 800;
+        color: var(--secondary-color);
+    }
+
+    .add-fee-btn {
+        background: var(--primary-color);
+        color: white;
+        border-radius: 10px;
+        padding: 12px 26px;
+        font-size: 1.05rem;
+        font-weight: 700;
+        border: none;
+        box-shadow: var(--shadow-soft);
+        transition: 0.25s;
+        margin: 0;
+    }
+    .info-card {
+        background: linear-gradient(135deg, #f0f9ff, #e0f2fe);
+        border: 1px solid #bae6fd;
+        border-radius: var(--radius);
+        padding: 20px 25px;
+        box-shadow: var(--shadow-soft);
+        height: fit-content;
+    }
+    .info-cards-container {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+        margin-bottom: 25px;
+    }
+    .quotation-card {
+        background: linear-gradient(135deg, #f8fff8, #f0f9f0);
+        border: 1px solid #d1fae5;
+        border-radius: var(--radius);
+        padding: 20px 25px;
+        box-shadow: var(--shadow-soft);
+        height: fit-content;
+    }
+    .quotation-title, .info-title {
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: var(--primary-color);
+        margin-bottom: 8px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .quotation-details, .info-details {
+        font-size: 1rem;
+        color: var(--text-dark);
+        line-height: 1.5;
+    }
+
+    .quotation-highlight {
+        color: var(--primary-color);
+        font-weight: 600;
+    }
+    .info-highlight {
+        color: #0369a1;
+        font-weight: 600;
+    }
+    .add-fee-btn:hover {
+        background: #14532d;
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-strong);
+    }
+    @media (max-width: 1200px) {
+        .info-cards-container {
+            grid-template-columns: 1fr;
+        }
+    }
+    .modal-overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 1000;
+        backdrop-filter: blur(5px);
+    }
+
+    .modal-content {
+        position: absolute;
+        top: 55%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: white;
+        padding: 30px;
+        border-radius: var(--border-radius);
+        width: 90%;
+        max-width: 600px;
+        max-height: 80vh;
+        overflow-y: auto;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+    }
+
+    .modal-title {
+        font-size: 1.4rem;
+        font-weight: 600;
+        margin-bottom: 20px;
+        color: var(--secondary-color);
+    }
+
+    .fee-option {
+        padding: 12px 16px;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        margin-bottom: 10px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .fee-option:hover {
+        border-color: var(--primary-color);
+        background: #f1f8e9;
+    }
+
+    .fee-option-name {
+        font-weight: 500;
+        color: var(--secondary-color);
+    }
+
+    .fee-option-price {
+        color: #718096;
+        font-size: 0.9rem;
+    }
+
+    .custom-fee-input {
+        width: 100%;
+        padding: 12px;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        font-size: 1rem;
+        margin-top: 15px;
+    }
+    .fee-cell:first-child {
+        justify-content: flex-start;
+        font-weight: 600;
+    }
+    .system-calculated {
+        background: #f1f8e9;
+        border-left: 4px solid var(--success-color);
+    }
+
+    .system-calculated .fee-cell:first-child {
+        color: var(--success-color);
+        font-weight: 600;
+    }
+
+    .status-badge {
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        background: var(--light-bg);
+        color: var(--secondary-color);
+    }
+    .btn-change-order-type {
+        margin-left: 10px;
+        padding: 8px 16px;
+        font-size: 0.9rem;
+        font-weight: 600;
+        border-radius: 6px;
+        border: 1px solid transparent;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        background: linear-gradient(135deg, #1e40af, #3b82f6);
+        color: white;
+        box-shadow: 0 2px 8px rgba(59, 130, 246, 0.2);
+    }
+
+    .btn-change-order-type:hover {
+        background: linear-gradient(135deg, #1d4ed8, #2563eb);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+    }
+
+    .btn-change-order-type:active {
+        transform: translateY(0);
+    }
+    
+    input[name="actual_non_combina_reason"] {
+        margin-left: 10px;
+        padding: 8px 12px;
+        font-size: 0.9rem;
+        border-radius: 6px;
+        border: 1px solid #cbd5e1;
+        min-width: 200px;
+    }
+
+    input[name="actual_non_combina_reason"]:focus {
+        outline: none;
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    }
+
+    .order-type-form {
+        display: inline;
+    }
+
+    @media (max-width: 768px) {
+        .btn-change-order-type {
+            margin-top: 8px;
+            margin-left: 0;
+            display: block;
+            width: 100%;
+            justify-content: center;
+        }
+        
+        input[name="actual_non_combina_reason"] {
+            margin-top: 8px;
+            margin-left: 0;
+            width: 100%;
+        }
+    }
+</style>
+
+<div class="invoice-container">
+    <!-- 头部信息 -->
+    <div class="invoice-header">
+        <div class="header-main">
+            <h1 class="header-title">港前账单编辑 - {{ container_number }}</h1>
+            <div class="header-badges">
+                <span class="badge">仓库: {{ warehouse }}</span>
+                <span class="badge">订单类型: {{ order_type }}</span>
+                <span class="badge">柜型: {{ container_type }}</span>
+            </div>
+        </div>
+    </div>
+    <div class="invoice-content">
+        <!-- 信息卡片容器 -->
+        <div class="info-cards-container">
+            <!-- 报价表信息卡片 -->
+            <div class="quotation-card">
+                <div class="quotation-title">
+                    <i class="fas fa-file-invoice-dollar"></i>
+                    参考报价表
+                </div>
+                <div class="quotation-details">
+                    <strong>文件:</strong> <span class="quotation-highlight">{{ quotation_info.filename }}</span> 
+                    | <strong>版本:</strong> {{ quotation_info.version }}
+                    | <strong>生效日期:</strong> {{ quotation_info.effective_date }}
+                    {% if quotation_info.is_user_exclusive %}
+                    | <strong style="color: #dc2626;">专属用户:</strong> {{ quotation_info.exclusive_user }}
+                    {% else %}
+                    | <strong style="color: #16a34a;">通用报价</strong>
+                    {% endif %}
+                    | <strong>状态:</strong> 
+                    <span style="color: {% if preport_status == 'completed' %}#16a34a{% elif preport_status == 'in_progress' %}#ea580c{% else %}#dc2626{% endif %};">
+                        {% if preport_status == 'completed' %}已完成
+                        {% elif preport_status == 'in_progress' %}录入中
+                        {% elif preport_status == 'rejected' %}已驳回
+                        {% elif preport_status == 'pending_review' %}待审核
+                        {% else %}未开始
+                        {% endif %}
+                    </span>
+                </div>
+            </div>
+
+            <!-- 组合柜信息卡片 -->
+            <div class="info-card">
+                <div class="info-title">
+                    <i class="fas fa-boxes"></i>
+                    组合柜信息
+                </div>
+                <div class="info-details">
+                    {% if order_type == '转运' %}
+                        <!-- 原本就是转运单 -->
+                        <strong>类型:</strong> <span class="info-highlight">转运</span>
+
+                    {% elif order_type == '转运组合' %}
+                        <form method="post" action="" class="order-type-form">
+                            {% csrf_token %}
+                            <input type="hidden" name="step" value="modify_order_type">
+                            <input type="hidden" name="new_order_type" id="new_order_type" value="">
+                            <input type="hidden" name="container_number" value="{{ container_number }}">
+                            <input type="hidden" name="invoice_id" value="{{ invoice.id }}">
+                            <input type="hidden" name="start_date" value="{{ start_date }}">
+                            <input type="hidden" name="end_date" value="{{ end_date }}">
+                            <!-- 是组合柜类型 -->
+                            <strong>组合柜状态:</strong>
+                            {% if is_combina %}
+                                <span class="info-highlight" style="color: #16a34a;">符合组合柜</span>
+                                <button type="submit" class="btn-change-order-type" 
+                                        onclick="setOrderType('转运')">
+                                    <i class="fas fa-exchange-alt"></i>
+                                    改为转运
+                                </button>
+                                <input type="text" name="actual_non_combina_reason">
+                            {% else %}
+                                <span class="info-highlight" style="color: #dc2626;">不符合组合柜</span>
+                                {% if non_combina_reason %}
+                                    | <strong style="color:#dc2626;">原因:</strong> 
+                                    <span class="badge" style="background: rgba(255, 193, 7, 0.2); color: #ffa000;">
+                                        ⚠️{{ non_combina_reason }}
+                                    </span>
+                                {% endif %}
+                                <button type="submit" class="btn-change-order-type" 
+                                        onclick="setOrderType('转运组合')">
+                                    <i class="fas fa-exchange-alt"></i>
+                                    改为组合柜
+                                </button>
+                            {% endif %}
+                            </form>
+                    {% else %}
+                        <!-- 其他类型（非转运 / 非转运组合） -->
+                        <strong>类型:</strong> <span class="info-highlight">{{ order_type }}</span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        {% if receivable_is_locked %}
+        <div style="background: #ffebee; color: #c62828; padding: 15px; border-radius: 8px; margin-bottom: 20px; text-align: center; border: 1px solid #ffcdd2;">
+            <i class="fas fa-lock"></i> 账单已确认，不可编辑
+        </div>
+        {% endif %}
+
+        <form method="post" action="" id="invoice-form">
+            {% csrf_token %}
+            <!-- 费用项目区域 -->
+            <div class="fee-section">
+                <div class="fee-section-header">
+                    <h3 class="section-title">费用明细</h3>
+                    <button type="button" class="add-fee-btn" onclick="showAddFeeModal()">
+                        <i class="fas fa-plus-circle"></i>
+                        添加费用项目
+                    </button>
+                </div>
+                
+                <div class="fee-table">
+                    <!-- 表头 -->
+                    <div class="table-header">
+                        <div class="table-header-cell">费用名称</div>
+                        <div class="table-header-cell">参考单价</div>
+                        <div class="table-header-cell">实际单价</div>
+                        <div class="table-header-cell">数量</div>
+                        <div class="table-header-cell">附加费</div>
+                        <div class="table-header-cell">总价</div>
+                        <div class="table-header-cell">备注</div>
+                        <div class="table-header-cell">操作</div>
+                    </div>
+
+                    <!-- 费用行 -->
+                    <div id="fee-items-container">
+                        {% for fee in fee_data %}
+                        <div class="fee-row {% if fee.description == '提拆/打托缠膜' and not fee.id %}system-calculated{% endif %}
+                            {% if fee.amount == 0 %}amount-zero-row{% endif %}" 
+                            data-fee-id="{{ fee.id }}">
+                            <input type="hidden" name="fee_id" value="{{ fee.id|default_if_none:'' }}">
+                            <input type="hidden" name="fee_description" value="{{ fee.description }}">
+                            
+                            <div class="fee-cell">
+                                <span class="fee-name">{{ fee.description }}</span>
+                                {% if fee.description == '提拆/打托缠膜' and not fee.id %}
+                                <span style="color: var(--success-color); margin-left: 8px; font-size: 0.8rem;">
+                                    <i class="fas fa-calculator"></i> 系统计算
+                                </span>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="fee-cell">
+                                <span class="reference-price">
+                                    {{ fee.reference_price|default:FS|get_item:fee.description }}
+                                </span>
+                            </div>
+                            
+                            <div class="fee-cell">
+                                {% if fee.description == '提拆/打托缠膜' and not fee.id %}
+                                <input type="number" class="input-field" name="fee_rate" 
+                                       value="{{ fee.rate }}" step="0.01" readonly 
+                                       style="background: #f5f5f5; color: #666;">
+                                {% else %}
+                                <input type="number" class="input-field rate-input" name="fee_rate" 
+                                       value="{{ fee.rate }}" step="0.01" min="0"
+                                       onchange="calculateFeeTotal(this)">
+                                {% endif %}
+                            </div>
+                            
+                            <div class="fee-cell">
+                                {% if fee.description == '提拆/打托缠膜' and not fee.id %}
+                                <input type="number" class="input-field" name="fee_qty" 
+                                       value="{{ fee.qty }}" step="0.1" readonly 
+                                       style="background: #f5f5f5; color: #666;">
+                                {% else %}
+                                <input type="number" class="input-field qty-input" name="fee_qty" 
+                                       value="{{ fee.qty }}" step="0.1" min="0"
+                                       onchange="calculateFeeTotal(this)">
+                                {% endif %}
+                            </div>
+                            <div class="fee-cell">
+                                <input type="number" class="input-field surcharge-input" name="fee_surcharges" 
+                                    value="{{ fee.surcharges|default:0 }}" step="0.01"
+                                    onchange="calculateFeeTotal(this)"
+                                    placeholder="附加费">
+                            </div>
+                            <div class="fee-cell">
+                                <span class="amount-display {% if fee.amount == 0 %}amount-zero{% endif %}">{{ fee.amount|floatformat:2 }}</span>
+                                <input type="hidden" name="fee_amount" value="{{ fee.amount }}">
+                            </div>
+                            
+                            <div class="fee-cell">
+                                <input type="text" class="input-field note-input" name="fee_note" 
+                                       value="{{ fee.note }}" placeholder="备注信息">
+                            </div>
+                            
+                            <div class="fee-cell">
+                                {% if not fee.description == '提拆/打托缠膜' or fee.id %}
+                                <button type="button" class="remove-btn" onclick="removeFeeItem(this)">
+                                    ×
+                                </button>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- 总金额 -->
+            <div class="total-section">
+                <h3 class="total-amount">
+                    <i class="fas fa-dollar-sign"></i>
+                    总金额: $<span id="total-amount">0.00</span>
+                </h3>
+                <input type="hidden" name="total_amount" id="total-amount-input" value="0">
+            </div>
+
+            <!-- 隐藏字段 -->
+            <input type="hidden" name="step" value="preport_save">
+            <input type="hidden" name="save_type" id="save_type" value="">
+            <input type="hidden" name="container_number" value="{{ container_number }}">
+            <input type="hidden" name="invoice_id" value="{{ invoice.id }}">
+            <input type="hidden" name="start_date" value="{{ start_date }}">
+            <input type="hidden" name="end_date" value="{{ end_date }}">
+
+            <!-- 操作按钮 -->
+            {% if not receivable_is_locked %}
+                <div class="action-buttons">
+                    {% if "invoice_preport" in groups or "staff" in groups %}
+                    <button type="submit" class="btn btn-success" onclick="setSaveType('pending_review')">
+                        <i class="fas fa-check-circle"></i>
+                        保存完成
+                    </button>
+                    <button type="submit" class="btn btn-primary" onclick="setSaveType('in_progress')">
+                        <i class="fas fa-save"></i>
+                        暂存未完成
+                    </button>
+                    {% endif %}
+                    
+                    {% if "invoice_preport_leader" in groups or "staff" in groups %}
+                    <button type="submit" class="btn btn-warning" onclick="setSaveType('completed')">
+                        <i class="fas fa-thumbs-up"></i>
+                        审核通过
+                    </button>
+                    <button type="submit" class="btn btn-danger" onclick="setSaveType('rejected')">
+                        <i class="fas fa-thumbs-down"></i>
+                        审核不通过
+                    </button>
+                    <input type="text" placeholder="审核失败原因" name="reject_reason" 
+                        style="padding: 12px; border: 1px solid #e2e8f0; border-radius: 8px; min-width: 200px;">
+                    {% endif %}
+                </div>
+            {% endif %}
+        </form>
+    </div>
+</div>
+
+<!-- 添加费用模态框 -->
+<div id="addFeeModal" class="modal-overlay">
+    <div class="modal-content">
+        <h3 class="modal-title">选择费用项目</h3>
+        
+        <div id="standard-fee-list" style="max-height: 300px; overflow-y: auto;">
+            {% for fee_item in standard_fee_items %}
+            {% if fee_item not in existing_descriptions %}
+            <div class="fee-option" data-fee-name="{{ fee_item }}"
+                onclick="selectStandardFee('{{ fee_item }}', '{{ FS|get_item:fee_item }}')">
+                <span class="fee-option-name">{{ fee_item }}</span>
+                <span class="fee-option-price">参考: {{ FS|get_item:fee_item }}</span>
+            </div>
+            {% endif %}
+            {% endfor %}
+        </div>
+        
+        <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #e2e8f0;">
+            <h4 style="margin-bottom: 10px; color: var(--secondary-color);">自定义费用</h4>
+            <input type="text" id="custom-fee-name" placeholder="输入自定义费用名称" 
+                   class="custom-fee-input">
+            <button type="button" class="btn btn-primary" onclick="addCustomFee()" 
+                    style="width: 100%; margin-top: 10px;">
+                <i class="fas fa-plus-circle"></i>
+                添加自定义费用
+            </button>
+        </div>
+        
+        <div style="text-align: right; margin-top: 20px;">
+            <button type="button" class="btn" onclick="closeAddFeeModal()" 
+                    style="background: #78909c; color: white;">
+                <i class="fas fa-times"></i>
+                取消
+            </button>
+        </div>
+    </div>
+</div>
+
+{% include 'receivable_accounting/modals/message_modal.html' %}
+<script>
+    function setOrderType(orderType) {
+        document.getElementById('new_order_type').value = orderType;
+    }
+    // 计算单个费用项目的总价
+    function calculateFeeTotal(input) {
+        const feeRow = input.closest('.fee-row');
+        const rateInput = feeRow.querySelector('.rate-input');
+        const qtyInput = feeRow.querySelector('.qty-input');
+        const surchargeInput = feeRow.querySelector('.surcharge-input');
+        const amountDisplay = feeRow.querySelector('.amount-display');
+        const amountInput = feeRow.querySelector('input[name="fee_amount"]');
+        
+        const rate = parseFloat(rateInput?.value) || 0;
+        const qty = parseFloat(qtyInput?.value) || 0;
+        const surcharges = parseFloat(surchargeInput?.value) || 0;
+        const amount = Math.round((rate * qty + surcharges) * 100) / 100;
+        
+        if (amountDisplay) {
+            amountDisplay.textContent = amount.toFixed(2);
+            // 动态切换灰色类
+            if (amount === 0) {
+                amountDisplay.classList.add('amount-zero');
+            } else {
+                amountDisplay.classList.remove('amount-zero');
+            }
+        }
+        if (amountInput) amountInput.value = amount;
+        
+        calculateTotalAmount();
+    }
+    
+    // 计算总金额
+    function calculateTotalAmount() {
+        let total = 0;
+        document.querySelectorAll('input[name="fee_amount"]').forEach(input => {
+            total += parseFloat(input.value) || 0;
+        });
+        
+        const formattedTotal = Math.round(total * 100) / 100;
+        document.getElementById('total-amount').textContent = formattedTotal.toFixed(2);
+        document.getElementById('total-amount-input').value = formattedTotal;
+    }
+    
+    // 移除费用项目
+    function removeFeeItem(button) {
+        if (confirm('确定要删除这个费用项目吗？')) {
+            button.closest('.fee-row').remove();
+            calculateTotalAmount();
+        }
+    }
+    
+    // 判断费用是否已存在表格里
+    function isFeeAlreadyAdded(feeName) {
+        const existingItems = document.querySelectorAll('input[name="fee_description"]');
+        for (let item of existingItems) {
+            if (item.value.trim() === feeName.trim()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // 选择标准费用
+    function selectStandardFee(feeName, referencePrice) {
+        if (isFeeAlreadyAdded(feeName)) {
+            alert('该费用项目已存在'); // 已存在就不添加
+            return;
+        }
+        addFeeItem(feeName, referencePrice); // 添加到表格
+        closeAddFeeModal();
+    }
+
+    // 打开弹框时刷新可选费用列表
+    function refreshFeeOptions() {
+        const existingItems = Array.from(document.querySelectorAll('input[name="fee_description"]')).map(i => i.value.trim());
+        document.querySelectorAll('.fee-option').forEach(option => {
+            const feeName = option.dataset.feeName.trim();
+            option.style.display = existingItems.includes(feeName) ? 'none' : 'flex';
+        });
+    }
+
+    // 显示添加费用模态框
+    function showAddFeeModal() {
+        document.getElementById('addFeeModal').style.display = 'block';
+        refreshFeeOptions(); // 每次打开弹框都刷新显示
+    }
+
+    // 关闭添加费用模态框
+    function closeAddFeeModal() {
+        document.getElementById('addFeeModal').style.display = 'none';
+        document.getElementById('custom-fee-name').value = '';
+        // 刷新弹框，显示所有未添加费用
+        refreshFeeOptions();
+    }
+    
+    // 添加自定义费用
+    function addCustomFee() {
+        const customFeeName = document.getElementById('custom-fee-name').value.trim();
+        if (customFeeName) {
+            addFeeItem(customFeeName, 'N/A');
+            closeAddFeeModal();
+        } else {
+            alert('请输入费用名称');
+        }
+    }
+    
+    // 添加费用项目到列表
+    function addFeeItem(feeName, referencePrice) {
+        // 检查是否已存在
+        const existingItems = document.querySelectorAll('input[name="fee_description"]');
+        for (let item of existingItems) {
+            if (item.value === feeName) {
+                alert('该费用项目已存在');
+                return;
+            }
+        }
+        
+        const container = document.getElementById('fee-items-container');
+        const newRow = document.createElement('div');
+        newRow.className = 'fee-row';
+        newRow.innerHTML = `
+            <input type="hidden" name="fee_id" value="">
+            <input type="hidden" name="fee_description" value="${feeName}">
+            
+            <div class="fee-cell">
+                <span class="fee-name">${feeName}</span>
+            </div>
+            
+            <div class="fee-cell">
+                <span class="reference-price">${referencePrice}</span>
+            </div>
+            
+            <div class="fee-cell">
+                <input type="number" class="input-field rate-input" name="fee_rate" 
+                       value="0" step="0.01" min="0"
+                       onchange="calculateFeeTotal(this)">
+            </div>
+            
+            <div class="fee-cell">
+                <input type="number" class="input-field qty-input" name="fee_qty" 
+                       value="1" step="0.1" min="0"
+                       onchange="calculateFeeTotal(this)">
+            </div>
+            <div class="fee-cell">
+                <input type="number" class="input-field surcharge-input" name="fee_surcharges" 
+                    value="0" step="0.01"
+                    onchange="calculateFeeTotal(this)"
+                    placeholder="附加费">
+            </div>
+            <div class="fee-cell">
+                <span class="amount-display">0.00</span>
+                <input type="hidden" name="fee_amount" value="0">
+            </div>
+            
+            <div class="fee-cell">
+                <input type="text" class="input-field note-input" name="fee_note" 
+                       value="" placeholder="备注信息">
+            </div>
+            
+            <div class="fee-cell">
+                <button type="button" class="remove-btn" onclick="removeFeeItem(this)">
+                    ×
+                </button>
+            </div>
+        `;
+        container.appendChild(newRow);
+        calculateTotalAmount();
+    }
+    
+    // 设置保存类型
+    function setSaveType(type) {
+        document.getElementById('save_type').value = type;
+    }
+    
+    // 初始化计算总金额
+    document.addEventListener('DOMContentLoaded', function() {
+        calculateTotalAmount();
+        
+        // 为所有现有的输入框添加事件监听
+        document.querySelectorAll('.rate-input, .qty-input, .surcharge-input').forEach(input => {
+            input.addEventListener('input', function() {
+                calculateFeeTotal(this);
+            });
+        });
+    });
+</script>
+{% endblock %}
