@@ -1245,8 +1245,11 @@ class FleetManagement(View):
         fleet.pickup_number = request.POST.get("pickup_number", "")
         fleet.appointment_datetime = request.POST.get("appointment_datetime")
         fleet.note = request.POST.get("note", "")
-        fleet.fleet_cost = float(request.POST.get("fleet_cost"))
+        fleet_cost_str = request.POST.get("fleet_cost", "").strip()
+        if fleet_cost_str:
+            fleet.fleet_cost = float(fleet_cost_str)
         await sync_to_async(fleet.save)()
+        
         mutable_get = request.GET.copy()
         mutable_get["warehouse"] = request.POST.get("warehouse")
         mutable_get["fleet_number"] = fleet_number
