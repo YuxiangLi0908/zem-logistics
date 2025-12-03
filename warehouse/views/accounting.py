@@ -5947,12 +5947,22 @@ class Accounting(View):
             combina_fee = json.loads(combina_fee)
         # 看是否超出组合柜限定仓点,NJ/SAV是14个
         default_combina = stipulate["global_rules"]["max_mixed"]["default"]
-        exceptions = stipulate["global_rules"]["max_mixed"].get("exceptions", {})
-        combina_threshold = exceptions.get(warehouse, default_combina) if exceptions else default_combina
+        key = f"{warehouse}_max_mixed"
+        warehouse_max_mixed = stipulate["global_rules"].get(key, {}).get("default", {})
+        if warehouse_max_mixed:
+            combina_threshold = warehouse_max_mixed
+        else:
+            combina_threshold = default_combina
+        
 
         default_threshold = stipulate["global_rules"]["bulk_threshold"]["default"]
-        exceptions = stipulate["global_rules"]["bulk_threshold"].get("exceptions", {})
-        uncombina_threshold = exceptions.get(warehouse, default_threshold) if exceptions else default_threshold
+        key = f"{warehouse}_bulk_threshold"
+        warehouse_bulk_threshold = stipulate["global_rules"].get(key, {}).get("default", {})
+        if warehouse_bulk_threshold:
+            uncombina_threshold = warehouse_bulk_threshold
+        else:
+            uncombina_threshold = default_threshold
+       
         if plts["unique_destinations"] > uncombina_threshold:
             container.account_order_type = "转运"
             container.non_combina_reason = (
