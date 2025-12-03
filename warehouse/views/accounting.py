@@ -6277,6 +6277,7 @@ class Accounting(View):
         region_price_map = {}
         for plts in plts_by_destination:
             destination = plts["destination"]
+            dest_upper = destination.upper()
             if ('UPS' in dest_upper) or ('FEDEX' in dest_upper):
                 non_combina_dests[dest] = {"cbm": cbm}
                 continue
@@ -6285,9 +6286,8 @@ class Accounting(View):
             cbm = plts["total_cbm"]
             dest_matches = []
             matched = False
-            # 遍历所有区域和location
-            dest_upper = destination.upper()
             
+            # 遍历所有区域和location           
             for region, fee_data_list in combina_fee.items():           
                 for fee_data in fee_data_list:
                     prices_obj = fee_data["prices"]
