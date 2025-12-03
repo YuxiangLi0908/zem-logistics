@@ -6277,7 +6277,9 @@ class Accounting(View):
         region_price_map = {}
         for plts in plts_by_destination:
             destination = plts["destination"]
-            
+            if ('UPS' in dest_upper) or ('FEDEX' in dest_upper):
+                non_combina_dests[dest] = {"cbm": cbm}
+                continue
             # 如果是沃尔玛的，只保留后面的名字，因为报价表里就是这么保留的
             dest = destination.replace("沃尔玛", "").split("-")[-1].strip()
             cbm = plts["total_cbm"]
@@ -6285,9 +6287,7 @@ class Accounting(View):
             matched = False
             # 遍历所有区域和location
             dest_upper = destination.upper()
-            if ('UPS' in dest_upper) or ('FEDEX' in dest_upper):
-                non_combina_dests[dest] = {"cbm": cbm}
-                continue
+            
             for region, fee_data_list in combina_fee.items():           
                 for fee_data in fee_data_list:
                     prices_obj = fee_data["prices"]
