@@ -298,6 +298,7 @@ class PO(View):
                 & models.Q(vessel_eta__lte=today + timedelta(days=7))
                 & models.Q(vessel_eta__gte=today)
                 & models.Q(ref_id__isnull=False)
+                & models.Q(container_number__order__cancel_notification=False)
                 & ~models.Q(ref_id="")
             )
             area = request.POST.get("area")
@@ -336,6 +337,7 @@ class PO(View):
                 & models.Q(vessel_eta__lte=today + timedelta(days=7))
                 & models.Q(ref_id__isnull=False)
                 & ~models.Q(ref_id="")
+                & models.Q(container_number__order__cancel_notification=False)
                 & models.Q(
                     container_number__order__retrieval_id__target_retrieval_timestamp__gte=today
                 )
