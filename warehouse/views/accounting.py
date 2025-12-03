@@ -5809,7 +5809,8 @@ class Accounting(View):
             return
 
         container = Container.objects.get(container_number=container_number)
-        container_type_temp = 0 if container.container_type == "40HQ/GP" else 1
+        container_type_temp = 0 if "40" in container.container_type else 1
+
         invoice = Invoice.objects.select_related("customer", "container_number").get(
             container_number__container_number=container_number
         )
@@ -5973,7 +5974,7 @@ class Accounting(View):
         )
         total_cbm_sum = sum(item["total_cbm"] for item in plts_by_destination)
         # 区分组合柜区域和非组合柜区域
-        container_type_temp = 0 if container_type == "40HQ/GP" else 1
+        container_type_temp = 0 if "40" in container_type else 1
         matched_regions = self.find_matching_regions(
             plts_by_destination, combina_fee, container_type_temp, total_cbm_sum, combina_threshold
         )
@@ -6178,9 +6179,9 @@ class Accounting(View):
             for region, price_groups in combine_data.items():
                 for price_group in price_groups:
                     if destination in price_group["location"]:
-                        if "45HQ/GP" in container_type:
+                        if "45" in container_type:
                             cost = int(price_group["prices"][1])
-                        elif "40HQ/GP" in container_type:
+                        elif "40" in container_type:
                             cost = int(price_group["prices"][0])
                         break
                 if cost is not None:
@@ -6593,7 +6594,7 @@ class Accounting(View):
         # 这里之前是
         total_cbm_sum = sum(item["total_cbm"] for item in plts_by_destination)
         # 区分组合柜区域和非组合柜区域
-        container_type_temp = 0 if container_type == "40HQ/GP" else 1
+        container_type_temp = 0 if "40" in container_type else 1
         matched_regions = self.find_matching_regions(
             plts_by_destination, combina_fee, container_type_temp, total_cbm_sum, combina_threshold
         )
@@ -6677,7 +6678,7 @@ class Accounting(View):
                 region_dict = matched_regions["price_display"]
                 region = list(region_dict.keys())[0]
                 base_fee = combina_fee[region][0]["prices"][
-                    0 if container_type == "40HQ/GP" else 1
+                    0 if "40" in container_type else 1
                 ]
                 total_ratio = sum(
                     match["cbm_ratio"]
@@ -6746,7 +6747,7 @@ class Accounting(View):
             extra_fees["overweight"] = "需人工录入"  # 实际业务中应有默认费率
 
         # 超板检查——确定上限的板数
-        if container_type == "40HQ/GP":
+        if "40" in container_type:
             std_plt = stipulate["global_rules"]["std_40ft_plts"]
             if warehouse == "LA" and "LA_std_40ft_plts" in stipulate["global_rules"]:
                 std_plt = stipulate["global_rules"]["LA_std_40ft_plts"]
