@@ -5987,7 +5987,10 @@ class Accounting(View):
             container.save()
             return False
         
-        filtered_non_destinations = [key for key in matched_regions["non_combina_dests"].keys() if "UPS" not in key]
+        filtered_non_destinations = [
+            key for key in matched_regions["non_combina_dests"].keys() 
+            if "UPS" not in key and "FEDEX" not in key
+        ]
         # 非组合柜区域
         non_combina_region_count = len(filtered_non_destinations)
         # 组合柜区域
@@ -6601,7 +6604,10 @@ class Accounting(View):
         )
 
         # 非组合柜区域
-        filtered_non_destinations = [key for key in matched_regions["non_combina_dests"].keys() if "UPS" not in key]
+        filtered_non_destinations = [
+            key for key in matched_regions["non_combina_dests"].keys() 
+            if "UPS" not in key and "FEDEX" not in key
+        ]
         temp_non_combina_region_count = len(filtered_non_destinations)
         non_combina_region_count = len(matched_regions["non_combina_dests"])
   
