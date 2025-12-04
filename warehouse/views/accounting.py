@@ -6279,7 +6279,7 @@ class Accounting(View):
             destination = plts["destination"]
             dest_upper = destination.upper()
             if ('UPS' in dest_upper) or ('FEDEX' in dest_upper):
-                non_combina_dests[dest] = {"cbm": cbm}
+                non_combina_dests[dest_upper] = {"cbm": cbm}
                 continue
             # 如果是沃尔玛的，只保留后面的名字，因为报价表里就是这么保留的
             dest = destination.replace("沃尔玛", "").split("-")[-1].strip()
@@ -6621,7 +6621,7 @@ class Accounting(View):
         ]
         temp_non_combina_region_count = len(filtered_non_destinations)
         non_combina_region_count = len(matched_regions["non_combina_dests"])
-  
+        non_combina_region_caculate = matched_regions["non_combina_dests"]
         # 组合柜区域
         combina_region_count = len(matched_regions["combina_dests"])
         # 组合柜对应的区
