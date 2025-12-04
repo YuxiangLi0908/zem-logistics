@@ -86,7 +86,7 @@ class PackingList(models.Model):
     quote_id = models.ForeignKey(
         Quote, null=True, blank=True, on_delete=models.SET_NULL
     )
-    PO_ID = models.CharField(max_length=20, null=True, blank=True)
+    PO_ID = models.CharField(max_length=200, null=True, blank=True)
     history = HistoricalRecords()
 
     class Meta:
