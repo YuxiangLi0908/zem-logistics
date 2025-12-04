@@ -17,7 +17,7 @@ class PackingList(models.Model):
     delivery_type = models.CharField(max_length=255, null=True, blank=True)
     shipping_mark = models.CharField(max_length=400, null=True, blank=True)
     fba_id = models.CharField(max_length=400, null=True, blank=True)
-    destination = models.CharField(max_length=255, null=True, blank=True)
+    destination = models.CharField(max_length=400, null=True, blank=True)
     address = models.CharField(max_length=2000, null=True, blank=True)
     zipcode = models.CharField(max_length=200, null=True, blank=True)
     contact_name = models.CharField(max_length=255, null=True, blank=True)
