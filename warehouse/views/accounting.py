@@ -8734,6 +8734,7 @@ class Accounting(View):
             f"ACH/Wire Transfer Routing Number: {ACCT_ACH_ROUTING_NUMBER}",
             f"Beneficiary Account #: {ACCT_BENEFICIARY_ACCOUNT}",
             f"Beneficiary Address: {ACCT_BENEFICIARY_ADDRESS}",
+            f"Business Beneficiary Address: 215 Durham Park Way, Pooler,GA31322",
             f"Email:FINANCE@ZEMLOGISTICS.COM",
             f"phone: 929-810-9968",
         ]
@@ -8943,6 +8944,7 @@ class Accounting(View):
             f"ACH/Wire Transfer Routing Number: {ACCT_ACH_ROUTING_NUMBER}",
             f"Beneficiary Account #: {ACCT_BENEFICIARY_ACCOUNT}",
             f"Beneficiary Address: {ACCT_BENEFICIARY_ADDRESS}",
+            f"Business Beneficiary Address: 215 Durham Park Way, Pooler,GA31322",
             f"Email:FINANCE@ZEMLOGISTICS.COM",
             f"phone: 929-810-9968",
         ]
