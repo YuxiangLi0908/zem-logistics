@@ -1512,7 +1512,7 @@ class ReceivableAccounting(View):
                 item_data = self._create_item_from_existing(existing_item, pallet_group)
                 
                 # 根据类型分类
-                if existing_item.delivery_category == 'combine' or existing_item.is_combina_item:
+                if existing_item.delivery_type == 'combine':
                     result["combina_items"].append(item_data)
                     
                     # 按区域分组
@@ -1576,7 +1576,7 @@ class ReceivableAccounting(View):
             pallet_group = next((g for g in pallet_groups if g.get("PO_ID") == po_id), None)
             if pallet_group:
                 item_data = self._create_item_from_existing(existing_item, pallet_group)
-                if existing_item.get('delivery_category') == 'combine' or existing_item.get('is_combina_item'):
+                if existing_item['delivery_category'] == 'combine' or existing_item['is_combina_item']:
                     result["combina_items"].append(item_data)
                     #按区域分组
                     region = item_data.get("combina_region", "未知")
