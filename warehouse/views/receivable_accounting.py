@@ -1610,7 +1610,7 @@ class ReceivableAccounting(View):
         processed_po_ids = set()
         
         for group in pallet_groups:
-                
+            po_id = group.get("PO_ID", "")
             destination = group.get("destination", "")
             
             # 检查是否属于组合区域
