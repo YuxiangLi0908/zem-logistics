@@ -248,7 +248,7 @@ async def export_palletization_list_v2(request: HttpRequest) -> HttpResponse:
         df["pcs"] = df["pcs"].astype(str)
 
         mask_base = (df["delivery_method"] == "卡车派送") & (df["delivery_type"] == "public")
-        mask_note = df["note"].notna() & (df["note"] != "")
+        mask_note = (df["note"] == "")
         mask = mask_base & mask_note
         df.loc[mask, "shipping_mark"] = ""
         df.loc[mask, "pcs"] = ""
