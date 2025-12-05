@@ -1352,7 +1352,7 @@ class Accounting(View):
             | models.Q(  # 考虑账单编辑点的是暂存的情况
                 **{
                     "receivable_status__invoice_type": "receivable",
-                    "receivable_status__stage__in": ["unstarted"],
+                    "receivable_status__preport_status": "unstarted",
                 }
             ),
             order_type="直送",
@@ -1377,12 +1377,12 @@ class Accounting(View):
             .filter(
                 criteria,
                 order_type="直送",
-                **{
-                    "receivable_status__isnull": False,
-                    "receivable_status__invoice_type": "receivable",
-                },
+                receivable_status__isnull=False,
+                receivable_status__invoice_type="receivable"
+            ).filter(
+                Q(receivable_status__preport_status="completed") | 
+                Q(receivable_status__preport_status="rejected")
             )
-            .exclude(**{"receivable_status__stage__in": ["preport", "unstarted"]})
         )
         previous_order = self.process_orders_display_status(
             previous_order, "receivable"
@@ -3889,6 +3889,7 @@ class Accounting(View):
             invoice.save()
             invoice_status.stage = "tobeconfirmed"
             invoice_status.finance_status = "tobeconfirmed"
+            invoice_status.preport_status = "completed"
             invoice_status.is_rejected = "False"
             invoice_status.reject_reason = ""
             invoice_status.save()
@@ -3904,6 +3905,7 @@ class Accounting(View):
             invoice.save()
             invoice_status.stage = "confirmed"
             invoice_status.finance_status = "completed"
+            invoice_status.preport_status = "completed"
             invoice_status.is_rejected = "False"
             invoice_status.reject_reason = ""
             invoice_status.save()
@@ -7141,7 +7143,7 @@ class Accounting(View):
             and 'UPS' not in str(dest).upper() 
             and 'FEDEX' not in str(dest).upper()
         ]
-        return filtered_destinations
+        return list(dict.fromkeys(filtered_destinations))
         
     def _calculate_delivery_fee_cost(
         self,
