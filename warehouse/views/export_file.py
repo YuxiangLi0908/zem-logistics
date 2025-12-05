@@ -251,7 +251,7 @@ async def export_palletization_list_v2(request: HttpRequest) -> HttpResponse:
         mask_note = (df["note"] == "")
         mask = mask_base & mask_note
         df.loc[mask, "shipping_mark"] = ""
-        df.loc[mask, "pcs"] = ""
+        df.loc[mask_base, "pcs"] = ""
         df["pl"] = ""
         df = df[
             [
