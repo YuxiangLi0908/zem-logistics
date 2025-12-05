@@ -165,3 +165,11 @@ def get_item(dictionary, key):
 def add_str(str1, str2):
     """字符串连接"""
     return str(str1) + str(str2)
+
+@register.filter(name='multiply')
+def multiply(value, arg):
+    """将值乘以参数"""
+    try:
+        return float(value) * float(arg)
+    except (ValueError, TypeError):
+        return ''
