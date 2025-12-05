@@ -7135,7 +7135,12 @@ class Accounting(View):
             destinations_list = list(destinations)
         else:
             destinations_list = destinations
-        filtered_destinations = [dest for dest in destinations_list if 'UPS' not in str(dest) and 'FEDEX' not in str(dest)]
+        filtered_destinations = [
+            dest.strip() for dest in destinations_list 
+            if dest is not None 
+            and 'UPS' not in str(dest).upper() 
+            and 'FEDEX' not in str(dest).upper()
+        ]
         return filtered_destinations
         
     def _calculate_delivery_fee_cost(
