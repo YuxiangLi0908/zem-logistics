@@ -6276,6 +6276,7 @@ class Accounting(View):
         region_counter = {}
         region_price_map = {}
         for plts in plts_by_destination:
+            cbm = plts["total_cbm"]
             destination = plts["destination"]
             dest_upper = destination.upper()
             if ('UPS' in dest_upper) or ('FEDEX' in dest_upper):
@@ -6283,7 +6284,7 @@ class Accounting(View):
                 continue
             # 如果是沃尔玛的，只保留后面的名字，因为报价表里就是这么保留的
             dest = destination.replace("沃尔玛", "").split("-")[-1].strip()
-            cbm = plts["total_cbm"]
+            
             dest_matches = []
             matched = False
             
