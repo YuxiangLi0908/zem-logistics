@@ -245,12 +245,19 @@ async def export_palletization_list_v2(request: HttpRequest) -> HttpResponse:
         df["delivery_method"] = df["delivery_method"].apply(
             lambda x: x.split("-")[0] if x and isinstance(x, str) else x
         )
-        df["pcs"] = df["pcs"].astype(str)
+        df["pcs_original"] = df["pcs"].astype(str)  # 新增：保存pcs原始值
+        df["pcs"] = df["pcs_original"].copy()
 
         mask_base = (df["delivery_method"] == "卡车派送") & (df["delivery_type"] == "public")
         mask_note = (df["note"] == "")
         mask = mask_base & mask_note
         df.loc[mask, "shipping_mark"] = ""
+        df["pcs"] = ""
+        mask_tecao = df["note"].apply(
+            lambda x: "特操" in x if (x and isinstance(x, str)) else False
+        )
+        # 恢复pcs为原始值（仅特操行生效）
+        df.loc[mask_tecao, "pcs"] = df.loc[mask_tecao, "pcs_original"]
         df["pl"] = ""
         df = df[
             [
