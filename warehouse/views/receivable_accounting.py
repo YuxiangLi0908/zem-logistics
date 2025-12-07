@@ -57,7 +57,7 @@ from django.db import transaction
 from django.db.models.fields.json import KeyTextTransform
 from django.db.models.functions import Cast, Coalesce
 from django.db.models.query import QuerySet
-from django.http import HttpRequest, HttpResponse, HttpResponseForbidden, QueryDict
+from django.http import JsonResponse, HttpRequest, HttpResponse, HttpResponseForbidden, QueryDict
 from django.shortcuts import render
 from django.utils import timezone
 from django.utils.decorators import method_decorator
@@ -215,6 +215,7 @@ class ReceivableAccounting(View):
         # if not self._validate_user_group(request.user):
         #     return HttpResponseForbidden("You are not authenticated to access this page!")
         step = request.POST.get("step", None)
+        print('step',step)
         if step == "preport_search":  #港前
             context = self.handle_preport_entry_post(request)
             return render(request, self.template_preport_entry, context)
@@ -230,9 +231,18 @@ class ReceivableAccounting(View):
         elif step == "save_single":
             template, context = self.handle_save_single_post(request)
             return render(request, template, context)
+        elif step == "public_save_all":
+            context = self.handle_public_save_all_post(request)
+            return render(request, self.template_delivery_entry, context)
         elif step == "save_all":
             context = self.handle_save_all_post(request)
             return render(request, self.template_delivery_entry, context)
+        elif step == "save_all_combina":
+            context = self.handle_save_all_combina_post(request)
+            return render(request, self.template_delivery_entry, context)
+        elif step == "convert_type":
+            template, context = self.handle_convert_type_post(request)
+            return render(request, template, context) 
         elif step == "preport_save":
             context = self.handle_invoice_preport_save(request)
             return render(request, self.template_preport_entry, context)
@@ -243,8 +253,84 @@ class ReceivableAccounting(View):
             context = self.handle_invoice_warehouse_save(request)
             return render(request, self.template_warehouse_entry, context)
     
-    def handle_save_all_post(self, request: HttpRequest):
+    def handle_convert_type_post(self, request: HttpRequest):
+        context = {}
+        print(request.POST)
+        container_number = request.POST.get("container_number")
+        to_delivery_type = request.POST.get("to_delivery_type")
+        item_id = request.POST.get("item_id")
+        po_id = request.POST.get("po_id")
+        qs = Pallet.objects.filter(
+            container_number__container_number=container_number,
+            PO_ID=po_id
+        )
+        
+        updated = qs.update(delivery_type=to_delivery_type)
+        unique_destinations = list(qs.values_list('destination', flat=True).distinct())
+        destinations = ', '.join(unique_destinations)
+        operation_messages = []
+
+        operation_messages.append(f"{destinations}转类型成功！共更新 {updated} 个板子派送方式为{to_delivery_type}")
+        if item_id and item_id != 'None':
+            try:
+                # 删除指定的记录
+                InvoiceItemv2.objects.get(id=item_id).delete()
+                operation_messages.append(f"成功删除原账单记录")
+            except InvoiceItemv2.DoesNotExist:
+                operation_messages.append(f"原账单记录不存在")
+            except Exception as e:
+                operation_messages.append(f"删除原账单记录出错，id: {item_id}, 错误: {e}")
+        
+
+        # 构造新的 GET 查询参数
+        get_params = QueryDict(mutable=True)
+        get_params["container_number"] = container_number
+        get_params["delivery_type"] = to_delivery_type
+        get_params["invoice_id"] = request.POST.get("invoice_id")
+        
+        request.GET = get_params
+        context = {"success_messages":operation_messages}
+        return self.handle_container_delivery_post(request,context)
+    
+    def handle_save_all_combina_post(self, request: HttpRequest):
         """处理解扣操作"""
+        context = {}
+        container_number = request.POST.get("container_number")
+        invoice_id = request.POST.get("invoice_id")
+        item_category = "delivery_public"
+        combina_items_json = request.POST.get("combina_items")
+        combina_items = json.loads(combina_items_json)
+        if not combina_items:
+            context.update({"error_messages": "没有接收到数据"})
+            return self.handle_delivery_entry_post(request, context)
+        
+        try:
+            container = Container.objects.get(container_number=container_number)
+            invoice = Invoicev2.objects.get(id=invoice_id)
+        except Container.DoesNotExist:
+            context.update({"error_messages": f"柜号 {container_number} 不存在"})
+            return self.handle_delivery_entry_post(request, context)
+        except Invoicev2.DoesNotExist:
+            context.update({"error_messages": f"账单ID {invoice_id} 不存在"})
+            return self.handle_delivery_entry_post(request, context)
+        
+        context = self.batch_save_delivery_item(container, invoice, combina_items, item_category)
+        # 构造新的 GET 查询参数
+        get_params = QueryDict(mutable=True)
+        get_params["container_number"] = container_number
+        get_params["delivery_type"] = "public"
+        get_params["invoice_id"] = invoice_id
+
+        request.GET = get_params
+        return self.handle_container_delivery_post(request,context)
+      
+    def handle_public_save_all_post(self, request: HttpRequest):
+        print(request.POST)
+        
+        return self.handle_save_all_post(request)
+    
+    def handle_save_all_post(self, request: HttpRequest):
+        """处理保存所有账单记录的操作"""
         context = {}
         container_number = request.POST.getlist("container_number")[0]
         invoice_id = request.POST.getlist("invoice_id")[0]
@@ -264,9 +350,6 @@ class ReceivableAccounting(View):
             context.update({"error_messages": f"数据格式错误: {str(e)}"})
             return self.handle_delivery_entry_post(request, context)
         
-        success_count = 0
-        error_messages = []
-        
         try:
             container = Container.objects.get(container_number=container_number)
             invoice = Invoicev2.objects.get(id=invoice_id)
@@ -277,8 +360,32 @@ class ReceivableAccounting(View):
             context.update({"error_messages": f"账单ID {invoice_id} 不存在"})
             return self.handle_delivery_entry_post(request, context)
         
+        context = self.batch_save_delivery_item(container, invoice, items_data, item_category)
+
+        container_delivery_type = getattr(container, 'delivery_type', 'mixed')
+
+        status_obj = InvoiceStatusv2.objects.get(
+                invoice=invoice,
+                invoice_type='receivable'
+            )
+        # 根据柜子类型自动更新另一边的状态
+        if delivery_type == "public" and container_delivery_type == "public":
+            status_obj.delivery_other_status = "completed"
+
+        elif delivery_type == "other" and container_delivery_type == "other":
+            status_obj.delivery_public_status = "completed"
+            
+        status_obj.save()
+        return self.handle_delivery_entry_post(request, context)
+    
+    def batch_save_delivery_item(self, container, invoice, items_data, item_category):
+        context = {}
+        success_count = 0
+        error_messages = []
+    
         # 遍历每条数据
         for item_data in items_data:
+            row_index = item_data.get("rowIndex")
             try:
                 # 提取数据
                 delivery_category = item_data.get("delivery_category", "")
@@ -288,7 +395,7 @@ class ReceivableAccounting(View):
                 #暂扣的不记录
                 if delivery_category == "hold":
                     continue
-                row_index = item_data.get("rowIndex")
+                
                 item_id = item_data.get("item_id")
                 po_id = item_data.get("po_id", "")
                 destination = item_data.get("destination", "")
@@ -297,7 +404,7 @@ class ReceivableAccounting(View):
                 pallets = item_data.get("pallets")
                 surcharges = item_data.get("surcharges")
                 amount = item_data.get("amount")
-                note = item_data.get("note", "")
+                description = item_data.get("description", "")
                 
                 if not po_id:
                     error_messages.append(f"第{row_index + 1}行: PO号不能为空")
@@ -344,7 +451,7 @@ class ReceivableAccounting(View):
                 item.qty = pallets_float
                 item.surcharges = surcharges_float
                 item.amount = amount_float
-                item.description = note
+                item.description = description
                 item.warehouse_code = destination
                 
                 # 保存
@@ -358,101 +465,45 @@ class ReceivableAccounting(View):
         # 准备返回消息
         success_messages = []
         if success_count > 0:
-            success_messages.append(f"{container_number}成功保存 {success_count} 条记录")
+            success_messages.append(f"{container.container_number}成功保存 {success_count} 条记录")
         
         # 更新上下文
         if success_messages:
             context.update({"success_messages": success_messages})
         if error_messages:
             context.update({"error_messages": error_messages})
+        return context
 
-        container_delivery_type = getattr(container, 'delivery_type', 'mixed')
-
-        status_obj = InvoiceStatusv2.objects.get(
-                invoice=invoice,
-                invoice_type='receivable'
-            )
-        # 根据柜子类型自动更新另一边的状态
-        if delivery_type == "public" and container_delivery_type == "public":
-            status_obj.delivery_other_status = "completed"
-
-        elif delivery_type == "other" and container_delivery_type == "other":
-            status_obj.delivery_public_status = "completed"
-            
-        status_obj.save()
-        return self.handle_delivery_entry_post(request, context)
-    
     def handle_save_single_post(self, request: HttpRequest):
-        """处理解扣操作"""
+        """处理单条派送账单保存操作"""
         context = {}
         container_number = request.POST.get("container_number")
         invoice_id = request.POST.get("invoice_id")
-        item_id = request.POST.get("item_id")
-        po_id = request.POST.get("po_id")
-        delivery_category = request.POST.get("delivery_category")
+
         delivery_type = request.POST.get("delivery_type")
         if delivery_type == "other":
             item_category = "delivery_other"
         else:
             item_category = "delivery_public"
 
-        rate = request.POST.get("rate") or None
-        pallets = request.POST.get("pallets") or None
-        surcharges = request.POST.get("surcharges") or None
-        amount = request.POST.get("amount") or None
-        note = request.POST.get("note") or ""
-        destination = request.POST.get("destination") or ""
-        
-        note = request.POST.get("note") or ""
-
-        # 转类型
-        def to_float(val):
-            try:
-                return float(val)
-            except:
-                return None
-
-        rate = to_float(rate)
-        pallets = to_float(pallets)
-        surcharges = to_float(surcharges)
-        amount = to_float(amount)
-
-        # 外键对象
         container = Container.objects.get(container_number=container_number)
         invoice = Invoicev2.objects.get(id=invoice_id)
 
-        if item_id:
-            # 更新
-            try:
-                item = InvoiceItemv2.objects.get(id=item_id)
-            except InvoiceItemv2.DoesNotExist:
-                success_messages = f"未查询到invoice_item的id为 {item_id}的记录"
-                context.update({"error_messages":success_messages})
-                return self.handle_container_delivery_post(request,context)
-        else:
-            # 新建
-            item = InvoiceItemv2(
-                container_number=container,
-                invoice_number=invoice,
-                invoice_type="receivable",
-                item_category=item_category,
-                PO_ID=po_id,
-            )
-           
-        item.delivery_type = delivery_category
-        item.invoice_number = invoice
-        item.container_number = container
-        item.PO_ID = po_id
-
-        item.rate = rate
-        item.qty = pallets
-        item.surcharges = surcharges
-        item.amount = amount
-        item.description = note
-        item.warehouse_code = destination
-
-        # 保存
-        item.save()
+        item_data = [{
+            "item_id": request.POST.get("item_id"),
+            "container": container,
+            "invoice": invoice,
+            "po_id": request.POST.get("po_id"),
+            "destination": request.POST.get("destination"),
+            "delivery_category": request.POST.get("delivery_category"),
+            "rate": request.POST.get("rate"),
+            "pallets": request.POST.get("pallets"),
+            "surcharges": request.POST.get("surcharges"),
+            "amount": request.POST.get("amount"),
+            "note": request.POST.get("note"),
+        }]
+        
+        context = self.batch_save_delivery_item(container, invoice, item_data, item_category)
 
         # 构造新的 GET 查询参数
         get_params = QueryDict(mutable=True)
@@ -1391,6 +1442,39 @@ class ReceivableAccounting(View):
         
         return context
 
+    def _determine_is_combina(self, order):
+        is_combina = False
+        if order.container_number.manually_order_type == "转运组合":
+            is_combina = True
+        elif order.container_number.manually_order_type == "转运":
+            is_combina = False
+        else:
+            # 未定义，直接去判断
+            if self._is_combina(order.container_number.container_number):
+                is_combina = True
+        return is_combina
+
+    def _merge_combina_info(self, info1: dict, info2: dict) -> dict:
+        """合并两个 combina_info（两个都可能为空）"""
+        if not info1:
+            return info2 or {}
+        if not info2:
+            return info1 or {}
+
+        # 可能存在 key 缺失，安全取值
+        base1 = float(info1.get("base_fee", 0) or 0)
+        base2 = float(info2.get("base_fee", 0) or 0)
+        cbm1 = float(info1.get("total_cbm", 0) or 0)
+        cbm2 = float(info2.get("total_cbm", 0) or 0)
+        reg1 = int(info1.get("region_count", 0) or 0)
+        reg2 = int(info2.get("region_count", 0) or 0)
+
+        return {
+            "base_fee": round(base1 + base2, 2),
+            "total_cbm": round(cbm1 + cbm2, 2),
+            "region_count": reg1 + reg2,
+        }
+    
     def handle_container_delivery_post(self, request:HttpRequest, context: dict| None = None) -> Dict[str, Any]:
         if not context:
             context = {}
@@ -1426,48 +1510,53 @@ class ReceivableAccounting(View):
             invoice, invoice_status = self._create_invoice_and_status(container_number)
 
         # 获取板子数据
-        pallet_groups, other_pallet_groups, context = self._get_pallet_groups_by_po(container_number, delivery_type)
-        if context.get('error_messages'):
-            return template, context
- 
-        # 获取已录入的账单项
-        existing_items = self._get_existing_invoice_items(
-            invoice, "delivery_" + delivery_type
-        )
-        # 检查是否所有PO都已录入
-        all_po_ids = {group["PO_ID"] for group in pallet_groups if group.get("PO_ID")}
-        existing_po_ids = set(existing_items.keys())
-        
-        #查看是不是组合柜
+        pallet_groups, other_pallet_groups, ctx = self._get_pallet_groups_by_po(container_number, delivery_type, invoice)
+        if ctx.get('error_messages'):
+            return template, ctx
+
+        # 查看是不是组合柜
         is_combina = False
         if delivery_type == "public":
-            is_combina = False
-            if order.container_number.manually_order_type == "转运组合":
-                is_combina = True
-            elif order.container_number.manually_order_type == "转运":
-                is_combina = False
-            else:
-                # 未定义，直接去判断
-                if self._is_combina(order.container_number.container_number):
-                    is_combina = True
+            is_combina = self._determine_is_combina(order)
+            
+        # 获取已录入的账单项
+        existing_items = self._get_existing_invoice_items(invoice, "delivery_" + delivery_type)
 
         # 如果所有PO都已录入，直接返回已有数据
-        if all_po_ids and all_po_ids.issubset(existing_po_ids):
-            billing_result = self._separate_existing_items(existing_items, pallet_groups)
+        if existing_items:
+            result_existing = self._separate_existing_items(existing_items, pallet_groups)
+            unbilled_groups = [g for g in pallet_groups if g.get("PO_ID") not in existing_items]
         else:
+            result_existing = {
+                "normal_items": [],
+                "combina_groups": [],
+                "combina_info": {}
+            }
+            unbilled_groups = pallet_groups
+
+        if unbilled_groups:
             # 有未录入的PO，需要进一步处理
-            billing_result = self._process_unbilled_items(
-                pallet_groups=pallet_groups,
-                existing_items=existing_items,
+            result_new = self._process_unbilled_items(
+                pallet_groups=unbilled_groups,
                 container=order.container_number,
                 order=order,
                 delivery_type=delivery_type,
                 invoice=invoice,
                 is_combina=is_combina
             )
-            if isinstance(billing_result, dict) and billing_result.get('error_messages'):
-                return template, billing_result
+            if isinstance(result_new, dict) and result_new.get('error_messages'):
+                return template, result_new
             
+            final_result = {
+                "normal_items": result_existing["normal_items"] + result_new["normal_items"],
+                "combina_groups": result_existing["combina_groups"] + result_new["combina_groups"],
+                "combina_info": self._merge_combina_info(result_existing["combina_info"],
+                                                        result_new["combina_info"])
+            }
+            
+        else:
+            final_result = result_existing
+        print('final_result',final_result['normal_items'])
         # 构建上下文
         context.update({
             "container_number": container_number,
@@ -1477,17 +1566,17 @@ class ReceivableAccounting(View):
             "customer_name": order.customer_name.zem_name if order.customer_name else "",
             "manually_order_type": order.container_number.manually_order_type,
             # 分组数据
-            "combina_items": billing_result.get("combina_items", []),
-            "normal_items": billing_result.get("normal_items", []),
-            "combina_info": billing_result.get("combina_info", {}),
-            "combina_groups": billing_result.get("combina_groups", []),
+            "normal_items": final_result.get("normal_items", []),
+            "combina_info": final_result.get("combina_info", {}),
+            "combina_groups": final_result.get("combina_groups", []),
             "invoice_id": invoice.id,
             "is_combina": is_combina,
             "invoice_number": invoice.invoice_number,
             "delivery_method_options": DELIVERY_METHOD_OPTIONS,
             "other_pallet_groups": other_pallet_groups,
         })
-        print('combina_groups',context['combina_groups'])
+
+        
         if delivery_type == "public":
             return template, context
         else:
@@ -1495,12 +1584,10 @@ class ReceivableAccounting(View):
     
     def _separate_existing_items(self, existing_items, pallet_groups):
         """将已有数据按组合柜和非组合柜分开"""
-        result = {
-            "combina_items": [],
-            "normal_items": [],
-            "combina_groups": [],
-            "combina_info": {}
-        }
+        combina_items = []
+        normal_items = []
+        combina_groups = []
+        combina_info = {}
         
         # 按区域分组组合柜数据
         combina_items_by_region = {}
@@ -1513,15 +1600,13 @@ class ReceivableAccounting(View):
                 
                 # 根据类型分类
                 if existing_item.delivery_type == 'combine':
-                    result["combina_items"].append(item_data)
+                    combina_items.append(item_data)
                     
                     # 按区域分组
                     region = item_data.get("combina_region", "未知")
-                    if region not in combina_items_by_region:
-                        combina_items_by_region[region] = []
-                    combina_items_by_region[region].append(item_data)
+                    combina_items_by_region.setdefault(region, []).append(item_data)
                 else:
-                    result["normal_items"].append(item_data)
+                    normal_items.append(item_data)
         
         # 构建组合柜分组数据
         for region, items in combina_items_by_region.items():
@@ -1529,7 +1614,7 @@ class ReceivableAccounting(View):
                 price = items[0].get("combina_price", 0)
                 total_cbm = sum(item.get("total_cbm", 0) for item in items)
                 
-                result["combina_groups"].append({
+                combina_groups.append({
                     "region": region,
                     "price": price,
                     "total_cbm": round(total_cbm, 2),
@@ -1538,22 +1623,25 @@ class ReceivableAccounting(View):
                 })
         
         # 计算组合柜总信息
-        if result["combina_items"]:
-            total_base_fee = sum(item.get("amount", 0) for item in result["combina_items"])
-            total_cbm = sum(item.get("total_cbm", 0) for item in result["combina_items"])
+        if combina_items:
+            total_base_fee = sum(item.get("amount", 0) for item in combina_items)
+            total_cbm = sum(item.get("total_cbm", 0) for item in combina_items)
             
-            result["combina_info"] = {
+            combina_info = {
                 "base_fee": round(total_base_fee, 2),
                 "total_cbm": round(total_cbm, 2),
-                "region_count": len(result["combina_groups"])
+                "region_count": len(combina_groups)
             }
         
-        return result
+        return {
+            "normal_items": normal_items,
+            "combina_groups": combina_groups,
+            "combina_info": combina_info
+        }
 
     def _process_unbilled_items(
         self,
         pallet_groups: List[Dict],
-        existing_items: Dict[str, Any],
         container,
         order,
         delivery_type: str,
@@ -1562,38 +1650,23 @@ class ReceivableAccounting(View):
     ) -> List[Dict[str, Any]]:
         """处理未录入费用的PO组"""
         result = {
-            "combina_items": [],  # 组合柜数据（按区域分组）
-            "normal_items": [],   # 非组合柜数据（普通表格）
-            "combina_groups": [],   # 按区域分组的组合柜数据
-            "combina_info": {}    # 组合柜总信息
+            "normal_items": [],
+            "combina_items": [], 
+            "combina_items": [],
+            "combina_groups": [],
+            "combina_info": {},
         }
         # 按区域分组组合柜数据
         combina_items_by_region = {}
-
-        # 先处理已有记录的PO
-        for po_id, existing_item in existing_items.items():
-            # 找到对应的pallet组
-            pallet_group = next((g for g in pallet_groups if g.get("PO_ID") == po_id), None)
-            if pallet_group:
-                item_data = self._create_item_from_existing(existing_item, pallet_group)
-                if existing_item['delivery_category'] == 'combine' or existing_item['is_combina_item']:
-                    result["combina_items"].append(item_data)
-                    #按区域分组
-                    region = item_data.get("combina_region", "未知")
-                    if region not in combina_items_by_region:
-                        combina_items_by_region[region] = []
-                    combina_items_by_region[region].append(item_data)
-                else:
-                    result["normal_items"].append(item_data)
-        
-        # 获取已经处理过的PO ID（包括已有记录和组合柜记录）
-        processed_po_ids = set(existing_items.keys())  # 先添加已有记录的PO
-        pallet_groups = [g for g in pallet_groups if g.get("PO_ID") not in processed_po_ids]
+        fee_details = {}
+        quotation_info = None
 
         if delivery_type == "public":
             # 获取报价表，私仓不用找报价表
-            quotations = self._get_fee_details(order, order.retrieval_id.retrieval_destination_area, 
-                                          order.customer_name.zem_name)
+            quotations = self._get_fee_details(order, order.retrieval_id.retrieval_destination_area,order.customer_name.zem_name)
+            if isinstance(quotations, dict) and quotations.get("error_messages"):
+                return {"error_messages": quotations["error_messages"]}
+            
             fee_details = quotations['fees']
             quotation_info = quotations['quotation']
             if is_combina:
@@ -1603,32 +1676,29 @@ class ReceivableAccounting(View):
                     order=order,
                     fee_details=fee_details
                 )
-                
                 if isinstance(combina_result, dict) and combina_result.get('error_messages'):
                     return combina_result
                 
                 # 合并组合柜数据
-                new_combina_items = combina_result.get("items", [])
-                result["combina_items"].extend(new_combina_items)
-                result["combina_info"] = combina_result.get("info", {})
-                
-                # 将新的组合柜数据按区域分组
-                for item in new_combina_items:
-                    region = item.get("combina_region", "未知")
-                    if region not in combina_items_by_region:
-                        combina_items_by_region[region] = []
-                    combina_items_by_region[region].append(item)
-                
-                # 从待处理的pallet_groups中移除已处理的组合柜记录
-                combina_po_ids = {item.get("PO_ID") for item in new_combina_items}
-                processed_po_ids.update(combina_po_ids)
+                new_items = combina_result.get("items", [])
+                processed_po_ids = set(combina_result.get("processed_po_ids", []))
+                result["combina_items"].extend(new_items)
 
-        pallet_groups = [g for g in pallet_groups if g.get("PO_ID") not in processed_po_ids]
+                for item in new_items:
+                    if item.get("PO_ID") in processed_po_ids:
+                        region = item.get("combina_region", "未知")
+                        if region not in combina_items_by_region:
+                            combina_items_by_region[region] = []
+                        combina_items_by_region[region].append(item)
+
+                result["combina_info"] = combina_result.get("info", {})           
+                # 从待处理的pallet_groups中移除已处理的组合柜记录
+                pallet_groups = [g for g in pallet_groups if g.get("PO_ID") not in processed_po_ids]
+
 
         # 处理未录入的PO
         if pallet_groups:
             for group in pallet_groups:
-                po_id = group.get("PO_ID")
                 destination = group.get("destination", "")
                 location = group.get("location")
                 
@@ -1640,7 +1710,6 @@ class ReceivableAccounting(View):
                         order=order,
                         destination=destination,
                         location=location,
-                        is_combina=is_combina,
                         fee_details=fee_details
                     )
                     
@@ -1651,34 +1720,28 @@ class ReceivableAccounting(View):
                         invoice=invoice
                     )
 
-                if item_data:
-                    if item_data.get('error_messages'):
-                        extra_msg = f"（报价表：{quotation_info.filename}，版本：{quotation_info.version}）"
-                        item_data["error_messages"] = f"{item_data['error_messages']} {extra_msg}"
+                if isinstance(item_data, dict) and item_data.get("error_messages"):
+                    if quotation_info:
+                        extra = f"（报价表：{quotation_info.filename} v{quotation_info.version}）"
+                        item_data["error_messages"] += extra
                         return item_data
-                    else:
-                        # 如果是组合柜项目，添加到对应的分组
-                        if item_data.get('delivery_category') == 'combine' or item_data.get('is_combina_item'):
-                            result["combina_items"].append(item_data)
-                            region = item_data.get("combina_region", "未知")
-                            if region not in combina_items_by_region:
-                                combina_items_by_region[region] = []
-                            combina_items_by_region[region].append(item_data)
-                        else:
-                            result["normal_items"].append(item_data)
+                if not item_data:
+                    continue
+                # 如果是组合柜项目，添加到对应的分组
+                result["normal_items"].append(item_data)
+
+        #建组合柜分组           
         for region, items in combina_items_by_region.items():
-            if items:
-                # 使用第一个item的价格作为该区域的价格
-                price = items[0].get("combina_price", 0) if items else 0
-                total_cbm = sum(item.get("total_cbm", 0) for item in items)
-                
-                result["combina_groups"].append({
-                    "region": region,
-                    "price": price,
-                    "total_cbm": round(total_cbm, 2),
-                    "destinations": list(set(item.get("destination", "") for item in items if item.get("destination"))),
-                    "items": items
-                })
+            price = items[0].get("combina_price", 0)
+            total_cbm = sum(item.get("total_cbm", 0) for item in items)
+
+            result["combina_groups"].append({
+                "region": region,
+                "price": price,
+                "total_cbm": round(total_cbm, 2),
+                "destinations": list({item.get("destination") for item in items}),
+                "items": items,
+            })
         
         # 计算组合柜总信息（如果还没有计算过）
         if not result["combina_info"] and result["combina_items"]:
@@ -1698,7 +1761,7 @@ class ReceivableAccounting(View):
         container,
         order,
         fee_details
-    ) -> tuple[List[Dict], List[Dict]]:
+    ) -> Dict:
         """处理组合柜区域的计费逻辑返回: (更新后的billing_items, 已处理的pallet_groups)"""
         warehouse = order.retrieval_id.retrieval_destination_area
         container_type_temp = 0 if "40" in container.container_type else 1
@@ -1732,11 +1795,8 @@ class ReceivableAccounting(View):
                     break
             
             if is_combina_region:
-                print('是组合柜',destination)
                 combina_pallet_groups.append(group)
                 processed_po_ids.add(po_id)
-            else:
-                print('不是组合柜',destination)
         
         # 如果没有组合区域，直接返回原数据和空列表，都按转运算
         if not combina_pallet_groups:
@@ -1804,6 +1864,7 @@ class ReceivableAccounting(View):
         # 6. 构建组合柜项目数据（按区域分组）
         combina_items = []
         region_groups = []
+        
         for region, region_data in combina_regions_data.items():
             region_items = []
             region_price = region_data["price"]
@@ -1871,7 +1932,8 @@ class ReceivableAccounting(View):
                 "total_cbm": round(total_combina_cbm, 2),
                 "total_pallets": total_combina_pallets,
                 "region_count": len(combina_regions_data)
-            }
+            },
+            "processed_po_ids": list(processed_po_ids)
         }
 
     def _process_private_unbilled(
@@ -1927,7 +1989,6 @@ class ReceivableAccounting(View):
         order,
         destination,
         location,
-        is_combina,
         fee_details,
     ) -> Dict[str, Any]:
         """处理公仓未录入的PO"""
@@ -1935,8 +1996,6 @@ class ReceivableAccounting(View):
         po_id = group.get("PO_ID")
         delivery_method = group.get("delivery_method", "")
         warehouse = order.retrieval_id.retrieval_destination_area
-        #柜型
-        container_type_temp = 0 if "40" in container.container_type else 1 
 
         # 获取结果，如果为空则设置为0.0
         total_cbm = group.get("total_cbm")
@@ -1951,81 +2010,54 @@ class ReceivableAccounting(View):
             total_pallets = group.get("total_pallets")     
             need_manual_input = True      
         else:      
-            rate_found = False
-            # 使用统一的组合柜判断
-            if is_combina:
-                delivery_category = "combine"
-                #用组合柜方式计算费用,按建单的仓库
-                combina_key = f"{warehouse}_COMBINA"
-                if combina_key not in fee_details:
-                    
-                    context.update({'error_messages':'未找到组合柜报价表,报价表是'})
-                    return context
-                
-                rules = fee_details.get(f"{warehouse}_COMBINA").details
-                for region, region_data in rules.items():
-                    for item in region_data:
-                        if destination in item["location"]:
-                            rate = item["prices"][container_type_temp]
-                            total_pallets = group.get("total_pallets")
-                            amount = rate * total_pallets
-                            rate_found = True
-                            break
-                    if rate_found:
-                        break
-                if not rate_found:
-                    need_manual_input = True
-                    rate = 0
-                    amount = 0
-                    total_pallets = group.get("total_pallets")     
+            if "准时达" in order.customer_name.zem_name:
+                #准时达根据板子实际仓库找报价表，其他用户是根据建单
+                warehouse = location.split('-')[0]
 
-
+            #用转运方式计算费用
+            public_key = f"{warehouse}_PUBLIC"
+            if public_key not in fee_details:
+                context.update({'error_messages':'未找到亚马逊沃尔玛报价表'})
+                return context
+            rules = fee_details.get(f"{warehouse}_PUBLIC").details
+            niche_warehouse = fee_details.get(f"{warehouse}_PUBLIC").niche_warehouse
+            if destination in niche_warehouse:
+                is_niche_warehouse = True
             else:
-                if "准时达" in order.customer_name.zem_name:
-                    #准时达根据板子实际仓库找报价表，其他用户是根据建单
-                    warehouse = location.split('-')[0]
-
-                #用转运方式计算费用
-                public_key = f"{warehouse}_PUBLIC"
-                if public_key not in fee_details:
-                    context.update({'error_messages':'未找到亚马逊沃尔玛报价表'})
-                    return context
-                rules = fee_details.get(f"{warehouse}_PUBLIC").details
-                niche_warehouse = fee_details.get(f"{warehouse}_PUBLIC").niche_warehouse
-                if destination in niche_warehouse:
-                    is_niche_warehouse = True
-                else:
-                    is_niche_warehouse = False
-                #LA和其他的存储格式有点区别
-                details = (
-                    {"LA_AMAZON": rules}
-                    if "LA" in warehouse and "LA_AMAZON" not in rules
-                    else rules
-                )
-                delivery_category = None
-                for category, zones in details.items():
-                    for zone, locations in zones.items():
-                        if destination in locations:
-                            if "AMAZON" in category:
-                                delivery_category = "amazon"
-                                rate = zone
-                                rate_found = True
-                            elif "WALMART" in category:
-                                delivery_category = "walmart"
-                                rate = zone
-                                rate_found = True
-                    if rate_found:
-                        break
-                if not rate_found:
-                    need_manual_input = True
-                    rate = 0
-                    amount = 0
-                    total_pallets = group.get("total_pallets")   
-                else:            
-                    total_pallets = self._calculate_total_pallet(
-                        total_cbm, True, is_niche_warehouse
-                    )               
-                    amount = rate * total_pallets
+                is_niche_warehouse = False
+            #LA和其他的存储格式有点区别
+            details = (
+                {"LA_AMAZON": rules}
+                if "LA" in warehouse and "LA_AMAZON" not in rules
+                else rules
+            )
+            delivery_category = None
+            rate_found = False
+            for category, zones in details.items():
+                for zone, locations in zones.items():
+                    if destination in locations:
+                        if "AMAZON" in category:
+                            delivery_category = "amazon"
+                            rate = zone
+                            rate_found = True
+                        elif "WALMART" in category:
+                            delivery_category = "walmart"
+                            rate = zone
+                            rate_found = True
+                if rate_found:
+                    break
+            if not rate_found:
+                need_manual_input = True
+                rate = 0
+                amount = 0
+                total_pallets = group.get("total_pallets")   
+            else:            
+                total_pallets = self._calculate_total_pallet(
+                    total_cbm, True, is_niche_warehouse
+                )               
+                rate = float(rate) if rate else 0.0
+                total_pallets = float(total_pallets) if total_pallets else 0.0
+                amount = rate * total_pallets
 
         # 返回数据（不创建InvoiceItemv2记录）
         return {
@@ -2045,7 +2077,7 @@ class ReceivableAccounting(View):
             "note": "",
             "amount": amount,
             "is_existing": False,
-            "need_manual_input": need_manual_input,  # 新增：是否需要手动录入
+            "need_manual_input": need_manual_input,  
         }
     
     def _calculate_total_pallet(
@@ -2150,7 +2182,7 @@ class ReceivableAccounting(View):
             }
         }
         
-    def _get_pallet_groups_by_po(self, container_number: str, delivery_type: str) -> list:
+    def _get_pallet_groups_by_po(self, container_number: str, delivery_type: str, invoice: Invoicev2) -> list:
         """获取托盘数据"""
         context = {}
         error_messages = []
@@ -2162,22 +2194,25 @@ class ReceivableAccounting(View):
         ).exclude(
             PO_ID=""
         )
+
         other_query = Pallet.objects.filter(
             container_number__container_number=container_number
         ).exclude(
-            delivery_type=delivery_type               # ← 只反转这个
+            delivery_type=delivery_type          
         ).exclude(
             PO_ID__isnull=True
         ).exclude(
             PO_ID=""
         )
+
         # 按PO_ID分组统计
         pallet_groups = list(
             base_query.values(
                 "PO_ID",
                 "destination",
                 "zipcode",
-                "delivery_method"
+                "delivery_method",
+                "location"
             ).annotate(
                 total_pallets=models.Count("pallet_id"),
                 total_cbm=models.Sum("cbm"),
@@ -2186,12 +2221,14 @@ class ReceivableAccounting(View):
                 shipping_marks=StringAgg("shipping_mark", delimiter=", ", distinct=True),
             ).order_by("PO_ID")
         )
+
         other_pallet_groups = list(
             other_query.values(
                 "PO_ID",
                 "destination",
                 "zipcode",
-                "delivery_method"
+                "delivery_method",
+                "location"
             ).annotate(
                 total_pallets=models.Count("pallet_id"),
                 total_cbm=models.Sum("cbm"),
@@ -2230,6 +2267,30 @@ class ReceivableAccounting(View):
                 group['total_weight_lbs'] = 0.0
                 destination = group.get("destination")
                 error_messages.append(f"缺少PO_ID，目的地是 {destination}")
+        
+        if other_pallet_groups:
+            item_category = "delivery_other" if delivery_type == "public" else "delivery_public"
+            container = Container.objects.get(container_number=container_number)
+            # 1. 获取所有需要检查的 PO_ID
+            po_ids = [group["PO_ID"] for group in other_pallet_groups]
+            
+            # 2. 查询 InvoiceItemv2 中相关的记录
+            # 根据你的筛选条件构建查询
+            invoice_items = InvoiceItemv2.objects.filter(
+                container_number=container,  
+                invoice_number=invoice,
+                invoice_type="receivable",
+                item_category=item_category,
+                PO_ID__in=po_ids
+            ).values(
+                'id',  # 添加 id 字段
+                'PO_ID'
+            )
+            po_to_item_id = {item['PO_ID']: item['id'] for item in invoice_items}
+            
+            for group in other_pallet_groups:
+                group['item_id'] = po_to_item_id.get(group["PO_ID"], None)
+
         if error_messages:
             context['error_messages'] = error_messages
         return pallet_groups, other_pallet_groups, context

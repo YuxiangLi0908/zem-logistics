@@ -152,45 +152,10 @@
         background: rgba(0, 0, 0, 0.1);
     }
 
-    /* 主要内容区域 */
     .main-content {
         padding: 0;
     }
 
-    /* 操作工具栏 */
-    .toolbar {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 18px 30px;
-        border-bottom: 1px solid var(--border-color);
-        background: white;
-    }
-
-    .toolbar-title {
-        font-size: 1.1rem;
-        font-weight: 500;
-        color: var(--text-primary);
-        display: flex;
-        align-items: center;
-        gap: 12px;
-    }
-
-    .toolbar-title .count {
-        background: var(--primary-light);
-        color: white;
-        padding: 4px 12px;
-        border-radius: 20px;
-        font-size: 0.9rem;
-        font-weight: 500;
-    }
-
-    .toolbar-actions {
-        display: flex;
-        gap: 10px;
-    }
-
-    /* 按钮样式 */
     .btn {
         padding: 9px 20px;
         border-radius: 6px;
@@ -675,7 +640,6 @@
         color: white;
     }
 
-    /* 下拉框样式 */
     .green-select {
         padding: 12px;
         border-radius: 6px;
@@ -684,7 +648,6 @@
         width: 100%;
     }
 
-    /* tooltip（与你第二段完全一致） */
     .filter-info-tooltip {
         position: relative;
         display: inline-block;
@@ -731,6 +694,57 @@
         z-index: 1000;
         pointer-events: none;
         box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    }
+    .section-header {
+        background: linear-gradient(135deg, #f8f9fa 0%, #f5f7fa 100%);
+        padding: 20px 30px;
+        border-radius: 8px 8px 0 0;
+        border: 1px solid var(--border-color);
+        border-bottom: none;
+        margin-top: 30px;
+    }
+    
+    .section-header h3 {
+        margin: 0;
+        color: #424242;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    .transfer-section .section-header {
+        background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
+        border-color: #c8e6c9;
+    }
+    
+    .transfer-section .section-header h3 {
+        color: #2e7d32;
+    }
+    .other-section .section-header {
+        background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%);
+        border-color: #ffe0b2;
+    }
+    
+    .other-section .section-header h3 {
+        color: #ef6c00;
+    }
+    .btn-convert {
+        background: #9c27b0;
+        color: white;
+        border: none;
+        padding: 6px 12px;
+        border-radius: 4px;
+        font-size: 0.85rem;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        transition: all 0.2s ease;
+    }
+    
+    .btn-convert:hover {
+        background: #7b1fa2;
+        transform: translateY(-1px);
     }
     /* 响应式调整 */
     @media (max-width: 1400px) {
@@ -790,237 +804,300 @@
             {% csrf_token %}
             <input type="hidden" name="container_number" value="{{ container_number }}">
             <input type="hidden" name="invoice_id" value="{{ invoice_id }}">        
-            <!-- 工具栏 -->
-            <div class="toolbar">
-                <div class="toolbar-left">
-                    <div class="toolbar-title">
-                        <i class="fas fa-list-ul"></i>
-                        费用录入明细
-                        <span class="count">{{ normal_items|length }} 项</span>
-                    </div>
-                </div>
-                <div class="toolbar-actions">
-                    <button type="button" class="btn" onclick="window.history.back()">
-                        <i class="fas fa-arrow-left"></i>
-                        返回
-                    </button>
-                </div>
-            </div>
 
             <!-- 高级表格 -->
-            <div class="table-container">
-                <table class="advanced-table">
-                    <thead>
-                        <tr>
-                            <th>唛头</th>
-                            <th>目的地</th>
-                            <th>CBM</th>
-                            <th>重量(lbs)</th>
-                            <th>派送类型</th>
-                            <th>板数</th>
-                            <th>单价(USD)</th>
-                            <th>附加费(USD)</th>
-                            <th>金额(USD)</th>
-                            <th>备注</th>
-                            <th>PO_ID</th>
-                            <th>状态</th>
-                            <th>操作</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for item in normal_items %}                  
-                        <tr data-row="{{ forloop.counter0 }}" data-item-id="{{ item.id|default:'' }}" data-po="{{ item.PO_ID|default:'' }}" data-is-hold="{% if item.delivery_category == 'hold' %}true{% else %}false{% endif %}">                      
-                            <!-- 唛头 -->
-                            <td class="cell-mark">
-                                <div class="mark-text" title="{{ item.shipping_marks|default:'' }}">
-                                    {{ item.shipping_marks|default:"-" }}
-                                </div>
-                            </td>
-                            
-                            <!-- 目的地 -->
-                            <td class="cell-destination">
-                                {{ item.destination|default:"-" }}
-                            </td>
-                            
-                            <!-- CBM -->
-                            <td class="cell-stats">
-                                <div class="stat-value">{{ item.total_cbm|floatformat:2|default:"0.00" }}</div>
-                            </td>
-                            
-                            <!-- 重量 -->
-                            <td class="cell-stats">
-                                <div class="stat-value">{{ item.total_weight_lbs|floatformat:2|default:"0.00" }}</div>
-                            </td>
-                            
-                            <!-- 派送类型 -->
-                            <td>
-                                <div class="select-wrapper">
-                                    <select name="delivery_category_{{ forloop.counter0 }}" 
-                                            class="select-control delivery-type-select"
-                                            data-row="{{ forloop.counter0 }}"
-                                            form="row-form-{{ forloop.counter0 }}"
-                                            {% if item.delivery_category == "hold" %}disabled{% else %}required{% endif %}>
-                                        <option value="">请选择</option>
-                                        <option value="selfpickup" {% if item.delivery_category == "selfpickup" %}selected{% endif %}>客户自提</option>
-                                        <option value="selfdelivery" {% if item.delivery_category == "selfdelivery" %}selected{% endif %}>自发派送</option>
-                                        <option value="hold" {% if item.delivery_category == "hold" %}selected{% endif %}>暂扣留仓</option>
-                                    </select>
-                                </div>
-                            </td>
-                            
-                            <!-- 板数 -->
-                            <td>
-                                <input type="number" 
-                                    name="pallets_{{ forloop.counter0 }}" 
-                                    class="input-control input-pallets"
-                                    value="{{ item.total_pallets|default:0 }}"
-                                    min="0"
-                                    step="0.5"
-                                    data-row="{{ forloop.counter0 }}"
-                                    form="row-form-{{ forloop.counter0 }}"
-                                    placeholder="0"
-                                    {% if item.delivery_category == "hold" %}disabled{% endif %}>
-                            </td>
-                            
-                            <!-- 单价 -->
-                            <td>
-                                <input type="number" 
-                                    name="rate_{{ forloop.counter0 }}" 
-                                    class="input-control input-rate"
-                                    value="{{ item.rate|default:'' }}"
-                                    step="0.01" 
-                                    min="0"
-                                    data-row="{{ forloop.counter0 }}"
-                                    form="row-form-{{ forloop.counter0 }}"
-                                    placeholder="0.00"
-                                    {% if item.delivery_category == "hold" %}disabled{% endif %}>
-                            </td>
-                            
-                            <!-- 附加费 -->
-                            <td>
-                                <input type="number" 
-                                    name="surcharges_{{ forloop.counter0 }}"
-                                    class="input-control input-surcharge"
-                                    value="{{ item.surcharges|default:0 }}"
-                                    step="0.01" 
-                                    min="0"
-                                    data-row="{{ forloop.counter0 }}"
-                                    form="row-form-{{ forloop.counter0 }}"
-                                    placeholder="0.00"
-                                    {% if item.delivery_category == "hold" %}disabled{% endif %}>
-                            </td>
-                            
-                            <!-- 金额 -->
-                            <td>
-                                <input type="number" 
-                                    name="amount_{{ forloop.counter0 }}" 
-                                    class="input-control input-amount amount-input"
-                                    value="{{ item.amount|default:'' }}"
-                                    step="0.01" 
-                                    min="0"
-                                    data-row="{{ forloop.counter0 }}"
-                                    form="row-form-{{ forloop.counter0 }}"
-                                    placeholder="0.00"
-                                    readonly>
-                            </td>
-                            
-                            <!-- 备注 -->
-                            <td>
-                                <input type="text" 
-                                    name="note_{{ forloop.counter0 }}" 
-                                    class="input-control input-note"
-                                    value="{{ item.note|default:'' }}"
-                                    form="row-form-{{ forloop.counter0 }}"
-                                    placeholder="备注"
-                                    {% if item.delivery_category == "hold" %}disabled{% endif %}>
-                            </td>
-                            
-                            <!-- PO号 -->
-                            <td class="cell-po">
-                                {{ item.PO_ID|default:"-" }}
-                            </td>
-                            
-                            <!-- 状态 -->
-                            <td class="cell-status">
-                                {% if item.delivery_category == "hold" %}
-                                <span class="status-indicator status-hold">                                   
-                                    暂扣
-                                </span>
-                                {% elif not item.is_existing %}
-                                <span class="status-indicator">                                   
-                                    未录
-                                </span>
-                                {% else %}
-                                <span class="status-indicator existing">                                   
-                                    已录
-                                </span>
-                                {% endif %}
-                            </td>
-                            
-                            <!-- 操作列（新增） -->
-                            <td class="cell-action">
-                                {% if item.delivery_category == "hold" %}
-                                <!-- 解扣按钮 -->
-                                <button type="button" class="action-btn btn-release"
-                                        onclick="releaseHoldItem('{{ container_number }}', '{{ item.PO_ID|default:'' }}', '{{ item.pallet_ids|join:','|default:'' }}', '{{ forloop.counter0 }}')">
-                                    <i class="fas fa-unlock"></i>
-                                    解扣
-                                </button>
-                                {% else %}
-                                <!-- 保存按钮 -->
-                                <button type="button" class="action-btn btn-save-row"
-                                        onclick="saveSingleRow({{ forloop.counter0 }}, '{{ item.id|default:'' }}')"
-                                        {% if not item.delivery_category %}disabled{% endif %}>
-                                    <i class="fas fa-save"></i>
-                                    保存
-                                </button>
-                                {% endif %}
-                            </td>
-                        </tr>
-                        <form method="post" id="delivery-billing-form">
-                            {% csrf_token %}
-                            <input type="hidden" name="step" value="save_all_items" id="step-input">
-                            <input type="hidden" name="container_number" value="{{ container_number }}">
-                            <input type="hidden" name="delivery_type" value="other">
-                            <input type="hidden" name="invoice_id" value="{{ invoice_id }}">
-                            
-                            <!-- 在表格后面添加隐藏字段用于存储所有行数据 -->
-                            <input type="hidden" name="items_data" id="items-data">
-                        </form>
-                        {% empty %}
-                        <tr>
-                            <td colspan="13" style="text-align: center; padding: 60px 20px; color: var(--text-secondary);">
-                                <i class="fas fa-clipboard-list" style="font-size: 3rem; margin-bottom: 20px; color: #e0e0e0;"></i>
-                                <p>暂无账单数据</p>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-            <!-- 总计区域 -->
-            <div class="total-section">
-                <div class="total-row">
-                    <div class="total-item">
-                        <div class="total-label">总金额 (USD)</div>
-                        <div class="total-value" id="total-amount">0.00</div>
+            <div class="transfer-section">
+                <div class="section-header">
+                    <div class="section-header-content" style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                        <h3 style="margin: 0;">
+                            <i class="fas fa-truck me-2"></i>费用明细
+                            <span class="section-count" style="margin-left: 10px; font-size: 0.9rem; color: #666;">
+                                共 {{ normal_items|length }} 条记录
+                            </span>
+                        </h3>
+                        <button type="button" class="btn" onclick="window.history.back()" style="margin: 0;">
+                            <i class="fas fa-arrow-left"></i>
+                            返回
+                        </button>
                     </div>
                 </div>
-            </div>
-            <!-- 表单操作按钮 -->
-            <div class="form-actions">
-                <div class="form-buttons">
-                    <button type="submit" name="step" value="save_all" class="btn btn-success">
-                        <i class="fas fa-save"></i>
-                        保存账单
-                    </button>
-                    {% if can_finish %}
-                    <button type="submit" name="step" value="finish" class="btn btn-primary">
-                        <i class="fas fa-check-double"></i>
-                        完成账单
-                    </button>
-                    {% endif %}
+                <div class="table-container">
+                    <table class="advanced-table">
+                        <thead>
+                            <tr>
+                                <th>唛头</th>
+                                <th>目的地</th>
+                                <th>CBM</th>
+                                <th>重量(lbs)</th>
+                                <th>派送类型</th>
+                                <th>板数</th>
+                                <th>单价(USD)</th>
+                                <th>附加费(USD)</th>
+                                <th>金额(USD)</th>
+                                <th>备注</th>
+                                <th>PO_ID</th>
+                                <th>状态</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in normal_items %}                  
+                            <tr data-row="{{ forloop.counter0 }}" data-item-id="{{ item.id|default:'' }}" data-po="{{ item.PO_ID|default:'' }}" data-is-hold="{% if item.delivery_category == 'hold' %}true{% else %}false{% endif %}">                      
+                                <!-- 唛头 -->
+                                <td class="cell-mark">
+                                    <div class="mark-text" title="{{ item.shipping_marks|default:'' }}">
+                                        {{ item.shipping_marks|default:"-" }}
+                                    </div>
+                                </td>
+                                
+                                <!-- 目的地 -->
+                                <td class="cell-destination">
+                                    {{ item.destination|default:"-" }}
+                                </td>
+                                
+                                <!-- CBM -->
+                                <td class="cell-stats">
+                                    <div class="stat-value">{{ item.total_cbm|floatformat:2|default:"0.00" }}</div>
+                                </td>
+                                
+                                <!-- 重量 -->
+                                <td class="cell-stats">
+                                    <div class="stat-value">{{ item.total_weight_lbs|floatformat:2|default:"0.00" }}</div>
+                                </td>
+                                
+                                <!-- 派送类型 -->
+                                <td>
+                                    <div class="select-wrapper">
+                                        <select name="delivery_category_{{ forloop.counter0 }}" 
+                                                class="select-control delivery-type-select"
+                                                data-row="{{ forloop.counter0 }}"
+                                                form="row-form-{{ forloop.counter0 }}"
+                                                {% if item.delivery_category == "hold" %}disabled{% else %}required{% endif %}>
+                                            <option value="">请选择</option>
+                                            <option value="selfpickup" {% if item.delivery_category == "selfpickup" %}selected{% endif %}>客户自提</option>
+                                            <option value="selfdelivery" {% if item.delivery_category == "selfdelivery" %}selected{% endif %}>自发派送</option>
+                                            <option value="hold" {% if item.delivery_category == "hold" %}selected{% endif %}>暂扣留仓</option>
+                                        </select>
+                                    </div>
+                                </td>
+                                
+                                <!-- 板数 -->
+                                <td>
+                                    <input type="number" 
+                                        name="pallets_{{ forloop.counter0 }}" 
+                                        class="input-control input-pallets"
+                                        value="{{ item.total_pallets|default:0 }}"
+                                        min="0"
+                                        step="0.5"
+                                        data-row="{{ forloop.counter0 }}"
+                                        form="row-form-{{ forloop.counter0 }}"
+                                        placeholder="0"
+                                        {% if item.delivery_category == "hold" %}disabled{% endif %}>
+                                </td>
+                                
+                                <!-- 单价 -->
+                                <td>
+                                    <input type="number" 
+                                        name="rate_{{ forloop.counter0 }}" 
+                                        class="input-control input-rate"
+                                        value="{{ item.rate|default:'' }}"
+                                        step="0.01" 
+                                        min="0"
+                                        data-row="{{ forloop.counter0 }}"
+                                        form="row-form-{{ forloop.counter0 }}"
+                                        placeholder="0.00"
+                                        {% if item.delivery_category == "hold" %}disabled{% endif %}>
+                                </td>
+                                
+                                <!-- 附加费 -->
+                                <td>
+                                    <input type="number" 
+                                        name="surcharges_{{ forloop.counter0 }}"
+                                        class="input-control input-surcharge"
+                                        value="{{ item.surcharges|default:0 }}"
+                                        step="0.01" 
+                                        min="0"
+                                        data-row="{{ forloop.counter0 }}"
+                                        form="row-form-{{ forloop.counter0 }}"
+                                        placeholder="0.00"
+                                        {% if item.delivery_category == "hold" %}disabled{% endif %}>
+                                </td>
+                                
+                                <!-- 金额 -->
+                                <td>
+                                    <input type="number" 
+                                        name="amount_{{ forloop.counter0 }}" 
+                                        class="input-control input-amount amount-input"
+                                        value="{{ item.amount|default:'' }}"
+                                        step="0.01" 
+                                        min="0"
+                                        data-row="{{ forloop.counter0 }}"
+                                        form="row-form-{{ forloop.counter0 }}"
+                                        placeholder="0.00"
+                                        readonly>
+                                </td>
+                                
+                                <!-- 备注 -->
+                                <td>
+                                    <input type="text" 
+                                        name="note_{{ forloop.counter0 }}" 
+                                        class="input-control input-note"
+                                        value="{{ item.description|default:'' }}"
+                                        form="row-form-{{ forloop.counter0 }}"
+                                        placeholder="备注"
+                                        {% if item.delivery_category == "hold" %}disabled{% endif %}>
+                                </td>
+                                
+                                <!-- PO号 -->
+                                <td class="cell-po">
+                                    {{ item.PO_ID|default:"-" }}
+                                </td>
+                                
+                                <!-- 状态 -->
+                                <td class="cell-status">
+                                    {% if item.delivery_category == "hold" %}
+                                    <span class="status-indicator status-hold">                                   
+                                        暂扣
+                                    </span>
+                                    {% elif not item.is_existing %}
+                                    <span class="status-indicator">                                   
+                                        未录
+                                    </span>
+                                    {% else %}
+                                    <span class="status-indicator existing">                                   
+                                        已录
+                                    </span>
+                                    {% endif %}
+                                </td>
+                                
+                                <!-- 操作列（新增） -->
+                                <td class="cell-action">
+                                    {% if item.delivery_category == "hold" %}
+                                    <!-- 解扣按钮 -->
+                                    <button type="button" class="action-btn btn-release"
+                                            onclick="releaseHoldItem('{{ container_number }}', '{{ item.PO_ID|default:'' }}', '{{ item.pallet_ids|join:','|default:'' }}', '{{ forloop.counter0 }}')">
+                                        <i class="fas fa-unlock"></i>
+                                        解扣
+                                    </button>
+                                    {% else %}
+                                    <!-- 保存按钮 -->
+                                    <button type="button" class="action-btn btn-save-row"
+                                            onclick="saveSingleRow({{ forloop.counter0 }}, '{{ item.id|default:'' }}')"
+                                            {% if not item.delivery_category %}disabled{% endif %}>
+                                        <i class="fas fa-save"></i>
+                                        保存
+                                    </button>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            <form method="post" id="delivery-billing-form">
+                                {% csrf_token %}
+                                <input type="hidden" name="step" value="save_all_items" id="step-input">
+                                <input type="hidden" name="container_number" value="{{ container_number }}">
+                                <input type="hidden" name="delivery_type" value="other">
+                                <input type="hidden" name="invoice_id" value="{{ invoice_id }}">
+                                
+                                <!-- 在表格后面添加隐藏字段用于存储所有行数据 -->
+                                <input type="hidden" name="items_data" id="items-data">
+                            </form>
+                            {% empty %}
+                            <tr>
+                                <td colspan="13" style="text-align: center; padding: 60px 20px; color: var(--text-secondary);">
+                                    <i class="fas fa-clipboard-list" style="font-size: 3rem; margin-bottom: 20px; color: #e0e0e0;"></i>
+                                    <p>暂无账单数据</p>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
                 </div>
+                <!-- 总计区域 -->
+                <div class="total-section">
+                    <div class="total-row">
+                        <div class="total-item">
+                            <div class="total-label">总金额 (USD)</div>
+                            <div class="total-value" id="total-amount">0.00</div>
+                        </div>
+                    </div>
+                </div>
+                <!-- 表单操作按钮 -->
+                <div class="form-actions">
+                    <div class="form-buttons">
+                        <button type="submit" name="step" value="save_all" class="btn btn-success">
+                            <i class="fas fa-save"></i>
+                            保存账单
+                        </button>
+                        {% if can_finish %}
+                        <button type="submit" name="step" value="finish" class="btn btn-primary">
+                            <i class="fas fa-check-double"></i>
+                            完成账单
+                        </button>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- ================ 其他类型PO区域 ================ -->
+                {% if other_pallet_groups %}
+                <div class="other-section">
+                    <div class="section-header">                        
+                        <h3 style="margin: 0;">
+                            <i class="fas fa-exchange-alt me-2"></i>公仓组PO
+                            <span class="section-count" style="margin-left: 10px; font-size: 0.9rem; color: #666;">
+                                共 {{ other_pallet_groups|length }} 条记录
+                            </span>
+                        </h3>                       
+                    </div>
+                    
+                    
+                    <div class="table-container">
+                        <table class="advanced-table other-table">
+                            <thead>
+                                <tr>
+                                    <th>目的地</th>
+                                    <th>派送方式</th>
+                                    <th>CBM</th>
+                                    <th>重量(lbs)</th>                               
+                                    <th>板数</th>
+                                    <th>PO_ID</th>
+                                    <th>状态</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for group in other_pallet_groups %}
+                                <tr data-other-po="{{ group.PO_ID }}" data-other-delivery-type="{{ group.delivery_type }}">
+                                    
+                                    <td class="cell-destination">{{ group.destination|default:"-" }}</td>
+                                    <td>{{ group.delivery_method|default:"-" }}</td>
+                                    <td>{{ group.total_cbm|floatformat:2|default:"0.00" }}</td>
+                                    <td>{{ group.total_weight_lbs|floatformat:2|default:"0.00" }}</td>                               
+                                    <td>{{ group.total_pallets|default:0 }}</td>
+                                    <td class="cell-po">{{ group.PO_ID|default:"-" }}</td>
+                                    <td class="cell-po">
+                                        {% if group.item_id %}
+                                        <span class="status-indicator status-hold">                                   
+                                            已录
+                                        </span>
+                                        {% else %}
+                                        <span class="status-indicator existing">                                   
+                                            未录
+                                        </span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="cell-action">
+                                        <!-- 转换类型按钮 -->
+                                        <button type="button" class="btn-convert"
+                                                onclick="convertToCurrentType('{{ group.PO_ID }}', '{{ group.item_id }}','{{ group.delivery_type }}')">
+                                            <i class="fas fa-sync-alt"></i>转类型
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                {% endif %}
             </div>
         </form>
     </main>
@@ -1100,6 +1177,16 @@
     <input type="hidden" name="surcharges" id="single-surcharges" value="">
     <input type="hidden" name="amount" id="single-amount" value="">
     <input type="hidden" name="note" id="single-note" value="">
+</form>
+<!-- 转换类型的form -->
+<form method="post" id="convert-form" style="display: none;">
+    {% csrf_token %}
+    <input type="hidden" name="step" value="convert_type">
+    <input type="hidden" name="container_number" value="{{ container_number }}">
+    <input type="hidden" name="invoice_id" value="{{ invoice_id }}">
+    <input type="hidden" name="to_delivery_type" value="other">
+    <input type="hidden" name="po_id" id="convert-po-id" value="">
+    <input type="hidden" name="item_id" id="convert-item-id" value="">
 </form>
 {% include 'receivable_accounting/modals/message_modal.html' %}
 <!-- Toast容器 -->
@@ -1351,15 +1438,21 @@ $(document).ready(function() {
         }
     }
 });
-function releaseHoldItem(containerNumber, poId, palletIds, rowIndex) {
-    // 填充模态框数据
-    $('#release-container-number').val(containerNumber);
-    $('#release-po-id').val(poId);
-    $('#release-pallet-ids').val(palletIds);
-    
-    // 显示模态框
-    const modal = new bootstrap.Modal(document.getElementById('releaseModal'));
-    modal.show();
-}
+    function releaseHoldItem(containerNumber, poId, palletIds, rowIndex) {
+        // 填充模态框数据
+        $('#release-container-number').val(containerNumber);
+        $('#release-po-id').val(poId);
+        $('#release-pallet-ids').val(palletIds);
+        
+        // 显示模态框
+        const modal = new bootstrap.Modal(document.getElementById('releaseModal'));
+        modal.show();
+    }
+    // ================ 转换类型 ================
+    function convertToCurrentType(poId, item_id, fromDeliveryType) {
+        $('#convert-po-id').val(poId);
+        $('#convert-item-id').val(item_id);
+        $('#convert-form').submit();
+    }
 </script>
 {% endblock %} 

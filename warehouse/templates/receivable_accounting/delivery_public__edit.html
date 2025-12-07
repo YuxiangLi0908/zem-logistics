@@ -236,7 +236,7 @@
 
     /* 高级表格样式 */
     .table-container {
-        padding: 0 30px 30px;
+        padding: 0;
     }
 
     .advanced-table {
@@ -322,10 +322,6 @@
     .cell-destination {
         min-width: 140px;
         font-weight: 500;
-    }
-
-    .cell-stats {
-        text-align: center;
     }
 
     .stat-value {
@@ -432,11 +428,6 @@
         width: 120px;
     }
 
-    .cell-po {
-        text-align: center;
-        color: #666;
-        font-size: 0.85rem;
-    }
 
     /* 状态指示器 */
     .cell-status {
@@ -592,7 +583,7 @@
 
     /* 总计区域 */
     .total-section {
-        margin: 20px 30px 0;
+        margin: 0;
         padding: 20px;
         background: linear-gradient(135deg, #f8f9fa 0%, #f5f7fa 100%);
         border-radius: 8px;
@@ -772,7 +763,6 @@
         font-size: 1.1rem;
     }
 
-    /* 组合柜表格样式 */
     .combina-table {
         border-top: none;
         border-top-left-radius: 0;
@@ -791,7 +781,23 @@
         background-color: #e3f2fd !important;
     }
 
-    /* 区域单元格样式 */
+    .highlight-select {
+        border: 2px solid #ff9800 !important;
+        background-color: #fff8e1 !important;
+        box-shadow: 0 0 0 0.2rem rgba(255, 152, 0, 0.25) !important;
+    }
+
+    .row-no-type {
+        background-color: #fffaf0 !important;
+    }
+
+    .row-no-type:hover {
+        background-color: #fff8e1 !important;
+    }
+
+    .select-wrapper.warning::after {
+        color: #ff9800 !important;
+    }
     .cell-region {
         background: #e8f5e9 !important;
         font-weight: 600;
@@ -861,6 +867,78 @@
         color: #1976d2;
         font-weight: 500;
     }
+
+    .section-header {
+        background: linear-gradient(135deg, #f8f9fa 0%, #f5f7fa 100%);
+        padding: 20px 30px;
+        border-radius: 8px 8px 0 0;
+        border: 1px solid var(--border-color);
+        border-bottom: none;
+        margin-top: 30px;
+    }
+    
+    .section-header h3 {
+        margin: 0;
+        color: #424242;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    
+    .section-count {
+        color: #757575;
+        font-size: 0.9rem;
+        margin-top: 8px;
+    }
+    
+    .combina-section .section-header {
+        background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+        border-color: #bbdefb;
+    }
+    
+    .combina-section .section-header h3 {
+        color: #1565c0;
+    }
+    
+    .transfer-section .section-header {
+        background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
+        border-color: #c8e6c9;
+    }
+    
+    .transfer-section .section-header h3 {
+        color: #2e7d32;
+    }
+    
+    .other-section .section-header {
+        background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%);
+        border-color: #ffe0b2;
+    }
+    
+    .other-section .section-header h3 {
+        color: #ef6c00;
+    }
+    
+    /* 转换类型按钮样式 */
+    .btn-convert {
+        background: #9c27b0;
+        color: white;
+        border: none;
+        padding: 6px 12px;
+        border-radius: 4px;
+        font-size: 0.85rem;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        transition: all 0.2s ease;
+    }
+    
+    .btn-convert:hover {
+        background: #7b1fa2;
+        transform: translateY(-1px);
+    }
+
     /* 响应式调整 */
     @media (max-width: 1400px) {
         .table-container {
@@ -869,7 +947,13 @@
         }
         
         .advanced-table {
-            min-width: 1300px;
+            width: 100%;
+        border-collapse: collapse;
+        font-size: 0.9rem;
+        background: white;
+        border: 1px solid var(--border-color);
+        border-radius: 0 0 8px 8px;  /* 只有底部圆角 */
+        overflow: hidden;
         }
         
         .info-bar {
@@ -897,7 +981,7 @@
         <div class="header-main">
             <div class="header-title">
                 <div>
-                    <h1>私仓派送账单录入</h1>
+                    <h1>公仓派送账单录入</h1>
                     <div class="header-subtitle">柜号：{{ container_number }}</div>
                 </div>
             </div>
@@ -927,219 +1011,314 @@
             {% csrf_token %}
             <input type="hidden" name="container_number" value="{{ container_number }}">
             <input type="hidden" name="invoice_id" value="{{ invoice_id }}">
+            <input type="hidden" name="step" value="save_all_items">
             
-            <!-- 工具栏 -->
-            <div class="toolbar">
-                <div class="toolbar-left">
-                    <div class="toolbar-title">
-                        <i class="fas fa-list-ul"></i>
-                        费用录入明细
-                        <span class="count">{{ combina_items|length|add:normal_items|length }} 项</span>
-                    </div>
-                </div>
-                <div class="toolbar-actions">
-                    <button type="button" class="btn" onclick="window.history.back()">
-                        <i class="fas fa-arrow-left"></i>
-                        返回
-                    </button>
-                </div>
-            </div>
-
-            <!-- 组合柜区域（如果有） -->
-            {% if combina_items %}
-            <div class="table-container">
-                <div class="combina-header">
-                    <h3><i class="fas fa-boxes me-2"></i>组合柜区域</h3>
-                    <div class="combina-summary">
-                        <div class="summary-item">
-                            <span class="label">总费用：</span>
-                            <span class="value">${{ combina_info.base_fee|default:0|floatformat:2 }}</span>
-                        </div>
-                        <div class="summary-item">
-                            <span class="label">总CBM：</span>
-                            <span class="value">{{ combina_info.total_cbm|default:0|floatformat:2 }}</span>
-                        </div>
-                        <div class="summary-item">
-                            <span class="label">区域数：</span>
-                            <span class="value">{{ combina_groups|length }}</span>
-                        </div>
+            <!-- ================ 组合柜计费区域 ================ -->
+            {% if is_combina and combina_groups %}
+            <div class="combina-section">
+                <div class="section-header">
+                    <h3><i class="fas fa-boxes me-2"></i>组合柜计费</h3>
+                    <div class="section-count">
+                        共 {{ combina_groups|length }} 个区域，总费用：${{ combina_info.base_fee|default:0|floatformat:2 }}，总CBM：{{ combina_info.total_cbm|default:0|floatformat:2 }}
                     </div>
                 </div>
                 
-                <table class="advanced-table combina-table">
-                    <thead>
-                        <tr>
-                            <th>区域</th>
-                            <th>单价</th>
-                            <th>目的地</th>
-                            <th>CBM</th>
-                            <th>重量(lbs)</th>
-                            <th>PO_ID</th>
-                            <th>派送方式</th>
-                            <th>板数</th>
-                            <th>金额(USD)</th>
-                            <th>备注</th>
-                            <th>状态</th>
-                            <th>操作</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for group in combina_groups %}
-                        {% with region_rowspan=group.items|length %}
-                        {% for item in group.items %}
-                        <tr data-row="{{ forloop.counter0 }}" data-item-id="{{ item.id|default:'' }}" 
-                            data-po="{{ item.PO_ID|default:'' }}" data-is-hold="false"
-                            class="row-combina">
-                            
-                            <!-- 区域（合并行） -->
-                            {% if forloop.first %}
-                            <td rowspan="{{ region_rowspan }}" class="cell-region">
-                                <div class="region-name">{{ group.region }}</div>
-                                <div class="region-cbm">{{ group.total_cbm|floatformat:2 }} CBM</div>
-                            </td>
-                            {% endif %}
-                            
-                            <!-- 单价（合并行） -->
-                            {% if forloop.first %}
-                            <td rowspan="{{ region_rowspan }}" class="cell-price">
-                                <div class="price-value">${{ group.price|floatformat:2 }}</div>
-                            </td>
-                            {% endif %}
-                            
-                            <!-- 目的地 -->
-                            <td class="cell-destination">
-                                {{ item.destination|default:"-" }}
-                            </td>
-                            
-                            <!-- CBM -->
-                            <td class="cell-stats">
-                                <div class="stat-value">
-                                    {{ item.total_cbm|floatformat:2|default:"0.00" }}
-                                    {% if item.cbm_ratio %}
-                                    <div class="text-muted small">{{ item.cbm_ratio|multiply:100|floatformat:1 }}%</div>
-                                    {% endif %}
-                                </div>
-                            </td>
-                            
-                            <!-- 重量 -->
-                            <td class="cell-stats">
-                                <div class="stat-value">{{ item.total_weight_lbs|floatformat:2|default:"0.00" }}</div>
-                            </td>
-                            
-                            <!-- PO_ID -->
-                            <td class="cell-po">
-                                {{ item.PO_ID|default:"-" }}
-                            </td>
-                            
-                            <!-- 派送方式（只读） -->
-                            <td>
-                                <div class="select-wrapper">
-                                    <select name="delivery_category_combina_{{ forloop.parentloop.counter0 }}_{{ forloop.counter0 }}" 
-                                            class="select-control" disabled>
-                                        <option value="combine" selected>组合柜</option>
-                                    </select>
-                                </div>
-                            </td>
-                            
-                            <!-- 板数（只读） -->
-                            <td>
-                                <input type="number" 
-                                    name="pallets_combina_{{ forloop.parentloop.counter0 }}_{{ forloop.counter0 }}" 
-                                    class="input-control input-pallets"
-                                    value="{{ item.total_pallets|default:0 }}"
-                                    readonly>
-                            </td>
-                            
-                            <!-- 金额（只读） -->
-                            <td>
-                                <input type="number" 
-                                    name="amount_combina_{{ forloop.parentloop.counter0 }}_{{ forloop.counter0 }}" 
-                                    class="input-control input-amount"
-                                    value="{{ item.amount|default:'' }}"
-                                    readonly>
-                            </td>
-                            
-                            <!-- 备注（可编辑） -->
-                            <td>
-                                <input type="text" 
-                                    name="note_combina_{{ forloop.parentloop.counter0 }}_{{ forloop.counter0 }}" 
-                                    class="input-control input-note"
-                                    value="{{ item.note|default:'' }}"
-                                    placeholder="备注">
-                            </td>
-                            
-                            <!-- 状态 -->
-                            <td class="cell-status">
-                                {% if item.is_existing %}
-                                <span class="status-indicator existing">
-                                    <i class="fas fa-check-circle icon"></i>
-                                    已录
-                                </span>
-                                {% else %}
-                                <span class="status-indicator">
-                                    <i class="fas fa-clock icon"></i>
-                                    未录
-                                </span>
+                <div class="table-container">
+                    <table class="advanced-table combina-table">
+                        <!-- 组合柜表格内容保持不变 -->
+                        <thead>
+                            <tr>
+                                <th>区域</th>
+                                <th>单价</th>
+                                <th>目的地</th>
+                                <th>CBM</th>
+                                <th>重量(lbs)</th>
+                                <th>PO_ID</th>
+                                <th>派送方式</th>
+                                <th>板数</th>
+                                <th>金额(USD)</th>
+                                <th>备注</th>
+                                <th>状态</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for group in combina_groups %}
+                            {% with region_rowspan=group.items|length %}
+                            {% for item in group.items %}
+                            <tr data-row="{{ forloop.parentloop.counter0 }}_{{ forloop.counter0 }}" 
+                                data-item-id="{{ item.id|default:'' }}" 
+                                data-po="{{ item.PO_ID|default:'' }}" 
+                                data-is-hold="false"
+                                class="row-combina">
+                                
+                                <!-- 区域（合并行） -->
+                                {% if forloop.first %}
+                                <td rowspan="{{ region_rowspan }}" class="cell-region">
+                                    <div class="region-name">{{ group.region }}</div>
+                                    <div class="region-cbm">{{ group.total_cbm|floatformat:2 }} CBM</div>
+                                </td>
                                 {% endif %}
-                            </td>
-                            
-                            <!-- 操作列 -->
-                            <td class="cell-action">
-                                <button type="button" class="action-btn btn-save-row"
-                                        onclick="saveCombinaSingleRow('{{ forloop.parentloop.counter0 }}', '{{ forloop.counter0 }}', '{{ item.id|default:'' }}')">
-                                    <i class="fas fa-save"></i>
-                                    保存
-                                </button>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                        {% endwith %}
-                        {% endfor %}
-                    </tbody>
-                </table>
+                                
+                                <!-- 单价（合并行） -->
+                                {% if forloop.first %}
+                                <td rowspan="{{ region_rowspan }}" class="cell-price">
+                                    <div class="price-value">${{ group.price|floatformat:2 }}</div>
+                                </td>
+                                {% endif %}
+                                
+                                <!-- 目的地 -->
+                                <td class="cell-destination">{{ item.destination|default:"-" }}</td>
+                                
+                                <!-- CBM -->
+                                <td class="cell-stats">
+                                    <div class="stat-value">
+                                        {{ item.total_cbm|floatformat:2|default:"0.00" }}
+                                        {% if item.cbm_ratio %}
+                                        <div class="text-muted small">{{ item.cbm_ratio|multiply:100|floatformat:1 }}%</div>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                                
+                                <!-- 重量 -->
+                                <td class="cell-stats">
+                                    <div class="stat-value">{{ item.total_weight_lbs|floatformat:2|default:"0.00" }}</div>
+                                </td>
+                                
+                                <!-- PO_ID -->
+                                <td class="cell-po">{{ item.PO_ID|default:"-" }}</td>
+                                
+                                <!-- 派送方式（只读） -->
+                                <td>
+                                    <div class="select-wrapper">
+                                        <select name="delivery_category_combina_{{ forloop.parentloop.counter0 }}_{{ forloop.counter0 }}" 
+                                                class="select-control" disabled>
+                                            <option value="combine" selected>组合柜</option>
+                                        </select>
+                                    </div>
+                                </td>
+                                
+                                <!-- 板数（只读） -->
+                                <td>
+                                    <input type="number" 
+                                        name="pallets_combina_{{ forloop.parentloop.counter0 }}_{{ forloop.counter0 }}" 
+                                        class="input-control input-pallets"
+                                        value="{{ item.total_pallets|default:0 }}"
+                                        readonly>
+                                </td>
+                                
+                                <!-- 金额（只读） -->
+                                <td>
+                                    <input type="number" 
+                                        name="amount_combina_{{ forloop.parentloop.counter0 }}_{{ forloop.counter0 }}" 
+                                        class="input-control input-amount combina-amount-input"
+                                        value="{{ item.amount|default:'' }}"
+                                        readonly>
+                                </td>
+                                
+                                <!-- 备注（可编辑） -->
+                                <td>
+                                    <input type="text" 
+                                        name="note_combina_{{ forloop.parentloop.counter0 }}_{{ forloop.counter0 }}" 
+                                        class="input-control input-note combina-note-input"
+                                        value="{{ item.description|default:'' }}"
+                                        placeholder="备注"
+                                        {% if item.delivery_category == "hold" %}disabled{% endif %}>
+                                </td>
+                                
+                                <!-- 状态 -->
+                                <td class="cell-status">
+                                    {% if item.is_existing %}
+                                    <span class="status-indicator existing">
+                                        <i class="fas fa-check-circle icon"></i>已录
+                                    </span>
+                                    {% else %}
+                                    <span class="status-indicator">
+                                        <i class="fas fa-clock icon"></i>未录
+                                    </span>
+                                    {% endif %}
+                                </td>
+                                
+                            </tr>
+                            {% endfor %}
+                            {% endwith %}
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    <!-- 组合柜整体保存按钮 -->
+                    <div class="combina-action-bar" style="padding: 15px 30px; text-align: right; background: #f8fdff; border: 1px solid #bbdefb; border-top: none; border-radius: 0 0 8px 8px;">
+                        <button type="button" class="btn btn-success" onclick="saveAllCombina()">
+                            <i class="fas fa-save"></i>保存所有组合柜
+                        </button>
+                    </div>
+                </div>
             </div>
             {% endif %}
 
-            <!-- 非组合柜区域 -->
+            <!-- ================ 转运计费区域 ================ -->
             {% if normal_items %}
-            <div class="table-container">
-                <div class="normal-header">
-                    <h3><i class="fas fa-truck me-2"></i>非组合柜区域</h3>
-                    <div class="normal-count">
+            <div class="transfer-section">
+                <div class="section-header">
+                    <h3><i class="fas fa-truck me-2"></i>转运计费</h3>
+                    <div class="section-count">
                         共 {{ normal_items|length }} 条记录
                     </div>
                 </div>
                 
-                <table class="advanced-table normal-table">
-                    <thead>
-                        <tr>
-                            <th>目的地</th>
-                            <th>CBM</th>
-                            <th>重量(lbs)</th>
-                            <th>派送类型</th>
-                            <th>板数</th>
-                            <th>单价(USD)</th>
-                            <th>附加费(USD)</th>
-                            <th>金额(USD)</th>
-                            <th>备注</th>
-                            <th>PO_ID</th>
-                            <th>状态</th>
-                            <th>操作</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for item in normal_items %}
-                        <tr data-row="{{ forloop.counter0 }}" 
-                            data-item-id="{{ item.id|default:'' }}" 
-                            data-po="{{ item.PO_ID|default:'' }}" 
-                            data-is-hold="{% if item.delivery_category == 'hold' %}true{% else %}false{% endif %}">
-                            <!-- ... 非组合柜表格行，保持您原有的代码不变 ... -->
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+                <div class="table-container">
+                    <table class="advanced-table normal-table">
+                        <thead>
+                            <tr>
+                                <!-- 移除了唛头列 -->
+                                <th>目的地</th>
+                                <th>CBM</th>
+                                <th>重量(lbs)</th>
+                                <th>派送类型</th>
+                                <th>板数</th>
+                                <th>单价(USD)</th>
+                                <th>附加费(USD)</th>
+                                <th>金额(USD)</th>
+                                <th>备注</th>
+                                <th>PO_ID</th>
+                                <th>状态</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in normal_items %}
+                            <tr data-row="{{ forloop.counter0 }}" 
+                                data-item-id="{{ item.id|default:'' }}" 
+                                data-po="{{ item.PO_ID|default:'' }}" 
+                                data-is-hold="{% if item.delivery_category == 'hold' %}true{% else %}false{% endif %}"
+                                data-base-amount="{{ item.amount|floatformat:2 }}"
+                                {% if not item.delivery_category %}class="row-no-type"{% endif %}>
+                                
+                                <!-- 目的地 -->
+                                <td class="cell-destination">{{ item.destination|default:"-" }}</td>
+                                
+                                <!-- CBM -->
+                                <td class="cell-stats">
+                                    <div class="stat-value">{{ item.total_cbm|floatformat:2|default:"0.00" }}</div>
+                                </td>
+                                
+                                <!-- 重量 -->
+                                <td class="cell-stats">
+                                    <div class="stat-value">{{ item.total_weight_lbs|floatformat:2|default:"0.00" }}</div>
+                                </td>
+                                
+                                <!-- 派送类型（空值时高亮） -->
+                                <td>
+                                    <div class="select-wrapper">
+                                        <select name="delivery_category_{{ forloop.counter0 }}" 
+                                                class="select-control delivery-type-select {% if not item.delivery_category %}highlight-select{% endif %}"
+                                                data-row="{{ forloop.counter0 }}">
+                                            <option value="">请选择</option>
+                                            <option value="upsdelivery" {% if item.delivery_category == "upsdelivery" %}selected{% endif %}>UPS</option>
+                                            <option value="walmart" {% if item.delivery_category == "walmart" %}selected{% endif %}>沃尔玛</option>
+                                            <option value="amazon" {% if item.delivery_category == "amazon" %}selected{% endif %}>亚马逊</option>
+                                            <option value="hold" {% if item.delivery_category == "hold" %}selected{% endif %}>暂扣留仓</option>
+                                        </select>
+                                    </div>
+                                </td>
+                                
+                                <!-- 板数 -->
+                                <td>
+                                    <input type="number" 
+                                        name="pallets_{{ forloop.counter0 }}" 
+                                        class="input-control input-pallets"
+                                        value="{{ item.total_pallets|default:0 }}"
+                                        min="0" step="0.5" data-row="{{ forloop.counter0 }}"
+                                        placeholder="0"
+                                        {% if item.delivery_category == "hold" %}disabled{% endif %}>
+                                </td>
+                                
+                                <!-- 单价 -->
+                                <td>
+                                    <input type="number" 
+                                        name="rate_{{ forloop.counter0 }}" 
+                                        class="input-control input-rate"
+                                        value="{{ item.rate|default:'' }}"
+                                        step="0.01" data-row="{{ forloop.counter0 }}"
+                                        placeholder="0.00"
+                                        {% if item.delivery_category == "hold" %}disabled{% endif %}>
+                                </td>
+                                
+                                <!-- 附加费 -->
+                                <td>
+                                    <input type="number" 
+                                        name="surcharges_{{ forloop.counter0 }}"
+                                        class="input-control input-surcharge"
+                                        value="{{ item.surcharges|default:0 }}"
+                                        step="0.01" data-row="{{ forloop.counter0 }}"
+                                        placeholder="0.00"
+                                        {% if item.delivery_category == "hold" %}disabled{% endif %}>
+                                </td>
+                                
+                                <!-- 金额（初始化=原始值，附加费变化时累加） -->
+                                <td>
+                                    <input type="number" 
+                                        name="amount_{{ forloop.counter0 }}" 
+                                        class="input-control input-amount amount-input"
+                                        value="{{ item.amount|default_if_none:'0.00' }}"
+                                        step="0.01" data-row="{{ forloop.counter0 }}"
+                                        placeholder="0.00" readonly>
+                                </td>
+                                
+                                <!-- 备注 -->
+                                <td>
+                                    <input type="text" 
+                                        name="note_{{ forloop.counter0 }}" 
+                                        class="input-control input-note"
+                                        value="{{ item.description|default:'' }}"
+                                        placeholder="备注"
+                                        {% if item.delivery_category == "hold" %}disabled{% endif %}>
+                                </td>
+                                
+                                
+                                <!-- PO号 -->
+                                <td class="cell-po">{{ item.PO_ID|default:"-" }}</td>
+                                
+                                <!-- 状态 -->
+                                <td class="cell-status">
+                                    {% if item.delivery_category == "hold" %}
+                                    <span class="status-indicator status-hold">暂扣</span>
+                                    {% elif not item.is_existing %}
+                                    <span class="status-indicator">未录</span>
+                                    {% else %}
+                                    <span class="status-indicator existing">已录</span>
+                                    {% endif %}
+                                </td>
+                                
+                                <!-- 操作列 -->
+                                <td class="cell-action">
+                                    {% if item.delivery_category == "hold" %}
+                                    <button type="button" class="action-btn btn-release"
+                                            onclick="releaseHoldItem('{{ container_number }}', '{{ item.PO_ID|default:'' }}', '{{ item.pallet_ids|join:','|default:'' }}', '{{ forloop.counter0 }}')">
+                                        <i class="fas fa-unlock"></i>解扣
+                                    </button>
+                                    {% else %}
+                                    <button type="button" class="action-btn btn-save-row"
+                                            onclick="saveSingleRow({{ forloop.counter0 }}, '{{ item.id|default:'' }}')"
+                                            {% if not item.delivery_category %}disabled{% endif %}>
+                                        <i class="fas fa-save"></i>保存
+                                    </button>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="12" style="text-align: center; padding: 60px 20px; color: var(--text-secondary);">
+                                    <i class="fas fa-clipboard-list" style="font-size: 3rem; margin-bottom: 20px; color: #e0e0e0;"></i>
+                                    <p>暂无转运计费数据</p>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
             </div>
             {% endif %}
+
+            
 
             <!-- 总计区域 -->
             <div class="total-section">
@@ -1154,243 +1333,387 @@
             <!-- 表单操作按钮 -->
             <div class="form-actions">
                 <div class="form-buttons">
-                    <button type="submit" name="step" value="save_all" class="btn btn-success">
-                        <i class="fas fa-save"></i>
-                        保存账单
+                    <button id="save-bill-btn" type="submit" class="btn btn-success">
+                        <i class="fas fa-save"></i>保存账单
                     </button>
-                    {% if can_finish %}
-                    <button type="submit" name="step" value="finish" class="btn btn-primary">
-                        <i class="fas fa-check-double"></i>
-                        完成账单
+                    <button type="button" class="btn" onclick="window.history.back()">
+                        <i class="fas fa-arrow-left"></i>返回
                     </button>
-                    {% endif %}
                 </div>
             </div>
+            <!-- ================ 其他类型PO区域 ================ -->
+            {% if other_pallet_groups %}
+            <div class="other-section">
+                <div class="section-header">
+                    <h3 style="margin: 0;">
+                        <i class="fas fa-exchange-alt me-2"></i>私仓组PO
+                        <span class="section-count" style="margin-left: 10px; font-size: 0.9rem; color: #666;">
+                            共 {{ other_pallet_groups|length }} 条记录
+                        </span>
+                    </h3>
+                </div>
+                
+                <div class="table-container">
+                    <table class="advanced-table other-table">
+                        <thead>
+                            <tr>
+                                <th>目的地</th>
+                                <th>派送方式</th>
+                                <th>CBM</th>
+                                <th>重量(lbs)</th>                               
+                                <th>板数</th>
+                                <th>PO_ID</th>
+                                <th>状态</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for group in other_pallet_groups %}
+                            <tr data-other-po="{{ group.PO_ID }}" data-other-delivery-type="{{ group.delivery_type }}">
+                                
+                                <td class="cell-destination">{{ group.destination|default:"-" }}</td>
+                                <td>{{ group.delivery_method|default:"-" }}</td>
+                                <td>{{ group.total_cbm|floatformat:2|default:"0.00" }}</td>
+                                <td>{{ group.total_weight_lbs|floatformat:2|default:"0.00" }}</td>                               
+                                <td>{{ group.total_pallets|default:0 }}</td>
+                                <td class="cell-po">{{ group.PO_ID|default:"-" }}</td>
+                                <td class="cell-po">
+                                    {% if group.item_id %}
+                                    <span class="status-indicator status-hold">                                   
+                                        已录
+                                    </span>
+                                    {% else %}
+                                    <span class="status-indicator existing">                                   
+                                        未录
+                                    </span>
+                                    {% endif %}
+                                </td>
+                                <td class="cell-action">
+                                    <!-- 转换类型按钮 -->
+                                    <button type="button" class="btn-convert"
+                                            onclick="convertToCurrentType('{{ group.PO_ID }}', '{{ group.item_id }}','{{ group.delivery_type }}')">
+                                        <i class="fas fa-sync-alt"></i>转类型
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            {% endif %}
         </form>
     </main>
 </div>
-<!-- 解扣模态框 -->
-<div class="modal fade" id="releaseModal" tabindex="-1" aria-labelledby="releaseModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
 
-            <div class="modal-header green-modal-header">
-                <h5 class="modal-title" id="releaseModalLabel">
-                    <i class="fas fa-unlock me-2"></i> 解除暂扣
-                </h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-            </div>
+<!-- 转换类型的form -->
+<form method="post" id="convert-form" style="display: none;">
+    {% csrf_token %}
+    <input type="hidden" name="step" value="convert_type">
+    <input type="hidden" name="container_number" value="{{ container_number }}">
+    <input type="hidden" name="invoice_id" value="{{ invoice_id }}">
+    <input type="hidden" name="to_delivery_type" value="public">
+    <input type="hidden" name="po_id" id="convert-po-id" value="">
+    <input type="hidden" name="item_id" id="convert-item-id" value="">
+</form>
 
-            <form id="release-form" method="post">
-                {% csrf_token %}
-                <input type="hidden" name="step" value="release_hold">
-                <input type="hidden" id="release-container-number" name="container_number" value="{{ container_number }}">
-                <input type="hidden" id="release-po-id" name="po_id" value="">
-                <input type="hidden" name="invoice_id" value="{{ invoice_id }}">
-                <input type="hidden" name="delivery_type" value="public">
-                <input type="hidden" id="release-pallet-ids" name="pallet_ids" value="">
-                
-                <div class="modal-body">
-
-                    <!-- 派送方式 -->
-                    <div class="mb-4">
-                        <h6 class="mb-3">
-                            选择派送方式：
-                            <span class="filter-info-tooltip"
-                                data-tooltip="解扣后需要指定派送方式\n此项为必填">
-                                <i class="fas fa-question-circle" style="color:#e0e0e0; font-size:0.8em; cursor:help;"></i>
-                            </span>
-                        </h6>
-
-                        <select name="delivery_method" class="green-select" required>
-                            <option value="">请选择派送方式...</option>
-                            {% for value, label in delivery_method_options %}
-                                {% if value %}
-                                    <option value="{{ value }}">{{ label }}</option>
-                                {% endif %}
-                            {% endfor %}
-                        </select>
-                    </div>
-                </div>
-
-                <!-- 按钮区 -->
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-green-outline" data-bs-dismiss="modal">
-                        <i class="fas fa-times"></i> 取消
-                    </button>
-                    <button type="submit" class="btn btn-green">
-                        <i class="fas fa-unlock"></i> 确认解扣
-                    </button>
-                </div>
-
-            </form>
-        </div>
-    </div>
-</div>
+<!-- 单行保存的form（独立form） -->
 <form method="post" id="single-row-form" style="display: none;">
     {% csrf_token %}
     <input type="hidden" name="step" value="save_single">
     <input type="hidden" name="container_number" value="{{ container_number }}">
     <input type="hidden" name="invoice_id" value="{{ invoice_id }}">
+    <input type="hidden" name="delivery_type" value="public">
     <input type="hidden" name="row_index" id="single-row-index" value="">
     <input type="hidden" name="item_id" id="single-item-id" value="">
     <input type="hidden" name="po_id" id="single-po-id" value="">
     <input type="hidden" name="destination" id="single-destination" value="">
     <input type="hidden" name="delivery_category" id="single-delivery-category" value="">
-    <input type="hidden" name="delivery_type" value="public">
     <input type="hidden" name="rate" id="single-rate" value="">
     <input type="hidden" name="pallets" id="single-pallets" value="">
     <input type="hidden" name="surcharges" id="single-surcharges" value="">
     <input type="hidden" name="amount" id="single-amount" value="">
     <input type="hidden" name="note" id="single-note" value="">
 </form>
+
+<!-- 保存所有组合柜的form（独立form） -->
+<form method="post" id="all-combina-form" style="display: none;">
+    {% csrf_token %}
+    <input type="hidden" name="step" value="save_all_combina">
+    <input type="hidden" name="container_number" value="{{ container_number }}">
+    <input type="hidden" name="invoice_id" value="{{ invoice_id }}">
+    <input type="hidden" name="delivery_type" value="public">
+    <input type="hidden" name="combina_items" id="all-combina-items" value="">
+</form>
+
 {% include 'receivable_accounting/modals/message_modal.html' %}
-<!-- Toast容器 -->
 <div id="toast-container" class="toast-container"></div>
+
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
-
 <script>
-$(document).ready(function() {
-    // 计算总金额
-    function calculateTotalAmount() {
-        let total = 0;
-        $('.amount-input').each(function() {
-            const amount = parseFloat($(this).val()) || 0;
-            total += amount;
+
+    $(document).ready(function() {
+        // 计算总金额
+        function calculateTotalAmount() {
+            let total = 0;
+            
+            // 1. 计算组合柜总金额
+            $('.combina-amount-input').each(function() {
+                const amount = parseFloat($(this).val()) || 0;
+                total += amount;
+            });
+            console.log('组合柜总费用', total);
+            
+            // 2. 计算转运计费总金额
+            $('.amount-input').each(function() {
+                const amount = parseFloat($(this).val()) || 0;
+                total += amount;
+            });
+            console.log('+转运总费用', total);
+            
+            $('#total-amount').text(total.toFixed(2));
+            return total;
+        }
+        // 初始化时计算总金额
+        calculateTotalAmount();
+
+        $(document).on('input change', '.input-rate, .input-pallets, .input-surcharge, .delivery-type-select', function() {
+            const $row = $(this).closest('tr');
+            const rowIndex = $row.data('row');
+            if (typeof rowIndex === 'undefined') return;
+            
+            // 重新计算该行金额
+            calculateRowAmount(rowIndex);
+            // 重新计算总金额
+            calculateTotalAmount();
         });
-        $('#total-amount').text(total.toFixed(2));
-        return total;
-    }
+        // 监听从单行保存返回时的金额变化
+        $(document).on('focus', '.amount-input', function() {
+            const $row = $(this).closest('tr');
+            const rowIndex = $row.data('row');
+            if (typeof rowIndex === 'undefined') return;
+            
+            // 记录焦点前的值，用于检测变化
+            $(this).data('previous-value', $(this).val());
+        });
+        
+        $(document).on('blur input', '.amount-input', function() {
+            const $row = $(this).closest('tr');
+            const rowIndex = $row.data('row');
+            if (typeof rowIndex === 'undefined') return;
+            
+            const previousValue = $(this).data('previous-value') || '';
+            const currentValue = $(this).val();
+            
+            // 如果金额发生变化，重新计算总金额
+            if (previousValue !== currentValue) {
+                calculateTotalAmount();
+                $(this).data('previous-value', currentValue);
+            }
+        });
 
-    // 设置输入状态（保持你原来的逻辑）
-    function setupRowInputs(rowIndex, deliveryType, isHold = false) {
-        const $row = $(`tr[data-row="${rowIndex}"]`);
-        const $rateInput = $row.find('.input-rate');
-        const $amountInput = $row.find('.amount-input');
-        const $palletsInput = $row.find('.input-pallets');
-        const $surchargeInput = $row.find('.input-surcharge');
-        const $noteInput = $row.find('.input-note');
-        const $select = $row.find('.delivery-type-select');
-        const $saveBtn = $row.find('.btn-save-row');
-
-        if (isHold) {
-            $rateInput.prop('disabled', true).val('');
-            $amountInput.prop('disabled', true).val('0');
-            $palletsInput.prop('disabled', true);
-            $surchargeInput.prop('disabled', true).val('0');
-            $noteInput.prop('disabled', true);
-            $select.prop('disabled', true);
-            if ($saveBtn.length) $saveBtn.prop('disabled', true);
-        } else if (deliveryType === 'selfdelivery') {
-            $rateInput.prop('disabled', true).val('');
-            $amountInput.prop('readonly', false).prop('disabled', false);
-            $palletsInput.prop('disabled', false);
-            $surchargeInput.prop('disabled', false);
-            $noteInput.prop('disabled', false);
-            $select.prop('disabled', false);
-            if ($saveBtn.length) $saveBtn.prop('disabled', false);
-        } else if (deliveryType === 'selfpickup') {
-            $rateInput.prop('disabled', false);
-            $amountInput.prop('readonly', true).prop('disabled', false);
-            $palletsInput.prop('disabled', false);
-            $surchargeInput.prop('disabled', false);
-            $noteInput.prop('disabled', false);
-            $select.prop('disabled', false);
-            if ($saveBtn.length) $saveBtn.prop('disabled', false);
-        } else if (deliveryType === 'hold') {
-            $rateInput.prop('disabled', true).val('');
-            $amountInput.prop('disabled', true).val('0');
-            $palletsInput.prop('disabled', true);
-            $surchargeInput.prop('disabled', true).val('0');
-            $noteInput.prop('disabled', false);
-            $select.prop('disabled', false);
-            if ($saveBtn.length) $saveBtn.prop('disabled', false);
-        } else {
-            if ($saveBtn.length) $saveBtn.prop('disabled', true);
-        }
-    }
-
-    // 计算单行金额（**保证金额一定包含附加费**）
-    function calculateRowAmount(rowIndex) {
-        const $row = $(`tr[data-row="${rowIndex}"]`);
-        const deliveryType = $row.find('.delivery-type-select').val();
-        const isHold = $row.data('is-hold') === 'true' || deliveryType === 'hold';
-
-        const $rateInput = $row.find('.input-rate');
-        const $palletsInput = $row.find('.input-pallets');
-        const $surchargeInput = $row.find('.input-surcharge');
-        const $amountInput = $row.find('.amount-input');
-
-        if (isHold) {
-            $amountInput.val('0.00');
-            return 0;
+        // 计算单行金额的函数（保持原有逻辑）
+        function calculateRowAmount(rowIndex) {
+            const $row = $(`tr[data-row="${rowIndex}"]`);
+            if (!$row.length) return 0;
+            
+            const deliveryType = $row.find('.delivery-type-select').val();
+            const isHold = $row.data('is-hold') === 'true' || deliveryType === 'hold';
+            const $amountInput = $row.find('.amount-input');
+            
+            if (isHold) {
+                $amountInput.val('0.00');
+                return 0;
+            }
+            
+            // 获取基础金额（来自后端数据）
+            const baseAmount = parseFloat($row.data('base-amount')) || 0;
+            // 获取当前附加费
+            const surcharges = parseFloat($row.find('.input-surcharge').val()) || 0;
+            
+            // 金额 = 基础金额 + 附加费
+            const finalAmount = baseAmount + surcharges;
+            
+            $amountInput.val(finalAmount.toFixed(2));
+            return finalAmount;
         }
 
-        const rate = parseFloat($rateInput.val()) || 0;
-        const pallets = parseFloat($palletsInput.val()) || 0;
-        const surcharges = parseFloat($surchargeInput.val()) || 0;
-
-        let amount = 0;
-        if (deliveryType === 'selfpickup') {
-            amount = (rate * pallets) + surcharges;
-        } else if (deliveryType === 'selfdelivery') {
-            // 自发派送允许用户输入金额主体，但我们要确保附加费也累加进去
-            const userAmount = parseFloat($amountInput.val()) || 0;
-            amount = userAmount + surcharges;
-        } else {
-            // 未选择类型时不自动计算（保持为0）
-            amount = surcharges; // 保证至少包含附加费
+        // 设置行输入状态
+        function setupRowInputs(rowIndex, deliveryType, isHold = false) {
+            const $row = $(`tr[data-row="${rowIndex}"]`);
+            if (!$row.length) return;
+            
+            const $rateInput = $row.find('.input-rate');
+            const $amountInput = $row.find('.amount-input');
+            const $palletsInput = $row.find('.input-pallets');
+            const $surchargeInput = $row.find('.input-surcharge');
+            const $noteInput = $row.find('.input-note');
+            const $select = $row.find('.delivery-type-select');
+            const $saveBtn = $row.find('.btn-save-row');
+            
+            // 根据派送类型设置输入框状态
+            if (isHold || deliveryType === 'hold') {
+                // 暂扣状态
+                $rateInput.prop('disabled', true).val('');
+                $amountInput.prop('disabled', true).val('0');
+                $palletsInput.prop('disabled', true);
+                $surchargeInput.prop('disabled', true).val('0');
+                $noteInput.prop('disabled', true);
+                $select.removeClass('highlight-select');
+                if ($saveBtn.length) $saveBtn.prop('disabled', false);
+            } else if (deliveryType && deliveryType !== 'hold') {
+                // 已选择非hold类型（UPS/沃尔玛/亚马逊）
+                $rateInput.prop('disabled', false);
+                $amountInput.prop('readonly', true).prop('disabled', false);
+                $palletsInput.prop('disabled', false);
+                $surchargeInput.prop('disabled', false);
+                $noteInput.prop('disabled', false);
+                $select.removeClass('highlight-select');
+                if ($saveBtn.length) $saveBtn.prop('disabled', false);
+            } else {
+                // 未选择类型
+                $rateInput.prop('disabled', true);
+                $amountInput.prop('readonly', true).prop('disabled', false);
+                $palletsInput.prop('disabled', true);
+                $surchargeInput.prop('disabled', true);
+                $noteInput.prop('disabled', true);
+                $select.addClass('highlight-select'); // 高亮显示
+                if ($saveBtn.length) $saveBtn.prop('disabled', true);
+            }
         }
 
-        $amountInput.val(amount.toFixed(2));
-        return amount;
-    }
+        // 计算单行金额
+        function calculateRowAmount(rowIndex) {
+            const $row = $(`tr[data-row="${rowIndex}"]`);
+            if (!$row.length) return 0;
 
-    // 事件：派送类型变动
-    $(document).on('change', '.delivery-type-select', function() {
-        const rowIndex = $(this).data('row');
-        const deliveryType = $(this).val();
-        const $row = $(`tr[data-row="${rowIndex}"]`);
-        const isHold = $row.data('is-hold') === 'true';
-        setupRowInputs(rowIndex, deliveryType, isHold);
+            // hold 类型仍然金额为 0
+            const deliveryType = $row.find('.delivery-type-select').val();
+            const isHold = $row.data('is-hold') === 'true' || deliveryType === 'hold';
+            if (isHold) {
+                $row.find('.amount-input').val('0.00');
+                return 0;
+            }
 
-        // 变动后重新计算（确保附加费纳入）
-        calculateRowAmount(rowIndex);
+            // 板数 * 单价 = 原 amount
+            const rate = parseFloat($row.find('.input-rate').val()) || 0;
+            const pallets = parseFloat($row.find('.input-pallets').val()) || 0;
+            const baseAmount = rate * pallets;
+
+            // 附加费
+            const surcharges = parseFloat($row.find('.input-surcharge').val()) || 0;
+
+            // 最终金额 = 基础金额 + 附加费
+            const amount = baseAmount + surcharges;
+
+            $row.find('.amount-input').val(amount.toFixed(2));
+            return amount;
+        }
+
+        // 事件监听：派送类型变化
+        $(document).on('change', '.delivery-type-select', function() {
+            const $select = $(this);
+            const rowIndex = $select.data('row');
+            const deliveryType = $select.val();
+            const $row = $(`tr[data-row="${rowIndex}"]`);
+            const isHold = $row.data('is-hold') === 'true';
+            
+            // 更新高亮状态
+            if (!deliveryType) {
+                $select.addClass('highlight-select');
+                $row.addClass('row-no-type');
+            } else {
+                $select.removeClass('highlight-select');
+                $row.removeClass('row-no-type');
+            }
+            
+            setupRowInputs(rowIndex, deliveryType, isHold);
+            calculateRowAmount(rowIndex);
+            calculateTotalAmount();
+        });
+
+        // 事件监听：输入框变化
+        $(document).on('input', '.input-surcharge', function() {
+            const $row = $(this).closest('tr');
+            const rowIndex = $row.data('row');
+            if (typeof rowIndex === 'undefined') return;
+            
+            // 重新计算金额（基础金额 + 新附加费）
+            calculateRowAmount(rowIndex);
+            calculateTotalAmount();
+        });
+
+        $(document).on('input', '.input-rate, .input-pallets', function() {
+            const $row = $(this).closest('tr');
+            const rowIndex = $row.data('row');
+            if (typeof rowIndex === 'undefined') return;
+            
+            // 如果单价和板数都有值，可以实时计算新金额
+            const rate = parseFloat($row.find('.input-rate').val()) || 0;
+            const pallets = parseFloat($row.find('.input-pallets').val()) || 0;
+            const surcharges = parseFloat($row.find('.input-surcharge').val()) || 0;
+            
+            if (rate > 0 && pallets > 0) {
+                const newBaseAmount = rate * pallets;
+                // 更新data-base-amount属性
+                $row.data('base-amount', newBaseAmount);
+                // 重新计算金额
+                calculateRowAmount(rowIndex);
+                calculateTotalAmount();
+            }
+        });
+        // 监听从单行保存返回时的金额变化
+        $(document).on('focus', '.amount-input', function() {
+            const $row = $(this).closest('tr');
+            const rowIndex = $row.data('row');
+            if (typeof rowIndex === 'undefined') return;
+            
+            $(this).data('previous-value', $(this).val());
+        });
+        
+        $(document).on('blur input', '.amount-input', function() {
+            const $row = $(this).closest('tr');
+            const rowIndex = $row.data('row');
+            if (typeof rowIndex === 'undefined') return;
+            
+            const previousValue = $(this).data('previous-value') || '';
+            const currentValue = $(this).val();
+            
+            if (previousValue !== currentValue) {
+                calculateTotalAmount();
+                $(this).data('previous-value', currentValue);
+            }
+        });
+
+        // 初始化所有行
+        $('tbody tr[data-row]').each(function() {
+            const rowIndex = $(this).data('row');
+            const isHold = $(this).data('is-hold') === 'true';
+            const deliveryType = $(this).find('.delivery-type-select').val();
+            const $select = $(this).find('.delivery-type-select');
+            
+            // 设置初始高亮状态
+            if (!deliveryType) {
+                $select.addClass('highlight-select');
+                $(this).addClass('row-no-type');
+            }
+            
+            setupRowInputs(rowIndex, deliveryType, isHold);
+            // 初始计算金额
+            calculateRowAmount(rowIndex);
+        });
+
+        // 计算初始总金额
         calculateTotalAmount();
     });
 
-    // 事件：任意相关输入变化 -> 重新计算金额（注意使用统一的 class .input-surcharge）
-    $(document).on('input', '.input-rate, .input-pallets, .input-surcharge, .amount-input', function() {
-        const rowIndex = $(this).closest('tr').data('row');
-        if (typeof rowIndex === 'undefined') return;
-        // 只要与金额相关的输入变动，都触发重新计算
-        calculateRowAmount(rowIndex);
-        calculateTotalAmount();
-    });
-
-    // 初始化每行状态并计算金额
-    $('tbody tr[data-row]').each(function() {
-        const rowIndex = $(this).data('row');
-        const isHold = $(this).data('is-hold') === 'true';
-        const deliveryType = $(this).find('.delivery-type-select').val();
-
-        if (isHold) {
-            setupRowInputs(rowIndex, 'hold', true);
-        } else if (deliveryType) {
-            setupRowInputs(rowIndex, deliveryType, false);
-        }
-        // 计算金额（确保包含附加费）
-        calculateRowAmount(rowIndex);
-    });
-
-    // 初始总额
-    calculateTotalAmount();
-
-    // ---------- 单行保存：把当前行数据写到隐藏 single-row-form 并提交 ----------
-    window.saveSingleRow = function(rowIndex, itemId) {
+    // ================ 保存单行 ================
+    function saveSingleRow(rowIndex, itemId) {
         const $row = $(`tr[data-row="${rowIndex}"]`);
+        if (!$row.length) return;
+        
         const deliveryCategory = $row.find('.delivery-type-select').val();
         const rate = $row.find('.input-rate').val();
         const pallets = $row.find('.input-pallets').val();
@@ -1398,110 +1721,357 @@ $(document).ready(function() {
         const amount = $row.find('.amount-input').val();
         const note = $row.find('.input-note').val();
         const poId = $row.data('po') || '';
-        const shippingMarks = $row.find('.mark-text').attr('title') || '';
         const destination = $row.find('.cell-destination').text().trim();
 
         // 验证
         if (!deliveryCategory) {
-            showToast('请选择派送类型', 'error');
+            alert('请选择派送类型（UPS、沃尔玛或亚马逊）');
+            $row.find('.delivery-type-select').focus();
             return;
         }
-        if (deliveryCategory === 'selfpickup' && (!rate || parseFloat(rate) <= 0)) {
-            showToast('请输入有效的单价', 'error');
-            return;
-        }
-        if (!amount || parseFloat(amount) < 0) {
-            showToast('请输入有效的金额', 'error');
-            return;
+        
+        if (deliveryCategory !== 'hold') {
+            // 公仓：需要填写单价和板数
+            if (!rate || parseFloat(rate) <= 0) {
+                alert('请输入有效的单价（必须大于0）');
+                $row.find('.input-rate').focus();
+                return;
+            }
+            
+            if (!pallets || parseFloat(pallets) <= 0) {
+                alert('请输入有效的板数（必须大于0）');
+                $row.find('.input-pallets').focus();
+                return;
+            }
+            
+            if (!amount || parseFloat(amount) <= 0) {
+                alert('金额必须大于0');
+                $row.find('.amount-input').focus();
+                return;
+            }
         }
 
-        // 填充隐藏表单（single-row-form）
+        // 填充表单
         $('#single-row-index').val(rowIndex);
         $('#single-item-id').val(itemId || $row.data('item-id') || '');
         $('#single-po-id').val(poId);
-        $('#single-shipping-marks').val(shippingMarks);
         $('#single-destination').val(destination);
         $('#single-delivery-category').val(deliveryCategory);
         $('#single-rate').val(rate || '');
         $('#single-pallets').val(pallets || '0');
-        $('#single-surcharges').val(surcharges || '0');   // ← 确保把附加费写入
-        $('#single-amount').val(amount || '0');          // ← 确保把金额写入
+        $('#single-surcharges').val(surcharges || '0');
+        $('#single-amount').val(amount || '0');
         $('#single-note').val(note || '');
 
-        // 状态变更
-        const $btn = $row.find('.btn-save-row');
-        $btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> 保存中...');
+        // 提交表单
+        $('#single-row-form').submit();
+    }
 
-        // 提交隐藏表单
-        setTimeout(() => {
-            $('#single-row-form').submit();
-        }, 60);
-    };
+    // ================ 保存组合柜单行 ================
+    function saveCombinaSingleRow(groupIndex, itemIndex, itemId) {
+        const $row = $(`tr[data-row="${groupIndex}_${itemIndex}"]`);
+        if (!$row.length) return;
+        
+        // 组合柜逻辑类似，只是表单字段名不同
+        const note = $row.find('.input-note').val();
+        const poId = $row.data('po') || '';
+        const destination = $row.find('.cell-destination').text().trim();
+        const amount = $row.find('.input-amount').val();
+        const pallets = $row.find('.input-pallets').val();
 
-    // ---------- 整表提交：在 submit 前把每行收集成 JSON 塞进 #items-data ----------
-    $('#delivery-billing-form').on('submit', function(e) {
-        // only intercept for save_all step (如果你还有 finish 等不同 step，可根据需要判断)
-        const stepVal = $(this).find('input[name="step"]').val();
-        if (stepVal !== 'save_all' && stepVal !== 'save_all_items' && stepVal !== 'save_all') {
+        // 填充表单
+        $('#single-row-index').val(`${groupIndex}_${itemIndex}`);
+        $('#single-item-id').val(itemId || $row.data('item-id') || '');
+        $('#single-po-id').val(poId);
+        $('#single-destination').val(destination);
+        $('#single-delivery-category').val('combine');
+        $('#single-rate').val('');
+        $('#single-pallets').val(pallets || '0');
+        $('#single-surcharges').val('0');
+        $('#single-amount').val(amount || '0');
+        $('#single-note').val(note || '');
+
+        // 提交表单
+        $('#single-row-form').submit();
+    }
+
+    // ================ 转换类型 ================
+    function convertToCurrentType(poId, item_id, fromDeliveryType) {
+        $('#convert-po-id').val(poId);
+        $('#convert-item-id').val(item_id);
+        $('#convert-form').submit();
+    }
+
+    // ================ 解扣 ================
+    function releaseHoldItem(containerNumber, poId, palletIds, rowIndex) {
+        // 这里使用模态框，但为了简洁我简化了
+        // 你可以用另一个独立的form来提交
+        if (confirm(`确定要解除PO ${poId} 的暂扣状态吗？`)) {
+            // 创建临时form提交
+            const form = document.createElement('form');
+            form.method = 'post';
+            form.style.display = 'none';
             
-            return true;
+            const csrf = document.createElement('input');
+            csrf.type = 'hidden';
+            csrf.name = 'csrfmiddlewaretoken';
+            csrf.value = document.querySelector('[name=csrfmiddlewaretoken]').value;
+            form.appendChild(csrf);
+            
+            const step = document.createElement('input');
+            step.type = 'hidden';
+            step.name = 'step';
+            step.value = 'release_hold';
+            form.appendChild(step);
+            
+            const container = document.createElement('input');
+            container.type = 'hidden';
+            container.name = 'container_number';
+            container.value = containerNumber;
+            form.appendChild(container);
+            
+            const po = document.createElement('input');
+            po.type = 'hidden';
+            po.name = 'po_id';
+            po.value = poId;
+            form.appendChild(po);
+            
+            const pallets = document.createElement('input');
+            pallets.type = 'hidden';
+            pallets.name = 'pallet_ids';
+            pallets.value = palletIds;
+            form.appendChild(pallets);
+            
+            document.body.appendChild(form);
+            form.submit();
         }
+    }
 
-        // 构造 items 数组
-        const items = [];
-        $('tbody tr[data-row]').each(function() {
-            const rowIndex = $(this).data('row');
-            const itemId = $(this).data('item-id') || '';
-            const poId = $(this).data('po') || '';
-            const shippingMarks = $(this).find('.mark-text').attr('title') || '';
-            const destination = $(this).find('.cell-destination').text().trim();
-            const deliveryCategory = $(this).find('.delivery-type-select').val() || '';
-            const rate = $(this).find('.input-rate').val() || '';
-            const pallets = $(this).find('.input-pallets').val() || '0';
-            const surcharges = $(this).find('.input-surcharge').val() || '0';
-            const amount = $(this).find('.amount-input').val() || '0';
-            const note = $(this).find('.input-note').val() || '';
-
-            items.push({
-                rowIndex: rowIndex,
+    // ================ 保存所有组合柜 ================
+    function saveAllCombina() {
+        // 收集所有组合柜数据
+        const combinaItems = [];
+        let hasError = false;
+        
+        // 遍历所有组合柜行
+        $('.row-combina').each(function() {
+            const $row = $(this);
+            const itemId = $row.data('item-id') || '';
+            const poId = $row.data('po') || '';
+            const destination = $row.find('.cell-destination').text().trim();
+            const amount = $row.find('.combina-amount-input').val() || '0';
+            const note = $row.find('.combina-note-input').val() || '';
+            const pallets = $row.find('.input-pallets').val() || '0';
+            const groupIndex = $row.data('group-index') || '';
+            const itemIndex = $row.data('item-index') || '';
+            
+            // 验证必填字段
+            if (!amount || parseFloat(amount) <= 0) {
+                alert(`PO ${poId} 的金额无效`);
+                hasError = true;
+                return false; // 退出循环
+            }
+            
+            combinaItems.push({
                 item_id: itemId,
                 po_id: poId,
                 destination: destination,
-                delivery_category: deliveryCategory,
-                rate: rate,
+                delivery_category: 'combine',
+                rate: '', // 组合柜没有单价
                 pallets: pallets,
-                surcharges: surcharges,
+                surcharges: '0',
                 amount: amount,
-                note: note
+                note: note,
+                group_index: groupIndex,
+                item_index: itemIndex
+            });
+        });
+        
+        if (hasError) return;
+        
+        if (combinaItems.length === 0) {
+            alert('没有需要保存的组合柜数据');
+            return;
+        }
+        
+        // 创建隐藏表单提交
+        const form = document.createElement('form');
+        form.method = 'post';
+        form.style.display = 'none';
+        
+        const csrf = document.createElement('input');
+        csrf.type = 'hidden';
+        csrf.name = 'csrfmiddlewaretoken';
+        csrf.value = document.querySelector('[name=csrfmiddlewaretoken]').value;
+        form.appendChild(csrf);
+        
+        const step = document.createElement('input');
+        step.type = 'hidden';
+        step.name = 'step';
+        step.value = 'save_all_combina';
+        form.appendChild(step);
+        
+        const container = document.createElement('input');
+        container.type = 'hidden';
+        container.name = 'container_number';
+        container.value = '{{ container_number }}';
+        form.appendChild(container);
+        
+        const invoice = document.createElement('input');
+        invoice.type = 'hidden';
+        invoice.name = 'invoice_id';
+        invoice.value = '{{ invoice_id }}';
+        form.appendChild(invoice);
+        
+        const items = document.createElement('input');
+        items.type = 'hidden';
+        items.name = 'combina_items';
+        items.value = JSON.stringify(combinaItems);
+        form.appendChild(items);
+        
+        document.body.appendChild(form);
+        form.submit();
+    }
+    // 简单提示函数
+    function showToast(msg, type = 'success') {
+        // 简化版，你可以用更复杂的toast
+        if (type === 'success') {
+            alert('成功：' + msg);
+        } else {
+            alert('错误：' + msg);
+        }
+    }
+    // === 保存整个账单前的最终处理 ===
+    document.getElementById("save-bill-btn").addEventListener("click", function (event) {
+        // 阻止默认提交
+        event.preventDefault();
+
+        // 1. 验证所有 normal_items 是否选择派送类型
+        let hasEmpty = false;
+        $('.normal-table .delivery-type-select').each(function () {
+            const val = $(this).val();
+            if (!val) {
+                hasEmpty = true;
+                $(this).addClass('highlight-select');
+            } else {
+                $(this).removeClass('highlight-select');
+            }
+        });
+
+        if (hasEmpty) {
+            showToast("请填写所有派送类型后再保存账单！", "danger");
+            return;
+        }
+
+        
+        const allItems = [];
+
+        $('table.normal-table tbody tr').each(function () {
+            const rowIndex = $(this).data('row');
+
+            allItems.push({
+                rowIndex: rowIndex,
+                item_id: $(this).data('item-id') || "",
+                po_id: $(this).data('po') || "",
+                shipping_marks: "",
+                destination: $(this).find('.cell-destination').text().trim(),
+                delivery_category: $(this).find('.delivery-type-select').val(),
+                rate: $(this).find(`input[name="rate_${rowIndex}"]`).val() || "",
+                pallets: $(this).find(`input[name="pallets_${rowIndex}"]`).val() || "0",
+                surcharges: $(this).find(`input[name="surcharges_${rowIndex}"]`).val() || "0",
+                amount: $(this).find(`input[name="amount_${rowIndex}"]`).val() || "0.00",
+                note: $(this).find(`input[name="note_${rowIndex}"]`).val() || "",
             });
         });
 
-        // put into hidden input
-        $('#items-data').val(JSON.stringify(items));
+        // 2.2 收集组合柜表格数据
+        $('.combina-table tbody tr.row-combina').each(function (index) {
+            const $row = $(this);
+            const rowIdParts = $row.data('row').split('_');
+            const groupIndex = rowIdParts[0] || "0";
+            const itemIndex = rowIdParts[1] || "0";
+            
+            // 组合柜的数据结构
+            const combinaItem = {
+                rowIndex: allItems.length, // 续接在转运数据后面
+                item_id: $row.data('item-id') || "",
+                po_id: $row.data('po') || "",
+                shipping_marks: "",
+                destination: $row.find('.cell-destination').text().trim(),
+                delivery_category: "combine", // 固定为combine
+                rate: "0", // 组合柜没有单价字段，传0或空
+                pallets: $row.find('.input-pallets').val() || "0",
+                surcharges: "0", // 组合柜没有附加费
+                amount: $row.find('.combina-amount-input').val() || "0.00",
+                note: $row.find('.combina-note-input').val() || "",
+                // 额外信息（如果需要可以传给后台）
+                combina_group: groupIndex,
+                combina_item: itemIndex
+            };
+            
+            allItems.push(combinaItem);
+        });
 
-        // allow actual submission to proceed
-        return true;
-    });
-
-    // 辅助：toast（复用你原来 showToast，如果没有则用 alert）
-    function showToast(msg, type='success') {
-        // 你原始页面有 showToast 实现，这里调用已有函数；如果不存在可回退到 alert
-        if (typeof window.showToast === 'function') {
-            window.showToast(msg, type);
-        } else {
-            alert(msg);
+        // 3. 验证组合柜金额是否有效
+        let combinaHasError = false;
+        let combinaErrorMsg = "";
+        
+        $('.combina-table tbody tr.row-combina').each(function () {
+            const $row = $(this);
+            const poId = $row.data('po') || "";
+            const amount = parseFloat($row.find('.combina-amount-input').val()) || 0;
+            
+            if (amount <= 0) {
+                combinaHasError = true;
+                combinaErrorMsg = `组合柜PO ${poId} 的金额必须大于0`;
+                return false; // 退出循环
+            }
+        });
+        
+        if (combinaHasError) {
+            showToast(combinaErrorMsg, "danger");
+            return;
         }
-    }
-});
-function releaseHoldItem(containerNumber, poId, palletIds, rowIndex) {
-    // 填充模态框数据
-    $('#release-container-number').val(containerNumber);
-    $('#release-po-id').val(poId);
-    $('#release-pallet-ids').val(palletIds);
-    
-    // 显示模态框
-    const modal = new bootstrap.Modal(document.getElementById('releaseModal'));
-    modal.show();
-}
+
+        // 4. 转换为JSON字符串
+        const itemsDataJson = JSON.stringify(allItems);
+
+        // 5. 创建或更新hidden input
+        let hidden = document.querySelector('input[name="items_data"]');
+        if (!hidden) {
+            hidden = document.createElement("input");
+            hidden.type = "hidden";
+            hidden.name = "items_data";
+            document.getElementById("delivery-billing-form").appendChild(hidden);
+        }
+        hidden.value = itemsDataJson;
+
+        // 6. 设置step值
+        let stepInput = document.querySelector('input[name="step"]');
+        if (!stepInput) {
+            stepInput = document.createElement("input");
+            stepInput.type = "hidden";
+            stepInput.name = "step";
+            document.getElementById('delivery-billing-form').appendChild(stepInput);
+        }
+        stepInput.value = "public_save_all";
+
+        // 7. 提交前确认
+        const totalItems = allItems.length;
+        const normalCount = $('table.normal-table tbody tr').length;
+        const combinaCount = $('.combina-table tbody tr.row-combina').length;
+        
+        const confirmMsg = `确认保存账单吗？\n` +
+                        `包含数据：\n` +
+                        `- 转运计费：${normalCount} 条\n` +
+                        `- 组合柜计费：${combinaCount} 条\n` +
+                        `总计：${totalItems} 条记录`;
+        
+        if (confirm(confirmMsg)) {
+            // 8. 提交表单
+            document.getElementById('delivery-billing-form').submit();
+        }
+
+    });
 </script>
-{% endblock %} 
+{% endblock %}
