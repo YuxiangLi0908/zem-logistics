@@ -1030,7 +1030,6 @@ class PostNsop(View):
         success_groups = []
         failed_groups = []
         success_appointment_ids = []
-        print('传的全部参数',request.POST)
         # 为每个大组分别处理预约
         for group_index, group_data in enumerate(booking_data, 1):
             # 准备调用 handle_appointment_post 所需的参数
