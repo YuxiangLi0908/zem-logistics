@@ -21,6 +21,7 @@
         --content-max-width: 1800px;
         --font-large: 1.1rem;
         --font-xl: 1.4rem;
+         --scale-factor: 0.8;
     }
     
     body {
@@ -30,6 +31,7 @@
     }
     
     .invoice-container {
+        zoom: 0.8; 
         width: 100%;
         max-width: var(--content-max-width);
         margin: auto;
@@ -66,20 +68,24 @@
     }
     
     .badge {
+        display: flex; 
         padding: 8px 18px;
         font-size: 1rem;
         background: rgba(255,255,255,0.18);
         border-radius: 999px;
         backdrop-filter: blur(4px);
+        align-items: center;
     }
     
     .delivery-type-badge {
         background: linear-gradient(to right, #d4380d, #ff7a45);
+        display: flex; 
         color: white;
         padding: 6px 16px;
         border-radius: 20px;
         font-weight: 600;
         font-size: 1rem;
+        align-items: center;
     }
 
     .invoice-content {
@@ -516,7 +522,19 @@
                         <i class="fas fa-building"></i> 私仓
                     {% endif %}
                 </span>
-                <span class="badge">账单类型: 应收</span>
+                <button onclick="window.history.back()" style="background: linear-gradient(135deg, #9ca3af, #6b7280);
+                           border: 1px solid rgba(255,255,255,0.3);
+                           color: white;
+                           padding: 10px 20px;
+                           border-radius: 8px;
+                           cursor: pointer;
+                           display: flex;
+                           align-items: center;
+                           gap: 8px;
+                           transition: all 0.2s ease;">
+                    <i class="fas fa-arrow-left"></i>
+                    返回
+                </button>
             </div>
         </div>
     </div>

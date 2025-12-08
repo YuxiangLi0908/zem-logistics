@@ -3150,7 +3150,6 @@ class PostNsop(View):
                     cargo_pallets = cargo.get('total_n_pallet_est', 0) or 0
                 
                 cargo_cbm = cargo.get('total_cbm', 0) or 0
-                
                 # 检查当前大组是否还能容纳这个货物
                 if (current_primary_group['total_pallets'] + cargo_pallets <= max_pallet and 
                     current_primary_group['total_cbm'] + cargo_cbm <= max_cbm):
@@ -3280,7 +3279,7 @@ class PostNsop(View):
             
             # 计算当前大组的剩余容量
             remaining_cbm = 100 - current_cbm
-            remaining_pallets = 50 - current_pallets
+            remaining_pallets = 100 - current_pallets
             
             # 寻找可以合并的其他大组
             compatible_groups = []
