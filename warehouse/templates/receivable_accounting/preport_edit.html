@@ -520,7 +520,79 @@
     .order-type-form {
         display: inline;
     }
+    .rules-icon {
+        cursor: pointer;
+        color: #2563eb;   /* 蓝色 */
+        font-weight: 600;
+        text-decoration: underline; /* 像链接 */
+    }
 
+    .rules-icon:hover {
+        color: #1e40af;
+    }
+    .rules-modal {
+        
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.55);
+        z-index: 9999;
+        justify-content: center;
+        align-items: center;
+    }
+
+    .rules-content {
+        
+        width: 650px;
+        background: white;
+        padding: 25px 30px;
+        border-radius: 12px;
+        max-height: 80vh;
+        overflow: auto;
+    }
+
+    .modal-title {
+        margin-bottom: 20px;
+        font-size: 1.4rem;
+        color: #0f3e1e;
+        font-weight: 700;
+    }
+
+    .stipulate-section-title {
+        background: #f0fdf4;
+        border-left: 4px solid #16a34a;
+        padding: 10px 12px;
+        margin-bottom: 10px;
+        font-weight: 600;
+        color: #14532d;
+        border-radius: 6px;
+    }
+
+    .rules-text {
+        background: #f7f7f7;
+        padding: 14px;
+        border-radius: 6px;
+        white-space: pre-line;
+        font-size: 0.95rem;
+        line-height: 1.6;
+    }
+
+    .divider {
+        width: 100%;
+        height: 1px;
+        background: #e5e7eb;
+        margin: 25px 0;
+    }
+
+    .close-btn {
+        margin-top: 15px;
+        padding: 10px 20px;
+        background: #14532d;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+    }
     @media (max-width: 768px) {
         .btn-change-order-type {
             margin-top: 8px;
@@ -537,7 +609,39 @@
         }
     }
 </style>
+<div id="rules-modal" class="rules-modal">
+    <div class="rules-content">
+        <h3 class="modal-title">组合柜规则详情</h3>
 
+        <div class="rules-section">
+            <div class="stipulate-section-title">📌 基础规则（Global Rules）</div>
+            <pre class="rules-text">{{ combina_rules_text.global_rules }}</pre>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="rules-section">
+            <div class="stipulate-section-title">⚖️ 重量计费（Weight Rules）</div>
+            <pre class="rules-text">{{ combina_rules_text.weight_rules }}</pre>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="rules-section">
+            <div class="stipulate-section-title">🏬 非组合柜提拆计费（Warehouse Rules）</div>
+            <pre class="rules-text">{{ combina_rules_text.warehouse_rules }}</pre>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="rules-section">
+            <div class="stipulate-section-title">💲 超出仓点阶梯计费（Tiered Pricing）</div>
+            <pre class="rules-text">{{ combina_rules_text.tiered_pricing }}</pre>
+        </div>
+
+        <button class="close-btn" onclick="closeRulesModal()">关闭</button>
+    </div>
+</div>
 <div class="invoice-container">
     <!-- 头部信息 -->
     <div class="invoice-header">
@@ -578,14 +682,19 @@
                 </div>
                 <div class="quotation-details">
                     <strong>文件:</strong> <span class="quotation-highlight">{{ quotation_info.filename }}</span> 
-                    | <strong>版本:</strong> {{ quotation_info.version }}
-                    | <strong>生效日期:</strong> {{ quotation_info.effective_date }}
+                    <span class="divider-line"></span>
+                    <strong>版本:</strong> {{ quotation_info.version }}
+                    <span class="divider-line"></span>
+                    <strong>生效日期:</strong> {{ quotation_info.effective_date }}
                     {% if quotation_info.is_user_exclusive %}
-                    | <strong style="color: #dc2626;">专属用户:</strong> {{ quotation_info.exclusive_user }}
+                    <span class="divider-line"></span>
+                    <strong style="color: #dc2626;">专属用户:</strong> {{ quotation_info.exclusive_user }}
                     {% else %}
-                    | <strong style="color: #16a34a;">通用报价</strong>
+                    <span class="divider-line"></span>
+                    <strong style="color: #16a34a;">通用报价</strong>
                     {% endif %}
-                    | <strong>状态:</strong> 
+                    <span class="divider-line"></span>
+                    <strong>状态:</strong> 
                     <span style="color: {% if preport_status == 'completed' %}#16a34a{% elif preport_status == 'in_progress' %}#ea580c{% else %}#dc2626{% endif %};">
                         {% if preport_status == 'completed' %}已完成
                         {% elif preport_status == 'in_progress' %}录入中
@@ -625,12 +734,15 @@
                                         onclick="setOrderType('转运')">
                                     <i class="fas fa-exchange-alt"></i>
                                     改为转运
-                                </button>
-                                <input type="text" name="actual_non_combina_reason">
+                                </button> &nbsp;&nbsp; 
+                                <input type="text" name="actual_non_combina_reason" placeholder="不符合原因">
+                                <span class="divider-line"></span>
+                                <span class="rules-icon" onclick="openRulesModal()">📘 组合柜规则查看</span>
                             {% else %}
                                 <span class="info-highlight" style="color: #dc2626;">不符合组合柜</span>
                                 {% if non_combina_reason %}
-                                    | <strong style="color:#dc2626;">原因:</strong> 
+                                    <span class="divider-line"></span>
+                                    <strong style="color:#dc2626;">原因:</strong> 
                                     <span class="badge" style="background: rgba(255, 193, 7, 0.2); color: #ffa000;">
                                         ⚠️{{ non_combina_reason }}
                                     </span>
@@ -640,6 +752,8 @@
                                     <i class="fas fa-exchange-alt"></i>
                                     改为组合柜
                                 </button>
+                                <span class="divider-line"></span>
+                                <span class="rules-icon" onclick="openRulesModal()">📘 组合柜规则查看</span>
                             {% endif %}
                             </form>
                     {% else %}
@@ -1031,5 +1145,12 @@
             });
         });
     });
+    function openRulesModal() {
+        document.getElementById("rules-modal").style.display = "flex";
+    }
+
+    function closeRulesModal() {
+        document.getElementById("rules-modal").style.display = "none";
+    }
 </script>
 {% endblock %}

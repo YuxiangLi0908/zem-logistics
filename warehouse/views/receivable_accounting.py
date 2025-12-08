@@ -1255,7 +1255,11 @@ class ReceivableAccounting(View):
         groups = [group.name for group in request.user.groups.all()]
         if request.user.is_staff:
             groups.append("staff")
-        
+        COMBINA_STIPULATE = FeeDetail.objects.get(
+            quotation_id=quotation.id,
+            fee_type='COMBINA_STIPULATE'
+        )
+        rules_text = self._parse_combina_rules(COMBINA_STIPULATE.details, order.retrieval_id.retrieval_destination_area)
         context.update({
             "warehouse": warehouse,
             "order_type": order_type,
@@ -1284,6 +1288,7 @@ class ReceivableAccounting(View):
             "standard_fee_items": standard_fee_items,
             "existing_descriptions": existing_descriptions,  # 用于前端过滤
             "preport_status": invoice_status.preport_status,
+            "combina_rules_text": rules_text,
         })
 
         return self.template_preport_edit, context
@@ -1565,7 +1570,7 @@ class ReceivableAccounting(View):
             quotation_id=quotation.id,
             fee_type='COMBINA_STIPULATE'
         )
-        rules_text = self.parse_combina_rules(COMBINA_STIPULATE.details, order.retrieval_id.retrieval_destination_area)
+        rules_text = self._parse_combina_rules(COMBINA_STIPULATE.details, order.retrieval_id.retrieval_destination_area)
         # 构建上下文
         context.update({
             "container_number": container_number,
@@ -1601,78 +1606,69 @@ class ReceivableAccounting(View):
         else:
             return template, context
     
-    def parse_combina_rules(self, rules_data: dict, warehouse_code: str):
-        text_lines = []
+    def _parse_combina_rules(self, rules_data: dict, warehouse_code: str):
+        result = {
+            "global_rules": "",           
+            "warehouse_rules": "",
+            "special_des_rules": "",
+            "tiered_pricing": ""
+        }
 
-        # ==========================
-        # 1）GLOBAL RULES（组合柜规则）
-        # ==========================
-        print('rules_data',rules_data)
         g = rules_data.get("global_rules", {})
 
+        # ---------- Global Rules ----------
+        global_lines = []
         def get_rule(key):
-            """优先找仓库版本，比如 LA_max_mixed，找不到用默认 max_mixed"""
             wh_key = f"{warehouse_code}_{key}"
             if wh_key in g:
                 return g[wh_key]["default"]
             return g[key]["default"]
 
-        max_mixed = get_rule("max_mixed")
-        bulk_threshold = get_rule("bulk_threshold")
-        std_40 = get_rule("std_40ft_plts")
-        std_45 = get_rule("std_45ft_plts")
-        cbm_per_pl = g["cbm_per_pl"]["default"]
-        weight_limit = g["weight_limit"]["default"]
-        overweight_min = g["overweight_min"]["default"]
-        overweight_max = g["overweight_max"]["default"]
+        global_lines.append(f"- 最大组合柜数量（区域）：{get_rule('max_mixed')}")
+        global_lines.append(f"- 非组合柜区域最大数量：{get_rule('bulk_threshold')}")
+        global_lines.append(f"- 40 尺标准板数：{get_rule('std_40ft_plts')}")
+        global_lines.append(f"- 45 尺标准板数：{get_rule('std_45ft_plts')}")
+        global_lines.append(f"- 标准每板 CBM：{g['cbm_per_pl']['default']}")
+        global_lines.append(f"- 单柜限重：{g['weight_limit']['default']} 磅")
+        global_lines.append(f"- 超重费区间：{g['overweight_min']['default']} - {g['overweight_max']['default']}")
 
-        text_lines.append("【组合柜规则】")
-        text_lines.append(f"- 最大组合柜数量（区域）：{max_mixed}")
-        text_lines.append(f"- 非组合柜区域最大数量：{bulk_threshold}")
-        text_lines.append(f"- 40 尺标准板数：{std_40}")
-        text_lines.append(f"- 45 尺标准板数：{std_45}")
-        text_lines.append(f"- 标准每板 CBM：{cbm_per_pl}")
-        text_lines.append(f"- 单柜限重：{weight_limit} 磅")
-        text_lines.append(f"- 超重费区间：{overweight_min} - {overweight_max}")
-        text_lines.append("")
+        result["global_rules"] = "\n".join(global_lines)
 
-        # ==========================
-        # 2）非组合柜提拆价（仓库相关）
-        # ==========================
+        # ---------- Warehouse Pricing ----------
         wp = rules_data.get("warehouse_pricing", {})
+        warehouse_lines = []
         if warehouse_code in wp:
-            wp = wp[warehouse_code]
-            text_lines.append("【非组合柜提拆费用】")
-            text_lines.append(f"- 40 尺非组合柜提拆费：{wp['nonmix_40ft']}")
-            text_lines.append(f"- 45 尺非组合柜提拆费：{wp['nonmix_45ft']}")
-            text_lines.append(f"- 自提出库费（最低）：{wp['pickup_min']}")
-            text_lines.append(f"- 自提出库费（最高）：{wp['pickup_max']}")
-            text_lines.append("")
+            w = wp[warehouse_code]
+            warehouse_lines.append(f"- 40 尺非组合柜提拆费：{w['nonmix_40ft']}")
+            warehouse_lines.append(f"- 45 尺非组合柜提拆费：{w['nonmix_45ft']}")
+            warehouse_lines.append(f"- 自提出库费（最低）：{w['pickup_min']}")
+            warehouse_lines.append(f"- 自提出库费（最高）：{w['pickup_max']}")
 
-        # ==========================
-        # 3）特殊仓点
-        # ==========================
-        sw = rules_data.get("special_warehouse", {})
-        if warehouse_code in sw:
-            s = sw[warehouse_code]
-            text_lines.append("【特殊仓点规则】")
-            text_lines.append(f"- 特殊仓点倍率：{s['multiplier']} 倍")
-            text_lines.append(f"- 仓点列表：{', '.join(s['destination'])}")
-            text_lines.append("")
+        result["warehouse_rules"] = "\n".join(warehouse_lines)
 
-        # ==========================
-        # 4）阶梯仓点收费
-        # ==========================
+        # ---------- 特别仓点（你数据结构里没有，先空） ----------
+        dp = rules_data.get("special_warehouse", {})
+        warehouse_lines = []
+        if warehouse_code in dp:
+            d = dp[warehouse_code]
+            destinations_str = " - ".join(d["destination"]) 
+            warehouse_lines.append(f"- 特殊仓点：{destinations_str}")
+            warehouse_lines.append(f"- 倍数：{d['multiplier']}")
+        result["special_des_rules"] = "\n".join(warehouse_lines)
+        
+
+        # ---------- Tiered Pricing ----------
         tp = rules_data.get("tiered_pricing", {})
+        tier_lines = []
         if warehouse_code in tp:
-            text_lines.append("【阶梯仓点收费】")
             for item in tp[warehouse_code]:
-                text_lines.append(
+                tier_lines.append(
                     f"- 仓点 {item['min_points']}~{item['max_points']} 个：加收 {item['fee']} 美元"
                 )
-            text_lines.append("")
 
-        return "\n".join(text_lines)
+        result["tiered_pricing"] = "\n".join(tier_lines)
+        print('result',result)
+        return result
     
     def _separate_existing_items(self, existing_items, pallet_groups):
         """将已有数据按组合柜和非组合柜分开"""
