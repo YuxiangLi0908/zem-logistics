@@ -200,8 +200,8 @@ class ReceivableAccounting(View):
             context = {"order_form": OrderForm(), "quotes": quotes}
             return render(request, self.template_quotation_management, context)  
         elif step == "container_preport":
-            context = self.handle_container_preport_post(request)
-            return render(request, self.template_preport_edit, context)
+            tempalte, context = self.handle_container_preport_post(request)
+            return render(request, tempalte, context)
         elif step == "container_warehouse":
             context = self.handle_container_warehouse_post(request)
             return render(request, self.template_warehouse_edit, context)       
@@ -231,15 +231,12 @@ class ReceivableAccounting(View):
         elif step == "save_single":
             template, context = self.handle_save_single_post(request)
             return render(request, template, context)
-        elif step == "public_save_all":
-            context = self.handle_public_save_all_post(request)
-            return render(request, self.template_delivery_entry, context)
         elif step == "save_all":
             context = self.handle_save_all_post(request)
             return render(request, self.template_delivery_entry, context)
         elif step == "save_all_combina":
-            context = self.handle_save_all_combina_post(request)
-            return render(request, self.template_delivery_entry, context)
+            template, context = self.handle_save_all_combina_post(request)
+            return render(request, template, context)
         elif step == "convert_type":
             template, context = self.handle_convert_type_post(request)
             return render(request, template, context) 
@@ -247,15 +244,14 @@ class ReceivableAccounting(View):
             context = self.handle_invoice_preport_save(request)
             return render(request, self.template_preport_entry, context)
         elif step == "modify_order_type":
-            context = self.handle_modify_order_type(request)
-            return render(request, self.template_preport_edit, context)
+            template, context = self.handle_modify_order_type(request)
+            return render(request, template, context)
         elif step == "warehouse_save":
             context = self.handle_invoice_warehouse_save(request)
             return render(request, self.template_warehouse_entry, context)
     
     def handle_convert_type_post(self, request: HttpRequest):
         context = {}
-        print(request.POST)
         container_number = request.POST.get("container_number")
         to_delivery_type = request.POST.get("to_delivery_type")
         item_id = request.POST.get("item_id")
@@ -293,7 +289,7 @@ class ReceivableAccounting(View):
         return self.handle_container_delivery_post(request,context)
     
     def handle_save_all_combina_post(self, request: HttpRequest):
-        """处理解扣操作"""
+        """处理保存所有组合柜操作"""
         context = {}
         container_number = request.POST.get("container_number")
         invoice_id = request.POST.get("invoice_id")
@@ -323,11 +319,6 @@ class ReceivableAccounting(View):
 
         request.GET = get_params
         return self.handle_container_delivery_post(request,context)
-      
-    def handle_public_save_all_post(self, request: HttpRequest):
-        print(request.POST)
-        
-        return self.handle_save_all_post(request)
     
     def handle_save_all_post(self, request: HttpRequest):
         """处理保存所有账单记录的操作"""
@@ -368,12 +359,17 @@ class ReceivableAccounting(View):
                 invoice=invoice,
                 invoice_type='receivable'
             )
+        
         # 根据柜子类型自动更新另一边的状态
-        if delivery_type == "public" and container_delivery_type == "public":
-            status_obj.delivery_other_status = "completed"
-
-        elif delivery_type == "other" and container_delivery_type == "other":
+        print('delivery_type',delivery_type)
+        if delivery_type == "public":
             status_obj.delivery_public_status = "completed"
+            if container_delivery_type == "public":
+                status_obj.delivery_other_status = "completed"
+        else:
+            status_obj.delivery_other_status = "completed"
+            if container_delivery_type == "other":
+                status_obj.delivery_other_status = "completed"
             
         status_obj.save()
         return self.handle_delivery_entry_post(request, context)
@@ -751,7 +747,6 @@ class ReceivableAccounting(View):
 
             # 查询这个柜子的所有应收账单
             invoices = Invoicev2.objects.filter(container_number=container)
-            
             if not invoices.exists():
                 # 没有账单的情况 - 归到待录入
                 order_data = {
@@ -1102,7 +1097,11 @@ class ReceivableAccounting(View):
             container.manually_order_type = "转运组合"
         container.save()
         context = {"success_messages": f"{container_number}修改类型成功！"}
-        return self.handle_container_preport_post(request, context)
+        page =  request.POST.get("page")
+        if page == "delivery_edit":
+            return self.handle_container_delivery_post(request, context)
+        else:
+            return self.handle_container_preport_post(request, context)
 
     def handle_container_preport_post(self, request:HttpRequest, context: dict|None=None) -> Dict[str, Any]:
         """处理柜号点击进入港前账单编辑页面"""
@@ -1256,7 +1255,7 @@ class ReceivableAccounting(View):
         groups = [group.name for group in request.user.groups.all()]
         if request.user.is_staff:
             groups.append("staff")
-            
+        
         context.update({
             "warehouse": warehouse,
             "order_type": order_type,
@@ -1286,7 +1285,8 @@ class ReceivableAccounting(View):
             "existing_descriptions": existing_descriptions,  # 用于前端过滤
             "preport_status": invoice_status.preport_status,
         })
-        return context
+
+        return self.template_preport_edit, context
     
     def  handle_container_warehouse_post(self, request:HttpRequest, context: dict|None=None) -> Dict[str, Any]:
         if not context:
@@ -1556,12 +1556,22 @@ class ReceivableAccounting(View):
             
         else:
             final_result = result_existing
-        print('final_result',final_result['normal_items'])
+        # 报价表相关
+        quotation, quotation_error = self._get_quotation_for_order(order, 'receivable')
+        if quotation_error:
+            context.update({"error_messages": quotation_error})
+            return context
+        COMBINA_STIPULATE = FeeDetail.objects.get(
+            quotation_id=quotation.id,
+            fee_type='COMBINA_STIPULATE'
+        )
+        rules_text = self.parse_combina_rules(COMBINA_STIPULATE.details, order.retrieval_id.retrieval_destination_area)
         # 构建上下文
         context.update({
             "container_number": container_number,
             "container_type": order.container_number.container_type,
             "delivery_type": delivery_type,
+            "order_type": order.order_type,
             "warehouse": order.warehouse.name if order.warehouse else "",
             "customer_name": order.customer_name.zem_name if order.customer_name else "",
             "manually_order_type": order.container_number.manually_order_type,
@@ -1574,6 +1584,15 @@ class ReceivableAccounting(View):
             "invoice_number": invoice.invoice_number,
             "delivery_method_options": DELIVERY_METHOD_OPTIONS,
             "other_pallet_groups": other_pallet_groups,
+            "quotation_info": {
+                "quotation_id": quotation.quotation_id,
+                "version": quotation.version,
+                "effective_date": quotation.effective_date,
+                "is_user_exclusive": quotation.is_user_exclusive,
+                "exclusive_user": quotation.exclusive_user,
+                "filename": quotation.filename,  # 添加文件名
+            },
+            "combina_rules_text": rules_text,
         })
 
         
@@ -1581,6 +1600,79 @@ class ReceivableAccounting(View):
             return template, context
         else:
             return template, context
+    
+    def parse_combina_rules(self, rules_data: dict, warehouse_code: str):
+        text_lines = []
+
+        # ==========================
+        # 1）GLOBAL RULES（组合柜规则）
+        # ==========================
+        print('rules_data',rules_data)
+        g = rules_data.get("global_rules", {})
+
+        def get_rule(key):
+            """优先找仓库版本，比如 LA_max_mixed，找不到用默认 max_mixed"""
+            wh_key = f"{warehouse_code}_{key}"
+            if wh_key in g:
+                return g[wh_key]["default"]
+            return g[key]["default"]
+
+        max_mixed = get_rule("max_mixed")
+        bulk_threshold = get_rule("bulk_threshold")
+        std_40 = get_rule("std_40ft_plts")
+        std_45 = get_rule("std_45ft_plts")
+        cbm_per_pl = g["cbm_per_pl"]["default"]
+        weight_limit = g["weight_limit"]["default"]
+        overweight_min = g["overweight_min"]["default"]
+        overweight_max = g["overweight_max"]["default"]
+
+        text_lines.append("【组合柜规则】")
+        text_lines.append(f"- 最大组合柜数量（区域）：{max_mixed}")
+        text_lines.append(f"- 非组合柜区域最大数量：{bulk_threshold}")
+        text_lines.append(f"- 40 尺标准板数：{std_40}")
+        text_lines.append(f"- 45 尺标准板数：{std_45}")
+        text_lines.append(f"- 标准每板 CBM：{cbm_per_pl}")
+        text_lines.append(f"- 单柜限重：{weight_limit} 磅")
+        text_lines.append(f"- 超重费区间：{overweight_min} - {overweight_max}")
+        text_lines.append("")
+
+        # ==========================
+        # 2）非组合柜提拆价（仓库相关）
+        # ==========================
+        wp = rules_data.get("warehouse_pricing", {})
+        if warehouse_code in wp:
+            wp = wp[warehouse_code]
+            text_lines.append("【非组合柜提拆费用】")
+            text_lines.append(f"- 40 尺非组合柜提拆费：{wp['nonmix_40ft']}")
+            text_lines.append(f"- 45 尺非组合柜提拆费：{wp['nonmix_45ft']}")
+            text_lines.append(f"- 自提出库费（最低）：{wp['pickup_min']}")
+            text_lines.append(f"- 自提出库费（最高）：{wp['pickup_max']}")
+            text_lines.append("")
+
+        # ==========================
+        # 3）特殊仓点
+        # ==========================
+        sw = rules_data.get("special_warehouse", {})
+        if warehouse_code in sw:
+            s = sw[warehouse_code]
+            text_lines.append("【特殊仓点规则】")
+            text_lines.append(f"- 特殊仓点倍率：{s['multiplier']} 倍")
+            text_lines.append(f"- 仓点列表：{', '.join(s['destination'])}")
+            text_lines.append("")
+
+        # ==========================
+        # 4）阶梯仓点收费
+        # ==========================
+        tp = rules_data.get("tiered_pricing", {})
+        if warehouse_code in tp:
+            text_lines.append("【阶梯仓点收费】")
+            for item in tp[warehouse_code]:
+                text_lines.append(
+                    f"- 仓点 {item['min_points']}~{item['max_points']} 个：加收 {item['fee']} 美元"
+                )
+            text_lines.append("")
+
+        return "\n".join(text_lines)
     
     def _separate_existing_items(self, existing_items, pallet_groups):
         """将已有数据按组合柜和非组合柜分开"""
@@ -1676,6 +1768,7 @@ class ReceivableAccounting(View):
                     order=order,
                     fee_details=fee_details
                 )
+
                 if isinstance(combina_result, dict) and combina_result.get('error_messages'):
                     return combina_result
                 
@@ -1797,7 +1890,7 @@ class ReceivableAccounting(View):
             if is_combina_region:
                 combina_pallet_groups.append(group)
                 processed_po_ids.add(po_id)
-        
+
         # 如果没有组合区域，直接返回原数据和空列表，都按转运算
         if not combina_pallet_groups:
             return {"items": [], "info": {}}
@@ -2518,7 +2611,7 @@ class ReceivableAccounting(View):
 
                     amount = rate * qty + surcharge
                     note = notes[i] or ""
-                    if rate == 0 and qty == 0 and surcharge == 0:
+                    if qty == 0 and surcharge == 0:
                         continue
                     total_amount += amount
 
