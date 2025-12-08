@@ -813,43 +813,63 @@
     .rules-modal {
         display: none;
         position: fixed;
-        z-index: 9999;
-        top: 0; left: 0;
-        width: 100%; height: 100%;
+        inset: 0;
         background: rgba(0,0,0,0.55);
-        justify-content:center;
-        align-items:center;
+        z-index: 9999;
+        justify-content: center;
+        align-items: center;
     }
 
     .rules-content {
-        width: 600px;
+        width: 650px;
         background: white;
-        padding: 20px 25px;
-        border-radius: 10px;
+        padding: 25px 30px;
+        border-radius: 12px;
         max-height: 80vh;
         overflow: auto;
     }
+
+    .modal-title {
+        margin-bottom: 20px;
+        font-size: 1.4rem;
+        color: #0f3e1e;
+        font-weight: 700;
+    }
+
+    .section-title {
+        background: #f0fdf4;
+        border-left: 4px solid #16a34a;
+        padding: 10px 12px;
+        margin-bottom: 10px;
+        font-weight: 600;
+        color: #14532d;
+        border-radius: 6px;
+    }
+
     .rules-text {
-        background: #f6f6f6;
-        padding: 15px;
+        background: #f7f7f7;
+        padding: 14px;
         border-radius: 6px;
         white-space: pre-line;
+        font-size: 0.95rem;
+        line-height: 1.6;
     }
+
+    .divider {
+        width: 100%;
+        height: 1px;
+        background: #e5e7eb;
+        margin: 25px 0;
+    }
+
     .close-btn {
         margin-top: 15px;
-        padding: 8px 16px;
-        background: #0f3e1e;
+        padding: 10px 20px;
+        background: #14532d;
         color: white;
         border: none;
         border-radius: 6px;
         cursor: pointer;
-    }
-    .divider-line {
-        display: inline-block;
-        width: 1px;
-        height: 16px;
-        background: #d1d5db;
-        margin: 0 12px;
     }
     
     /* 组合柜规则结束*/
@@ -1143,12 +1163,39 @@
 
 <div id="rules-modal" class="rules-modal">
     <div class="rules-content">
-        <h3>组合柜规则详情</h3>
-        <pre class="rules-text">{{ combina_rules_text }}</pre>
+        <h3 class="modal-title">组合柜规则详情</h3>
+
+        <div class="rules-section">
+            <div class="section-title">📌 基础规则（Global Rules）</div>
+            <pre class="rules-text">{{ combina_rules_text.global_rules }}</pre>
+        </div>
+
+        <div class="divider"></div>
+
+        
+
+        <div class="rules-section">
+            <div class="section-title">🏬 非组合柜提拆计费（Warehouse Rules）</div>
+            <pre class="rules-text">{{ combina_rules_text.warehouse_rules }}</pre>
+        </div>
+        <div class="divider"></div>
+
+        <div class="rules-section">
+            <div class="section-title">⚖️ 特殊仓点计费（Weight Rules）</div>
+            <pre class="rules-text">{{ combina_rules_text.special_des_rules }}</pre>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="rules-section">
+            <div class="section-title">💲 超出仓点阶梯计费（Tiered Pricing）</div>
+            <pre class="rules-text">{{ combina_rules_text.tiered_pricing }}</pre>
+        </div>
 
         <button class="close-btn" onclick="closeRulesModal()">关闭</button>
     </div>
 </div>
+
 <div class="finance-container">
     <!-- 头部 -->
     <header class="system-header">
