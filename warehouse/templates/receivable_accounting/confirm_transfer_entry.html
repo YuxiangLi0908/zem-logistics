@@ -861,14 +861,14 @@
                 <div class="form-buttons">
                     <button type="submit" name="step" value="confirm_save_all" class="btn btn-success">
                         <i class="fas fa-save"></i>
-                        保存修改
+                        确认生成
                     </button>
                 </div>
             </div>
         </form>
 
         <!-- 添加费用按钮 -->
-        <button type="button" class="btn btn-add add-item-btn" data-bs-toggle="modal" data-bs-target="#addItemModal">
+        <button type="button" class="btn btn-add add-item-btn" onclick="showAddItemModal()">
             <i class="fas fa-plus"></i>
             添加费用项目
         </button>
@@ -885,34 +885,27 @@
                 </h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
-            <form method="post" id="add-item-form">
-                {% csrf_token %}
-                <input type="hidden" name="step" value="add_item">
-                <input type="hidden" name="container_number" value="{{ container_number }}">
-                <input type="hidden" name="invoice_number" value="{{ invoice_number }}">
-                
-                <div class="modal-body">
-                    <div class="mb-4">
-                        <h6 class="mb-3">选择费用类别：</h6>
-                        <select name="category" class="green-select" required>
-                            <option value="">请选择类别...</option>
-                            <option value="preport">港前费用</option>
-                            <option value="warehouse_public">公仓库内费用</option>
-                            <option value="warehouse_other">私仓库内费用</option>
-                            <option value="delivery_public">公仓派送费用</option>
-                            <option value="delivery_other">私仓派送费用</option>
-                        </select>
-                    </div>
+            <div class="modal-body">
+                <div class="mb-4">
+                    <h6 class="mb-3">选择费用类别：</h6>
+                    <select id="add-category-select" class="green-select" required>  <!-- 这里改为id而不是name -->
+                        <option value="">请选择类别...</option>
+                        <option value="preport">港前费用</option>
+                        <option value="warehouse_public">公仓库内费用</option>
+                        <option value="warehouse_other">私仓库内费用</option>
+                        <option value="delivery_public">公仓派送费用</option>
+                        <option value="delivery_other">私仓派送费用</option>
+                    </select>
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-green-outline" data-bs-dismiss="modal">
-                        <i class="fas fa-times"></i> 取消
-                    </button>
-                    <button type="submit" class="btn btn-green">
-                        <i class="fas fa-check"></i> 确认添加
-                    </button>
-                </div>
-            </form>
+            </div>
+            <div class="modal-footer">  <!-- 添加modal-footer -->
+                <button type="button" class="btn btn-green-outline" data-bs-dismiss="modal">
+                    <i class="fas fa-times"></i> 取消
+                </button>
+                <button type="button" class="btn btn-green" onclick="addNewItem()">
+                    <i class="fas fa-check"></i> 确认添加
+                </button>
+            </div>
         </div>
     </div>
 </div>
@@ -1006,6 +999,13 @@ $(document).ready(function() {
             $('#items-data').val(JSON.stringify(items));
         }
     });
+
+    $('.input-qty, .input-rate, .input-surcharge').on('input', function() {
+        calculateItemAmount($(this));
+    });
+    
+    // 计算总条目数
+    updateTotalItemsCount();
 });
 
 // 初始化金额计算
@@ -1025,7 +1025,7 @@ function calculateItemAmount($input) {
     const $amountInput = $row.find('.input-amount');
     const category = $row.data('category');
     
-    const qty = parseFloat($qtyInput.val()) || 0;
+    const qty = parseFloat($qtyInput.val()) || 1;
     const rate = parseFloat($rateInput.val()) || 0;
     const surcharges = parseFloat($surchargeInput.val()) || 0;
     
@@ -1107,5 +1107,235 @@ $(document).ready(function() {
     const totalItems = $('.row-existing').length;
     $('#total-items-count').text(totalItems);
 });
+function showAddItemModal() {
+    $('#add-category-select').val('');
+    const addModal = new bootstrap.Modal(document.getElementById('addItemModal'));
+    addModal.show();
+}
+
+// 添加新项目行
+function addNewItem() {
+    const category = $('#add-category-select').val();
+    if (!category) {
+        alert('请选择费用类别');
+        return;
+    }
+      
+    // 生成新行的HTML
+    const newRowHtml = generateNewRowHtml(category);
+    console.log('category', category);
+    
+    // 关键修改：找到对应类别的表格
+    // 1. 找到对应的section（标题区域）
+    const $section = $(`.${category}-section`);
+    console.log('section', $section);
+    
+    if ($section.length === 0) {
+        console.error('找不到对应的section');
+        return;
+    }
+    
+    // 2. 找到该section下面的表格
+    const $table = $section.next('table');
+    console.log('table', $table);
+    
+    if ($table.length === 0) {
+        console.error('找不到对应的表格');
+        return;
+    }
+    
+    // 3. 找到表格的tbody（如果不存在则创建）
+    let $tbody = $table.find('tbody');
+    
+    if ($tbody.length === 0) {
+        $table.append('<tbody></tbody>');
+        $tbody = $table.find('tbody');
+    }
+    
+    console.log('tbody', $tbody);
+    
+    if ($tbody.length > 0) {
+        $tbody.append(newRowHtml);
+        
+        // 重新绑定事件
+        bindRowEvents($tbody.find('tr').last());
+        
+        // 更新统计
+        updateCategoryTotal(category);
+        updateTotalAmount();
+        updateTotalItemsCount();
+        
+        // 关闭模态框
+        const modal = bootstrap.Modal.getInstance(document.getElementById("addItemModal"));
+        if (modal) {
+            modal.hide();
+        }
+    } else {
+        console.error('找不到对应的tbody');
+    }
+}
+
+// 生成新行的HTML
+function generateNewRowHtml(category) {
+    const isDelivery = category === 'delivery_public' || category === 'delivery_other';
+    
+    if (isDelivery) {
+        return `
+            <tr class="row-existing row-new" data-category="${category}" data-item-id="new">
+                <td class="cell-stats">
+                    <input type="hidden" name="item_id" value="new">
+                    新
+                </td>
+                <td class="cell-description">
+                    <input type="text" 
+                           name="description" 
+                           value="" 
+                           class="input-control"
+                           placeholder="费用名称"
+                           required>
+                </td>
+                <td class="cell-destination">
+                    <input type="text" 
+                           name="warehouse_code" 
+                           value="" 
+                           class="input-control"
+                           placeholder="目的地">
+                </td>
+                <td class="cell-stats">
+                    <input type="number" 
+                           step="0.01"
+                           name="qty" 
+                           value="0" 
+                           class="input-control input-qty"
+                           onchange="calculateItemAmount(this)">
+                </td>
+                <td class="cell-stats">
+                    <input type="number" 
+                           step="0.01"
+                           name="rate" 
+                           value="0" 
+                           class="input-control input-rate"
+                           onchange="calculateItemAmount(this)">
+                </td>
+                <td class="cell-stats">
+                    <input type="number" 
+                           step="0.01"
+                           name="surcharges" 
+                           value="0" 
+                           class="input-control input-surcharge"
+                           onchange="calculateItemAmount(this)">
+                </td>
+                <td class="cell-stats">
+                    <input type="number" 
+                           step="0.01"
+                           name="amount" 
+                           value="0.00" 
+                           class="input-control input-amount amount-input"
+                           data-category="${category}"
+                           readonly>
+                </td>
+                <td>
+                    <input type="text" 
+                           name="note" 
+                           value="" 
+                           class="input-control input-note"
+                           placeholder="备注">
+                </td>
+                <td class="column-poid">
+                    <input type="text" 
+                           name="po_id" 
+                           value="" 
+                           class="input-control"
+                           placeholder="PO号">
+                </td>
+            </tr>
+        `;
+    } else {
+        return `
+            <tr class="row-existing row-new" data-category="${category}" data-item-id="new">
+                <td class="cell-stats">
+                    <input type="hidden" name="item_id" value="new">
+                    新
+                </td>
+                <td class="cell-description">
+                    <input type="text" 
+                           name="description" 
+                           value="" 
+                           class="input-control"
+                           placeholder="费用名称"
+                           required>
+                </td>
+                <td class="cell-stats">
+                    <input type="number" 
+                           step="0.01"
+                           name="qty" 
+                           value="0" 
+                           class="input-control input-qty"
+                           onchange="calculateItemAmount(this)">
+                </td>
+                <td class="cell-stats">
+                    <input type="number" 
+                           step="0.01"
+                           name="rate" 
+                           value="0" 
+                           class="input-control input-rate"
+                           onchange="calculateItemAmount(this)">
+                </td>
+                <td class="cell-stats">
+                    <input type="number" 
+                           step="0.01"
+                           name="surcharges" 
+                           value="0" 
+                           class="input-control input-surcharge"
+                           onchange="calculateItemAmount(this)">
+                </td>
+                <td class="cell-stats">
+                    <input type="number" 
+                           step="0.01"
+                           name="amount" 
+                           value="0.00" 
+                           class="input-control input-amount amount-input"
+                           data-category="${category}"
+                           readonly>
+                </td>
+                <td>
+                    <input type="text" 
+                           name="note" 
+                           value="" 
+                           class="input-control input-note"
+                           placeholder="备注">
+                </td>
+                <td style="display:none;">
+                    <input type="text" 
+                           name="warehouse_code" 
+                           value="" 
+                           class="input-control"
+                           placeholder="目的地">
+                </td>
+                <td style="display:none;" class="column-poid">
+                    <input type="text" 
+                           name="po_id" 
+                           value="" 
+                           class="input-control"
+                           placeholder="PO号">
+                </td>
+            </tr>
+        `;
+    }
+}
+
+// 绑定行事件
+function bindRowEvents($row) {
+    $row.find('.input-qty, .input-rate, .input-surcharge').on('input', function() {
+        calculateItemAmount($(this));
+    });
+}
+
+// 更新总条目数
+function updateTotalItemsCount() {
+    const totalItems = $('.row-existing').length;
+    $('#total-items-count').text(totalItems);
+}
+
 </script>
 {% endblock %}
