@@ -8,7 +8,7 @@ from warehouse.models.customer import Customer
 class Invoicev2(models.Model):
     invoice_number = models.CharField(max_length=200, null=True, blank=True)
     invoice_date = models.DateField(null=True, blank=True)
-    created_at = models.DateField(null=True, blank=True)
+    created_at = models.DateField(null=True, blank=True, verbose_name="账单创建时间")
     invoice_link = models.CharField(max_length=2000, null=True, blank=True)
     customer = models.ForeignKey(
         Customer, null=True, blank=True, on_delete=models.SET_NULL
