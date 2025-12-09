@@ -346,7 +346,24 @@
         vertical-align: middle;
         animation: pulse 2s infinite;
     }
-    
+    .status-rejected-row {
+        background-color: #ffebee !important;  /* 浅红色背景 */
+        border-left: 4px solid #f44336;  /* 左侧红色边框作为强调 */
+    }
+
+    .status-rejected-row:hover {
+        background-color: #ffcdd2 !important;  /* 悬停时加深颜色 */
+    }
+
+    /* 状态徽章样式优化 */
+    .status-badge.rejected {
+        background-color: #f44336;
+        color: white;
+        padding: 3px 8px;
+        border-radius: 12px;
+        font-size: 12px;
+        font-weight: bold;
+    }
     @keyframes pulse {
         0% {
             opacity: 0.8;
@@ -596,7 +613,8 @@
                                         data-warehouse="{{ item.order.retrieval_id.retrieval_destination_precise|default:''|lower }}"
                                         data-warehouse_in="{% if item.order.offload_time %}{{ item.order.offload_time|date:'Y-m-d' }}{% endif %}" 
                                         data-status="{{ item.public_status|default:'unstarted' }}"
-                                        data-reject-reason="{{ item.warehouse_public_reason|default:''|lower }}">
+                                        data-reject-reason="{{ item.warehouse_public_reason|default:''|lower }}"
+                                        {% if item.public_status == 'rejected' %}class="status-rejected-row"{% endif %}>
                                         <td class="td" data-column="customer">{{ item.order.customer_name.zem_name }}</td>
                                         <td class="td" data-column="container">
                                             <a href="/receivable_accounting/?step=container_delivery&container_number={{ item.order.container_number.container_number }}&invoice_id={{ item.invoice_id }}&delivery_type=public&start_date={{ start_date }}&end_date={{ end_date }}" class="container-link">
@@ -808,7 +826,8 @@
                                         data-warehouse="{{ item.order.retrieval_id.retrieval_destination_precise|default:''|lower }}"
                                         data-warehouse_in="{% if item.order.offload_time %}{{ item.order.offload_time|date:'Y-m-d' }}{% endif %}" 
                                         data-status="{{ item.self_status|default:'unstarted' }}"
-                                        data-reject-reason="{{ item.warehouse_other_reason|default:''|lower }}">
+                                        data-reject-reason="{{ item.warehouse_other_reason|default:''|lower }}"
+                                        {% if item.public_status == 'rejected' %}class="status-rejected-row"{% endif %}>
                                         <td class="td" data-column="customer">{{ item.order.customer_name.zem_name }}</td>
                                         <td class="td" data-column="container">
                                             <a href="/receivable_accounting/?step=container_delivery&container_number={{ item.order.container_number.container_number }}&invoice_id={{ item.invoice_id }}&delivery_type=other&start_date={{ start_date }}&end_date={{ end_date }}" class="container-link">
@@ -842,7 +861,7 @@
                                             {% endif %}
                                         </td>
                                         <td class="td" data-column="reject-reason">
-                                            {{ item.warehouse_other_reason|default_if_none:'-' }}
+                                            {{ item.delivery_other_reason|default_if_none:'-' }}
                                         </td>
                                     </tr>
                                     {% endfor %}
