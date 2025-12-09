@@ -237,8 +237,8 @@
 </div>
 
 <div id="fleetModaLModify" class="modal">
-  <div class="modal-content" style="width: 90%; min-width: 800px;">
-    <div id="fleetModalBody" style="padding-top: 10px;">
+  <div class="modal-content" style="width: 90%; max-width: 1200px; min-width: 800px;">
+    <div id="fleetModalBody" style="padding-top: 10px; overflow-y: auto;">
         <div style="border-radius: 12px; padding: 20px; margin-top: 10px;">
             <form method="post" action="" style="width: 100%;" onsubmit="showLoadingBar()">
                 {% csrf_token %}
@@ -331,9 +331,9 @@
                 </div>
             </form>
 
-            <div class="table-container">
+            <div class="table-container" style="max-height: 400px; overflow-y: auto;">
                 <table class="data-table">
-                    <thead>
+                    <thead style="position: sticky; top: 220px; background: white; z-index: 7;">
                         <tr>
                             <th>柜号</th>
                             <th>目的地</th>

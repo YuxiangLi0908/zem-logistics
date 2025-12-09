@@ -1288,6 +1288,8 @@ class ReceivableAccounting(View):
                         'has_invoice': True,
                         'offload_time': order.offload_time,
                         'is_hold': is_hold,
+                        'delivery_public_reason': status_obj.delivery_public_reason,
+                        'delivery_other_reason': status_obj.delivery_other_reason,
                     }
                     # 根据状态分组
                     if should_process_public:                 
@@ -2986,7 +2988,7 @@ class ReceivableAccounting(View):
                 if save_type == "rejected":
                     invoice_status.preport_reason = request.POST.get("reject_reason", "")
                 else:
-                    invoice_status.preport_reason = None
+                    invoice_status.preport_reason = ''
                 invoice_status.save()
             status_mapping = {
                 'pending_review': '待审核',
