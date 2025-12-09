@@ -50,7 +50,7 @@ from django.db.models import (
 )
 import logging
 import traceback
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from django.utils.safestring import mark_safe
 
 from django.db import transaction
@@ -257,13 +257,219 @@ class ReceivableAccounting(View):
         elif step == "reject_category":
             template, context = self.handle_reject_category(request)
             return render(request, template, context)
-        elif step == "add_item":
-            print(request.POST)
-            raise ValueError('00')
         elif step == "confirm_save_all":
-            print(request.POST)
-            raise ValueError('00')
+            template, context = self.handle_confirm_save_all(request)
+            return render(request, template, context)
+    
+    def handle_confirm_save_all(
+        self, request: HttpRequest
+    ) -> tuple[Any, Any]:
+        context = {}
+        container_number = request.POST.get("container_number")
+        invoice_number = request.POST.get("invoice_number")
+        items_data_json = request.POST.get('items_data')
+
+        #有错误时，要重新加载页面而准备的数据
+        get_params = QueryDict(mutable=True)
+        get_params["container_number"] = container_number
+        get_params["invoice_number"] = request.POST.get("invoice_number")
         
+        request.GET = get_params
+        if not container_number or not invoice_number or not items_data_json:       
+            context.update({'error_messages': '缺少必要参数！'})
+            return self.handle_container_invoice_confirm_get(request)
+
+        try:
+            items_data = json.loads(items_data_json)
+            if isinstance(items_data, str):  # 双重JSON编码的情况
+                items_data = json.loads(items_data)
+        except json.JSONDecodeError as e:
+            context.update({'error_messages': '表格数据解析错误！'})
+            return self.handle_container_invoice_confirm_get(request)
+        
+        # 获取容器和发票对象
+        try:
+            container = Container.objects.get(container_number=container_number)
+            invoice = Invoicev2.objects.get(invoice_number=invoice_number)
+        except (Container.DoesNotExist, Invoicev2.DoesNotExist) as e:
+            context.update({'error_messages': '查不到柜号或者账单记录'})
+            return self.handle_container_invoice_confirm_get(request)
+        
+        # 存储统计信息
+        saved_items = []
+        skipped_items = []
+        total_amount = 0.0
+        for item in items_data:
+            try:
+                # 处理item_id
+                item_id = item.get('item_id')
+                
+                item_category = item.get('category', 'preport')
+                
+                # 处理数量、单价、金额等字段
+                qty = item.get('qty', '1')
+                rate = item.get('rate', '0')
+                surcharges = item.get('surcharges', '')
+                amount = item.get('amount', '0')
+                
+                # 转换为浮点数，处理可能的字符串格式
+                def to_decimal(v):
+                    try:
+                        return Decimal(str(v)) if v not in (None, '') else Decimal('0')
+                    except (InvalidOperation, ValueError):
+                        return Decimal('0')
+
+                qty = to_decimal(item.get('qty', 0))
+                rate = to_decimal(item.get('rate', 0))
+                surcharges = to_decimal(item.get('surcharges', 0))
+                amount = to_decimal(item.get('amount', 0))
+        
+                # 处理PO_ID和warehouse_code
+                po_id = item.get('po_id', '').strip()
+                warehouse_code = item.get('warehouse_code', '').strip()
+                
+                # 如果item_id是'new'，创建新记录
+                if item_id == 'new':
+                    invoice_item = InvoiceItemv2(
+                        container_number=container,
+                        invoice_number=invoice,
+                        invoice_type='receivable', 
+                        item_category=item_category,
+                        description=item.get('description', '').strip(),
+                        qty=qty,
+                        rate=rate,
+                        surcharges=surcharges,
+                        amount=amount,
+                        PO_ID=po_id if po_id else None,
+                        warehouse_code=warehouse_code if warehouse_code else None,
+                        note=item.get('note', '').strip(),
+                        # 以下字段根据业务需求设置
+                        cbm=None,
+                        weight=None,
+                        delivery_type=None
+                    )
+                    invoice_item.save()
+                    saved_items.append({
+                        'id': invoice_item.id,
+                        'description': invoice_item.description,
+                        'amount': invoice_item.amount
+                    })
+                
+                # 如果item_id是数字，更新现有记录
+                elif item_id and item_id.isdigit():
+                    try:
+                        invoice_item = InvoiceItemv2.objects.get(
+                            id=int(item_id),
+                            invoice_number=invoice
+                        )
+                        
+                        # 更新字段
+                        update_fields = [
+                            'description', 'qty', 'rate', 'surcharges', 'amount',
+                            'PO_ID', 'warehouse_code', 'note', 'item_category'
+                        ]
+                        
+                        invoice_item.description = item.get('description', '').strip()
+                        invoice_item.item_category = item_category
+                        invoice_item.qty = qty
+                        invoice_item.rate = rate
+                        invoice_item.surcharges = surcharges
+                        invoice_item.amount = amount
+                        invoice_item.PO_ID = po_id if po_id else None
+                        invoice_item.warehouse_code = warehouse_code if warehouse_code else None
+                        invoice_item.note = item.get('note', '').strip()
+                        
+                        invoice_item.save(update_fields=update_fields)
+                        saved_items.append({
+                            'id': invoice_item.id,
+                            'description': invoice_item.description,
+                            'amount': invoice_item.amount
+                        })
+                        
+                    except InvoiceItemv2.DoesNotExist:
+                        skipped_items.append({
+                            'item_id': item_id,
+                            'description': item.get('description', ''),
+                            'reason': '找不到对应记录'
+                        })
+                    
+            except Exception as e:
+                skipped_items.append({
+                    'item_id': item.get('item_id', '未知'),
+                    'description': item.get('description', '未知'),
+                    'reason': str(e)
+                })
+                error_messages = f'保存项目失败: {str(e)}, 数据: {item}'
+                context.update({'error_messages': error_messages})
+                return self.handle_container_invoice_confirm_get(request)
+        
+        # 更新发票总额
+        try:
+            invoice.receivable_total_amount = total_amount
+            invoice.save()
+        except Exception as e:
+            error_messages = f'更新发票总额失败: {str(e)}'
+            context.update({'error_messages': error_messages})
+            return self.handle_container_invoice_confirm_get(request)
+        
+        status_obj = InvoiceStatusv2.objects.get(
+            invoice=invoice,
+            invoice_type='receivable'
+        )
+        status_obj.finance_status = "completed"
+        
+        #生成excel账单
+        order = Order.objects.select_related("retrieval_id", "container_number").get(
+            container_number__container_number=container_number
+        )
+        ctx = Accounting._parse_invoice_excel_data(order, invoice, "receivable")
+        workbook, invoice_data = Accounting._generate_invoice_excel(ctx)
+        invoice.invoice_date = invoice_data["invoice_date"]
+        invoice.invoice_link = invoice_data["invoice_link"]
+        invoice.save()
+
+        # 返回成功消息
+        success_message = f"成功保存 {len(saved_items)} 条记录，总额: {total_amount:.2f} USD"
+        context.update({'success_message': success_message})
+        return self.handle_confirm_entry_post(request)
+
+    def _parse_invoice_excel_data(
+        self, order: Order, invoice: Invoicev2
+    ) -> dict[str, Any]:
+        description = []
+        warehouse_code = []
+        cbm = []
+        weight = []
+        qty = []
+        rate = []
+        amount = []
+        note = []
+
+        invoice_item = InvoiceItemv2.objects.filter(
+            container_number=order.container_number.container_number,
+            invoice_number=invoice,
+            invoice_type="receivable"
+        )
+
+        for item in invoice_item:
+            description.append(item.description)
+            warehouse_code.append(item.warehouse_code)
+            cbm.append(item.cbm)
+            weight.append(item.weight)
+            qty.append(item.qty)
+            rate.append(item.rate)
+            amount.append(item.amount)
+            note.append(item.note)
+           
+        context = {
+            "order": order,
+            "container_number": order.container_number.container_number,
+            "data": zip(
+                description, warehouse_code, cbm, weight, qty, rate, amount, note
+            ),
+        }
+        return context
+    
     def handle_reject_category(
         self, request: HttpRequest
     ) -> tuple[Any, Any]:
