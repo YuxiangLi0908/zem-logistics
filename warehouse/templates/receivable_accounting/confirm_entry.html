@@ -1,0 +1,1178 @@
+{% extends 'base.html' %}
+{% load custom_filters %}
+{% block content %}
+<style>
+    .finance-system {
+        width: 100%;
+        margin: 20px auto;
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+        overflow: hidden;
+    }
+
+    :root {
+        --primary-color: #1b5e20;
+        --secondary-color: #0d3d14;
+        --success-color: #2e7d32;
+        --warning-color: #ff6f00;
+        --danger-color: #b71c1c;
+        --light-bg: #f8f9fa;
+        --card-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+        --border-radius: 12px;
+    }
+
+    .finance-header { 
+        background: linear-gradient(135deg, #0d3d14, #1b5e20);
+        color: white; 
+        padding: 25px 30px;
+        display: flex; 
+        justify-content: space-between; 
+        align-items: center; 
+    }
+    
+    .finance-logo {
+        display: flex;
+        align-items: center;
+        font-size: 1.5rem;
+        font-weight: bold;
+    }
+
+    .finance-logo i {
+        margin-right: 12px;
+        font-size: 1.8rem;
+    }
+
+    .filter-controls {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 20px;
+        background: rgba(255, 255, 255, 0.15);
+        padding: 15px 25px;
+        border-radius: 10px;
+    }
+
+    .filter-group {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .filter-group label {
+        font-weight: 600;
+        font-size: 0.9rem;
+        color: white;
+    }
+
+    .filter-controls select,
+    .filter-controls input {
+        padding: 10px 15px;
+        border: none;
+        border-radius: 6px;
+        background: white;
+        font-size: 0.95rem;
+        min-width: 150px;
+    }
+
+    .filter-controls button {
+        padding: 10px 20px;
+        background: var(--success-color);
+        color: white;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-weight: 600;
+        transition: all 0.3s ease;
+    }
+
+    .filter-controls button:hover {
+        background: #219652;
+        transform: translateY(-1px);
+    }
+
+    .finance-main {
+        padding: 25px;
+    }
+
+    .tables-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 25px;
+        height: 650px;
+    }
+
+    .container-section {
+        background: white;
+        border-radius: var(--border-radius);
+        box-shadow: var(--card-shadow);
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        border: 1px solid #f0f0f0;
+    }
+
+    .section-header {
+        background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+        padding: 20px;
+        border-bottom: 1px solid #dee2e6;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-shrink: 0;
+    }
+
+    .section-header h3 {
+        margin: 0;
+        color: var(--secondary-color);
+        font-size: 1.2rem;
+        font-weight: 600;
+    }
+
+    .section-count {
+        background: var(--primary-color);
+        color: white;
+        border-radius: 20px;
+        padding: 4px 12px;
+        font-size: 0.85rem;
+        font-weight: 600;
+    }
+
+    .table-container {
+        overflow-x: auto;
+        overflow-y: auto;
+        flex: 1;
+        background: #fafbfc;
+    }
+
+    .table {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0;
+        font-size: 14px;
+        background: white;
+    }
+
+    .th {
+        background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+        padding: 16px 12px;
+        text-align: left;
+        font-weight: 600;
+        border-bottom: 2px solid #dee2e6;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        color: var(--secondary-color);
+        font-size: 0.95rem;
+        border-right: 1px solid #e9ecef;
+        height: 50px;
+    }
+
+    .th:last-child {
+        border-right: none;
+    }
+
+    .td {
+        padding: 14px 12px;
+        border-bottom: 1px solid #f0f0f0;
+        vertical-align: middle;
+    }
+
+    .action-buttons {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+    }
+
+    .action-btn {
+        padding: 8px 16px;
+        border: none;
+        border-radius: 6px;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+
+    .btn-primary {
+        background: #1890ff;
+        color: white;
+    }
+
+    .btn-primary:hover {
+        background: #096dd9;
+    }
+
+    .btn-success {
+        background: #52c41a;
+        color: white;
+    }
+
+    .btn-success:hover {
+        background: #389e0d;
+    }
+
+    .btn-warning {
+        background: #fa8c16;
+        color: white;
+    }
+
+    .btn-warning:hover {
+        background: #d46b08;
+    }
+
+    .btn-danger {
+        background: #f5222d;
+        color: white;
+    }
+
+    .btn-danger:hover {
+        background: #cf1322;
+    }
+
+    .status-badge {
+        display: inline-block;
+        padding: 4px 10px;
+        border-radius: 12px;
+        font-size: 12px;
+        font-weight: 500;
+    }
+
+    .status-notified {
+        background: #e6f7ff;
+        color: #1890ff;
+        border: 1px solid #91d5ff;
+    }
+
+    .status-unnotified {
+        background: #fff7e6;
+        color: #fa8c16;
+        border: 1px solid #ffd591;
+    }
+
+    .status-pending {
+        background: #f6ffed;
+        color: #52c41a;
+        border: 1px solid #b7eb8f;
+    }
+
+    .search-row .th {
+        background: #e9ecef !important;
+        position: sticky;
+        top: 50px !important;
+        z-index: 9;
+        padding: 8px 12px !important;
+        height: 40px !important;
+        border-bottom: 1px solid #dee2e6 !important;
+    }
+
+    .search-row .th input[type="text"] {
+        width: 100%;
+        padding: 6px 10px;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+        font-size: 12px;
+        box-sizing: border-box;
+        transition: all 0.3s ease;
+        background: white;
+    }
+
+    .search-row .th input[type="text"]:focus {
+        outline: none;
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 2px rgba(27, 94, 32, 0.1);
+    }
+
+    .monthly-total-controls {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        background: #f8f9fa;
+        padding: 15px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+    }
+
+    .monthly-total-controls label {
+        font-weight: bold;
+        color: #333;
+    }
+
+    .monthly-total-controls select {
+        padding: 8px 12px;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+        font-size: 14px;
+    }
+
+    .total-amount {
+        font-weight: bold;
+        color: #1890ff;
+        padding: 8px 16px;
+        border-radius: 4px;
+        background: #f0f8ff;
+        min-width: 150px;
+        text-align: center;
+    }
+
+    .modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0,0,0,0.5);
+        z-index: 999;
+        overflow-y: auto;
+    }
+
+    .modal-content {
+        position: relative;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 90%;
+        max-width: 700px;
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+        padding: 25px;
+    }
+
+    .close-modal {
+        position: absolute;
+        top: 15px;
+        right: 15px;
+        font-size: 24px;
+        cursor: pointer;
+        color: #666;
+    }
+
+    .form-group {
+        margin-bottom: 20px;
+    }
+
+    .form-group label {
+        display: block;
+        margin-bottom: 6px;
+        font-size: 14px;
+        color: #555;
+        font-weight: 500;
+    }
+
+    .form-group input,
+    .form-group textarea {
+        width: 100%;
+        padding: 10px 12px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 14px;
+        box-sizing: border-box;
+    }
+
+    .form-group textarea {
+        min-height: 100px;
+        resize: vertical;
+    }
+
+    .modal-footer {
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+        margin-top: 20px;
+    }
+
+    .selected-orders-info {
+        margin-bottom: 20px;
+        padding: 15px;
+        background: #f8f9fa;
+        border-radius: 6px;
+    }
+
+    .customer-info {
+        margin-bottom: 15px;
+        padding-bottom: 15px;
+        border-bottom: 1px solid #dee2e6;
+    }
+
+    .selected-orders-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 14px;
+    }
+
+    .selected-orders-table th {
+        background: #e9ecef;
+        padding: 10px;
+        text-align: left;
+        border: 1px solid #dee2e6;
+    }
+
+    .selected-orders-table td {
+        padding: 10px;
+        border: 1px solid #dee2e6;
+    }
+
+    .container-link {
+        color: #1890ff;
+        text-decoration: none;
+        font-weight: 500;
+        transition: color 0.3s ease;
+    }
+
+    .container-link:hover {
+        color: #096dd9;
+        text-decoration: underline;
+    }
+
+    .amount-cell {
+        font-weight: 600;
+        color: var(--primary-color);
+    }
+
+    .remain-amount {
+        color: #fa8c16;
+    }
+
+    .invoice-link {
+        color: #52c41a;
+        margin-right: 8px;
+    }
+
+    .delete-link {
+        color: #f5222d;
+        cursor: pointer;
+    }
+
+    .statement-link {
+        color: #1890ff;
+    }
+
+    /* 核销金额样式 */
+    .offset-info {
+        background: #fff7e6;
+        padding: 10px;
+        border-radius: 4px;
+        margin-bottom: 15px;
+        border-left: 4px solid #fa8c16;
+    }
+
+    /* 行选中样式 */
+    .selected-row {
+        background-color: #e6f7ff !important;
+        transition: background-color 0.3s ease;
+    }
+
+    /* 复选框样式优化 */
+    .td input[type="checkbox"] {
+        cursor: pointer;
+        width: 18px;
+        height: 18px;
+        vertical-align: middle;
+    }
+</style>
+
+<div class="finance-system">
+    <form method="post" action="" class="warehouse-selector">
+        {% csrf_token %}
+        <div class="finance-header">
+            <div class="finance-logo">
+                <i class="fas fa-file-invoice-dollar"></i>
+                <span>应收账单管理</span>
+            </div>       
+            <div class="filter-controls">
+                <div class="filter-group">
+                    <label>客户：</label>
+                    {{ order_form.customer_name }}
+                </div>
+                <div class="filter-group">
+                    <label>ETD时间：</label>
+                    <input type="date" name="start_date_confirm" value="{{ start_date_confirm }}">
+                    <span style="color: white; margin: 0 5px;">至</span>
+                    <input type="date" name="end_date_confirm" value="{{ end_date_confirm }}">
+                </div>
+                <div class="filter-group">
+                    <label>仓点区域：</label>
+                    <select name="warehouse_filter">
+                        {% for k, v in warehouse_options.items %}
+                            <option value="{{ v }}" {% if warehouse_filter == v %}selected{% endif %}>{{ k }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <input type="hidden" name="step" value="confirm_search">
+                <button type="submit" class="btn-filter">
+                    <i class="fas fa-search"></i> 查询
+                </button>
+            </div>      
+        </div>
+    </form>
+
+    <div class="finance-main">
+        <!-- 应付账单控制栏 -->
+        {% if invoice_type_filter == "payable" %}
+        <div class="monthly-total-controls">
+            <label>选择月份：</label>
+            <select id="monthSelector">
+                {% for month in months %}
+                    <option value="{{ month.value }}" {% if month.selected %}selected{% endif %}>
+                        {{ month.label }}
+                    </option>
+                {% endfor %}
+            </select>
+            <button type="button" onclick="calculateMonthlyTotal()" class="btn btn-primary">
+                <i class="fas fa-calculator"></i> 计算总金额
+            </button>
+            <div id="monthlyTotalResult" class="total-amount">
+                总金额：$0.00
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="tables-grid">
+            <!-- 待开账单 -->
+            <div class="container-section">
+                <div class="section-header">
+                    <h3>
+                        待开账单
+                        <span class="section-count">{{ order|length }}条</span>
+                    </h3>
+                    <div>
+                        <div style="margin-top: 5px; display: flex; gap: 8px;">
+                            <button type="button" onclick="filterTransportOrders()" class="action-btn btn-primary" style="font-size: 11px; padding: 4px 8px;">
+                                <i class="fas fa-truck"></i> 仅转运
+                            </button>
+                            <button type="button" onclick="resetTransportFilter()" class="action-btn" style="font-size: 11px; padding: 4px 8px; background: #6c757d; color: white;">
+                                <i class="fas fa-sync-alt"></i> 重置
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="table-container">
+                    <table class="table" id="order-table">
+                        <thead>
+                            <tr>
+                                <th class="th">客户</th>
+                                <th class="th">货柜号</th>
+                                <th class="th">订单类型</th>
+                                <th class="th">仓库</th>
+                                <th class="th">建单日期</th>
+                            </tr>
+                            <tr class="search-row">
+                                <th class="th">
+                                    <input type="text" placeholder="搜索客户..." oninput="filterTable(this, 0, 'order-table')">
+                                </th>
+                                <th class="th">
+                                    <input type="text" placeholder="搜索柜号..." oninput="filterTable(this, 1, 'order-table')">
+                                </th>
+                                <th class="th">
+                                    <input type="text" placeholder="搜索类型..." oninput="filterTable(this, 2, 'order-table')">
+                                </th>
+                                <th class="th">
+                                    <input type="text" placeholder="搜索仓库..." oninput="filterTable(this, 3, 'order-table')">
+                                </th>
+                                <th class="th">
+                                    <input type="text" placeholder="搜索日期..." oninput="filterTable(this, 4, 'order-table')">
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% if order %}       
+                                {% for c in order %}
+                                <tr>
+                                    <td class="td">{{ c.customer_name__zem_name }}</td>
+                                    <td class="td">
+                                        <a href="/receivable_accounting/?step=container_confirm&container_number={{ c.container_number__container_number }}&invoice_id={{ c.invoice_id }}&start_date={{ start_date }}&end_date={{ end_date }}&warehouse_filter={{ warehouse_filter }}" class="container-link">
+                                            {{ c.container_number__container_number }}
+                                        </a>
+                                    </td>
+                                    <td class="td">{{ c.order_type }}</td>
+                                    <td class="td">{{ c.retrieval_id__retrieval_destination_precise }}</td>
+                                    <td class="td">{{ c.created_at|date:"Y-m-d" }}</td>
+                                </tr>
+                                {% endfor %}
+                            {% else %}
+                                <tr>
+                                    <td colspan="5" class="td" style="text-align: center; color: #6c757d;">
+                                        暂无待开账单
+                                    </td>
+                                </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 已开账单 -->
+            <div class="container-section">
+                <div class="section-header">
+                    <h3>
+                        已开账单
+                        <span class="section-count">{{ previous_order|length }}条</span>
+                    </h3>
+                    <div>                     
+                        <div style="margin-top: 5px; display: flex; gap: 8px;">
+                            <button type="button" onclick="filterByNotification(false)" class="action-btn btn-primary" style="font-size: 11px; padding: 4px 8px;">
+                                <i class="fas fa-bell-slash"></i> 未通知
+                            </button>
+                            <button type="button" onclick="filterByUnsettled()" class="action-btn btn-warning" style="font-size: 11px; padding: 4px 8px;">
+                                <i class="fas fa-coins"></i> 待核销
+                            </button>
+                            <button type="button" onclick="resetFilters()" class="action-btn" style="font-size: 11px; padding: 4px 8px; background: #6c757d; color: white;">
+                                <i class="fas fa-sync-alt"></i> 重置
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="table-container">
+                    <table class="table" id="order-table-previous">
+                        <thead>
+                            <tr>
+                                <th class="th" style="width: 40px;">
+                                    <input type="checkbox" id="selectAll">
+                                </th>
+                                <th class="th">客户</th>
+                                <th class="th">货柜号</th>
+                                <th class="th">订单类型</th>
+                                <th class="th">仓库</th>
+                                <th class="th">INVOICE #</th>
+                                <th class="th">建单日期</th>
+                                <th class="th">账单日期</th>
+                                <th class="th">应收金额</th>
+                                <th class="th">待核销</th>
+                                <th class="th">操作</th>
+                                <th class="th">STMT #</th>
+                                <th class="th">通知状态</th>
+                            </tr>
+                            <tr class="search-row">
+                                <th class="th" style="width: 40px;"></th>
+                                <th class="th">
+                                    <input type="text" placeholder="搜索客户..." oninput="filterTable(this, 1, 'order-table-previous')">
+                                </th>
+                                <th class="th">
+                                    <input type="text" placeholder="搜索柜号..." oninput="filterTable(this, 2, 'order-table-previous')">
+                                </th>
+                                <th class="th">
+                                    <input type="text" placeholder="搜索类型..." oninput="filterTable(this, 3, 'order-table-previous')">
+                                </th>
+                                <th class="th">
+                                    <input type="text" placeholder="搜索仓库..." oninput="filterTable(this, 4, 'order-table-previous')">
+                                </th>
+                                <th class="th">
+                                    <input type="text" placeholder="搜索INVOICE #..." oninput="filterTable(this, 5, 'order-table-previous')">
+                                </th>
+                                <th class="th">
+                                    <input type="text" placeholder="搜索建单日期..." oninput="filterTable(this, 6, 'order-table-previous')">
+                                </th>
+                                <th class="th">
+                                    <input type="text" placeholder="搜索账单日期..." oninput="filterTable(this, 7, 'order-table-previous')">
+                                </th>
+                                <th class="th">
+                                    <input type="text" placeholder="搜索金额..." oninput="filterTable(this, 8, 'order-table-previous')">
+                                </th>
+                                <th class="th">
+                                    <input type="text" placeholder="搜索待核销..." oninput="filterTable(this, 9, 'order-table-previous')">
+                                </th>
+                                <th class="th"></th>
+                                <th class="th">
+                                    <input type="text" placeholder="搜索STMT #..." oninput="filterTable(this, 11, 'order-table-previous')">
+                                </th>
+                                <th class="th">
+                                    <input type="text" placeholder="搜索状态..." oninput="filterTable(this, 12, 'order-table-previous')">
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% if previous_order %}        
+                                {% for c in previous_order %}
+                                <tr>
+                                    <td class="td" style="text-align: center;">
+                                        <input type='checkbox' name='is_order_selected_click' onclick="toggleRowBackground(this)">
+                                        <input type="hidden" name="is_order_selected" value='off'>
+                                        <input type="hidden" name="order_id" value='{{ c.order_id }}'>
+                                    </td>
+                                    <td class="td">{{ c.customer_name__zem_name }}</td>
+                                    <td class="td">
+                                        <a href="/accounting/?step=container_confirm&container_number={{ c.container_number__container_number }}&invoice_id={{ item.invoice_id }}&start_date_confirm={{ start_date_confirm }}&end_date_confirm={{ end_date_confirm }}&invoice_type={{ invoice_type_filter }}&warehouse_filter={{ warehouse_filter }}" class="container-link">
+                                            {{ c.container_number__container_number }}
+                                        </a>
+                                    </td>
+                                    <td class="td">{{ c.order_type }}</td>
+                                    <td class="td">{{ c.retrieval_id__retrieval_destination_area }}</td>
+                                    <td class="td">{{ c.invoice_id__invoice_number }}</td>
+                                    <td class="td">{{ c.created_at|date:"Y-m-d" }}</td>
+                                    <td class="td">{{ c.invoice_id__invoice_date|date:"Y-m-d" }}</td>
+                                    <td class="td amount-cell">${{ c.invoice_id__receivable_total_amount|floatformat:"2g" }}</td>
+                                    <td class="td remain-amount">${{ c.invoice_id__remain_offset|floatformat:"2g" }}</td>
+                                    <td class="td">
+                                        <div class="action-buttons">
+                                            <a href="{{ c.invoice_id__invoice_link }}" target="_blank" class="invoice-link" title="查看发票">
+                                                <i class="fas fa-file-invoice"></i>
+                                            </a>
+                                            <a href="#" onclick="confirmDelete(event, '{{ c.container_number__container_number }}', '{{ c.invoice_id__invoice_number }}')" class="delete-link" title="删除">
+                                                <i class="fas fa-trash-alt"></i>
+                                            </a>
+                                        </div>
+                                    </td>
+                                    <td class="td">
+                                        {% if c.invoice_id__statement_id__invoice_statement_id %}
+                                            <a href="{{ c.invoice_id__statement_id__statement_link }}" target="_blank" class="statement-link">
+                                                {{ c.invoice_id__statement_id__invoice_statement_id }}
+                                            </a>
+                                        {% else %}
+                                            -
+                                        {% endif %}
+                                    </td>
+                                    <td class="td">
+                                        {% if c.invoice_id__is_invoice_delivered %}
+                                            <span class="status-badge status-notified">已通知</span>
+                                        {% else %}
+                                            <span class="status-badge status-unnotified">未通知</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            {% else %}
+                                <tr>
+                                    <td colspan="13" class="td" style="text-align: center; color: #6c757d;">
+                                        暂无已开账单
+                                    </td>
+                                </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- 批量操作按钮 -->
+                <div style="padding: 20px; border-top: 1px solid #dee2e6;">
+                    <form method="post" action="" id="batch-form">
+                        {% csrf_token %}
+                        <input type="hidden" name="invoice_type" value="{{ invoice_type_filter }}">
+                        <div style="display: flex; gap: 15px; justify-content: flex-end;">
+                            <button type="button" onclick="submitBatchAction('invoice_order_select')" class="action-btn btn-primary">
+                                <i class="fas fa-receipt"></i> 生成STMT
+                            </button>
+                            <button type="button" onclick="submitBatchAction('invoice_order_batch_export')" class="action-btn btn-success">
+                                <i class="fas fa-file-export"></i> 导出
+                            </button>
+                            <button type="button" onclick="submitBatchAction('invoice_order_delivered')" class="action-btn btn-primary">
+                                <i class="fas fa-envelope"></i> 通知
+                            </button>
+                            <button type="button" onclick="submitBatchAction('invoice_order_reject')" class="action-btn btn-warning">
+                                <i class="fas fa-redo"></i> 重开
+                            </button>
+                            <button type="button" onclick="adjustBalance()" class="action-btn btn-danger">
+                                <i class="fas fa-dollar-sign"></i> 核销
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 核销弹窗 -->
+<div id="adjustBalanceModal" class="modal">
+    <div class="modal-content">
+        <span class="close-modal" onclick="closeModal('adjustBalanceModal')">&times;</span>   
+        <h3 style="margin-top: 0; margin-bottom: 20px; color: #333; font-size: 18px; font-weight: 600;">核销客户余额</h3>
+        
+        <div id="selectedOrdersInfo" class="selected-orders-info">
+            <!-- 动态填充选中的订单信息 -->
+        </div>
+
+        <div class="offset-info">
+            <div><strong>客户名称：</strong><span id="modalCustomerName"></span></div>
+            <div><strong>当前余额：</strong>$<span id="modalCustomerBalance">0.00</span></div>
+        </div>
+
+        <form method="post" action="" id="adjustBalanceForm" enctype="multipart/form-data">
+            {% csrf_token %}
+            <input type="hidden" name="step" value="adjustBalance">
+            <input type="hidden" name="customerId" id="selectCustomerId" value="">
+            <input type="hidden" name="start_date_confirm" value="{{ start_date_confirm }}">
+            <input type="hidden" name="end_date_confirm" value="{{ end_date_confirm }}">
+            <input type="hidden" name="selectedOrders" id="selectedOrdersData" value="">
+            
+            <div class="form-group">
+                <label for="usdAmount">美元金额 (USD)：</label>
+                <input type="number" id="usdAmount" name="usdamount"
+                    step="0.01" 
+                    min="0.01" 
+                    placeholder="输入核销金额"
+                    required>
+            </div>
+
+            <div class="form-group">
+                <label for="note">备注：</label>
+                <textarea name="note" id="note" 
+                        placeholder="请输入备注信息（可选）"></textarea>
+            </div>
+            
+            <div class="modal-footer">
+                <button type="button" class="action-btn" style="background: #6c757d; color: white;" onclick="closeModal('adjustBalanceModal')">
+                    取消
+                </button>
+                <button type="submit" class="action-btn btn-primary" onclick="return validateWriteOff()">
+                    确认提交
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% include 'receivable_accounting/modals/message_modal.html' %}
+
+<script>
+    // 存储选中的柜号
+    let selectedOrders = [];
+    let selectedCustomer = null;
+    const tableFilters = {};
+
+    // 初始化表格筛选器
+    function initTableFilters() {
+        const tables = ['order-table', 'order-table-previous'];
+        tables.forEach(tableId => {
+            tableFilters[tableId] = {};
+        });
+    }
+
+    // 通用表格筛选函数
+    function filterTable(input, columnIndex, tableId) {
+        const filterValue = input.value.toLowerCase();
+        const table = document.getElementById(tableId);
+        const rows = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
+        
+        // 更新筛选器状态
+        if (!tableFilters[tableId]) tableFilters[tableId] = {};
+        tableFilters[tableId][columnIndex] = filterValue;
+        
+        // 应用筛选
+        applyTableFilter(tableId);
+    }
+
+    function applyTableFilter(tableId) {
+        const table = document.getElementById(tableId);
+        const rows = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
+        const filters = tableFilters[tableId] || {};
+        
+        for (let i = 0; i < rows.length; i++) {
+            const row = rows[i];
+            let showRow = true;
+            
+            // 检查是否被其他筛选隐藏（如转运筛选）
+            if (row.style.display === 'none' && Object.keys(filters).length === 0) {
+                continue;
+            }
+            
+            for (const [colIndex, filterValue] of Object.entries(filters)) {
+                if (filterValue) {
+                    const cell = row.cells[colIndex];
+                    if (cell) {
+                        const cellText = cell.textContent || cell.innerText;
+                        if (!cellText.toLowerCase().includes(filterValue)) {
+                            showRow = false;
+                            break;
+                        }
+                    }
+                }
+            }
+            
+            row.style.display = showRow ? '' : 'none';
+        }
+    }
+
+    // 初始化
+    document.addEventListener('DOMContentLoaded', function() {
+        initTableFilters();
+        
+        // 全选功能
+        document.getElementById('selectAll').addEventListener('click', function() {
+            const checkboxes = document.querySelectorAll('#order-table-previous tbody tr input[name="is_order_selected_click"]');
+            const visibleRows = Array.from(document.querySelectorAll('#order-table-previous tbody tr')).filter(row => row.style.display !== 'none');
+            
+            checkboxes.forEach((checkbox, index) => {
+                const row = checkbox.closest('tr');
+                if (visibleRows.includes(row)) {
+                    checkbox.checked = this.checked;
+                    toggleRowBackground(checkbox);
+                }
+            });
+        });
+    });
+
+    // 筛选未通知的账单
+    function filterByNotification(status) {
+        const rows = document.querySelectorAll('#order-table-previous tbody tr');
+        rows.forEach(row => {
+            const statusCell = row.cells[12]; // 通知状态列
+            if (statusCell) {
+                const statusText = statusCell.textContent.trim();
+                const shouldShow = statusText.includes('未通知') || statusText.includes('否');
+                row.style.display = shouldShow ? '' : 'none';
+            }
+        });
+    }
+
+    // 筛选待核销账单
+    function filterByUnsettled() {
+        const rows = document.querySelectorAll('#order-table-previous tbody tr');
+        rows.forEach(row => {
+            const amountCell = row.cells[9]; // 待核销金额列
+            if (amountCell) {
+                const amount = parseFloat(amountCell.textContent.replace('$', '').replace(/,/g, '')) || 0;
+                row.style.display = amount > 0 ? '' : 'none';
+            }
+        });
+    }
+
+    // 重置筛选
+    function resetFilters() {
+        const rows = document.querySelectorAll('#order-table-previous tbody tr');
+        rows.forEach(row => {
+            row.style.display = '';
+        });
+        // 重置搜索框
+        document.querySelectorAll('#order-table-previous .search-row input').forEach(input => {
+            input.value = '';
+        });
+        tableFilters['order-table-previous'] = {};
+    }
+
+    // 仅显示转运订单
+    function filterTransportOrders() {
+        const rows = document.querySelectorAll('#order-table tbody tr');
+        rows.forEach(row => {
+            const orderTypeCell = row.cells[2]; // 订单类型列
+            if (orderTypeCell) {
+                const shouldShow = orderTypeCell.textContent.trim() === '转运';
+                row.style.display = shouldShow ? '' : 'none';
+            }
+        });
+    }
+
+    function resetTransportFilter() {
+        const rows = document.querySelectorAll('#order-table tbody tr');
+        rows.forEach(row => {
+            row.style.display = '';
+        });
+        document.querySelectorAll('#order-table .search-row input').forEach(input => {
+            input.value = '';
+        });
+        tableFilters['order-table'] = {};
+    }
+
+    // 关闭弹窗
+    function closeModal(modalId) {
+        document.getElementById(modalId).style.display = 'none';
+    }
+
+    // 验证核销金额
+    function validateWriteOff(event) {
+        if (event) event.preventDefault();
+        
+        const usdAmountInput = document.getElementById('usdAmount');
+        const usdAmount = parseFloat(usdAmountInput.value);
+        
+        if (isNaN(usdAmount) || usdAmount <= 0) {
+            alert('请输入有效的核销金额（必须大于0）');
+            usdAmountInput.focus();
+            return false;
+        }
+
+        const customerBalance = getCustomerBalance(selectedCustomer);
+        if (customerBalance < usdAmount) {
+            alert(`客户余额不足！当前余额：$${customerBalance.toFixed(2)}，核销金额：$${usdAmount.toFixed(2)}`);
+            return false;
+        }
+        
+        document.getElementById('adjustBalanceForm').submit();
+        return true;
+    }
+
+    // 核销功能
+    function adjustBalance() { 
+        const selectedRows = document.querySelectorAll('#order-table-previous tbody tr input[name="is_order_selected_click"]:checked');  
+        
+        if (selectedRows.length === 0) {
+            alert('请选择要核销的账单！');
+            return;
+        }
+        
+        const selectedOrdersInfo = [];
+        let customerName = null;
+        let sameCustomer = true;
+
+        selectedRows.forEach(row => {
+            const rowData = row.closest('tr');
+            const currentCustomer = rowData.cells[1].textContent.trim();
+
+            if (customerName === null) {
+                customerName = currentCustomer;
+            } else if (customerName !== currentCustomer) {
+                sameCustomer = false;
+            }
+            
+            selectedOrdersInfo.push({
+                containerNumber: rowData.cells[2].textContent.trim(),
+                amount: rowData.cells[8]?.textContent.trim() || '$0.00',
+                customerName: currentCustomer
+            });
+        });
+
+        if (!sameCustomer) {
+            alert('请选择同一客户的账单进行核销！');
+            return;
+        }
+
+        const customerBalance = getCustomerBalance(customerName);
+        const popup = document.getElementById('adjustBalanceModal');
+        popup.style.display = 'block';
+        selectedCustomer = customerName;
+        
+        // 更新弹窗内容
+        document.getElementById('modalCustomerName').textContent = customerName;
+        document.getElementById('modalCustomerBalance').textContent = customerBalance.toFixed(2);
+        
+        const ordersInfoContainer = document.getElementById('selectedOrdersInfo');
+        ordersInfoContainer.innerHTML = '';
+        
+        // 创建表格显示选中的订单
+        const table = document.createElement('table');
+        table.className = 'selected-orders-table';
+        
+        const thead = document.createElement('thead');
+        thead.innerHTML = `
+            <tr>
+                <th>货柜号</th>
+                <th>应收金额</th>
+            </tr>
+        `;
+        table.appendChild(thead);
+        
+        const tbody = document.createElement('tbody');
+        let total = 0;
+        
+        selectedOrdersInfo.forEach(order => {
+            const row = document.createElement('tr');
+            const amountValue = parseFloat(order.amount.replace('$', '').replace(/,/g, '')) || 0;
+            total += amountValue;
+            
+            row.innerHTML = `
+                <td>${order.containerNumber}</td>
+                <td>$${amountValue.toFixed(2)}</td>
+            `;
+            tbody.appendChild(row);
+        });
+        
+        // 总计行
+        const totalRow = document.createElement('tr');
+        totalRow.innerHTML = `
+            <td style="font-weight: bold;">总计</td>
+            <td style="font-weight: bold;">$${total.toFixed(2)}</td>
+        `;
+        tbody.appendChild(totalRow);
+        
+        table.appendChild(tbody);
+        ordersInfoContainer.appendChild(table);
+        
+        document.getElementById('selectCustomerId').value = getCustomerId(customerName);
+        document.getElementById('selectedOrdersData').value = JSON.stringify(selectedOrders);
+    }
+
+    // 获取客户余额
+    function getCustomerBalance(customerName) {
+        const customer = existing_customers.find(c => c.zem_name === customerName);
+        return customer ? customer.balance : 0;
+    }
+
+    // 获取客户ID
+    function getCustomerId(customerName) {
+        const customer = existing_customers.find(c => c.zem_name === customerName);
+        return customer ? customer.id : '';
+    }
+
+    const existing_customers = [
+        {% for customer in existing_customers %}
+        {
+            id: '{{ customer.id }}',
+            zem_name: '{{ customer.zem_name }}',
+            balance: {{ customer.balance|default:0 }}
+        }{% if not forloop.last %},{% endif %}
+        {% endfor %}
+    ];
+
+    // 行选中背景切换
+    function toggleRowBackground(checkbox) {
+        let row = checkbox.closest('tr');
+        let containerNumber = row.cells[2]?.textContent.trim() || '';
+        
+        if (checkbox.checked) {
+            row.classList.add('selected-row');
+            if (!selectedOrders.includes(containerNumber)) {
+                selectedOrders.push(containerNumber);
+            }
+        } else {
+            row.classList.remove('selected-row');
+            const index = selectedOrders.indexOf(containerNumber);
+            if (index > -1) {
+                selectedOrders.splice(index, 1);
+            }
+        }
+    }
+
+    // 批量操作提交
+    function submitBatchAction(step) {
+        if (selectedOrders.length === 0) {
+            alert('请选择要操作的账单！');
+            return;
+        }
+        
+        const form = document.getElementById('batch-form');
+        let hiddenInput = document.createElement('input');
+        hiddenInput.type = 'hidden';
+        hiddenInput.name = 'selectedOrders';
+        hiddenInput.value = JSON.stringify(selectedOrders);
+        
+        let hiddenInputStep = document.createElement('input');
+        hiddenInputStep.type = 'hidden';
+        hiddenInputStep.name = 'step';
+        hiddenInputStep.value = step;
+        
+        form.appendChild(hiddenInput);
+        form.appendChild(hiddenInputStep);
+        form.submit();
+    }
+
+    // 删除确认
+    function confirmDelete(event, containerNumber, invoiceNumber) {
+        event.preventDefault();
+        const confirmation = confirm(`确认删除货柜 ${containerNumber} 的发票 ${invoiceNumber}？`);
+        if (confirmation) {
+            window.location.href = `/accounting/?step=container_invoice_delete&invoice_number=${invoiceNumber}`;
+        }
+    }
+
+    // 应付账单月份总计计算
+    function calculateMonthlyTotal() {
+        const selectedMonth = document.getElementById('monthSelector').value;
+        const rows = document.querySelectorAll('#order-table-previous tbody tr');
+        let total = 0;
+        
+        rows.forEach(row => {
+            const billDate = row.querySelector('[data-bill-date]')?.dataset.billDate;
+            const amountText = row.querySelector('[data-payable-amount]')?.dataset.payableAmount || '0';
+            
+            if (billDate && billDate.startsWith(selectedMonth)) {
+                const amount = parseFloat(amountText.replace('$', '').replace(/,/g, '')) || 0;
+                total += amount;
+            }
+        });
+        
+        document.getElementById('monthlyTotalResult').innerHTML = 
+            `总金额：$${total.toFixed(2)}`;
+    }
+</script>
+{% endblock %}
