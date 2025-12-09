@@ -366,7 +366,12 @@
                                 </select>
                             </td>
                             <td>
-                                <input type="text" name="pod" {%if vessel %}value="{{ vessel.destination_port }}"{% endif %} required>
+                                {% if selected_order.retrieval_id.retrieval_destination_area == "SAV" %}
+                                    <input type="text" name="pod" value="Garden City Terminals" required>
+                                {% else %}
+                                    <input type="text" name="pod"
+                                           {% if vessel %}value="{{ vessel.destination_port }}"{% endif %} required>
+                                {% endif %}
                             </td>
                             <td>
                                 <input type="date" name="eta" {%if vessel %}value="{{ vessel.vessel_eta|date:'Y-m-d' }}"{% endif %} required>
