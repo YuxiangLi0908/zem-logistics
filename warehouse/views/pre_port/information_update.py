@@ -129,15 +129,13 @@ class InformationUpdate(View):
         # 组合所有条件
         filter_conditions &= t49_diff_conditions
 
-        # 补充：values() 中添加所有 T49 字段，前端才能渲染
-        return await sync_to_async(list)(
+        results = await sync_to_async(list)(
             Order.objects.prefetch_related(
                 "container_number",
                 "retrieval_id",
                 "vessel_id",
             )
             .filter(filter_conditions)
-            # 移除多余的 values()：先 annotate 再 values，避免字段丢失
             .annotate(
                 retrieval_destination_area=Case(
                     When(order_type="直送",
@@ -162,16 +160,21 @@ class InformationUpdate(View):
                 destination_port_t49=F("vessel_id__destination_port_t49"),
                 container=F("container_number__container_number"),
             )
-            # 最终返回字段：包含前端需要的所有 T49 字段
             .values(
                 "container", "retrieval_destination_area",
-                "vessel", "vessel_t49",  # 船名 + T49 船名
-                "vessel_eta", "vessel_eta_t49",  # ETA + T49 ETA
-                "vessel_etd", "vessel_etd_t49",  # ETD + T49 ETD
-                "destination_port", "destination_port_t49",  # 码头 + T49 码头
+                "vessel", "vessel_t49",
+                "vessel_eta", "vessel_eta_t49",
+                "vessel_etd", "vessel_etd_t49",
+                "destination_port", "destination_port_t49",
             )
             .order_by('vessel_eta', 'container')
         )
+
+        # 在 Python 层面处理字符串分割
+        for item in results:
+            item['vessel_v1'] = item['vessel'].split(' ')[0].upper if item['vessel'] else ''
+            item['vessel_t49_v1'] = item['vessel_t49'].split(' ')[0].upper if item['vessel_t49'] else ''
+        return results
 
     async def information_update_edit(self, request: HttpRequest) -> Any:
         try:

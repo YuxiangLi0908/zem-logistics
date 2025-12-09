@@ -647,7 +647,7 @@
                         <td class="container-cell">{{ item.container|default:"-" }}</td>
 
                         <!-- 船名航次 -->
-                        {% if item.vessel != item.vessel_t49 %}
+                        {% if item.vessel_v1 != item.vessel_t49_v1 %}
                             <td class="diff-cell">
                                 <textarea name="vessel" class="table-input">{{ item.vessel|default:"" }}</textarea>
                             </td>
@@ -656,7 +656,7 @@
                         {% endif %}
 
                         <!-- 船名航次(T49) -->
-                        {% if item.vessel != item.vessel_t49 %}
+                        {% if item.vessel_v1 != item.vessel_t49_v1 %}
                             <td class="diff-cell">{{ item.vessel_t49|default:"-" }}</td>
                         {% else %}
                             <td>{{ item.vessel_t49|default:"-" }}</td>
