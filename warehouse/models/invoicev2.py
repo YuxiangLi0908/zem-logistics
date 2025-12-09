@@ -4,6 +4,7 @@ from simple_history.models import HistoricalRecords
 
 from warehouse.models.container import Container
 from warehouse.models.customer import Customer
+from warehouse.models.invoice import InvoiceStatement
 
 class Invoicev2(models.Model):
     invoice_number = models.CharField(max_length=200, null=True, blank=True)
@@ -27,6 +28,9 @@ class Invoicev2(models.Model):
     received_amount = models.FloatField(null=True, blank=True) # 客户支付的金额
     remain_offset = models.FloatField(null=True, blank=True) # 待核销金额
 
+    statement_id = models.ForeignKey(
+        InvoiceStatement, null=True, blank=True, on_delete=models.SET_NULL
+    )
     payable_total_amount = models.FloatField(null=True, blank=True)
     payable_preport_amount = models.FloatField(null=True, blank=True)
     payable_warehouse_amount = models.FloatField(null=True, blank=True)
@@ -181,6 +185,7 @@ class InvoiceItemv2(models.Model):
     warehouse_code = models.CharField(max_length=200, null=True, blank=True) #目的地
     surcharges = models.FloatField(null=True, blank=True) #附加费
     note = models.CharField(max_length=2000, null=True, blank=True) #备注
+    registered_user = models.CharField(max_length=2000, null=True, blank=True) #记录谁录的费用
     history = HistoricalRecords()
 
     def __str__(self) -> str:
