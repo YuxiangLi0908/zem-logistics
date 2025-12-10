@@ -597,7 +597,7 @@
                                                     {{ item.order.container_number.container_number }}
                                                 </a>
                                                 {% if item.invoice_created_at %}
-                                                    <span class="invoice-date">创建: {{ item.invoice_created_at|date:"m/d H:i" }}</span>
+                                                    <span class="invoice-date">创建: {{ item.invoice_created_at|date:"m/d" }} {{ item.invoice_created_at|time:"H:i" }}</span>
                                                 {% endif %}
                                             {% else %}
                                                 <a href="/receivable_accounting/?step=container_preport&container_number={{ item.order.container_number.container_number }}&start_date={{ start_date }}&end_date={{ end_date }}" class="container-link">
@@ -693,7 +693,7 @@
                                                 {{ item.order.container_number.container_number }}
                                             </a>
                                             {% if item.invoice_created_at %}
-                                                <span class="invoice-date">创建: {{ item.invoice_created_at|date:"m/d H:i" }}</span>
+                                                <span class="invoice-date">创建: {{ item.invoice_created_at|date:"m/d" }} {{ item.invoice_created_at|time:"H:i" }}</span>
                                             {% endif %}
                                         </td>
                                         <td class="td">
@@ -810,7 +810,7 @@
                                                 {{ item.order.container_number.container_number }}
                                             </a>
                                             {% if item.invoice_created_at %}
-                                                <span class="invoice-date">创建: {{ item.invoice_created_at|date:"m/d H:i" }}</span>
+                                                <span class="invoice-date">创建: {{ item.invoice_created_at|date:"m/d" }} {{ item.invoice_created_at|time:"H:i" }}</span>
                                             {% endif %}
                                         </td>
                                         <td class="td">
@@ -902,7 +902,7 @@
                                                 {{ item.order.container_number.container_number }}
                                             </a>
                                             {% if item.invoice_created_at %}
-                                                <span class="invoice-date">创建: {{ item.invoice_created_at|date:"m/d H:i" }}</span>
+                                                <span class="invoice-date">创建: {{ item.invoice_created_at|date:"m/d" }} {{ item.invoice_created_at|time:"H:i" }}</span>
                                             {% endif %}
                                         </td>
                                         <td class="td">

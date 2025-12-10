@@ -15,7 +15,7 @@ import re, json
 import asyncio
 from django.db.models import Q
 from django.utils.timezone import make_aware, now
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 from django.contrib import messages
 from simple_history.manager import HistoryManager
 
@@ -30,6 +30,8 @@ from warehouse.models.shipment import Shipment
 from warehouse.models.fleet import Fleet
 from warehouse.models.pallet import Pallet
 from warehouse.models.invoice import Invoice
+from warehouse.models.invoicev2 import Invoicev2
+from warehouse.models.invoicev2 import InvoiceItemv2
 from warehouse.models.invoice_details import InvoiceDelivery
 from warehouse.models.customer import Customer
 from warehouse.models.fee_detail import FeeDetail
@@ -37,6 +39,7 @@ from warehouse.models.fleet_shipment_pallet import FleetShipmentPallet
 from warehouse.models.invoice_details import InvoicePreport
 from warehouse.models.invoice_details import InvoiceWarehouse
 from warehouse.models.invoice import InvoiceStatus
+from warehouse.models.invoicev2 import InvoiceStatusv2
 from warehouse.models.offload_status import AbnormalOffloadStatus
 from warehouse.models.packing_list import PackingList
 from warehouse.models.pallet_destroyed import PalletDestroyed
@@ -2825,199 +2828,504 @@ class ExceptionHandling(View):
 
     async def handle_receivale_status_migrate(self,request):
         """
-        将旧的 InvoiceStatus的stage 迁移到新的结构 - 应付状态
+        迁移Invoice和InvoiceStatus数据到新表结构 - 修改版
         """
         start_index = int(request.POST.get("start_index", 0))
         end_index = int(request.POST.get("end_index", 0))
         migration_log = []
         
-        # 查一下数量
-        total_orders = await sync_to_async(Order.objects.count)()
+        # 查询旧数据数量
+        total_invoices = await sync_to_async(lambda: Invoice.objects.count())()
         
         # 验证范围
         if start_index < 0:
             start_index = 0
-        if end_index <= 0 or end_index > total_orders:
-            end_index = total_orders
+        if end_index <= 0 or end_index > total_invoices:
+            end_index = total_invoices
         
-        total_to_process = end_index - start_index
+        # 统一创建日期
+        FIXED_CREATED_DATE = date(2025, 12, 9)
         
         # 分批处理
-        batch_size = 100
+        batch_size = 50
         
-        # 计算需要处理的批次范围
-        start_batch = start_index // batch_size
-        end_batch = (end_index - 1) // batch_size
-        
-        for batch_index in range(start_batch, end_batch + 1):
-            batch_start = batch_index * batch_size
-            batch_end = min((batch_index + 1) * batch_size, total_orders)
+        for batch_start in range(start_index, end_index, batch_size):
+            batch_end = min(batch_start + batch_size, end_index)
             
-            # 如果当前批次不在目标范围内，跳过
-            if batch_end <= start_index or batch_start >= end_index:
-                continue
-                
-            # 计算当前批次在目标范围内的实际起止位置
-            current_batch_start = max(batch_start, start_index)
-            current_batch_end = min(batch_end, end_index)
-            
-            # 计算在批次内的偏移量
-            batch_offset = current_batch_start - batch_start
-            batch_limit = current_batch_end - current_batch_start
-            
-            # 异步查询当前批次的订单
-            orders = await sync_to_async(list)(
-                Order.objects.select_related('container_number', 'receivable_status')
-                .all()[current_batch_start:current_batch_end]
-            )
-            
-            # 并发处理每个订单
+            # 查询当前批次的旧Invoice数据
+            old_invoices = await sync_to_async(
+                lambda: list(
+                    Invoice.objects.select_related('customer', 'container_number')
+                    .values(
+                        'id',
+                        'invoice_number',
+                        'invoice_date',
+                        'invoice_link',
+                        'receivable_preport_amount',
+                        'receivable_total_amount',
+                        'receivable_direct_amount',
+                        'payable_total_amount',
+                        'payable_preport_amount',
+                        'payable_warehouse_amount',
+                        'payable_delivery_amount',
+                        'is_invoice_delivered',
+                        'remain_offset',
+                        'received_amount',
+                        'customer_id',
+                        'container_number_id',
+                        'container_number__container_number',
+
+                    )[batch_start:batch_end]
+                )
+            )()
+            # 处理每个旧发票
             tasks = []
-            for order in orders:
-                # 只处理应付状态
-                if order.receivable_status:
-                    task = self.migrate_single_status(order, order.receivable_status, "receivable")
-                    tasks.append(task)
+            for old_invoice in old_invoices:
+                task = self.migrate_single_invoice(old_invoice, FIXED_CREATED_DATE)
+                tasks.append(task)
             
             # 等待所有任务完成
-            batch_results = await asyncio.gather(*tasks, return_exceptions=True)
-            
-            # 收集成功的结果
+            #batch_results = await asyncio.gather(*tasks, return_exceptions=True)
+            batch_results = await asyncio.gather(*tasks)
+            # 收集结果
             for result in batch_results:
                 if result and not isinstance(result, Exception):
                     migration_log.append(result)
-    
+                # elif isinstance(result, Exception):
+                #     error_log = {
+                #         'container_number': 'N/A',
+                #         'old_invoice_id': 'N/A',
+                #         'old_invoice_number': 'N/A',
+                #         'actions': [f"迁移失败: {str(result)}"],
+                #         'old_data': {
+                #             'stage': 'error',
+                #             'stage_public': 'error',
+                #             'stage_other': 'error'
+                #         },
+                #         'new_data': {
+                #             'preport_status': 'error',
+                #             'warehouse_public_status': 'error',
+                #             'warehouse_other_status': 'error',
+                #             'delivery_public_status': 'error',
+                #             'delivery_other_status': 'error',
+                #             'finance_status': 'error'
+                #         }
+                #     }
+                #     migration_log.append(error_log)
+                # else:
+                #     migration_log['actions'].append("未知异常")
+        
         context = {
             'migration_log': migration_log,
             'total_migrated': len(migration_log),
-            'message': f'成功迁移 {len(migration_log)} 条应付状态记录',
+            'message': f'成功迁移 {len(migration_log)} 条账单记录',
             'success': True,
             'start_index': start_index,
             'end_index': end_index,
         }
         return self.template_receivable_status_migrate, context
 
-
-    async def migrate_single_status(self, order, old_status, invoice_type):
+    async def migrate_single_invoice(self, old_invoice, fixed_date):
         """
-        迁移单个 stage 
+        迁移单个Invoice及其相关数据
+        """
+        if 1:   
+           
+            migration_log = {
+                'old_invoice_id': old_invoice['id'],
+                'old_invoice_number': old_invoice['invoice_number'],
+                'container_number': old_invoice['container_number__container_number'],
+                'actions': []
+            }
+
+            try:
+                # 1. 获取关联对象
+                customer = await sync_to_async(Customer.objects.get)(id=old_invoice['customer_id'])
+            except Customer.DoesNotExist:
+                migration_log['actions'].append(f"找不到Customer ID: {old_invoice['customer_id']}")
+                # 创建错误日志并返回
+                migration_log['old_data'] = {'stage': 'error', 'stage_public': 'error', 'stage_other': 'error'}
+                migration_log['new_data'] = {
+                    'preport_status': 'error',
+                    'warehouse_public_status': 'error',
+                    'warehouse_other_status': 'error',
+                    'delivery_public_status': 'error',
+                    'delivery_other_status': 'error',
+                    'finance_status': 'error'
+                }
+                return migration_log
+
+            try:
+                container = await sync_to_async(Container.objects.get)(id=old_invoice['container_number_id'])
+            except Container.DoesNotExist:
+                migration_log['actions'].append(f"找不到Container ID: {old_invoice['container_number_id']}")
+                # 尝试通过柜号查找
+                container_number_str = old_invoice['container_number__container_number']
+                if container_number_str:
+                    container = await sync_to_async(
+                        lambda: Container.objects.filter(container_number=container_number_str).first()
+                    )()
+                    if container:
+                        migration_log['actions'].append(f"通过柜号找到Container: {container.id}")
+                    else:
+                        migration_log['actions'].append(f"柜号 {container_number_str} 也不存在")
+                        migration_log['old_data'] = {'stage': 'error', 'stage_public': 'error', 'stage_other': 'error'}
+                        migration_log['new_data'] = {
+                            'preport_status': 'error',
+                            'warehouse_public_status': 'error',
+                            'warehouse_other_status': 'error',
+                            'delivery_public_status': 'error',
+                            'delivery_other_status': 'error',
+                            'finance_status': 'error'
+                        }
+                        return migration_log
+                else:
+                    migration_log['actions'].append("没有柜号信息")
+                    migration_log['old_data'] = {'stage': 'error', 'stage_public': 'error', 'stage_other': 'error'}
+                    migration_log['new_data'] = {
+                        'preport_status': 'error',
+                        'warehouse_public_status': 'error',
+                        'warehouse_other_status': 'error',
+                        'delivery_public_status': 'error',
+                        'delivery_other_status': 'error',
+                        'finance_status': 'error'
+                    }
+                    return migration_log
+
+            # 检查是否已存在相同invoice_number的Invoicev2
+            existing_invoicev2 = await sync_to_async(
+                lambda: Invoicev2.objects.filter(
+                    invoice_number=old_invoice['invoice_number']
+                ).first()
+            )()
+           
+            if existing_invoicev2:
+                migration_log['actions'].append(f"Invoicev2已存在，跳过创建: {existing_invoicev2.id}")
+                new_invoice = existing_invoicev2
+            else:
+                public_wh_amount = await sync_to_async(
+                    lambda: InvoiceWarehouse.objects.filter(
+                        invoice_number__invoice_number=old_invoice['invoice_number'],
+                        invoice_type="receivable",
+                        delivery_type="public"
+                    ).aggregate(total_amount=Sum('amount'))['total_amount'] or 0
+                )()
+
+                other_wh_amount = await sync_to_async(
+                    lambda: InvoiceWarehouse.objects.filter(
+                        invoice_number__invoice_number=old_invoice['invoice_number'],
+                        invoice_type="receivable",
+                        delivery_type="other"
+                    ).aggregate(total_amount=Sum('amount'))['total_amount'] or 0
+                )()
+
+                public_dl_amount = await sync_to_async(
+                    lambda: InvoiceDelivery.objects.filter(
+                        invoice_number__invoice_number=old_invoice['invoice_number'],
+                        invoice_type="receivable",
+                        delivery_type="public"
+                    ).aggregate(total_amount=Sum('total_cost'))['total_amount'] or 0
+                )()
+
+                other_dl_amount = await sync_to_async(
+                    lambda: InvoiceDelivery.objects.filter(
+                        invoice_number__invoice_number=old_invoice['invoice_number'],
+                        invoice_type="receivable",
+                        delivery_type="other"
+                    ).aggregate(total_amount=Sum('total_cost'))['total_amount'] or 0
+                )()
+
+                # 1. 创建新的Invoicev2
+                new_invoice = Invoicev2(
+                    invoice_number=old_invoice['invoice_number'],
+                    invoice_date=old_invoice['invoice_date'],
+                    created_at=fixed_date,  # 固定为2025年12月9号
+                    invoice_link=old_invoice['invoice_link'],
+                    customer=customer,
+                    container_number=container,
+                    
+                    # 应收金额字段
+                    receivable_total_amount=old_invoice['receivable_total_amount'] or 0,
+                    receivable_preport_amount=old_invoice['receivable_preport_amount'] or 0,
+                    # 根据说明：两个新字段都等于旧表的receivable_warehouse_amount
+                    receivable_wh_public_amount=public_wh_amount,
+                    receivable_wh_other_amount=other_wh_amount,
+                    # 根据说明：两个新字段都等于旧表的receivable_delivery_amount
+                    receivable_delivery_public_amount=public_dl_amount,
+                    receivable_delivery_other_amount=other_dl_amount,
+                    receivable_direct_amount=old_invoice['receivable_direct_amount'] or 0,
+                    receivable_is_locked=False,  # 默认未锁定
+                    
+                    # 应付金额字段
+                    payable_total_amount=old_invoice['payable_total_amount'] or 0,
+                    payable_preport_amount=old_invoice['payable_preport_amount'] or 0,
+                    payable_warehouse_amount=old_invoice['payable_warehouse_amount'] or 0,
+                    payable_delivery_amount=old_invoice['payable_delivery_amount'] or 0,
+                    
+                    # 其他字段
+                    is_invoice_delivered=old_invoice['is_invoice_delivered'],
+                    received_amount=old_invoice['received_amount'] or 0,
+                    remain_offset=old_invoice['remain_offset'] or 0,
+                    
+                    # statement_id字段
+                    statement_id=old_invoice.statement_id if hasattr(old_invoice, 'statement_id') else None
+                )
+                
+                await sync_to_async(new_invoice.save)()
+                migration_log['actions'].append(f"创建Invoicev2: {new_invoice.id}")
+            
+            # 2. 迁移InvoiceStatus数据
+            # 获取旧Invoice的所有状态记录
+            if 1:
+                try:
+                    old_status = await sync_to_async(InvoiceStatus.objects.get)(
+                        container_number=container,
+                        invoice_type="receivable"
+                    )
+                except InvoiceStatus.DoesNotExist:
+                    migration_log['actions'].append("没有应收状态表")
+                    migration_log['old_data'] = {'stage': 'error', 'stage_public': 'error', 'stage_other': 'error'}
+                    migration_log['new_data'] = {
+                        'preport_status': 'error',
+                        'warehouse_public_status': 'error',
+                        'warehouse_other_status': 'error',
+                        'delivery_public_status': 'error',
+                        'delivery_other_status': 'error',
+                        'finance_status': 'error'
+                    }
+                    return migration_log
+                old_data = {
+                    'stage': getattr(old_status, 'stage', 'unstarted'),
+                    'stage_public': getattr(old_status, 'stage_public', 'pending'),
+                    'stage_other': getattr(old_status, 'stage_other', 'pending')
+                }
+            
+
+                # 检查是否已存在相同invoice和invoice_type的InvoiceStatusv2
+                existing_status = await sync_to_async(
+                    lambda: InvoiceStatusv2.objects.filter(
+                        invoice=new_invoice,
+                        invoice_type="receivable"
+                    ).first()
+                )()
+                                
+                if not existing_status:
+                    # 创建新的InvoiceStatusv2
+                    new_status = InvoiceStatusv2(
+                        container_number=container,
+                        invoice=new_invoice,  # 关联到新创建的Invoicev2
+                        invoice_type="receivable",
+                        
+                        # 状态字段
+                        preport_status=old_status.preport_status,
+                        warehouse_public_status=old_status.warehouse_public_status,
+                        warehouse_other_status=old_status.warehouse_other_status,
+                        delivery_public_status=old_status.delivery_public_status,
+                        delivery_other_status=old_status.delivery_other_status,
+                        finance_status=old_status.finance_status,
+                        
+                        # 新增的驳回原因字段（都为空）
+                        preport_reason='',
+                        warehouse_public_reason='',
+                        warehouse_self_reason='',
+                        delivery_public_reason='',
+                        delivery_other_reason='',
+                        
+                        # payable字段
+                        payable_status=old_status.payable_status,
+                        payable_date=old_status.payable_date,
+                    )
+                    
+                    await sync_to_async(new_status.save)()
+                    migration_log['actions'].append(f"创建InvoiceStatusv2: {new_status.id}")
+
+                    new_data = {
+                        'preport_status': new_status.preport_status,
+                        'warehouse_public_status': new_status.warehouse_public_status,
+                        'warehouse_other_status': new_status.warehouse_other_status,
+                        'delivery_public_status': new_status.delivery_public_status,
+                        'delivery_other_status': new_status.delivery_other_status,
+                        'finance_status': new_status.finance_status
+                    }
+                else:
+                    migration_log['actions'].append(f"InvoiceStatusv2已存在: {existing_status.id}")
+                    # 记录已存在的新状态
+                    new_data = {
+                        'preport_status': existing_status.preport_status,
+                        'warehouse_public_status': existing_status.warehouse_public_status,
+                        'warehouse_other_status': existing_status.warehouse_other_status,
+                        'delivery_public_status': existing_status.delivery_public_status,
+                        'delivery_other_status': existing_status.delivery_other_status,
+                        'finance_status': existing_status.finance_status
+                    }
+                migration_log['old_data'] = old_data
+                migration_log['new_data'] = new_data
+                
+            # except InvoiceStatus.DoesNotExist:
+            #     # 查不到就跳过
+            #     migration_log['actions'].append(f"没有找到柜号 {old_invoice.container_number.container_number} 的InvoiceStatus记录")
+            #     # 创建空的old_data和new_data用于前端显示
+            #     migration_log['old_data'] = {
+            #         'stage': 'unstarted',
+            #         'stage_public': 'pending',
+            #         'stage_other': 'pending'
+            #     }
+            #     migration_log['new_data'] = {
+            #         'preport_status': 'unstarted',
+            #         'warehouse_public_status': 'unstarted',
+            #         'warehouse_other_status': 'unstarted',
+            #         'delivery_public_status': 'unstarted',
+            #         'delivery_other_status': 'unstarted',
+            #         'finance_status': 'unstarted'
+            #     }
+            # 3. 迁移InvoiceItem数据（如果旧系统有的话）
+            # 这里需要根据你的业务逻辑来创建InvoiceItemv2
+            # 可以根据Invoicev2的金额字段创建对应的明细记录
+            # await self.create_invoice_items_from_invoice(new_invoice, old_invoice)
+            # migration_log['actions'].append("创建InvoiceItemv2明细")
+            
+            return migration_log
+            
+        # except Exception as e:
+        #     migration_log['actions'].append(f"迁移失败 - Invoice ID: {old_invoice.id}, Error: {str(e)}")
+        #     # 添加错误状态数据
+        #     migration_log['old_data'] = {
+        #         'stage': 'error',
+        #         'stage_public': 'error',
+        #         'stage_other': 'error'
+        #     }
+        #     migration_log['new_data'] = {
+        #         'preport_status': 'error',
+        #         'warehouse_public_status': 'error',
+        #         'warehouse_other_status': 'error',
+        #         'delivery_public_status': 'error',
+        #         'delivery_other_status': 'error',
+        #         'finance_status': 'error'
+        #     }
+        #     return migration_log
+
+    async def create_invoice_items_from_invoice(self, new_invoice, old_invoice):
+        """
+        根据Invoicev2的金额字段创建InvoiceItemv2明细
         """
         try:
-            old_stage = old_status.stage
-            old_stage_public = old_status.stage_public
-            old_stage_other = old_status.stage_other
-            is_rejected = old_status.is_rejected
+            # 创建应收账单明细
             
-            # 构建迁移日志
-            log_entry = {
-                'container_number': order.container_number.container_number if order.container_number else '未知柜号',
-                'old_data': {
-                    'stage': old_stage,
-                    'stage_public': old_stage_public,
-                    'stage_other': old_stage_other,
-                },
-                'new_data': {},
-            }
-            if old_stage == "confirmed":
-                # 根据旧状态映射到新状态
-                new_status_mapping = await self.calculate_new_status(old_stage, old_stage_public, old_stage_other, is_rejected)
-                
-                # 异步更新 InvoiceStatus 对象
-                await self.update_invoice_status(old_status, new_status_mapping)
-                
-                # 记录新数据
-                log_entry['new_data'] = new_status_mapping
-                
-                return log_entry
+            # 1. 港前费用
+            if new_invoice.receivable_preport_amount and new_invoice.receivable_preport_amount > 0:
+                preport_item = InvoiceItemv2(
+                    container_number=new_invoice.container_number,
+                    invoice_number=new_invoice,
+                    invoice_type='receivable',
+                    item_category='preport',
+                    description='港前费用',
+                    qty=1,
+                    rate=new_invoice.receivable_preport_amount,
+                    surcharges=0,
+                    amount=new_invoice.receivable_preport_amount,
+                    note='从旧系统迁移',
+                    warehouse_code='',
+                    PO_ID=''
+                )
+                await sync_to_async(preport_item.save)()
             
+            # 2. 公仓库内费用
+            if new_invoice.receivable_wh_public_amount and new_invoice.receivable_wh_public_amount > 0:
+                wh_public_item = InvoiceItemv2(
+                    container_number=new_invoice.container_number,
+                    invoice_number=new_invoice,
+                    invoice_type='receivable',
+                    item_category='warehouse_public',
+                    description='公仓库内费用',
+                    qty=1,
+                    rate=new_invoice.receivable_wh_public_amount,
+                    surcharges=0,
+                    amount=new_invoice.receivable_wh_public_amount,
+                    note='从旧系统迁移',
+                    warehouse_code='',
+                    PO_ID=''
+                )
+                await sync_to_async(wh_public_item.save)()
+            
+            # 3. 私仓库内费用
+            if new_invoice.receivable_wh_other_amount and new_invoice.receivable_wh_other_amount > 0:
+                wh_other_item = InvoiceItemv2(
+                    container_number=new_invoice.container_number,
+                    invoice_number=new_invoice,
+                    invoice_type='receivable',
+                    item_category='warehouse_other',
+                    description='私仓库内费用',
+                    qty=1,
+                    rate=new_invoice.receivable_wh_other_amount,
+                    surcharges=0,
+                    amount=new_invoice.receivable_wh_other_amount,
+                    note='从旧系统迁移',
+                    warehouse_code='',
+                    PO_ID=''
+                )
+                await sync_to_async(wh_other_item.save)()
+            
+            # 4. 公仓派送费用
+            if new_invoice.receivable_delivery_public_amount and new_invoice.receivable_delivery_public_amount > 0:
+                delivery_public_item = InvoiceItemv2(
+                    container_number=new_invoice.container_number,
+                    invoice_number=new_invoice,
+                    invoice_type='receivable',
+                    item_category='delivery_public',
+                    description='公仓派送费用',
+                    qty=1,
+                    rate=new_invoice.receivable_delivery_public_amount,
+                    surcharges=0,
+                    amount=new_invoice.receivable_delivery_public_amount,
+                    note='从旧系统迁移',
+                    warehouse_code='',
+                    PO_ID=''
+                )
+                await sync_to_async(delivery_public_item.save)()
+            
+            # 5. 私仓派送费用
+            if new_invoice.receivable_delivery_other_amount and new_invoice.receivable_delivery_other_amount > 0:
+                delivery_other_item = InvoiceItemv2(
+                    container_number=new_invoice.container_number,
+                    invoice_number=new_invoice,
+                    invoice_type='receivable',
+                    item_category='delivery_other',
+                    description='私仓派送费用',
+                    qty=1,
+                    rate=new_invoice.receivable_delivery_other_amount,
+                    surcharges=0,
+                    amount=new_invoice.receivable_delivery_other_amount,
+                    note='从旧系统迁移',
+                    warehouse_code='',
+                    PO_ID=''
+                )
+                await sync_to_async(delivery_other_item.save)()
+            
+            # 6. 直接费用
+            if new_invoice.receivable_direct_amount and new_invoice.receivable_direct_amount > 0:
+                direct_item = InvoiceItemv2(
+                    container_number=new_invoice.container_number,
+                    invoice_number=new_invoice,
+                    invoice_type='receivable',
+                    item_category='preport',  # 或者创建一个新的类别，暂时放到港前
+                    description='直接费用',
+                    qty=1,
+                    rate=new_invoice.receivable_direct_amount,
+                    surcharges=0,
+                    amount=new_invoice.receivable_direct_amount,
+                    note='从旧系统迁移',
+                    warehouse_code='',
+                    PO_ID=''
+                )
+                await sync_to_async(direct_item.save)()
+            
+            # 应付账单明细（根据你的需要添加）
+            if new_invoice.payable_total_amount and new_invoice.payable_total_amount > 0:
+                # 这里可以创建应付账单的明细
+                pass
+                
         except Exception as e:
-            print(f"迁移失败 - Order ID: {order.id}, Error: {str(e)}")
-            return None
-    
-    async def update_invoice_status(self, old_status, new_status_mapping):
-        """异步更新 InvoiceStatus 对象"""
-        old_status.preport_status = new_status_mapping['preport_status']
-        old_status.warehouse_public_status = new_status_mapping['warehouse_public_status']
-        old_status.warehouse_other_status = new_status_mapping['warehouse_other_status']
-        old_status.delivery_public_status = new_status_mapping['delivery_public_status']
-        old_status.delivery_other_status = new_status_mapping['delivery_other_status']
-        old_status.finance_status = new_status_mapping['finance_status']
-        
-        # 异步保存
-        await sync_to_async(old_status.save)()
-
-    async def calculate_new_status(self, old_stage, old_stage_public, old_stage_other, is_rejected):
-        """异步计算新状态映射 - 处理驳回状态"""
-        # 基础状态映射
-        # if old_stage == "unstarted":
-        #     base_status = {
-        #         'preport_status': "unstarted",
-        #         'warehouse_public_status': "unstarted",
-        #         'warehouse_other_status': "unstarted",
-        #         'delivery_public_status': "unstarted",
-        #         'delivery_other_status': "unstarted",
-        #         'finance_status': "unstarted",
-        #     }
-        # elif old_stage == "preport":
-        #     base_status = {
-        #         'preport_status': "pending_review",
-        #         'warehouse_public_status': "unstarted",
-        #         'warehouse_other_status': "unstarted",
-        #         'delivery_public_status': "unstarted",
-        #         'delivery_other_status': "unstarted",
-        #         'finance_status': "unstarted",
-        #     }
-        # elif old_stage == "warehouse":
-        #     base_status = {
-        #         'preport_status': "completed",
-        #         'warehouse_public_status': await self.map_public_other_status_async(old_stage_public),
-        #         'warehouse_other_status': await self.map_public_other_status_async(old_stage_other),
-        #         'delivery_public_status': await self.map_public_other_status_async(old_stage_public),
-        #         'delivery_other_status': await self.map_public_other_status_async(old_stage_other),
-        #         'finance_status': "unstarted",
-        #     }
-        # elif old_stage == "delivery":
-        #     base_status = {
-        #         'preport_status': "completed",
-        #         'warehouse_public_status': await self.map_public_other_status_async(old_stage_public),
-        #         'warehouse_other_status': await self.map_public_other_status_async(old_stage_public),
-        #         'delivery_public_status': await self.map_public_other_status_async(old_stage_public),
-        #         'delivery_other_status': await self.map_public_other_status_async(old_stage_other),
-        #         'finance_status': "unstarted",
-        #     }
-        # elif old_stage == "tobeconfirmed":
-        #     base_status = {
-        #         'preport_status': "completed",
-        #         'warehouse_public_status': "completed",
-        #         'warehouse_other_status': "completed",
-        #         'delivery_public_status': "completed",
-        #         'delivery_other_status': "completed",
-        #         'finance_status': "tobeconfirmed",
-        #     }
-        if old_stage == "confirmed":
-            base_status = {
-                'preport_status': "completed",
-                'warehouse_public_status': "completed",
-                'warehouse_other_status': "completed",
-                'delivery_public_status': "completed",
-                'delivery_other_status': "completed",
-                'finance_status': "completed",
-            }
-        # else:
-        #     base_status = {
-        #         'preport_status': "unstarted",
-        #         'warehouse_public_status': "unstarted",
-        #         'warehouse_other_status': "unstarted",
-        #         'delivery_public_status': "unstarted",
-        #         'delivery_other_status': "unstarted",
-        #         'finance_status': "unstarted",
-        #     }
-        
-        # 如果有驳回，根据当前阶段设置驳回状态
-        if is_rejected:
-            base_status = await self.apply_rejection_status(old_stage, base_status)
-        
-        return base_status
+            print(f"创建InvoiceItemv2明细失败: {str(e)}")
 
     async def map_public_other_status_async(self, old_status):
         """映射公仓/私仓状态到新状态"""

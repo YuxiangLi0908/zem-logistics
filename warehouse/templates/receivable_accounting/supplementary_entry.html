@@ -480,7 +480,7 @@
         <div class="finance-header">
             <div class="finance-logo">
                 <i class="fas fa-file-invoice-dollar"></i>
-                <span>应收账单管理</span>
+                <span>应收账单补开管理</span>
             </div>       
             <div class="filter-controls">
                 <div class="filter-group">
@@ -501,7 +501,7 @@
                         {% endfor %}
                     </select>
                 </div>
-                <input type="hidden" name="step" value="confirm_search">
+                <input type="hidden" name="step" value="supplement_search">
                 <button type="submit" class="btn-filter">
                     <i class="fas fa-search"></i> 查询
                 </button>
@@ -510,25 +510,14 @@
     </form>
 
     <div class="finance-main">
-
         <div class="tables-grid">
             <!-- 待开账单 -->
             <div class="container-section">
                 <div class="section-header">
                     <h3>
-                        待开账单
+                        可补开账单
                         <span class="section-count">{{ order|length }}条</span>
                     </h3>
-                    <div>
-                        <div style="margin-top: 5px; display: flex; gap: 8px;">
-                            <button type="button" onclick="filterTransportOrders()" class="action-btn btn-primary" style="font-size: 11px; padding: 4px 8px;">
-                                <i class="fas fa-truck"></i> 仅转运
-                            </button>
-                            <button type="button" onclick="resetTransportFilter()" class="action-btn" style="font-size: 11px; padding: 4px 8px; background: #6c757d; color: white;">
-                                <i class="fas fa-sync-alt"></i> 重置
-                            </button>
-                        </div>
-                    </div>
                 </div>
                 <div class="table-container">
                     <table class="table" id="order-table">
@@ -589,22 +578,10 @@
             <div class="container-section">
                 <div class="section-header">
                     <h3>
-                        已开账单
+                        已补开账单
                         <span class="section-count">{{ previous_order|length }}条</span>
                     </h3>
-                    <div>                     
-                        <div style="margin-top: 5px; display: flex; gap: 8px;">
-                            <button type="button" onclick="filterByNotification(false)" class="action-btn btn-primary" style="font-size: 11px; padding: 4px 8px;">
-                                <i class="fas fa-bell-slash"></i> 未通知
-                            </button>
-                            <button type="button" onclick="filterByUnsettled()" class="action-btn btn-warning" style="font-size: 11px; padding: 4px 8px;">
-                                <i class="fas fa-coins"></i> 待核销
-                            </button>
-                            <button type="button" onclick="resetFilters()" class="action-btn" style="font-size: 11px; padding: 4px 8px; background: #6c757d; color: white;">
-                                <i class="fas fa-sync-alt"></i> 重置
-                            </button>
-                        </div>
-                    </div>
+                    
                 </div>
                 <div class="table-container">
                     <table class="table" id="order-table-previous">
@@ -725,435 +702,11 @@
                     </table>
                 </div>
                 
-                <!-- 批量操作按钮 -->
-                <div style="padding: 20px; border-top: 1px solid #dee2e6;">
-                    <form method="post" action="" id="batch-form">
-                        {% csrf_token %}
-                        <input type="hidden" name="invoice_type" value="{{ invoice_type_filter }}">
-                        <div style="display: flex; gap: 15px; justify-content: flex-end;">
-                            <button type="button" onclick="submitBatchAction('invoice_order_select')" class="action-btn btn-primary">
-                                <i class="fas fa-receipt"></i> 生成STMT
-                            </button>
-                            <button type="button" onclick="submitBatchAction('invoice_order_batch_export')" class="action-btn btn-success">
-                                <i class="fas fa-file-export"></i> 导出
-                            </button>
-                            <button type="button" onclick="submitBatchAction('invoice_order_delivered')" class="action-btn btn-primary">
-                                <i class="fas fa-envelope"></i> 通知
-                            </button>
-                            <button type="button" onclick="submitBatchAction('invoice_order_reject')" class="action-btn btn-warning">
-                                <i class="fas fa-redo"></i> 重开
-                            </button>
-                            <button type="button" onclick="adjustBalance()" class="action-btn btn-danger">
-                                <i class="fas fa-dollar-sign"></i> 核销
-                            </button>
-                        </div>
-                    </form>
-                </div>
             </div>
         </div>
-    </div>
-</div>
-
-<!-- 核销弹窗 -->
-<div id="adjustBalanceModal" class="modal">
-    <div class="modal-content">
-        <span class="close-modal" onclick="closeModal('adjustBalanceModal')">&times;</span>   
-        <h3 style="margin-top: 0; margin-bottom: 20px; color: #333; font-size: 18px; font-weight: 600;">核销客户余额</h3>
-        
-        <div id="selectedOrdersInfo" class="selected-orders-info">
-            <!-- 动态填充选中的订单信息 -->
-        </div>
-
-        <div class="offset-info">
-            <div><strong>客户名称：</strong><span id="modalCustomerName"></span></div>
-            <div><strong>当前余额：</strong>$<span id="modalCustomerBalance">0.00</span></div>
-        </div>
-
-        <form method="post" action="" id="adjustBalanceForm" enctype="multipart/form-data">
-            {% csrf_token %}
-            <input type="hidden" name="step" value="adjustBalance">
-            <input type="hidden" name="customerId" id="selectCustomerId" value="">
-            <input type="hidden" name="start_date_confirm" value="{{ start_date_confirm }}">
-            <input type="hidden" name="end_date_confirm" value="{{ end_date_confirm }}">
-            <input type="hidden" name="selectedOrders" id="selectedOrdersData" value="">
-            
-            <div class="form-group">
-                <label for="usdAmount">美元金额 (USD)：</label>
-                <input type="number" id="usdAmount" name="usdamount"
-                    step="0.01" 
-                    min="0.01" 
-                    placeholder="输入核销金额"
-                    required>
-            </div>
-
-            <div class="form-group">
-                <label for="note">备注：</label>
-                <textarea name="note" id="note" 
-                        placeholder="请输入备注信息（可选）"></textarea>
-            </div>
-            
-            <div class="modal-footer">
-                <button type="button" class="action-btn" style="background: #6c757d; color: white;" onclick="closeModal('adjustBalanceModal')">
-                    取消
-                </button>
-                <button type="submit" class="action-btn btn-primary" onclick="return validateWriteOff()">
-                    确认提交
-                </button>
-            </div>
-        </form>
     </div>
 </div>
 
 {% include 'receivable_accounting/modals/message_modal.html' %}
 
-<script>
-    // 存储选中的柜号
-    let selectedOrders = [];
-    let selectedCustomer = null;
-    const tableFilters = {};
-
-    // 初始化表格筛选器
-    function initTableFilters() {
-        const tables = ['order-table', 'order-table-previous'];
-        tables.forEach(tableId => {
-            tableFilters[tableId] = {};
-        });
-    }
-
-    // 通用表格筛选函数
-    function filterTable(input, columnIndex, tableId) {
-        const filterValue = input.value.toLowerCase();
-        const table = document.getElementById(tableId);
-        const rows = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
-        
-        // 更新筛选器状态
-        if (!tableFilters[tableId]) tableFilters[tableId] = {};
-        tableFilters[tableId][columnIndex] = filterValue;
-        
-        // 应用筛选
-        applyTableFilter(tableId);
-    }
-
-    function applyTableFilter(tableId) {
-        const table = document.getElementById(tableId);
-        const rows = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
-        const filters = tableFilters[tableId] || {};
-        
-        for (let i = 0; i < rows.length; i++) {
-            const row = rows[i];
-            let showRow = true;
-            
-            // 检查是否被其他筛选隐藏（如转运筛选）
-            if (row.style.display === 'none' && Object.keys(filters).length === 0) {
-                continue;
-            }
-            
-            for (const [colIndex, filterValue] of Object.entries(filters)) {
-                if (filterValue) {
-                    const cell = row.cells[colIndex];
-                    if (cell) {
-                        const cellText = cell.textContent || cell.innerText;
-                        if (!cellText.toLowerCase().includes(filterValue)) {
-                            showRow = false;
-                            break;
-                        }
-                    }
-                }
-            }
-            
-            row.style.display = showRow ? '' : 'none';
-        }
-    }
-
-    // 初始化
-    document.addEventListener('DOMContentLoaded', function() {
-        initTableFilters();
-        
-        // 全选功能
-        document.getElementById('selectAll').addEventListener('click', function() {
-            const checkboxes = document.querySelectorAll('#order-table-previous tbody tr input[name="is_order_selected_click"]');
-            const visibleRows = Array.from(document.querySelectorAll('#order-table-previous tbody tr')).filter(row => row.style.display !== 'none');
-            
-            checkboxes.forEach((checkbox, index) => {
-                const row = checkbox.closest('tr');
-                if (visibleRows.includes(row)) {
-                    checkbox.checked = this.checked;
-                    toggleRowBackground(checkbox);
-                }
-            });
-        });
-    });
-
-    // 筛选未通知的账单
-    function filterByNotification(status) {
-        const rows = document.querySelectorAll('#order-table-previous tbody tr');
-        rows.forEach(row => {
-            const statusCell = row.cells[12]; // 通知状态列
-            if (statusCell) {
-                const statusText = statusCell.textContent.trim();
-                const shouldShow = statusText.includes('未通知') || statusText.includes('否');
-                row.style.display = shouldShow ? '' : 'none';
-            }
-        });
-    }
-
-    // 筛选待核销账单
-    function filterByUnsettled() {
-        const rows = document.querySelectorAll('#order-table-previous tbody tr');
-        rows.forEach(row => {
-            const amountCell = row.cells[9]; // 待核销金额列
-            if (amountCell) {
-                const amount = parseFloat(amountCell.textContent.replace('$', '').replace(/,/g, '')) || 0;
-                row.style.display = amount > 0 ? '' : 'none';
-            }
-        });
-    }
-
-    // 重置筛选
-    function resetFilters() {
-        const rows = document.querySelectorAll('#order-table-previous tbody tr');
-        rows.forEach(row => {
-            row.style.display = '';
-        });
-        // 重置搜索框
-        document.querySelectorAll('#order-table-previous .search-row input').forEach(input => {
-            input.value = '';
-        });
-        tableFilters['order-table-previous'] = {};
-    }
-
-    // 仅显示转运订单
-    function filterTransportOrders() {
-        const rows = document.querySelectorAll('#order-table tbody tr');
-        rows.forEach(row => {
-            const orderTypeCell = row.cells[2]; // 订单类型列
-            if (orderTypeCell) {
-                const shouldShow = orderTypeCell.textContent.trim() === '转运';
-                row.style.display = shouldShow ? '' : 'none';
-            }
-        });
-    }
-
-    function resetTransportFilter() {
-        const rows = document.querySelectorAll('#order-table tbody tr');
-        rows.forEach(row => {
-            row.style.display = '';
-        });
-        document.querySelectorAll('#order-table .search-row input').forEach(input => {
-            input.value = '';
-        });
-        tableFilters['order-table'] = {};
-    }
-
-    // 关闭弹窗
-    function closeModal(modalId) {
-        document.getElementById(modalId).style.display = 'none';
-    }
-
-    // 验证核销金额
-    function validateWriteOff(event) {
-        if (event) event.preventDefault();
-        
-        const usdAmountInput = document.getElementById('usdAmount');
-        const usdAmount = parseFloat(usdAmountInput.value);
-        
-        if (isNaN(usdAmount) || usdAmount <= 0) {
-            alert('请输入有效的核销金额（必须大于0）');
-            usdAmountInput.focus();
-            return false;
-        }
-
-        const customerBalance = getCustomerBalance(selectedCustomer);
-        if (customerBalance < usdAmount) {
-            alert(`客户余额不足！当前余额：$${customerBalance.toFixed(2)}，核销金额：$${usdAmount.toFixed(2)}`);
-            return false;
-        }
-        
-        document.getElementById('adjustBalanceForm').submit();
-        return true;
-    }
-
-    // 核销功能
-    function adjustBalance() { 
-        const selectedRows = document.querySelectorAll('#order-table-previous tbody tr input[name="is_order_selected_click"]:checked');  
-        
-        if (selectedRows.length === 0) {
-            alert('请选择要核销的账单！');
-            return;
-        }
-        
-        const selectedOrdersInfo = [];
-        let customerName = null;
-        let sameCustomer = true;
-
-        selectedRows.forEach(row => {
-            const rowData = row.closest('tr');
-            const currentCustomer = rowData.cells[1].textContent.trim();
-
-            if (customerName === null) {
-                customerName = currentCustomer;
-            } else if (customerName !== currentCustomer) {
-                sameCustomer = false;
-            }
-            
-            selectedOrdersInfo.push({
-                containerNumber: rowData.cells[2].textContent.trim(),
-                amount: rowData.cells[8]?.textContent.trim() || '$0.00',
-                customerName: currentCustomer
-            });
-        });
-
-        if (!sameCustomer) {
-            alert('请选择同一客户的账单进行核销！');
-            return;
-        }
-
-        const customerBalance = getCustomerBalance(customerName);
-        const popup = document.getElementById('adjustBalanceModal');
-        popup.style.display = 'block';
-        selectedCustomer = customerName;
-        
-        // 更新弹窗内容
-        document.getElementById('modalCustomerName').textContent = customerName;
-        document.getElementById('modalCustomerBalance').textContent = customerBalance.toFixed(2);
-        
-        const ordersInfoContainer = document.getElementById('selectedOrdersInfo');
-        ordersInfoContainer.innerHTML = '';
-        
-        // 创建表格显示选中的订单
-        const table = document.createElement('table');
-        table.className = 'selected-orders-table';
-        
-        const thead = document.createElement('thead');
-        thead.innerHTML = `
-            <tr>
-                <th>货柜号</th>
-                <th>应收金额</th>
-            </tr>
-        `;
-        table.appendChild(thead);
-        
-        const tbody = document.createElement('tbody');
-        let total = 0;
-        
-        selectedOrdersInfo.forEach(order => {
-            const row = document.createElement('tr');
-            const amountValue = parseFloat(order.amount.replace('$', '').replace(/,/g, '')) || 0;
-            total += amountValue;
-            
-            row.innerHTML = `
-                <td>${order.containerNumber}</td>
-                <td>$${amountValue.toFixed(2)}</td>
-            `;
-            tbody.appendChild(row);
-        });
-        
-        // 总计行
-        const totalRow = document.createElement('tr');
-        totalRow.innerHTML = `
-            <td style="font-weight: bold;">总计</td>
-            <td style="font-weight: bold;">$${total.toFixed(2)}</td>
-        `;
-        tbody.appendChild(totalRow);
-        
-        table.appendChild(tbody);
-        ordersInfoContainer.appendChild(table);
-        
-        document.getElementById('selectCustomerId').value = getCustomerId(customerName);
-        document.getElementById('selectedOrdersData').value = JSON.stringify(selectedOrders);
-    }
-
-    // 获取客户余额
-    function getCustomerBalance(customerName) {
-        const customer = existing_customers.find(c => c.zem_name === customerName);
-        return customer ? customer.balance : 0;
-    }
-
-    // 获取客户ID
-    function getCustomerId(customerName) {
-        const customer = existing_customers.find(c => c.zem_name === customerName);
-        return customer ? customer.id : '';
-    }
-
-    const existing_customers = [
-        {% for customer in existing_customers %}
-        {
-            id: '{{ customer.id }}',
-            zem_name: '{{ customer.zem_name }}',
-            balance: {{ customer.balance|default:0 }}
-        }{% if not forloop.last %},{% endif %}
-        {% endfor %}
-    ];
-
-    // 行选中背景切换
-    function toggleRowBackground(checkbox) {
-        let row = checkbox.closest('tr');
-        let containerNumber = row.cells[2]?.textContent.trim() || '';
-        
-        if (checkbox.checked) {
-            row.classList.add('selected-row');
-            if (!selectedOrders.includes(containerNumber)) {
-                selectedOrders.push(containerNumber);
-            }
-        } else {
-            row.classList.remove('selected-row');
-            const index = selectedOrders.indexOf(containerNumber);
-            if (index > -1) {
-                selectedOrders.splice(index, 1);
-            }
-        }
-    }
-
-    // 批量操作提交
-    function submitBatchAction(step) {
-        if (selectedOrders.length === 0) {
-            alert('请选择要操作的账单！');
-            return;
-        }
-        
-        const form = document.getElementById('batch-form');
-        let hiddenInput = document.createElement('input');
-        hiddenInput.type = 'hidden';
-        hiddenInput.name = 'selectedOrders';
-        hiddenInput.value = JSON.stringify(selectedOrders);
-        
-        let hiddenInputStep = document.createElement('input');
-        hiddenInputStep.type = 'hidden';
-        hiddenInputStep.name = 'step';
-        hiddenInputStep.value = step;
-        
-        form.appendChild(hiddenInput);
-        form.appendChild(hiddenInputStep);
-        form.submit();
-    }
-
-    // 删除确认
-    function confirmDelete(event, containerNumber, invoiceNumber) {
-        event.preventDefault();
-        const confirmation = confirm(`确认删除货柜 ${containerNumber} 的发票 ${invoiceNumber}？`);
-        if (confirmation) {
-            window.location.href = `/accounting/?step=container_invoice_delete&invoice_number=${invoiceNumber}`;
-        }
-    }
-
-    // 应付账单月份总计计算
-    function calculateMonthlyTotal() {
-        const selectedMonth = document.getElementById('monthSelector').value;
-        const rows = document.querySelectorAll('#order-table-previous tbody tr');
-        let total = 0;
-        
-        rows.forEach(row => {
-            const billDate = row.querySelector('[data-bill-date]')?.dataset.billDate;
-            const amountText = row.querySelector('[data-payable-amount]')?.dataset.payableAmount || '0';
-            
-            if (billDate && billDate.startsWith(selectedMonth)) {
-                const amount = parseFloat(amountText.replace('$', '').replace(/,/g, '')) || 0;
-                total += amount;
-            }
-        });
-        
-        document.getElementById('monthlyTotalResult').innerHTML = 
-            `总金额：$${total.toFixed(2)}`;
-    }
-</script>
 {% endblock %}
