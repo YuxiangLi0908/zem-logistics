@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-
+{% load custom_filters %}
 {% block content %}
 <form method="post" action="" class="mb-0">
     {% csrf_token %}
@@ -29,6 +29,20 @@
             &nbsp;&nbsp;
             <button type="submit" class="btn btn-success btn-sm" onclick="modifyStatus('complete')">
                 <i class="bi bi-check-circle me-1"></i>确认账单
+            </button>
+            &nbsp;&nbsp;
+            <button onclick="window.history.back()" style="background: linear-gradient(135deg, #9ca3af, #6b7280);
+                    border: 1px solid rgba(255,255,255,0.3);
+                    color: white;
+                    padding: 10px 20px;
+                    border-radius: 8px;
+                    cursor: pointer;
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                    transition: all 0.2s ease;">
+                <i class="fas fa-arrow-left"></i>
+                返回
             </button>
         </div>   
     </div>
@@ -73,23 +87,61 @@
                         <thead class="table-light">
                             <tr>
                                 <th>区域</th>
-                                <th>cbm</th>
-                                <th class="text-end">价格</th>
-                                <th class="text-end">仓点</th>
-                                <th>cbm占比</th>
+                                <th class="text-end">总CBM</th>
+                                <th class="text-end">单价</th>
+                                <th class="text-end">区域费用</th>
+                                <th>仓点</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {% for dest in display_data.combina_data.destinations %}
+                            {% for group in display_data.combina_data.combina_groups %}
                             <tr>
-                                <td><input type="text" name="combina_data_des_key" value="{{ dest.key }}"></td>
-                                <td><input type="number" name="combina_data_des_cbm" value="{{ dest.cbm }}"></td>
-                                <td class="text-end"><input type="number" name="combina_data_des_price" value="{{ dest.price }}"></td>
-                                <td class="text-end"><input type="text" name="combina_data_des_location" value="{{ dest.location }}"></td>
-                                <td><input type="number" name="combina_data_des_rate" value="{{ dest.rate }}" step="any"></td>
+                                <td>
+                                    <input type="hidden" name="combina_groups[{{ forloop.counter0 }}][region]" value="{{ group.region }}">
+                                    {{ group.region }}
+                                </td>
+                                <td class="text-end">
+                                    <input type="number" 
+                                        name="combina_groups[{{ forloop.counter0 }}][total_cbm]" 
+                                        value="{{ group.total_cbm }}" 
+                                        step="0.001" 
+                                        class="form-control form-control-sm text-end" readonly>
+                                </td>
+                                <td class="text-end">
+                                    <input type="number" 
+                                        name="combina_groups[{{ forloop.counter0 }}][price]" 
+                                        value="{{ group.price }}" 
+                                        step="0.01" 
+                                        class="form-control form-control-sm text-end" readonly>
+                                </td>
+                                <td class="text-end">
+                                    <input type="number" 
+                                        name="combina_groups[{{ forloop.counter0 }}][region_price]" 
+                                        value="{{ group.region_price }}" 
+                                        step="0.001" 
+                                        class="form-control form-control-sm text-end region-price-input" readonly>
+                                </td>
+                                <td>
+                                    {% for dest in group.destinations %}
+                                        {{ dest }}
+                                    {% endfor %}
+                                </td>
                             </tr>
                             {% endfor %}
                         </tbody>
+                        <tfoot>
+                            <tr class="table-info">
+                                <td class="text-end"><strong>总计:</strong></td>
+                                <td class="text-end">
+                                    <strong>{{ display_data.combina_data.combina_total_cbm }}</strong>
+                                </td>
+                                <td></td>
+                                <td class="text-end">
+                                    <strong id="combina_regions_total">{{ display_data.combina_data.base_fee }}</strong>
+                                </td>
+                                <td></td>
+                            </tr>
+                        </tfoot>
                     </table>
                 </div>
             </div>
@@ -549,6 +601,8 @@
                                 <div class="col-md-3">
                                     <label class="form-label fw-bold">{{ fee.name }}:</label>
                                     <input type="hidden" class="form-control form-control-sm name-input" 
+                                        name="port_fees[{{ forloop.counter0 }}][id]" value="{{ fee.id }}">
+                                    <input type="hidden" class="form-control form-control-sm name-input" 
                                         name="port_fees[{{ forloop.counter0 }}][name]" value="{{ fee.name }}">
                                 </div>
                                 <div class="col-md-2">
@@ -622,6 +676,8 @@
                             <div class="row align-items-center mb-2 g-2">
                                 <div class="col-md-3">
                                     <label class="form-label fw-bold">{{ fee.name }}:</label>
+                                    <input type="hidden" class="form-control form-control-sm name-input" 
+                                        name="warehouse_fees[{{ forloop.counter0 }}][id]" value="{{ fee.id }}">
                                     <input type="hidden" class="form-control form-control-sm name-input" 
                                         name="warehouse_fees[{{ forloop.counter0 }}][name]" value="{{ fee.name }}">
                                 </div>
@@ -706,6 +762,9 @@
                                     <input type="text" class="form-control form-control-sm" 
                                         name="deliverys[{{ forloop.counter0 }}][type]" 
                                         value="{{ delivery.type|default:'' }}">
+                                    <input type="hidden" 
+                                        name="deliverys[{{ forloop.counter0 }}][id]" 
+                                        value="{{ delivery.id|default:'' }}">
                                 </div>
                                 <div class="col-md-1">
                                     <small class="text-muted d-md-none">目的地</small>
@@ -1051,10 +1110,44 @@
     function removeFeeRow(button, feeType) {
         const row = button.closest('.row.align-items-center.mb-2.g-2');
         if (row) {
+            // 获取记录的ID（如果有的话）
+            const recordId = row.querySelector('input[name*="[id]"]') ? 
+                            row.querySelector('input[name*="[id]"]').value : '';
+            
+            // 将ID添加到删除列表中
+            if (recordId) {
+                addToDeleteList(feeType, recordId);
+            }
+            
             row.remove();
             updateTotalAmount();
         }
     }
+
+    // 创建删除列表
+    let deleteRecords = {
+        'port': [],
+        'warehouse': [],
+        'delivery': []
+    };
+
+    function addToDeleteList(feeType, recordId) {
+        if (recordId && !deleteRecords[feeType].includes(recordId)) {
+            deleteRecords[feeType].push(recordId);
+            
+            // 创建或更新隐藏的删除列表字段
+            let deleteInput = document.getElementById('delete_records');
+            if (!deleteInput) {
+                deleteInput = document.createElement('input');
+                deleteInput.type = 'hidden';
+                deleteInput.name = 'delete_records';
+                deleteInput.id = 'delete_records';
+                document.querySelector('form[method="post"]').appendChild(deleteInput);
+            }
+            deleteInput.value = JSON.stringify(deleteRecords);
+        }
+    }
+
     document.addEventListener('DOMContentLoaded', function() {
         const rejectPhase = document.getElementById('rejectPhase');
         const warehouseTypeContainer = document.getElementById('warehouseTypeContainer');
@@ -1132,6 +1225,9 @@
                     updateTotalAmount();
                 }
             });
+        });
+        document.querySelectorAll('.region-price-input').forEach(input => {
+            input.addEventListener('input', updateTotalAmount);
         });
 
         // 初始化计算所有费用
@@ -1216,6 +1312,22 @@
         let amount = 0;
 
         amount += getSafeNumberValue('base_fee');
+
+        // 计算组合柜区域费用
+        let combinaRegionsTotal = 0;
+        document.querySelectorAll('.region-price-input').forEach(input => {
+            combinaRegionsTotal += parseFloat(input.value) || 0;
+        });
+        
+        // 更新组合柜区域总计显示
+        const combinaRegionsTotalElement = document.getElementById('combina_regions_total');
+        if (combinaRegionsTotalElement) {
+            combinaRegionsTotalElement.textContent = combinaRegionsTotal.toFixed(2);
+        }
+        
+        // 将组合柜区域费用加入总金额
+        amount += combinaRegionsTotal;
+
         amount += getSafeNumberValue('overpallet_fee');
         amount += getSafeNumberValue('overweight_fee');
         amount += getSafeNumberValue('overregion_pickup_fee');

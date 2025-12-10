@@ -191,4 +191,4 @@ class InvoiceItemv2(models.Model):
     history = HistoricalRecords()
 
     def __str__(self) -> str:
-        return f"{self.container_number} - {self.invoice_number} - {self.item_category} - {self.description}"
+        return f"{self.container_number} - {self.invoice_number} - {self.item_category} - {self.description} - {self.warehouse_code}"
