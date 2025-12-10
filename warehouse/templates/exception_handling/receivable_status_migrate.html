@@ -338,12 +338,13 @@
                 <table class="data-table" id="resultTable">
                     <thead>
                         <tr>
-                            <th width="120">柜号</th>
-                            <th width="25%">原状态</th>
-                            <th width="14%">港前状态</th>
-                            <th width="20%">仓库状态</th>
-                            <th width="20%">派送状态</th>
-                            <th width="14%">财务状态</th>
+                            <th width="100">柜号</th>
+                            <th width="20%">原状态</th>
+                            <th width="12%">港前状态</th>
+                            <th width="16%">仓库状态</th>
+                            <th width="16%">派送状态</th>
+                            <th width="12%">财务状态</th>
+                            <th width="24%">操作记录</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -351,7 +352,11 @@
                         <tr>
                             <!-- 柜号 -->
                             <td>
-                                <div class="container-number">{{ log.container_number }}</div>
+                                <div class="container-number">
+                                    <strong>{{ log.container_number }}</strong>
+                                    <br>
+                                    <small class="text-muted">{{ log.old_invoice_number }}</small>
+                                </div>
                             </td>
                             
                             <!-- 原状态 -->
@@ -360,8 +365,10 @@
                                     <div class="status-row">
                                         <span class="status-name">阶段:</span>
                                         <div class="status-value">
-                                            {% if log.old_data.stage != 'unstarted' %}
+                                            {% if log.old_data.stage and log.old_data.stage != 'unstarted' and log.old_data.stage != 'error' %}
                                                 <span class="badge bg-info status-badge">{{ log.old_data.stage }}</span>
+                                            {% elif log.old_data.stage == 'error' %}
+                                                <span class="badge bg-danger status-badge">错误</span>
                                             {% else %}
                                                 <span class="empty-status">-</span>
                                             {% endif %}
@@ -370,8 +377,10 @@
                                     <div class="status-row">
                                         <span class="status-name">公仓:</span>
                                         <div class="status-value">
-                                            {% if log.old_data.stage_public != 'pending' %}
+                                            {% if log.old_data.stage_public and log.old_data.stage_public != 'pending' and log.old_data.stage_public != 'error' %}
                                                 <span class="badge bg-secondary status-badge">{{ log.old_data.stage_public }}</span>
+                                            {% elif log.old_data.stage_public == 'error' %}
+                                                <span class="badge bg-danger status-badge">错误</span>
                                             {% else %}
                                                 <span class="empty-status">-</span>
                                             {% endif %}
@@ -380,8 +389,10 @@
                                     <div class="status-row">
                                         <span class="status-name">私仓:</span>
                                         <div class="status-value">
-                                            {% if log.old_data.stage_other != 'pending' %}
+                                            {% if log.old_data.stage_other and log.old_data.stage_other != 'pending' and log.old_data.stage_other != 'error' %}
                                                 <span class="badge bg-secondary status-badge">{{ log.old_data.stage_other }}</span>
+                                            {% elif log.old_data.stage_other == 'error' %}
+                                                <span class="badge bg-danger status-badge">错误</span>
                                             {% else %}
                                                 <span class="empty-status">-</span>
                                             {% endif %}
@@ -394,13 +405,15 @@
                             <td class="new-status-column">
                                 <div class="status-title">港前</div>
                                 <div class="status-content">
-                                    {% if log.new_data.preport_status != 'unstarted' %}
+                                    {% if log.new_data.preport_status and log.new_data.preport_status != 'unstarted' and log.new_data.preport_status != 'error' %}
                                         <span class="badge status-badge {% if log.new_data.preport_status == 'completed' %}bg-success
                                             {% elif log.new_data.preport_status == 'rejected' %}bg-danger
                                             {% elif log.new_data.preport_status == 'pending_review' %}bg-warning
                                             {% else %}bg-primary{% endif %}">
                                             {{ log.new_data.preport_status }}
                                         </span>
+                                    {% elif log.new_data.preport_status == 'error' %}
+                                        <span class="badge bg-danger status-badge">错误</span>
                                     {% else %}
                                         <span class="empty-status">-</span>
                                     {% endif %}
@@ -413,24 +426,28 @@
                                 <div class="status-content">
                                     <div class="status-item">
                                         <span class="item-label">公仓:</span>
-                                        {% if log.new_data.warehouse_public_status != 'unstarted' %}
+                                        {% if log.new_data.warehouse_public_status and log.new_data.warehouse_public_status != 'unstarted' and log.new_data.warehouse_public_status != 'error' %}
                                             <span class="badge status-badge {% if log.new_data.warehouse_public_status == 'completed' %}bg-success
                                                 {% elif log.new_data.warehouse_public_status == 'rejected' %}bg-danger
                                                 {% else %}bg-primary{% endif %}">
                                                 {{ log.new_data.warehouse_public_status }}
                                             </span>
+                                        {% elif log.new_data.warehouse_public_status == 'error' %}
+                                            <span class="badge bg-danger status-badge">错误</span>
                                         {% else %}
                                             <span class="empty-status">-</span>
                                         {% endif %}
                                     </div>
                                     <div class="status-item">
                                         <span class="item-label">私仓:</span>
-                                        {% if log.new_data.warehouse_other_status != 'unstarted' %}
+                                        {% if log.new_data.warehouse_other_status and log.new_data.warehouse_other_status != 'unstarted' and log.new_data.warehouse_other_status != 'error' %}
                                             <span class="badge status-badge {% if log.new_data.warehouse_other_status == 'completed' %}bg-success
                                                 {% elif log.new_data.warehouse_other_status == 'rejected' %}bg-danger
                                                 {% else %}bg-primary{% endif %}">
                                                 {{ log.new_data.warehouse_other_status }}
                                             </span>
+                                        {% elif log.new_data.warehouse_other_status == 'error' %}
+                                            <span class="badge bg-danger status-badge">错误</span>
                                         {% else %}
                                             <span class="empty-status">-</span>
                                         {% endif %}
@@ -444,24 +461,28 @@
                                 <div class="status-content">
                                     <div class="status-item">
                                         <span class="item-label">公仓:</span>
-                                        {% if log.new_data.delivery_public_status != 'unstarted' %}
+                                        {% if log.new_data.delivery_public_status and log.new_data.delivery_public_status != 'unstarted' and log.new_data.delivery_public_status != 'error' %}
                                             <span class="badge status-badge {% if log.new_data.delivery_public_status == 'completed' %}bg-success
                                                 {% elif log.new_data.delivery_public_status == 'rejected' %}bg-danger
                                                 {% else %}bg-primary{% endif %}">
                                                 {{ log.new_data.delivery_public_status }}
                                             </span>
+                                        {% elif log.new_data.delivery_public_status == 'error' %}
+                                            <span class="badge bg-danger status-badge">错误</span>
                                         {% else %}
                                             <span class="empty-status">-</span>
                                         {% endif %}
                                     </div>
                                     <div class="status-item">
                                         <span class="item-label">私仓:</span>
-                                        {% if log.new_data.delivery_other_status != 'unstarted' %}
+                                        {% if log.new_data.delivery_other_status and log.new_data.delivery_other_status != 'unstarted' and log.new_data.delivery_other_status != 'error' %}
                                             <span class="badge status-badge {% if log.new_data.delivery_other_status == 'completed' %}bg-success
                                                 {% elif log.new_data.delivery_other_status == 'rejected' %}bg-danger
                                                 {% else %}bg-primary{% endif %}">
                                                 {{ log.new_data.delivery_other_status }}
                                             </span>
+                                        {% elif log.new_data.delivery_other_status == 'error' %}
+                                            <span class="badge bg-danger status-badge">错误</span>
                                         {% else %}
                                             <span class="empty-status">-</span>
                                         {% endif %}
@@ -473,16 +494,29 @@
                             <td class="new-status-column">
                                 <div class="status-title">财务</div>
                                 <div class="status-content">
-                                    {% if log.new_data.finance_status != 'unstarted' %}
+                                    {% if log.new_data.finance_status and log.new_data.finance_status != 'unstarted' and log.new_data.finance_status != 'error' %}
                                         <span class="badge status-badge {% if log.new_data.finance_status == 'confirmed' %}bg-success
                                             {% elif log.new_data.finance_status == 'tobeconfirmed' %}bg-warning
                                             {% elif log.new_data.finance_status == 'rejected' %}bg-danger
                                             {% else %}bg-primary{% endif %}">
                                             {{ log.new_data.finance_status }}
                                         </span>
+                                    {% elif log.new_data.finance_status == 'error' %}
+                                        <span class="badge bg-danger status-badge">错误</span>
                                     {% else %}
                                         <span class="empty-status">-</span>
                                     {% endif %}
+                                </div>
+                            </td>
+                            
+                            <!-- 操作记录 -->
+                            <td class="actions-column">
+                                <div class="actions-section">
+                                    {% for action in log.actions %}
+                                    <div class="action-item">
+                                        <span class="action-text">{{ action }}</span>
+                                    </div>
+                                    {% endfor %}
                                 </div>
                             </td>
                         </tr>

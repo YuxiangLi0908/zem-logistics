@@ -407,7 +407,7 @@
                         <input type="hidden" name="pl_ids" value='{{ c.ids }}'>
                         <input type="hidden" name="plt_ids" value='{{ c.plt_ids }}'>
                     </td>
-                    <td title="{{ c.container_number__order__warehouse__name }}">{{ c.container_number__order__warehouse__name }}</td>
+                    <td title="{{ c.location|default:c.container_number__order__warehouse__name }}">{{ c.location|default:c.container_number__order__warehouse__name }}</td>
                     <td title="{{ c.container_number__order__customer_name__zem_name }}">{{ c.container_number__order__customer_name__zem_name }}</td>
                     <td title="{{ c.container_number__container_number }}">{{ c.container_number__container_number }}</td>
                     <td name="po-destination" title="{{ c.destination }}">

@@ -4824,6 +4824,7 @@ class Accounting(View):
             invoice_status.is_rejected = "True"
             invoice_status.reject_reason = reject_reason
             invoice_status.save()
+        
         if (
             start_date_confirm
             and end_date_confirm

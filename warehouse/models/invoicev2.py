@@ -183,6 +183,8 @@ class InvoiceItemv2(models.Model):
     PO_ID = models.CharField(max_length=20, null=True, blank=True)
     delivery_type = models.CharField(max_length=50, null=True, blank=True) #亚马逊、组合柜什么的
     warehouse_code = models.CharField(max_length=200, null=True, blank=True) #目的地
+    region = models.CharField(max_length=200, null=True, blank=True) #派送是哪个区
+    regionPrice = models.FloatField(null=True, blank=True) #派送是哪个区
     surcharges = models.FloatField(null=True, blank=True) #附加费
     note = models.CharField(max_length=2000, null=True, blank=True) #备注
     registered_user = models.CharField(max_length=2000, null=True, blank=True) #记录谁录的费用
