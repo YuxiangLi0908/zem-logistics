@@ -269,7 +269,41 @@ class ReceivableAccounting(View):
         elif step == "confirm_combina_save":
             template, context = self.handle_invoice_confirm_combina_save(request)
             return render(request, template, context)
+        elif step == "supplement_order":
+            template, context = self.handle_supplement_order_post(request)
+            return render(request, template, context)
     
+    def handle_supplement_order_post(
+        self, request: HttpRequest
+    ) -> tuple[Any, Any]:
+        container_number = request.POST.get("container_number")
+        invoices = Invoicev2.objects.filter(container_number__container_number=container_number)
+        if not invoices.exists():
+            context = {'error_messages': f'{container_number}当前一份账单都没有录入，不可重开！'}
+            return self.template_supplementary_entry, context
+        else:
+            for invoice in invoices:
+                # 查询这个账单对应的状态
+                try:
+                    status_obj = InvoiceStatusv2.objects.get(
+                        invoice=invoice,
+                        invoice_type='receivable'
+                    )
+                    finance_status = status_obj.finance_status
+                    if finance_status != "completed":
+                        context = {'error_messages': f'{container_number}还存在未开完的账单，不可重开！'}
+                        return self.template_supplementary_entry, context
+                except InvoiceStatusv2.DoesNotExist:
+                    context = {'error_messages': f'{container_number}还存在未开完的账单，不可重开！'}
+                    return self.template_supplementary_entry, context
+        #创建一份新的账单
+        invoice, invoice_status = self._create_invoice_and_status(container_number)
+        context = {'success_messages': f'{container_number}补开成功，编号为{invoice.invoice_number}！'}
+        return self.template_supplementary_entry, context
+        
+
+
+
     def handle_confirm_save_all(
         self, request: HttpRequest
     ) -> tuple[Any, Any]:
@@ -1005,6 +1039,7 @@ class ReceivableAccounting(View):
                 }
                 preport_to_record_orders.append(order_data)
             else:
+                has_multiple_invoices = invoices.count() > 1 #看看是不是补开的账单
                 # 有账单的情况 - 每个账单都要单独处理
                 for invoice in invoices:
                     # 查询这个账单对应的状态
@@ -1019,11 +1054,20 @@ class ReceivableAccounting(View):
                         preport_status = None
                         finance_status = None
                     
+                    # 只在有多个账单时添加 invoice_created_at
+                    invoice_created_at = None
+                    if has_multiple_invoices:
+                        invoice_created_at = (
+                            invoice.created_at if hasattr(invoice, 'created_at') 
+                            else invoice.history.first().history_date if invoice.history.exists() 
+                            else None
+                        )
+
                     order_data = {
                         'order': order,
                         'invoice_number': invoice.invoice_number,
                         'invoice_id': invoice.id,
-                        'invoice_created_at': invoice.created_at if hasattr(invoice, 'created_at') else invoice.history.first().history_date if invoice.history.exists() else None,
+                        'invoice_created_at': invoice_created_at,
                         'preport_status': preport_status,
                         'finance_status': finance_status,
                         'has_invoice': True
@@ -1161,6 +1205,7 @@ class ReceivableAccounting(View):
                 if should_process_self:
                     wh_self_to_record_orders.append(order_data)
             else:
+                has_multiple_invoices = invoices.count() > 1 #看看是不是补开的账单
                 # 有账单的情况 - 每个账单都要单独处理
                 for invoice in invoices:
                     # 查询这个账单对应的状态
@@ -1177,12 +1222,20 @@ class ReceivableAccounting(View):
                         self_status = None
                         finance_status = None
                     
+                    # 只在有多个账单时添加 invoice_created_at
+                    invoice_created_at = None
+                    if has_multiple_invoices:
+                        invoice_created_at = (
+                            invoice.created_at if hasattr(invoice, 'created_at') 
+                            else invoice.history.first().history_date if invoice.history.exists() 
+                            else None
+                        )
                     order_data = {
                         'order': order,
                         'container_number': order.container_number,
                         'invoice_number': invoice.invoice_number,
                         'invoice_id': invoice.id,
-                        'invoice_created_at': invoice.created_at if hasattr(invoice, 'created_at') else invoice.history.first().history_date if invoice.history.exists() else None,
+                        'invoice_created_at': invoice_created_at,
                         'public_status': public_status,
                         'self_status': self_status,
                         'finance_status': finance_status,
@@ -1651,6 +1704,7 @@ class ReceivableAccounting(View):
                 if should_process_self:
                     dl_self_to_record_orders.append(order_data)
             else:
+                has_multiple_invoices = invoices.count() > 1 #看看是不是补开的账单
                 # 有账单的情况 - 每个账单都要单独处理
                 for invoice in invoices:
                     # 查询这个账单对应的状态
@@ -1667,12 +1721,20 @@ class ReceivableAccounting(View):
                         self_status = None
                         finance_status = None
                     
+                    # 只在有多个账单时添加 invoice_created_at                 
+                    invoice_created_at = None
+                    if has_multiple_invoices:
+                        invoice_created_at = (
+                            invoice.created_at if hasattr(invoice, 'created_at') 
+                            else invoice.history.first().history_date if invoice.history.exists() 
+                            else None
+                        )
                     order_data = {
                         'order': order,
                         'container_number': order.container_number,
                         'invoice_number': invoice.invoice_number,
                         'invoice_id': invoice.id,
-                        'invoice_created_at': invoice.created_at if hasattr(invoice, 'created_at') else invoice.history.first().history_date if invoice.history.exists() else None,
+                        'invoice_created_at': invoice_created_at,
                         'public_status': public_status,
                         'self_status': self_status,
                         'finance_status': finance_status,
@@ -3502,7 +3564,7 @@ class ReceivableAccounting(View):
         invoice = Invoicev2.objects.create(
             container_number=order.container_number,
             invoice_number=f"{current_date.strftime('%Y-%m-%d').replace('-', '')}C{customer_id}{order_id}",
-            invoice_date=current_date
+            created_at=current_date,
         )
         
         # 创建 InvoiceStatusv2
