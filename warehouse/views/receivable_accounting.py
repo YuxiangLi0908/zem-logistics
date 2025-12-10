@@ -679,7 +679,6 @@ class ReceivableAccounting(View):
     
     def handle_save_all_post(self, request: HttpRequest):
         """处理保存所有账单记录的操作"""
-        print(request.POST)
         context = {}
         container_number = request.POST.getlist("container_number")[0]
         invoice_id = request.POST.getlist("invoice_id")[0]
