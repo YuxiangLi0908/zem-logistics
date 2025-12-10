@@ -892,6 +892,11 @@
         font-weight: 500;
     }
 
+    .region-region-price {
+        font-size: 1rem;
+        margin-bottom: 5px;
+    }
+
     /* 单价单元格样式 */
     .cell-price {
         background: #fff8e1 !important;
@@ -902,7 +907,9 @@
     }
 
     .price-value {
-        font-size: 1.1rem;
+        font-size: 0.85rem;
+        color: #4caf50;
+        font-weight: 500;
     }
 
     /* 非组合柜头部样式 */
@@ -1379,6 +1386,10 @@
                                 data-item-id="{{ item.id|default:'' }}" 
                                 data-po="{{ item.PO_ID|default:'' }}" 
                                 data-is-hold="false"
+                                data-combina-region="{{ item.combina_region|default:'' }}"
+                                data-combina-price="{{ item.combina_price|default:0 }}"
+                                data-cbm="{{ item.total_cbm|default:0 }}"
+                                data-weight="{{ item.total_weight_lbs|default:0 }}"
                                 class="row-combina">
                                 
                                 <!-- 区域（合并行） -->
@@ -1392,7 +1403,11 @@
                                 <!-- 单价（合并行） -->
                                 {% if forloop.first %}
                                 <td rowspan="{{ region_rowspan }}" class="cell-price">
-                                    <div class="price-value">${{ group.price|floatformat:2 }}</div>
+                                    <div class="region-region-price">
+                                        ${{ group.region_price }}
+                                    </div>
+                                    <!-- 单价 -->
+                                    <div class="price-value">单价: ${{ group.price|floatformat:2 }}</div>
                                 </td>
                                 {% endif %}
                                 
@@ -1518,6 +1533,8 @@
                                 data-po="{{ item.PO_ID|default:'' }}" 
                                 data-is-hold="{% if item.delivery_category == 'hold' %}true{% else %}false{% endif %}"
                                 data-base-amount="{{ item.amount|floatformat:2 }}"
+                                data-cbm="{{ item.total_cbm|default:0 }}"
+                                data-weight="{{ item.total_weight_lbs|default:0 }}"
                                 {% if not item.delivery_category %}class="row-no-type"{% endif %}>
                                 
                                 <!-- 目的地 -->
@@ -1759,6 +1776,8 @@
     <input type="hidden" name="surcharges" id="single-surcharges" value="">
     <input type="hidden" name="amount" id="single-amount" value="">
     <input type="hidden" name="note" id="single-note" value="">
+    <input type="hidden" name="cbm" id="single-cbm" value="">
+    <input type="hidden" name="weight" id="single-weight" value="">
 </form>
 
 <!-- 保存所有组合柜的form（独立form） -->
@@ -2048,6 +2067,8 @@
         const note = $row.find('.input-note').val();
         const poId = $row.data('po') || '';
         const destination = $row.find('.cell-destination').text().trim();
+        const cbm = $row.find('.cell-stats').first().find('.stat-value').text().trim();
+        const weight = $row.find('.cell-stats').eq(1).find('.stat-value').text().trim();
 
         // 验证
         if (!deliveryCategory) {
@@ -2088,6 +2109,8 @@
         $('#single-surcharges').val(surcharges || '0');
         $('#single-amount').val(amount || '0');
         $('#single-note').val(note || '');
+        $('#single-cbm').val(cbm || '0');
+        $('#single-weight').val(weight || '0');
 
         // 提交表单
         $('#single-row-form').submit();
@@ -2116,6 +2139,8 @@
         $('#single-surcharges').val('0');
         $('#single-amount').val(amount || '0');
         $('#single-note').val(note || '');
+        $('#single-cbm').val(cbm);
+        $('#single-weight').val(weight);
 
         // 提交表单
         $('#single-row-form').submit();
@@ -2188,8 +2213,13 @@
             const amount = $row.find('.combina-amount-input').val() || '0';
             const note = $row.find('.combina-note-input').val() || '';
             const pallets = $row.find('.input-pallets').val() || '0';
+            const cbm = $row.data('cbm') || '0';
+            const weight = $row.data('weight') || '0';
             const groupIndex = $row.data('group-index') || '';
             const itemIndex = $row.data('item-index') || '';
+
+            const combinaRegion = $row.data('combina-region') || '';
+            const combinaPrice = $row.data('combina-price') || '0';
             
             // 验证必填字段
             if (!amount || parseFloat(amount) <= 0) {
@@ -2203,13 +2233,16 @@
                 po_id: poId,
                 destination: destination,
                 delivery_category: 'combine',
-                rate: '', // 组合柜没有单价
+                rate: combinaPrice, // 组合柜没有单价
                 pallets: pallets,
                 surcharges: '0',
                 amount: amount,
                 note: note,
+                cbm: cbm, // 新增：CBM
+                weight: weight, // 新增：重量
                 group_index: groupIndex,
-                item_index: itemIndex
+                item_index: itemIndex,
+                combina_region: combinaRegion,
             });
         });
         
@@ -2294,6 +2327,11 @@
 
         $('table.normal-table tbody tr').each(function () {
             const rowIndex = $(this).data('row');
+            const $row = $(this);
+        
+            // 获取CBM和重量
+            const cbm = $row.find('.cell-stats').first().find('.stat-value').text().trim() || "0";
+            const weight = $row.find('.cell-stats').eq(1).find('.stat-value').text().trim() || "0";
 
             allItems.push({
                 rowIndex: rowIndex,
@@ -2307,6 +2345,8 @@
                 surcharges: $(this).find(`input[name="surcharges_${rowIndex}"]`).val() || "0",
                 amount: $(this).find(`input[name="amount_${rowIndex}"]`).val() || "0.00",
                 note: $(this).find(`input[name="note_${rowIndex}"]`).val() || "",
+                cbm: cbm, // 新增：CBM
+                weight: weight, // 新增：重量
             });
         });
 
@@ -2316,6 +2356,10 @@
             const rowIdParts = $row.data('row').split('_');
             const groupIndex = rowIdParts[0] || "0";
             const itemIndex = rowIdParts[1] || "0";
+            const combinaRegion = $row.data('combina-region') || '';
+            const combinaPrice = $row.data('combina-price') || '0';
+            const cbm = $row.data('cbm') || '0';
+            const weight = $row.data('weight') || '0';
             
             // 组合柜的数据结构
             const combinaItem = {
@@ -2325,14 +2369,17 @@
                 shipping_marks: "",
                 destination: $row.find('.cell-destination').text().trim(),
                 delivery_category: "combine", // 固定为combine
-                rate: "0", // 组合柜没有单价字段，传0或空
+                rate: combinaPrice, // 组合柜没有单价字段，传0或空
                 pallets: $row.find('.input-pallets').val() || "0",
                 surcharges: "0", // 组合柜没有附加费
                 amount: $row.find('.combina-amount-input').val() || "0.00",
                 note: $row.find('.combina-note-input').val() || "",
                 // 额外信息（如果需要可以传给后台）
                 combina_group: groupIndex,
-                combina_item: itemIndex
+                combina_item: itemIndex,
+                combina_region: combinaRegion,
+                cbm: cbm, // 新增：CBM
+                weight: weight, // 新增：重量
             };
             
             allItems.push(combinaItem);
