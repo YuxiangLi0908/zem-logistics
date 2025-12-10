@@ -518,6 +518,21 @@
                         可补开账单
                         <span class="section-count">{{ order|length }}条</span>
                     </h3>
+                    <form method="post" action="" class="order-type-form">
+                        {% csrf_token %}
+                        <input type="hidden" name="step" value="supplement_order">
+                        <input type="text" 
+                            name="container_number" 
+                            placeholder="输入柜号"
+                            style="padding: 8px 12px; border: 1px solid #1b5e20; border-radius: 4px; width: 180px;">
+
+                        <button type="submit" 
+                            class="btn-change-order-type"
+                            style="padding: 8px 16px; background: linear-gradient(135deg, #2e7d32, #1b5e20); color: white; border: none; border-radius: 4px; cursor: pointer;">
+                            <i class="fas fa-exchange-alt"></i>
+                            补开
+                        </button>
+                    </form>
                 </div>
                 <div class="table-container">
                     <table class="table" id="order-table">
