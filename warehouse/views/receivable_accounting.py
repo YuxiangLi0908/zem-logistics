@@ -3501,6 +3501,13 @@ class ReceivableAccounting(View):
                 else:
                     invoice_status.preport_reason = ''
                 invoice_status.save()
+            
+            if order.order_type == "直送":
+                invoice_status.warehouse_public_status = "completed"
+                invoice_status.warehouse_other_status = "completed"
+                invoice_status.delivery_public_status = "completed"
+                invoice_status.delivery_other_status = "completed"
+                invoice_status.save()
             status_mapping = {
                 'pending_review': '待审核',
                 'in_progress': '录入中',
