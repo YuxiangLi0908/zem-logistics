@@ -83,11 +83,6 @@ from warehouse.models.invoicev2 import (
     InvoiceItemv2,
     InvoiceStatusv2,
 )
-from warehouse.models.invoice_details import (
-    InvoiceDelivery,
-    InvoicePreport,
-    InvoiceWarehouse,
-)
 from warehouse.models.order import Order
 from warehouse.models.packing_list import PackingList
 from warehouse.models.pallet import Pallet
@@ -3619,6 +3614,23 @@ class ReceivableAccounting(View):
         current_date = datetime.now().date()
         order_id = str(order.id)
         customer_id = order.customer_name.id
+
+        # 先检查是否已经存在对应柜号的发票
+        existing_invoice = Invoicev2.objects.filter(
+            container_number=order.container_number
+        ).first()
+        
+        if existing_invoice:
+            # 如果发票已存在，检查对应的状态记录
+            existing_status = InvoiceStatusv2.objects.filter(
+                invoice=existing_invoice,
+                invoice_type="receivable"
+            ).first()
+            
+            if existing_status:
+                # 两者都存在，直接返回
+                return existing_invoice, existing_status
+        
         invoice = Invoicev2.objects.create(
             container_number=order.container_number,
             invoice_number=f"{current_date.strftime('%Y-%m-%d').replace('-', '')}C{customer_id}{order_id}",
