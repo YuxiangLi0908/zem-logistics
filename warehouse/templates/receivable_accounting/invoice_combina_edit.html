@@ -1,6 +1,277 @@
 {% extends 'base.html' %}
 {% load custom_filters %}
 {% block content %}
+<style>
+    .invoice-content {
+        padding: 20px 0px;
+        padding-bottom: 0;
+    }
+    .info-card {
+        background: linear-gradient(135deg, #f0f9ff, #e0f2fe);
+        border: 1px solid #bae6fd;
+        border-radius: var(--radius);
+        padding: 15px 20px;
+        border-radius: 12px; 
+        box-shadow: var(--shadow-soft);
+        height: fit-content;
+        margin: 0;
+        text-align: left;
+    }
+    .info-cards-container {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+        margin-bottom: 0;
+        padding: 0;
+        align-items: stretch; 
+    }
+
+    .quotation-card {
+        background: linear-gradient(135deg, #f8fff8, #f0f9f0);
+        border: 1px solid #d1fae5;
+        border-radius: var(--radius);
+        padding: 15px 20px;
+        border-radius: 12px; 
+        box-shadow: var(--shadow-soft);
+        height: fit-content;
+        margin: 0;
+        text-align: left;
+    }
+    .quotation-title, .info-title {
+        font-size: 1rem;
+        font-weight: 700;
+        color: var(--primary-color);
+        margin-bottom: 6px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .quotation-details, .info-details {
+        font-size: 0.9rem;
+        color: var(--text-dark);
+        line-height: 1.4;
+    }
+    .quotation-details {
+        margin-top: 18px;
+    }
+
+    .quotation-highlight {
+        color: var(--primary-color);
+        font-weight: 600;
+    }
+    .info-highlight {
+        color: #0369a1;
+        font-weight: 600;
+    }
+    .btn-change-order-type {
+        margin-left: 10px;
+        padding: 6px 16px;
+        font-size: 0.9rem;
+        font-weight: 600;
+        border-radius: 6px;
+        border: 1px solid transparent;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        background: linear-gradient(135deg, #1e40af, #3b82f6);
+        color: white;
+        box-shadow: 0 2px 8px rgba(59, 130, 246, 0.2);
+    }
+
+    .btn-change-order-type:hover {
+        background: linear-gradient(135deg, #1d4ed8, #2563eb);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+    }
+
+    .btn-change-order-type:active {
+        transform: translateY(0);
+    }
+    
+    input[name="actual_non_combina_reason"] {
+        margin-left: 10px;
+        padding: 8px 12px;
+        font-size: 0.9rem;
+        border-radius: 6px;
+        border: 1px solid #cbd5e1;
+        min-width: 200px;
+    }
+
+    input[name="actual_non_combina_reason"]:focus {
+        outline: none;
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    }
+    .rules-icon {
+        cursor: pointer;
+        color: #2563eb;   /* 蓝色 */
+        font-weight: 600;
+        text-decoration: underline; /* 像链接 */
+    }
+
+    .rules-icon:hover {
+        color: #1e40af;
+    }
+    .rules-modal {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.55);
+        z-index: 9999;
+        justify-content: center;
+        align-items: center;
+    }
+
+    .rules-content {
+        width: 650px;
+        background: white;
+        padding: 25px 30px;
+        border-radius: 12px;
+        max-height: 80vh;
+        overflow: auto;
+    }
+
+    @media (max-width: 1200px) {
+        .info-cards-container {
+            grid-template-columns: 1fr;
+            gap: 15px; 
+        }
+        
+        .quotation-card, .info-card {
+            text-align: left;  
+        }
+    }
+</style>
+<div id="rules-modal" class="rules-modal">
+    <div class="rules-content">
+        <h3 class="modal-title">组合柜规则详情</h3>
+
+        <div class="rules-section">
+            <div class="section-title">📌 基础规则（Global Rules）</div>
+            <pre class="rules-text">{{ combina_rules_text.global_rules }}</pre>
+        </div>
+
+        <div class="divider"></div>
+
+        
+
+        <div class="rules-section">
+            <div class="section-title">🏬 非组合柜提拆计费（Warehouse Rules）</div>
+            <pre class="rules-text">{{ combina_rules_text.warehouse_rules }}</pre>
+        </div>
+        <div class="divider"></div>
+
+        <div class="rules-section">
+            <div class="section-title">⚖️ 特殊仓点计费（Weight Rules）</div>
+            <pre class="rules-text">{{ combina_rules_text.special_des_rules }}</pre>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="rules-section">
+            <div class="section-title">💲 超出仓点阶梯计费（Tiered Pricing）</div>
+            <pre class="rules-text">{{ combina_rules_text.tiered_pricing }}</pre>
+        </div>
+
+        <button class="close-btn" onclick="closeRulesModal()">关闭</button>
+    </div>
+</div>
+<div class="invoice-content">
+    <!-- 信息卡片容器 -->
+    <div class="info-cards-container">
+        <!-- 报价表信息卡片 -->
+        <div class="quotation-card">
+            <div class="quotation-title">
+                <i class="fas fa-file-invoice-dollar"></i>
+                参考报价表
+            </div>
+            <div class="quotation-details">
+                <strong>文件:</strong> <span class="quotation-highlight">{{ quotation_info.filename }}</span> 
+                    <span class="divider-line"></span>
+                    <strong>版本:</strong> {{ quotation_info.version }}
+                    <span class="divider-line"></span>
+                    <strong>生效日期:</strong> {{ quotation_info.effective_date }}
+                {% if quotation_info.is_user_exclusive %}
+                    <span class="divider-line"></span>
+                    <strong style="color: #dc2626;">专属用户:</strong> {{ quotation_info.exclusive_user }}
+                {% else %}
+                    <span class="divider-line"></span>
+                    <strong style="color: #16a34a;">通用报价</strong>
+                {% endif %}
+                    <span class="divider-line"></span>
+                    <strong>状态:</strong> 
+                <span style="color: {% if preport_status == 'completed' %}#16a34a{% elif preport_status == 'in_progress' %}#ea580c{% else %}#dc2626{% endif %};">
+                    {% if preport_status == 'completed' %}已完成
+                    {% elif preport_status == 'in_progress' %}录入中
+                    {% elif preport_status == 'rejected' %}已驳回
+                    {% elif preport_status == 'pending_review' %}待审核
+                    {% else %}未开始
+                    {% endif %}
+                </span>
+            </div>
+        </div>
+
+        <!-- 组合柜信息卡片 -->
+        <div class="info-card">
+            <div class="info-title">
+                <i class="fas fa-boxes"></i>
+                组合柜信息
+            </div>
+            <div class="info-details">
+                {% if order_type == '转运' %}
+                    <!-- 原本就是转运单 -->
+                    <strong>类型:</strong> <span class="info-highlight">转运</span>
+
+                {% elif order_type == '转运组合' %}
+                    <form method="post" action="" class="order-type-form">
+                        {% csrf_token %}
+                        <input type="hidden" name="step" value="modify_order_type">
+                        <input type="hidden" name="new_order_type" id="new_order_type" value="">
+                        <input type="hidden" name="container_number" value="{{ container_number }}">
+                        <input type="hidden" name="invoice_id" value="{{ invoice.id }}">
+                        <input type="hidden" name="page" value="delivery_edit">
+                        <!-- 是组合柜类型 -->
+                        <strong>组合柜状态:</strong>
+                        {% if is_combina %}
+                            <span class="info-highlight" style="color: #16a34a;">符合组合柜</span>
+                            <span class="divider-line"></span>
+                            <button type="submit" class="btn-change-order-type" 
+                                    onclick="setOrderType('转运')">
+                                <i class="fas fa-exchange-alt"></i>
+                                改为转运
+                            </button> &nbsp;&nbsp;                              
+                            <input type="text" name="actual_non_combina_reason" placeholder="不符合原因">
+                            <span class="divider-line"></span>
+                            <span class="rules-icon" onclick="openRulesModal()">📘 组合柜规则查看</span>
+                        {% else %}
+                            <span class="info-highlight" style="color: #dc2626;">不符合组合柜</span>
+                            {% if non_combina_reason %}
+                                <span class="divider-line"></span>
+                                <strong style="color:#dc2626;">原因:</strong> 
+                                <span class="badge" style="background: rgba(255, 193, 7, 0.2); color: #ffa000;">
+                                    ⚠️{{ non_combina_reason }}
+                                </span>
+                            {% endif %}
+                            <button type="submit" class="btn-change-order-type" 
+                                    onclick="setOrderType('转运组合')">
+                                <i class="fas fa-exchange-alt"></i>
+                                改为组合柜
+                            </button>
+                            <span class="divider-line"></span>
+                            <span class="rules-icon" onclick="openRulesModal()">📘 组合柜规则查看</span>
+                        {% endif %}
+                    </form>
+                    
+                {% else %}
+                    <!-- 其他类型（非转运 / 非转运组合） -->
+                    <strong>类型:</strong> <span class="info-highlight">{{ order_type }}</span>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
 <form method="post" action="" class="mb-0">
     {% csrf_token %}
     <input type="hidden" name="container_number" value="{{ container_number }}">
@@ -14,7 +285,10 @@
     <input type="hidden" name="end_date_confirm" value="{{ end_date_confirm }}">
     <input type="hidden" name="customer" value="{{ customer }}">
     <input type="hidden" name="warehouse" value="{{ warehouse }}">
+
+
 <div class="container-fluid mt-3">
+    
     <div class="card-header p-2" style="background-color: #2c3e50; color: white; border-bottom: 1px solid #34495e;">
         <div class="d-flex justify-content-between align-items-center">
             <h5 class="mb-0 d-flex align-items-center">
@@ -31,16 +305,18 @@
             </button>
             &nbsp;&nbsp;
             <button onclick="window.history.back()" style="background: linear-gradient(135deg, #9ca3af, #6b7280);
-                    border: 1px solid rgba(255,255,255,0.3);
-                    color: white;
-                    padding: 10px 20px;
-                    border-radius: 8px;
-                    cursor: pointer;
-                    display: flex;
-                    align-items: center;
-                    gap: 8px;
-                    transition: all 0.2s ease;">
-                <i class="fas fa-arrow-left"></i>
+                                border: 1px solid rgba(255,255,255,0.3);
+                                color: white;
+                                padding: 6px 12px;
+                                border-radius: 6px;
+                                cursor: pointer;
+                                display: flex;
+                                align-items: center;
+                                gap: 6px;
+                                transition: all 0.2s ease;
+                                font-size: 14px;
+                                height: 32px;">
+                <i class="fas fa-arrow-left" style="font-size: 12px;"></i>
                 返回
             </button>
         </div>   
@@ -1565,6 +1841,13 @@
     function modifyStatus(type) {
         const saveTypeInput = document.getElementById('save_type');
         saveTypeInput.value = type; 
+    }
+    function openRulesModal() {
+        document.getElementById("rules-modal").style.display = "flex";
+    }
+
+    function closeRulesModal() {
+        document.getElementById("rules-modal").style.display = "none";
     }
 </script>
 {% endblock %}
