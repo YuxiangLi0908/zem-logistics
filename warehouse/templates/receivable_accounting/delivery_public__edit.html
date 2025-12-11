@@ -1389,6 +1389,7 @@
                                 data-combina-region="{{ item.combina_region|default:'' }}"
                                 data-combina-price="{{ item.combina_price|default:0 }}"
                                 data-cbm="{{ item.total_cbm|default:0 }}"
+                                data-cbm-ratio="{{ item.cbm_ratio|default:0 }}"
                                 data-weight="{{ item.total_weight_lbs|default:0 }}"
                                 class="row-combina">
                                 
@@ -1419,7 +1420,7 @@
                                     <div class="stat-value">
                                         {{ item.total_cbm|floatformat:2|default:"0.00" }}
                                         {% if item.cbm_ratio %}
-                                        <div class="text-muted small">{{ item.cbm_ratio|multiply:100|floatformat:1 }}%</div>
+                                        <div class="text-muted small">{{ item.cbm_ratio }}%</div>
                                         {% endif %}
                                     </div>
                                 </td>
@@ -2116,36 +2117,6 @@
         $('#single-row-form').submit();
     }
 
-    // ================ 保存组合柜单行 ================
-    function saveCombinaSingleRow(groupIndex, itemIndex, itemId) {
-        const $row = $(`tr[data-row="${groupIndex}_${itemIndex}"]`);
-        if (!$row.length) return;
-        
-        // 组合柜逻辑类似，只是表单字段名不同
-        const note = $row.find('.input-note').val();
-        const poId = $row.data('po') || '';
-        const destination = $row.find('.cell-destination').text().trim();
-        const amount = $row.find('.input-amount').val();
-        const pallets = $row.find('.input-pallets').val();
-
-        // 填充表单
-        $('#single-row-index').val(`${groupIndex}_${itemIndex}`);
-        $('#single-item-id').val(itemId || $row.data('item-id') || '');
-        $('#single-po-id').val(poId);
-        $('#single-destination').val(destination);
-        $('#single-delivery-category').val('combine');
-        $('#single-rate').val('');
-        $('#single-pallets').val(pallets || '0');
-        $('#single-surcharges').val('0');
-        $('#single-amount').val(amount || '0');
-        $('#single-note').val(note || '');
-        $('#single-cbm').val(cbm);
-        $('#single-weight').val(weight);
-
-        // 提交表单
-        $('#single-row-form').submit();
-    }
-
     // ================ 转换类型 ================
     function convertToCurrentType(poId, item_id, fromDeliveryType) {
         $('#convert-po-id').val(poId);
@@ -2220,7 +2191,7 @@
 
             const combinaRegion = $row.data('combina-region') || '';
             const combinaPrice = $row.data('combina-price') || '0';
-            
+            const cbmRatio = $row.data('cbm-ratio') || '0';
             // 验证必填字段
             if (!amount || parseFloat(amount) <= 0) {
                 alert(`PO ${poId} 的金额无效`);
@@ -2243,6 +2214,7 @@
                 group_index: groupIndex,
                 item_index: itemIndex,
                 combina_region: combinaRegion,
+                cbmRatio: cbmRatio,
             });
         });
         
@@ -2332,7 +2304,7 @@
             // 获取CBM和重量
             const cbm = $row.find('.cell-stats').first().find('.stat-value').text().trim() || "0";
             const weight = $row.find('.cell-stats').eq(1).find('.stat-value').text().trim() || "0";
-
+            console.log('转运的cbm',cbm);
             allItems.push({
                 rowIndex: rowIndex,
                 item_id: $(this).data('item-id') || "",
@@ -2359,6 +2331,7 @@
             const combinaRegion = $row.data('combina-region') || '';
             const combinaPrice = $row.data('combina-price') || '0';
             const cbm = $row.data('cbm') || '0';
+            const cbmRatio = $row.data('cbm-ratio') || '0';
             const weight = $row.data('weight') || '0';
             
             // 组合柜的数据结构
@@ -2378,8 +2351,9 @@
                 combina_group: groupIndex,
                 combina_item: itemIndex,
                 combina_region: combinaRegion,
-                cbm: cbm, // 新增：CBM
-                weight: weight, // 新增：重量
+                cbm: cbm, 
+                weight: weight, 
+                cbmRatio: cbmRatio,
             };
             
             allItems.push(combinaItem);
