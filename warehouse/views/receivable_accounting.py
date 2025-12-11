@@ -1939,9 +1939,10 @@ class ReceivableAccounting(View):
             return self.template_preport_edit, context
 
         order_type = order.order_type
+        non_combina_reason = None
+
         if order_type != "转运组合":
             iscombina = False
-            non_combina_reason = None
         else:
             container = Container.objects.get(container_number=container_number)
             if container.manually_order_type == "转运":
@@ -1949,7 +1950,6 @@ class ReceivableAccounting(View):
                 non_combina_reason = container.non_combina_reason
             elif container.manually_order_type == "转运组合":
                 iscombina = True
-                non_combina_reason = None
             else:
                 combina_context, iscombina,non_combina_reason = self._is_combina(container_number)
                 if combina_context.get("error_messages"):
@@ -2085,6 +2085,7 @@ class ReceivableAccounting(View):
             "existing_descriptions": existing_descriptions,  # 用于前端过滤
             "preport_status": invoice_status.preport_status,
             "combina_rules_text": rules_text,
+            "is_combina":iscombina
         })
 
         return self.template_preport_edit, context
@@ -3648,7 +3649,6 @@ class ReceivableAccounting(View):
         elif container.manually_order_type == "转运":
             return context, False, container.non_combina_reason
         
-        
         customer = order.customer_name
         customer_name = customer.zem_name
         # 从报价表找+客服录的数据
@@ -3708,14 +3708,20 @@ class ReceivableAccounting(View):
         ).details
         if isinstance(combina_fee, str):
             combina_fee = json.loads(combina_fee)
-        # 看是否超出组合柜限定仓点,NJ/SAV是14个
-        default_combina = stipulate["global_rules"]["max_mixed"]["default"]
-        exceptions = stipulate["global_rules"]["max_mixed"].get("exceptions", {})
-        combina_threshold = exceptions.get(warehouse, default_combina) if exceptions else default_combina
 
-        default_threshold = stipulate["global_rules"]["bulk_threshold"]["default"]
-        exceptions = stipulate["global_rules"]["bulk_threshold"].get("exceptions", {})
-        uncombina_threshold = exceptions.get(warehouse, default_threshold) if exceptions else default_threshold
+        # 看是否超出组合柜限定仓点,NJ/SAV是14个
+        warehouse_specific_key = f'{warehouse}_max_mixed'
+        if warehouse_specific_key in stipulate.get("global_rules", {}):
+            combina_threshold = stipulate["global_rules"][warehouse_specific_key]["default"]
+        else:
+            combina_threshold = stipulate["global_rules"]["max_mixed"]["default"]
+
+        warehouse_specific_key1 = f'{warehouse}_bulk_threshold'
+        if warehouse_specific_key1 in stipulate.get("global_rules", {}):
+            uncombina_threshold = stipulate["global_rules"][warehouse_specific_key1]["default"]
+        else:
+            uncombina_threshold = stipulate["global_rules"]["bulk_threshold"]["default"]
+
         if plts["unique_destinations"] > uncombina_threshold:
             container.account_order_type = "转运"
             container.non_combina_reason = (
@@ -3772,9 +3778,9 @@ class ReceivableAccounting(View):
         ):
             # 当非组合柜的区域数量超出时，不能按转运组合
             container.account_order_type = "转运"
-            container.non_combina_reason = "非组合柜区的数量不符合标准"
+            container.non_combina_reason = f"非组合柜区数量为{non_combina_region_count},要求是{uncombina_threshold}-{combina_threshold}"
             container.save()
-            return context, False,"非组合柜区的数量不符合标准"
+            return context, False,f"非组合柜区数量为{non_combina_region_count},要求是{uncombina_threshold}-{combina_threshold}"
         container.non_combina_reason = None
         container.account_order_type = "转运组合"
         container.save()

@@ -740,13 +740,11 @@
                                 <span class="rules-icon" onclick="openRulesModal()">📘 组合柜规则查看</span>
                             {% else %}
                                 <span class="info-highlight" style="color: #dc2626;">不符合组合柜</span>
-                                {% if non_combina_reason %}
-                                    <span class="divider-line"></span>
-                                    <strong style="color:#dc2626;">原因:</strong> 
-                                    <span class="badge" style="background: rgba(255, 193, 7, 0.2); color: #ffa000;">
-                                        ⚠️{{ non_combina_reason }}
-                                    </span>
-                                {% endif %}
+                                <span class="divider-line"></span>
+                                <strong style="color:#dc2626;">原因:</strong> 
+                                <span class="badge" style="background: rgba(255, 193, 7, 0.2); color: #ffa000;">
+                                    ⚠️{{ non_combina_reason }}
+                                </span>
                                 <button type="submit" class="btn-change-order-type" 
                                         onclick="setOrderType('转运组合')">
                                     <i class="fas fa-exchange-alt"></i>
