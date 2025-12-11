@@ -1941,7 +1941,7 @@ class ReceivableAccounting(View):
             return context
 
         order_type = order.order_type
-        if order_type == "转运":
+        if order_type != "转运组合":
             iscombina = False
             non_combina_reason = None
         else:
