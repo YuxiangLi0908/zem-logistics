@@ -2247,14 +2247,17 @@ class ReceivableAccounting(View):
 
     def _determine_is_combina(self, order):
         is_combina = False
-        if order.container_number.manually_order_type == "转运组合":
-            is_combina = True
-        elif order.container_number.manually_order_type == "转运":
+        if order.order_type != "转运组合":
             is_combina = False
         else:
-            # 未定义，直接去判断
-            if self._is_combina(order.container_number.container_number):
+            if order.container_number.manually_order_type == "转运组合":
                 is_combina = True
+            elif order.container_number.manually_order_type == "转运":
+                is_combina = False
+            else:
+                # 未定义，直接去判断
+                if self._is_combina(order.container_number.container_number):
+                    is_combina = True
         return is_combina
 
     def _merge_combina_info(self, info1: dict, info2: dict) -> dict:
@@ -3638,14 +3641,17 @@ class ReceivableAccounting(View):
         
         try:
             container = Container.objects.get(container_number=container_number)
+            order = Order.objects.select_related(
+                "retrieval_id", "container_number", "vessel_id"
+            ).get(container_number__container_number=container_number)
+            if order.order_type == "转运组合":
+                return context, False, None
             if container.manually_order_type == "转运组合":
                 return context, True, None 
             elif container.manually_order_type == "转运":
                 return context, False, container.non_combina_reason
             
-            order = Order.objects.select_related(
-                "retrieval_id", "container_number", "vessel_id"
-            ).get(container_number__container_number=container_number)
+           
             customer = order.customer_name
             customer_name = customer.zem_name
             # 从报价表找+客服录的数据
