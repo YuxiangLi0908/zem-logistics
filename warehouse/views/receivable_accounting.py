@@ -563,79 +563,70 @@ class ReceivableAccounting(View):
         order = Order.objects.select_related("container_number").get(
             container_number__container_number=container_number
         )
+        
         if order.order_type == "直送":
-            modified_get = request.GET.copy()
-            modified_get["start_date"] = request.GET.get(
-                "start_date"
-            )
-            modified_get["end_date"] = request.GET.get(
-                "end_date"
-            )
-            modified_get["confirm_step"] = True
-            new_request = request
-            new_request.GET = modified_get
-            return Accounting.handle_container_invoice_direct_get(new_request)
+            is_combina = False
         else:
             # 这里要区分一下，如果是组合柜的柜子，跳转就直接跳转到组合柜计算界面
             ctx, is_combina, non_combina_reason = self._is_combina(order.container_number.container_number)
             if ctx.get('error_messages'):
                 return ctx
+        
+        if is_combina:       
+            # 这里表示是组合柜的方式计算
+            new_get = request.GET.copy()
+            new_get['is_new_version'] = True
+            request.GET = new_get
+            setattr(request, "is_from_account_confirmation", True)
+            ctx = self.handle_container_invoice_combina_get(request)
+            return self.template_invoice_combina_edit, ctx
+        else:
+            items = InvoiceItemv2.objects.filter(
+                invoice_number=invoice,
+                container_number__container_number=container_number,
+                invoice_type="receivable"
+            ).order_by("item_category", "id")
+
+            # 分组（按 5 大类）
+            grouped = {
+                "preport": [],
+                "warehouse_public": [],
+                "warehouse_other": [],
+                "delivery_public": [],
+                "delivery_other": [],
+            }
+
+                # 计算每个类别的总金额
+            category_totals = {}
+            total_amount = 0
             
-            if is_combina:       
-                # 这里表示是组合柜的方式计算
-                new_get = request.GET.copy()
-                new_get['is_new_version'] = True
-                request.GET = new_get
-                setattr(request, "is_from_account_confirmation", True)
-                ctx = self.handle_container_invoice_combina_get(request)
-                return self.template_invoice_combina_edit, ctx
-            else:
-                items = InvoiceItemv2.objects.filter(
-                    invoice_number=invoice,
-                    container_number__container_number=container_number,
-                    invoice_type="receivable"
-                ).order_by("item_category", "id")
-
-                # 分组（按 5 大类）
-                grouped = {
-                    "preport": [],
-                    "warehouse_public": [],
-                    "warehouse_other": [],
-                    "delivery_public": [],
-                    "delivery_other": [],
-                }
-
-                 # 计算每个类别的总金额
-                category_totals = {}
-                total_amount = 0
-                
-                for it in items:
-                    grouped.setdefault(it.item_category, []).append(it)
-                    if it.amount:
-                        total_amount += float(it.amount)
-                
-                # 计算每个类别的金额
-                for category, items_list in grouped.items():
-                    category_total = sum(float(item.amount or 0) for item in items_list)
-                    category_totals[category] = category_total
-                
-                groups_order = [
-                    ("preport", "📌 港前", grouped.get("preport", [])),
-                    ("warehouse_public", "🏬 公仓库内", grouped.get("warehouse_public", [])),
-                    ("warehouse_other", "🏭 私仓库内", grouped.get("warehouse_other", [])),
-                    ("delivery_public", "🚚 公仓派送", grouped.get("delivery_public", [])),
-                    ("delivery_other", "🚚 私仓派送", grouped.get("delivery_other", [])),
-                ]
-                
-                context = {
-                    "invoice_number": invoice.invoice_number,
-                    "invoice": invoice,  # 添加invoice对象，用于获取状态等信息
-                    "container_number": container_number,
-                    "groups_order": groups_order,
-                    "category_totals": category_totals,
-                    "total_amount": total_amount,
-                }
-                return self.template_confirm_transfer_edit, context
+            for it in items:
+                grouped.setdefault(it.item_category, []).append(it)
+                if it.amount:
+                    total_amount += float(it.amount)
+            
+            # 计算每个类别的金额
+            for category, items_list in grouped.items():
+                category_total = sum(float(item.amount or 0) for item in items_list)
+                category_totals[category] = category_total
+            
+            groups_order = [
+                ("preport", "📌 港前", grouped.get("preport", [])),
+                ("warehouse_public", "🏬 公仓库内", grouped.get("warehouse_public", [])),
+                ("warehouse_other", "🏭 私仓库内", grouped.get("warehouse_other", [])),
+                ("delivery_public", "🚚 公仓派送", grouped.get("delivery_public", [])),
+                ("delivery_other", "🚚 私仓派送", grouped.get("delivery_other", [])),
+            ]
+            
+            context = {
+                "invoice_number": invoice.invoice_number,
+                "invoice": invoice,  # 添加invoice对象，用于获取状态等信息
+                "container_number": container_number,
+                "groups_order": groups_order,
+                "category_totals": category_totals,
+                "total_amount": total_amount,
+            }
+            return self.template_confirm_transfer_edit, context
         
         
     def handle_convert_type_post(self, request: HttpRequest):
@@ -1000,7 +991,6 @@ class ReceivableAccounting(View):
 
         criteria = (
             Q(cancel_notification=False)
-            & (Q(order_type="转运") | Q(order_type="转运组合"))
             & Q(vessel_id__vessel_etd__gte=start_date)
             & Q(vessel_id__vessel_etd__lte=end_date)
             & Q(offload_id__offload_at__isnull=False)
@@ -3510,6 +3500,13 @@ class ReceivableAccounting(View):
                     invoice_status.preport_reason = request.POST.get("reject_reason", "")
                 else:
                     invoice_status.preport_reason = ''
+                invoice_status.save()
+            
+            if order.order_type == "直送":
+                invoice_status.warehouse_public_status = "completed"
+                invoice_status.warehouse_other_status = "completed"
+                invoice_status.delivery_public_status = "completed"
+                invoice_status.delivery_other_status = "completed"
                 invoice_status.save()
             status_mapping = {
                 'pending_review': '待审核',
