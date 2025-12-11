@@ -134,6 +134,7 @@ class ReceivableAccounting(View):
     template_confirm_transfer_edit = "receivable_accounting/confirm_transfer_entry.html"
 
     template_invoice_combina_edit = "receivable_accounting/invoice_combina_edit.html"
+    template_invoice_statement = "receivable_accounting/invoice_statement.html"
 
     template_completed_bills = "receivable_accounting/completed_bills.html"
     template_supplementary_entry = "receivable_accounting/supplementary_entry.html"
@@ -267,6 +268,181 @@ class ReceivableAccounting(View):
         elif step == "supplement_order":
             template, context = self.handle_supplement_order_post(request)
             return render(request, template, context)
+        elif step == "adjustBalance":
+            template, context = self.handle_adjust_balance_save(request)
+            return render(request, template, context)
+        elif step == "invoice_order_select":
+            return self.handle_invoice_order_select_post(request)
+        elif step == "invoice_order_batch_export":
+            return self.handle_invoice_order_batch_export(request)
+        elif step == "invoice_order_delivered":
+            return self.handle_invoice_order_batch_delivered(request)
+        elif step == "invoice_order_reject":
+            template, context = self.handle_invoice_order_batch_reject(request)
+            return render(request, template, context)
+    
+    def handle_invoice_order_batch_reject(self, request: HttpRequest) -> tuple[Any, Any]:
+        selected_orders = json.loads(request.POST.get("selectedOrders", "[]"))
+        selected_orders = list(set(selected_orders))
+        invoice_status = InvoiceStatusv2.objects.filter(
+            container_number__container_number__in=selected_orders
+        )
+        for item in invoice_status:
+            item.stage = "tobeconfirmed"
+            item.finance_status = "tobeconfirmed"
+            item.save()
+
+        # 重开账单，需要撤销通知客户
+        invoices = Invoicev2.objects.prefetch_related(
+            "order", "order__container_number", "container_number"
+        ).filter(container_number__container_number__in=selected_orders)
+        for invoice in invoices:
+            invoice.is_invoice_delivered = False
+            invoice.save()
+        return self.handle_confirm_entry_post(
+            request
+        )
+    
+    def handle_invoice_order_batch_delivered(
+        self, request: HttpRequest
+    ) -> HttpResponse:
+        selected_orders = json.loads(request.POST.get("selectedOrders", "[]"))
+        selected_orders = list(set(selected_orders))
+        invoices = Invoicev2.objects.prefetch_related(
+            "order", "order__container_number", "container_number"
+        ).filter(container_number__container_number__in=selected_orders)
+        for invoice in invoices:
+            invoice.is_invoice_delivered = True
+            invoice.save()
+        return self.handle_confirm_entry_post(
+            request
+        )
+    
+    def handle_invoice_order_batch_export(self, request: HttpRequest) -> HttpResponse:
+        selected_orders = json.loads(request.POST.get("selectedOrders", "[]"))
+        selected_orders = list(set(selected_orders))
+        orders = Order.objects.select_related(
+            "retrieval_id", "container_number"
+        ).filter(container_number__container_number__in=selected_orders)
+        invoices = Invoicev2.objects.prefetch_related(
+            "order", "order__container_number", "container_number"
+        ).filter(container_number__container_number__in=selected_orders)
+
+        contexts = []
+        invoice_numbers = []
+        invoice_type = request.POST.get("invoice_type")
+        current_date = datetime.now().date()  # 统一使用当前日期生成invoice_number
+
+        for order in orders:
+            invoice = invoices.get(
+                container_number__container_number=order.container_number.container_number
+            )
+            context = self._parse_invoice_excel_data(order, invoice, invoice_type)
+            contexts.append(context)
+
+            order_id = str(order.id)
+            customer_id = order.customer_name.id
+            inv_num = f"{current_date.strftime('%Y-%m-%d').replace('-', '')}C{customer_id}{order_id}"
+            invoice_numbers.append(inv_num)
+
+        workbook, _ = self._generate_combined_invoice_excel_v1(contexts, invoice_numbers)
+
+        excel_file = io.BytesIO()
+        workbook.save(excel_file)
+        excel_file.seek(0)
+        response = HttpResponse(
+            excel_file.read(),
+            content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+        response["Content-Disposition"] = 'attachment; filename="combined_invoices.xlsx"'
+        return response
+    
+    def handle_invoice_order_batch_reject(self, request: HttpRequest) -> tuple[Any, Any]:
+        selected_orders = json.loads(request.POST.get("selectedOrders", "[]"))
+        selected_orders = list(set(selected_orders))
+        invoice_status = InvoiceStatusv2.objects.filter(
+            container_number__container_number__in=selected_orders
+        )
+        for item in invoice_status:
+            item.stage = "tobeconfirmed"
+            item.finance_status = "tobeconfirmed"
+            item.save()
+
+        # 重开账单，需要撤销通知客户
+        invoices = Invoicev2.objects.prefetch_related(
+            "order", "order__container_number", "container_number"
+        ).filter(container_number__container_number__in=selected_orders)
+        for invoice in invoices:
+            invoice.is_invoice_delivered = False
+            invoice.save()
+        return self.handle_confirm_entry_post(
+            request
+        )
+
+    def handle_invoice_order_select_post(self, request: HttpRequest) -> HttpResponse:
+        selected_orders = json.loads(request.POST.get("selectedOrders", "[]"))
+        selected_orders = list(set(selected_orders))
+        invoice_type = request.POST.get("invoice_type")
+        if selected_orders:
+            order = Order.objects.select_related(
+                "customer_name", "container_number", "invoice_id"
+            ).filter(container_number__container_number__in=selected_orders)
+            order_id = [o.id for o in order]
+            customer = order[0].customer_name
+            current_date = datetime.now().date().strftime("%Y-%m-%d")
+            invoice_statement_id = (
+                f"{current_date.replace('-', '')}S{customer.id}{max(order_id)}"
+            )
+            context = {
+                "order": order,
+                "customer": customer,
+                "invoice_statement_id": invoice_statement_id,
+                "current_date": current_date,
+                "invoice_type": invoice_type,
+            }
+            return render(request, self.template_invoice_statement, context)
+        else:
+            template, context = self.handle_confirm_entry_post(request)
+            return render(request, template, context)
+
+
+    def handle_adjust_balance_save(self, request: HttpRequest) -> tuple[Any, Any]:
+        customer_id = request.POST.get("customerId")
+        customer = Customer.objects.get(id=customer_id)
+        amount = float(request.POST.get("usdamount"))
+        note = request.POST.get("note")
+        user = request.user if request.user.is_authenticated else None
+
+        selected_orders = json.loads(request.POST.get("selectedOrders", "[]"))
+        selected_orders = list(set(selected_orders))
+        # 查账单，按待核销金额从小到大排序
+        invoices = Invoicev2.objects.filter(
+            container_number__container_number__in=selected_orders
+        ).order_by("remain_offset")
+        sum_offset = 0.0
+        for invoice in invoices:
+            if amount <= 0:
+                break
+            offset_amount = min(amount, invoice.remain_offset)
+            sum_offset += offset_amount
+            invoice.remain_offset -= offset_amount
+            invoice.save()
+            amount -= offset_amount
+
+        transaction = Transaction.objects.create(
+            customer=customer,
+            amount=sum_offset,
+            transaction_type="write_off",
+            note=note,
+            created_by=user,
+            created_at=timezone.now(),
+        )
+
+        customer.balance = customer.balance - sum_offset
+        customer.save()
+        return self.handle_confirm_entry_post(
+            request
+        )
     
     def handle_supplement_order_post(
         self, request: HttpRequest
