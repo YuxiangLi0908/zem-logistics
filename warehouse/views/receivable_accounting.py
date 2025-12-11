@@ -2247,14 +2247,17 @@ class ReceivableAccounting(View):
 
     def _determine_is_combina(self, order):
         is_combina = False
-        if order.container_number.manually_order_type == "转运组合":
-            is_combina = True
-        elif order.container_number.manually_order_type == "转运":
+        if order.order_type != "转运组合":
             is_combina = False
         else:
-            # 未定义，直接去判断
-            if self._is_combina(order.container_number.container_number):
+            if order.container_number.manually_order_type == "转运组合":
                 is_combina = True
+            elif order.container_number.manually_order_type == "转运":
+                is_combina = False
+            else:
+                # 未定义，直接去判断
+                if self._is_combina(order.container_number.container_number):
+                    is_combina = True
         return is_combina
 
     def _merge_combina_info(self, info1: dict, info2: dict) -> dict:
