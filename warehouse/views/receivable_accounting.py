@@ -3641,14 +3641,17 @@ class ReceivableAccounting(View):
         
         try:
             container = Container.objects.get(container_number=container_number)
+            order = Order.objects.select_related(
+                "retrieval_id", "container_number", "vessel_id"
+            ).get(container_number__container_number=container_number)
+            if order.order_type == "转运组合":
+                return context, False, None
             if container.manually_order_type == "转运组合":
                 return context, True, None 
             elif container.manually_order_type == "转运":
                 return context, False, container.non_combina_reason
             
-            order = Order.objects.select_related(
-                "retrieval_id", "container_number", "vessel_id"
-            ).get(container_number__container_number=container_number)
+           
             customer = order.customer_name
             customer_name = customer.zem_name
             # 从报价表找+客服录的数据
