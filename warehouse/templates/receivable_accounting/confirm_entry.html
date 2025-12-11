@@ -495,9 +495,9 @@
                 </div>
                 <div class="filter-group">
                     <label>ETD时间：</label>
-                    <input type="date" name="start_date_confirm" value="{{ start_date_confirm }}">
+                    <input type="date" name="start_date" value="{{ start_date }}">
                     <span style="color: white; margin: 0 5px;">至</span>
-                    <input type="date" name="end_date_confirm" value="{{ end_date_confirm }}">
+                    <input type="date" name="end_date" value="{{ end_date }}">
                 </div>
                 <div class="filter-group">
                     <label>仓点区域：</label>
@@ -684,7 +684,7 @@
                                     </td>
                                     <td class="td">{{ c.customer_name__zem_name }}</td>
                                     <td class="td">
-                                        <a href="/accounting/?step=container_confirm&container_number={{ c.container_number__container_number }}&invoice_id={{ item.invoice_id }}&start_date_confirm={{ start_date_confirm }}&end_date_confirm={{ end_date_confirm }}&invoice_type={{ invoice_type_filter }}&warehouse_filter={{ warehouse_filter }}" class="container-link">
+                                        <a href="/accounting/?step=container_confirm&container_number={{ c.container_number__container_number }}&invoice_id={{ item.invoice_id }}&start_date={{ start_date }}&end_date={{ end_date }}&invoice_type={{ invoice_type_filter }}&warehouse_filter={{ warehouse_filter }}" class="container-link">
                                             {{ c.container_number__container_number }}
                                         </a>
                                     </td>
@@ -782,8 +782,8 @@
             {% csrf_token %}
             <input type="hidden" name="step" value="adjustBalance">
             <input type="hidden" name="customerId" id="selectCustomerId" value="">
-            <input type="hidden" name="start_date_confirm" value="{{ start_date_confirm }}">
-            <input type="hidden" name="end_date_confirm" value="{{ end_date_confirm }}">
+            <input type="hidden" name="start_date" value="{{ start_date }}">
+            <input type="hidden" name="end_date" value="{{ end_date }}">
             <input type="hidden" name="selectedOrders" id="selectedOrdersData" value="">
             
             <div class="form-group">

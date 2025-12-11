@@ -1,0 +1,178 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<form method="post" action="">
+    {% csrf_token %}
+    <div style="text-align: center;">
+        <h2><b>INVOICE</b></h2>
+    </div>
+    <div style="width: 100%;">
+        <table style="width: 100%; border: 2px solid rgb(180, 180, 180);">
+            <tr>
+                <td style="width: 40%;">
+                    <p style="padding-top: 10px; padding-left: 10px;">Zem Elitelink Logistics Inc</p>
+                    <p style="padding-left: 10px;">27 Engelhard Ave. Avenel NJ 07001</p>
+                    <p style="padding-left: 10px;">1001 Trade Center Pkwy, Rincon, GA 31326, USA</p>
+                </td>
+                <td style="width: 30%;">
+                    <p style="padding-top: 10px; padding-left: 10px;">FINANCE@ZEMLOGISTICS.COM</p>
+                    <p style="padding-left: 10px;">+1 (929)810-9968</p>
+                </td>
+                <td style="text-align: center; width: 30%;">
+                    <img src="{% static 'img/zem_logo_small.jpg' %}" style="width: 30%;">
+                </td>
+            </tr>
+        </table>
+    </div>
+
+    <div style="margin-top: 20px;">
+        <table style="width: 100%; font-size: 14px; border: 2px solid rgb(180, 180, 180);">
+            <tr style="height: 10px;">
+                <td colspan="4">
+                    <p style="padding-left: 10px;"><b>{{ customer.accounting_name }}</b></p>
+                </td>
+            </tr>
+            <tr style="height: 30px;">
+                <td colspan="2">
+                    <p style="padding-left: 10px;">Bill to</p>
+                </td>
+                <td colspan="2">
+                    <p style="padding-left: 10px;">Ship to</p>
+                </td>
+            </tr>
+            <tr>
+                <td colspan="2">
+                    <p style="padding-left: 10px;"><b>{{ customer.accounting_name }}</b></p>
+                </td>
+                <td colspan="2">
+                    <p style="padding-left: 10px;"><b>{{ customer.accounting_name }}</b></p>
+                </td>
+            </tr>
+            <tr>
+                <td colspan="4">
+                    <p style="padding-left: 10px;"><b>Invoice details</b></p>
+                </td>
+            </tr>
+            <tr>
+                <td colspan="1">
+                    <p style="padding-left: 10px;">
+                        Invoice no.:
+                    </p>
+                </td>
+                <td colspan="3">
+                    <input type="text" name="invoice_statement_id" value="{{ invoice_statement_id }}">
+                </td>
+            </tr>
+            <tr>
+                <td colspan="1">
+                    <p style="padding-left: 10px;">
+                        Terms:
+                    </p>
+                </td>
+                <td colspan="3">
+                    <input type="text" name="invoice_terms">
+                </td>
+            </tr>
+            <tr>
+                <td colspan="1">
+                    <p style="padding-left: 10px;">
+                        Invoice date:
+                    </p>
+                </td>
+                <td colspan="3">
+                    <input type="date" name="invoice_date" value="{{ current_date }}">
+                </td>
+            </tr>
+            <tr>
+                <td colspan="1">
+                    <p style="padding-left: 10px;">
+                        Due date:
+                    </p>
+                </td>
+                <td colspan="3">
+                    <input type="date" name="due_date">
+                </td>
+            </tr>
+        </table>
+    </div>
+
+    <div style="margin-top: 20px;">
+        <table style="width: 100%; text-align: center; border: 2px solid rgb(180, 180, 180);">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Product or service</th>
+                    <th>Description</th>
+                    <th>Qty</th>
+                    <th>Rate</th>
+                    <th>Amount</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for o in order %}
+                    <tr>
+                        <td colspan="4" style="text-align: center;">
+                            TRANSFER CONTAINER FEE {{ o.container_number }} INV# {{ o.invoice_id.invoice_number }}
+                            <input type="hidden" name="container_number" value="{{ o.container_number }}">
+                            <input type="hidden" name="invoice_number" value="{{ o.invoice_id.invoice_number }}">
+                        </td>
+                        <td style="text-align: center;">
+                            {% if invoice_type == 'receivable' %}
+                                $<input type="number" name="rate" step=0.01 value="{{ o.invoice_id.receivable_total_amount}}">
+                            {% elif invoice_type == 'payable' %}
+                                $<input type="number" name="rate" step=0.01 value="{{ o.invoice_id.payable_total_amount}}">
+                            {% else%}
+                                缺少账单类型-{{invoice_type}}
+                            {% endif %}
+                        </td>
+                        <td style="text-align: center;">
+                            {% if invoice_type == 'receivable' %}
+                                $<input type="number" name="amount" step=0.01 value="{{ o.invoice_id.receivable_total_amount}}" oninput="updateStatementAmount(this)">
+                            {% elif invoice_type == 'payable' %}
+                                $<input type="number" name="amount" step=0.01 value="{{ o.invoice_id.payable_total_amount}}" oninput="updateStatementAmount(this)">
+                            {% else%}
+                                缺少账单类型-{{invoice_type }}
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% endfor %}
+                <tr>
+                    <td colspan="5"></td>
+                    <td id="amount_sum" style="text-align: center;"></td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div style="margin-top: 20px; padding-left: 20px; border: 2px solid rgb(180, 180, 180);">
+        <p style="margin: 5px;">Beneficiary Name: Zem Elitelink Logistics Inc</p>
+        <p style="margin: 5px;">Bank Name: Bank of America, N.A</p>
+        <p style="margin: 5px;">SWIFT Code: BOFAUS3N</p>
+
+        <p style="margin: 5px; margin-top: 20px;">ACH/Wire Transfer Routing Number: 021000322</p>
+        <p style="margin: 5px;">Beneficiary Account # 483105128462</p>
+
+        <p style="margin: 5px; margin-top: 20px;">Bank Beneficiary Address: 222 BROADWAY, NEW YORK, NY 10038</p>
+        <p style="margin: 5px; margin-top: 20px;">Business Beneficiary Address: 215 Durham Park Way, Pooler,GA31322</p>
+    </div>
+
+    <input type="hidden" name="step" value="export_invoice">
+    <input type="hidden" name="customer" value="{{ customer.accounting_name }}">
+    <button type="submit" class="btn btn-success" style="width: 100px; height: 35px; margin-top: 20px;">导出 <i class="bi bi-file-earmark-pdf-fill"></i></button>
+</form>
+<script>
+    function calculateTotal() {
+        var inputs = document.querySelectorAll('input[name="amount"]');
+        var total = 0;
+        for (var i = 0; i < inputs.length; i++) {
+            var value = parseFloat(inputs[i].value);
+            if (!isNaN(value)) {
+                total += value;
+            }
+        }
+        document.getElementById('amount_sum').textContent = '$' + total.toFixed(2);
+    };
+    window.onload = calculateTotal;
+</script>
+{% endblock %}
