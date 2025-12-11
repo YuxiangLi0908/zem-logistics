@@ -579,6 +579,7 @@ class ReceivableAccounting(View):
             request.GET = new_get
             setattr(request, "is_from_account_confirmation", True)
             ctx = self.handle_container_invoice_combina_get(request)
+            
             return self.template_invoice_combina_edit, ctx
         else:
             items = InvoiceItemv2.objects.filter(
@@ -4390,6 +4391,7 @@ class ReceivableAccounting(View):
         # 3. 获取匹配的报价表
         customer = order.customer_name
         customer_name = customer.zem_name
+        order_type = order.order_type
 
         matching_quotation, quotation_error = self._get_quotation_for_order(order, 'receivable')
         if quotation_error:
@@ -4783,6 +4785,16 @@ class ReceivableAccounting(View):
                 "non_combina_dests": list(matched_regions["non_combina_dests"].keys()),
                 "container_type_temp": container_type_temp,
                 "container_type": container_type,
+                "order_type": order_type,
+                "quotation_info": {
+                    "quotation_id": matching_quotation.quotation_id,
+                    "version": matching_quotation.version,
+                    "effective_date": matching_quotation.effective_date,
+                    "is_user_exclusive": matching_quotation.is_user_exclusive,
+                    "exclusive_user": matching_quotation.exclusive_user,
+                    "filename": matching_quotation.filename,  # 添加文件名
+                },
+                
             }
         )
         return context
