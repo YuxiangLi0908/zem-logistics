@@ -206,14 +206,16 @@
                             </div>
                         </div>
                     </li>
-                    {% if user.is_authenticated and user.is_staff %}
+                    
                     <li class="nav-item">
                         <div class="dropdown">
                             <a class="nav-link">未启用财务</a>
                             <div class="dropdown-content">
+                                {% if user.is_authenticated and user.is_staff %}
                                 <!-- 进度监控类 -->
                                 <a href="{% url 'receivable_accounting' %}?step=progress" target="_blank">账单进度</a>
                                 <a href="{% url 'receivable_accounting' %}?step=alert" target="_blank">预警监控</a>
+                                {% endif %}
                                 <!-- 录入工作 -->
                                 <a href="{% url 'receivable_accounting' %}?step=preport" target="_blank">提拆账单录入</a>
                                 <a href="{% url 'receivable_accounting' %}?step=warehouse" target="_blank">库内账单录入</a>
@@ -222,13 +224,15 @@
                                 <!-- 财务管理 -->
                                 <a href="{% url 'receivable_accounting' %}?step=confirm" target="_blank">财务确认账单</a>
                                 <a href="{% url 'receivable_accounting' %}?step=supplementary" target="_blank">补开账单</a>
+                                {% if user.is_authenticated and user.is_staff %}
                                 <a href="{% url 'receivable_accounting' %}?step=finance_stats" target="_blank">财务统计分析</a>
                                  <!-- 报价管理 -->
                                 <a href="{% url 'receivable_accounting' %}?step=quotation_management" target="_blank">报价表管理</a>
+                                {% endif %}
                             </div>
                         </div>
                     </li>
-                    {% endif %}
+                    
 
                     <li class="nav-item">
                         <div class="dropdown">

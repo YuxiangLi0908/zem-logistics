@@ -10,7 +10,6 @@
     <input type="hidden" name="plts_by_destination" value="{{ plts_by_destination }}">
     <input type="hidden" name="start_date" value="{{ start_date }}">
     <input type="hidden" name="end_date" value="{{ end_date }}">
-    <input type="hidden" name="is_from_account_confirmation" value="{{ is_from_account_confirmation }}">
     <input type="hidden" name="start_date_confirm" value="{{ start_date_confirm }}">
     <input type="hidden" name="end_date_confirm" value="{{ end_date_confirm }}">
     <input type="hidden" name="customer" value="{{ customer }}">
@@ -60,10 +59,11 @@
     <div class="card mb-3 shadow-sm">
         <div class="card-header bg-light text-dark p-2 border-bottom">
             <h6 class="mb-0 fw-bold fs-5 text-white bg-primary px-2 py-1 rounded d-inline-block">
-                <i class="bi bi-box-seam me-1"></i>
-                组合柜区域
-            </h6>         
+                <i class="bi bi-boxes me-1"></i>
+                组合柜计费
+            </h6>
         </div>
+        
         <div class="card-body p-2">
             <div class="row">
                 <div class="col-md-4 border-end">
@@ -81,70 +81,133 @@
                         >
                     </div>
                 </div>
-                
                 <div class="col-md-8">
-                    <table class="table table-sm table-bordered mb-0">
-                        <thead class="table-light">
-                            <tr>
-                                <th>区域</th>
-                                <th class="text-end">总CBM</th>
-                                <th class="text-end">单价</th>
-                                <th class="text-end">区域费用</th>
-                                <th>仓点</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for group in display_data.combina_data.combina_groups %}
-                            <tr>
-                                <td>
-                                    <input type="hidden" name="combina_groups[{{ forloop.counter0 }}][region]" value="{{ group.region }}">
-                                    {{ group.region }}
-                                </td>
-                                <td class="text-end">
-                                    <input type="number" 
-                                        name="combina_groups[{{ forloop.counter0 }}][total_cbm]" 
-                                        value="{{ group.total_cbm }}" 
-                                        step="0.001" 
-                                        class="form-control form-control-sm text-end" readonly>
-                                </td>
-                                <td class="text-end">
-                                    <input type="number" 
-                                        name="combina_groups[{{ forloop.counter0 }}][price]" 
-                                        value="{{ group.price }}" 
-                                        step="0.01" 
-                                        class="form-control form-control-sm text-end" readonly>
-                                </td>
-                                <td class="text-end">
-                                    <input type="number" 
-                                        name="combina_groups[{{ forloop.counter0 }}][region_price]" 
-                                        value="{{ group.region_price }}" 
-                                        step="0.001" 
-                                        class="form-control form-control-sm text-end region-price-input" readonly>
-                                </td>
-                                <td>
-                                    {% for dest in group.destinations %}
-                                        {{ dest }}
+                    <!-- 组合柜明细表格 -->
+                    <div class="table-responsive">
+                        <table class="table table-sm table-bordered mb-0 advanced-table combina-table">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>区域</th>
+                                    <th>单价</th>
+                                    <th>目的地</th>
+                                    <th>CBM</th>
+                                    <th>重量(lbs)</th>
+                                    <th>板数</th>
+                                    <th>金额(USD)</th>
+                                    <th>登记人</th>
+                                </tr>
+                            </thead>
+
+                            <tbody>
+                                {% if display_data.combina_data.combina_groups %}
+                                    {% for group in display_data.combina_data.combina_groups %}
+                                    {% with region_rowspan=group.items|length %}
+                                    {% for item in group.items %}
+
+                                    <tr data-row="{{ forloop.parentloop.counter0 }}_{{ forloop.counter0 }}" 
+                                        data-item-id="{{ item.id|default:'' }}" 
+                                        data-po="{{ item.PO_ID|default:'' }}"
+                                        data-is-hold="false"
+                                        data-combina-region="{{ item.combina_region|default:'' }}"
+                                        data-combina-price="{{ item.combina_price|default:0 }}"
+                                        data-cbm="{{ item.total_cbm|default:0 }}"
+                                        data-cbm-ratio="{{ item.cbm_ratio|default:0 }}"
+                                        data-weight="{{ item.total_weight_lbs|default:0 }}"
+                                        class="row-combina">
+
+                                        {% if forloop.first %}
+                                        <td rowspan="{{ region_rowspan }}" class="cell-region">
+                                            <div class="region-name">{{ group.region }}</div>
+                                            <div class="region-cbm">{{ group.total_cbm|floatformat:2 }} CBM</div>
+                                        </td>
+                                        {% endif %}
+
+                                        {% if forloop.first %}
+                                        <td rowspan="{{ region_rowspan }}" class="cell-price">
+                                            <div class="region-region-price">${{ group.region_price }}</div>
+                                            <div class="price-value"> ${{ group.price|floatformat:2 }}</div>
+                                            <div class="cbm-ratio-value"> {{ group.total_cbm_ratio }}%</div>                                       
+                                        </td>
+                                        {% endif %}
+
+                                        <td class="cell-destination">{{ item.destination|default:"-" }}</td>
+
+                                        <td class="cell-stats">
+                                            <div class="stat-value">
+                                                {{ item.total_cbm|floatformat:2|default:"0.00" }}
+                                                {% if item.cbm_ratio %}
+                                                <span class="separator" style="color: #ccc; margin: 0 4px;">|</span>
+                                                <span class="cbm-ratio-value">{{ item.cbm_ratio|floatformat:4 }}%</span>
+                                                {% endif %}
+                                            </div>
+                                        </td>
+
+                                        <td class="cell-stats">
+                                            <div class="stat-value">{{ item.total_weight_lbs|floatformat:2|default:"0.00" }}</div>
+                                        </td>
+
+                                        <td>
+                                            <div class="stat-value">{{ item.total_pallets }}</div>
+                                        </td>
+
+                                        <td>
+                                            <div class="stat-value">{{ item.amount }}</div>
+                                        </td>
+                                        <td>
+                                            <div class="stat-value">{{ item.registered_user|default_if_none:"" }}</div>
+                                        </td>
+
+                                    </tr>
+
                                     {% endfor %}
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                        <tfoot>
-                            <tr class="table-info">
-                                <td class="text-end"><strong>总计:</strong></td>
-                                <td class="text-end">
-                                    <strong>{{ display_data.combina_data.combina_total_cbm }}</strong>
-                                </td>
-                                <td></td>
-                                <td class="text-end">
-                                    <strong id="combina_regions_total">{{ display_data.combina_data.base_fee }}</strong>
-                                </td>
-                                <td></td>
-                            </tr>
-                        </tfoot>
-                    </table>
+                                    {% endwith %}
+                                    {% endfor %}
+                                {% else %}
+                                    <tr>
+                                        <td colspan="11" class="text-center text-muted py-3">
+                                            暂无组合柜明细数据
+                                        </td>
+                                    </tr>
+                                {% endif %}
+                            </tbody>
+
+                            <tfoot>
+                                <tr class="table-info">
+                                    <td colspan="3" class="text-end"><strong>总计:</strong></td>
+
+                                    <td>
+                                        <strong>
+                                            <input type="number" class="form-control form-control-sm text-center"
+                                                value="{{ display_data.combina_data.combina_total_cbm|floatformat:2 }}" readonly>
+                                        </strong>
+                                    </td>
+
+                                    <td>
+                                        <strong>
+                                            <input type="number" class="form-control form-control-sm"
+                                                value="{{ display_data.combina_data.combina_total_weight|floatformat:2 }}" readonly>
+                                        </strong>
+                                    </td>
+
+                                    <td>
+                                        <strong>
+                                            <input type="number" class="form-control form-control-sm"
+                                                value="{{ display_data.combina_data.combina_total_pallets|default:0 }}" readonly>
+                                        </strong>
+                                    </td>
+
+                                    <td>
+                                        <strong>
+                                            <input type="number" class="form-control form-control-sm"
+                                                value="{{ display_data.combina_data.base_fee|floatformat:2 }}" readonly>
+                                        </strong>
+                                    </td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
                 </div>
-            </div>
+            </div>           
         </div>
     </div>
     {% endif %}
@@ -538,9 +601,11 @@
             <span class="badge bg-warning text-dark ms-2" title="客服手动录入">
                 <i class="bi bi-pencil-square me-1"></i>客服录入
             </span>
+            <!--
             <button type="button" class="btn btn-sm btn-primary ms-2" onclick="showAddFeeModal()">
                 <i class="bi bi-plus-circle me-1"></i>添加费用
             </button>
+            -->
         </div>
         <div class="card-body p-2">
             <div id="feeTypeModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 1000;">
@@ -571,66 +636,82 @@
                         <i class="bi bi-building me-1"></i>
                         港口相关费用
                     </h6>
-                    <button type="button" class="btn btn-sm btn-outline-primary" onclick="addFeeRow('port')">
-                        <i class="bi bi-plus"></i> 添加
-                    </button>
                 </div>
                 <div class="card-body p-2">
                     <div class="row mb-2 g-2 d-none d-md-flex">
-                        <div class="col-md-3"></div>
                         <div class="col-md-2">
+                            <small class="text-muted">费用名称</small>
+                        </div>
+                        <div class="col-md-1">
                             <small class="text-muted">单价</small>
                         </div>
                         <div class="col-md-1">
                             <small class="text-muted">数量</small>
                         </div>                        
-                        <div class="col-md-2">
+                        <div class="col-md-1">
                             <small class="text-muted">附加费</small>
                         </div>
-                        <div class="col-md-2">
+                        <div class="col-md-1">
                             <small class="text-muted">总价</small>
                         </div>
                         <div class="col-md-2">
                             <small class="text-muted">说明</small>
+                        </div>
+                        <div class="col-md-2">
+                            <small class="text-muted">登记人</small>
+                        </div>
+                        <div class="col-md-2">
+                            <small class="text-muted">操作</small>
                         </div>
                     </div>
                     <div id="portFeesContainer">
                         {% if extra_fees and extra_fees.preports %}
                             {% for fee in extra_fees.preports %}
                             <div class="row align-items-center mb-2 g-2">
-                                <div class="col-md-3">
-                                    <label class="form-label fw-bold">{{ fee.name }}:</label>
-                                    <input type="hidden" class="form-control form-control-sm name-input" 
-                                        name="port_fees[{{ forloop.counter0 }}][id]" value="{{ fee.id }}">
-                                    <input type="hidden" class="form-control form-control-sm name-input" 
-                                        name="port_fees[{{ forloop.counter0 }}][name]" value="{{ fee.name }}">
-                                </div>
                                 <div class="col-md-2">
-                                    <small class="text-muted d-md-none">单价</small>
+                                    <label class="form-label fw-bold d-md-none">费用名称:</label>
+                                    <div>
+                                        {{ fee.name }}
+                                        <input type="hidden" class="form-control form-control-sm name-input" 
+                                            name="port_fees[{{ forloop.counter0 }}][id]" value="{{ fee.id }}">
+                                        <input type="hidden" class="form-control form-control-sm name-input" 
+                                            name="port_fees[{{ forloop.counter0 }}][name]" value="{{ fee.name }}">
+                                    </div>
+                                </div>
+                                <div class="col-md-1">
+                                    <label class="form-label fw-bold d-md-none">单价:</label>
                                     <input type="number" class="form-control form-control-sm price-input" step="0.01" 
                                         name="port_fees[{{ forloop.counter0 }}][price]" value="{{ fee.rate }}">
                                 </div>
                                 <div class="col-md-1">
-                                    <small class="text-muted d-md-none">数量</small>
+                                    <label class="form-label fw-bold d-md-none">数量:</label>
                                     <input type="number" class="form-control form-control-sm quantity-input" step="0.1" 
                                         name="port_fees[{{ forloop.counter0 }}][quantity]" value="{{ fee.qty }}">
                                 </div>
-                                <div class="col-md-2">
-                                    <small class="text-muted d-md-none">附加费</small>
+                                <div class="col-md-1">
+                                    <label class="form-label fw-bold d-md-none">附加费:</label>
                                     <input type="number" class="form-control form-control-sm surcharge-input" step="0.01"
                                         name="port_fees[{{ forloop.counter0 }}][surcharge]" value="{{ fee.surcharge }}">
                                 </div>
-                                <div class="col-md-2">
-                                    <small class="text-muted d-md-none">总价</small>
+                                <div class="col-md-1">
+                                    <label class="form-label fw-bold d-md-none">总价:</label>
                                     <input type="number" class="form-control form-control-sm total-input" readonly
                                         name="port_fees[{{ forloop.counter0 }}][value]" value="{{ fee.value }}">
                                 </div>                      
                                 <div class="col-md-2">
-                                    <small class="text-muted d-md-none">说明</small>
+                                    <label class="form-label fw-bold d-md-none">说明:</label>
                                     <input type="text" class="form-control form-control-sm" 
                                         name="port_fees[{{ forloop.counter0 }}][surcharge_note]" value="{{ fee.surcharge_note|default:'' }}">
-                                    <button type="button" class="btn btn-sm btn-outline-danger mt-1" onclick="removeFeeRow(this, 'port')">
-                                        <i class="bi bi-trash"></i> 删除
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label fw-bold d-md-none">登记人:</label>
+                                    <input type="text" class="form-control form-control-sm" readonly
+                                        name="port_fees[{{ forloop.counter0 }}][registered_user]" value="{{ fee.registered_user|default:'' }}">
+                                </div>   
+                                <div class="col-md-2">
+                                    <label class="form-label fw-bold d-md-none">操作:</label>
+                                    <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeFeeRow(this, 'port')">
+                                        <i class="bi bi-trash"></i> <span class="d-md-none">删除</span>
                                     </button>
                                 </div>
                             </div>
@@ -639,7 +720,7 @@
                     </div>
                 </div>
             </div>
-                     
+
             <!-- 仓库相关费用 -->
             <div id="warehouseFeesSection" class="card mb-3 border-0 shadow-sm">
                 <div class="card-header bg-light p-2 d-flex justify-content-between align-items-center">
@@ -647,66 +728,82 @@
                         <i class="bi bi-shop me-1"></i>
                         仓库相关费用
                     </h6>
-                    <button type="button" class="btn btn-sm btn-outline-primary" onclick="addFeeRow('warehouse')">
-                        <i class="bi bi-plus"></i> 添加
-                    </button>
                 </div>
                 <div class="card-body p-2">
                     <div class="row mb-2 g-2 d-none d-md-flex">
-                        <div class="col-md-3"></div>
                         <div class="col-md-2">
+                            <small class="text-muted">费用名称</small>
+                        </div>
+                        <div class="col-md-1">
                             <small class="text-muted">单价</small>
                         </div>
                         <div class="col-md-1">
                             <small class="text-muted">数量</small>
                         </div>
-                        <div class="col-md-2">
+                        <div class="col-md-1">
                             <small class="text-muted">附加费</small>
                         </div>
-                        <div class="col-md-2">
+                        <div class="col-md-1">
                             <small class="text-muted">总价</small>
                         </div>                      
                         <div class="col-md-2">
                             <small class="text-muted">说明</small>
+                        </div>
+                        <div class="col-md-2">
+                            <small class="text-muted">登记人</small>
+                        </div>
+                        <div class="col-md-2">
+                            <small class="text-muted">操作</small>
                         </div>
                     </div>
                     <div id="warehouseFeesContainer">
                         {% if extra_fees and extra_fees.warehouse %}
                             {% for fee in extra_fees.warehouse %}
                             <div class="row align-items-center mb-2 g-2">
-                                <div class="col-md-3">
-                                    <label class="form-label fw-bold">{{ fee.name }}:</label>
-                                    <input type="hidden" class="form-control form-control-sm name-input" 
-                                        name="warehouse_fees[{{ forloop.counter0 }}][id]" value="{{ fee.id }}">
-                                    <input type="hidden" class="form-control form-control-sm name-input" 
-                                        name="warehouse_fees[{{ forloop.counter0 }}][name]" value="{{ fee.name }}">
-                                </div>
                                 <div class="col-md-2">
-                                    <small class="text-muted d-md-none">单价</small>
+                                    <label class="form-label fw-bold d-md-none">费用名称:</label>
+                                    <div>
+                                        {{ fee.name }}
+                                        <input type="hidden" class="form-control form-control-sm name-input" 
+                                            name="warehouse_fees[{{ forloop.counter0 }}][id]" value="{{ fee.id }}">
+                                        <input type="hidden" class="form-control form-control-sm name-input" 
+                                            name="warehouse_fees[{{ forloop.counter0 }}][name]" value="{{ fee.name }}">
+                                    </div>
+                                </div>
+                                <div class="col-md-1">
+                                    <label class="form-label fw-bold d-md-none">单价:</label>
                                     <input type="number" class="form-control form-control-sm price-input" step="0.01" 
                                         name="warehouse_fees[{{ forloop.counter0 }}][price]" value="{{ fee.rate }}">
                                 </div>
                                 <div class="col-md-1">
-                                    <small class="text-muted d-md-none">数量</small>
+                                    <label class="form-label fw-bold d-md-none">数量:</label>
                                     <input type="number" class="form-control form-control-sm quantity-input" step="0.1" 
                                         name="warehouse_fees[{{ forloop.counter0 }}][quantity]" value="{{ fee.qty }}">
                                 </div>
-                                <div class="col-md-2">
-                                    <small class="text-muted d-md-none">附加费</small>
+                                <div class="col-md-1">
+                                    <label class="form-label fw-bold d-md-none">附加费:</label>
                                     <input type="number" class="form-control form-control-sm surcharge-input" step="0.01"
                                         name="warehouse_fees[{{ forloop.counter0 }}][surcharge]" value="{{ fee.surcharge }}">
                                 </div>
-                                <div class="col-md-2">
-                                    <small class="text-muted d-md-none">总价</small>
+                                <div class="col-md-1">
+                                    <label class="form-label fw-bold d-md-none">总价:</label>
                                     <input type="number" class="form-control form-control-sm total-input" readonly
                                         name="warehouse_fees[{{ forloop.counter0 }}][value]" value="{{ fee.value }}">
                                 </div>                   
                                 <div class="col-md-2">
-                                    <small class="text-muted d-md-none">说明</small>
+                                    <label class="form-label fw-bold d-md-none">说明:</label>
                                     <input type="text" class="form-control form-control-sm" 
                                         name="warehouse_fees[{{ forloop.counter0 }}][surcharge_note]" value="{{ fee.surcharge_note|default:'' }}">
-                                    <button type="button" class="btn btn-sm btn-outline-danger mt-1" onclick="removeFeeRow(this, 'warehouse')">
-                                        <i class="bi bi-trash"></i> 删除
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label fw-bold d-md-none">登记人:</label>
+                                    <input type="text" class="form-control form-control-sm" readonly
+                                        name="warehouse_fees[{{ forloop.counter0 }}][registered_user]" value="{{ fee.registered_user|default:'' }}">
+                                </div>   
+                                <div class="col-md-2">
+                                    <label class="form-label fw-bold d-md-none">操作:</label>
+                                    <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeFeeRow(this, 'warehouse')">
+                                        <i class="bi bi-trash"></i> <span class="d-md-none">删除</span>
                                     </button>
                                 </div>
                             </div>
@@ -715,6 +812,7 @@
                     </div>
                 </div>
             </div>
+
             <!-- 派送相关费用 -->
             <div id="deliveryFeesSection" class="card mb-3 border-0 shadow-sm">
                 <div class="card-header bg-light p-2 d-flex justify-content-between align-items-center">
@@ -722,11 +820,9 @@
                         <i class="bi bi-truck me-1"></i>
                         派送费用
                     </h6>
-                    <button type="button" class="btn btn-sm btn-outline-primary" onclick="addFeeRow('delivery')">
-                        <i class="bi bi-plus"></i> 添加
-                    </button>
                 </div>
                 <div class="card-body p-2">
+                    <!-- 桌面端表头 -->
                     <div class="row mb-2 g-2 d-none d-md-flex">
                         <div class="col-md-1">
                             <small class="text-muted">派送类型</small>
@@ -741,24 +837,32 @@
                             <small class="text-muted">板数</small>
                         </div>
                         <div class="col-md-1">
-                            <small class="text-muted">体积(CBM)</small>
+                            <small class="text-muted">体积</small>
                         </div>
                         <div class="col-md-1">
-                            <small class="text-muted">重量(LBS)</small>
+                            <small class="text-muted">重量</small>
                         </div>
-                        <div class="col-md-2">
+                        <div class="col-md-1">
                             <small class="text-muted">总费用</small>
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-md-2">
                             <small class="text-muted">备注</small>
                         </div>
+                        <div class="col-md-2">
+                            <small class="text-muted">登记人</small>
+                        </div>
+                        <div class="col-md-1">
+                            <small class="text-muted">操作</small>
+                        </div>
                     </div>
+                    
                     <div id="deliveryFeesContainer">
                         {% if extra_fees and extra_fees.deliverys %}
                             {% for delivery in extra_fees.deliverys %}
                             <div class="row align-items-center mb-2 g-2">
-                                <div class="col-md-1">
-                                    <small class="text-muted d-md-none">派送类型</small>
+                                <!-- 派送类型 -->
+                                <div class="col-6 col-md-1">
+                                    <label class="form-label fw-bold d-md-none">派送类型:</label>
                                     <input type="text" class="form-control form-control-sm" 
                                         name="deliverys[{{ forloop.counter0 }}][type]" 
                                         value="{{ delivery.type|default:'' }}">
@@ -766,57 +870,93 @@
                                         name="deliverys[{{ forloop.counter0 }}][id]" 
                                         value="{{ delivery.id|default:'' }}">
                                 </div>
-                                <div class="col-md-1">
-                                    <small class="text-muted d-md-none">目的地</small>
+                                
+                                <!-- 目的地 -->
+                                <div class="col-6 col-md-1">
+                                    <label class="form-label fw-bold d-md-none">目的地:</label>
                                     <input type="text" class="form-control form-control-sm" 
                                         name="deliverys[{{ forloop.counter0 }}][destination]" 
                                         value="{{ delivery.destination|default:'' }}">
                                 </div>
-                                <div class="col-md-1">
-                                    <small class="text-muted d-md-none">单价</small>
+                                
+                                <!-- 单价 -->
+                                <div class="col-4 col-md-1">
+                                    <label class="form-label fw-bold d-md-none">单价:</label>
                                     <input type="number" class="form-control form-control-sm price-input" step="0.1"
                                         name="deliverys[{{ forloop.counter0 }}][cost]" 
                                         value="{{ delivery.cost|default:0 }}">
                                 </div>
-                                <div class="col-md-1">
-                                    <small class="text-muted d-md-none">板数</small>
+                                
+                                <!-- 板数 -->
+                                <div class="col-4 col-md-1">
+                                    <label class="form-label fw-bold d-md-none">板数:</label>
                                     <input type="number" class="form-control form-control-sm quantity-input" step="any"
                                         name="deliverys[{{ forloop.counter0 }}][total_pallet]" 
                                         value="{{ delivery.total_pallet|default:0 }}">
                                 </div>
-                                <div class="col-md-1">
-                                    <small class="text-muted d-md-none">体积(CBM)</small>
+                                
+                                <!-- 体积 -->
+                                <div class="col-4 col-md-1">
+                                    <label class="form-label fw-bold d-md-none">体积(CBM):</label>
                                     <input type="number" class="form-control form-control-sm" step="0.01"
                                         name="deliverys[{{ forloop.counter0 }}][total_cbm]" 
                                         value="{{ delivery.total_cbm|default:0 }}">
                                 </div>
-                                <div class="col-md-1">
-                                    <small class="text-muted d-md-none">重量(LBS)</small>
+                                
+                                <!-- 重量 -->
+                                <div class="col-4 col-md-1">
+                                    <label class="form-label fw-bold d-md-none">重量(LBS):</label>
                                     <input type="number" class="form-control form-control-sm" step="0.1"
                                         name="deliverys[{{ forloop.counter0 }}][total_weight_lbs]" 
                                         value="{{ delivery.total_weight_lbs|default:0 }}">
                                 </div>
-                                <div class="col-md-2">
-                                    <small class="text-muted d-md-none">总费用</small>
+                                
+                                <!-- 总费用 -->
+                                <div class="col-4 col-md-1">
+                                    <label class="form-label fw-bold d-md-none">总费用:</label>
                                     <input type="number" class="form-control form-control-sm total-input" step="0.01"
                                         name="deliverys[{{ forloop.counter0 }}][total_cost]" 
                                         value="{{ delivery.total_cost|default:0 }}">
                                 </div>
-                                <div class="col-md-4">
-                                    <small class="text-muted d-md-none">备注</small>
+                                
+                                <!-- 备注 -->
+                                <div class="col-8 col-md-2">
+                                    <label class="form-label fw-bold d-md-none">备注:</label>
                                     <input type="text" class="form-control form-control-sm"
                                         name="deliverys[{{ forloop.counter0 }}][note]" 
                                         value="{{ delivery.note|default:'' }}">
-                                    <button type="button" class="btn btn-sm btn-outline-danger mt-1" onclick="removeFeeRow(this, 'delivery')">
-                                        <i class="bi bi-trash"></i> 删除
+                                </div>
+                                
+                                <!-- 登记人 -->
+                                <div class="col-6 col-md-2">
+                                    <label class="form-label fw-bold d-md-none">登记人:</label>
+                                    <input type="text" class="form-control form-control-sm" readonly
+                                        name="deliverys[{{ forloop.counter0 }}][registered_user]" 
+                                        value="{{ delivery.registered_user|default:'' }}">
+                                </div>
+                                
+                                <!-- 操作 -->
+                                <div class="col-6 col-md-1">
+                                    <label class="form-label fw-bold d-md-none">操作:</label>
+                                    <button type="button" class="btn btn-sm btn-outline-danger w-100" 
+                                            onclick="removeFeeRow(this, 'delivery')">
+                                        <i class="bi bi-trash"></i> 
+                                        <span class="d-none d-md-inline">删除</span>
+                                        <span class="d-md-none">删</span>
                                     </button>
                                 </div>
                             </div>
+                            
+                            <!-- 移动端分隔线 -->
+                            {% if not forloop.last %}
+                            <div class="d-md-none">
+                                <hr class="my-2">
+                            </div>
+                            {% endif %}
                             {% endfor %}
                         {% endif %}
                     </div>
                 </div>
-            </div>
         </div>
     </div> 
 </div>
@@ -966,6 +1106,82 @@
     .border-end {
         border-right: 1px solid #dee2e6;
     }
+        .combina-table th {
+        background: #f8f9fa;
+        font-weight: 600;
+        text-align: center;
+        vertical-align: middle;
+    }
+
+    .combina-table td {
+        vertical-align: middle;
+        padding: 6px 8px !important;
+    }
+
+    /* 区域/单价合并列样式 */
+    .combina-table .cell-region,
+    .combina-table .cell-price {
+        background: #fafafa;
+        border-right: 1px solid #e1e1e1;
+        text-align: center;
+    }
+
+    .combina-table .region-name {
+        font-weight: 600;
+        font-size: 14px;
+    }
+    .combina-table .region-cbm {
+        font-size: 12px;
+        color: #6c757d;
+    }
+
+    .combina-table .cell-destination {
+        font-weight: 500;
+    }
+
+    .combina-table .stat-value {
+        text-align: center;
+        font-weight: 500;
+    }
+
+    /* 输入框更紧凑 */
+    .combina-table .input-control {
+        height: 28px;
+        font-size: 13px;
+        padding: 2px 6px;
+    }
+
+    /* tfoot 总计栏 */
+    .combina-table tfoot td {
+        background: #eef7ff !important;
+        vertical-align: middle;
+    }
+
+    .combina-table tfoot input {
+        font-weight: 600;
+        text-align: right;
+    }
+    .combina-table tr[data-row^="0_"] > td { background-color: #fff9e8; }
+    .combina-table tr[data-row^="1_"] > td { background-color: #d8e9fb; }
+    .combina-table tr[data-row^="2_"] > td { background-color: #edf9ff; }
+    .combina-table tr[data-row^="3_"] > td { background-color: #f8eef9; }
+    .combina-table tr[data-row^="4_"] > td { background-color: #f1faf2; }
+    .combina-table tr[data-row^="5_"] > td { background-color: #fdf0f5; }
+
+    .combina-table tfoot td {
+        background-color: #f0f6ff !important;
+    }
+    .price-value {
+        font-size: 0.7rem;
+        color: #4caf50;
+        font-weight: 500;
+    }
+    .cbm-ratio-value {
+        font-size: 0.65rem;
+        color: #868e96;
+        font-weight: 500;
+        font-style: italic;
+    }
 </style>
 <script>
     function showAddFeeModal() {
@@ -975,9 +1191,13 @@
         document.getElementById('feeTypeModal').style.display = 'none';
     }
 
+
     function addFeeRow(feeType) {
         let containerId, namePrefix, index;
         switch(feeType) {
+
+
+
             case 'port':
                 containerId = 'portFeesContainer';
                 namePrefix = 'port_fees';

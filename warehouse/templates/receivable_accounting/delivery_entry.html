@@ -510,7 +510,7 @@
                                                     {% endif %}
                                                 </a>
                                                 {% if item.invoice_created_at %}
-                                                    <span class="invoice-date">创建: {{ item.invoice_created_at|date:"m/d" }} {{ item.invoice_created_at|time:"H:i" }}</span>
+                                                    <span class="invoice-date">补开: {{ item.invoice_created_at|date:"m/d" }} {{ item.invoice_created_at|time:"H:i" }}</span>
                                                 {% endif %}
                                             {% else %}
                                                 <a href="/receivable_accounting/?step=container_delivery&container_number={{ item.order.container_number.container_number }}&delivery_type=public&start_date={{ start_date }}&end_date={{ end_date }}" class="container-link">
@@ -624,7 +624,7 @@
                                                 {% endif %}
                                             </a>
                                             {% if item.invoice_created_at %}
-                                                <span class="invoice-date">创建: {{ item.invoice_created_at|date:"m/d" }} {{ item.invoice_created_at|time:"H:i" }}</span>
+                                                <span class="invoice-date">补开: {{ item.invoice_created_at|date:"m/d" }} {{ item.invoice_created_at|time:"H:i" }}</span>
                                             {% endif %}
                                         </td>
                                         <td class="td" data-column="warehouse">{{ item.order.retrieval_id.retrieval_destination_precise|default:"-" }}</td>
@@ -731,7 +731,7 @@
                                                 {% endif %}
                                             </a>
                                             {% if item.invoice_created_at %}
-                                                <span class="invoice-date">创建: {{ item.invoice_created_at|date:"m/d" }} {{ item.invoice_created_at|time:"H:i" }}</span>
+                                                <span class="invoice-date">补开: {{ item.invoice_created_at|date:"m/d" }} {{ item.invoice_created_at|time:"H:i" }}</span>
                                             {% endif %}
                                         </td>
                                         <td class="td" data-column="warehouse">{{ item.order.retrieval_id.retrieval_destination_precise|default:"-" }}</td>
@@ -837,7 +837,7 @@
                                                 {% endif %}
                                             </a>
                                             {% if item.invoice_created_at %}
-                                                <span class="invoice-date">创建: {{ item.invoice_created_at|date:"m/d" }} {{ item.invoice_created_at|time:"H:i" }}</span>
+                                                <span class="invoice-date">补开: {{ item.invoice_created_at|date:"m/d" }} {{ item.invoice_created_at|time:"H:i" }}</span>
                                             {% endif %}
                                         </td>
                                         <td class="td" data-column="warehouse">{{ item.order.retrieval_id.retrieval_destination_precise|default:"-" }}</td>
