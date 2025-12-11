@@ -175,6 +175,7 @@ class InvoiceItemv2(models.Model):
     item_category = models.CharField(max_length=30, choices=ITEM_CATEGORY_CHOICES) #账单类型
     
     cbm = models.FloatField(null=True, blank=True) #体积
+    cbm_ratio = models.FloatField(null=True, blank=True) #体积占比
     weight = models.FloatField(null=True, blank=True) #重量
     description = models.CharField(max_length=1000, null=True, blank=True) #费用名称
     qty = models.FloatField(null=True, blank=True) #数量
