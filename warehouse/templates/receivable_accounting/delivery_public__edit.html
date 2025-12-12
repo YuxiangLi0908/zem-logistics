@@ -1471,14 +1471,18 @@
                                 
                                 <!-- 状态 -->
                                 <td class="cell-status">
-                                    {% if item.is_existing %}
-                                    <span class="status-indicator existing">
-                                        <i class="fas fa-check-circle icon"></i>已录
-                                    </span>
+                                    {% if item.is_previous_existing %}
+                                        之前账单已录
                                     {% else %}
-                                    <span class="status-indicator">
-                                        <i class="fas fa-clock icon"></i>未录
-                                    </span>
+                                        {% if item.is_existing %}
+                                        <span class="status-indicator existing">
+                                            <i class="fas fa-check-circle icon"></i>已录
+                                        </span>
+                                        {% else %}
+                                        <span class="status-indicator">
+                                            <i class="fas fa-clock icon"></i>未录
+                                        </span>
+                                        {% endif %}
                                     {% endif %}
                                 </td>
                                 

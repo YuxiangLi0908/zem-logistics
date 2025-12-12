@@ -84,7 +84,15 @@ def sum_attr(values_list, attr_path):
             total += len(obj)
     return total
 
-
+@register.filter
+def sum_amount(items):
+    """计算额外费用的总金额"""
+    try:
+        total = sum(float(item.get('amount', 0)) for item in items)
+        return total
+    except (ValueError, TypeError):
+        return 0
+    
 @register.filter
 # 给月份加1
 def add_month(date):
