@@ -3237,7 +3237,7 @@ class ExceptionHandling(View):
         根据Invoicev2的金额字段创建InvoiceItemv2明细
         """
         # 获取容器编号
-        try:
+        if 1:
             container_number = new_invoice.container_number
             
             # 1. 迁移InvoicePreport数据
@@ -3252,15 +3252,15 @@ class ExceptionHandling(View):
             delivery_count = await self._migrate_delivery_items(new_invoice, old_invoice_obj, container_number)
             migration_log['actions'].append(f"迁移派送表成功: {delivery_count}条记录")
             
-        except Exception as e:
-            migration_log['actions'].append(f"创建InvoiceItem明细失败: {str(e)}")
+        # except Exception as e:
+        #     migration_log['actions'].append(f"创建InvoiceItem明细失败: {str(e)}")
             
         return migration_log
 
     async def _migrate_preport_items(self, new_invoice, old_invoice, container_number):
         """迁移InvoicePreport数据到InvoiceItemv2"""
         created_count = 0
-        try:
+        if 1:
             # 获取InvoicePreport记录
             invoice_preports = await sync_to_async(list)(
                 InvoicePreport.objects.filter(
@@ -3336,15 +3336,15 @@ class ExceptionHandling(View):
                             await invoice_item.asave()
                             created_count += 1
                          
-        except Exception as e:
-            logger.error(f"迁移港前表错误: {str(e)}")
-            raise
+        # except Exception as e:
+        #     logger.error(f"迁移港前表错误: {str(e)}")
+        #     raise
         return created_count
 
     async def _migrate_warehouse_items(self, new_invoice, old_invoice, container_number):
         """迁移InvoiceWarehouse数据到InvoiceItemv2"""
         created_count = 0
-        try:
+        if 1:
             # 获取InvoiceWarehouse记录
             invoice_warehouses = await sync_to_async(list)(
                 InvoiceWarehouse.objects.filter(
@@ -3428,15 +3428,15 @@ class ExceptionHandling(View):
                             await invoice_item.asave()
                             created_count += 1
                                   
-        except Exception as e:
-            logger.error(f"迁移库内表错误: {str(e)}")
-            raise
+        # except Exception as e:
+        #     logger.error(f"迁移库内表错误: {str(e)}")
+        #     raise
         return created_count
     
     async def _migrate_delivery_items(self, new_invoice, old_invoice, container_number):
         """迁移InvoiceDelivery数据到InvoiceItemv2"""
         created_count = 0
-        try:
+        if 1:
             # 获取InvoiceDelivery记录
             invoice_deliveries = await sync_to_async(list)(
                 InvoiceDelivery.objects.filter(
@@ -3471,9 +3471,9 @@ class ExceptionHandling(View):
                 await invoice_item.asave()
                 created_count += 1
            
-        except Exception as e:
-            logger.error(f"迁移派送费出错: {str(e)}")
-            raise
+        # except Exception as e:
+        #     logger.error(f"迁移派送费出错: {str(e)}")
+        #     raise
         return created_count
 
 
