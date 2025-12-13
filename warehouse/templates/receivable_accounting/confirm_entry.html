@@ -570,7 +570,7 @@
                                 <tr>
                                     <td class="td">{{ c.customer_name__zem_name }}</td>
                                     <td class="td">
-                                        <a href="/receivable_accounting/?step=container_confirm&container_number={{ c.container_number__container_number }}&invoice_id={{ c.invoice_id }}&start_date={{ start_date }}&end_date={{ end_date }}&warehouse_filter={{ warehouse_filter }}" class="container-link">
+                                        <a href="/receivable_accounting/?step=container_confirm&status=unconfirmed&container_number={{ c.container_number__container_number }}&invoice_id={{ c.invoice_id }}&start_date={{ start_date }}&end_date={{ end_date }}&warehouse_filter={{ warehouse_filter }}" class="container-link">
                                             {{ c.container_number__container_number }}
                                             {% if c.invoice_created_at %}
                                                 <span class="invoice-date">补开: {{ c.invoice_created_at|date:"m/d" }} {{ c.invoice_created_at|time:"H:i" }}</span>
@@ -684,7 +684,7 @@
                                     </td>
                                     <td class="td">{{ c.customer_name__zem_name }}</td>
                                     <td class="td">
-                                        <a href="/receivable_accounting/?step=container_confirm&container_number={{ c.container_number__container_number }}&invoice_id={{ item.invoice_id }}&start_date={{ start_date }}&end_date={{ end_date }}&invoice_type={{ invoice_type_filter }}&warehouse_filter={{ warehouse_filter }}" class="container-link">
+                                        <a href="/receivable_accounting/?step=container_confirm&status=confirmed&container_number={{ c.container_number__container_number }}&invoice_id={{ c.invoice_id }}&start_date={{ start_date }}&end_date={{ end_date }}&invoice_type={{ invoice_type_filter }}&warehouse_filter={{ warehouse_filter }}" class="container-link">
                                             {{ c.container_number__container_number }}
                                         </a>
                                     </td>

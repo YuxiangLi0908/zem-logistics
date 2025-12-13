@@ -1,0 +1,737 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load custom_filters %}
+
+{% block title %}发票详情 - {{ invoice_number }} - {{ container_number }}{% endblock %}
+
+{% block content %}
+<style>
+    :root {
+        --primary-color: #1b5e20;
+        --primary-light: #4caf50;
+        --primary-dark: #0d3d14;
+        --secondary-color: #2e7d32;
+        --accent-color: #ff9800;
+        --blue-color: #1976d2;
+        --blue-light: #2196f3;
+        --blue-dark: #0d47a1;
+        --text-primary: #212121;
+        --text-secondary: #666;
+        --border-color: #e0e0e0;
+        --table-header-bg: #f5f7fa;
+        --row-hover-bg: #fafdf8;
+        --disabled-bg: #f8f9fa;
+        --success-color: #2e7d32;
+        --warning-color: #ff9800;
+        --error-color: #d32f2f;
+        --combina-bg: #e8f5e9;
+        --other-bg: #e3f2fd;
+    }
+
+    .invoice-container {
+        max-width: 100%;  /* 改为100%宽度 */
+        margin: 0 auto;
+        padding: 0;
+        background: white;
+        min-height: 100vh;
+    }
+
+    /* 头部样式 - 和原来一致 */
+    .system-header {
+        background: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary-color) 100%);
+        color: white;
+        padding: 0;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .header-main {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 24px 30px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .header-title {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+    }
+
+    .header-title h1 {
+        margin: 0;
+        font-weight: 500;
+        font-size: 1.8rem;
+        letter-spacing: -0.3px;
+    }
+
+    .header-subtitle {
+        font-size: 1rem;
+        opacity: 0.8;
+        margin-top: 4px;
+    }
+
+    .header-status {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        background: rgba(255, 255, 255, 0.1);
+        padding: 16px 20px;
+        border-radius: 8px;
+        backdrop-filter: blur(8px);
+        border: 1px solid rgba(255, 255, 255, 0.15);
+    }
+
+    .header-info {
+        display: flex;
+        gap: 20px;
+        align-items: center;
+    }
+
+    .info-badge {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 0.95rem;
+        background: rgba(255, 255, 255, 0.08);
+        padding: 6px 12px;
+        border-radius: 6px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .info-badge i {
+        font-size: 0.9rem;
+        opacity: 0.8;
+    }
+
+    .info-badge strong {
+        color: #c8e6c9;
+        margin-right: 4px;
+        font-weight: 500;
+    }
+
+    /* 主要内容区域 - 和原来一致 */
+    .main-content {
+        padding: 0;
+    }
+
+    /* 简约统计区域 */
+    .simple-stats {
+        display: flex;
+        gap: 20px;
+        margin: 30px 30px;
+        padding: 20px;
+        background: linear-gradient(135deg, #f8f9fa 0%, #f5f7fa 100%);
+        border-radius: 10px;
+        border: 1px solid var(--border-color);
+    }
+
+    .stat-item {
+        flex: 1;
+        text-align: center;
+        padding: 15px;
+        background: white;
+        border-radius: 8px;
+        border: 1px solid var(--border-color);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+
+    .stat-label {
+        font-size: 0.9rem;
+        color: var(--text-secondary);
+        margin-bottom: 8px;
+        font-weight: 500;
+    }
+
+    .stat-number {
+        font-size: 1.8rem;
+        font-weight: 700;
+        color: var(--primary-color);
+        margin-bottom: 5px;
+    }
+
+    .stat-number.blue {
+        color: var(--blue-color);
+    }
+
+    .stat-number.orange {
+        color: var(--accent-color);
+    }
+
+    .stat-desc {
+        font-size: 0.85rem;
+        color: var(--text-secondary);
+    }
+
+    /* 表格容器样式 */
+    .table-section {
+        margin: 0 30px 30px 30px;  /* 添加左右外边距 */
+        background: white;
+        border-radius: 10px;
+        overflow: hidden;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+        border: 1px solid var(--border-color);
+    }
+
+    .section-header {
+        padding: 16px 24px;
+        color: white;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .section-header.combina {
+        background: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary-color) 100%);
+    }
+
+    .section-header.other {
+        background: linear-gradient(135deg, #0d47a1 0%, #1976d2 100%);
+    }
+
+    .section-title {
+        font-size: 1.1rem;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .section-count {
+        font-size: 0.85rem;
+        opacity: 0.95;
+        background: rgba(255, 255, 255, 0.15);
+        padding: 4px 10px;
+        border-radius: 4px;
+    }
+
+    /* 高级表格样式 - 和原来一致 */
+    .table-container {
+        padding: 0;
+    }
+
+    .advanced-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.9rem;
+        background: white;
+        border: 1px solid var(--border-color);
+        border-radius: 0 0 8px 8px;
+        overflow: hidden;
+    }
+
+    .advanced-table thead {
+        background: var(--table-header-bg);
+    }
+
+    .advanced-table th {
+        padding: 16px 14px;
+        text-align: left;
+        font-weight: 600;
+        color: var(--text-primary);
+        border-bottom: 1px solid var(--border-color);
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+        font-size: 0.85rem;
+        white-space: nowrap;
+    }
+
+    .advanced-table tbody tr {
+        border-bottom: 1px solid var(--border-color);
+        transition: background-color 0.2s ease;
+        position: relative;
+    }
+
+    .advanced-table tbody tr:last-child {
+        border-bottom: none;
+    }
+
+    .advanced-table tbody tr:hover {
+        background-color: var(--row-hover-bg);
+    }
+
+    .advanced-table td {
+        padding: 14px 12px;
+        vertical-align: middle;
+        color: var(--text-primary);
+        border-right: 1px solid #f0f0f0;
+    }
+
+    .advanced-table td:last-child {
+        border-right: none;
+    }
+
+    /* 组合柜表格特定样式 */
+    .combina-table tbody tr {
+        background: #f9fcf9;
+    }
+
+    .combina-table tbody tr:hover {
+        background: #f0f9f0;
+    }
+
+    .combina-table .cell-region {
+        background: var(--combina-bg);
+        font-weight: 600;
+        color: var(--primary-color);
+        text-align: center;
+        vertical-align: middle;
+        border-right: 1px solid #d0e6d0;
+    }
+
+    .combina-table .cell-region .region-price {
+        font-size: 0.8rem;
+        color: #4caf50;
+        margin-top: 2px;
+    }
+
+    /* 其他项目表格特定样式 */
+    .other-table tbody tr {
+        background: #f8fbfe;
+    }
+
+    .other-table tbody tr:hover {
+        background: #eef7ff;
+    }
+
+    /* 费用类别标签 */
+    .category-badge {
+        display: inline-block;
+        padding: 4px 10px;
+        border-radius: 4px;
+        font-size: 0.78rem;
+        font-weight: 500;
+        white-space: nowrap;
+    }
+
+    .category-preport {
+        background: rgba(3, 169, 244, 0.1);
+        color: #0288d1;
+        border: 1px solid rgba(3, 169, 244, 0.2);
+    }
+
+    .category-warehouse-public {
+        background: rgba(76, 175, 80, 0.1);
+        color: var(--success-color);
+        border: 1px solid rgba(76, 175, 80, 0.2);
+    }
+
+    .category-warehouse-other {
+        background: rgba(156, 39, 176, 0.1);
+        color: #7b1fa2;
+        border: 1px solid rgba(156, 39, 176, 0.2);
+    }
+
+    .category-delivery-public {
+        background: rgba(255, 152, 0, 0.1);
+        color: #ef6c00;
+        border: 1px solid rgba(255, 152, 0, 0.2);
+    }
+
+    .category-delivery-other {
+        background: rgba(244, 67, 54, 0.1);
+        color: #d32f2f;
+        border: 1px solid rgba(244, 67, 54, 0.2);
+    }
+
+    /* 派送类型标签 */
+    .delivery-badge {
+        display: inline-block;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 0.78rem;
+        font-weight: 500;
+    }
+
+    .delivery-combine {
+        background: rgba(76, 175, 80, 0.1);
+        color: var(--success-color);
+        border: 1px solid rgba(76, 175, 80, 0.2);
+    }
+
+    .delivery-amazon {
+        background: rgba(255, 193, 7, 0.1);
+        color: #ff8f00;
+        border: 1px solid rgba(255, 193, 7, 0.2);
+    }
+
+    .delivery-upsdelivery {
+        background: rgba(33, 150, 243, 0.1);
+        color: #1976d2;
+        border: 1px solid rgba(33, 150, 243, 0.2);
+    }
+
+    .delivery-walmart {
+        background: rgba(0, 150, 136, 0.1);
+        color: #00796b;
+        border: 1px solid rgba(0, 150, 136, 0.2);
+    }
+
+    .delivery-hold {
+        background: rgba(158, 158, 158, 0.1);
+        color: #616161;
+        border: 1px solid rgba(158, 158, 158, 0.2);
+    }
+
+    .delivery-other {
+        background: rgba(103, 58, 183, 0.1);
+        color: #673ab7;
+        border: 1px solid rgba(103, 58, 183, 0.2);
+    }
+
+    /* 金额样式 */
+    .amount-cell {
+        font-weight: 600;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    .amount-positive {
+        color: var(--success-color);
+    }
+
+    /* 数字对齐样式 */
+    .number-cell {
+        text-align: right;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    .text-cell {
+        text-align: left;
+    }
+
+    .center-cell {
+        text-align: center;
+    }
+
+    /* 响应式设计 - 保持和原来一致 */
+    @media (max-width: 1400px) {
+        .table-container {
+            overflow-x: auto;
+            padding: 0 20px 20px;
+        }
+        
+        .advanced-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+            background: white;
+            border: 1px solid var(--border-color);
+            border-radius: 0 0 8px 8px;
+            overflow: hidden;
+        }
+    }
+
+    @media (max-width: 1200px) {
+        .simple-stats {
+            flex-direction: column;
+            margin: 20px;
+        }
+        
+        .stat-item {
+            text-align: left;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .stat-label {
+            margin-bottom: 0;
+        }
+        
+        .stat-number {
+            margin-bottom: 0;
+        }
+        
+        .table-section {
+            margin: 0 20px 20px 20px;
+        }
+    }
+
+    @media (max-width: 768px) {
+        .header-main {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 15px;
+            padding: 15px;
+        }
+        
+        .header-info {
+            width: 100%;
+        }
+        
+        .info-badge {
+            flex: 1;
+            min-width: 120px;
+            justify-content: flex-start;
+        }
+        
+        .section-header {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 8px;
+            padding: 12px 16px;
+        }
+        
+        .table-container {
+            overflow-x: auto;
+        }
+        
+        .advanced-table {
+            min-width: 900px;
+        }
+        
+        .simple-stats {
+            padding: 15px;
+            gap: 10px;
+        }
+    }
+
+    @media (max-width: 480px) {
+        .stat-item {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 5px;
+        }
+        
+        .stat-number {
+            font-size: 1.5rem;
+        }
+    }
+</style>
+
+<div class="invoice-container">
+    <!-- 头部 - 保持原来样式 -->
+    <header class="system-header">
+        <div class="header-main">
+            <div class="header-title">
+                <div>
+                    <h1>发票详情</h1>
+                    <div class="header-subtitle">发票号: {{ invoice_number }} | 柜号: {{ container_number }} | 总金额: {{ total_stats.total_amount|floatformat:2 }}</div>
+                </div>
+            </div>
+            <div class="header-info">
+                <span class="info-badge">
+                    <i class="fas fa-user-tie"></i>
+                    <strong>客户:</strong> {{ customer_name }}
+                </span>
+                <span class="info-badge">
+                    <i class="fas fa-calendar"></i>
+                    <strong>发票日期:</strong> {{ invoice_date|date:"Y-m-d" }}
+                </span>
+                <button onclick="window.history.back()" style="background: linear-gradient(135deg, #9ca3af, #6b7280);
+                        border: 1px solid rgba(255,255,255,0.3);
+                        color: white;
+                        padding: 10px 20px;
+                        border-radius: 8px;
+                        cursor: pointer;
+                        display: flex;
+                        align-items: center;
+                        gap: 8px;
+                        transition: all 0.2s ease;">
+                    <i class="fas fa-arrow-left"></i>
+                    返回
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- 简约统计区域 -->
+    <div class="main-content">
+
+        <!-- ================ 组合柜表格 ================ -->
+        {% if combina_items %}
+        <div class="table-section">
+            <div class="section-header combina">
+                <div class="section-title">
+                    <i class="fas fa-boxes"></i>
+                    组合柜费用明细
+                </div>
+                <div class="section-count">
+                    共 {{ combina_stats.total_items }} 条记录，{{ combina_stats.unique_groups }} 个分组，总金额: ${{ combina_stats.total_amount|floatformat:2 }}
+                </div>
+            </div>
+            
+            <div class="table-container">
+                <table class="advanced-table combina-table">
+                    <thead>
+                        <tr>
+                            <th>区域</th>
+                            <th>单价</th>
+                            <th>目的地</th>
+                            <th class="number-cell">CBM</th>
+                            <th class="number-cell">重量(lbs)</th>
+                            <th>派送类型</th>
+                            <th class="number-cell">数量</th>
+                            <th class="number-cell">金额(USD)</th>
+                            <th>备注</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% regroup combina_items by combina_group_id as combina_groups %}
+                        {% for group in combina_groups %}
+                            {% for item in group.list %}
+                            <tr>
+                                {% if forloop.first %}
+                                <td rowspan="{{ group.list|length }}" class="cell-region">
+                                    <div>{{ item.region|default:"-" }}</div>
+                                    {% if item.regionPrice %}
+                                    <div class="region-price">区域价: ${{ item.regionPrice|floatformat:2 }}</div>
+                                    {% endif %}
+                                </td>
+                                {% endif %}
+                                
+                                {% if forloop.first %}
+                                <td rowspan="{{ group.list|length }}" class="center-cell number-cell">
+                                    ${{ item.rate|floatformat:2|default:"0.00" }}
+                                </td>
+                                {% endif %}
+                                
+                                <td class="text-cell">{{ item.destination|default:"-" }}</td>
+                                <td class="number-cell">{{ item.cbm|floatformat:2|default:"0.00" }}</td>
+                                <td class="number-cell">{{ item.weight|default:"0.00" }}</td>
+                                <td class="center-cell">
+                                    <span class="delivery-badge delivery-combine">
+                                        组合柜
+                                    </span>
+                                </td>
+                                <td class="number-cell">{{ item.pallets|default:"0" }}</td>
+                                <td class="number-cell amount-cell amount-positive">
+                                    ${{ item.amount|floatformat:2|default:"0.00" }}
+                                </td>
+                                <td class="text-cell">{{ item.note|default:""|truncatechars:15 }}</td>
+                            </tr>
+                            {% endfor %}
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- ================ 其他项目表格 ================ -->
+        {% if other_items %}
+        <div class="table-section">
+            <div class="section-header other">
+                <div class="section-title">
+                    <i class="fas fa-list"></i>
+                    其他费用明细
+                </div>
+                <div class="section-count">
+                    共 {{ other_stats.total_items }} 条记录，总金额: ${{ other_stats.total_amount|floatformat:2 }}
+                </div>
+            </div>
+            
+            <div class="table-container">
+                <table class="advanced-table other-table">
+                    <thead>
+                        <tr>
+                            <th>费用类别</th>
+                            <th>目的地</th>
+                            <th class="number-cell">CBM</th>
+                            <th class="number-cell">重量(lbs)</th>
+                            <th>派送类型</th>
+                            <th class="number-cell">数量</th>
+                            <th class="number-cell">单价(USD)</th>
+                            <th class="number-cell">金额(USD)</th>
+                            <th>备注</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in other_items %}
+                        <tr>
+                            <td class="text-cell">
+                                {% if item.item_category == 'preport' %}
+                                <span class="category-badge category-preport">港前</span>
+                                {% elif item.item_category == 'warehouse_public' %}
+                                <span class="category-badge category-warehouse-public">公仓库内</span>
+                                {% elif item.item_category == 'warehouse_other' %}
+                                <span class="category-badge category-warehouse-other">私仓库内</span>
+                                {% elif item.item_category == 'delivery_public' %}
+                                <span class="category-badge category-delivery-public">公仓派送</span>
+                                {% elif item.item_category == 'delivery_other' %}
+                                <span class="category-badge category-delivery-other">私仓派送</span>
+                                {% else %}
+                                <span class="category-badge">{{ item.item_category }}</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-cell">{{ item.destination|default:"-" }}</td>
+                            <td class="number-cell">{{ item.cbm|floatformat:2|default:"0.00" }}</td>
+                            <td class="number-cell">{{ item.weight|default:"0.00" }}</td>
+                            <td class="center-cell">
+                                {% if item.delivery_type %}
+                                    {% if item.delivery_type == 'combine' %}
+                                    <span class="delivery-badge delivery-combine">组合柜</span>
+                                    {% elif item.delivery_type == 'amazon' %}
+                                    <span class="delivery-badge delivery-amazon">亚马逊</span>
+                                    {% elif item.delivery_type == 'upsdelivery' %}
+                                    <span class="delivery-badge delivery-upsdelivery">UPS</span>
+                                    {% elif item.delivery_type == 'walmart' %}
+                                    <span class="delivery-badge delivery-walmart">沃尔玛</span>
+                                    {% elif item.delivery_type == 'hold' %}
+                                    <span class="delivery-badge delivery-hold">暂扣</span>
+                                    {% else %}
+                                    <span class="delivery-badge delivery-other">{{ item.delivery_type }}</span>
+                                    {% endif %}
+                                {% else %}
+                                -
+                                {% endif %}
+                            </td>
+                            <td class="number-cell">{{ item.pallets|default:"0" }}</td>
+                            <td class="number-cell">${{ item.rate|floatformat:2|default:"0.00" }}</td>
+                            <td class="number-cell amount-cell {% if item.amount > 0 %}amount-positive{% endif %}">
+                                ${{ item.amount|floatformat:2|default:"0.00" }}
+                            </td>
+                            <td class="text-cell">{{ item.note|default:""|truncatechars:15 }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+    // 页面加载完成后的一些初始化
+    document.addEventListener('DOMContentLoaded', function() {
+        // 为表格行添加点击效果
+        const tableRows = document.querySelectorAll('.advanced-table tbody tr');
+        tableRows.forEach(row => {
+            row.addEventListener('click', function() {
+                // 移除其他行的选中状态
+                tableRows.forEach(r => {
+                    r.style.backgroundColor = '';
+                    r.style.borderLeft = '';
+                });
+                // 添加当前行的选中状态
+                this.style.backgroundColor = '#f0f7ff';
+                this.style.borderLeft = '3px solid #1976d2';
+            });
+        });
+        
+        // 如果没有数据，显示提示
+        const totalItems = {{ total_stats.total_items|default:0 }};
+        if (totalItems === 0) {
+            const mainContent = document.querySelector('.main-content');
+            const noDataDiv = document.createElement('div');
+            noDataDiv.style.cssText = `
+                text-align: center; 
+                padding: 40px 20px; 
+                color: var(--text-secondary);
+                margin: 30px;
+                background: white;
+                border-radius: 10px;
+                border: 1px solid var(--border-color);
+            `;
+            noDataDiv.innerHTML = `
+                <i class="fas fa-clipboard-list" style="font-size: 3rem; margin-bottom: 20px; color: #e0e0e0;"></i>
+                <h3 style="margin-bottom: 10px;">暂无费用数据</h3>
+                <p>当前发票没有费用记录</p>
+            `;
+            mainContent.appendChild(noDataDiv);
+        }
+    });
+</script>
+
+{% endblock %}
