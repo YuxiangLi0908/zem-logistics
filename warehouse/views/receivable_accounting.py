@@ -135,6 +135,7 @@ class ReceivableAccounting(View):
 
     template_invoice_combina_edit = "receivable_accounting/invoice_combina_edit.html"
     template_invoice_statement = "receivable_accounting/invoice_statement.html"
+    template_invoice_items_edit = "receivable_accounting/invoice_items_edit.html"
 
     template_completed_bills = "receivable_accounting/completed_bills.html"
     template_supplementary_entry = "receivable_accounting/supplementary_entry.html"
@@ -729,11 +730,18 @@ class ReceivableAccounting(View):
     ) -> tuple[Any, Any]:
         container_number = request.GET.get("container_number")
         invoice_id = request.GET.get("invoice_id")
-
+        status = request.GET.get("status")
+        
         invoice = Invoicev2.objects.get(id=invoice_id)
         order = Order.objects.select_related("container_number").get(
             container_number__container_number=container_number
         )
+        
+        if status == "confirmed":
+            #直接读取所有的invoiceitem
+            ctx = self._all_invoice_items_get(invoice,container_number)
+            
+            return self.template_invoice_items_edit, ctx
         
         if order.order_type == "直送":
             is_combina = False
@@ -741,7 +749,7 @@ class ReceivableAccounting(View):
             # 这里要区分一下，如果是组合柜的柜子，跳转就直接跳转到组合柜计算界面
             ctx, is_combina, non_combina_reason = self._is_combina(order.container_number.container_number)
             if ctx.get('error_messages'):
-                return ctx
+                return self.template_invoice_combina_edit, ctx
         
         if is_combina:       
             # 这里表示是组合柜的方式计算
@@ -799,7 +807,180 @@ class ReceivableAccounting(View):
                 "total_amount": total_amount,
             }
             return self.template_confirm_transfer_edit, context
-        
+
+    def _all_invoice_items_get(self, invoice: Invoicev2, container_number):
+        try:
+            # 2. 获取所有InvoiceItemv2记录
+            items = list(
+                InvoiceItemv2.objects.filter(
+                    invoice_number=invoice,
+                    container_number__container_number=container_number,
+                    invoice_type="receivable"  # 只显示应收
+                ).order_by(
+                    Case(
+                        When(item_category="preport", then=Value(1)),
+                        When(item_category="warehouse_public", then=Value(2)),
+                        When(item_category="warehouse_other", then=Value(3)),
+                        When(item_category="delivery_public", then=Value(4)),
+                        When(item_category="delivery_other", then=Value(5)),
+                        default=Value(6),
+                    ),
+                    "item_category",
+                    "-amount"  # 金额从大到小
+                )
+            )
+            
+            # 3. 按item_category分组统计数据
+            categories_data = {}
+            for item in items:
+                category = item.item_category
+                if category not in categories_data:
+                    categories_data[category] = {
+                        'count': 0,
+                        'total_amount': 0,
+                        'items': []
+                    }
+                categories_data[category]['count'] += 1
+                categories_data[category]['total_amount'] += item.amount or 0
+                categories_data[category]['items'].append(item)
+            
+            # 4. 分离组合柜数据和其他数据
+            combina_items = []  # 组合柜数据
+            other_items = []    # 其他数据
+            
+            # 处理所有类别
+            for category, data in categories_data.items():
+                if category == 'delivery_public':
+                    # 处理delivery_public类别
+                    delivery_public_items = data['items']
+                    
+                    # 找出所有组合柜的记录
+                    combina_delivery_items = [item for item in delivery_public_items 
+                                            if item.delivery_type == 'combine']
+                    
+                    # 按region和rate分组组合柜记录
+                    combina_groups = {}
+                    for item in combina_delivery_items:
+                        key = (item.region, item.rate, item.regionPrice)
+                        if key not in combina_groups:
+                            combina_groups[key] = {
+                                'region': item.region,
+                                'rate': item.rate,
+                                'regionPrice': item.regionPrice,
+                                'total_cbm': 0,
+                                'total_amount': 0,
+                                'items': [],
+                                'rowspan': 0
+                            }
+                        
+                        combina_groups[key]['total_cbm'] += item.cbm or 0
+                        combina_groups[key]['total_amount'] += item.amount or 0
+                        combina_groups[key]['items'].append(item)
+                        combina_groups[key]['rowspan'] += 1
+                    
+                    # 处理组合柜数据
+                    for group_key, group_data in combina_groups.items():
+                        group_items = []
+                        for idx, item in enumerate(group_data['items']):
+                            # 为每个组合柜项目添加分组信息
+                            item.combina_group_id = f"combina_{group_key}"
+                            item.combina_is_first = (idx == 0)
+                            item.combina_total_cbm = group_data['total_cbm']
+                            item.combina_total_amount = group_data['total_amount']
+                            item.combina_rowspan = group_data['rowspan']
+                            group_items.append(item)
+                        
+                        combina_items.extend(group_items)
+                    
+                    # 非组合柜的delivery_public记录添加到其他数据
+                    non_combina_items = [item for item in delivery_public_items 
+                                        if item.delivery_type != 'combine']
+                    other_items.extend(non_combina_items)
+                else:
+                    # 其他类别的所有项目都添加到其他数据
+                    other_items.extend(data['items'])
+            
+            # 5. 分别计算统计数据
+            # 组合柜统计
+            combina_stats = {
+                'total_items': len(combina_items),
+                'total_cbm': sum(item.cbm or 0 for item in combina_items),
+                'total_amount': sum(item.amount or 0 for item in combina_items),
+                'unique_groups': len(set(item.combina_group_id for item in combina_items if hasattr(item, 'combina_group_id')))
+            }
+            
+            # 其他项目统计
+            other_stats = {
+                'total_items': len(other_items),
+                'total_amount': sum(item.amount or 0 for item in other_items),
+                'category_counts': {
+                    category: data['count'] 
+                    for category, data in categories_data.items()
+                }
+            }
+            
+            # 总体统计
+            total_stats = {
+                'total_items': len(items),
+                'total_amount': sum(item.amount or 0 for item in items),
+            }
+            
+            # 6. 获取item_category的中文显示名称
+            category_display_names = {
+                'preport': '港前费用',
+                'warehouse_public': '公仓库内费用',
+                'warehouse_other': '私仓库内费用',
+                'delivery_public': '公仓派送费用',
+                'delivery_other': '私仓派送费用',
+            }
+            
+            # 7. 获取delivery_type的中文显示
+            delivery_type_display = {
+                'combine': '组合柜',
+                'amazon': '亚马逊',
+                'upsdelivery': 'UPS',
+                'walmart': '沃尔玛',
+                'hold': '暂扣',
+                'other': '其他',
+            }
+            
+            context = {
+                'invoice_number': invoice.invoice_number,
+                'container_number': container_number,
+                'customer_name': invoice.customer.zem_name,
+                'invoice_date': invoice.invoice_date,
+                
+                # 分离的数据
+                'combina_items': combina_items,  # 组合柜数据
+                'other_items': other_items,      # 其他数据
+                
+                # 统计数据
+                'categories_data': categories_data,
+                'category_display_names': category_display_names,
+                'delivery_type_display': delivery_type_display,
+                
+                # 三种统计数据
+                'combina_stats': combina_stats,
+                'other_stats': other_stats,
+                'total_stats': total_stats,
+                
+                'success': True,
+            }
+            
+            return context
+            
+        except Invoicev2.DoesNotExist:
+            context = {
+                'error_messages': f'找不到发票号: {invoice.invoice_number if hasattr(invoice, "invoice_number") else "未知"}',
+                'success': False,
+            }
+            return context
+        except Exception as e:
+            context = {
+                'error_messages': f'加载数据失败: {str(e)}',
+                'success': False,
+            }
+            return context
         
     def handle_convert_type_post(self, request: HttpRequest):
         context = {}
