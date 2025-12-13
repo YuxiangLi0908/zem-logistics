@@ -2833,7 +2833,7 @@ class ExceptionHandling(View):
         start_index = int(request.POST.get("start_index", 0))
         end_index = int(request.POST.get("end_index", 0))
         migration_log = []
-        
+
         # 查询旧数据数量
         total_invoices = await sync_to_async(lambda: Invoice.objects.count())()
         
@@ -3022,7 +3022,9 @@ class ExceptionHandling(View):
             if existing_invoicev2:
                 migration_log['actions'].append(f"Invoicev2已存在，跳过创建: {existing_invoicev2.id}")
                 new_invoice = existing_invoicev2
+                is_invoicev2_existing = True 
             else:
+                is_invoicev2_existing = False
                 public_wh_amount = await sync_to_async(
                     lambda: InvoiceWarehouse.objects.filter(
                         invoice_number__invoice_number=old_invoice_dict['invoice_number'],
@@ -3130,6 +3132,7 @@ class ExceptionHandling(View):
                 )()
                                 
                 if not existing_status:
+                    is_status_existing = False
                     # 创建新的InvoiceStatusv2
                     new_status = InvoiceStatusv2(
                         container_number=container,
@@ -3168,6 +3171,7 @@ class ExceptionHandling(View):
                         'finance_status': new_status.finance_status
                     }
                 else:
+                    is_status_existing = True
                     migration_log['actions'].append(f"InvoiceStatusv2已存在: {existing_status.id}")
                     # 记录已存在的新状态
                     new_data = {
@@ -3199,8 +3203,8 @@ class ExceptionHandling(View):
                     'finance_status': 'unstarted'
                 }
             
-            if existing_invoicev2 and existing_status:
-                migration_log['actions'].append(f"已经迁移过了: {existing_status.id}")
+            if is_invoicev2_existing and is_status_existing:
+                migration_log['actions'].append(f"已经迁移过了，不再迁移明细表")
             else:
                 # 3. 迁移InvoiceItem数据
                 # 这里需要根据你的业务逻辑来创建InvoiceItemv2
