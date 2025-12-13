@@ -3198,12 +3198,15 @@ class ExceptionHandling(View):
                     'delivery_other_status': 'unstarted',
                     'finance_status': 'unstarted'
                 }
-            # 3. 迁移InvoiceItem数据
-            # 这里需要根据你的业务逻辑来创建InvoiceItemv2
-            # 可以根据Invoicev2的金额字段创建对应的明细记录
-            old_invoice_obj = await sync_to_async(Invoice.objects.get)(id=old_invoice_dict['id'])
-            migration_log = await self.create_invoice_items_from_invoice(new_invoice, old_invoice_obj, migration_log)
-            # migration_log['actions'].append("创建InvoiceItemv2明细")
+            
+            if existing_invoicev2 and existing_status:
+                migration_log['actions'].append(f"已经迁移过了: {existing_status.id}")
+            else:
+                # 3. 迁移InvoiceItem数据
+                # 这里需要根据你的业务逻辑来创建InvoiceItemv2
+                # 可以根据Invoicev2的金额字段创建对应的明细记录
+                old_invoice_obj = await sync_to_async(Invoice.objects.get)(id=old_invoice_dict['id'])
+                migration_log = await self.create_invoice_items_from_invoice(new_invoice, old_invoice_obj, migration_log)
             
             return migration_log
             
