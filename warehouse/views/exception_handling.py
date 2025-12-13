@@ -3314,7 +3314,6 @@ class ExceptionHandling(View):
                             amount=float(value),
                             surcharges=float(surcharge_amount) if surcharge_amount else None,
                             note=str(surcharge_note) if surcharge_note else "",
-                            registered_user=getattr(self.request.user, 'username', 'system') if hasattr(self, 'request') else 'system'
                         )
                         await invoice_item.asave()
                         created_count += 1
@@ -3423,7 +3422,6 @@ class ExceptionHandling(View):
                                 qty=1,
                                 rate=float(fee_amount),
                                 amount=float(fee_amount),
-                                registered_user=getattr(self.request.user, 'username', 'system') if hasattr(self, 'request') else 'system'
                             )
                             await invoice_item.asave()
                             created_count += 1
