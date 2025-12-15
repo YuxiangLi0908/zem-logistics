@@ -497,7 +497,6 @@ class ReceivableAccounting(View):
             container_number__container_number__in=selected_orders
         )
         for item in invoice_status:
-            item.stage = "tobeconfirmed"
             item.finance_status = "tobeconfirmed"
             item.save()
 

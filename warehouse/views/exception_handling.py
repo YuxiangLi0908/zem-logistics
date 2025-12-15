@@ -32,6 +32,8 @@ from warehouse.models.pallet import Pallet
 from warehouse.models.invoice import Invoice
 from warehouse.models.invoicev2 import Invoicev2
 from warehouse.models.invoicev2 import InvoiceItemv2
+
+from warehouse.models.invoice import InvoiceStatement
 from warehouse.models.invoice_details import InvoiceDelivery
 from warehouse.models.customer import Customer
 from warehouse.models.fee_detail import FeeDetail
@@ -3056,6 +3058,18 @@ class ExceptionHandling(View):
                         delivery_type="other"
                     ).aggregate(total_amount=Sum('total_cost'))['total_amount'] or 0
                 )()
+                
+                statement_object = None
+                statement_id_value = old_invoice_dict.get('statement_id')
+                if statement_id_value:
+                    try:
+                        statement_object = await sync_to_async(InvoiceStatement.objects.get)(
+                            id=statement_id_value
+                        )
+                        migration_log['actions'].append(f"找到关联的Statement: {statement_object.invoice_statement_id}")
+                    except InvoiceStatement.DoesNotExist:
+                        migration_log['actions'].append(f"警告：找不到Statement ID: {statement_id_value}")
+                        statement_object = None
 
                 # 1. 创建新的Invoicev2
                 new_invoice = Invoicev2(
@@ -3065,6 +3079,7 @@ class ExceptionHandling(View):
                     invoice_link=old_invoice_dict['invoice_link'],
                     customer=customer,
                     container_number=container,
+                    statement=statement_object,
                     
                     # 应收金额字段
                     receivable_total_amount=old_invoice_dict['receivable_total_amount'] or 0,
