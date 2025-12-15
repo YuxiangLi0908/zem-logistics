@@ -2876,7 +2876,7 @@ class ExceptionHandling(View):
                         'customer_id',
                         'container_number_id',
                         'container_number__container_number',
-
+                        'statement_id',
                     )[batch_start:batch_end]
                 )
             )()
@@ -3062,6 +3062,7 @@ class ExceptionHandling(View):
                 statement_object = None
                 statement_id_value = old_invoice_dict.get('statement_id')
                 if statement_id_value:
+                    
                     try:
                         statement_object = await sync_to_async(InvoiceStatement.objects.get)(
                             id=statement_id_value
@@ -3079,7 +3080,7 @@ class ExceptionHandling(View):
                     invoice_link=old_invoice_dict['invoice_link'],
                     customer=customer,
                     container_number=container,
-                    statement=statement_object,
+                    statement_id=statement_object,
                     
                     # 应收金额字段
                     receivable_total_amount=old_invoice_dict['receivable_total_amount'] or 0,
@@ -3104,12 +3105,12 @@ class ExceptionHandling(View):
                     received_amount=old_invoice_dict['received_amount'] or 0,
                     remain_offset=old_invoice_dict['remain_offset'] or 0,
                     
-                    # statement_id字段
-                    statement_id=old_invoice_dict.get('statement_id')
                 )
                 
                 await sync_to_async(new_invoice.save)()
                 migration_log['actions'].append(f"创建Invoicev2: {new_invoice.id}")
+                if statement_object:
+                    migration_log['actions'].append(f"链接迁移成功")
             
             # 2. 迁移InvoiceStatus数据
             # 获取旧Invoice的所有状态记录
