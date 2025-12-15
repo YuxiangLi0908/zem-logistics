@@ -2081,7 +2081,16 @@ class ReceivableAccounting(View):
         wh_self_to_record_orders = self._add_shipment_group_stats(wh_self_to_record_orders, "other")
         #已录入中，驳回的优先显示
         wh_self_recorded_orders.sort(key=lambda x: x.get('self_status') != 'rejected')
+
         #公仓的先按照入库时间排序
+        # 在排序前处理时区
+        for order_data in wh_public_to_record_orders:
+            offload_time = order_data.get('offload_time')
+            if offload_time and hasattr(offload_time, 'tzinfo') and offload_time.tzinfo:
+                # 去除时区信息，保留原生时间
+                order_data['offload_time'] = offload_time.replace(tzinfo=None)
+
+        # 现在排序
         wh_public_to_record_orders.sort(key=lambda x: (
             x.get('offload_time') or datetime.max
         ))
@@ -2095,6 +2104,7 @@ class ReceivableAccounting(View):
             default_tab = 'self'
         else:
             default_tab = 'public'
+
         context.update({
             'start_date': start_date,
             'end_date': end_date,
