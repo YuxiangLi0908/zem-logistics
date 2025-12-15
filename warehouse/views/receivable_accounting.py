@@ -118,7 +118,7 @@ from warehouse.views.export_file import export_invoice
 
 
 class ReceivableAccounting(View):
-    template_progress_overview = "receivable_accounting/progress_overview.html"
+    template_invoice_search = "receivable_accounting/invoice_search.html"
     template_alert_monitoring = "receivable_accounting/alert_monitoring.html"
 
     template_preport_entry = "receivable_accounting/preport_entry.html"
@@ -167,8 +167,8 @@ class ReceivableAccounting(View):
         # if not self._validate_user_group(request.user):
         #     return HttpResponseForbidden("You are not authenticated to access this page!")
         step = request.GET.get("step", None)
-        if step == "progress":  #账单进度
-            template, context = self.handle_progress_overview_get()
+        if step == "invoice_search":  #账单进度
+            template, context = self.handle_invoice_search_get(request)
             return render(request, template, context)
         elif step == "alert":  #预警监控
             template, context = self.handle_alert_monitoring_get()
@@ -281,6 +281,214 @@ class ReceivableAccounting(View):
         elif step == "invoice_order_reject":
             template, context = self.handle_invoice_order_batch_reject(request)
             return render(request, template, context)
+        elif step == "invoice_search":
+            template, context = self.handle_invoice_search_get(request)
+            return render(request, template, context)
+    
+    def handle_invoice_search_get(
+        self,
+        request: HttpRequest,
+    ) -> tuple[Any, Any]:
+        start_date = request.POST.get("start_date")
+        end_date = request.POST.get("end_date")
+        current_date = datetime.now().date()
+        start_date = (
+            (current_date + timedelta(days=-90)).strftime("%Y-%m-%d")
+            if not start_date
+            else start_date
+        )
+        end_date = current_date.strftime("%Y-%m-%d") if not end_date else end_date
+        criteria = models.Q(
+            vessel_id__vessel_etd__gte=start_date, vessel_id__vessel_etd__lte=end_date
+        )
+        warehouse = request.POST.get("warehouse")
+        customer = request.POST.get("customer")
+        if warehouse:
+            criteria &= models.Q(retrieval_id__retrieval_destination_precise=warehouse)
+        if customer:
+            criteria &= models.Q(customer_name__zem_name=customer)
+        orders = Order.objects.select_related(
+            "customer_name", "container_number", "receivable_status", "payable_status"
+        ).filter(criteria)
+
+        processed_order_items = self.process_orders_display_status_v1(orders)
+        selected_customer_id = request.POST.get("customer_name", "")  # 重点：字段名是"customer_name"（Form字段名）
+        order_form = OrderForm(
+            initial={
+                "customer_name": selected_customer_id  # 关键：让表单默认选中该客户
+            }
+        )
+        context = {
+            "order_items": processed_order_items,
+            "order_form": order_form,
+            "selected_customer_id": selected_customer_id,
+            "start_date": start_date,
+            "end_date": end_date,
+            "customer": customer,
+            "warehouse_options": self.warehouse_options,
+            "warehouse_filter": warehouse,
+        }
+        return self.template_invoice_search, context
+
+    def process_orders_display_status_v1(self, orders):
+        # 应收状态映射
+        RECEIVABLE_STATUS_MAPPING = {
+            "unstarted": "未开始",
+            "in_progress": "录入中",
+            "pending_review": "待审核",
+            "completed": "已完成",
+            "rejected": "已驳回",
+            "tobeconfirmed": "待确认",
+            "rejected": "已驳回",
+            "confirmed": "已确认",
+        }
+        
+        # 应付状态映射（保持原来的）
+        STAGE_MAPPING = {
+            "unstarted": "未录入",
+            "preport": "提拆柜录入阶段",
+            "warehouse": "仓库录入阶段",
+            "delivery": "派送录入阶段",
+            "tobeconfirmed": "待财务确认",
+            "confirmed": "财务已确认",
+        }
+
+        SUB_STAGE_MAPPING = {
+            "pending": "仓库待处理",
+            "warehouse_completed": "仓库已完成",
+            "delivery_completed": "派送已完成",
+            "warehouse_rejected": "仓库已驳回",
+            "delivery_rejected": "派送已驳回",
+        }
+
+        # 批量查询应收状态
+        container_numbers = [order.container_number.container_number for order in orders]
+        receivable_statuses = InvoiceStatusv2.objects.filter(
+            container_number__container_number__in=container_numbers,
+            invoice_type="receivable",
+        ).select_related('invoice')
+        print('receivable_statuses',receivable_statuses)
+        # 创建映射字典
+        status_dict = {}
+        for status in receivable_statuses:
+            cn = status.container_number.container_number
+            if cn not in status_dict:
+                status_dict[cn] = []
+            status_dict[cn].append(status)
+
+        processed_items = []
+
+        for order in orders:         
+            container_number = order.container_number.container_number
+            status_list = status_dict.get(container_number, [])
+            if not status_list:
+                order_copy = self._copy_order_object(order)
+                order_copy.display_key_status = "没有状态表"
+                order_copy.invoice_number = None
+                processed_items.append(order_copy)
+            else:
+                 # 为每个InvoiceStatusv2创建一行
+                for receivable_status in status_list:
+                    print('receivable_status',receivable_status)
+                    # 创建order的副本（浅拷贝）
+                    order_copy = self._copy_order_object(order)
+                    
+                    # 设置invoice_number
+                    order_copy.invoice_number = getattr(receivable_status.invoice, 'invoice_number', None) if hasattr(receivable_status, 'invoice') else None
+                    order_copy.invoice_id = receivable_status.invoice_id
+                    
+                    # 处理应收状态各个阶段
+                    order_copy.display_preport_status = RECEIVABLE_STATUS_MAPPING.get(
+                        receivable_status.preport_status, receivable_status.preport_status
+                    ) or "未开始"
+                    
+                    order_copy.display_warehouse_public_status = RECEIVABLE_STATUS_MAPPING.get(
+                        receivable_status.warehouse_public_status, receivable_status.warehouse_public_status
+                    ) or "未开始"
+                    
+                    order_copy.display_warehouse_other_status = RECEIVABLE_STATUS_MAPPING.get(
+                        receivable_status.warehouse_other_status, receivable_status.warehouse_other_status
+                    ) or "未开始"
+                    
+                    order_copy.display_delivery_public_status = RECEIVABLE_STATUS_MAPPING.get(
+                        receivable_status.delivery_public_status, receivable_status.delivery_public_status
+                    ) or "未开始"
+                    
+                    order_copy.display_delivery_other_status = RECEIVABLE_STATUS_MAPPING.get(
+                        receivable_status.delivery_other_status, receivable_status.delivery_other_status
+                    ) or "未开始"
+                    
+                    order_copy.display_finance_status = RECEIVABLE_STATUS_MAPPING.get(
+                        receivable_status.finance_status, receivable_status.finance_status
+                    ) or "未开始"
+                    
+                    # 状态对应的CSS类
+                    order_copy.display_preport_status_class = self._get_status_class(receivable_status.preport_status)
+                    order_copy.display_warehouse_public_status_class = self._get_status_class(receivable_status.warehouse_public_status)
+                    order_copy.display_warehouse_other_status_class = self._get_status_class(receivable_status.warehouse_other_status)
+                    order_copy.display_delivery_public_status_class = self._get_status_class(receivable_status.delivery_public_status)
+                    order_copy.display_delivery_other_status_class = self._get_status_class(receivable_status.delivery_other_status)
+                    order_copy.display_finance_status_class = self._get_status_class(receivable_status.finance_status)
+                    
+                    processed_items.append(order_copy)
+            
+            # 处理应付状态（每个order只处理一次，因为应付状态是order级别的）
+            # 注意：应付状态信息会在每个order_copy中相同
+            payable_status = getattr(order, "payable_status", None)
+            if payable_status:
+                raw_stage = payable_status.stage
+                raw_public_stage = payable_status.stage_public
+                raw_other_stage = payable_status.stage_other
+                
+                if raw_stage in ["warehouse", "delivery"]:
+                    stage1 = SUB_STAGE_MAPPING.get(raw_public_stage, str(raw_public_stage))
+                    stage2 = SUB_STAGE_MAPPING.get(raw_other_stage, str(raw_other_stage))
+                    display_stage = f"公仓: {stage1} \n私仓: {stage2}"
+                else:
+                    base_stage = STAGE_MAPPING.get(raw_stage, str(raw_stage)) if raw_stage else "未录入任何费用"
+                    display_stage = base_stage
+            else:
+                display_stage = "未录入"
+            
+            # 为当前order的所有副本设置相同的应付状态
+            for item in processed_items[-len(status_list or [1]):]:  # 获取刚添加的items
+                item.display_stage = display_stage
+
+        return processed_items
+    
+    def _copy_order_object(self, order):
+        """创建order对象的浅拷贝"""
+        # 简单方法：创建一个新的对象，复制所有属性
+        class OrderCopy:
+            pass
+        
+        order_copy = OrderCopy()
+        
+        # 复制所有属性
+        for attr_name in dir(order):
+            if not attr_name.startswith('_'):
+                try:
+                    attr_value = getattr(order, attr_name)
+                    # 排除callable方法
+                    if not callable(attr_value):
+                        setattr(order_copy, attr_name, attr_value)
+                except:
+                    pass
+        
+        return order_copy
+
+    def _get_status_class(self, status):
+        """根据状态返回对应的CSS类"""
+        status_class_map = {
+            "completed": "completed",
+            "confirmed": "completed",
+            "pending_review": "pending",
+            "tobeconfirmed": "pending",
+            "in_progress": "inprogress",
+            "rejected": "rejected",
+            "unstarted": "unstarted",
+        }
+        return status_class_map.get(status, "unstarted")
     
     def handle_invoice_order_batch_reject(self, request: HttpRequest) -> tuple[Any, Any]:
         selected_orders = json.loads(request.POST.get("selectedOrders", "[]"))
