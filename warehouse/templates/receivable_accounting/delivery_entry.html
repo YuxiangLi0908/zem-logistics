@@ -715,7 +715,7 @@
                                     <th class="th" data-column="container">柜号</th>
                                     <th class="th" data-column="warehouse">仓库</th>
                                     <th class="th" data-column="warehouse-in">入库时间</th>
-                                    <th class="th" data-column="empty-returned">还空时间</th>
+                                    <th class="th" data-column="empty-returned">未出库数</th>
                                     <th class="th" data-column="shipped-count">已出库数</th>
                                 </tr>
                                 <tr class="search-row">
@@ -735,10 +735,7 @@
                                         </div>
                                     </th>
                                     <th class="th" data-column="empty-returned">
-                                        <div class="date-search-container">
-                                            <input type="date" class="date-search-input" placeholder="搜索还空时间..." onchange="filterTableByDate(this, 'empty_returned', 'pending-review-table')">
-                                            <button type="button" class="clear-date-btn" onclick="clearDateFilter('empty_returned', 'pending-review-table')"><b>x</b></button>
-                                        </div>
+                                        
                                     </th>
                                     <th class="th" data-column="shipped-count">
                                         <!-- 已出库数不需要搜索框 -->
@@ -775,20 +772,14 @@
                                             {% endif %}
                                         </td>
                                         <td class="td" data-column="empty-returned">
-                                            {% if item.order.empty_returned_time %}
-                                                {{ item.order.empty_returned_time|date:"Y-m-d" }}
-                                            {% else %}
-                                                <span style="color: #6c757d;">-</span>
-                                            {% endif %}
+                                            <span class="shipment-count remaining">
+                                                {{ item.unshipped_shipment_groups }} / {{ item.total_shipment_groups }}
+                                            </span>
                                         </td>
                                         <td class="td" data-column="shipped-count" style="text-align: center;">
-                                            {% if item.shipment_stats %}
-                                                <span class="shipment-count completed">
-                                                    {{ item.shipment_stats.shipped_count|default:0 }}
-                                                </span>
-                                            {% else %}
-                                                <span class="shipment-count completed">0</span>
-                                            {% endif %}
+                                            <span class="shipment-count completed">
+                                                {{ item.shipped_shipment_groups }} / {{ item.total_shipment_groups }}
+                                            </span>
                                         </td>
                                     </tr>
                                     {% endfor %}
