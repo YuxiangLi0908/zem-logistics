@@ -450,8 +450,24 @@
                 <!-- 公仓待录入 -->
                 <div class="container-section">
                     <div class="section-header">
-                        <h3>公仓待录入</h3>
-                        <span class="section-count">{{ wh_public_to_record_orders|length }}</span>
+                        <h3>公仓待录入<span class="section-count">{{ wh_public_to_record_orders|length }}</span></h3>
+                        
+                        <form method="post" action="" class="order-type-form">
+                            {% csrf_token %}
+                            <input type="hidden" name="step" value="supplement_order">
+                            <input type="hidden" name="status" value="delivery_public_status">
+                            <input type="text" 
+                                name="container_number" 
+                                placeholder="输入柜号"
+                                style="padding: 3px 12px; border: 1px solid #1b5e20; border-radius: 4px; width: 140px;">
+
+                            <button type="submit" 
+                                class="btn-change-order-type"
+                                style="padding: 3px 16px; background: linear-gradient(135deg, #2e7d32, #1b5e20); color: white; border: none; border-radius: 4px; cursor: pointer;">
+                                <i class="fas fa-exchange-alt"></i>
+                                补开
+                            </button>
+                        </form>
                     </div>
                     <div class="table-container">
                         <table class="table" id="to-record-table">
@@ -672,8 +688,24 @@
                 <!-- 私仓待录入 -->
                 <div class="container-section">
                     <div class="section-header">
-                        <h3>私仓待录入</h3>
-                        <span class="section-count">{{ wh_self_to_record_orders|length }}</span>
+                        <h3>私仓待录入<span class="section-count">{{ wh_self_to_record_orders|length }}</span></h3>
+                        
+                        <form method="post" action="" class="order-type-form">
+                            {% csrf_token %}
+                            <input type="hidden" name="step" value="supplement_order">
+                            <input type="hidden" name="status" value="delivery_other_status">
+                            <input type="text" 
+                                name="container_number" 
+                                placeholder="输入柜号"
+                                style="padding: 3px 12px; border: 1px solid #1b5e20; border-radius: 4px; width: 140px;">
+
+                            <button type="submit" 
+                                class="btn-change-order-type"
+                                style="padding: 3px 16px; background: linear-gradient(135deg, #2e7d32, #1b5e20); color: white; border: none; border-radius: 4px; cursor: pointer;">
+                                <i class="fas fa-exchange-alt"></i>
+                                补开
+                            </button>
+                        </form>
                     </div>
                     <div class="table-container">
                         <table class="table" id="pending-review-table">
