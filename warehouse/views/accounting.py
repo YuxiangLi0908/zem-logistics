@@ -5948,23 +5948,19 @@ class Accounting(View):
         ).details
         if isinstance(combina_fee, str):
             combina_fee = json.loads(combina_fee)
-        # 看是否超出组合柜限定仓点,NJ/SAV是14个
-        default_combina = stipulate["global_rules"]["max_mixed"]["default"]
-        key = f"{warehouse}_max_mixed"
-        warehouse_max_mixed = stipulate["global_rules"].get(key, {}).get("default", {})
-        if warehouse_max_mixed:
-            combina_threshold = warehouse_max_mixed
-        else:
-            combina_threshold = default_combina
-        
 
-        default_threshold = stipulate["global_rules"]["bulk_threshold"]["default"]
-        key = f"{warehouse}_bulk_threshold"
-        warehouse_bulk_threshold = stipulate["global_rules"].get(key, {}).get("default", {})
-        if warehouse_bulk_threshold:
-            uncombina_threshold = warehouse_bulk_threshold
+        # 看是否超出组合柜限定仓点,NJ/SAV是14个
+        warehouse_specific_key = f'{warehouse}_max_mixed'
+        if warehouse_specific_key in stipulate.get("global_rules", {}):
+            combina_threshold = stipulate["global_rules"][warehouse_specific_key]["default"]
         else:
-            uncombina_threshold = default_threshold
+            combina_threshold = stipulate["global_rules"]["max_mixed"]["default"]
+
+        warehouse_specific_key1 = f'{warehouse}_bulk_threshold'
+        if warehouse_specific_key1 in stipulate.get("global_rules", {}):
+            uncombina_threshold = stipulate["global_rules"][warehouse_specific_key1]["default"]
+        else:
+            uncombina_threshold = stipulate["global_rules"]["bulk_threshold"]["default"]
        
         if plts["unique_destinations"] > uncombina_threshold:
             container.account_order_type = "转运"
