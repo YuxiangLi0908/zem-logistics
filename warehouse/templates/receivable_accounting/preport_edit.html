@@ -820,8 +820,8 @@
                             <div class="fee-cell">
                                 {% if fee.description == '提拆/打托缠膜' and not fee.id %}
                                 <input type="number" class="input-field" name="fee_rate" 
-                                       value="{{ fee.rate }}" step="0.01" readonly 
-                                       style="background: #f5f5f5; color: #666;">
+                                       value="{{ fee.rate }}" step="0.01" 
+                                       style="background: #e8f5e9; border-color: #4caf50;">
                                 {% else %}
                                 <input type="number" class="input-field rate-input" name="fee_rate" 
                                        value="{{ fee.rate }}" step="0.01" min="0"
@@ -832,8 +832,8 @@
                             <div class="fee-cell">
                                 {% if fee.description == '提拆/打托缠膜' and not fee.id %}
                                 <input type="number" class="input-field" name="fee_qty" 
-                                       value="{{ fee.qty }}" step="0.1" readonly 
-                                       style="background: #f5f5f5; color: #666;">
+                                       value="{{ fee.qty }}" step="0.1" 
+                                       style="background: #e8f5e9; border-color: #4caf50;">
                                 {% else %}
                                 <input type="number" class="input-field qty-input" name="fee_qty" 
                                        value="{{ fee.qty }}" step="0.1" min="0"
@@ -1137,7 +1137,7 @@
         calculateTotalAmount();
         
         // 为所有现有的输入框添加事件监听
-        document.querySelectorAll('.rate-input, .qty-input, .surcharge-input').forEach(input => {
+        document.querySelectorAll('input[name="fee_rate"], input[name="fee_qty"], input[name="fee_surcharges"]').forEach(input => {
             input.addEventListener('input', function() {
                 calculateFeeTotal(this);
             });
