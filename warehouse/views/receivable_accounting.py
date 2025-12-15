@@ -2082,9 +2082,8 @@ class ReceivableAccounting(View):
         #已录入中，驳回的优先显示
         wh_self_recorded_orders.sort(key=lambda x: x.get('self_status') != 'rejected')
         #公仓的先按照入库时间排序
-        wh_public_recorded_orders.sort(key=lambda x: (
-            x.get('offload_time') or datetime.max,  # 第一优先级：入库时间（早的在前）
-            x.get('public_status') != 'rejected'    # 第二优先级：是否驳回（False在前）
+        wh_public_to_record_orders.sort(key=lambda x: (
+            x.get('offload_time') or datetime.max
         ))
         # 判断用户权限，决定默认标签页
         groups = [group.name for group in request.user.groups.all()]
