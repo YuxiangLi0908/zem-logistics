@@ -859,6 +859,7 @@ class ReceivableAccounting(View):
         self, request: HttpRequest
     ) -> tuple[Any, Any]:
         container_number = request.POST.get("container_number")
+        
         invoices = Invoicev2.objects.filter(container_number__container_number=container_number)
         if not invoices.exists():
             context = {'error_messages': f'{container_number}当前一份账单都没有录入，不可重开！'}
@@ -879,9 +880,54 @@ class ReceivableAccounting(View):
                     context = {'error_messages': f'{container_number}还存在未开完的账单，不可重开！'}
                     return self.template_supplementary_entry, context
         #创建一份新的账单
+        status = request.POST.get("status")
         invoice, invoice_status = self._create_invoice_and_status(container_number)
+        self._update_invoice_status(invoice_status, status)
+
         context = {'success_messages': f'{container_number}补开成功，编号为{invoice.invoice_number}！'}
+        if "delivery" in status:
+            return self.handle_delivery_entry_post(request, context)
+        elif "warehouse" in status:
+            return self.handle_warehouse_entry_post(request, context)
         return self.template_supplementary_entry, context
+    
+    def _update_invoice_status(self, invoice_status, status_field):
+        # 定义有效的状态字段
+        VALID_STATUS_FIELDS = [
+            'preport_status',
+            'warehouse_public_status', 
+            'warehouse_other_status',
+            'delivery_public_status',
+            'delivery_other_status'
+        ]
+        
+        # 验证status_field是否有效
+        if status_field not in VALID_STATUS_FIELDS:
+            raise ValueError(f"无效的状态字段: {status_field}，必须是: {VALID_STATUS_FIELDS}")
+        
+        # 获取所有状态字段
+        ALL_STATUS_FIELDS = [
+            'preport_status',
+            'warehouse_public_status', 
+            'warehouse_other_status',
+            'delivery_public_status',
+            'delivery_other_status'
+        ]
+        
+        # 更新状态：指定的状态设为unstarted，其他设为completed
+        update_data = {}
+        for field in ALL_STATUS_FIELDS:
+            if field == status_field:
+                update_data[field] = 'unstarted'
+            else:
+                update_data[field] = 'completed'
+        
+        # 批量更新字段
+        for field, value in update_data.items():
+            setattr(invoice_status, field, value)
+        
+        invoice_status.save()
+        return invoice_status
 
     def handle_confirm_save_all(
         self, request: HttpRequest
