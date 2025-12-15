@@ -1147,7 +1147,13 @@ class ReceivableAccounting(View):
         if status == "confirmed":
             #直接读取所有的invoiceitem
             ctx = self._all_invoice_items_get(invoice,container_number)
-            
+            ctx['category_totals'] = {
+                'preport': invoice.receivable_preport_amount or 0,
+                'warehouse_public': invoice.receivable_wh_public_amount or 0,
+                'warehouse_other': invoice.receivable_wh_other_amount or 0,
+                'delivery_public': invoice.receivable_delivery_public_amount or 0,
+                'delivery_other': invoice.receivable_delivery_other_amount or 0,
+            }
             return self.template_invoice_items_edit, ctx
         
         if order.order_type == "直送":

@@ -446,6 +446,79 @@
             margin: 0 20px 20px 20px;
         }
     }
+    .category-summary {
+        background: white;
+        border-radius: 10px;
+        margin: 20px 30px;
+        padding: 0;
+        border: 1px solid var(--border-color);
+        overflow: hidden;
+    }
+
+    .category-summary .section-header {
+        background: linear-gradient(135deg, #00695c 0%, #00796b 100%);
+        color: white;
+        padding: 16px 24px;
+    }
+
+    .category-summary .section-title {
+        font-size: 1.1rem;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .category-grid {
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 1px;
+        background: var(--border-color);
+    }
+
+    .category-item {
+        background: white;
+        padding: 20px;
+        text-align: center;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .category-label {
+        font-size: 0.9rem;
+        color: var(--text-secondary);
+        margin-bottom: 8px;
+        font-weight: 500;
+    }
+
+    .category-amount {
+        font-size: 1.3rem;
+        font-weight: 700;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    /* 为不同类别添加颜色 */
+    .category-item:nth-child(1) .category-amount {
+        color: #0288d1;
+    }
+
+    .category-item:nth-child(2) .category-amount {
+        color: #2e7d32;
+    }
+
+    .category-item:nth-child(3) .category-amount {
+        color: #7b1fa2;
+    }
+
+    .category-item:nth-child(4) .category-amount {
+        color: #ef6c00;
+    }
+
+    .category-item:nth-child(5) .category-amount {
+        color: #d32f2f;
+    }
 
     @media (max-width: 768px) {
         .header-main {
@@ -484,6 +557,13 @@
             padding: 15px;
             gap: 10px;
         }
+        .category-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+        
+        .category-item {
+            padding: 15px;
+        }
     }
 
     @media (max-width: 480px) {
@@ -495,6 +575,11 @@
         
         .stat-number {
             font-size: 1.5rem;
+        }
+    }
+    @media (max-width: 1200px) {
+        .category-grid {
+            grid-template-columns: repeat(3, 1fr);
         }
     }
 </style>
@@ -534,7 +619,38 @@
             </div>
         </div>
     </header>
-
+    {% if category_totals %}
+    <div class="category-summary">
+        <div class="section-header">
+            <div class="section-title">
+                <i class="fas fa-tags"></i>
+                费用类别汇总
+            </div>
+        </div>
+        <div class="category-grid">
+            <div class="category-item">
+                <div class="category-label">港前费用</div>
+                <div class="category-amount">${{ category_totals.preport|floatformat:2 }}</div>
+            </div>
+            <div class="category-item">
+                <div class="category-label">公仓库内费用</div>
+                <div class="category-amount">${{ category_totals.warehouse_public|floatformat:2 }}</div>
+            </div>
+            <div class="category-item">
+                <div class="category-label">私仓库内费用</div>
+                <div class="category-amount">${{ category_totals.warehouse_other|floatformat:2 }}</div>
+            </div>
+            <div class="category-item">
+                <div class="category-label">公仓派送费用</div>
+                <div class="category-amount">${{ category_totals.delivery_public|floatformat:2 }}</div>
+            </div>
+            <div class="category-item">
+                <div class="category-label">私仓派送费用</div>
+                <div class="category-amount">${{ category_totals.delivery_other|floatformat:2 }}</div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
     <!-- 简约统计区域 -->
     <div class="main-content">
 
@@ -676,7 +792,7 @@
                                 -
                                 {% endif %}
                             </td>
-                            <td class="number-cell">{{ item.pallets|default:"0" }}</td>
+                            <td class="number-cell">{{ item.qty|default:"0" }}</td>
                             <td class="number-cell">${{ item.rate|floatformat:2|default:"0.00" }}</td>
                             <td class="number-cell amount-cell {% if item.amount > 0 %}amount-positive{% endif %}">
                                 ${{ item.amount|floatformat:2|default:"0.00" }}
