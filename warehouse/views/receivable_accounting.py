@@ -277,7 +277,8 @@ class ReceivableAccounting(View):
         elif step == "invoice_order_batch_export":
             return self.handle_invoice_order_batch_export(request)
         elif step == "invoice_order_delivered":
-            return self.handle_invoice_order_batch_delivered(request)
+            template, context = self.handle_invoice_order_batch_delivered(request)
+            return render(request, template, context)
         elif step == "invoice_order_reject":
             template, context = self.handle_invoice_order_batch_reject(request)
             return render(request, template, context)
@@ -367,7 +368,7 @@ class ReceivableAccounting(View):
             container_number__container_number__in=container_numbers,
             invoice_type="receivable",
         ).select_related('invoice')
-        print('receivable_statuses',receivable_statuses)
+
         # 创建映射字典
         status_dict = {}
         for status in receivable_statuses:
@@ -389,7 +390,6 @@ class ReceivableAccounting(View):
             else:
                  # 为每个InvoiceStatusv2创建一行
                 for receivable_status in status_list:
-                    print('receivable_status',receivable_status)
                     # 创建order的副本（浅拷贝）
                     order_copy = self._copy_order_object(order)
                     
@@ -490,62 +490,70 @@ class ReceivableAccounting(View):
         }
         return status_class_map.get(status, "unstarted")
     
-    def handle_invoice_order_batch_reject(self, request: HttpRequest) -> tuple[Any, Any]:
-        selected_orders = json.loads(request.POST.get("selectedOrders", "[]"))
-        selected_orders = list(set(selected_orders))
-        invoice_status = InvoiceStatusv2.objects.filter(
-            container_number__container_number__in=selected_orders
-        )
-        for item in invoice_status:
-            item.finance_status = "tobeconfirmed"
-            item.save()
-
-        # 重开账单，需要撤销通知客户
-        invoices = Invoicev2.objects.prefetch_related(
-            "order", "order__container_number", "container_number"
-        ).filter(container_number__container_number__in=selected_orders)
-        for invoice in invoices:
-            invoice.is_invoice_delivered = False
-            invoice.save()
-        return self.handle_confirm_entry_post(
-            request
-        )
-    
     def handle_invoice_order_batch_delivered(
         self, request: HttpRequest
     ) -> HttpResponse:
-        selected_orders = json.loads(request.POST.get("selectedOrders", "[]"))
-        selected_orders = list(set(selected_orders))
-        invoices = Invoicev2.objects.prefetch_related(
-            "order", "order__container_number", "container_number"
-        ).filter(container_number__container_number__in=selected_orders)
-        for invoice in invoices:
-            invoice.is_invoice_delivered = True
-            invoice.save()
-        return self.handle_confirm_entry_post(
-            request
-        )
+        raw = request.POST.get("selectedInvoiceIds", "[]")
+        try:
+            invoice_id_list = [int(i) for i in json.loads(raw)]
+        except (ValueError, TypeError, json.JSONDecodeError):
+            invoice_id_list = []
+
+        if not invoice_id_list:
+            context = {'error_messages':'未选择任何账单！'}
+            return self.handle_confirm_entry_post(request,context)
+
+        with transaction.atomic():
+            invoice_updated = Invoicev2.objects.filter(
+                id__in=invoice_id_list
+            ).update(
+                is_invoice_delivered=True
+            )
+        context = {'success_messages':'账单通知客户成功！'}
+        return self.handle_confirm_entry_post(request,context)
     
     def handle_invoice_order_batch_export(self, request: HttpRequest) -> HttpResponse:
-        selected_orders = json.loads(request.POST.get("selectedOrders", "[]"))
-        selected_orders = list(set(selected_orders))
-        orders = Order.objects.select_related(
-            "retrieval_id", "container_number"
-        ).filter(container_number__container_number__in=selected_orders)
-        invoices = Invoicev2.objects.prefetch_related(
-            "order", "order__container_number", "container_number"
-        ).filter(container_number__container_number__in=selected_orders)
+        raw = request.POST.get("selectedInvoiceIds", "[]")
+        try:
+            invoice_id_list = [int(i) for i in json.loads(raw)]
+        except (ValueError, TypeError, json.JSONDecodeError):
+            invoice_id_list = []
+
+        if not invoice_id_list:
+            context = {'error_messages':'未选择任何账单！'}
+            return self.handle_confirm_entry_post(request,context)
+
+        invoices = (
+            Invoicev2.objects
+            .select_related("container_number", "customer")
+            .filter(id__in=invoice_id_list)
+        )
+        container_ids = [
+            inv.container_number_id for inv in invoices if inv.container_number_id
+        ]
+        order_map = {
+            order.container_number_id: order
+            for order in Order.objects.select_related(
+                "retrieval_id", "container_number", "customer_name"
+            ).filter(container_number_id__in=container_ids)
+        }
 
         contexts = []
         invoice_numbers = []
-        invoice_type = request.POST.get("invoice_type")
         current_date = datetime.now().date()  # 统一使用当前日期生成invoice_number
 
-        for order in orders:
-            invoice = invoices.get(
-                container_number__container_number=order.container_number.container_number
+        for invoice in invoices:
+            container_id = invoice.container_number_id
+            if not container_id:
+                continue
+
+            order = order_map.get(container_id)
+            if not order:
+                continue
+            context = self._parse_invoice_excel_data(
+                order=order,
+                invoice=invoice,
             )
-            context = self._parse_invoice_excel_data(order, invoice, invoice_type)
             contexts.append(context)
 
             order_id = str(order.id)
@@ -565,32 +573,227 @@ class ReceivableAccounting(View):
         response["Content-Disposition"] = 'attachment; filename="combined_invoices.xlsx"'
         return response
     
-    def handle_invoice_order_batch_reject(self, request: HttpRequest) -> tuple[Any, Any]:
-        selected_orders = json.loads(request.POST.get("selectedOrders", "[]"))
-        selected_orders = list(set(selected_orders))
-        invoice_status = InvoiceStatusv2.objects.filter(
-            container_number__container_number__in=selected_orders
-        )
-        for item in invoice_status:
-            item.stage = "tobeconfirmed"
-            item.finance_status = "tobeconfirmed"
-            item.save()
+    def _generate_combined_invoice_excel_v1(
+            self,
+            contexts: list[dict[Any, Any]],
+            invoice_numbers: list[str],
+            save_to_sharepoint: bool = False,
+    ) -> tuple[openpyxl.workbook.Workbook, dict[Any, Any]]:
+        current_date = datetime.now().date()
+        workbook = openpyxl.Workbook()
+        worksheet = workbook.active
+        worksheet.title = "Combined Invoices"
 
-        # 重开账单，需要撤销通知客户
-        invoices = Invoicev2.objects.prefetch_related(
-            "order", "order__container_number", "container_number"
-        ).filter(container_number__container_number__in=selected_orders)
-        for invoice in invoices:
-            invoice.is_invoice_delivered = False
-            invoice.save()
-        return self.handle_confirm_entry_post(
-            request
+        # 合并单元格
+        cells_to_merge = [
+            "A1:E1", "A3:A4", "B3:D3", "B4:D4", "E3:E4", "F3:I4",
+            "A5:A6", "B5:D5", "B6:D6", "E5:E6", "F5:I6",
+            "A9:B9", "A10:B10", "F1:I1", "C1:E1", "A2:I2",
+            "A7:I7", "A8:I8", "C9:I9", "C10:I10", "A11:I11",
+        ]
+        self._merge_ws_cells(worksheet, cells_to_merge)
+
+        worksheet.column_dimensions["A"].width = 18
+        worksheet.column_dimensions["B"].width = 18
+        worksheet.column_dimensions["C"].width = 15
+        worksheet.column_dimensions["D"].width = 7
+        worksheet.column_dimensions["E"].width = 8
+        worksheet.column_dimensions["F"].width = 7
+        worksheet.column_dimensions["G"].width = 11
+        worksheet.column_dimensions["H"].width = 11
+        worksheet.column_dimensions["I"].width = 11
+        worksheet.row_dimensions[1].height = 40
+
+        worksheet["A1"] = "Zem Elitelink Logistics Inc"
+        worksheet["A3"] = "NJ"
+        worksheet["B3"] = "27 Engelhard Ave. Avenel NJ 07001"
+        worksheet["B4"] = "Contact: Marstin Ma 929-810-9968"
+        worksheet["A5"] = "SAV"
+        worksheet["B5"] = "1001 Trade Center Pkwy, Rincon, GA 31326, USA"
+        worksheet["B6"] = "Contact: Ken 929-329-4323"
+        worksheet["A7"] = "E-mail: OFFICE@ZEMLOGISTICS.COM"
+        worksheet["A9"] = "BILL TO"
+        worksheet["A10"] = contexts[0]["order"].customer_name.zem_name if contexts else ""
+        worksheet["F1"] = "Invoice"
+        worksheet["E3"] = "Date"
+        worksheet["F3"] = current_date.strftime("%Y-%m-%d")
+        worksheet["E5"] = "Invoice #"
+        worksheet["F5"] = ", ".join(invoice_numbers)
+
+        worksheet["A1"].font = Font(size=20)
+        worksheet["F1"].font = Font(size=28)
+        worksheet["A3"].alignment = Alignment(vertical="center")
+        worksheet["A5"].alignment = Alignment(vertical="center")
+        worksheet["E3"].alignment = Alignment(vertical="center")
+        worksheet["E5"].alignment = Alignment(vertical="center")
+        worksheet["F3"].alignment = Alignment(vertical="center")
+        worksheet["F5"].alignment = Alignment(vertical="center")
+
+        worksheet.append([
+            "CONTAINER #", "DESCRIPTION", "WAREHOUSE CODE", "CBM", "WEIGHT",
+            "QTY", "RATE", "AMOUNT", "NOTE",
+        ])
+        invoice_item_starting_row = 12
+        current_row = 13
+        # 总合计（累计所有context）
+        grand_total_amount = 0.0
+        grand_total_cbm = 0.0
+        grand_total_weight = 0.0
+        # 记录所有数据行范围（用于设置边框）
+        all_data_rows = []
+
+        for context in contexts:
+            context_subtotal_amount = 0.0
+            context_subtotal_cbm = 0.0
+            context_subtotal_weight = 0.0
+            context_start_row = current_row
+
+            for d, wc, cbm, weight, qty, r, amt, n in context["data"]:
+                if r == {}:
+                    continue
+                worksheet.append([
+                    context["container_number"],
+                    d, wc, cbm, weight, qty, r, amt, n
+                ])
+                # 累计当前context的小计
+                context_subtotal_amount += float(amt) if amt else 0.0
+                context_subtotal_cbm += float(cbm) if cbm else 0.0
+                context_subtotal_weight += float(weight) if weight else 0.0
+                current_row += 1
+
+            # 追加当前context的小计行（可选，清晰区分每个context）
+            worksheet.append([
+                f"Subtotal ({context['container_number']})",  # 显示柜号小计
+                None, None, context_subtotal_cbm, context_subtotal_weight,
+                None, None, context_subtotal_amount, None
+            ])
+            current_row += 1
+
+            # 累计到总合计
+            grand_total_amount += context_subtotal_amount
+            grand_total_cbm += context_subtotal_cbm
+            grand_total_weight += context_subtotal_weight
+
+            all_data_rows.extend(range(context_start_row, current_row))
+
+        worksheet.append([
+            "Grand Total", None, None, grand_total_cbm, grand_total_weight,
+            None, None, grand_total_amount, None
+        ])
+        grand_total_row = current_row
+        current_row += 1
+        all_data_rows.append(grand_total_row)
+
+        if all_data_rows:
+            min_border_row = invoice_item_starting_row
+            max_border_row = grand_total_row
+
+            for row in worksheet.iter_rows(
+                    min_row=min_border_row,
+                    max_row=max_border_row,
+                    min_col=1,
+                    max_col=9,
+            ):
+                for cell in row:
+                    cell.border = Border(
+                        left=Side(style="thin"),
+                        right=Side(style="thin"),
+                        top=Side(style="thin"),
+                        bottom=Side(style="thin"),
+                    )
+
+        self._merge_ws_cells(worksheet, [f"A{grand_total_row}:C{grand_total_row}"])
+        self._merge_ws_cells(worksheet, [f"F{grand_total_row}:G{grand_total_row}"])
+        worksheet[f"A{grand_total_row}"].alignment = Alignment(horizontal="center")
+        worksheet[f"H{grand_total_row}"].number_format = numbers.FORMAT_NUMBER_00  # 金额格式化
+        worksheet[f"H{grand_total_row}"].alignment = Alignment(horizontal="right")
+
+        row_count = current_row
+        self._merge_ws_cells(worksheet, [f"A{row_count}:I{row_count}"])
+        row_count += 1
+
+        bank_info = [
+            f"Beneficiary Name: {ACCT_BENEFICIARY_NAME}",
+            f"Bank Name: {ACCT_BANK_NAME}",
+            f"SWIFT Code: {ACCT_SWIFT_CODE}",
+            f"ACH/Wire Transfer Routing Number: {ACCT_ACH_ROUTING_NUMBER}",
+            f"Beneficiary Account #: {ACCT_BENEFICIARY_ACCOUNT}",
+            f"Beneficiary Address: {ACCT_BENEFICIARY_ADDRESS}",
+            f"Business Beneficiary Address: 215 Durham Park Way, Pooler,GA31322",
+            f"Email:FINANCE@ZEMLOGISTICS.COM",
+            f"phone: 929-810-9968",
+        ]
+        for c in bank_info:
+            worksheet.append([c])
+            self._merge_ws_cells(worksheet, [f"A{row_count}:I{row_count}"])
+            row_count += 1
+        self._merge_ws_cells(worksheet, [f"A{row_count}:I{row_count}"])
+
+        worksheet["A9"].font = Font(color="00FFFFFF")
+        worksheet["A9"].fill = PatternFill(
+            start_color="00000000", end_color="00000000", fill_type="solid"
         )
+
+        invoice_data = {
+            "invoice_numbers": invoice_numbers,
+            "invoice_date": current_date.strftime("%Y-%m-%d"),
+            "total_amount": grand_total_amount,
+        }
+        if save_to_sharepoint:
+            pass
+        return workbook, invoice_data
+    
+    def _merge_ws_cells(
+        self, ws: openpyxl.worksheet.worksheet, cells: list[str]
+    ) -> None:
+        for c in cells:
+            ws.merge_cells(c)
+
+    def handle_invoice_order_batch_reject(self, request: HttpRequest) -> tuple[Any, Any]:
+        raw = request.POST.get("selectedInvoiceIds", "[]")
+        try:
+            invoice_id_list = [int(i) for i in json.loads(raw)]
+        except (ValueError, TypeError, json.JSONDecodeError):
+            invoice_id_list = []
+
+        if not invoice_id_list:
+            context = {'error_messages':'未选择任何账单！'}
+            return self.handle_confirm_entry_post(request,context)
+
+        with transaction.atomic():
+
+            status_updated = InvoiceStatusv2.objects.filter(
+                invoice_id__in=invoice_id_list,
+                invoice_type="receivable",
+            ).update(
+                finance_status="tobeconfirmed"
+            )
+
+            invoice_updated = Invoicev2.objects.filter(
+                id__in=invoice_id_list
+            ).update(
+                is_invoice_delivered=False
+            )
+        context = {'success_messages':'账单退回状态成功！'}
+        return self.handle_confirm_entry_post(request,context)
 
     def handle_invoice_order_select_post(self, request: HttpRequest) -> HttpResponse:
-        selected_orders = json.loads(request.POST.get("selectedOrders", "[]"))
-        selected_orders = list(set(selected_orders))
-        invoice_type = request.POST.get("invoice_type")
+        '''生成STMT'''
+        raw = request.POST.get("selectedInvoiceIds", "[]")
+        try:
+            invoice_id_list = [int(i) for i in json.loads(raw)]
+        except (ValueError, TypeError, json.JSONDecodeError):
+            invoice_id_list = []
+
+        if not invoice_id_list:
+            context = {'error_messages':'未选择任何账单！'}
+            return self.handle_confirm_entry_post(request,context)
+
+        selected_orders = list(
+            Invoicev2.objects.filter(id__in=invoice_id_list)
+            .values_list("container_number__container_number", flat=True)
+        )
+
         if selected_orders:
             order = Order.objects.select_related(
                 "customer_name", "container_number", "invoice_id"
@@ -606,7 +809,7 @@ class ReceivableAccounting(View):
                 "customer": customer,
                 "invoice_statement_id": invoice_statement_id,
                 "current_date": current_date,
-                "invoice_type": invoice_type,
+                "invoice_type": "receivable",
             }
             return render(request, self.template_invoice_statement, context)
         else:
@@ -679,9 +882,6 @@ class ReceivableAccounting(View):
         invoice, invoice_status = self._create_invoice_and_status(container_number)
         context = {'success_messages': f'{container_number}补开成功，编号为{invoice.invoice_number}！'}
         return self.template_supplementary_entry, context
-        
-
-
 
     def handle_confirm_save_all(
         self, request: HttpRequest
@@ -844,7 +1044,7 @@ class ReceivableAccounting(View):
         order = Order.objects.select_related("retrieval_id", "container_number").get(
             container_number__container_number=container_number
         )
-        ctx = Accounting._parse_invoice_excel_data(order, invoice, "receivable")
+        ctx = Accounting._parse_invoice_excel_data(order, invoice)
         workbook, invoice_data = Accounting._generate_invoice_excel(ctx)
         invoice.invoice_date = invoice_data["invoice_date"]
         invoice.invoice_link = invoice_data["invoice_link"]
@@ -2130,6 +2330,7 @@ class ReceivableAccounting(View):
                             'has_invoice': True,
                             'offload_time': o.offload_time,
                         }
+
                         is_hold = False
                         remain_offset = 0
 
@@ -3247,7 +3448,6 @@ class ReceivableAccounting(View):
                 "total_pallets": total_pallets,
                 "region_count": len(combina_groups)
             }
-            print('total_cbm_ratio',total_cbm_ratio)
         
         return {
             "normal_items": normal_items,
@@ -5568,7 +5768,7 @@ class ReceivableAccounting(View):
         )
         # 港前-仓库-派送录入的费用显示到界面上
         actual_fees = self._combina_get_extra_fees(invoice)
-        print('actual_fees',actual_fees)
+
         # 8. 返回结果
         context.update(
             {

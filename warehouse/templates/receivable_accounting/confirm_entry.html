@@ -680,6 +680,7 @@
                                     <td class="td" style="text-align: center;">
                                         <input type='checkbox' name='is_order_selected_click' onclick="toggleRowBackground(this)">
                                         <input type="hidden" name="is_order_selected" value='off'>
+                                        <input type="hidden" name="invoice_id" value='{{ c.invoice_id }}'>
                                         <input type="hidden" name="order_id" value='{{ c.order_id }}'>
                                     </td>
                                     <td class="td">{{ c.customer_name__zem_name }}</td>
@@ -740,18 +741,10 @@
                         {% csrf_token %}
                         <input type="hidden" name="invoice_type" value="{{ invoice_type_filter }}">
                         <div style="display: flex; gap: 15px; justify-content: flex-end;">
-                            <button type="button" onclick="submitBatchAction('invoice_order_select')" class="action-btn btn-primary">
-                                <i class="fas fa-receipt"></i> 生成STMT
-                            </button>
-                            <button type="button" onclick="submitBatchAction('invoice_order_batch_export')" class="action-btn btn-success">
-                                <i class="fas fa-file-export"></i> 导出
-                            </button>
-                            <button type="button" onclick="submitBatchAction('invoice_order_delivered')" class="action-btn btn-primary">
-                                <i class="fas fa-envelope"></i> 通知
-                            </button>
-                            <button type="button" onclick="submitBatchAction('invoice_order_reject')" class="action-btn btn-warning">
-                                <i class="fas fa-redo"></i> 重开
-                            </button>
+                            <button type="button" onclick="submitBatchAction('invoice_order_select')"  class="action-btn btn-primary">生成STMT</button>
+                            <button type="button" onclick="submitBatchAction('invoice_order_batch_export')" class="action-btn btn-success">导出</button>
+                            <button type="button" onclick="submitBatchAction('invoice_order_delivered')" class="action-btn btn-primary">通知</button>
+                            <button type="button" onclick="submitBatchAction('invoice_order_reject')"  class="action-btn btn-warning">重开</button>
                             <button type="button" onclick="adjustBalance()" class="action-btn btn-danger">
                                 <i class="fas fa-dollar-sign"></i> 核销
                             </button>
@@ -817,10 +810,26 @@
 
 <script>
     // 存储选中的柜号
-    let selectedOrders = [];
     let selectedCustomer = null;
     const tableFilters = {};
 
+    function getSelectedInvoiceIds() {
+        const checkedBoxes = document.querySelectorAll(
+            '#order-table-previous tbody input[name="is_order_selected_click"]:checked'
+        );
+
+        const invoiceIds = [];
+
+        checkedBoxes.forEach(cb => {
+            const row = cb.closest('tr');
+            const idInput = row.querySelector('input[name="invoice_id"]');
+            if (idInput && idInput.value) {
+                invoiceIds.push(idInput.value);
+            }
+        });
+
+        return invoiceIds;
+    }
     // 初始化表格筛选器
     function initTableFilters() {
         const tables = ['order-table', 'order-table-previous'];
@@ -1005,9 +1014,15 @@
                 sameCustomer = false;
             }
             
+            // 获取invoice_id
+            const invoiceIdInput = rowData.querySelector('input[name="invoice_id"]');
+            const invoiceId = invoiceIdInput ? invoiceIdInput.value : '';
+            
             selectedOrdersInfo.push({
+                invoiceId: invoiceId,
                 containerNumber: rowData.cells[2].textContent.trim(),
                 amount: rowData.cells[8]?.textContent.trim() || '$0.00',
+                invoiceNumber: rowData.cells[5]?.textContent.trim() || '',
                 customerName: currentCustomer
             });
         });
@@ -1037,6 +1052,7 @@
         thead.innerHTML = `
             <tr>
                 <th>货柜号</th>
+                <th>发票号</th>
                 <th>应收金额</th>
             </tr>
         `;
@@ -1052,6 +1068,7 @@
             
             row.innerHTML = `
                 <td>${order.containerNumber}</td>
+                <td>${order.invoiceNumber}</td>
                 <td>$${amountValue.toFixed(2)}</td>
             `;
             tbody.appendChild(row);
@@ -1060,7 +1077,7 @@
         // 总计行
         const totalRow = document.createElement('tr');
         totalRow.innerHTML = `
-            <td style="font-weight: bold;">总计</td>
+            <td colspan="2" style="font-weight: bold;">总计</td>
             <td style="font-weight: bold;">$${total.toFixed(2)}</td>
         `;
         tbody.appendChild(totalRow);
@@ -1069,7 +1086,10 @@
         ordersInfoContainer.appendChild(table);
         
         document.getElementById('selectCustomerId').value = getCustomerId(customerName);
-        document.getElementById('selectedOrdersData').value = JSON.stringify(selectedOrders);
+        // 修改为传递选中的invoice_ids
+        document.getElementById('selectedOrdersData').value = JSON.stringify(
+            selectedOrdersInfo.map(order => order.invoiceId)
+        );
     }
 
     // 获取客户余额
@@ -1096,43 +1116,61 @@
 
     // 行选中背景切换
     function toggleRowBackground(checkbox) {
-        let row = checkbox.closest('tr');
-        let containerNumber = row.cells[2]?.textContent.trim() || '';
-        
+        const row = checkbox.closest('tr');
         if (checkbox.checked) {
             row.classList.add('selected-row');
-            if (!selectedOrders.includes(containerNumber)) {
-                selectedOrders.push(containerNumber);
-            }
         } else {
             row.classList.remove('selected-row');
-            const index = selectedOrders.indexOf(containerNumber);
-            if (index > -1) {
-                selectedOrders.splice(index, 1);
-            }
         }
     }
 
     // 批量操作提交
     function submitBatchAction(step) {
-        if (selectedOrders.length === 0) {
+        const invoiceIds = getSelectedInvoiceIds();
+
+        if (invoiceIds.length === 0) {
             alert('请选择要操作的账单！');
             return;
         }
-        
+
         const form = document.getElementById('batch-form');
-        let hiddenInput = document.createElement('input');
-        hiddenInput.type = 'hidden';
-        hiddenInput.name = 'selectedOrders';
-        hiddenInput.value = JSON.stringify(selectedOrders);
-        
-        let hiddenInputStep = document.createElement('input');
-        hiddenInputStep.type = 'hidden';
-        hiddenInputStep.name = 'step';
-        hiddenInputStep.value = step;
-        
-        form.appendChild(hiddenInput);
-        form.appendChild(hiddenInputStep);
+
+        // 清理旧的动态 input（防止重复提交）
+        form.querySelectorAll('.dynamic-input').forEach(el => el.remove());
+
+        // invoiceIds
+        const invoiceInput = document.createElement('input');
+        invoiceInput.type = 'hidden';
+        invoiceInput.name = 'selectedInvoiceIds';
+        invoiceInput.value = JSON.stringify(invoiceIds);
+        invoiceInput.className = 'dynamic-input';
+
+        // step
+        const stepInput = document.createElement('input');
+        stepInput.type = 'hidden';
+        stepInput.name = 'step';
+        stepInput.value = step;
+        stepInput.className = 'dynamic-input';
+
+        // start_date
+        const startDateInput = document.createElement('input');
+        startDateInput.type = 'hidden';
+        startDateInput.name = 'start_date';
+        startDateInput.value = document.querySelector('input[name="start_date"]')?.value || '';
+        startDateInput.className = 'dynamic-input';
+
+        // end_date
+        const endDateInput = document.createElement('input');
+        endDateInput.type = 'hidden';
+        endDateInput.name = 'end_date';
+        endDateInput.value = document.querySelector('input[name="end_date"]')?.value || '';
+        endDateInput.className = 'dynamic-input';
+
+        form.appendChild(invoiceInput);
+        form.appendChild(stepInput);
+        form.appendChild(startDateInput);
+        form.appendChild(endDateInput);
+
         form.submit();
     }
 
@@ -1141,6 +1179,8 @@
         event.preventDefault();
         const confirmation = confirm(`确认删除货柜 ${containerNumber} 的发票 ${invoiceNumber}？`);
         if (confirmation) {
+            // 如果后台需要invoice_id，需要在这里获取
+            // 暂时保持原样，如果需要修改请告诉我
             window.location.href = `/accounting/?step=container_invoice_delete&invoice_number=${invoiceNumber}`;
         }
     }
