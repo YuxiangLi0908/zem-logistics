@@ -3084,7 +3084,7 @@ class ReceivableAccounting(View):
             'retrieval_id'
         ).get(container_number__container_number=container_number)
          
-        if invoice_id:
+        if invoice_id and invoice_id != "None":
             #找到要修改的那份账单
             invoice = Invoicev2.objects.get(id=invoice_id)
             invoice_status, created = InvoiceStatusv2.objects.get_or_create(
@@ -3098,6 +3098,7 @@ class ReceivableAccounting(View):
         else:
             #说明这个柜子没有创建过账单，需要创建
             invoice, invoice_status = self._create_invoice_and_status(container_number)
+            invoice_id = invoice.id
 
         previous_item_dict = {}
         #查看下之前有没有开过账单，之前记录给费用的仓点，这次就不再计费了
