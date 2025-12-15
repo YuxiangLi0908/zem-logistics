@@ -1,0 +1,186 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<style>
+    .status-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 4px;
+        font-size: 12px;
+    }
+    .status-item {
+        padding: 2px 4px;
+        border-radius: 3px;
+        text-align: center;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .status-completed { background-color: #d4edda; color: #155724; }
+    .status-pending { background-color: #fff3cd; color: #856404; }
+    .status-rejected { background-color: #f8d7da; color: #721c24; }
+    .status-unstarted { background-color: #e2e3e5; color: #383d41; }
+    .status-inprogress { background-color: #cce7ff; color: #004085; }
+    
+    /* 新增：用于区分同一柜号的不同发票 */
+    .same-container-row {
+        background-color: #f9f9f9;
+    }
+    .invoice-number-cell {
+        font-weight: bold;
+        color: #1890ff;
+    }
+</style>
+
+<div><h4><b>新账单表录入进度</b></h4></div>
+<div style="width: 100%; display: flex; justify-content: space-between;">
+    <form method="post" action="" style="width: 80%;">
+        {% csrf_token %}
+        <div>
+            <b style="margin-right: 5px;">客户:</b>
+            {{ order_form.customer_name }}
+            <b style="margin-right: 5px; margin-left: 10px;">ETD时间:</b>
+            <input type="date" name="start_date" value="{{ start_date }}">
+            <input type="date" name="end_date" value="{{ end_date }}" style="margin-right: 5px;">
+            <b style="margin-right: 5px;">选择仓点区域:</b>
+                <select name="warehouse_filter">
+                    {% for k, v in warehouse_options.items %}
+                        {% if warehouse_filter == v %}
+                            <option value="{{ v }}" selected>{{ k }}</option>
+                        {% else %}
+                            <option value="{{ v }}">{{ k }}</option>
+                        {% endif %}
+                    {% endfor %}
+                </select>
+            </b>
+            <input type="hidden" name="step" value="invoice_search">
+            <button id="submit-btn" type="submit" class="btn btn-primary" style="width: 100px; height: 35px; margin-left: 20px;">查询</button>
+        </div>
+    </form>
+</div>
+<div style="max-height: 100%; max-width: 1200px; padding: 20px; margin: 0 auto; background-color: #fff; border-radius: 8px; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);">
+    <table id="quote-table" class="table" style="font-size: 14px; width: 100%; border-collapse: collapse;">
+        <thead>
+            <tr style="background-color: #f1f1f1;">
+                <th class="th" style="padding: 12px; border: 1px solid #ddd;text-align: center;">客户</th>
+                <th class="th" style="padding: 12px; border: 1px solid #ddd;text-align: center;">柜号</th>
+                <th class="th" style="padding: 12px; border: 1px solid #ddd;text-align: center;">发票号</th>
+                <th class="th" style="padding: 12px; border: 1px solid #ddd;text-align: center;">分类</th>
+                <th class="th" style="padding: 12px; border: 1px solid #ddd;text-align: center;">应付状态</th>
+                <th class="th" style="padding: 12px; border: 1px solid #ddd;text-align: center;">应收状态</th>             
+                <th class="th" style="padding: 12px; border: 1px solid #ddd;text-align: center;">应收是否拒绝</th>
+                <th class="th" style="padding: 12px; border: 1px solid #ddd;text-align: center;">应收拒绝原因</th>
+            </tr>
+            <tr style="position: sticky; top: 28px;">
+                <th class="th"></th>
+                <th class="th" style="padding: 12px; border: 1px solid #ddd;text-align: center;">
+                    <input type="text" id="containerSearchInput" placeholder="搜索柜号..." oninput="filterTable(this, 1)" size="16" style="font-size: 14px;">
+                </th>
+                <th class="th" style="padding: 12px; border: 1px solid #ddd;text-align: center;">
+                    <input type="text" id="invoiceSearchInput" placeholder="搜索发票号..." oninput="filterTable(this, 2)" size="16" style="font-size: 14px;">
+                </th>
+                <th class="th"></th>
+                <th class="th"></th>
+                <th class="th"></th>
+                <th class="th"></th>
+                <th class="th"></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in order_items %}
+            {% with forloop.counter0 as row_index %}
+            <form id="quote-form" method="post" enctype="multipart/form-data" action="">
+                {% csrf_token %}
+                <tr style="background-color: {% if item.invoice_number %}{% cycle '#fff' '#f9f9f9' %}{% else %}#f5f5f5{% endif %};"
+                    class="{% if row_index > 0 and item.container_number == previous_container_number %}same-container-row{% endif %}">
+                    <td class="td" style="padding: 12px; border: 1px solid #ddd; text-align: center;vertical-align: middle">
+                        {{ item.customer_name.zem_name }}
+                    </td>
+                    <td class="td" style="padding: 12px; border: 1px solid #ddd; text-align: center;vertical-align: middle">
+                        {{ item.container_number }}
+                    </td>
+                    <td class="td invoice-number-cell" style="padding: 12px; border: 1px solid #ddd; text-align: center;vertical-align: middle">
+                        {% if item.invoice_number %}
+                            {{ item.invoice_number }}
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                    <td class="td" style="padding: 12px; border: 1px solid #ddd; text-align: center;vertical-align: middle">
+                        {% if item.container_number.delivery_type == 'mixed' %}
+                            混合
+                        {% elif item.container_number.delivery_type == 'public' %}
+                            公仓
+                        {% elif item.container_number.delivery_type == 'other' %}
+                            私仓
+                        {% else %}
+                            {{ item.container_number.delivery_type }} 
+                        {% endif %}
+                    </td>
+                    <td class="td" style="padding: 12px; border: 1px solid #ddd; text-align: center;vertical-align: middle; white-space: pre-line;">
+                        {% if item.payable_status %}{{ item.display_stage }}
+                        {% elif not item.receivable_status and not item.payable_status %}{{ item.display_stage }}{% endif %}
+                    </td>
+                    <td class="td" style="padding: 8px; border: 1px solid #ddd; text-align: center;vertical-align: middle;">
+                        {% if item.display_key_status %}
+                            {{ item.display_key_status }}
+                        {% else %}
+                            <div class="status-grid">
+                                <div class="status-item status-{{ item.display_preport_status_class }}">港前:{{ item.display_preport_status }}</div>
+                                <div class="status-item status-{{ item.display_warehouse_public_status_class }}">公仓仓库:{{ item.display_warehouse_public_status }}</div>
+                                <div class="status-item status-{{ item.display_warehouse_other_status_class }}">私仓仓库:{{ item.display_warehouse_other_status }}</div>
+                                <div class="status-item status-{{ item.display_delivery_public_status_class }}">公仓派送:{{ item.display_delivery_public_status }}</div>
+                                <div class="status-item status-{{ item.display_delivery_other_status_class }}">私仓派送:{{ item.display_delivery_other_status }}</div>
+                                <div class="status-item status-{{ item.display_finance_status_class }}">财务:{{ item.display_finance_status }}</div>
+                            </div>
+                        {% endif %}
+                    </td>
+                    
+                    <td class="td" style="padding: 12px; border: 1px solid #ddd; text-align: center;vertical-align: middle">
+                        {{ item.receivable_is_rejected }}
+                    </td>
+                    <td class="td" style="padding: 12px; border: 1px solid #ddd; text-align: center;vertical-align: middle">
+                        {{ item.receivable_reject_reason }}
+                    </td>
+                </tr>
+                {% with item.container_number as previous_container_number %}
+            </form>
+            {% endwith %}
+            {% endwith %}
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+<script>
+    function filterTable(filterInput, col_idx) {
+        var containerInput, containerFilter, table, tbody, tr, containerTd, i, containerTxtValue;
+        containerFilter = filterInput.value.toUpperCase();
+        var table = filterInput.closest('table');
+        tbody = table.getElementsByTagName("tbody")[0];
+        tr = tbody.getElementsByTagName("tr");
+
+        for (i = 0; i < tr.length; i++) {
+            containerTd = tr[i].getElementsByTagName("td")[col_idx];
+            if (containerTd) {
+                containerTxtValue = containerTd.textContent || containerTd.innerText;
+                containerTxtValue = containerTxtValue.toUpperCase();
+                
+                if (containerTxtValue.indexOf(containerFilter) > -1) {
+                    tr[i].style.display = "";
+                } else {
+                    tr[i].style.display = "none";
+                }
+            }
+        }
+    };
+    
+    window.addEventListener('load', function () {
+        const customerSelect = document.getElementById('id_customer_name');
+        const selectedCustomerId = "{{ selected_customer_id|default:'' }}";
+
+        if (selectedCustomerId && customerSelect) {
+            customerSelect.value = selectedCustomerId;
+        }
+    });
+</script>
+{% endblock %}
