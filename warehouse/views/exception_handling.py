@@ -2938,7 +2938,7 @@ class ExceptionHandling(View):
             # 处理每个旧发票
             tasks = []
             for old_invoice in old_invoices:
-                task_result = self.migrate_missed_invoice(old_invoice, FIXED_CREATED_DATE)
+                task_result = await self.migrate_missed_invoice(old_invoice, FIXED_CREATED_DATE)
                 if task_result and '未迁移' in task_result.get('actions', []):
                     missed += 1
                     tasks.append(task_result)
