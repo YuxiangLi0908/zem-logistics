@@ -2995,7 +2995,7 @@ class ExceptionHandling(View):
                     'new_data': None,
                     'actions': f'⚠️ 只有旧状态: {container.container_number} 没有新状态'
                 })
-        print('migration_log',migration_log)
+        
         context = {
             'message': f'查询到{len(containers)} 条柜子',
             'success': True,
