@@ -3034,19 +3034,19 @@ class ExceptionHandling(View):
             old_invoice_exists = await sync_to_async(
                 lambda: Invoice.objects.filter(container_number_id=container_id).exists()  # 使用container_number_id字段
             )()
-            print('旧的',old_invoice_exists)
+            
             migration_log['actions'].append(f"旧Invoice存在: {old_invoice_exists}")
             
             # 3. 按照container_number_id查询新Invoicev2
             new_invoice_exists = await sync_to_async(
                 lambda: Invoicev2.objects.filter(container_number_id=container_id).exists()  # 使用container_number_id字段
             )()
-            print('新的',new_invoice_exists)
+            
             migration_log['actions'].append(f"新Invoicev2存在: {new_invoice_exists}")
             
             # 4. 检查是否需要迁移账单
             if old_invoice_exists and not new_invoice_exists:
-                print('--------------------------------')
+                
                 migration_log['miss'] = True
                 migration_log['actions'].append(f"❌ 账单未迁移 - 柜子ID: {container_id}")
                 migration_result = await self.migrate_single_invoice(old_invoice_dict, fixed_date)
