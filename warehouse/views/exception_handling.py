@@ -2938,11 +2938,12 @@ class ExceptionHandling(View):
             # 处理每个旧发票
             tasks = []
             for old_invoice in old_invoices:
-                task = self.migrate_missed_invoice(old_invoice, FIXED_CREATED_DATE)
-                if '未迁移' in task['actions']:
+                task_result = self.migrate_missed_invoice(old_invoice, FIXED_CREATED_DATE)
+                if task_result and '未迁移' in task_result.get('actions', []):
                     missed += 1
+                    tasks.append(task_result)
                 #task = self.migrate_single_invoice(old_invoice, FIXED_CREATED_DATE)
-                tasks.append(task)
+                
             
             # 等待所有任务完成
             #batch_results = await asyncio.gather(*tasks, return_exceptions=True)
