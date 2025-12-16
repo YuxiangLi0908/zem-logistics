@@ -241,6 +241,9 @@ class ExceptionHandling(View):
         elif step == "search_wrong_status":
             template, context = await self.handle_search_wrong_status(request)
             return await sync_to_async(render)(request, template, context) 
+        elif step == "search_wrong_fee":
+            template, context = await self.handle_search_wrong_fee(request)
+            return await sync_to_async(render)(request, template, context) 
         elif step == "receivale_status_search":
             template, context = await self.handle_receivale_status_search(request)
             return await sync_to_async(render)(request, template, context) 
@@ -2886,6 +2889,95 @@ class ExceptionHandling(View):
             'removed_count': len(removed),
             'changed_count': len(changed)
         }
+        return self.template_receivable_status_migrate, context
+
+    async def handle_search_wrong_fee(self,request):
+        """
+        查询有没有状态迁移错误的账单
+        """
+        start_index = int(request.POST.get("start_index", 0))
+        end_index = int(request.POST.get("end_index", 0))
+        migration_log = []
+        containers = await sync_to_async(list)(
+            Container.objects.filter(
+                id__gte=start_index,
+                id__lte=end_index
+            ).order_by('id')
+        )
+        inconsistent_count = 0
+        for container in containers:
+            old_invoice = await sync_to_async(
+                lambda c: Invoice.objects.filter(container_number=c).first()
+            )(container)
+            
+            new_invoice = await sync_to_async(
+                lambda c: Invoicev2.objects.filter(container_number=c).first()
+            )(container)
+            
+            # 只有当两个账单都存在时才比较
+            if old_invoice and new_invoice:
+                # 计算Invoicev2的合并金额
+                new_warehouse_total = (new_invoice.receivable_wh_public_amount or 0) + (new_invoice.receivable_wh_other_amount or 0)
+                new_delivery_total = (new_invoice.receivable_delivery_public_amount or 0) + (new_invoice.receivable_delivery_other_amount or 0)
+                
+                # 定义要比较的字段和对应的值
+                comparisons = [
+                    ('receivable_total_amount', '应收总额', 
+                     old_invoice.receivable_total_amount or 0, 
+                     new_invoice.receivable_total_amount or 0),
+                    ('receivable_preport_amount', '港前金额', 
+                     old_invoice.receivable_preport_amount or 0, 
+                     new_invoice.receivable_preport_amount or 0),
+                    ('receivable_warehouse_amount', '仓库金额', 
+                     old_invoice.receivable_warehouse_amount or 0, 
+                     new_warehouse_total),
+                    ('receivable_delivery_amount', '派送金额', 
+                     old_invoice.receivable_delivery_amount or 0, 
+                     new_delivery_total),
+                    ('receivable_direct_amount', '直送金额', 
+                     old_invoice.receivable_direct_amount or 0, 
+                     new_invoice.receivable_direct_amount or 0)
+                ]
+                
+                differences = []
+                old_data = {}
+                new_data = {}
+                
+                for field, field_name, old_value, new_value in comparisons:
+                    old_data[field] = old_value
+                    new_data[field] = new_value
+                    
+                    if round(old_value, 2) != round(new_value, 2):
+                        differences.append({
+                            'field': field,
+                            'field_name': field_name,
+                            'old_value': old_value,
+                            'new_value': new_value,
+                            'diff': new_value - old_value
+                        })
+                
+                # 如果有差异，记录到日志
+                if differences:
+                    inconsistent_count += 1
+                    migration_log.append({
+                        'container_number': container.container_number,
+                        'container_id': container.id,
+                        'old_data': old_data,
+                        'new_data': new_data,
+                        'differences': differences,
+                        'actions': f'❌ 金额不一致: {len(differences)} 个字段不一致',
+                        'old_invoice_number': old_invoice.invoice_number,
+                        'new_invoice_number': new_invoice.invoice_number
+                    })
+        
+        context = {
+            'inconsistent_count': inconsistent_count,
+            'success': True,
+            'start_index': start_index,
+            'end_index': end_index,
+            'migration_log': migration_log,
+        }
+        
         return self.template_receivable_status_migrate, context
 
     async def handle_search_wrong_status(self,request):
