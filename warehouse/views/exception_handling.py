@@ -2913,6 +2913,7 @@ class ExceptionHandling(View):
         old_invoices = await sync_to_async(
             lambda: list(
                 Invoice.objects.select_related('customer', 'container_number')
+                .filter(id__gte=start_index, id__lte=end_index) 
                 .values(
                     'id',
                     'invoice_number',
@@ -2932,7 +2933,8 @@ class ExceptionHandling(View):
                     'container_number_id',
                     'container_number__container_number',
                     'statement_id',
-                )[start_index:end_index]
+                )
+                .order_by('id')
             )
         )()
         old_invoices_text = old_invoices
