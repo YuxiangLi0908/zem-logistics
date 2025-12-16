@@ -3506,7 +3506,7 @@ class ReceivableAccounting(View):
         if combina_items:
             total_base_fee = sum(item.get("amount", 0) for item in combina_items)
             total_cbm = sum(item.get("total_cbm", 0) for item in combina_items)
-            total_cbm_ratio = sum(item.get("cbm_ratio", 0) for item in combina_items)
+            total_cbm_ratio = round(sum(item.get("cbm_ratio", 0) for item in combina_items),4)
             total_weight = sum(item.get("total_weight_lbs", 0) for item in combina_items)
             total_pallets = sum(item.get("total_pallets", 0) for item in combina_items)
             combina_info = {
