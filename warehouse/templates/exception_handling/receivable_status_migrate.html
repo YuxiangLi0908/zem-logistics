@@ -309,6 +309,17 @@
             <button type="submit" class="btn btn-primary">查询应付待确认账单</button>
         </div>
     </form>
+    <br>
+    <form method="post" id="migrationForm">
+        {% csrf_token %}
+        <div class="d-flex justify-content-between align-items-center">
+            <input type="hidden" name="step" value="modify_direct_status">
+            <button type="submit" class="btn btn-primary">直送的港前录完所有状态都录完</button>
+        </div>
+    </form>
+    {% if logg %}
+        {{ logg }}
+    {% endif %}
     <!-- 迁移结果 -->
     {% if message %}
     <div class="alert alert-success alert-area">

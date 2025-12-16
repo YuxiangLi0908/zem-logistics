@@ -238,6 +238,9 @@ class ExceptionHandling(View):
         elif step == "receivale_status_search":
             template, context = await self.handle_receivale_status_search(request)
             return await sync_to_async(render)(request, template, context) 
+        elif step == "modify_direct_status":
+            template, context = await self.handle_modify_direct_status(request)
+            return await sync_to_async(render)(request, template, context) 
         elif step == "update_shipment_type_to_fleet_type":
             template, context = await self.handle_update_shipment_type_to_fleet_type(request)
             return await sync_to_async(render)(request, template, context) 
@@ -2651,6 +2654,57 @@ class ExceptionHandling(View):
         request.POST["search_value"] = search_value
         return await self.handle_search_invoice_delivery(request)
     
+
+    async def handle_modify_direct_status(self, request):
+        logg = []
+        try:
+            # 1. 获取直送订单的集装箱ID列表
+            container_ids = [
+                cid async for cid in 
+                Order.objects.filter(
+                    order_type='直送',
+                    container_number__isnull=False
+                ).values_list('container_number_id', flat=True).distinct()
+            ]
+            
+            logg.append(f"找到 {len(container_ids)} 个直送集装箱")
+            
+            if container_ids:
+                # 2. 更新InvoiceStatus
+                invoice_status_count = await InvoiceStatus.objects.filter(
+                    container_number_id__in=container_ids,
+                    preport_status='completed'
+                ).aupdate(
+                    warehouse_public_status='completed',
+                    warehouse_other_status='completed',
+                    delivery_public_status='completed',
+                    delivery_other_status='completed'
+                )
+                logg.append(f"更新了 {invoice_status_count} 条 InvoiceStatus 记录")
+                
+                # 3. 更新InvoiceStatusv2
+                invoice_statusv2_count = await InvoiceStatusv2.objects.filter(
+                    container_number_id__in=container_ids,
+                    preport_status='completed'
+                ).aupdate(
+                    warehouse_public_status='completed',
+                    warehouse_other_status='completed',
+                    delivery_public_status='completed',
+                    delivery_other_status='completed'
+                )
+                logg.append(f"更新了 {invoice_statusv2_count} 条 InvoiceStatusv2 记录")
+            else:
+                logg.append("没有找到需要更新的直送订单")
+            context = {'logg':logg}
+            return self.template_receivable_status_migrate, context
+            
+        except Exception as e:
+            logg.append(f"更新过程中发生错误: {str(e)}")
+            import traceback
+            logg.append(traceback.format_exc())
+            context = {'logg':logg}
+            return self.template_receivable_status_migrate, context
+
     async def handle_receivale_status_search(self, request):
         old_status = await sync_to_async(list)(
             InvoiceStatus.objects.filter(
