@@ -285,6 +285,9 @@ class ReceivableAccounting(View):
         elif step == "invoice_search":
             template, context = self.handle_invoice_search_get(request)
             return render(request, template, context)
+        elif step == "dismiss":
+            template, context = self.handle_invoice_dismiss_save(request)
+            return render(request, template, context)
     
     def handle_invoice_search_get(
         self,
