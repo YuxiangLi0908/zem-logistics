@@ -2944,6 +2944,8 @@ class ExceptionHandling(View):
             tasks.append(task_result)
             error_log = {
                         'container_number': task_result.get('container_number'),
+                        'old_invoice_id': task_result.get('old_invoice_id'),
+                        'old_invoice_number': task_result.get('old_invoice_number'),
                         'actions': task_result.get('actions'),
                     }
             migration_log.append(error_log)
@@ -3019,6 +3021,8 @@ class ExceptionHandling(View):
 
         migration_log = {
             'container_number': container_number,
+            'old_invoice_id': old_invoice_dict['id'],
+            'old_invoice_number': old_invoice_dict['invoice_number'],
             'container_id': container_id,
             'actions': [],
             'miss': False,
