@@ -564,12 +564,14 @@
                                 <tr>
                                     <th class="th">客户</th>
                                     <th class="th">柜号</th>
-                                    <th class="th">实际提柜日期</th>
-                                    <th class="th">还空时间</th>
+                                    <th class="th" style="width:100px;">订单类型</th>
+                                    <th class="th" style="width:100px;">实际提柜日期</th>
+                                    <th class="th" style="width:100px;">还空时间</th>
                                 </tr>
                                 <tr class="search-row">
                                     <th class="th"></th>
                                     <th class="th"><input type="text" class="search-input" placeholder="搜索柜号..." oninput="filterTable(this, 1, 'to-record-table')"></th>
+                                    <th class="th"></th>
                                     <th class="th">
                                         <div class="date-search-container">
                                             <input type="date" class="date-search-input" placeholder="搜索提柜日期..." onchange="filterTableByDate(this, 2, 'to-record-table')">
@@ -605,6 +607,7 @@
                                                 </a>
                                             {% endif %}
                                         </td>
+                                        <td class="td" style="width:60px;">{{ item.order.order_type }}</td>
                                         <td class="td">
                                             {% if item.order.retrieval_time %}
                                                 {{ item.order.retrieval_time|date:"Y-m-d" }}
