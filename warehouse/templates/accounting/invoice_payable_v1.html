@@ -1,0 +1,1164 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<style>
+    .finance-system {
+        max-width: 102%;
+        margin: 20px auto;
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+        overflow: hidden;
+    }
+
+    :root {
+        --primary-color: #1b5e20;
+        --secondary-color: #0d3d14;
+        --success-color: #2e7d32;
+        --warning-color: #ff6f00;
+        --danger-color: #b71c1c;
+        --light-bg: #f8f9fa;
+        --card-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+        --border-radius: 12px;
+    }
+
+    .finance-header {
+        background: linear-gradient(135deg, #0d3d14, #1b5e20);
+        color: white;
+        padding: 25px 30px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .finance-logo {
+        display: flex;
+        align-items: center;
+        font-size: 1.5rem;
+        font-weight: bold;
+    }
+
+    .finance-logo i {
+        margin-right: 12px;
+        font-size: 1.8rem;
+    }
+
+    .filter-controls {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 20px;
+        background: rgba(255, 255, 255, 0.15);
+        padding: 15px 25px;
+        border-radius: 10px;
+        flex-wrap: wrap;
+    }
+
+    .filter-group {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .filter-group label {
+        font-weight: 600;
+        font-size: 0.9rem;
+    }
+
+    .filter-controls select,
+    .filter-controls input {
+        padding: 4px 15px;
+        border: none;
+        border-radius: 6px;
+        background: white;
+        font-size: 0.95rem;
+        min-width: 150px;
+    }
+
+    .filter-controls button {
+        padding: 10px 20px;
+        background: var(--success-color);
+        color: white;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-weight: 600;
+        transition: all 0.3s ease;
+    }
+
+    .filter-controls button:hover {
+        background: #219652;
+        transform: translateY(-1px);
+    }
+
+    .export-controls {
+        display: flex;
+        align-items: center;
+        gap: 20px;
+        margin-top: 15px;
+        padding: 15px 25px;
+        background: rgba(255, 255, 255, 0.08);
+        border-radius: 10px;
+    }
+
+    .finance-main {
+        padding: 25px;
+    }
+
+    .content-tabs {
+        display: flex;
+        margin-bottom: 25px;
+        border-bottom: 2px solid #eaecef;
+        gap: 5px;
+    }
+
+    .content-tab {
+        padding: 15px 30px;
+        cursor: pointer;
+        border-bottom: 3px solid transparent;
+        transition: all 0.3s;
+        font-weight: 500;
+        position: relative;
+        background: var(--light-bg);
+        border-radius: 8px 8px 0 0;
+    }
+
+    .content-tab.active {
+        background: white;
+        color: var(--primary-color);
+        border-bottom: 3px solid var(--primary-color);
+        font-weight: 600;
+    }
+
+    .content-tab .tab-badge {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        background: var(--primary-color);
+        color: white;
+        border-radius: 12px;
+        padding: 2px 8px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+
+    .tab-content {
+        display: none;
+        background: white;
+        border-radius: 0 0 var(--border-radius) var(--border-radius);
+        min-height: 500px;
+    }
+
+    .tab-content.active {
+        display: block;
+    }
+
+    /* 左右布局容器 */
+    .tables-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 25px;
+        height: 650px;
+    }
+
+    .container-section {
+        background: white;
+        border-radius: var(--border-radius);
+        box-shadow: var(--card-shadow);
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        border: 1px solid #f0f0f0;
+    }
+
+    .section-header {
+        background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+        padding: 20px;
+        border-bottom: 1px solid #dee2e6;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-shrink: 0;
+    }
+
+    .section-header h3 {
+        margin: 0;
+        color: var(--secondary-color);
+        font-size: 1.2rem;
+        font-weight: 600;
+    }
+
+    .section-count {
+        background: var(--primary-color);
+        color: white;
+        border-radius: 20px;
+        padding: 4px 12px;
+        font-size: 0.85rem;
+        font-weight: 600;
+    }
+
+    /* 表格样式优化 */
+    .table-container {
+        overflow-x: auto;
+        overflow-y: auto;
+        flex: 1;
+        background: #fafbfc;
+    }
+
+    .table {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0;
+        font-size: 14px;
+        background: white;
+        table-layout: fixed;
+    }
+
+    .th {
+        background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+        padding: 18px 14px 18px 20px;
+        text-align: center;
+        font-weight: 700;
+        border-bottom: 2px solid #dee2e6;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        color: var(--secondary-color);
+        font-size: 0.95rem;
+        border-right: 1px solid #e9ecef;
+        height: 50px;
+    }
+
+    .th:last-child {
+        border-right: none;
+    }
+
+    /* 表格列宽设置 */
+    .th:nth-child(1), .td:nth-child(1) { width: 10%; }  /* 客户 */
+    .th:nth-child(2), .td:nth-child(2) { width: 8%; }   /* 仓点 */
+    .th:nth-child(3), .td:nth-child(3) { width: 10%; }  /* 货柜号 */
+    .th:nth-child(4), .td:nth-child(4) { width: 6%; }   /* 柜型 */
+    .th:nth-child(5), .td:nth-child(5) { width: 10%; }  /* 提柜时间 */
+    .th:nth-child(6), .td:nth-child(6) { width: 8%; }   /* 码头 */
+    .th:nth-child(7), .td:nth-child(7) { width: 7%; }   /* 提柜费 */
+    .th:nth-child(8), .td:nth-child(8) { width: 7%; }   /* 拆柜费 */
+    .th:nth-child(9), .td:nth-child(9) { width: 7%; }   /* 超重费 */
+    .th:nth-child(10), .td:nth-child(10) { width: 7%; } /* 滞港费 */
+    .th:nth-child(11), .td:nth-child(11) { width: 7%; } /* 滞箱费 */
+    .th:nth-child(12), .td:nth-child(12) { width: 7%; } /* 车架费 */
+    .th:nth-child(13), .td:nth-child(13) { width: 8%; } /* 其他费用 */
+    .th:nth-child(14), .td:nth-child(14) { width: 8%; } /* 总费用 */
+    .th:nth-child(15), .td:nth-child(15) { width: 6%; } /* 通过 */
+    .th:nth-child(16), .td:nth-child(16) { width: 8%; } /* 不通过 */
+
+    /* 简化表格列宽设置 */
+    .simple-table .th:nth-child(1), .simple-table .td:nth-child(1) { width: 15%; }
+    .simple-table .th:nth-child(2), .simple-table .td:nth-child(2) { width: 20%; }
+    .simple-table .th:nth-child(3), .simple-table .td:nth-child(3) { width: 25%; }
+    .simple-table .th:nth-child(4), .simple-table .td:nth-child(4) { width: 20%; }
+    .simple-table .th:nth-child(5), .td:nth-child(5) { width: 20%; }
+    .simple-table .th:nth-child(6), .td:nth-child(6) { width: 15%; }
+
+    .td {
+        padding: 18px 14px 18px 20px;
+        border-bottom: 1px solid #f0f0f0;
+        vertical-align: middle;
+        transition: all 0.2s ease;
+        border-right: 1px solid #f5f5f5;
+        font-size: 14px;
+        height: 60px;
+        line-height: 1.5;
+        text-align: center;
+    }
+
+    .table .th {
+        padding: 18px 14px 18px 20px !important;
+    }
+
+    .table .td {
+        padding: 18px 14px 18px 20px !important;
+    }
+
+    .td:last-child {
+        border-right: none;
+    }
+
+    .table tbody tr {
+        transition: all 0.2s ease;
+        height: 60px;
+    }
+
+    .table tbody tr:hover {
+        background: linear-gradient(135deg, #f8f9fa, #f0f4f8);
+        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+        transform: translateY(-1px);
+    }
+
+    .table tbody tr:hover .td {
+        border-color: #e0e0e0;
+    }
+
+    .table tbody tr.table-warning:hover {
+        background: linear-gradient(135deg, #fff3cd, #ffeaa7);
+    }
+
+    .search-row .th {
+        background: #e9ecef;
+        position: sticky;
+        top: 50px;
+        z-index: 9;
+        padding: 4px 14px 4px 20px !important;
+        height: 30px;
+    }
+
+    .search-input {
+        width: 100%;
+        padding: 4px 8px;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+        font-size: 12px;
+        box-sizing: border-box;
+        transition: all 0.3s ease;
+        background: white;
+        height: 26px;
+    }
+
+    .search-input:focus {
+        outline: none;
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 2px rgba(27, 94, 32, 0.1);
+    }
+
+    /* 状态筛选下拉框样式 */
+    .status-filter-select {
+        width: 100%;
+        padding: 4px 8px;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+        font-size: 12px;
+        box-sizing: border-box;
+        transition: all 0.3s ease;
+        background: white;
+        height: 26px;
+        cursor: pointer;
+    }
+
+    .status-filter-select:focus {
+        outline: none;
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 2px rgba(27, 94, 32, 0.1);
+    }
+
+    .date-search-container {
+        display: flex;
+        gap: 4px;
+        align-items: center;
+    }
+
+    .date-search-input {
+        width: 100%;
+        padding: 4px 6px;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+        font-size: 11px;
+        box-sizing: border-box;
+        background: white;
+        height: 26px;
+    }
+
+    .date-search-input:focus {
+        outline: none;
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 2px rgba(27, 94, 32, 0.1);
+    }
+
+    .clear-date-btn {
+        padding: 4px 6px;
+        border: 1px solid #dc3545;
+        border-radius: 4px;
+        background: #fff;
+        color: #dc3545;
+        cursor: pointer;
+        font-size: 10px;
+        height: 26px;
+        white-space: nowrap;
+        transition: all 0.3s ease;
+    }
+
+    .clear-date-btn:hover {
+        background: #dc3545;
+        color: white;
+    }
+
+    /* 状态徽章样式升级 */
+    .status-badge {
+        padding: 8px 14px;
+        border-radius: 14px;
+        font-size: 12px;
+        font-weight: 700;
+        display: inline-block;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        border: 1px solid transparent;
+        line-height: 1.2;
+    }
+
+    .status-badge.pending {
+        background: linear-gradient(135deg, #fff3cd, #ffeaa7);
+        color: #856404;
+        border-color: #ffeaa7;
+    }
+
+    .status-badge.in-progress {
+        background: linear-gradient(135deg, #d1ecf1, #bee5eb);
+        color: #0c5460;
+        border-color: #bee5eb;
+    }
+
+    .status-badge.completed {
+        background: linear-gradient(135deg, #d1edff, #b3e0ff);
+        color: var(--primary-color);
+        border-color: #b3e0ff;
+    }
+
+    .status-badge.rejected {
+        background: linear-gradient(135deg, #f44336, #d32f2f);
+        color: white;
+        border-color: #f5c6cb;
+    }
+
+    .status-badge.review {
+        background: linear-gradient(135deg, #fff3cd, #ffeaa7);
+        color: #856404;
+        border-color: #ffeaa7;
+    }
+
+    .status-badge.unstarted {
+        background: linear-gradient(135deg, #e9ecef, #dee2e6);
+        color: #495057;
+        border-color: #dee2e6;
+    }
+
+    .status-badge.tobeconfirmed {
+        background: linear-gradient(135deg, #ffe6cc, #ffd9b3);
+        color: #cc6600;
+        border-color: #ffd9b3;
+    }
+
+    .container-link {
+        color: var(--primary-color);
+        text-decoration: none;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        padding: 3px 6px;
+        border-radius: 4px;
+        font-size: 14px;
+    }
+
+    .container-link:hover {
+        text-decoration: underline;
+        background: rgba(27, 94, 32, 0.1);
+    }
+
+    .invoice-date {
+        font-size: 12px;
+        color: #6c757d;
+        display: block;
+        margin-top: 3px;
+        font-style: italic;
+    }
+
+    /* 按钮样式适配 */
+    .btn-sm {
+        padding: 0.375rem 0.75rem;
+        font-size: 0.875rem;
+        border-radius: 6px;
+        transition: all 0.3s ease;
+    }
+
+    .btn-success.btn-sm:hover {
+        background-color: var(--success-color);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+
+    .btn-danger.btn-sm:hover {
+        background-color: var(--danger-color);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+
+    /* 其他费用提示框优化 */
+    .other-fees-tooltip {
+        position: relative;
+        display: inline-block;
+    }
+
+    .other-fees-tooltip:hover::after {
+        content: attr(data-bs-original-title);
+        position: absolute;
+        bottom: 125%;
+        left: 50%;
+        transform: translateX(-50%);
+        background: white;
+        border: 1px solid #e0e0e0;
+        border-radius: 6px;
+        padding: 8px;
+        width: max-content;
+        max-width: 200px;
+        font-size: 11px;
+        box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+        z-index: 1000;
+        text-align: left;
+    }
+
+    .other-fees-tooltip:hover::before {
+        content: '';
+        position: absolute;
+        bottom: 115%;
+        left: 50%;
+        transform: translateX(-50%);
+        border-width: 5px;
+        border-style: solid;
+        border-color: #e0e0e0 transparent transparent transparent;
+    }
+
+    /* 驳回原因输入框样式 */
+    .reject-input {
+        width: 100%;
+        padding: 6px 8px;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+        font-size: 11px;
+        box-sizing: border-box;
+        transition: all 0.3s ease;
+    }
+
+    .reject-input:focus {
+        outline: none;
+        border-color: var(--danger-color);
+        box-shadow: 0 0 0 2px rgba(183, 28, 28, 0.1);
+    }
+
+    @media (max-width: 1400px) {
+        .tables-grid {
+            grid-template-columns: 1fr;
+            height: auto;
+        }
+
+        .container-section {
+            height: auto;
+            margin-bottom: 20px;
+        }
+    }
+
+    @media (max-width: 768px) {
+        .finance-header {
+            flex-direction: column;
+            gap: 20px;
+            padding: 20px;
+        }
+
+        .filter-controls, .export-controls {
+            flex-direction: column;
+            width: 100%;
+            gap: 15px;
+        }
+
+        .filter-group {
+            width: 100%;
+        }
+
+        .filter-controls select,
+        .filter-controls input {
+            flex: 1;
+        }
+
+        .content-tabs {
+            flex-wrap: wrap;
+        }
+
+        .content-tab {
+            flex: 1;
+            min-width: 140px;
+            text-align: center;
+            padding: 12px 15px;
+        }
+
+        .finance-system {
+            max-width: 100%;
+            margin: 10px;
+        }
+
+        /* 响应式表格调整 */
+        .table {
+            font-size: 12px;
+        }
+
+        .th, .td {
+            padding: 10px 5px !important;
+            font-size: 11px;
+        }
+
+        .simple-table .th, .simple-table .td {
+            padding: 12px 8px !important;
+        }
+    }
+</style>
+
+<div class="finance-system">
+    <!-- 头部筛选区域 -->
+    <form method="post" action="" class="warehouse-selector">
+        {% csrf_token %}
+        <div class="finance-header">
+            <div class="finance-logo">
+                <i class="fas fa-file-invoice-dollar"></i>
+                <span>应付账单管理</span>
+            </div>
+            <div class="filter-controls">
+                <div class="filter-group">
+                    <label><i class="fas fa-truck"></i> 供应商:</label>
+                    <select name="preport_carrier" id="preport-carrier-select" class="form-select form-select-sm">
+                        {% for k, v in preport_carrier %}
+                        <option value="{{ v }}" {% if k == preport_carrier_filter %}selected{% endif %}>{{ k }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label style="width: 70px"><i class="fas fa-user"></i> 客户:</label>
+                    {{ order_form.customer_name }}
+                </div>
+                <div class="filter-group">
+                    <label><i class="fas fa-calendar-alt"></i> 提柜开始:</label>
+                    <input type="date" name="start_date" value="{{ start_date }}">
+                </div>
+                <div class="filter-group">
+                    <label><i class="fas fa-calendar-alt"></i> 提柜结束:</label>
+                    <input type="date" name="end_date" value="{{ end_date }}">
+                </div>
+                <div class="filter-group">
+                    <label style="width: 80px"><i class="fas fa-warehouse"></i> 仓点:</label>
+                    <select name="warehouse_filter">
+                        {% for k, v in warehouse_options.items %}
+                            <option value="{{ v }}" {% if warehouse_filter == v %}selected{% endif %}>{{ k }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <input type="hidden" name="step" value="invoice_order_payable_v1">
+                <button type="submit" class="btn-filter">
+                    <i class="fas fa-search"></i> 查询
+                </button>
+            </div>
+        </div>
+    </form>
+
+    <!-- 导出区域 -->
+    <form method="post" action="" class="warehouse-selector">
+        {% csrf_token %}
+        <div class="filter-controls export-controls">
+            <div class="filter-group">
+                <label style="width: 110px"><i class="fas fa-calendar-month"></i> 提柜月份:</label>
+                <select id="monthSelectorCarrier" name="select_month">
+                    {% for month in months %}
+                        <option value="{{ month.value }}" {% if month.selected %}selected{% endif %}>
+                            {{ month.label }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="filter-group">
+                <label style="width: 130px"><i class="fas fa-truck"></i> 供应商:</label>
+                <select id="carrierFilter" name="select_carrier">
+                    {% for key,value in carriers.items %}
+                    <option value="{{ key }}">{{ value }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <input type="hidden" name="start_date" value="{{ start_date }}">
+            <input type="hidden" name="end_date" value="{{ end_date }}">
+            <input type="hidden" name="step" value="invoice_payable_carrier_export">
+            <button type="submit" class="btn-filter">
+                <i class="fas fa-file-excel"></i> 导出Excel
+            </button>
+        </div>
+    </form>
+
+    <div class="finance-main">
+        <div class="content-tabs">
+            <div class="content-tab active" data-tab="pending" id="tab-pending">
+                待审核账单 <span class="tab-badge">{{ order_pending|length }}</span>
+            </div>
+            <div class="content-tab" data-tab="completed" id="tab-completed">
+                已审核账单 <span class="tab-badge">{{ pre_order_pending|length }}</span>
+            </div>
+            <div class="content-tab" data-tab="to-enter" id="tab-to-enter">
+                客服待录入 <span class="tab-badge">{{ order|length }}</span>
+            </div>
+            <div class="content-tab" data-tab="entered" id="tab-entered">
+                客服已录入 <span class="tab-badge">{{ previous_order|length }}</span>
+            </div>
+        </div>
+
+        <!-- 待审核账单标签页 -->
+        <div class="tab-content active" id="pending-section">
+            <div class="container-section">
+                <div class="section-header">
+                    <h3>待审核账单</h3>
+                    <span class="section-count">{{ order_pending|length }}条记录</span>
+                </div>
+                <div class="table-container">
+                    <table class="table" id="pending-table">
+                        <thead>
+                            <tr>
+                                <th class="th">客户</th>
+                                <th class="th">仓点</th>
+                                <th class="th">货柜号</th>
+                                <th class="th">柜型</th>
+                                <th class="th">提柜时间</th>
+                                <th class="th">码头</th>
+                                <th class="th">提柜费</th>
+                                <th class="th">拆柜费</th>
+                                <th class="th">超重费</th>
+                                <th class="th">滞港费</th>
+                                <th class="th">滞箱费</th>
+                                <th class="th">车架费</th>
+                                <th class="th">其他费用</th>
+                                <th class="th">总费用</th>
+                                <th class="th">通过</th>
+                                <th class="th">不通过</th>
+                            </tr>
+                            <tr class="search-row">
+                                <th class="th"></th>
+                                <th class="th"></th>
+                                <th class="th"><input type="text" class="search-input" placeholder="搜索柜号..." oninput="filterTable(this, 2, 'pending-table')"></th>
+                                <th class="th"></th>
+                                <th class="th"></th>
+                                <th class="th"></th>
+                                <th class="th"></th>
+                                <th class="th"></th>
+                                <th class="th"></th>
+                                <th class="th"></th>
+                                <th class="th"></th>
+                                <th class="th"></th>
+                                <th class="th"></th>
+                                <th class="th"></th>
+                                <th class="th"></th>
+                                <th class="th"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% if order_pending %}
+                                {% for c in order_pending %}
+                                <tr {% if c.payable_status.is_rejected %} class="table-warning"{% endif %}
+                                    data-container="{{ c.container_number|lower }}"
+                                    data-retrieval="{% if c.retrieval_id.actual_retrieval_timestamp %}{{ c.retrieval_id.actual_retrieval_timestamp|date:'Y-m-d' }}{% endif %}">
+                                    <td class="td">{{ c.customer_name.zem_name }}</td>
+                                    <td class="td">{{ c.retrieval_id.retrieval_destination_precise }}</td>
+                                    <td class="td">
+                                        <a href="/accounting/?step=container_payable_v1&container_number={{ c.container_number }}&start_date={{ start_date }}&end_date={{ end_date }}&warehouse_filter={{ warehouse_filter }}"
+                                           class="container-link">
+                                            {{ c.container_number }}
+                                        </a>
+                                    </td>
+                                    <td class="td">{{ c.container_number.container_type }}</td>
+                                    <td class="td">{{ c.retrieval_id.actual_retrieval_timestamp|date:"Y/m/d" }}</td>
+                                    <td class="td">{{ c.vessel_id.destination_port }}</td>
+                                    <td class="td">${{ c.basic_fee|floatformat:2 }}</td>
+                                    <td class="td">${{ c.palletization_fee|floatformat:2 }}</td>
+                                    <td class="td">${{ c.overweight_fee|floatformat:2 }}</td>
+                                    <td class="td">${{ c.demurrage_fee|floatformat:2 }}</td>
+                                    <td class="td">${{ c.per_diem_fee|floatformat:2 }}</td>
+                                    <td class="td">${{ c.chassis_fee|floatformat:2 }}</td>
+                                    <td class="td">
+                                        {% if c.other_fee %}
+                                            <div class="other-fees-tooltip" data-bs-toggle="tooltip" data-bs-html="true"
+                                                 title="{% for name, amount in c.other_fee.items %}<div>{{ name }}: ${{ amount|floatformat:2 }}</div>{% endfor %}">
+                                                <span class="container-link cursor-pointer">查看详情</span>
+                                            </div>
+                                        {% else %}
+                                            <span class="text-gray-500">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="td fw-bold">${{ c.total_amount|floatformat:2 }}</td>
+                                    <td class="td">
+                                        <!-- 审核通过按钮 -->
+                                        <form method="post" action="" class="mb-0">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="container_number" value="{{ c.container_number }}">
+                                            <input type="hidden" name="step" value="payable_save">
+                                            <input type="hidden" name="save_type" value="check_confirm_without_data">
+                                            <input type="hidden" name="start_date" value="{{ start_date }}">
+                                            <input type="hidden" name="end_date" value="{{ end_date }}">
+                                            <input type="hidden" name="warehouse_filter" value="{{ warehouse_filter }}">
+                                            <button type="submit" class="btn btn-success btn-sm w-100 py-1" title="审核通过">
+                                                <i class="bi bi-check-lg"></i>
+                                            </button>
+                                        </form>
+                                    </td>
+                                    <td class="td">
+                                        <!-- 驳回操作区域 -->
+                                        <form method="post" action="" class="mb-0">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="container_number" value="{{ c.container_number }}">
+                                            <input type="hidden" name="step" value="payable_save">
+                                            <input type="hidden" name="save_type" value="reject_check">
+                                            <input type="hidden" name="start_date" value="{{ start_date }}">
+                                            <input type="hidden" name="end_date" value="{{ end_date }}">
+                                            <input type="hidden" name="warehouse_filter" value="{{ warehouse_filter }}">
+
+                                            <div class="d-flex flex-column gap-2">
+                                                <input type="text"
+                                                       name="reject_reason"
+                                                       placeholder="驳回原因"
+                                                       required
+                                                       class="reject-input"
+                                                       title="请输入驳回原因">
+                                                <button type="submit" class="btn btn-danger btn-sm w-100 py-1" title="审核驳回">
+                                                    <i class="bi bi-x-lg"></i>
+                                                </button>
+                                            </div>
+                                        </form>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            {% else %}
+                                <tr>
+                                    <td colspan="16" class="td" style="text-align: center; color: #6c757d;">
+                                        暂无待审核账单
+                                    </td>
+                                </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- 已审核账单标签页 -->
+        <div class="tab-content" id="completed-section">
+            <div class="container-section">
+                <div class="section-header">
+                    <h3>已审核账单</h3>
+                    <span class="section-count">{{ pre_order_pending|length }}条记录</span>
+                </div>
+                <div class="table-container">
+                    <table class="table simple-table" id="completed-table">
+                        <thead>
+                            <tr>
+                                <th class="th">客户</th>
+                                <th class="th">仓点</th>
+                                <th class="th">货柜号</th>
+                                <th class="th">提柜时间</th>
+                                <th class="th">码头</th>
+                            </tr>
+                            <tr class="search-row">
+                                <th class="th"></th>
+                                <th class="th"></th>
+                                <th class="th"><input type="text" class="search-input" placeholder="搜索柜号..." oninput="filterTable(this, 2, 'completed-table')"></th>
+                                <th class="th"></th>
+                                <th class="th"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% if pre_order_pending %}
+                                {% for c in pre_order_pending %}
+                                <tr {% if c.payable_status.is_rejected %} class="table-warning"{% endif %}
+                                    data-container="{{ c.container_number|lower }}"
+                                    data-retrieval="{% if c.retrieval_id.actual_retrieval_timestamp %}{{ c.retrieval_id.actual_retrieval_timestamp|date:'Y-m-d' }}{% endif %}">
+                                    <td class="td">{{ c.customer_name.zem_name }}</td>
+                                    <td class="td">{{ c.retrieval_id.retrieval_destination_precise }}</td>
+                                    <td class="td">
+                                        <a href="/accounting/?step=container_payable_confirm&container_number={{ c.container_number }}&start_date={{ start_date }}&end_date={{ end_date }}&warehouse={{ warehouse_filter }}"
+                                           class="container-link">
+                                            {{ c.container_number }}
+                                        </a>
+                                    </td>
+                                    <td class="td">{{ c.retrieval_id.actual_retrieval_timestamp|date:"Y/m/d" }}</td>
+                                    <td class="td">{{ c.vessel_id.destination_port }}</td>
+                                </tr>
+                                {% endfor %}
+                            {% else %}
+                                <tr>
+                                    <td colspan="5" class="td" style="text-align: center; color: #6c757d;">
+                                        暂无已审核账单
+                                    </td>
+                                </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- 客服待录入标签页 -->
+        <div class="tab-content" id="to-enter-section">
+            <div class="container-section">
+                <div class="section-header">
+                    <h3>客服待录入账单</h3>
+                    <span class="section-count">{{ order|length }}条记录</span>
+                </div>
+                <div class="table-container">
+                    <table class="table simple-table" id="to-enter-table">
+                        <thead>
+                            <tr>
+                                <th class="th">客户</th>
+                                <th class="th">仓点</th>
+                                <th class="th">货柜号</th>
+                                <th class="th">驳回原因</th>
+                                <th class="th">提柜时间</th>
+                                <th class="th">码头</th>
+                            </tr>
+                            <tr class="search-row">
+                                <th class="th"></th>
+                                <th class="th"></th>
+                                <th class="th"><input type="text" class="search-input" placeholder="搜索柜号..." oninput="filterTable(this, 2, 'to-enter-table')"></th>
+                                <th class="th"></th>
+                                <th class="th"></th>
+                                <th class="th"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% if order %}
+                                {% for c in order %}
+                                <tr {% if c.payable_status.is_rejected %} class="table-warning"{% endif %}
+                                    data-container="{{ c.container_number|lower }}"
+                                    data-retrieval="{% if c.retrieval_id.actual_retrieval_timestamp %}{{ c.retrieval_id.actual_retrieval_timestamp|date:'Y-m-d' }}{% endif %}">
+                                    <td class="td">{{ c.customer_name.zem_name }}</td>
+                                    <td class="td">{{ c.retrieval_id.retrieval_destination_area }}</td>
+                                    <td class="td">
+                                        <a href="/accounting/?step=container_payable_v1&container_number={{ c.container_number }}&start_date={{ start_date }}&end_date={{ end_date }}&warehouse_filter={{ warehouse_filter }}"
+                                           class="container-link">
+                                            {{ c.container_number }}
+                                        </a>
+                                    </td>
+                                    <td class="td">
+                                        <span class="text-truncate" style="max-width: 120px;"
+                                              data-bs-toggle="tooltip" title="{{ c.payable_status.reject_reason|default:'无' }}">
+                                            {{ c.payable_status.reject_reason|default:"-" }}
+                                        </span>
+                                    </td>
+                                    <td class="td">{{ c.retrieval_id.actual_retrieval_timestamp|date:"Y/m/d" }}</td>
+                                    <td class="td">{{ c.vessel_id.destination_port }}</td>
+                                </tr>
+                                {% endfor %}
+                            {% else %}
+                                <tr>
+                                    <td colspan="6" class="td" style="text-align: center; color: #6c757d;">
+                                        暂无客服待录入账单
+                                    </td>
+                                </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- 客服已录入标签页 -->
+        <div class="tab-content" id="entered-section">
+            <div class="container-section">
+                <div class="section-header">
+                    <h3>客服已录入账单</h3>
+                    <span class="section-count">{{ previous_order|length }}条记录</span>
+                </div>
+                <div class="table-container">
+                    <table class="table simple-table" id="entered-table">
+                        <thead>
+                            <tr>
+                                <th class="th">客户</th>
+                                <th class="th">仓点</th>
+                                <th class="th">货柜号</th>
+                                <th class="th">提柜时间</th>
+                                <th class="th">码头</th>
+                                <th class="th">账单状态</th>
+                            </tr>
+                            <tr class="search-row">
+                                <th class="th"></th>
+                                <th class="th"></th>
+                                <th class="th"><input type="text" class="search-input" placeholder="搜索柜号..." oninput="filterTable(this, 2, 'entered-table')"></th>
+                                <th class="th"></th>
+                                <th class="th"></th>
+                                <th class="th"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% if previous_order %}
+                                {% for c in previous_order %}
+                                <tr data-container="{{ c.container_number|lower }}"
+                                    data-retrieval="{% if c.retrieval_id.actual_retrieval_timestamp %}{{ c.retrieval_id.actual_retrieval_timestamp|date:'Y-m-d' }}{% endif %}"
+                                    data-status="{% if '已确认' in c.display_stage %}已确认{% elif '驳回' in c.display_stage %}已驳回{% elif '待录入' in c.display_stage %}待录入{% else %}{{ c.display_stage }}{% endif %}">
+                                    <td class="td">{{ c.customer_name.zem_name }}</td>
+                                    <td class="td">{{ c.retrieval_id.retrieval_destination_precise }}</td>
+                                    <td class="td">
+                                        <a href="/accounting/?step=container_payable_confirm&container_number={{ c.container_number }}&start_date={{ start_date }}&end_date={{ end_date }}&warehouse_filter={{ warehouse_filter }}"
+                                           class="container-link">
+                                            {{ c.container_number }}
+                                        </a>
+                                    </td>
+                                    <td class="td">{{ c.retrieval_id.actual_retrieval_timestamp|date:"Y/m/d" }}</td>
+                                    <td class="td">{{ c.vessel_id.destination_port }}</td>
+                                    <td class="td">
+                                        {% if '已确认' in c.display_stage %}
+                                            <span class="status-badge completed">已确认</span>
+                                        {% elif '驳回' in c.display_stage %}
+                                            <span class="status-badge rejected">已驳回</span>
+                                        {% elif '待录入' in c.display_stage %}
+                                            <span class="status-badge pending">待录入</span>
+                                        {% else %}
+                                            <span class="status-badge in-progress">{{ c.display_stage }}</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            {% else %}
+                                <tr>
+                                    <td colspan="6" class="td" style="text-align: center; color: #6c757d;">
+                                        暂无客服已录入账单
+                                    </td>
+                                </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 交互脚本 -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // 初始化Tooltip
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    var tooltipList = tooltipTriggerList.map(function(tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+
+    // 标签页切换功能
+    const tabs = document.querySelectorAll('.content-tab');
+    const tabContents = document.querySelectorAll('.tab-content');
+
+    tabs.forEach(tab => {
+        tab.addEventListener('click', function() {
+            const tabName = this.getAttribute('data-tab');
+
+            // 更新活跃标签
+            tabs.forEach(t => t.classList.remove('active'));
+            this.classList.add('active');
+
+            // 显示对应内容
+            tabContents.forEach(content => {
+                content.classList.remove('active');
+                if (content.id === tabName + '-section') {
+                    content.classList.add('active');
+                }
+            });
+        });
+    });
+
+    // 为表单字段添加样式（兼容Django表单）
+    document.querySelectorAll('form select, form input:not([type="hidden"], [type="submit"], [type="date"])').forEach(el => {
+        if (!el.classList.contains('form-control') && !el.classList.contains('form-select')) {
+            el.classList.add('form-control', 'form-control-sm', 'rounded-3', 'border', 'border-gray-300');
+        }
+    });
+
+    // 为客户筛选字段单独添加样式（确保兼容）
+    var customerField = document.querySelector('[name="customer_name"]') || document.querySelector('#id_customer_name');
+    if (customerField && !customerField.classList.contains('form-control') && !customerField.classList.contains('form-select')) {
+        if (customerField.tagName === 'SELECT') {
+            customerField.classList.add('form-select', 'form-select-sm', 'rounded-3', 'border', 'border-gray-300');
+        } else {
+            customerField.classList.add('form-control', 'form-control-sm', 'rounded-3', 'border', 'border-gray-300');
+        }
+    }
+
+    // 表单提交加载状态
+    const filterForms = document.querySelectorAll('.warehouse-selector');
+    filterForms.forEach(form => {
+        form.addEventListener('submit', function() {
+            const submitBtn = this.querySelector('button[type="submit"]');
+            if (submitBtn) {
+                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 处理中...';
+                submitBtn.disabled = true;
+            }
+        });
+    });
+});
+
+// 全局变量存储每个表格的筛选状态
+const tableFilters = {
+    'pending-table': { container: '', retrieval: '', status: '' },
+    'completed-table': { container: '', retrieval: '', status: '' },
+    'to-enter-table': { container: '', retrieval: '', status: '' },
+    'entered-table': { container: '', retrieval: '', status: '' }
+};
+
+// 柜号搜索函数
+function filterTable(input, columnIndex, tableId) {
+    const filterValue = input.value.toLowerCase();
+    tableFilters[tableId].container = filterValue;
+    applyFilters(tableId);
+}
+
+// 日期搜索函数
+function filterTableByDate(input, columnIndex, tableId) {
+    const filterValue = input.value;
+    tableFilters[tableId].retrieval = filterValue;
+    applyFilters(tableId);
+}
+
+// 状态筛选函数
+function filterTableByStatus(select, tableId) {
+    const filterValue = select.value;
+    tableFilters[tableId].status = filterValue;
+    applyFilters(tableId);
+}
+
+// 清除日期筛选
+function clearDateFilter(button, tableId) {
+    const container = button.closest('.date-search-container');
+    const dateInput = container.querySelector('.date-search-input');
+
+    dateInput.value = '';
+    tableFilters[tableId].retrieval = '';
+    applyFilters(tableId);
+}
+
+// 应用所有筛选条件 (AND 关系)
+function applyFilters(tableId) {
+    const table = document.getElementById(tableId);
+    const rows = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
+    const filters = tableFilters[tableId];
+
+    for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+
+        // 柜号匹配
+        const containerMatch = !filters.container ||
+            (row.getAttribute('data-container') &&
+             row.getAttribute('data-container').includes(filters.container));
+
+        // 提柜日期匹配
+        const retrievalMatch = !filters.retrieval ||
+            (row.getAttribute('data-retrieval') &&
+             row.getAttribute('data-retrieval') === filters.retrieval);
+
+        // 状态匹配
+        const statusMatch = !filters.status ||
+            (row.getAttribute('data-status') &&
+             row.getAttribute('data-status') === filters.status);
+
+        // 只有当所有条件都满足时才显示行 (AND 关系)
+        if (containerMatch && retrievalMatch && statusMatch) {
+            row.style.display = '';
+        } else {
+            row.style.display = 'none';
+        }
+    }
+}
+</script>
+{% endblock %}
