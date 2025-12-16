@@ -2906,43 +2906,48 @@ class ExceptionHandling(View):
         batch_size = 50
         
         missed = 0
-        for batch_start in range(start_index, end_index, batch_size):
-            batch_end = min(batch_start + batch_size, end_index)
+        # for batch_start in range(start_index, end_index, batch_size):
+        #     batch_end = min(batch_start + batch_size, end_index)
             
             # 查询当前批次的旧Invoice数据
-            old_invoices = await sync_to_async(
-                lambda: list(
-                    Invoice.objects.select_related('customer', 'container_number')
-                    .values(
-                        'id',
-                        'invoice_number',
-                        'invoice_date',
-                        'invoice_link',
-                        'receivable_preport_amount',
-                        'receivable_total_amount',
-                        'receivable_direct_amount',
-                        'payable_total_amount',
-                        'payable_preport_amount',
-                        'payable_warehouse_amount',
-                        'payable_delivery_amount',
-                        'is_invoice_delivered',
-                        'remain_offset',
-                        'received_amount',
-                        'customer_id',
-                        'container_number_id',
-                        'container_number__container_number',
-                        'statement_id',
-                    )[batch_start:batch_end]
-                )
-            )()
-            # 处理每个旧发票
-            tasks = []
-            for old_invoice in old_invoices:
-                task_result = await self.migrate_missed_invoice(old_invoice, FIXED_CREATED_DATE)
-                if task_result and task_result.get('miss'):
-                    missed += 1
-                    tasks.append(task_result)
-                #task = self.migrate_single_invoice(old_invoice, FIXED_CREATED_DATE)
+        old_invoices = await sync_to_async(
+            lambda: list(
+                Invoice.objects.select_related('customer', 'container_number')
+                .values(
+                    'id',
+                    'invoice_number',
+                    'invoice_date',
+                    'invoice_link',
+                    'receivable_preport_amount',
+                    'receivable_total_amount',
+                    'receivable_direct_amount',
+                    'payable_total_amount',
+                    'payable_preport_amount',
+                    'payable_warehouse_amount',
+                    'payable_delivery_amount',
+                    'is_invoice_delivered',
+                    'remain_offset',
+                    'received_amount',
+                    'customer_id',
+                    'container_number_id',
+                    'container_number__container_number',
+                    'statement_id',
+                )[start_index:end_index]
+            )
+        )()
+        # 处理每个旧发票
+        tasks = []
+        for old_invoice in old_invoices:
+            task_result = await self.migrate_missed_invoice(old_invoice, FIXED_CREATED_DATE)
+            if task_result and task_result.get('miss'):
+                missed += 1
+            tasks.append(task_result)
+            error_log = {
+                        'container_number': task_result.get('container_number'),
+                        'actions': task_result.get('actions'),
+                    }
+            migration_log.append(error_log)
+            #task = self.migrate_single_invoice(old_invoice, FIXED_CREATED_DATE)
                 
             
             # 等待所有任务完成
