@@ -3194,19 +3194,110 @@ class ExceptionHandling(View):
                 id__lte=item_end_index
             ).select_related('invoice_number')
         )
-        items_by_invoice = {}
+        # 建立映射关系
+        container_invoice_items = {}
         for item in invoice_items:
-            invoice_id = item.invoice_number_id
-            if invoice_id not in items_by_invoice:
-                items_by_invoice[invoice_id] = []
-            items_by_invoice[invoice_id].append(item)
-        
-        for invoice_id, items in items_by_invoice.items():
-            invoice = await sync_to_async(
-                lambda: Invoice.objects.filter(id=invoice_id).select_related('container_number').first()
-            )()
-            container = invoice.container_number
+            invoice = item.invoice_number
+            if not invoice or not invoice.container_number:
+                continue
             
+            container = invoice.container_number
+            if container.id not in container_invoice_items:
+                continue
+            
+            if invoice.id not in container_invoice_items[container.id]['invoice_items']:
+                container_invoice_items[container.id]['invoice_items'][invoice.id] = {
+                    'invoice': invoice,
+                    'items': []
+                }
+            
+            container_invoice_items[container.id]['invoice_items'][invoice.id]['items'].append(item)
+        
+        # 3. 遍历每个容器
+        total_migrated = 0
+        
+        for container_id, data in container_invoice_items.items():
+            container = data['container']
+            
+            for invoice_id, invoice_data in data['invoice_items'].items():
+                invoice = invoice_data['invoice']
+                items = invoice_data['items']
+                
+                # 查找Invoicev2
+                invoicev2 = await sync_to_async(
+                    lambda: Invoicev2.objects.filter(
+                        invoice_number=invoice.invoice_number,
+                        container_number=container
+                    ).first()
+                )()
+                
+                if not invoicev2:
+                    msg = {
+                        'container_number': container.container_number,
+                        'actions':f"跳过 {invoice.invoice_number} - 无Invoicev2"
+                    }
+                    migration_log.append(msg)
+                    continue
+                
+                # 删除该发票的旧记录
+                await sync_to_async(
+                    InvoiceItemv2.objects.filter(
+                        container_number=container,
+                        invoice_number=invoicev2
+                    ).delete
+                )()
+                
+                # 批量创建新记录
+                new_items = []
+                for item in items:
+                    item_category=self._get_item_category(item.description)
+                    new_items.append(InvoiceItemv2(
+                        container_number=container,
+                        invoice_number=invoicev2,
+                        invoice_type="receivable",
+                        item_category=item_category,
+                        description=item.description,
+                        qty=item.qty,
+                        rate=item.rate,
+                        amount=item.amount,
+                        cbm=item.cbm,
+                        weight=item.weight,
+                        warehouse_code=item.warehouse_code,
+                        note=item.note
+                    ))
+                
+                if new_items:
+                    await sync_to_async(InvoiceItemv2.objects.bulk_create)(new_items)
+                    total_migrated += len(new_items)
+                    msg = {
+                        'container_number': container.container_number,
+                        'actions':f"✅ {container.container_number}: {len(new_items)}条"
+                    }
+                    migration_log.append(msg)
+        
+        context = {
+            'migration_log': migration_log,
+            'total_migrated': total_migrated,
+            'success': True,
+            'message': f'迁移完成: {total_migrated}条记录'
+        }
+        return self.template_receivable_status_migrate,context
+
+    def _get_item_category(self, description):
+        """根据InvoiceItem确定分类的辅助函数"""
+        # 这里根据您的业务逻辑实现
+        # 例如根据description、warehouse_code或其他字段判断
+        if description:
+            desc_lower = description.lower()
+            if 'ALL' in desc_lower or '提拆' in desc_lower or '打托' in desc_lower:
+                return "preport"
+            elif '派送' in desc_lower or '送货' in desc_lower:
+                return "delivery_public"  # 需要更多逻辑区分公仓/私仓
+            elif '仓库' in desc_lower:
+                return "warehouse_public"  # 需要更多逻辑区分公仓/私仓
+        
+        return "preport"  # 默认值
+
     async def handle_receivale_status_migrate(self,request):
         """
         迁移Invoice和InvoiceStatus数据到新表结构 - 修改版
