@@ -152,6 +152,7 @@ class ExceptionHandling(View):
         
     async def post(self, request: HttpRequest) -> HttpResponse:
         step = request.POST.get("step", None)
+        print('step',step)
         #修改约状态相关的
         if step == "search_shipment":
             template, context = await self.handle_search_shipment(request)
@@ -2994,7 +2995,10 @@ class ExceptionHandling(View):
             ).order_by('id')
         )
         inconsistent_count = 0
+        containers_list = []
+        
         for container in containers:
+            containers_list.append(container.container_number)
             old_status = await sync_to_async(
                 lambda c: InvoiceStatus.objects.filter(
                     container_number=c,
@@ -3088,7 +3092,6 @@ class ExceptionHandling(View):
                     'new_data': None,
                     'actions': f'⚠️ 只有旧状态: {container.container_number} 没有新状态'
                 })
-        
         context = {
             'message': f'查询到{len(containers)} 条柜子',
             'success': True,
@@ -3096,6 +3099,7 @@ class ExceptionHandling(View):
             'end_index': end_index,
             'migration_log': migration_log,
             'inconsistent_count': inconsistent_count,
+            'containers_list': containers_list,
         }
         return self.template_receivable_status_migrate,context       
             
