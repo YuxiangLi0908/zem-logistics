@@ -2935,6 +2935,8 @@ class ExceptionHandling(View):
                 )[start_index:end_index]
             )
         )()
+        old_invoices_text = old_invoices
+
         # 处理每个旧发票
         tasks = []
         for old_invoice in old_invoices:
@@ -3010,6 +3012,7 @@ class ExceptionHandling(View):
             'success': True,
             'start_index': start_index,
             'end_index': end_index,
+            'old_invoices_text': old_invoices_text,
         }
         return self.template_receivable_status_migrate, context
 
