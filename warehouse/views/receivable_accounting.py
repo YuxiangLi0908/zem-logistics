@@ -1802,7 +1802,7 @@ class ReceivableAccounting(View):
             else start_date
         )
         end_date = current_date.strftime("%Y-%m-%d") if not end_date else end_date
-
+        #按提柜时间改
         criteria = (
             Q(cancel_notification=False)
             & Q(vessel_id__vessel_etd__gte=start_date)
@@ -5432,7 +5432,7 @@ class ReceivableAccounting(View):
             )
             context["invoice"] = invoice
             context["invoice_item"] = invoice_item
-            return self.template_invoice_combina_edit, context
+            return context
         
         # 从报价表找+客服录的数据
         warehouse = order.retrieval_id.retrieval_destination_area
@@ -5458,7 +5458,7 @@ class ReceivableAccounting(View):
         matching_quotation, quotation_error = self._get_quotation_for_order(order, 'receivable')
         if quotation_error:
             context.update({"error_messages": quotation_error})
-            return self.template_invoice_combina_edit, context
+            return context
         
         # 4. 获取费用规则
         combina_fee = FeeDetail.objects.get(
@@ -5481,17 +5481,17 @@ class ReceivableAccounting(View):
         ctx, is_combina, non_combina_reason = self._is_combina(order.container_number.container_number)
         if ctx.get('error_messages'):
             context.update({"error_messages": ctx.get('error_messages')})
-            return self.template_invoice_combina_edit, context
+            return context
         
         #检查是不是组合柜
         if not is_combina:
             context.update({"error_messages": f'不满足组合柜，原因是{non_combina_reason}'})
-            return self.template_invoice_combina_edit, context
+            return context
         
         # 2. 检查基本条件
         if plts["unique_destinations"] == 0:
             context.update({"error_messages": '未录入拆柜数据'})
-            return self.template_invoice_combina_edit, context
+            return context
 
         default_combina = stipulate["global_rules"]["max_mixed"]["default"]
         exceptions = stipulate["global_rules"]["max_mixed"].get("exceptions", {})
@@ -5510,7 +5510,7 @@ class ReceivableAccounting(View):
             context["reason"] = (
                 f"超过{uncombina_threshold}个仓点"
             )
-            return self.template_invoice_combina_edit, context
+            return context
 
         # 按区域统计
         destinations = (
@@ -5582,7 +5582,7 @@ class ReceivableAccounting(View):
             actual_fees = self._combina_get_extra_fees(invoice)
             context["reason"] = reason
             context["extra_fees"] = actual_fees
-            return self.template_invoice_combina_edit, context
+            return context
         
         #组合柜的固定费用
         pallet_groups, other_pallet_groups, ctx = self._get_pallet_groups_by_po(container_number, "public", invoice)
@@ -5599,7 +5599,7 @@ class ReceivableAccounting(View):
             combina_total_pallets = result_existing['combina_info']['total_pallets']
         else:
             context.update({"error_messages": '操作组未录入组合柜费用'})
-            return self.template_invoice_combina_edit, context
+            return context
         # 7.2 计算基础费用
         extra_fees = {
             "overweight": 0,
