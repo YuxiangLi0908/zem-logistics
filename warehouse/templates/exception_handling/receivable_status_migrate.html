@@ -296,8 +296,12 @@
                         <span>至</span>
                         <input type="number" name="end_index" placeholder="结束" value="{{ end_index|default:'100' }}" min="1">
                     </div>
+                    <!--
                     <input type="hidden" name="step" value="search_extra_invoice">
                     <button type="submit" class="btn btn-primary">查询多余的账单</button>
+                    -->
+                    <input type="hidden" name="step" value="search_wrong_status">
+                    <button type="submit" class="btn btn-primary">查询状态迁移错误的</button>
                     <!--
                     <input type="hidden" name="step" value="receivale_status_migrate">
                     <button type="submit" class="btn btn-primary">数据迁移差缺补漏</button>
@@ -384,8 +388,8 @@
                                     <div class="status-row">
                                         <span class="status-name">阶段:</span>
                                         <div class="status-value">
-                                            {% if log.old_data.stage and log.old_data.stage != 'unstarted' and log.old_data.stage != 'error' %}
-                                                <span class="badge bg-info status-badge">{{ log.old_data.stage }}</span>
+                                            {% if log.new_data %}
+                                                <span class="badge bg-info status-badge">{{ log.new_data }}</span>
                                             {% elif log.old_data.stage == 'error' %}
                                                 <span class="badge bg-danger status-badge">错误</span>
                                             {% else %}

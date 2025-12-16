@@ -238,6 +238,9 @@ class ExceptionHandling(View):
         elif step == "search_extra_invoice":
             template, context = await self.handle_search_extra_invoice(request)
             return await sync_to_async(render)(request, template, context) 
+        elif step == "search_wrong_status":
+            template, context = await self.handle_search_wrong_status(request)
+            return await sync_to_async(render)(request, template, context) 
         elif step == "receivale_status_search":
             template, context = await self.handle_receivale_status_search(request)
             return await sync_to_async(render)(request, template, context) 
@@ -2885,6 +2888,124 @@ class ExceptionHandling(View):
         }
         return self.template_receivable_status_migrate, context
 
+    async def handle_search_wrong_status(self,request):
+        """
+        查询有没有状态迁移错误的账单
+        """
+        start_index = int(request.POST.get("start_index", 0))
+        end_index = int(request.POST.get("end_index", 0))
+        migration_log = []
+        containers = await sync_to_async(list)(
+            Container.objects.filter(
+                id__gte=start_index,
+                id__lte=end_index
+            ).order_by('id')
+        )
+        for container in containers:
+            old_status = await sync_to_async(
+                lambda c: InvoiceStatus.objects.filter(
+                    container_number=c,
+                    invoice_type="receivable"
+                ).first()
+            )(container)
+                
+            # 直接异步查询新状态表记录
+            new_status = await sync_to_async(
+                lambda c: InvoiceStatusv2.objects.filter(
+                    container_number=c,
+                    invoice_type="receivable"
+                ).first()
+            )(container)
+            
+            # 如果两个状态都存在，进行比较
+            if old_status and new_status:
+                # 构建旧数据
+                old_data = {
+                    'preport_status': old_status.preport_status,
+                    'warehouse_public_status': old_status.warehouse_public_status,
+                    'warehouse_other_status': old_status.warehouse_other_status,
+                    'delivery_public_status': old_status.delivery_public_status,
+                    'delivery_other_status': old_status.delivery_other_status,
+                    'finance_status': old_status.finance_status
+                }
+                
+                # 构建新数据
+                new_data = {
+                    'preport_status': new_status.preport_status,
+                    'warehouse_public_status': new_status.warehouse_public_status,
+                    'warehouse_other_status': new_status.warehouse_other_status,
+                    'delivery_public_status': new_status.delivery_public_status,
+                    'delivery_other_status': new_status.delivery_other_status,
+                    'finance_status': new_status.finance_status
+                }
+                
+                # 比较各个状态字段
+                status_fields = [
+                    ('preport_status', '港前状态'),
+                    ('warehouse_public_status', '公仓仓库状态'),
+                    ('warehouse_other_status', '私仓仓库状态'),
+                    ('delivery_public_status', '公仓派送状态'),
+                    ('delivery_other_status', '私仓派送状态'),
+                    ('finance_status', '财务状态')
+                ]
+                
+                differences = []
+                
+                for field, field_name in status_fields:
+                    old_value = old_data[field]
+                    new_value = new_data[field]
+                    
+                    if old_value != new_value:
+                        differences.append(f"{field_name}: 旧值={old_value}, 新值={new_value}")
+                
+                # 如果有差异，记录到日志
+                if differences:
+                    inconsistent_count += 1
+                    
+                    error_log = {
+                        'container_number': container.container_number,
+                        'container_id': container.id,
+                        'error_type': 'status_inconsistent',
+                        'old_data': old_data,
+                        'new_data': new_data,
+                        'differences': differences,
+                        'actions': f'❌ 状态不一致: {container.container_number} 有 {len(differences)} 个状态字段不一致',
+                        'old_status_id': old_status.id,
+                        'new_status_id': new_status.id
+                    }
+                    migration_log.append(error_log)
+            
+            elif old_status and not new_status:
+                # 只有旧状态，没有新状态
+                # 构建旧数据
+                old_data = {
+                    'preport_status': old_status.preport_status,
+                    'warehouse_public_status': old_status.warehouse_public_status,
+                    'warehouse_other_status': old_status.warehouse_other_status,
+                    'delivery_public_status': old_status.delivery_public_status,
+                    'delivery_other_status': old_status.delivery_other_status,
+                    'finance_status': old_status.finance_status
+                }
+                
+                migration_log.append({
+                    'container_number': container.container_number,
+                    'container_id': container.id,
+                    'error_type': 'missing_new_status',
+                    'old_data': old_data,
+                    'new_data': None,
+                    'actions': f'⚠️ 只有旧状态: {container.container_number} 没有新状态'
+                })
+        print('migration_log',migration_log)
+        context = {
+            'message': f'查询到{len(containers)} 条柜子',
+            'success': True,
+            'start_index': start_index,
+            'end_index': end_index,
+            'migration_log': migration_log,
+        }
+        return self.template_receivable_status_migrate,context       
+            
+
     async def handle_search_extra_invoice(self,request):
         """
         查询有没有重复迁移的账单
@@ -2919,9 +3040,7 @@ class ExceptionHandling(View):
                     'error_type': 'duplicate_invoicev2',
                     'actions': f'❌ 错误： {container.container_number} 在Invoicev2表中有 {invoicev2_count} 条重复记录'
                 }
-                migration_log.append(error_log)
-                
-            
+                migration_log.append(error_log)           
             
         context = {
             'message': f'查询到{len(containers)} 条柜子',
