@@ -33,6 +33,7 @@ from warehouse.models.invoice import Invoice
 from warehouse.models.invoicev2 import Invoicev2
 from warehouse.models.invoicev2 import InvoiceItemv2
 
+from warehouse.models.invoice import InvoiceItem
 from warehouse.models.invoice import InvoiceStatement
 from warehouse.models.invoice_details import InvoiceDelivery
 from warehouse.models.customer import Customer
@@ -238,6 +239,9 @@ class ExceptionHandling(View):
             return await sync_to_async(render)(request, template, context) 
         elif step == "receivale_status_migrate_delete_old":
             template, context = await self.handle_receivale_status_migrate_delete_old(request)
+            return await sync_to_async(render)(request, template, context) 
+        elif step == "receivale_item_migrate":
+            template, context = await self.handle_receivale_item_migrate(request)
             return await sync_to_async(render)(request, template, context) 
         elif step == "search_extra_invoice":
             template, context = await self.handle_search_extra_invoice(request)
@@ -3179,9 +3183,30 @@ class ExceptionHandling(View):
         }
         return self.template_receivable_status_migrate,context
         
-
-
-
+    async def handle_receivale_item_migrate(self,request):
+        """迁移InvoiceItem"""
+        item_start_index = int(request.POST.get("item_start_index", 0))
+        item_end_index = int(request.POST.get("item_end_index", 0))
+        migration_log = []
+        invoice_items = await sync_to_async(list)(
+            InvoiceItem.objects.filter(
+                id__gte=item_start_index, 
+                id__lte=item_end_index
+            ).select_related('invoice_number')
+        )
+        items_by_invoice = {}
+        for item in invoice_items:
+            invoice_id = item.invoice_number_id
+            if invoice_id not in items_by_invoice:
+                items_by_invoice[invoice_id] = []
+            items_by_invoice[invoice_id].append(item)
+        
+        for invoice_id, items in items_by_invoice.items():
+            invoice = await sync_to_async(
+                lambda: Invoice.objects.filter(id=invoice_id).select_related('container_number').first()
+            )()
+            container = invoice.container_number
+            
     async def handle_receivale_status_migrate(self,request):
         """
         迁移Invoice和InvoiceStatus数据到新表结构 - 修改版

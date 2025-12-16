@@ -1186,6 +1186,8 @@
     <input type="hidden" name="surcharges" id="single-surcharges" value="">
     <input type="hidden" name="amount" id="single-amount" value="">
     <input type="hidden" name="note" id="single-note" value="">
+    <input type="hidden" name="cbm" id="single-cbm" value="">
+    <input type="hidden" name="weight" id="single-weight" value="">
 </form>
 <!-- 转换类型的form -->
 <form method="post" id="convert-form" style="display: none;">
@@ -1353,6 +1355,8 @@ $(document).ready(function() {
         const poId = $row.data('po') || '';
         const shippingMarks = $row.find('.mark-text').attr('title') || '';
         const destination = $row.find('.cell-destination').text().trim();
+        const cbm = $row.find('td:nth-child(3) .stat-value').text().trim() || '0.00';
+        const weight = $row.find('td:nth-child(4) .stat-value').text().trim() || '0.00';
 
         // 验证
         if (!deliveryCategory) {
@@ -1380,6 +1384,8 @@ $(document).ready(function() {
         $('#single-surcharges').val(surcharges || '0');   // ← 确保把附加费写入
         $('#single-amount').val(amount || '0');          // ← 确保把金额写入
         $('#single-note').val(note || '');
+        $('#single-cbm').val(cbm); 
+        $('#single-weight').val(weight);
 
         // 状态变更
         const $btn = $row.find('.btn-save-row');
@@ -1414,6 +1420,8 @@ $(document).ready(function() {
             const surcharges = $(this).find('.input-surcharge').val() || '0';
             const amount = $(this).find('.amount-input').val() || '0';
             const note = $(this).find('.input-note').val() || '';
+            const cbm = $(this).find('td:nth-child(3) .stat-value').text().trim() || '0.00'; 
+            const weight = $(this).find('td:nth-child(4) .stat-value').text().trim() || '0.00';
 
             items.push({
                 rowIndex: rowIndex,
@@ -1426,7 +1434,9 @@ $(document).ready(function() {
                 pallets: pallets,
                 surcharges: surcharges,
                 amount: amount,
-                note: note
+                note: note,
+                cbm: cbm,
+                weight: weight
             });
         });
 
