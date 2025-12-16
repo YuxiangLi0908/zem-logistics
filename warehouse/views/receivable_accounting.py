@@ -1808,8 +1808,8 @@ class ReceivableAccounting(View):
         #按提柜时间改
         criteria = (
             Q(cancel_notification=False)
-            & Q(vessel_id__vessel_etd__gte=start_date)
-            & Q(vessel_id__vessel_etd__lte=end_date)
+            & Q(retrieval_id__actual_retrieval_timestamp__gte=start_date)
+            & Q(retrieval_id__actual_retrieval_timestamp__lte=end_date)
             & Q(offload_id__offload_at__isnull=False)
         )
         
