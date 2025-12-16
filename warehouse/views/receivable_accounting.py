@@ -2564,10 +2564,14 @@ class ReceivableAccounting(View):
                         public_status = status_obj.delivery_public_status #公仓状态
                         self_status = status_obj.delivery_other_status  #私仓状态
                         finance_status = status_obj.finance_status #财务状态
+                        delivery_public_reason = status_obj.delivery_public_reason
+                        delivery_other_reason = status_obj.delivery_other_reason
                     except InvoiceStatusv2.DoesNotExist:
                         public_status = None
                         self_status = None
                         finance_status = None
+                        delivery_public_reason = None
+                        delivery_other_reason = None
                     
                     # 只在有多个账单时添加 invoice_created_at                 
                     invoice_created_at = None
@@ -2589,8 +2593,8 @@ class ReceivableAccounting(View):
                         'has_invoice': True,
                         'offload_time': order.offload_time,
                         'is_hold': is_hold,
-                        'delivery_public_reason': status_obj.delivery_public_reason,
-                        'delivery_other_reason': status_obj.delivery_other_reason,
+                        'delivery_public_reason': delivery_public_reason,
+                        'delivery_other_reason': delivery_other_reason,
                     }
                     # 根据状态分组
                     if should_process_public:                 
@@ -4500,54 +4504,40 @@ class ReceivableAccounting(View):
             notes = request.POST.getlist("fee_note")
 
             total_amount = Decimal("0.00")
-            with transaction.atomic():
-                #找下港前账单之前存的费用记录，和现在所有费用比较，差集就是前端删除的记录
-                existing_items = InvoiceItemv2.objects.filter(invoice_number=invoice, item_category="preport")
-                existing_ids = set(item.id for item in existing_items if item.id is not None)
-                submitted_ids = set(int(fid) for fid in fee_ids if fid)  # 只包含已有的id
-                to_delete_ids = existing_ids - submitted_ids
-                if to_delete_ids:
-                    InvoiceItemv2.objects.filter(id__in=to_delete_ids).delete()
 
-                for i in range(len(descriptions)):
-                    fee_id = fee_ids[i] or None
-                    description = descriptions[i]
-                    rate = Decimal(rates[i] or 0)
-                    qty = Decimal(qtys[i] or 0)
-                    surcharge = Decimal(surcharges[i] or 0)
+            #找下港前账单之前存的费用记录，和现在所有费用比较，差集就是前端删除的记录
+            existing_items = InvoiceItemv2.objects.filter(invoice_number=invoice, item_category="preport")
+            existing_ids = set(item.id for item in existing_items if item.id is not None)
+            submitted_ids = set(int(fid) for fid in fee_ids if fid)  # 只包含已有的id
+            to_delete_ids = existing_ids - submitted_ids
+            if to_delete_ids:
+                InvoiceItemv2.objects.filter(id__in=to_delete_ids).delete()
 
-                    amount = rate * qty + surcharge
-                    note = notes[i] or ""
-                    if qty == 0 and surcharge == 0:
-                        continue
-                    total_amount += amount
+            for i in range(len(descriptions)):
+                fee_id = fee_ids[i] or None
+                description = descriptions[i]
+                rate = Decimal(rates[i] or 0)
+                qty = Decimal(qtys[i] or 0)
+                surcharge = Decimal(surcharges[i] or 0)
 
-                    if fee_id:  # 已存在的费用项，更新
-                        try:
-                            item = InvoiceItemv2.objects.get(id=fee_id, invoice_number=invoice)
-                            item.rate = rate
-                            item.qty = qty
-                            item.surcharges = surcharge
-                            item.amount = amount
-                            item.note = note
-                            item.registered_user = username
-                            item.save()
-                        except InvoiceItemv2.DoesNotExist:
-                            # 防止前端传了错误 id，查不到就新增
-                            InvoiceItemv2.objects.create(
-                                container_number=order.container_number,
-                                invoice_number=invoice,
-                                invoice_type="receivable",
-                                item_category="preport",
-                                description=description,
-                                rate=rate,
-                                qty=qty,
-                                surcharges=surcharge,
-                                amount=amount,
-                                note=note,
-                                registered_user=username
-                            )
-                    else:  # 新增费用项
+                amount = rate * qty + surcharge
+                note = notes[i] or ""
+                if qty == 0 and surcharge == 0:
+                    continue
+                total_amount += amount
+
+                if fee_id:  # 已存在的费用项，更新
+                    try:
+                        item = InvoiceItemv2.objects.get(id=fee_id, invoice_number=invoice)
+                        item.rate = rate
+                        item.qty = qty
+                        item.surcharges = surcharge
+                        item.amount = amount
+                        item.note = note
+                        item.registered_user = username
+                        item.save()
+                    except InvoiceItemv2.DoesNotExist:
+                        # 防止前端传了错误 id，查不到就新增
                         InvoiceItemv2.objects.create(
                             container_number=order.container_number,
                             invoice_number=invoice,
@@ -4561,6 +4551,20 @@ class ReceivableAccounting(View):
                             note=note,
                             registered_user=username
                         )
+                else:  # 新增费用项
+                    InvoiceItemv2.objects.create(
+                        container_number=order.container_number,
+                        invoice_number=invoice,
+                        invoice_type="receivable",
+                        item_category="preport",
+                        description=description,
+                        rate=rate,
+                        qty=qty,
+                        surcharges=surcharge,
+                        amount=amount,
+                        note=note,
+                        registered_user=username
+                    )
 
                 self._calculate_invoice_total_amount(invoice)
         
