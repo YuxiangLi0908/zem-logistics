@@ -2901,6 +2901,7 @@ class ExceptionHandling(View):
                 id__lte=end_index
             ).order_by('id')
         )
+        inconsistent_count = 0
         for container in containers:
             old_status = await sync_to_async(
                 lambda c: InvoiceStatus.objects.filter(
@@ -3002,6 +3003,7 @@ class ExceptionHandling(View):
             'start_index': start_index,
             'end_index': end_index,
             'migration_log': migration_log,
+            'inconsistent_count': inconsistent_count,
         }
         return self.template_receivable_status_migrate,context       
             
