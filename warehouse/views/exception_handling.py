@@ -2947,54 +2947,54 @@ class ExceptionHandling(View):
             
             # 等待所有任务完成
             #batch_results = await asyncio.gather(*tasks, return_exceptions=True)
-            batch_results = await asyncio.gather(*tasks)
-            # 收集结果
-            for result in batch_results:
-                if isinstance(result, Exception):
-                    error_log = {
-                        'container_number': 'N/A',
-                        'old_invoice_id': 'N/A',
-                        'old_invoice_number': 'N/A',
-                        'actions': [f"迁移失败: {str(result)}"],
-                        'old_data': {
-                            'stage': 'error',
-                            'stage_public': 'error',
-                            'stage_other': 'error'
-                        },
-                        'new_data': {
-                            'preport_status': 'error',
-                            'warehouse_public_status': 'error',
-                            'warehouse_other_status': 'error',
-                            'delivery_public_status': 'error',
-                            'delivery_other_status': 'error',
-                            'finance_status': 'error'
-                        }
-                    }
-                    migration_log.append(error_log)
-                elif result:  # 正常结果
-                    migration_log.append(result)
-                else:
-                    # 处理返回None的情况
-                    error_log = {
-                        'container_number': 'N/A',
-                        'old_invoice_id': 'N/A',
-                        'old_invoice_number': 'N/A',
-                        'actions': ["未知异常：返回None"],
-                        'old_data': {
-                            'stage': 'error',
-                            'stage_public': 'error',
-                            'stage_other': 'error'
-                        },
-                        'new_data': {
-                            'preport_status': 'error',
-                            'warehouse_public_status': 'error',
-                            'warehouse_other_status': 'error',
-                            'delivery_public_status': 'error',
-                            'delivery_other_status': 'error',
-                            'finance_status': 'error'
-                        }
-                    }
-                    migration_log.append(error_log)
+            # batch_results = await asyncio.gather(*tasks)
+            # # 收集结果
+            # for result in batch_results:
+            #     if isinstance(result, Exception):
+            #         error_log = {
+            #             'container_number': 'N/A',
+            #             'old_invoice_id': 'N/A',
+            #             'old_invoice_number': 'N/A',
+            #             'actions': [f"迁移失败: {str(result)}"],
+            #             'old_data': {
+            #                 'stage': 'error',
+            #                 'stage_public': 'error',
+            #                 'stage_other': 'error'
+            #             },
+            #             'new_data': {
+            #                 'preport_status': 'error',
+            #                 'warehouse_public_status': 'error',
+            #                 'warehouse_other_status': 'error',
+            #                 'delivery_public_status': 'error',
+            #                 'delivery_other_status': 'error',
+            #                 'finance_status': 'error'
+            #             }
+            #         }
+            #         migration_log.append(error_log)
+            #     elif result:  # 正常结果
+            #         migration_log.append(result)
+            #     else:
+            #         # 处理返回None的情况
+            #         error_log = {
+            #             'container_number': 'N/A',
+            #             'old_invoice_id': 'N/A',
+            #             'old_invoice_number': 'N/A',
+            #             'actions': ["未知异常：返回None"],
+            #             'old_data': {
+            #                 'stage': 'error',
+            #                 'stage_public': 'error',
+            #                 'stage_other': 'error'
+            #             },
+            #             'new_data': {
+            #                 'preport_status': 'error',
+            #                 'warehouse_public_status': 'error',
+            #                 'warehouse_other_status': 'error',
+            #                 'delivery_public_status': 'error',
+            #                 'delivery_other_status': 'error',
+            #                 'finance_status': 'error'
+            #             }
+            #         }
+            #         migration_log.append(error_log)
         
         context = {
             'migration_log': migration_log,
@@ -3009,66 +3009,53 @@ class ExceptionHandling(View):
     
     async def migrate_missed_invoice(self, old_invoice_dict, fixed_date):
         '''迁移查漏补缺'''
+        container_id = old_invoice_dict['container_number_id']
+        container_number = old_invoice_dict['container_number__container_number']
+
         migration_log = {
-            'container_number': old_invoice_dict['container_number__container_number'],
+            'container_number': container_number,
+            'container_id': container_id,
             'actions': [],
             'miss': False,
         }
         
         try:
-            # 方法2：更清晰的写法
-            container_get = sync_to_async(Container.objects.get)
-            container = await container_get(id=old_invoice_dict['container_number_id'])
-            
-            # 查询existing_invoice
-            existing_invoice_func = sync_to_async(
-                lambda: Invoice.objects.filter(
-                    container_number=container
-                ).first()
+            # 1. 检查Container是否存在
+            container_exists_func = sync_to_async(
+                lambda: Container.objects.filter(id=container_id).exists()
             )
-            existing_invoice = await existing_invoice_func()
+            container_exists = await container_exists_func()
             
-            # 查询existing_invoicev2
-            existing_invoicev2_func = sync_to_async(
-                lambda: Invoicev2.objects.filter(
-                    container_number=container
-                ).first()
-            )
-            existing_invoicev2 = await existing_invoicev2_func()
+            if not container_exists:
+                migration_log['actions'].append(f"⚠️ 柜子不存在: ID={container_id}")
+                return migration_log
             
-            if existing_invoice and not existing_invoicev2:
-                migration_log['miss'] = True
-                migration_log['actions'].append("账单未迁移")
+            # 2. 按照container_number_id查询旧Invoice
+            old_invoice_exists = await sync_to_async(
+                lambda: Invoice.objects.filter(container_number_id=container_id).exists()  # 使用container_number_id字段
+            )()
             
-            # 查询old_status
-            old_status_get = sync_to_async(
-                lambda: InvoiceStatus.objects.filter(
-                    container_number=container,
-                    invoice_type="receivable"
-                ).first()  # 使用first()而不是get()，避免DoesNotExist异常
-            )
-            old_status = await old_status_get()
+            migration_log['actions'].append(f"旧Invoice存在: {old_invoice_exists}")
             
-            # 查询new_status
-            new_status_get = sync_to_async(
-                lambda: InvoiceStatusv2.objects.filter(
-                    container_number=container,
-                    invoice_type="receivable"
-                ).first()  # 使用first()而不是get()
-            )
-            new_status = await new_status_get()
+            # 3. 按照container_number_id查询新Invoicev2
+            new_invoice_exists = await sync_to_async(
+                lambda: Invoicev2.objects.filter(container_number_id=container_id).exists()  # 使用container_number_id字段
+            )()
             
-            if old_status and not new_status:
-                migration_log['miss'] = True
-                migration_log['actions'].append("状态未迁移")
-                temp = self.migrate_single_invoice(old_invoice_dict, fixed_date)
+            migration_log['actions'].append(f"新Invoicev2存在: {new_invoice_exists}")
+            
+            # 4. 检查是否需要迁移账单
+            if old_invoice_exists and not new_invoice_exists:
                 
-        except Customer.DoesNotExist:
-            migration_log['actions'].append(f"客户不存在: {old_invoice_dict['customer_id']}")
-        except Container.DoesNotExist:
-            migration_log['actions'].append(f"集装箱不存在: {old_invoice_dict['container_number_id']}")
+                migration_log['miss'] = True
+                migration_log['actions'].append(f"❌ 账单未迁移 - 柜子ID: {container_id}")
+                migration_result = await self.migrate_single_invoice(old_invoice_dict, fixed_date)
+                migration_log['actions'].extend(migration_result.get('actions', []))
+                    
         except Exception as e:
-            migration_log['actions'].append(f"查询过程中发生错误: {str(e)}")
+            migration_log['actions'].append(f"❌ 错误: {str(e)}")
+            import traceback
+            migration_log['actions'].append(traceback.format_exc())
         
         return migration_log
     
