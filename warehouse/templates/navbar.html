@@ -226,7 +226,9 @@
                                 <a href="{% url 'receivable_accounting' %}?step=supplementary" target="_blank">补开账单</a>
                                 {% if user.is_authenticated and user.is_staff %}
                                 <a href="{% url 'receivable_accounting' %}?step=finance_stats" target="_blank">财务统计分析</a>
-                                 <!-- 报价管理 -->
+                                <!-- 应付账单 -->
+                                <a href="{% url 'accounting' %}?step=invoice_payable_v1" target="_blank">应付账单</a>
+                                <!-- 报价管理 -->
                                 <a href="{% url 'receivable_accounting' %}?step=quotation_management" target="_blank">报价表管理</a>
                                 {% endif %}
                             </div>
