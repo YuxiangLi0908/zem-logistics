@@ -2891,13 +2891,13 @@ class ExceptionHandling(View):
         migration_log = []
 
         # 查询旧数据数量
-        total_invoices = await sync_to_async(lambda: Invoice.objects.count())()
+        #total_invoices = await sync_to_async(lambda: Invoice.objects.count())()
         
         # 验证范围
         if start_index < 0:
             start_index = 0
-        if end_index <= 0 or end_index > total_invoices:
-            end_index = total_invoices
+        # if end_index <= 0 or end_index > total_invoices:
+        #     end_index = total_invoices
         
         # 统一创建日期
         FIXED_CREATED_DATE = date(2025, 12, 9)
