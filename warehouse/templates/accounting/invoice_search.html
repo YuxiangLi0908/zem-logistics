@@ -66,7 +66,10 @@
                 <th class="th" style="padding: 12px; border: 1px solid #ddd;text-align: center;"><input type="text" id="containerSearchInput" placeholder="搜索柜号..." oninput="filterTable(this, 1)" size="16" style="font-size: 14px;"></th>
                 <th class="th"></th>
                 <th class="th"></th>
-                <th class="th"></th>
+                <th class="th" style="padding: 12px; border: 1px solid #ddd;text-align: center;">
+                    <!-- 新增：应收状态搜索框 -->
+                    <input type="text" id="receivableStatusSearchInput" placeholder="搜索状态..." oninput="filterReceivableStatus(this)" size="16" style="font-size: 14px;">
+                </th>
                 <th class="th"></th>
                 <th class="th"></th>
             </tr>
@@ -144,5 +147,25 @@
             customerSelect.value = selectedCustomerId;
         }
     });
+    function filterReceivableStatus(filterInput) {
+        var statusFilter = filterInput.value.toUpperCase();
+        var table = filterInput.closest('table');
+        var tbody = table.getElementsByTagName("tbody")[0];
+        var tr = tbody.getElementsByTagName("tr");
+
+        for (var i = 0; i < tr.length; i++) {
+            var statusTd = tr[i].getElementsByTagName("td")[4]; // 应收状态在第5列（索引4）
+            if (statusTd) {
+                var statusText = statusTd.textContent || statusTd.innerText;
+                statusText = statusText.toUpperCase();
+                
+                if (statusText.indexOf(statusFilter) > -1) {
+                    tr[i].style.display = "";
+                } else {
+                    tr[i].style.display = "none";
+                }
+            }
+        }
+    };
 </script>
 {% endblock %}

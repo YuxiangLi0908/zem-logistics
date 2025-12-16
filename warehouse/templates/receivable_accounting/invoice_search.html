@@ -81,7 +81,10 @@
                 </th>
                 <th class="th"></th>
                 <th class="th"></th>
-                <th class="th"></th>
+                <th class="th" style="padding: 12px; border: 1px solid #ddd;text-align: center;">
+                    <!-- 新增：应收状态搜索框 -->
+                    <input type="text" id="receivableStatusSearchInput" placeholder="搜索状态..." oninput="filterReceivableStatus(this)" size="16" style="font-size: 14px;">
+                </th>
                 <th class="th"></th>
                 <th class="th"></th>
             </tr>
@@ -174,6 +177,27 @@
         }
     };
     
+    // 新增：应收状态搜索函数
+    function filterReceivableStatus(filterInput) {
+        var statusFilter = filterInput.value.toUpperCase();
+        var table = filterInput.closest('table');
+        var tbody = table.getElementsByTagName("tbody")[0];
+        var tr = tbody.getElementsByTagName("tr");
+
+        for (var i = 0; i < tr.length; i++) {
+            var statusTd = tr[i].getElementsByTagName("td")[5]; // 应收状态在第6列（索引5）
+            if (statusTd) {
+                var statusText = statusTd.textContent || statusTd.innerText;
+                statusText = statusText.toUpperCase();
+                
+                if (statusText.indexOf(statusFilter) > -1) {
+                    tr[i].style.display = "";
+                } else {
+                    tr[i].style.display = "none";
+                }
+            }
+        }
+    };
     window.addEventListener('load', function () {
         const customerSelect = document.getElementById('id_customer_name');
         const selectedCustomerId = "{{ selected_customer_id|default:'' }}";
