@@ -236,6 +236,9 @@ class ExceptionHandling(View):
         elif step == "receivale_status_migrate":
             template, context = await self.handle_receivale_status_migrate(request)
             return await sync_to_async(render)(request, template, context) 
+        elif step == "receivale_status_migrate_delete_old":
+            template, context = await self.handle_receivale_status_migrate_delete_old(request)
+            return await sync_to_async(render)(request, template, context) 
         elif step == "search_extra_invoice":
             template, context = await self.handle_search_extra_invoice(request)
             return await sync_to_async(render)(request, template, context) 
@@ -2996,7 +2999,7 @@ class ExceptionHandling(View):
         )
         inconsistent_count = 0
         containers_list = []
-        
+
         for container in containers:
             containers_list.append(container.container_number)
             old_status = await sync_to_async(
@@ -3149,6 +3152,36 @@ class ExceptionHandling(View):
         }
         return self.template_receivable_status_migrate,context
     
+    async def handle_receivale_status_migrate_delete_old(self,request):
+        migration_log = []
+        search_input = request.POST.get("search_index", "").strip()
+
+        container_ids = []
+        for part in search_input.replace(',', ' ').split():
+            if part.isdigit():
+                container_ids.append(int(part))
+
+        containers = await sync_to_async(list)(
+            Container.objects.filter(id__in=container_ids)
+        )
+        for container in containers:
+            await sync_to_async(lambda c: InvoiceItemv2.objects.filter(container_number=c).delete())(container)
+            await sync_to_async(lambda c: InvoiceStatusv2.objects.filter(container_number=c).delete())(container)
+            await sync_to_async(lambda c: Invoicev2.objects.filter(container_number=c).delete())(container)
+            migration_log.append({
+                'container_number': f'{container.container_number}(ID:{container.id})',
+                'result': f'删除成功'
+            })
+        context = {
+            'success': True,
+            'migration_log': migration_log,
+            'search_index': search_input
+        }
+        return self.template_receivable_status_migrate,context
+        
+
+
+
     async def handle_receivale_status_migrate(self,request):
         """
         迁移Invoice和InvoiceStatus数据到新表结构 - 修改版
