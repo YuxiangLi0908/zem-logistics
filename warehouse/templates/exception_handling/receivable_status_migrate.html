@@ -325,8 +325,8 @@
             <button type="submit" class="btn btn-primary">直送的港前录完所有状态都录完</button>
         </div>
     </form>
-    {% if logg %}
-        {{ logg }}
+    {% if inconsistent_count %}
+        异常数量为：{{ inconsistent_count }}
     {% endif %}
     <!-- 迁移结果 -->
     {% if message %}
