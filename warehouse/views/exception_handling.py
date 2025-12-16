@@ -2939,7 +2939,7 @@ class ExceptionHandling(View):
             tasks = []
             for old_invoice in old_invoices:
                 task_result = await self.migrate_missed_invoice(old_invoice, FIXED_CREATED_DATE)
-                if task_result and '未迁移' in task_result.get('actions', []):
+                if task_result and task_result.get('miss'):
                     missed += 1
                     tasks.append(task_result)
                 #task = self.migrate_single_invoice(old_invoice, FIXED_CREATED_DATE)
@@ -3011,7 +3011,8 @@ class ExceptionHandling(View):
         '''迁移查漏补缺'''
         migration_log = {
             'container_number': old_invoice_dict['container_number__container_number'],
-            'actions': []
+            'actions': [],
+            'miss': False,
         }
         
         try:
@@ -3036,6 +3037,7 @@ class ExceptionHandling(View):
             existing_invoicev2 = await existing_invoicev2_func()
             
             if existing_invoice and not existing_invoicev2:
+                migration_log['miss'] = True
                 migration_log['actions'].append("账单未迁移")
             
             # 查询old_status
@@ -3057,6 +3059,7 @@ class ExceptionHandling(View):
             new_status = await new_status_get()
             
             if old_status and not new_status:
+                migration_log['miss'] = True
                 migration_log['actions'].append("状态未迁移")
                 temp = self.migrate_single_invoice(old_invoice_dict, fixed_date)
                 
