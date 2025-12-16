@@ -2936,8 +2936,13 @@ class ExceptionHandling(View):
             )()
             # 处理每个旧发票
             tasks = []
+            print('old_invoices',old_invoices)
+            print('---------------------')
             for old_invoice in old_invoices:
-                task = self.migrate_single_invoice(old_invoice, FIXED_CREATED_DATE)
+                print('old_invoice',old_invoice)
+                task = self.migrate_missed_invoice(old_invoice, FIXED_CREATED_DATE)
+                
+                #task = self.migrate_single_invoice(old_invoice, FIXED_CREATED_DATE)
                 tasks.append(task)
             
             # 等待所有任务完成
@@ -3001,6 +3006,70 @@ class ExceptionHandling(View):
         }
         return self.template_receivable_status_migrate, context
 
+    
+    async def migrate_missed_invoice(self, old_invoice_dict, fixed_date):
+        '''迁移查漏补缺'''
+        migration_log = {
+            'container_number': old_invoice_dict['container_number__container_number'],
+            'actions': []
+        }
+        
+        try:
+            # 使用sync_to_async包装同步数据库查询
+            
+            # 方法2：更清晰的写法
+            container_get = sync_to_async(Container.objects.get)
+            container = await container_get(id=old_invoice_dict['container_number_id'])
+            
+            # 查询existing_invoice
+            existing_invoice_func = sync_to_async(
+                lambda: Invoice.objects.filter(
+                    container_number=container
+                ).first()
+            )
+            existing_invoice = await existing_invoice_func()
+            
+            # 查询existing_invoicev2
+            existing_invoicev2_func = sync_to_async(
+                lambda: Invoicev2.objects.filter(
+                    container_number=container
+                ).first()
+            )
+            existing_invoicev2 = await existing_invoicev2_func()
+            
+            if existing_invoice and not existing_invoicev2:
+                migration_log['actions'].append("账单未迁移")
+            
+            # 查询old_status
+            old_status_get = sync_to_async(
+                lambda: InvoiceStatus.objects.filter(
+                    container_number=container,
+                    invoice_type="receivable"
+                ).first()  # 使用first()而不是get()，避免DoesNotExist异常
+            )
+            old_status = await old_status_get()
+            
+            # 查询new_status
+            new_status_get = sync_to_async(
+                lambda: InvoiceStatusv2.objects.filter(
+                    container_number=container,
+                    invoice_type="receivable"
+                ).first()  # 使用first()而不是get()
+            )
+            new_status = await new_status_get()
+            
+            if old_status and not new_status:
+                migration_log['actions'].append("状态未迁移")
+                
+        except Customer.DoesNotExist:
+            migration_log['actions'].append(f"客户不存在: {old_invoice_dict['customer_id']}")
+        except Container.DoesNotExist:
+            migration_log['actions'].append(f"集装箱不存在: {old_invoice_dict['container_number_id']}")
+        except Exception as e:
+            migration_log['actions'].append(f"查询过程中发生错误: {str(e)}")
+        
+        return migration_log
+    
     async def migrate_single_invoice(self, old_invoice_dict, fixed_date):
         """
         迁移单个Invoice及其相关数据
