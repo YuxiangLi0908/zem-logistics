@@ -235,6 +235,9 @@ class ExceptionHandling(View):
         elif step == "receivale_status_migrate":
             template, context = await self.handle_receivale_status_migrate(request)
             return await sync_to_async(render)(request, template, context) 
+        elif step == "search_extra_invoice":
+            template, context = await self.handle_search_extra_invoice(request)
+            return await sync_to_async(render)(request, template, context) 
         elif step == "receivale_status_search":
             template, context = await self.handle_receivale_status_search(request)
             return await sync_to_async(render)(request, template, context) 
@@ -2882,6 +2885,53 @@ class ExceptionHandling(View):
         }
         return self.template_receivable_status_migrate, context
 
+    async def handle_search_extra_invoice(self,request):
+        """
+        查询有没有重复迁移的账单
+        """
+        start_index = int(request.POST.get("start_index", 0))
+        end_index = int(request.POST.get("end_index", 0))
+        migration_log = []
+        containers = await sync_to_async(list)(
+            Container.objects.filter(
+                id__gte=start_index,
+                id__lte=end_index
+            ).order_by('id')
+        )
+        for container in containers:
+            # 异步查询这个container在Invoicev2表中的记录数量
+            invoicev2_count = await sync_to_async(
+                lambda c: Invoicev2.objects.filter(container_number=c).count()
+            )(container)
+            
+            if invoicev2_count > 1:
+                # 获取详细信息
+                invoicev2_records = await sync_to_async(list)(
+                    Invoicev2.objects.filter(container_number=container)
+                    .values('id', 'invoice_number', 'invoice_date', 'created_at')
+                )
+                
+                error_log = {
+                    'container_number': container.container_number,
+                    'container_id': container.id,
+                    'invoicev2_count': invoicev2_count,
+                    'invoicev2_details': invoicev2_records,
+                    'error_type': 'duplicate_invoicev2',
+                    'actions': f'❌ 错误： {container.container_number} 在Invoicev2表中有 {invoicev2_count} 条重复记录'
+                }
+                migration_log.append(error_log)
+                
+            
+            
+        context = {
+            'message': f'查询到{len(containers)} 条柜子',
+            'success': True,
+            'start_index': start_index,
+            'end_index': end_index,
+            'migration_log': migration_log,
+        }
+        return self.template_receivable_status_migrate,context
+    
     async def handle_receivale_status_migrate(self,request):
         """
         迁移Invoice和InvoiceStatus数据到新表结构 - 修改版
