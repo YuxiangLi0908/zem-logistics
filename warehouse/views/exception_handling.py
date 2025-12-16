@@ -2905,6 +2905,7 @@ class ExceptionHandling(View):
         # 分批处理
         batch_size = 50
         
+        missed = 0
         for batch_start in range(start_index, end_index, batch_size):
             batch_end = min(batch_start + batch_size, end_index)
             
@@ -2936,12 +2937,10 @@ class ExceptionHandling(View):
             )()
             # 处理每个旧发票
             tasks = []
-            print('old_invoices',old_invoices)
-            print('---------------------')
             for old_invoice in old_invoices:
-                print('old_invoice',old_invoice)
                 task = self.migrate_missed_invoice(old_invoice, FIXED_CREATED_DATE)
-                
+                if '未迁移' in task['actions']:
+                    missed += 1
                 #task = self.migrate_single_invoice(old_invoice, FIXED_CREATED_DATE)
                 tasks.append(task)
             
@@ -2999,7 +2998,7 @@ class ExceptionHandling(View):
         context = {
             'migration_log': migration_log,
             'total_migrated': len(migration_log),
-            'message': f'成功迁移 {len(migration_log)} 条账单记录',
+            'message': f'成功迁移 {len(migration_log)} 条账单记录,{missed}条之前未迁移',
             'success': True,
             'start_index': start_index,
             'end_index': end_index,
@@ -3015,8 +3014,6 @@ class ExceptionHandling(View):
         }
         
         try:
-            # 使用sync_to_async包装同步数据库查询
-            
             # 方法2：更清晰的写法
             container_get = sync_to_async(Container.objects.get)
             container = await container_get(id=old_invoice_dict['container_number_id'])
@@ -3060,6 +3057,7 @@ class ExceptionHandling(View):
             
             if old_status and not new_status:
                 migration_log['actions'].append("状态未迁移")
+                temp = self.migrate_single_invoice(old_invoice_dict, fixed_date)
                 
         except Customer.DoesNotExist:
             migration_log['actions'].append(f"客户不存在: {old_invoice_dict['customer_id']}")
