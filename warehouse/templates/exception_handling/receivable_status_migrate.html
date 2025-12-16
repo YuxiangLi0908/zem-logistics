@@ -296,8 +296,12 @@
                         <span>至</span>
                         <input type="number" name="end_index" placeholder="结束" value="{{ end_index|default:'100' }}" min="1">
                     </div>
+                    <input type="hidden" name="step" value="search_extra_invoice">
+                    <button type="submit" class="btn btn-primary">查询多余的账单</button>
+                    <!--
                     <input type="hidden" name="step" value="receivale_status_migrate">
                     <button type="submit" class="btn btn-primary">数据迁移差缺补漏</button>
+                    -->
                 </div>
             </form>
         </div>
@@ -365,7 +369,9 @@
                             <td>
                                 <div class="container-number">
                                     <strong>{{ log.container_number }}</strong>
-                                    <br>                                  
+                                    <br>           
+                                    
+                                    <small class="text-muted">{{ log.invoicev2_count }}</small>
                                     <small class="text-muted">{{ log.old_invoice_id }}</small>
                                     <br>
                                     <small class="text-muted">{{ log.old_invoice_number }}</small>
@@ -525,11 +531,11 @@
                             <!-- 操作记录 -->
                             <td class="actions-column">
                                 <div class="actions-section">
-                                    {% for action in log.actions %}
+                                    <!--{% for action in log.actions %}-->
                                     <div class="action-item">
-                                        <span class="action-text">{{ action }}</span>
+                                        <span class="action-text">{{ log.actions }}</span>
                                     </div>
-                                    {% endfor %}
+                                    <!--{% endfor %}-->
                                 </div>
                             </td>
                         </tr>
