@@ -1964,7 +1964,7 @@ class ReceivableAccounting(View):
             & Q(offload_id__offload_at__isnull=False)
         )
 
-        if warehouse:
+        if warehouse and warehouse != 'None':
             criteria &= Q(retrieval_id__retrieval_destination_precise=warehouse)
         if customer:
             criteria &= Q(customer_name__zem_name=customer)
@@ -2747,7 +2747,8 @@ class ReceivableAccounting(View):
         order = Order.objects.select_related(
             "retrieval_id", "container_number", "warehouse"
         ).get(container_number__container_number=container_number)
-        if invoice_id:
+
+        if invoice_id and invoice_id != 'None':
             #找到要修改的那份账单
             invoice = Invoicev2.objects.get(id=invoice_id)
             invoice_status, created = InvoiceStatusv2.objects.get_or_create(
@@ -2940,7 +2941,7 @@ class ReceivableAccounting(View):
         ).get(container_number__container_number=container_number)
         
         # 获取或创建账单和状态
-        if invoice_id:
+        if invoice_id and invoice_id != 'None':
             #找到要修改的那份账单
             invoice = Invoicev2.objects.get(id=invoice_id)
             invoice_status, created = InvoiceStatusv2.objects.get_or_create(
@@ -3049,8 +3050,10 @@ class ReceivableAccounting(View):
         else:
             status_field = f"warehouse_{delivery_type}_status"
             current_status = getattr(invoice_status, status_field, 'unstarted')
+
         context.update({
             "warehouse": order.retrieval_id.retrieval_destination_area,
+            "warehouse_filter": request.GET.get("warehouse_filter"),
             "container_number": container_number,
             "groups": groups,
             "start_date": start_date,
@@ -3152,7 +3155,7 @@ class ReceivableAccounting(View):
             'retrieval_id'
         ).get(container_number__container_number=container_number)
          
-        if invoice_id and invoice_id != "None":
+        if invoice_id and invoice_id != "None": 
             #找到要修改的那份账单
             invoice = Invoicev2.objects.get(id=invoice_id)
             invoice_status, created = InvoiceStatusv2.objects.get_or_create(
@@ -5438,7 +5441,7 @@ class ReceivableAccounting(View):
         ).get(container_number__container_number=container_number)
 
         invoice_id = request.GET.get("invoice_id")
-        if invoice_id:
+        if invoice_id and invoice_id != 'None':
             #找到要修改的那份账单
             invoice = Invoicev2.objects.get(id=invoice_id)
             invoice_status, created = InvoiceStatusv2.objects.get_or_create(
