@@ -3720,10 +3720,12 @@ class ReceivableAccounting(View):
         combina_pallet_groups = []
         processed_po_ids = set()
         need_Additional_des = []
-        
+        poid_list = []
+
         for group in pallet_groups:
             po_id = group.get("PO_ID", "")
             destination_str = group.get("destination", "")
+            poid_list.append(po_id)
 
             #改前和改后的
             destination_origin, destination = self._process_destination(destination_str)
@@ -3791,14 +3793,21 @@ class ReceivableAccounting(View):
             else:
                 destination_ratios[dst] = 0.0
 
-        # 修正比例：保证总和 = 1.0000, 现在不按组合柜占比为1了，和其他仓点不好算
-        # ratio_sum = round(sum(destination_ratios.values()), 4)
-        # if ratio_sum != 1.0:
-        #     diff = round(1.0 - ratio_sum, 4)
+        # 判断下如果所有仓点都是组合柜区域内，那就要保证总和为1
+        unique_poids = set(poid_list)
+        prefixes = {po_id.split('_')[0] for po_id in unique_poids if '_' in po_id}
+        poid_list = list(unique_poids | prefixes)
+        missing_records = PackingList.objects.exclude(PO_ID__in=poid_list)
+        has_missing = missing_records.exists()
+        if has_missing:
+            #修正比例：保证总和 = 1.0000, 现在不按组合柜占比为1了，和其他仓点不好算
+            ratio_sum = round(sum(destination_ratios.values()), 4)
+            if ratio_sum != 1.0:
+                diff = round(1.0 - ratio_sum, 4)
 
-        #     # 最大 CBM 仓点承担误差
-        #     max_dst = max(combina_destinations_cbm, key=lambda k: combina_destinations_cbm[k])
-        #     destination_ratios[max_dst] = round(destination_ratios[max_dst] + diff, 4)
+                # 最大 CBM 仓点承担误差
+                max_dst = max(combina_destinations_cbm, key=lambda k: combina_destinations_cbm[k])
+                destination_ratios[max_dst] = round(destination_ratios[max_dst] + diff, 4)
         
         
         # 5. 计算组合柜总费用
