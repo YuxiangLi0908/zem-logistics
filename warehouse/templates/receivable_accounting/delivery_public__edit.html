@@ -1693,7 +1693,7 @@
             <div class="other-section">
                 <div class="section-header">
                     <h3 style="margin: 0;">
-                        <i class="fas fa-exchange-alt me-2"></i>私仓组PO
+                        <i class="fas fa-exchange-alt me-2"></i>所有PO
                         <span class="section-count" style="margin-left: 10px; font-size: 0.9rem; color: #666;">
                             共 {{ other_pallet_groups|length }} 条记录
                         </span>
@@ -1711,6 +1711,7 @@
                                 <th>板数</th>
                                 <th>PO_ID</th>
                                 <th>状态</th>
+                                <th>类型</th>
                                 <th>操作</th>
                             </tr>
                         </thead>
@@ -1735,12 +1736,38 @@
                                     </span>
                                     {% endif %}
                                 </td>
-                                <td class="cell-action">
+                                <td class="cell-po" style="{% if group.delivery_type == 'public' %}background-color: #e6f7ff; color: #0066cc;
+                                        {% elif group.delivery_type == 'other' %}background-color: #f6ffed; color: #52c41a;
+                                        {% else %}background-color: #fff2e8; color: #fa8c16;
+                                        {% endif %}">
+                                    {% if group.delivery_type == "public" %}
+                                        公仓
+                                    {% elif group.delivery_type == "other" %}
+                                        私仓
+                                    {% else %}
+                                        异常
+                                    {% endif %}
+                                </td>
+                                <td class="cell-action" style="{% if group.delivery_type == 'public' %}background-color: #e6f7ff; color: #0066cc;
+                                    {% elif group.delivery_type == 'other' %}background-color: #f6ffed; color: #52c41a;
+                                    {% else %}background-color: #fff2e8; color: #fa8c16;
+                                    {% endif %}">
                                     <!-- 转换类型按钮 -->
-                                    <button type="button" class="btn-convert"
-                                            onclick="convertToCurrentType('{{ group.PO_ID }}', '{{ group.item_id }}','{{ group.delivery_type }}')">
-                                        <i class="fas fa-sync-alt"></i>转类型
-                                    </button>
+                                    {% if group.delivery_type == "public" %}
+                                        <button type="button" class="btn-convert"
+                                                onclick="convertToCurrentType('{{ group.PO_ID }}', '{{ group.item_id }}','other')"
+                                                style="background-color: #bae7ff; color: #0050b3; border: 1px solid #69c0ff;">
+                                            <i class="fas fa-sync-alt"></i>转私仓
+                                        </button>
+                                    {% elif group.delivery_type == "other" %}
+                                        <button type="button" class="btn-convert"
+                                                onclick="convertToCurrentType('{{ group.PO_ID }}', '{{ group.item_id }}','public')"
+                                                style="background-color: #d9f7be; color: #389e0d; border: 1px solid #95de64;">
+                                            <i class="fas fa-sync-alt"></i>转公仓
+                                        </button>
+                                    {% else %}
+                                        联系技术人员
+                                    {% endif %}
                                 </td>
                             </tr>
                             {% endfor %}
@@ -1759,7 +1786,8 @@
     <input type="hidden" name="step" value="convert_type">
     <input type="hidden" name="container_number" value="{{ container_number }}">
     <input type="hidden" name="invoice_id" value="{{ invoice_id }}">
-    <input type="hidden" name="to_delivery_type" value="public">
+    <input type="hidden" name="template_delivery_type" value="public">
+    <input type="hidden" name="to_delivery_type" id="to-delivery-type">
     <input type="hidden" name="po_id" id="convert-po-id" value="">
     <input type="hidden" name="item_id" id="convert-item-id" value="">
 </form>
@@ -2122,9 +2150,10 @@
     }
 
     // ================ 转换类型 ================
-    function convertToCurrentType(poId, item_id, fromDeliveryType) {
+    function convertToCurrentType(poId, item_id, deliveryType) {
         $('#convert-po-id').val(poId);
         $('#convert-item-id').val(item_id);
+        $('#to-delivery-type').val(deliveryType);
         $('#convert-form').submit();
     }
 

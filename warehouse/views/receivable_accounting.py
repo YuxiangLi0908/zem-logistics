@@ -285,9 +285,6 @@ class ReceivableAccounting(View):
         elif step == "invoice_search":
             template, context = self.handle_invoice_search_get(request)
             return render(request, template, context)
-        elif step == "dismiss1":
-            template, context = self.handle_invoice_dismiss_save(request)
-            return render(request, template, context)
     
     def handle_invoice_search_get(
         self,
@@ -1448,6 +1445,7 @@ class ReceivableAccounting(View):
         context = {}
         container_number = request.POST.get("container_number")
         to_delivery_type = request.POST.get("to_delivery_type")
+        template_delivery_type = request.POST.get("template_delivery_type")
         item_id = request.POST.get("item_id")
         po_id = request.POST.get("po_id")
         qs = Pallet.objects.filter(
@@ -1475,7 +1473,7 @@ class ReceivableAccounting(View):
         # 构造新的 GET 查询参数
         get_params = QueryDict(mutable=True)
         get_params["container_number"] = container_number
-        get_params["delivery_type"] = to_delivery_type
+        get_params["delivery_type"] = template_delivery_type
         get_params["invoice_id"] = request.POST.get("invoice_id")
         
         request.GET = get_params
@@ -4223,8 +4221,6 @@ class ReceivableAccounting(View):
         other_query = Pallet.objects.filter(
             container_number__container_number=container_number
         ).exclude(
-            delivery_type=delivery_type          
-        ).exclude(
             PO_ID__isnull=True
         ).exclude(
             PO_ID=""
@@ -4253,14 +4249,15 @@ class ReceivableAccounting(View):
                 "destination",
                 "zipcode",
                 "delivery_method",
-                "location"
+                "location",
+                "delivery_type"
             ).annotate(
                 total_pallets=models.Count("pallet_id"),
                 total_cbm=models.Sum("cbm"),
                 total_weight_lbs=models.Sum("weight_lbs"),
                 pallet_ids=ArrayAgg("pallet_id"),
                 shipping_marks=StringAgg("shipping_mark", delimiter=", ", distinct=True),
-            ).order_by("PO_ID")
+            ).order_by("delivery_type")
         )
         if not pallet_groups:
             error_messages.append("未找到板子数据")
@@ -5897,54 +5894,6 @@ class ReceivableAccounting(View):
             }
         )
         return context
-    
-
-    def handle_invoice_dismiss_save(self, request: HttpRequest) -> tuple[Any, Any]:
-        container_number = request.POST.get("container_number")
-        status = request.POST.get("status")
-        start_date = request.POST.get("start_date")
-        end_date = request.POST.get("end_date")
-
-        reject_reason = request.POST.get("reject_reason")
-        print('reject_reason',reject_reason)
-        order = Order.objects.select_related("container_number").get(
-            container_number__container_number=container_number
-        )
-        # 更新状态
-        invoice_type = request.POST.get("invoice_type")
-        if invoice_type == "receivable":
-            invoice_status = InvoiceStatusv2.objects.get(
-                container_number=order.container_number, invoice_type="receivable"
-            )
-            if status == "preport":
-                invoice_status.preport_status = "rejected"
-                invoice_status.preport_reason = reject_reason
-            elif status == "warehouse":
-                delivery_type = request.POST.get("delivery_type")
-                if delivery_type == "public":
-                    invoice_status.warehouse_public_status = "rejected"
-                    invoice_status.warehouse_public_reason = reject_reason
-                elif delivery_type == "other":
-                    invoice_status.warehouse_other_status = "rejected"
-                    invoice_status.warehouse_self_reason = reject_reason
-            elif status == "delivery":
-                reject_type = request.POST.get("reject_type")
-                delivery_type = request.POST.get("delivery_type")
-                if reject_type == "public" or delivery_type == "public":
-                    invoice_status.delivery_public_status = "rejected"
-                    invoice_status.delivery_public_reason = reject_reason
-                    print('执行的是公仓派送驳回',invoice_status.delivery_public_reason)
-                else:
-                    invoice_status.delivery_other_status = "rejected"
-                    invoice_status.delivery_other_reason = reject_reason
-            else:
-                raise ValueError(f'驳回阶段参数异常{status}！')
-            invoice_status.save()
-            
-        contex = {
-            'success_messages':'驳回成功！'
-        }
-        return self.handle_confirm_entry_post(request,contex)
     
     def _delete_extra_fee_records(self, invoice, delete_records):
         """删除标记为删除的额外费用记录"""
