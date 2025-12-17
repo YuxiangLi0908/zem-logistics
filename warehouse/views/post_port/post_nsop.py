@@ -148,7 +148,6 @@ class PostNsop(View):
         if not await self._user_authenticate(request):
             return redirect("login")
         step = request.POST.get("step")
-        print('step',step)
         if step == "appointment_management_warehouse":
             template, context = await self.handle_appointment_management_post(request)
             return render(request, template, context)
@@ -2882,7 +2881,6 @@ class PostNsop(View):
             )
             .order_by("appointment_datetime")
         )
-        print('车',fleet)
         # 在获取fleet列表后，添加具体柜号、仓点等详情
         for fleet_obj in fleet:
             detailed_shipments = []
