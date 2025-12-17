@@ -242,6 +242,9 @@ class ReceivableAccounting(View):
         elif step == "save_all_combina":
             context = self.handle_save_all_combina_post(request)
             return render(request, self.template_delivery_entry, context)
+        elif step == "save_activation_fees":
+            context = self.handle_save_activation_fees(request)
+            return render(request, self.template_delivery_entry, context)
         elif step == "convert_type":
             template, context = self.handle_convert_type_post(request)
             return render(request, template, context) 
@@ -1480,6 +1483,66 @@ class ReceivableAccounting(View):
         context = {"success_messages":operation_messages}
         return self.handle_container_delivery_post(request,context)
     
+    def handle_save_activation_fees(self, request: HttpRequest):
+        """处理保存所有激活费操作"""
+        print('激活费保存',request.POST)
+        activation_fee_data_str = request.POST.get('activation_fee_data', '[]')
+        try:
+            activation_fee_items = json.loads(activation_fee_data_str)
+        except json.JSONDecodeError:
+            activation_fee_items = []
+
+        container_number = request.POST.get("container_number")
+        invoice_id = request.POST.get("invoice_id")
+        current_user = request.user
+        username = current_user.username 
+
+        try:
+            container = Container.objects.get(container_number=container_number)
+            invoice = Invoicev2.objects.get(id=invoice_id)
+        except Container.DoesNotExist:
+            context.update({"error_messages": f"柜号 {container_number} 不存在"})
+            return self.handle_delivery_entry_post(request, context)
+        except Invoicev2.DoesNotExist:
+            context.update({"error_messages": f"账单ID {invoice_id} 不存在"})
+            return self.handle_delivery_entry_post(request, context)
+        
+        item_category = "activation_fee"
+        items_data = []
+        for item_data in activation_fee_items:
+            item_data = {
+                "item_id": item_data.get("item_id", ""),
+                "container": container,  # container对象
+                "invoice": invoice,      # invoice对象
+                "po_id": item_data.get("po_id", ""),
+                "description": "PO激活费",  # 固定描述
+                "destination": item_data.get("destination", ""),
+                "delivery_category": "",  # 空字符串，因为是激活费
+                "rate": item_data.get("amount", 0),  # 激活费的rate等于amount
+                "qty": item_data.get("pallet", 0),  # 激活费没有板数，设为0
+                "surcharges": 0,  # 激活费没有附加费，设为0
+                "amount": item_data.get("amount", 0),
+                "note": item_data.get("note", ""),
+                "cbm": item_data.get("cbm", 0),
+                "cbm_ratio": '',  # 激活费固定为1
+                "weight": item_data.get("weight", 0),
+                "registered_user": username,  # 当前用户
+                "delivery_type": "public",  # 固定为公仓
+                "invoice_type": "receivable",  # 应收账单
+                "item_category": item_category,  # 专门分类
+            }
+            items_data.append(item_data)
+        
+        context = self.batch_save_delivery_item(container, invoice, items_data, item_category, username)
+        # 构造新的 GET 查询参数
+        get_params = QueryDict(mutable=True)
+        get_params["container_number"] = container_number
+        get_params["delivery_type"] = "public"
+        get_params["invoice_id"] = invoice_id
+
+        request.GET = get_params
+        return self.handle_delivery_entry_post(request)
+    
     def handle_save_all_combina_post(self, request: HttpRequest):
         """处理保存所有组合柜操作"""
         context = {}
@@ -1685,7 +1748,6 @@ class ReceivableAccounting(View):
                 item.amount = amount_float
                 item.description = description
                 item.warehouse_code = destination
-                item.description = "派送费"
                 item.region = region
                 item.cbm = cbm
                 item.weight = weight
@@ -3199,12 +3261,17 @@ class ReceivableAccounting(View):
         pallet_groups, other_pallet_groups, ctx = self._get_pallet_groups_by_po(container_number, delivery_type, invoice)
         if ctx.get('error_messages'):
             return template, ctx
+        #如果是公仓的，还有激活费，所以要把pallet_groups赋值出来再作为激活费的表格
+        activation_table = None
 
         # 查看是不是组合柜
         is_combina = False
         if delivery_type == "public":
+            activation_table = pallet_groups
             is_combina = self._determine_is_combina(order)
-            
+        
+        # 获取本次账单已录入的激活费项
+        activation_fee_groups = self._get_existing_activation_items(invoice, order.container_number)
         # 获取本次账单已录入的派送费项
         existing_items = self._get_existing_invoice_items(invoice, "delivery_" + delivery_type)
 
@@ -3295,6 +3362,8 @@ class ReceivableAccounting(View):
             },
             "combina_rules_text": rules_text,
             "warehouse_filter": request.GET.get("warehouse_filter"),
+            "activation_fee_groups": activation_fee_groups,
+            "activation_table": activation_table
         })
         
         if delivery_type == "public":
@@ -4324,6 +4393,36 @@ class ReceivableAccounting(View):
             context['error_messages'] = error_messages
         return pallet_groups, other_pallet_groups, context
     
+    def _get_existing_activation_items(
+        self,
+        invoice,
+        container
+    ) -> Dict[str, Any]:
+        activation_fee_items = InvoiceItemv2.objects.filter(
+            container_number=container,
+            invoice_number=invoice,
+            invoice_type="receivable",
+            delivery_type="public", 
+            item_category="activation_fee"
+        )
+        
+        # 转换格式用于前端显示
+        activation_fee_groups = []
+        for item in activation_fee_items:
+            activation_fee_groups.append({
+                'id': item.id,
+                'PO_ID': item.PO_ID,
+                'destination': item.destination,
+                'cbm': item.cbm or 0,
+                'weight': item.weight or 0,
+                'amount': item.amount or 0,
+                'pallet': item.qty or 0,
+                'note': item.note or '',
+                'is_existing': True,
+            })
+        return activation_fee_groups
+
+
     def _get_existing_invoice_items(
         self,
         invoice,
@@ -6083,7 +6182,12 @@ class ReceivableAccounting(View):
         invoice.receivable_total_amount = total_fee
         invoice.remain_offset = total_fee
         invoice.save()
-
+        status_obj = InvoiceStatusv2.objects.get(
+            invoice=invoice,
+            invoice_type='receivable'
+        )
+        status_obj.finance_status = "completed"
+        status_obj.save()
         ctx = {'success_messages': '保存成功！'}
         return self.handle_confirm_entry_post(request,ctx)
     
