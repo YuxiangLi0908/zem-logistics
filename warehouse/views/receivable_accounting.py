@@ -2644,7 +2644,83 @@ class ReceivableAccounting(View):
         """
         为每个order添加分组统计信息
         """
-        # 获取用户权限对应的delivery_type筛选条件
+        if not orders:
+            return []
+        container_numbers = [
+            o['container_number'].container_number
+            for o in orders
+            if o.get('container_number')
+        ]
+        # 2. 批量查询 PackingList（未出库）
+        packinglist_qs = (
+            PackingList.objects
+            .filter(
+                container_number__container_number__in=container_numbers,
+                container_number__order__offload_id__offload_at__isnull=True,
+                delivery_type=display_mix
+            )
+            .values('container_number__container_number', 'shipment_batch_number')
+            .distinct()
+        )
+
+        # 3. 批量查询 Pallet（已出库）
+        pallet_qs = (
+            Pallet.objects
+            .filter(
+                container_number__container_number__in=container_numbers,
+                container_number__order__offload_id__offload_at__isnull=False,
+                delivery_type=display_mix
+            )
+            .values('container_number__container_number', 'shipment_batch_number')
+            .distinct()
+        )
+
+        # 4. 构建 container -> 统计 map
+        stats_map = defaultdict(lambda: {
+            "total_groups": set(),
+            "shipped_groups": set(),
+            "unshipped_groups": set(),
+        })
+
+        for row in packinglist_qs:
+            c = row['container_number__container_number']
+            batch = row['shipment_batch_number']
+            stats_map[c]['total_groups'].add(batch)
+            stats_map[c]['unshipped_groups'].add(batch)
+
+        for row in pallet_qs:
+            c = row['container_number__container_number']
+            batch = row['shipment_batch_number']
+            stats_map[c]['total_groups'].add(batch)
+            stats_map[c]['shipped_groups'].add(batch)
+
+        # 5. 回填到 orders，保持原有字段结构
+        for order in orders:
+            c_obj = order.get('container_number')
+            if not c_obj:
+                order['total_shipment_groups'] = 0
+                order['shipped_shipment_groups'] = 0
+                order['unshipped_shipment_groups'] = 0
+                order['completion_ratio'] = 0
+                continue
+
+            c = c_obj.container_number
+            s = stats_map.get(c, {})
+
+            total = len(s.get('total_groups', []))
+            shipped = len(s.get('shipped_groups', []))
+            unshipped = len(s.get('unshipped_groups', []))
+
+            order['total_shipment_groups'] = total
+            order['shipped_shipment_groups'] = shipped
+            order['unshipped_shipment_groups'] = unshipped
+            order['completion_ratio'] = shipped / total if total > 0 else 0
+
+        # 6. 最后按 completion_ratio 降序排序（和原逻辑一致）
+        sorted_orders = sorted(orders, key=lambda x: x['completion_ratio'], reverse=True)
+        return sorted_orders
+
+        # # 获取用户权限对应的delivery_type筛选条件
         for order in orders:
             # 查找该order关联的packinglist和pallet
             packinglist_stats = self.get_shipment_group_stats(
@@ -4483,10 +4559,6 @@ class ReceivableAccounting(View):
         )
         context["success_messages"] = success_msg
             
-        # except Exception as e:
-        #     context["error_messages"] = f"操作失败: {str(e)}"
-        
-        # 重新加载页面
         return self.handle_warehouse_entry_post(request, context)
 
     def _calculate_invoice_total_amount(self, invoice:Invoicev2):
