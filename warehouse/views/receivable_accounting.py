@@ -1813,7 +1813,7 @@ class ReceivableAccounting(View):
             & Q(offload_id__offload_at__isnull=False)
         )
         
-        if warehouse:
+        if warehouse and warehouse != 'None':
             criteria &= Q(retrieval_id__retrieval_destination_precise=warehouse)
         if customer:
             criteria &= Q(customer_name__zem_name=customer)
@@ -2890,8 +2890,10 @@ class ReceivableAccounting(View):
             fee_type='COMBINA_STIPULATE'
         )
         rules_text = self._parse_combina_rules(COMBINA_STIPULATE.details, order.retrieval_id.retrieval_destination_area)
+    
         context.update({
             "warehouse": warehouse,
+            "warehouse_filter": request.GET.get("warehouse_filter"),
             "order_type": order_type,
             "container_type": container_type,
             "reject_reason": order.invoice_reject_reason,
@@ -4595,7 +4597,7 @@ class ReceivableAccounting(View):
                 )
 
             self._calculate_invoice_total_amount(invoice)
-        print('save_type',save_type)
+        
         # 更新港前账单状态
         invoice_status.preport_status = save_type
         if save_type == "rejected":

@@ -724,6 +724,7 @@
                             <input type="hidden" name="new_order_type" id="new_order_type" value="">
                             <input type="hidden" name="container_number" value="{{ container_number }}">
                             <input type="hidden" name="invoice_id" value="{{ invoice.id }}">
+                            <input type="hidden" name="warehouse_filter" value="{{ warehouse_filter }}">
                             <input type="hidden" name="start_date" value="{{ start_date }}">
                             <input type="hidden" name="end_date" value="{{ end_date }}">
                             <!-- 是组合柜类型 -->
@@ -885,6 +886,7 @@
             <input type="hidden" name="invoice_id" value="{{ invoice.id }}">
             <input type="hidden" name="start_date" value="{{ start_date }}">
             <input type="hidden" name="end_date" value="{{ end_date }}">
+            <input type="hidden" name="warehouse_filter" value="{{ warehouse_filter }}">
 
             <!-- 操作按钮 -->
             {% if not receivable_is_locked %}
