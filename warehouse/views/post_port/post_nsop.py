@@ -148,7 +148,6 @@ class PostNsop(View):
         if not await self._user_authenticate(request):
             return redirect("login")
         step = request.POST.get("step")
-        print('step',step)
         if step == "appointment_management_warehouse":
             template, context = await self.handle_appointment_management_post(request)
             return render(request, template, context)
@@ -2337,6 +2336,10 @@ class PostNsop(View):
         )
         if four_major_whs == "four_major_whs":
             fl_base_q &= models.Q(shipment__destination__in=FOUR_MAJOR_WAREHOUSES)
+        
+        #先查一下有没有没类型的车次，补上类型    
+        await self._update_fleets_type(fl_base_q,target_date)
+
         fleet = await sync_to_async(list)(
             Fleet.objects.filter(fl_base_q).filter(
                 Q(appointment_datetime__gt=target_date) | Q(appointment_datetime__isnull=True)
@@ -2426,6 +2429,37 @@ class PostNsop(View):
         }
         return context
 
+    async def _update_fleets_type(self, fl_base_q, target_date):
+        fleets_without_type = await sync_to_async(list)(
+            Fleet.objects.filter(fl_base_q).filter(
+                Q(appointment_datetime__gt=target_date) | Q(appointment_datetime__isnull=True)
+            ).filter(
+                Q(fleet_type__isnull=True) | Q(fleet_type='')  # 直接筛选出没有类型的车队
+            )
+        )
+        
+        for fleet in fleets_without_type:
+            # 获取关联的shipment
+            shipments_list = []
+            async for shipment in Shipment.objects.filter(fleet_number=fleet):
+                shipments_list.append(shipment)
+            
+            if not shipments_list:
+                continue
+            
+            # 获取所有shipment_type并去重
+            shipment_types = set()
+            for shipment in shipments_list:
+                if shipment.shipment_type:
+                    shipment_types.add(shipment.shipment_type)
+            
+            if not shipment_types:
+                continue
+            
+            fleet_type = list(shipment_types)[0]
+            fleet.fleet_type = fleet_type
+            await fleet.asave()
+    
     async def _fl_delivery_get(
         self, warehouse:str, four_major_whs: str | None = None
     ) -> dict[str, Any]:
@@ -2847,7 +2881,6 @@ class PostNsop(View):
             )
             .order_by("appointment_datetime")
         )
-        print('车',fleet)
         # 在获取fleet列表后，添加具体柜号、仓点等详情
         for fleet_obj in fleet:
             detailed_shipments = []
