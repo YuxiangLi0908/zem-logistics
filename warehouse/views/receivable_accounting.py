@@ -1093,7 +1093,7 @@ class ReceivableAccounting(View):
         order = Order.objects.select_related("retrieval_id", "container_number").get(
             container_number__container_number=container_number
         )
-        ctx = Accounting._parse_invoice_excel_data(order, invoice)
+        ctx = self._parse_invoice_excel_data(order, invoice)
         workbook, invoice_data = Accounting._generate_invoice_excel(ctx)
         invoice.invoice_date = invoice_data["invoice_date"]
         invoice.invoice_link = invoice_data["invoice_link"]
@@ -4413,7 +4413,7 @@ class ReceivableAccounting(View):
             activation_fee_groups.append({
                 'id': item.id,
                 'PO_ID': item.PO_ID,
-                'destination': item.destination,
+                'destination': item.warehouse_code,
                 'cbm': item.cbm or 0,
                 'weight': item.weight or 0,
                 'amount': item.amount or 0,
