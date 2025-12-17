@@ -1003,6 +1003,7 @@
                                 {% csrf_token %}
                                 <input type="hidden" name="step" value="save_all_items" id="step-input">
                                 <input type="hidden" name="container_number" value="{{ container_number }}">
+                                <input type="hidden" name="warehouse_filter" value="{{ warehouse_filter }}">
                                 <input type="hidden" name="delivery_type" value="other">
                                 <input type="hidden" name="invoice_id" value="{{ invoice_id }}">
                                 
@@ -1153,6 +1154,7 @@
             <form id="release-form" method="post">
                 {% csrf_token %}
                 <input type="hidden" name="step" value="release_hold">
+                <input type="hidden" name="warehouse_filter" value="{{ warehouse_filter }}">
                 <input type="hidden" id="release-container-number" name="container_number" value="{{ container_number }}">
                 <input type="hidden" id="release-po-id" name="po_id" value="">
                 <input type="hidden" name="invoice_id" value="{{ invoice_id }}">
@@ -1199,6 +1201,7 @@
 <form method="post" id="single-row-form" style="display: none;">
     {% csrf_token %}
     <input type="hidden" name="step" value="save_single">
+    <input type="hidden" name="warehouse_filter" value="{{ warehouse_filter }}">
     <input type="hidden" name="container_number" value="{{ container_number }}">
     <input type="hidden" name="invoice_id" value="{{ invoice_id }}">
     <input type="hidden" name="row_index" id="single-row-index" value="">
@@ -1220,6 +1223,7 @@
 <form method="post" id="convert-form" style="display: none;">
     {% csrf_token %}
     <input type="hidden" name="step" value="convert_type">
+    <input type="hidden" name="warehouse_filter" value="{{ warehouse_filter }}">
     <input type="hidden" name="container_number" value="{{ container_number }}">
     <input type="hidden" name="invoice_id" value="{{ invoice_id }}">
     <input type="hidden" name="template_delivery_type" value="other">

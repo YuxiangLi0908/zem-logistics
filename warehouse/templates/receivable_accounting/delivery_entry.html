@@ -519,7 +519,7 @@
                                         <td class="td" data-column="customer">{{ item.order.customer_name.zem_name }}</td>
                                         <td class="td" data-column="container">
                                             {% if item.has_invoice %}
-                                                <a href="/receivable_accounting/?step=container_delivery&container_number={{ item.order.container_number.container_number }}&invoice_id={{ item.invoice_id }}&delivery_type=public&start_date={{ start_date }}&end_date={{ end_date }}" class="container-link">
+                                                <a href="/receivable_accounting/?step=container_delivery&container_number={{ item.order.container_number.container_number }}&invoice_id={{ item.invoice_id }}&delivery_type=public&start_date={{ start_date }}&end_date={{ end_date }}&warehouse_filter={{ warehouse_filter }}" class="container-link">
                                                     {{ item.order.container_number.container_number }}
                                                     {% if item.is_hold %}
                                                         <span class="hold-badge">暂扣</span>
@@ -529,7 +529,7 @@
                                                     <span class="invoice-date">补开: {{ item.invoice_created_at|date:"m/d" }} {{ item.invoice_created_at|time:"H:i" }}</span>
                                                 {% endif %}
                                             {% else %}
-                                                <a href="/receivable_accounting/?step=container_delivery&container_number={{ item.order.container_number.container_number }}&delivery_type=public&start_date={{ start_date }}&end_date={{ end_date }}" class="container-link">
+                                                <a href="/receivable_accounting/?step=container_delivery&container_number={{ item.order.container_number.container_number }}&delivery_type=public&start_date={{ start_date }}&end_date={{ end_date }}&warehouse_filter={{ warehouse_filter }}" class="container-link">
                                                     {{ item.order.container_number.container_number }}
                                                     {% if item.is_hold %}
                                                         <span class="hold-badge">暂扣</span>
@@ -633,7 +633,7 @@
                                         {% if item.public_status == 'rejected' %}class="status-rejected-row"{% endif %}>
                                         <td class="td" data-column="customer">{{ item.order.customer_name.zem_name }}</td>
                                         <td class="td" data-column="container">
-                                            <a href="/receivable_accounting/?step=container_delivery&container_number={{ item.order.container_number.container_number }}&invoice_id={{ item.invoice_id }}&delivery_type=public&start_date={{ start_date }}&end_date={{ end_date }}" class="container-link">
+                                            <a href="/receivable_accounting/?step=container_delivery&container_number={{ item.order.container_number.container_number }}&invoice_id={{ item.invoice_id }}&delivery_type=public&start_date={{ start_date }}&end_date={{ end_date }}&warehouse_filter={{ warehouse_filter }}" class="container-link">
                                                 {{ item.order.container_number.container_number }}
                                                 {% if item.is_hold %}
                                                     <span class="hold-badge">暂扣</span>
@@ -753,7 +753,7 @@
                                         data-shipped="{% if item.shipment_stats %}{{ item.shipment_stats.shipped_count|default:0 }}{% else %}0{% endif %}">
                                         <td class="td" data-column="customer">{{ item.order.customer_name.zem_name }}</td>
                                         <td class="td" data-column="container">
-                                            <a href="/receivable_accounting/?step=container_delivery&container_number={{ item.order.container_number.container_number }}&invoice_id={{ item.invoice_id }}&delivery_type=other&start_date={{ start_date }}&end_date={{ end_date }}" class="container-link">
+                                            <a href="/receivable_accounting/?step=container_delivery&container_number={{ item.order.container_number.container_number }}&invoice_id={{ item.invoice_id }}&delivery_type=other&start_date={{ start_date }}&end_date={{ end_date }}&warehouse_filter={{ warehouse_filter }}" class="container-link">
                                                 {{ item.order.container_number.container_number }}
                                                 {% if item.is_hold %}
                                                     <span class="hold-badge">暂扣</span>
@@ -853,7 +853,7 @@
                                         {% if item.public_status == 'rejected' %}class="status-rejected-row"{% endif %}>
                                         <td class="td" data-column="customer">{{ item.order.customer_name.zem_name }}</td>
                                         <td class="td" data-column="container">
-                                            <a href="/receivable_accounting/?step=container_delivery&container_number={{ item.order.container_number.container_number }}&invoice_id={{ item.invoice_id }}&delivery_type=other&start_date={{ start_date }}&end_date={{ end_date }}" class="container-link">
+                                            <a href="/receivable_accounting/?step=container_delivery&container_number={{ item.order.container_number.container_number }}&invoice_id={{ item.invoice_id }}&delivery_type=other&start_date={{ start_date }}&end_date={{ end_date }}&warehouse_filter={{ warehouse_filter }}" class="container-link">
                                                 {{ item.order.container_number.container_number }}
                                                 {% if item.is_hold %}
                                                     <span class="hold-badge">暂扣</span>

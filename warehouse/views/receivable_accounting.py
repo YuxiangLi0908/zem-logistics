@@ -2466,7 +2466,7 @@ class ReceivableAccounting(View):
             & Q(offload_id__offload_at__isnull=False)
         )
 
-        if warehouse:
+        if warehouse and warehouse != 'None':
             criteria &= Q(retrieval_id__retrieval_destination_precise=warehouse)
         if customer:
             criteria &= Q(customer_name__zem_name=customer)
@@ -3288,6 +3288,7 @@ class ReceivableAccounting(View):
                 "filename": quotation.filename,  # 添加文件名
             },
             "combina_rules_text": rules_text,
+            "warehouse_filter": request.GET.get("warehouse_filter"),
         })
         
         if delivery_type == "public":

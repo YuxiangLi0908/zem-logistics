@@ -1299,7 +1299,8 @@
                             <input type="hidden" name="step" value="modify_order_type">
                             <input type="hidden" name="new_order_type" id="new_order_type" value="">
                             <input type="hidden" name="container_number" value="{{ container_number }}">
-                            <input type="hidden" name="invoice_id" value="{{ invoice.id }}">
+                            <input type="hidden" name="invoice_id" value="{{ invoice.id }}">                        
+                            <input type="hidden" name="warehouse_filter" value="{{ warehouse_filter }}">
                             <input type="hidden" name="page" value="delivery_edit">
                             <!-- 是组合柜类型 -->
                             <strong>组合柜状态:</strong>
@@ -1349,6 +1350,7 @@
             <input type="hidden" name="invoice_id" value="{{ invoice_id }}">
             <input type="hidden" name="delivery_type" value="public">
             <input type="hidden" name="step" value="save_all">
+            <input type="hidden" name="warehouse_filter" value="{{ warehouse_filter }}">
             
             <!-- ================ 组合柜计费区域 ================ -->
             {% if is_combina and combina_groups %}
@@ -1785,6 +1787,7 @@
     {% csrf_token %}
     <input type="hidden" name="step" value="convert_type">
     <input type="hidden" name="container_number" value="{{ container_number }}">
+    <input type="hidden" name="warehouse_filter" value="{{ warehouse_filter }}">
     <input type="hidden" name="invoice_id" value="{{ invoice_id }}">
     <input type="hidden" name="template_delivery_type" value="public">
     <input type="hidden" name="to_delivery_type" id="to-delivery-type">
@@ -1796,6 +1799,7 @@
 <form method="post" id="single-row-form" style="display: none;">
     {% csrf_token %}
     <input type="hidden" name="step" value="save_single">
+    <input type="hidden" name="warehouse_filter" value="{{ warehouse_filter }}">
     <input type="hidden" name="container_number" value="{{ container_number }}">
     <input type="hidden" name="invoice_id" value="{{ invoice_id }}">
     <input type="hidden" name="delivery_type" value="public">
@@ -1817,6 +1821,7 @@
 <form method="post" id="all-combina-form" style="display: none;">
     {% csrf_token %}
     <input type="hidden" name="step" value="save_all_combina">
+    <input type="hidden" name="warehouse_filter" value="{{ warehouse_filter }}">
     <input type="hidden" name="container_number" value="{{ container_number }}">
     <input type="hidden" name="invoice_id" value="{{ invoice_id }}">
     <input type="hidden" name="delivery_type" value="public">
