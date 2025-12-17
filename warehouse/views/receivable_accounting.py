@@ -3155,7 +3155,7 @@ class ReceivableAccounting(View):
             'retrieval_id'
         ).get(container_number__container_number=container_number)
          
-        if invoice_id and invoice_id != "None":
+        if invoice_id and invoice_id != "None": 
             #找到要修改的那份账单
             invoice = Invoicev2.objects.get(id=invoice_id)
             invoice_status, created = InvoiceStatusv2.objects.get_or_create(
