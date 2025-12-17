@@ -1094,7 +1094,8 @@ class ReceivableAccounting(View):
             container_number__container_number=container_number
         )
         ctx = self._parse_invoice_excel_data(order, invoice)
-        workbook, invoice_data = Accounting._generate_invoice_excel(ctx)
+        ac = Accounting()
+        workbook, invoice_data = ac._generate_invoice_excel(ctx)
         invoice.invoice_date = invoice_data["invoice_date"]
         invoice.invoice_link = invoice_data["invoice_link"]
         invoice.save()
