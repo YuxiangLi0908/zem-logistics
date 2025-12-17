@@ -125,6 +125,7 @@ class ShippingManagement(View):
         if not await self._user_authenticate(request):
             return redirect("login")
         step = request.GET.get("step", None)
+        print('GET step',step)
         if step == "shipment_info":
             template, context = await self.handle_shipment_info_get(request)
             return render(request, template, context)
@@ -151,6 +152,7 @@ class ShippingManagement(View):
         if not await self._user_authenticate(request):
             return redirect("login")
         step = request.POST.get("step")
+        print('step',step)
         if step == "warehouse":
             template, context = await self.handle_warehouse_post(request)
             return render(request, template, context)

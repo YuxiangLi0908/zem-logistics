@@ -142,6 +142,7 @@ class FleetManagement(View):
         if not await self._user_authenticate(request):
             return redirect("login")
         step = request.GET.get("step")
+        print('GET step',step)
         if step == "outbound":
             context = {"warehouse_form": ZemWarehouseForm()}
             return render(request, self.template_outbound, context)
@@ -171,6 +172,7 @@ class FleetManagement(View):
         if not await self._user_authenticate(request):
             return redirect("login")
         step = request.POST.get("step")
+        print('step',step)
         if step == "fleet_warehouse_search":
             template, context = await self.handle_fleet_warehouse_search_post(request)
             return render(request, template, context)
@@ -349,6 +351,30 @@ class FleetManagement(View):
         )
         return self.template_fleet_schedule_info, context
 
+    async def _update_fleet_type(self, fleet:Fleet):
+        shipments_list = []
+        async for shipment in Shipment.objects.filter(fleet_number=fleet):
+            shipments_list.append(shipment)
+        
+        if not shipments_list:
+            context = {'error_messages':f'{fleet.fleet_number}没有绑定的预约批次，请核实！'}
+            return context
+        
+        # 获取所有shipment_type并去重
+        shipment_types = set()
+        for shipment in shipments_list:
+            if shipment.shipment_type:
+                shipment_types.add(shipment.shipment_type)
+        
+        if not shipment_types:
+            context = {'error_messages':f'{fleet.fleet_number}绑定的预约批次没有预约类型，请核实'}
+            return context
+        
+        fleet_type = list(shipment_types)[0]
+        fleet.fleet_type = fleet_type
+        await fleet.asave()
+        return None
+                    
     async def handle_fleet_depature_get(
         self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
@@ -357,6 +383,16 @@ class FleetManagement(View):
         selected_fleet = await sync_to_async(Fleet.objects.get)(
             fleet_number=selected_fleet_number
         )
+        error_messages = None
+        if not selected_fleet.fleet_type:
+            #重新赋值类型
+            ctx = await self._update_fleet_type(selected_fleet)
+            if ctx and ctx.get('error_messages'):
+                error_messages = ctx.get('error_messages')
+            selected_fleet = await sync_to_async(Fleet.objects.get)(
+                fleet_number=selected_fleet_number
+            )
+            
         # 因为LTL和客户自提，要求的拣货单字段不一样，所以这个是LTL和客户自提的拣货单
         arm_pickup = await sync_to_async(list)(
             Pallet.objects.select_related(
@@ -575,6 +611,8 @@ class FleetManagement(View):
                 "delivery_options": DELIVERY_METHOD_OPTIONS,
             }
         )
+        if error_messages:
+            context.update({'error_messages':error_messages})
         return self.template_outbound_departure, context
 
     async def handle_delivery_and_pod_get(
