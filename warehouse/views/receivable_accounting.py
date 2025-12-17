@@ -1964,7 +1964,7 @@ class ReceivableAccounting(View):
             & Q(offload_id__offload_at__isnull=False)
         )
 
-        if warehouse:
+        if warehouse and warehouse != 'None':
             criteria &= Q(retrieval_id__retrieval_destination_precise=warehouse)
         if customer:
             criteria &= Q(customer_name__zem_name=customer)
@@ -3050,8 +3050,10 @@ class ReceivableAccounting(View):
         else:
             status_field = f"warehouse_{delivery_type}_status"
             current_status = getattr(invoice_status, status_field, 'unstarted')
+
         context.update({
             "warehouse": order.retrieval_id.retrieval_destination_area,
+            "warehouse_filter": request.GET.get("warehouse_filter"),
             "container_number": container_number,
             "groups": groups,
             "start_date": start_date,
