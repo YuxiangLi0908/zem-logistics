@@ -1280,7 +1280,7 @@ $(document).ready(function() {
             if ($saveBtn.length) $saveBtn.prop('disabled', false);
         } else if (deliveryType === 'selfpickup') {
             $rateInput.prop('disabled', false);
-            $amountInput.prop('readonly', true).prop('disabled', false);
+            $amountInput.prop('readonly', false).prop('disabled', false);
             $palletsInput.prop('disabled', false);
             $surchargeInput.prop('disabled', false);
             $noteInput.prop('disabled', false);
@@ -1324,7 +1324,7 @@ $(document).ready(function() {
             amount = (rate * pallets) + surcharges;
         } else if (deliveryType === 'selfdelivery') {
             // 自发派送允许用户输入金额主体，但我们要确保附加费也累加进去
-            const userAmount = parseFloat($amountInput.val()) || 0;
+            const userAmount = parseFloat($amountInput.val());
             amount = userAmount + surcharges;
         } else {
             // 未选择类型时不自动计算（保持为0）
