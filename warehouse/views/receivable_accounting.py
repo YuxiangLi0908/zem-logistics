@@ -1088,7 +1088,7 @@ class ReceivableAccounting(View):
             invoice_type='receivable'
         )
         status_obj.finance_status = "completed"
-        
+        status_obj.save()
         #生成excel账单
         order = Order.objects.select_related("retrieval_id", "container_number").get(
             container_number__container_number=container_number
