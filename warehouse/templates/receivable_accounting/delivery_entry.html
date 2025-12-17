@@ -450,7 +450,11 @@
                 <!-- 公仓待录入 -->
                 <div class="container-section">
                     <div class="section-header">
-                        <h3>公仓待录入<span class="section-count">{{ wh_public_to_record_orders|length }}</span></h3>
+                        <h3>公仓待录入
+                            <span style="display: inline-block; color: #495057; background-color: #f8f9fa; padding: 1px 8px; border-radius: 10px; font-size: 0.85em; margin-left: 8px; border: 1px solid #dee2e6;">
+                                {{ wh_public_to_record_orders|length }}
+                            </span>
+                        </h3>
                         
                         <form method="post" action="" class="order-type-form">
                             {% csrf_token %}
@@ -553,13 +557,9 @@
                                             {% endif %}
                                         </td>
                                         <td class="td" data-column="shipped-count" style="text-align: center;">
-                                            {% if item.shipment_stats %}
-                                                <span class="shipment-count completed">
-                                                    {{ item.shipment_stats.shipped_count|default:0 }}
-                                                </span>
-                                            {% else %}
-                                                <span class="shipment-count completed">0</span>
-                                            {% endif %}
+                                            <span class="shipment-count {% if item.shipped_shipment_groups == item.total_shipment_groups %}completed{% else %}in-progress{% endif %}">
+                                                {{ item.shipped_shipment_groups }} / {{ item.total_shipment_groups }}
+                                            </span>
                                         </td>
                                     </tr>
                                     {% endfor %}
@@ -579,7 +579,9 @@
                 <div class="container-section">
                     <div class="section-header">
                         <h3>公仓已录入</h3>
-                        <span class="section-count">{{ wh_public_recorded_orders|length }}</span>
+                        <span style="display: inline-block; color: #495057; background-color: #f8f9fa; padding: 1px 8px; border-radius: 10px; font-size: 0.85em; margin-left: 8px; border: 1px solid #dee2e6;">
+                            {{ wh_public_recorded_orders|length }}
+                        </span>
                     </div>
                     <div class="table-container">
                         <table class="table" id="recorded-table">
@@ -688,7 +690,12 @@
                 <!-- 私仓待录入 -->
                 <div class="container-section">
                     <div class="section-header">
-                        <h3>私仓待录入<span class="section-count">{{ wh_self_to_record_orders|length }}</span></h3>
+                        <h3>
+                            私仓待录入
+                            <span style="display: inline-block; color: #495057; background-color: #f8f9fa; padding: 1px 8px; border-radius: 10px; font-size: 0.85em; margin-left: 8px; border: 1px solid #dee2e6;">
+                                {{ wh_public_recorded_orders|length }}
+                            </span>
+                        </h3>
                         
                         <form method="post" action="" class="order-type-form">
                             {% csrf_token %}
@@ -777,7 +784,7 @@
                                             </span>
                                         </td>
                                         <td class="td" data-column="shipped-count" style="text-align: center;">
-                                            <span class="shipment-count completed">
+                                            <span class="shipment-count {% if item.shipped_shipment_groups == item.total_shipment_groups %}completed{% else %}in-progress{% endif %}">
                                                 {{ item.shipped_shipment_groups }} / {{ item.total_shipment_groups }}
                                             </span>
                                         </td>
@@ -799,7 +806,9 @@
                 <div class="container-section">
                     <div class="section-header">
                         <h3>私仓已录入订单</h3>
-                        <span class="section-count">{{ wh_self_recorded_orders|length }}</span>
+                        <span style="display: inline-block; color: #495057; background-color: #f8f9fa; padding: 1px 8px; border-radius: 10px; font-size: 0.85em; margin-left: 8px; border: 1px solid #dee2e6;">
+                            {{ wh_public_recorded_orders|length }}
+                        </span>
                     </div>
                     <div class="table-container">
                         <table class="table" id="completed-table">
