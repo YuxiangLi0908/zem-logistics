@@ -1963,7 +1963,10 @@ class ReceivableAccounting(View):
         )
 
         if warehouse and warehouse != 'None':
-            criteria &= Q(retrieval_id__retrieval_destination_precise=warehouse)
+            if "LA" in warehouse:
+                criteria &= Q(retrieval_id__retrieval_destination_precise__contains='LA')
+            else:
+                criteria &= Q(retrieval_id__retrieval_destination_precise=warehouse)
         if customer:
             criteria &= Q(customer_name__zem_name=customer)
 
@@ -2467,7 +2470,10 @@ class ReceivableAccounting(View):
         )
 
         if warehouse and warehouse != 'None':
-            criteria &= Q(retrieval_id__retrieval_destination_precise=warehouse)
+            if "LA" in warehouse:
+                criteria &= Q(retrieval_id__retrieval_destination_precise__contains='LA')
+            else:
+                criteria &= Q(retrieval_id__retrieval_destination_precise=warehouse)
         if customer:
             criteria &= Q(customer_name__zem_name=customer)
     

@@ -1004,7 +1004,7 @@
                                             </span>
                                         </td>
                                         <td class="td">
-                                            <span class="shipment-count completed">
+                                            <span class="shipment-count {% if item.shipped_shipment_groups == item.total_shipment_groups %}completed{% else %}in-progress{% endif %}">
                                                 {{ item.shipped_shipment_groups }} / {{ item.total_shipment_groups }}
                                             </span>
                                         </td>
