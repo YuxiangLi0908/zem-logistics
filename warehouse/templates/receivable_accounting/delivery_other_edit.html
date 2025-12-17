@@ -1349,14 +1349,16 @@ $(document).ready(function() {
     });
 
     // 事件：任意相关输入变化 -> 重新计算金额（注意使用统一的 class .input-surcharge）
-    $(document).on('input', '.input-rate, .input-pallets, .input-surcharge, .amount-input', function() {
+    $(document).on('input', '.input-rate, .input-pallets, .input-surcharge', function() {
         const rowIndex = $(this).closest('tr').data('row');
         if (typeof rowIndex === 'undefined') return;
         // 只要与金额相关的输入变动，都触发重新计算
         calculateRowAmount(rowIndex);
         calculateTotalAmount();
     });
-
+    $(document).on('input', '.amount-input', function () {
+        calculateTotalAmount();
+    });
     // 初始化每行状态并计算金额
     $('tbody tr[data-row]').each(function() {
         const rowIndex = $(this).data('row');
