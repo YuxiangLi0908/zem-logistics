@@ -254,7 +254,7 @@ class ReceivableAccounting(View):
         elif step == "warehouse_save":
             context = self.handle_invoice_warehouse_save(request)
             return render(request, self.template_warehouse_entry, context)
-        elif step == "reject_category":
+        elif step == "dismiss":
             template, context = self.handle_reject_category(request)
             return render(request, template, context)
         elif step == "confirm_save_all":
@@ -285,7 +285,7 @@ class ReceivableAccounting(View):
         elif step == "invoice_search":
             template, context = self.handle_invoice_search_get(request)
             return render(request, template, context)
-        elif step == "dismiss":
+        elif step == "dismiss1":
             template, context = self.handle_invoice_dismiss_save(request)
             return render(request, template, context)
     
@@ -3786,29 +3786,47 @@ class ReceivableAccounting(View):
                 combina_destinations_cbm[destination] = cbm
         
         # 4. 计算占比（保留四位小数）
-        destination_ratios = {}
-        for dst, cbm in combina_destinations_cbm.items():
+        group_cbm_ratios = {}
+
+        for g in combina_pallet_groups:
+            po_id = g.get("PO_ID")
+            destination = g.get("destination", "")
+            key = (po_id, destination)
+
+            cbm = round(g.get("total_cbm", 0), 2)
             if total_container_cbm > 0:
-                destination_ratios[dst] = round(cbm / total_container_cbm, 4)
+                group_cbm_ratios[key] = round(cbm / total_container_cbm, 4)
             else:
-                destination_ratios[dst] = 0.0
+                group_cbm_ratios[key] = 0.0
 
         # 判断下如果所有仓点都是组合柜区域内，那就要保证总和为1
         unique_poids = set(poid_list)
         prefixes = {po_id.split('_')[0] for po_id in unique_poids if '_' in po_id}
         poid_list = list(unique_poids | prefixes)
-        missing_records = PackingList.objects.exclude(PO_ID__in=poid_list)
+
+        missing_records = PackingList.objects.filter(container_number=container).exclude(PO_ID__in=poid_list)
+
         has_missing = missing_records.exists()
-        if has_missing:
+
+        if not has_missing:
             #修正比例：保证总和 = 1.0000, 现在不按组合柜占比为1了，和其他仓点不好算
-            ratio_sum = round(sum(destination_ratios.values()), 4)
+            ratio_sum = round(sum(group_cbm_ratios.values()), 4)
             if ratio_sum != 1.0:
                 diff = round(1.0 - ratio_sum, 4)
 
                 # 最大 CBM 仓点承担误差
-                max_dst = max(combina_destinations_cbm, key=lambda k: combina_destinations_cbm[k])
-                destination_ratios[max_dst] = round(destination_ratios[max_dst] + diff, 4)
-        
+                max_key = max(
+                    group_cbm_ratios,
+                    key=lambda k: next(
+                        (
+                            round(g.get("total_cbm", 0), 2)
+                            for g in combina_pallet_groups
+                            if (g.get("PO_ID"), g.get("destination")) == k
+                        ),
+                        0
+                    )
+                )
+                group_cbm_ratios[max_key] = round(group_cbm_ratios[max_key] + diff, 4)
         
         # 5. 计算组合柜总费用
         combina_regions_data = {}  # 记录每个区域的费用数据
@@ -3867,9 +3885,11 @@ class ReceivableAccounting(View):
                 
                 po_id = group.get("PO_ID")
                 cbm = round(group.get("total_cbm", 0), 2)
-                cbm_ratio = destination_ratios[destination]
                 amount = round(combina_base_fee * cbm_ratio, 2)
-                
+
+                key = (po_id, destination)
+                cbm_ratio = group_cbm_ratios.get(key, 0.0)
+
                 if destination in need_Additional_des:
                     description = "由于组合转非组合，需要补交相应的组合费用"
                     amount = 0 - amount
@@ -4496,71 +4516,56 @@ class ReceivableAccounting(View):
         current_user = request.user 
         username = current_user.username 
  
-        try:
-            invoice = Invoicev2.objects.get(id=invoice_id)
-            invoice_status = InvoiceStatusv2.objects.get(invoice=invoice, invoice_type="receivable")
-            
-            container_number = request.POST.get("container_number")
-            order = Order.objects.select_related(
-                "customer_name", "container_number"
-            ).get(container_number__container_number=container_number)
-            #费用详情
-            fee_ids = request.POST.getlist("fee_id")
-            descriptions = request.POST.getlist("fee_description")
-            rates = request.POST.getlist("fee_rate")
-            qtys = request.POST.getlist("fee_qty")
-            surcharges = request.POST.getlist("fee_surcharges")
-            notes = request.POST.getlist("fee_note")
+        invoice = Invoicev2.objects.get(id=invoice_id)
+        invoice_status = InvoiceStatusv2.objects.get(invoice=invoice, invoice_type="receivable")
+        
+        container_number = request.POST.get("container_number")
+        order = Order.objects.select_related(
+            "customer_name", "container_number"
+        ).get(container_number__container_number=container_number)
+        #费用详情
+        fee_ids = request.POST.getlist("fee_id")
+        descriptions = request.POST.getlist("fee_description")
+        rates = request.POST.getlist("fee_rate")
+        qtys = request.POST.getlist("fee_qty")
+        surcharges = request.POST.getlist("fee_surcharges")
+        notes = request.POST.getlist("fee_note")
 
-            total_amount = Decimal("0.00")
+        total_amount = Decimal("0.00")
 
-            #找下港前账单之前存的费用记录，和现在所有费用比较，差集就是前端删除的记录
-            existing_items = InvoiceItemv2.objects.filter(invoice_number=invoice, item_category="preport")
-            existing_ids = set(item.id for item in existing_items if item.id is not None)
-            submitted_ids = set(int(fid) for fid in fee_ids if fid)  # 只包含已有的id
-            to_delete_ids = existing_ids - submitted_ids
-            if to_delete_ids:
-                InvoiceItemv2.objects.filter(id__in=to_delete_ids).delete()
+        #找下港前账单之前存的费用记录，和现在所有费用比较，差集就是前端删除的记录
+        existing_items = InvoiceItemv2.objects.filter(invoice_number=invoice, item_category="preport")
+        existing_ids = set(item.id for item in existing_items if item.id is not None)
+        submitted_ids = set(int(fid) for fid in fee_ids if fid)  # 只包含已有的id
+        to_delete_ids = existing_ids - submitted_ids
+        if to_delete_ids:
+            InvoiceItemv2.objects.filter(id__in=to_delete_ids).delete()
 
-            for i in range(len(descriptions)):
-                fee_id = fee_ids[i] or None
-                description = descriptions[i]
-                rate = Decimal(rates[i] or 0)
-                qty = Decimal(qtys[i] or 0)
-                surcharge = Decimal(surcharges[i] or 0)
+        for i in range(len(descriptions)):
+            fee_id = fee_ids[i] or None
+            description = descriptions[i]
+            rate = Decimal(rates[i] or 0)
+            qty = Decimal(qtys[i] or 0)
+            surcharge = Decimal(surcharges[i] or 0)
 
-                amount = rate * qty + surcharge
-                note = notes[i] or ""
-                if qty == 0 and surcharge == 0:
-                    continue
-                total_amount += amount
+            amount = rate * qty + surcharge
+            note = notes[i] or ""
+            if qty == 0 and surcharge == 0:
+                continue
+            total_amount += amount
 
-                if fee_id:  # 已存在的费用项，更新
-                    try:
-                        item = InvoiceItemv2.objects.get(id=fee_id, invoice_number=invoice)
-                        item.rate = rate
-                        item.qty = qty
-                        item.surcharges = surcharge
-                        item.amount = amount
-                        item.note = note
-                        item.registered_user = username
-                        item.save()
-                    except InvoiceItemv2.DoesNotExist:
-                        # 防止前端传了错误 id，查不到就新增
-                        InvoiceItemv2.objects.create(
-                            container_number=order.container_number,
-                            invoice_number=invoice,
-                            invoice_type="receivable",
-                            item_category="preport",
-                            description=description,
-                            rate=rate,
-                            qty=qty,
-                            surcharges=surcharge,
-                            amount=amount,
-                            note=note,
-                            registered_user=username
-                        )
-                else:  # 新增费用项
+            if fee_id:  # 已存在的费用项，更新
+                try:
+                    item = InvoiceItemv2.objects.get(id=fee_id, invoice_number=invoice)
+                    item.rate = rate
+                    item.qty = qty
+                    item.surcharges = surcharge
+                    item.amount = amount
+                    item.note = note
+                    item.registered_user = username
+                    item.save()
+                except InvoiceItemv2.DoesNotExist:
+                    # 防止前端传了错误 id，查不到就新增
                     InvoiceItemv2.objects.create(
                         container_number=order.container_number,
                         invoice_number=invoice,
@@ -4574,39 +4579,51 @@ class ReceivableAccounting(View):
                         note=note,
                         registered_user=username
                     )
+            else:  # 新增费用项
+                InvoiceItemv2.objects.create(
+                    container_number=order.container_number,
+                    invoice_number=invoice,
+                    invoice_type="receivable",
+                    item_category="preport",
+                    description=description,
+                    rate=rate,
+                    qty=qty,
+                    surcharges=surcharge,
+                    amount=amount,
+                    note=note,
+                    registered_user=username
+                )
 
-                self._calculate_invoice_total_amount(invoice)
+            self._calculate_invoice_total_amount(invoice)
+        print('save_type',save_type)
+        # 更新港前账单状态
+        invoice_status.preport_status = save_type
+        if save_type == "rejected":
+            invoice_status.preport_reason = request.POST.get("reject_reason", "")
+        else:
+            invoice_status.preport_reason = ''
+        invoice_status.save()
         
-                # 更新港前账单状态
-                invoice_status.preport_status = save_type
-                if save_type == "rejected":
-                    invoice_status.preport_reason = request.POST.get("reject_reason", "")
-                else:
-                    invoice_status.preport_reason = ''
-                invoice_status.save()
-            
-            if order.order_type == "直送":
-                invoice_status.warehouse_public_status = "completed"
-                invoice_status.warehouse_other_status = "completed"
-                invoice_status.delivery_public_status = "completed"
-                invoice_status.delivery_other_status = "completed"
-                invoice_status.save()
-            status_mapping = {
-                'pending_review': '待审核',
-                'in_progress': '录入中',
-                'completed': '已完成',
-                'rejected': '已拒绝'
-            }
-            status_chinese = status_mapping.get(save_type, '未知状态')
-            success_msg = mark_safe(
-                f"{container_number} 柜号仓库账单保存成功！<br>"
-                f"总费用: <strong>${total_amount:.2f}</strong><br>"
-                f"状态更新为:{status_chinese}"
-            )
-            context["success_messages"] = success_msg
-        except Exception as e:
-            # 失败消息
-            context["error_messages"] = f"操作失败: {str(e)}"    
+        if order.order_type == "直送":
+            invoice_status.warehouse_public_status = "completed"
+            invoice_status.warehouse_other_status = "completed"
+            invoice_status.delivery_public_status = "completed"
+            invoice_status.delivery_other_status = "completed"
+            invoice_status.save()
+        status_mapping = {
+            'pending_review': '待审核',
+            'in_progress': '录入中',
+            'completed': '已完成',
+            'rejected': '已拒绝'
+        }
+        status_chinese = status_mapping.get(save_type, '未知状态')
+        success_msg = mark_safe(
+            f"{container_number} 柜号仓库账单保存成功！<br>"
+            f"总费用: <strong>${total_amount:.2f}</strong><br>"
+            f"状态更新为:{status_chinese}"
+        )
+        context["success_messages"] = success_msg
+        
         return self.handle_preport_entry_post(request,context)
 
     def _extract_number(self, value):
@@ -5886,6 +5903,7 @@ class ReceivableAccounting(View):
         end_date = request.POST.get("end_date")
 
         reject_reason = request.POST.get("reject_reason")
+        print('reject_reason',reject_reason)
         order = Order.objects.select_related("container_number").get(
             container_number__container_number=container_number
         )
@@ -5897,23 +5915,27 @@ class ReceivableAccounting(View):
             )
             if status == "preport":
                 invoice_status.preport_status = "rejected"
+                invoice_status.preport_reason = reject_reason
             elif status == "warehouse":
                 delivery_type = request.POST.get("delivery_type")
                 if delivery_type == "public":
                     invoice_status.warehouse_public_status = "rejected"
+                    invoice_status.warehouse_public_reason = reject_reason
                 elif delivery_type == "other":
                     invoice_status.warehouse_other_status = "rejected"
+                    invoice_status.warehouse_self_reason = reject_reason
             elif status == "delivery":
                 reject_type = request.POST.get("reject_type")
                 delivery_type = request.POST.get("delivery_type")
                 if reject_type == "public" or delivery_type == "public":
                     invoice_status.delivery_public_status = "rejected"
+                    invoice_status.delivery_public_reason = reject_reason
+                    print('执行的是公仓派送驳回',invoice_status.delivery_public_reason)
                 else:
                     invoice_status.delivery_other_status = "rejected"
+                    invoice_status.delivery_other_reason = reject_reason
             else:
                 raise ValueError(f'驳回阶段参数异常{status}！')
-            invoice_status.is_rejected = "True"
-            invoice_status.reject_reason = reject_reason
             invoice_status.save()
             
         contex = {
