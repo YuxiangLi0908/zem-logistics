@@ -257,7 +257,7 @@ class ReceivableAccounting(View):
         elif step == "warehouse_save":
             context = self.handle_invoice_warehouse_save(request)
             return render(request, self.template_warehouse_entry, context)
-        elif step == "dismiss":
+        elif step == "reject_category":
             template, context = self.handle_reject_category(request)
             return render(request, template, context)
         elif step == "confirm_save_all":
@@ -1517,7 +1517,7 @@ class ReceivableAccounting(View):
                 "po_id": item_data.get("po_id", ""),
                 "description": "PO激活费",  # 固定描述
                 "destination": item_data.get("destination", ""),
-                "delivery_category": "",  # 空字符串，因为是激活费
+                "delivery_category": "activation",  # 空字符串，因为是激活费
                 "rate": item_data.get("amount", 0),  # 激活费的rate等于amount
                 "qty": item_data.get("pallet", 0),  # 激活费没有板数，设为0
                 "surcharges": 0,  # 激活费没有附加费，设为0
@@ -3272,6 +3272,7 @@ class ReceivableAccounting(View):
         
         # 获取本次账单已录入的激活费项
         activation_fee_groups = self._get_existing_activation_items(invoice, order.container_number)
+        print('激活费内容',activation_fee_groups)
         # 获取本次账单已录入的派送费项
         existing_items = self._get_existing_invoice_items(invoice, "delivery_" + delivery_type)
 
@@ -4402,7 +4403,7 @@ class ReceivableAccounting(View):
             container_number=container,
             invoice_number=invoice,
             invoice_type="receivable",
-            delivery_type="public", 
+            delivery_type="activation", 
             item_category="activation_fee"
         )
         
