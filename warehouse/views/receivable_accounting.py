@@ -3480,10 +3480,14 @@ class ReceivableAccounting(View):
         if quotation_error:
             context.update({"error_messages": quotation_error})
             return context
-        COMBINA_STIPULATE = FeeDetail.objects.get(
-            quotation_id=quotation.id,
-            fee_type='COMBINA_STIPULATE'
-        )
+        try:
+            COMBINA_STIPULATE = FeeDetail.objects.get(
+                quotation_id=quotation.id,
+                fee_type='COMBINA_STIPULATE'
+            )
+        except Exception as e:
+            context.update({"error_messages": '缺少组合柜信息'})
+            return context
         rules_text = self._parse_combina_rules(COMBINA_STIPULATE.details, order.retrieval_id.retrieval_destination_area)
         # 构建上下文
         context.update({
@@ -3739,7 +3743,6 @@ class ReceivableAccounting(View):
                     "destinations": list(set(item.get("destination", "") for item in items)),
                     "items": items
                 })
-        print('combina_items',combina_items)
         # 计算组合柜总信息
         if combina_items:
             total_base_fee = sum(item.get("amount", 0) for item in combina_items)
@@ -3806,6 +3809,7 @@ class ReceivableAccounting(View):
                 if isinstance(combina_result, dict) and combina_result.get('error_messages'):
                     return combina_result
                 
+                result["combina_groups"] = combina_result['groups']
                 # 合并组合柜数据
                 new_items = combina_result.get("items", [])
                 processed_po_ids = set(combina_result.get("processed_po_ids", []))
@@ -3818,7 +3822,7 @@ class ReceivableAccounting(View):
                         if region not in combina_items_by_region:
                             combina_items_by_region[region] = []
                         combina_items_by_region[region].append(item)
-
+                
                 result["combina_info"] = combina_result.get("info", {})           
                 # 从待处理的pallet_groups中移除已处理的组合柜记录
                 pallet_groups = [g for g in pallet_groups if g.get("PO_ID") not in processed_po_ids]
@@ -3857,20 +3861,21 @@ class ReceivableAccounting(View):
                     continue
                 # 如果是组合柜项目，添加到对应的分组
                 result["normal_items"].append(item_data)
-        #建组合柜分组           
-        for region, items in combina_items_by_region.items():
-            price = items[0].get("combina_price", 0)
-            total_cbm = sum(item.get("total_cbm", 0) for item in items)
-            region_cbm_price = round(float(price) * total_cbm / total_combina_cbm,3)
+
+        # 建组合柜分组           
+        # for region, items in combina_items_by_region.items():
+        #     price = items[0].get("combina_price", 0)
+        #     total_cbm = sum(item.get("total_cbm", 0) for item in items)
+        #     region_cbm_price = round(float(price) * total_cbm / total_combina_cbm,3)
             
-            result["combina_groups"].append({
-                "region": region,
-                "price": price,
-                "region_price" : region_cbm_price,
-                "total_cbm": round(total_cbm, 2),
-                "destinations": list({item.get("destination") for item in items}),
-                "items": items,
-            })
+        #     result["combina_groups"].append({
+        #         "region": region,
+        #         "price": price,
+        #         "region_price" : region_cbm_price,
+        #         "total_cbm": round(total_cbm, 2),
+        #         "destinations": list({item.get("destination") for item in items}),
+        #         "items": items,
+        #     })
         
         # 计算组合柜总信息（如果还没有计算过）
         if not result["combina_info"] and result["combina_items"]:
@@ -4029,7 +4034,9 @@ class ReceivableAccounting(View):
 
             cbm = round(g.get("total_cbm", 0), 2)
             if total_container_cbm > 0:
+                
                 group_cbm_ratios[key] = round(cbm / total_container_cbm, 4)
+
             else:
                 group_cbm_ratios[key] = 0.0
 
@@ -4110,7 +4117,8 @@ class ReceivableAccounting(View):
             region_items = []
             region_price = region_data["price"]
             region_total_cbm = region_data["total_cbm"]
-            
+            region_cbm_price = 0.00
+
             # 对该区域内的每个目的地构建item
             for group in combina_pallet_groups:
                 destination = group.get("destination", "")
@@ -4119,16 +4127,17 @@ class ReceivableAccounting(View):
                 
                 po_id = group.get("PO_ID")
                 cbm = round(group.get("total_cbm", 0), 2)
-                amount = round(combina_base_fee * cbm_ratio, 2)
-
                 key = (po_id, destination)
                 cbm_ratio = group_cbm_ratios.get(key, 0.0)
-
+                amount = round(region_price * cbm_ratio, 2)
+                
                 if destination in need_Additional_des:
                     description = "由于组合转非组合，需要补交相应的组合费用"
                     amount = 0 - amount
                 else:
                     description = ""
+
+                region_cbm_price += amount
                 item_data = {
                     "id": None,
                     "PO_ID": po_id,
@@ -4158,7 +4167,6 @@ class ReceivableAccounting(View):
                 combina_items.append(item_data)
             
             total_cbm = round(region_total_cbm, 4)
-            region_cbm_price = round(float(region_price) * total_cbm / total_container_cbm,3)
             # 添加区域分组信息
             region_groups.append({
                 "region": region,
@@ -4168,6 +4176,7 @@ class ReceivableAccounting(View):
                 "destinations": region_data["destinations"],
                 "items": region_items
             })
+
         # 7. 返回组合柜数据
         return {
             "items": combina_items,
@@ -4591,7 +4600,6 @@ class ReceivableAccounting(View):
         items_without_po = []
         items_with_po = []
         for item in items:
-            print('看看什么类型',item.delivery_type)
             if item.PO_ID:
                 items_with_po.append(item)
             else:
@@ -4611,7 +4619,6 @@ class ReceivableAccounting(View):
     
     def _supplement_po_ids(self, invoice, items_without_po, items_with_po):
         """补充缺失的PO_ID"""
-        print('开始补PO_ID了')
         container = invoice.container_number
         pallet_po_groups = (
             Pallet.objects
@@ -4674,7 +4681,6 @@ class ReceivableAccounting(View):
 
         if updated_items:
             InvoiceItemv2.objects.bulk_update(updated_items, ["PO_ID"])
-            print(f"已补并保存 PO_ID 条数: {len(updated_items)}")
         return items_without_po
 
     def handle_invoice_warehouse_save(self, request:HttpRequest) -> Dict[str, Any]:
