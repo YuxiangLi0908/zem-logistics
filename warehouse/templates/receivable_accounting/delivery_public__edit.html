@@ -1302,6 +1302,8 @@
                         <form method="post" action="" class="order-type-form">
                             {% csrf_token %}
                             <input type="hidden" name="step" value="modify_order_type">
+                            <input type="hidden" name="start_date" value="{{ start_date }}">
+                            <input type="hidden" name="end_date" value="{{ end_date }}">
                             <input type="hidden" name="new_order_type" id="new_order_type" value="">
                             <input type="hidden" name="container_number" value="{{ container_number }}">
                             <input type="hidden" name="invoice_id" value="{{ invoice.id }}">                        
@@ -1355,6 +1357,8 @@
             <input type="hidden" name="invoice_id" value="{{ invoice_id }}">
             <input type="hidden" name="delivery_type" value="public">
             <input type="hidden" name="step" value="save_all">
+            <input type="hidden" name="start_date" value="{{ start_date }}">
+            <input type="hidden" name="end_date" value="{{ end_date }}">
             <input type="hidden" name="warehouse_filter" value="{{ warehouse_filter }}">
             
             <!-- ================ 组合柜计费区域 ================ -->
@@ -1946,12 +1950,16 @@
     <input type="hidden" name="to_delivery_type" id="to-delivery-type">
     <input type="hidden" name="po_id" id="convert-po-id" value="">
     <input type="hidden" name="item_id" id="convert-item-id" value="">
+    <input type="hidden" name="start_date" value="{{ start_date }}">
+    <input type="hidden" name="end_date" value="{{ end_date }}">
 </form>
 
 <!-- 单行保存的form（独立form） -->
 <form method="post" id="single-row-form" style="display: none;">
     {% csrf_token %}
     <input type="hidden" name="step" value="save_single">
+    <input type="hidden" name="start_date" value="{{ start_date }}">
+    <input type="hidden" name="end_date" value="{{ end_date }}">
     <input type="hidden" name="warehouse_filter" value="{{ warehouse_filter }}">
     <input type="hidden" name="container_number" value="{{ container_number }}">
     <input type="hidden" name="invoice_id" value="{{ invoice_id }}">
@@ -1979,6 +1987,8 @@
     <input type="hidden" name="invoice_id" value="{{ invoice_id }}">
     <input type="hidden" name="delivery_type" value="public">
     <input type="hidden" name="combina_items" id="all-combina-items" value="">
+    <input type="hidden" name="start_date" value="{{ start_date }}">
+    <input type="hidden" name="end_date" value="{{ end_date }}">
 </form>
 
 {% include 'receivable_accounting/modals/message_modal.html' %}
@@ -2466,6 +2476,18 @@
         items.value = JSON.stringify(combinaItems);
         form.appendChild(items);
         
+        const startDate = document.createElement('input');
+        startDate.type = 'hidden';
+        startDate.name = 'start_date';
+        startDate.value = '{{ start_date }}';
+        form.appendChild(startDate);
+        
+        const endDate = document.createElement('input');
+        endDate.type = 'hidden';
+        endDate.name = 'end_date';
+        endDate.value = '{{ end_date }}';
+        form.appendChild(endDate);
+
         document.body.appendChild(form);
         form.submit();
     }

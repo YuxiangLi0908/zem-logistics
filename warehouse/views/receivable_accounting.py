@@ -1757,13 +1757,76 @@ class ReceivableAccounting(View):
             invoice.receivable_delivery_other_amount = total_amount
             self._calculate_invoice_total_amount(invoice)
 
+
+    def _search_region(self, items_data, container:Container):
+        # 查找报价表
+        order = Order.objects.select_related("container_number").get(
+            container_number=container
+        )
+        container_type_temp = 0 if "40" in container.container_type else 1
+
+        quotations = self._get_fee_details(order, order.retrieval_id.retrieval_destination_area,order.customer_name.zem_name)
+        if isinstance(quotations, dict) and quotations.get("error_messages"):
+            raise ValueError(quotations["error_messages"])
+        
+        fee_details = quotations.get('fees', {})
+        warehouse = order.retrieval_id.retrieval_destination_area
+        combina_key = f"{warehouse}_COMBINA"
+        combina_fee = fee_details.get(combina_key, {})
+        if not combina_fee:
+            return items_data
+        rules = fee_details.get(combina_key).details
+        
+        # 检查是否属于组合区域
+        for item_data in items_data:
+            destination_str = item_data.get("destination")
+            if not destination_str:
+                continue
+            destination_origin, destination = self._process_destination(destination_str)
+            is_combina_region = False
+
+            for region, region_data in rules.items():
+                for item in region_data:
+                    locations = item.get("location", [])
+                    if destination in locations:
+                        prices = item.get("prices", [])
+                        item_data["combina_region"] = region
+                        item_data["rate"] = prices[container_type_temp]
+                        is_combina_region = True
+                        break
+                if is_combina_region:
+                    break
+            if not is_combina_region:
+                if not item_data["combina_region"]:
+                    item_data["combina_region"] = "未知"
+                    item_data["rate"] = 0.0
+        return items_data
+
+
+
     def batch_save_delivery_item(self, container, invoice, items_data, item_category, context, username: str| None=None):
         if not context:
             context = {}
         success_count = 0
         error_messages = []
+
+        if item_category != "activation_fee":
+            # 检查一遍是否都有仓点和价格
+            need_search = False
+            for item_data in items_data:
+                region = item_data.get("combina_region", "")
+                rate = item_data.get("rate")
+                if not region or not rate:
+                    need_search = True
+                    break  # 只要发现有一条缺少，就跳出循环
+            
+            # 如果需要查找，一次性处理所有数据
+            if need_search:
+                items_data = self._search_region(items_data, container)
+
         # 遍历每条数据
         for item_data in items_data:
+            
             po_id = item_data.get("po_id", "")
             if not po_id:
                 raise ValueError('缺少PO_ID')
@@ -2604,7 +2667,6 @@ class ReceivableAccounting(View):
         customer = request.POST.get("customer")
         start_date = request.POST.get("start_date")
         end_date = request.POST.get("end_date")
-
         current_date = datetime.now().date()
         start_date = (
             (current_date + timedelta(days=-90)).strftime("%Y-%m-%d")
@@ -3453,7 +3515,9 @@ class ReceivableAccounting(View):
             "combina_rules_text": rules_text,
             "warehouse_filter": request.GET.get("warehouse_filter"),
             "activation_fee_groups": activation_fee_groups,
-            "activation_table": activation_table
+            "activation_table": activation_table,
+            "start_date": request.GET.get("start_date"),
+            "end_date": request.GET.get("end_date"),
         })
         
         if delivery_type == "public":
