@@ -2573,7 +2573,12 @@ class ExceptionHandling(View):
             messages.success(request, f"成功删除 所有组合柜的")
         except Exception as e:
             messages.error(request, f"删除过程中发生错误: {str(e)}")
-
+        await sync_to_async(
+            lambda: InvoiceStatusv2.objects.filter(
+                invoice__invoice_number=search_value, 
+                invoice_type="receivable"
+            ).update(finance_status="tobeconfirmed", delivery_public_status="unstarted")
+        )()
         # 重新查询
         request.POST = request.POST.copy()
         request.POST["step"] = "search_invoice_delivery"
