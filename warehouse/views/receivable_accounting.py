@@ -4455,15 +4455,21 @@ class ReceivableAccounting(View):
             PO_ID=""
         )
 
+        group_fields = [
+            "PO_ID",
+            "destination",
+            "zipcode",
+            "delivery_method",
+            "location",
+        ]
+
+        if delivery_type == "other":
+            group_fields.append("shipping_mark")
+
         # 按PO_ID分组统计
         pallet_groups = list(
-            base_query.values(
-                "PO_ID",
-                "destination",
-                "zipcode",
-                "delivery_method",
-                "location"
-            ).annotate(
+            base_query.values(*group_fields)
+            .annotate(
                 total_pallets=models.Count("pallet_id"),
                 total_cbm=models.Sum("cbm"),
                 total_weight_lbs=models.Sum("weight_lbs"),
@@ -4473,14 +4479,8 @@ class ReceivableAccounting(View):
         )
 
         other_pallet_groups = list(
-            other_query.values(
-                "PO_ID",
-                "destination",
-                "zipcode",
-                "delivery_method",
-                "location",
-                "delivery_type"
-            ).annotate(
+            base_query.values(*group_fields)
+            .annotate(
                 total_pallets=models.Count("pallet_id"),
                 total_cbm=models.Sum("cbm"),
                 total_weight_lbs=models.Sum("weight_lbs"),
