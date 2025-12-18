@@ -260,7 +260,11 @@ class ReceivableAccounting(View):
         elif step == "reject_category":
             template, context = self.handle_reject_category(request)
             return render(request, template, context)
+        elif step == "dismiss":
+            template, context = self.handle_dismiss_category(request)
+            return render(request, template, context)
         elif step == "confirm_save_all":
+            # 转运，财务保存
             template, context = self.handle_confirm_save_all(request)
             return render(request, template, context)
         elif step == "supplement_search":
@@ -938,8 +942,8 @@ class ReceivableAccounting(View):
         context = {}
         container_number = request.POST.get("container_number")
         invoice_number = request.POST.get("invoice_number")
-        items_data_json = request.POST.get('items_data')
-
+        items_data_json = request.POST.get('items_data')      
+        
         #有错误时，要重新加载页面而准备的数据
         get_params = QueryDict(mutable=True)
         get_params["container_number"] = container_number
@@ -1141,6 +1145,48 @@ class ReceivableAccounting(View):
             ),
         }
         return context
+    
+    def handle_dismiss_category(
+        self, request: HttpRequest
+    ) -> tuple[Any, Any]:
+        container_number = request.POST.get("container_number")
+        status = request.POST.get("status")
+        delivery_type = request.POST.get("delivery_type")
+        reject_reason = request.POST.get("reject_reason")
+        invoice_number = request.POST.get("invoice_number")
+
+        invoice = Invoicev2.objects.get(invoice_number=invoice_number)
+        status_obj = InvoiceStatusv2.objects.get(
+            invoice=invoice,
+            invoice_type='receivable'
+        )
+        if status == "delivery":
+            if delivery_type == "public":
+                status_obj.delivery_public_status = "rejected"
+                status_obj.delivery_public_reason = reject_reason
+                reject_status = "公仓派送"
+            else:
+                status_obj.delivery_other_status = "rejected"
+                status_obj.delivery_other_reason = reject_reason
+                reject_status = "私仓派送"
+        elif status == "warehouse":
+            if delivery_type == "public":
+                status_obj.warehouse_public_status = "rejected"
+                status_obj.warehouse_public_reason = reject_reason
+                reject_status = "公仓库内"
+            else:
+                status_obj.warehouse_other_status = "rejected"
+                status_obj.warehouse_self_reason = reject_reason
+                reject_status = "私仓库内"
+        else:
+            status_obj.preport_status = "rejected"
+            status_obj.preport_reason = reject_reason
+            reject_status = "港前"
+        status_obj.save()
+        container_number = request.POST.get("container_number")
+        success_messages = f'{container_number}已驳回到{reject_status}阶段！'
+        context = {'success_messages':success_messages}
+        return self.handle_confirm_entry_post(request,context)
     
     def handle_reject_category(
         self, request: HttpRequest
@@ -1486,7 +1532,6 @@ class ReceivableAccounting(View):
     
     def handle_save_activation_fees(self, request: HttpRequest):
         """处理保存所有激活费操作"""
-        print('激活费保存',request.POST)
         activation_fee_data_str = request.POST.get('activation_fee_data', '[]')
         try:
             activation_fee_items = json.loads(activation_fee_data_str)
@@ -1607,6 +1652,13 @@ class ReceivableAccounting(View):
             context.update({"error_messages": f"数据格式错误: {str(e)}"})
             return self.handle_delivery_entry_post(request, context)
         
+        activation_fee_data_str = request.POST.get('activation_fee_data', '[]')
+        try:
+            activation_fee_items = json.loads(activation_fee_data_str)
+        except json.JSONDecodeError:
+            activation_fee_items = []
+        
+    
         try:
             container = Container.objects.get(container_number=container_number)
             invoice = Invoicev2.objects.get(id=invoice_id)
@@ -3273,7 +3325,6 @@ class ReceivableAccounting(View):
         
         # 获取本次账单已录入的激活费项
         activation_fee_groups = self._get_existing_activation_items(invoice, order.container_number)
-        print('激活费内容',activation_fee_groups)
         # 获取本次账单已录入的派送费项
         existing_items = self._get_existing_invoice_items(invoice, "delivery_" + delivery_type)
 
