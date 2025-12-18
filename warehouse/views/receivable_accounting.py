@@ -1796,10 +1796,7 @@ class ReceivableAccounting(View):
                         break
                 if is_combina_region:
                     break
-            if not is_combina_region:
-                if not item_data["combina_region"]:
-                    item_data["combina_region"] = "未知"
-                    item_data["rate"] = 0.0
+            
         return items_data
 
 
@@ -1816,9 +1813,11 @@ class ReceivableAccounting(View):
             for item_data in items_data:
                 region = item_data.get("combina_region", "")
                 rate = item_data.get("rate")
-                if not region or not rate:
-                    need_search = True
-                    break  # 只要发现有一条缺少，就跳出循环
+                delivery_category = item_data.get("delivery_category")
+                if delivery_category == "combine":
+                    if not region or not rate:
+                        need_search = True
+                        break  # 只要发现有一条缺少，就跳出循环
             
             # 如果需要查找，一次性处理所有数据
             if need_search:
