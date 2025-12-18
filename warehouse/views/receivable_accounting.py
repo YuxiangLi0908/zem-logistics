@@ -1194,7 +1194,7 @@ class ReceivableAccounting(View):
         invoice_number = request.POST.get("invoice_number")
         category = request.POST.get("category")
         reject_reason = request.POST.get("reject_reason")
-
+       
         invoice = Invoicev2.objects.get(invoice_number=invoice_number)
         status_obj = InvoiceStatusv2.objects.get(
             invoice=invoice,
@@ -1220,6 +1220,10 @@ class ReceivableAccounting(View):
         elif category == "delivery_other":
             status_obj.delivery_other_status = "rejected"
             status_obj.delivery_other_reason = reject_reason
+            reject_status = "私仓派送"
+        elif category == "activation_fee":
+            status_obj.delivery_public_status = "rejected"
+            status_obj.delivery_public_reason = reject_reason
             reject_status = "私仓派送"
         status_obj.save()
 
@@ -1283,6 +1287,7 @@ class ReceivableAccounting(View):
                 "warehouse_other": [],
                 "delivery_public": [],
                 "delivery_other": [],
+                "activation_fee": [],
             }
 
                 # 计算每个类别的总金额
@@ -1305,6 +1310,7 @@ class ReceivableAccounting(View):
                 ("warehouse_other", "🏭 私仓库内", grouped.get("warehouse_other", [])),
                 ("delivery_public", "🚚 公仓派送", grouped.get("delivery_public", [])),
                 ("delivery_other", "🚚 私仓派送", grouped.get("delivery_other", [])),
+                ("activation_fee", "⚡ PO激活费", grouped.get("activation_fee", [])),
             ]
             
             context = {
@@ -1314,6 +1320,8 @@ class ReceivableAccounting(View):
                 "groups_order": groups_order,
                 "category_totals": category_totals,
                 "total_amount": total_amount,
+                "start_date": request.GET.get("start_date"),
+                "end_date": request.GET.get("end_date"),
             }
             return self.template_confirm_transfer_edit, context
 
@@ -1532,12 +1540,12 @@ class ReceivableAccounting(View):
     
     def handle_save_activation_fees(self, request: HttpRequest):
         """处理保存所有激活费操作"""
+        context = {}
         activation_fee_data_str = request.POST.get('activation_fee_data', '[]')
         try:
             activation_fee_items = json.loads(activation_fee_data_str)
         except json.JSONDecodeError:
             activation_fee_items = []
-
         container_number = request.POST.get("container_number")
         invoice_id = request.POST.get("invoice_id")
         current_user = request.user
@@ -1579,7 +1587,7 @@ class ReceivableAccounting(View):
             }
             items_data.append(item_data)
         
-        context = self.batch_save_delivery_item(container, invoice, items_data, item_category, username)
+        context = self.batch_save_delivery_item(container, invoice, items_data, item_category, context, username)
         # 构造新的 GET 查询参数
         get_params = QueryDict(mutable=True)
         get_params["container_number"] = container_number
@@ -1614,7 +1622,7 @@ class ReceivableAccounting(View):
             context.update({"error_messages": f"账单ID {invoice_id} 不存在"})
             return self.handle_delivery_entry_post(request, context)
         
-        context = self.batch_save_delivery_item(container, invoice, combina_items, item_category, username)
+        context = self.batch_save_delivery_item(container, invoice, combina_items, item_category, context, username)
 
         #计算派送总费用
         self._calculate_delivery_total_amount("public",invoice,container_number)
@@ -1641,24 +1649,12 @@ class ReceivableAccounting(View):
             item_category = "delivery_other"
         else:
             item_category = "delivery_public"
+       
         items_data_json = request.POST.get("items_data")
         if not items_data_json:
             context.update({"error_messages": "没有接收到数据"})
             return self.handle_delivery_entry_post(request, context)
         
-        try:
-            items_data = json.loads(items_data_json)
-        except json.JSONDecodeError as e:
-            context.update({"error_messages": f"数据格式错误: {str(e)}"})
-            return self.handle_delivery_entry_post(request, context)
-        
-        activation_fee_data_str = request.POST.get('activation_fee_data', '[]')
-        try:
-            activation_fee_items = json.loads(activation_fee_data_str)
-        except json.JSONDecodeError:
-            activation_fee_items = []
-        
-    
         try:
             container = Container.objects.get(container_number=container_number)
             invoice = Invoicev2.objects.get(id=invoice_id)
@@ -1669,7 +1665,49 @@ class ReceivableAccounting(View):
             context.update({"error_messages": f"账单ID {invoice_id} 不存在"})
             return self.handle_delivery_entry_post(request, context)
         
-        context = self.batch_save_delivery_item(container, invoice, items_data, item_category, username)
+        # 处理派送费
+        try:
+            items_data = json.loads(items_data_json)
+        except json.JSONDecodeError as e:
+            context.update({"error_messages": f"数据格式错误: {str(e)}"})
+            return self.handle_delivery_entry_post(request, context)
+    
+        context = self.batch_save_delivery_item(container, invoice, items_data, item_category, context, username)
+
+        # 处理激活费
+        activation_fee_data_str = request.POST.get('activation_fee_data', '[]')
+        try:
+            activation_fee_items = json.loads(activation_fee_data_str)
+        except json.JSONDecodeError:
+            activation_fee_items = []
+
+        item_category = "activation_fee"
+        items_data = []
+        for item_data in activation_fee_items:
+            item_data = {
+                "item_id": item_data.get("item_id", ""),
+                "container": container,  # container对象
+                "invoice": invoice,      # invoice对象
+                "po_id": item_data.get("po_id", ""),
+                "description": "PO激活费",  # 固定描述
+                "destination": item_data.get("destination", ""),
+                "delivery_category": "activation",  # 空字符串，因为是激活费
+                "rate": item_data.get("amount", 0),  # 激活费的rate等于amount
+                "qty": item_data.get("pallet", 0),  # 激活费没有板数，设为0
+                "surcharges": 0,  # 激活费没有附加费，设为0
+                "amount": item_data.get("amount", 0),
+                "note": item_data.get("note", ""),
+                "cbm": item_data.get("cbm", 0),
+                "cbm_ratio": '',  # 激活费固定为1
+                "weight": item_data.get("weight", 0),
+                "registered_user": username,  # 当前用户
+                "delivery_type": "public",  # 固定为公仓
+                "invoice_type": "receivable",  # 应收账单
+                "item_category": item_category,  # 专门分类
+            }
+            items_data.append(item_data)
+        
+        context = self.batch_save_delivery_item(container, invoice, items_data, item_category, context, username)
 
         container_delivery_type = getattr(container, 'delivery_type', 'mixed')
 
@@ -1719,101 +1757,98 @@ class ReceivableAccounting(View):
             invoice.receivable_delivery_other_amount = total_amount
             self._calculate_invoice_total_amount(invoice)
 
-    def batch_save_delivery_item(self, container, invoice, items_data, item_category, username: str| None=None):
-        context = {}
+    def batch_save_delivery_item(self, container, invoice, items_data, item_category, context, username: str| None=None):
+        if not context:
+            context = {}
         success_count = 0
         error_messages = []
         # 遍历每条数据
         for item_data in items_data:
             
             row_index = item_data.get("rowIndex")
-            if 1:
-                # 提取数据
-                delivery_category = item_data.get("delivery_category", "")
-                if not delivery_category:
-                    error_messages.append(f"第{row_index + 1}行: 派送类型不能为空")
+
+            # 提取数据
+            delivery_category = item_data.get("delivery_category", "")
+            if not delivery_category:
+                error_messages.append(f"第{row_index + 1}行: 派送类型不能为空")
+                continue
+            
+            item_id = item_data.get("item_id")
+            po_id = item_data.get("po_id", "")
+            destination = item_data.get("destination", "")
+            
+            rate = item_data.get("rate")
+            pallets = item_data.get("pallets")
+            surcharges = item_data.get("surcharges")
+            amount = item_data.get("amount")
+            description = item_data.get("description", "")
+            region = item_data.get("combina_region", "")
+            cbm = item_data.get("cbm", "")
+            cbm_ratio = item_data.get("cbmRatio", 0)
+            weight = item_data.get("weight", "")
+            note = item_data.get("note", "")
+            registered_user = item_data.get("registered_user") or username
+            
+            if delivery_category == "hold":
+                note = f"暂扣, {note}"
+            elif delivery_category == "combine":
+                note = f"{region}, {note}"
+            if not po_id:
+                error_messages.append(f"第{row_index + 1}行: PO号不能为空")
+                continue                 
+        
+            # 转换数据类型
+            def to_float(val):
+                if val is None or val == "":
+                    return None
+                try:
+                    return float(val)
+                except (ValueError, TypeError):
+                    return None
+            
+            rate_float = to_float(rate)
+            pallets_float = to_float(pallets)
+            surcharges_float = to_float(surcharges)
+            amount_float = to_float(amount)
+            
+            # 更新或创建记录
+            if item_id:
+                # 更新现有记录
+                try:
+                    item = InvoiceItemv2.objects.get(id=item_id)
+                except InvoiceItemv2.DoesNotExist:
+                    error_messages.append(f"第{row_index + 1}行: 未查询到ID为 {item_id} 的记录")
                     continue
-                
-                item_id = item_data.get("item_id")
-                po_id = item_data.get("po_id", "")
-                destination = item_data.get("destination", "")
-                
-                rate = item_data.get("rate")
-                pallets = item_data.get("pallets")
-                surcharges = item_data.get("surcharges")
-                amount = item_data.get("amount")
-                description = item_data.get("description", "")
-                region = item_data.get("combina_region", "")
-                cbm = item_data.get("cbm", "")
-                cbm_ratio = item_data.get("cbmRatio", 0)
-                weight = item_data.get("weight", "")
-                note = item_data.get("note", "")
-                registered_user = item_data.get("registered_user") or username
-                
-                if delivery_category == "hold":
-                    note = f"暂扣, {note}"
-                elif delivery_category == "combine":
-                    note = f"{region}, {note}"
-                if not po_id:
-                    error_messages.append(f"第{row_index + 1}行: PO号不能为空")
-                    continue                 
-         
-                # 转换数据类型
-                def to_float(val):
-                    if val is None or val == "":
-                        return None
-                    try:
-                        return float(val)
-                    except (ValueError, TypeError):
-                        return None
-                
-                rate_float = to_float(rate)
-                pallets_float = to_float(pallets)
-                surcharges_float = to_float(surcharges)
-                amount_float = to_float(amount)
-                
-                # 更新或创建记录
-                if item_id:
-                    # 更新现有记录
-                    try:
-                        item = InvoiceItemv2.objects.get(id=item_id)
-                    except InvoiceItemv2.DoesNotExist:
-                        error_messages.append(f"第{row_index + 1}行: 未查询到ID为 {item_id} 的记录")
-                        continue
-                else:
-                    # 新建记录
-                    item = InvoiceItemv2(
-                        container_number=container,
-                        invoice_number=invoice,
-                        invoice_type="receivable",
-                        item_category=item_category,
-                        PO_ID=po_id,
-                    )
-                
-                # 更新字段
-                item.delivery_type = delivery_category
-                item.invoice_number = invoice
-                item.container_number = container
-                item.PO_ID = po_id
-                item.rate = rate_float
-                item.qty = pallets_float
-                item.surcharges = surcharges_float
-                item.amount = amount_float
-                item.description = description
-                item.warehouse_code = destination
-                item.region = region
-                item.cbm = cbm
-                item.weight = weight
-                item.cbm_ratio = cbm_ratio
-                item.registered_user = registered_user
-                
-                # 保存
-                item.save()
-                success_count += 1
-                
-            # except Exception as e:
-            #     error_messages.append(f"第{row_index + 1}行处理失败: {str(e)}")
-            #     continue
+            else:
+                # 新建记录
+                item = InvoiceItemv2(
+                    container_number=container,
+                    invoice_number=invoice,
+                    invoice_type="receivable",
+                    item_category=item_category,
+                    PO_ID=po_id,
+                )
+            
+            # 更新字段
+            item.delivery_type = delivery_category
+            item.invoice_number = invoice
+            item.container_number = container
+            item.PO_ID = po_id
+            item.rate = rate_float
+            item.qty = pallets_float
+            item.surcharges = surcharges_float
+            item.amount = amount_float
+            item.description = description
+            item.warehouse_code = destination
+            item.region = region
+            item.cbm = cbm
+            item.weight = weight
+            item.cbm_ratio = cbm_ratio
+            item.registered_user = registered_user
+            
+            # 保存
+            item.save()
+            success_count += 1
         
         # 准备返回消息
         success_messages = []
@@ -1864,7 +1899,7 @@ class ReceivableAccounting(View):
             "registered_user": username
         }]
         
-        context = self.batch_save_delivery_item(container, invoice, item_data, item_category)
+        context = self.batch_save_delivery_item(container, invoice, item_data, item_category, context)
 
         #计算派送总费用
         self._calculate_delivery_total_amount(delivery_type,invoice,container_number)
@@ -6049,6 +6084,8 @@ class ReceivableAccounting(View):
                     "exclusive_user": matching_quotation.exclusive_user,
                     "filename": matching_quotation.filename,  # 添加文件名
                 },
+                "start_date": request.GET.get("start_date"),
+                "end_date": request.GET.get("end_date"),
                 
             }
         )

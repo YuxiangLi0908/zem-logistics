@@ -228,6 +228,8 @@
                     <form method="post" action="" class="order-type-form">
                         {% csrf_token %}
                         <input type="hidden" name="step" value="modify_order_type">
+                        <input type="hidden" name="start_date" value="{{ start_date }}">
+                        <input type="hidden" name="end_date" value="{{ end_date }}">
                         <input type="hidden" name="new_order_type" id="new_order_type" value="">
                         <input type="hidden" name="container_number" value="{{ container_number }}">
                         <input type="hidden" name="invoice_id" value="{{ invoice.id }}">
@@ -281,8 +283,6 @@
     <input type="hidden" name="plts_by_destination" value="{{ plts_by_destination }}">
     <input type="hidden" name="start_date" value="{{ start_date }}">
     <input type="hidden" name="end_date" value="{{ end_date }}">
-    <input type="hidden" name="start_date_confirm" value="{{ start_date_confirm }}">
-    <input type="hidden" name="end_date_confirm" value="{{ end_date_confirm }}">
     <input type="hidden" name="customer" value="{{ customer }}">
     <input type="hidden" name="warehouse" value="{{ warehouse }}">
 

@@ -983,6 +983,11 @@
         color: #1565c0;
     }
     
+    .activation-fee-section .section-header {
+        background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+        border-color: #bbdefb;
+    }
+
     .transfer-section .section-header {
         background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
         border-color: #c8e6c9;
@@ -1670,7 +1675,91 @@
             </div>
             {% endif %}
 
-            
+            <div class="activation-fee-section">
+                <div class="section-header">
+                    <h3><i class="fas fa-bolt me-2"></i>PO激活费</h3>
+                    <div class="section-header-actions" style="display: flex; align-items: center; gap: 10px;">
+                        <span class="section-count" style="margin-left: 10px; font-size: 0.9rem; color: #666;">
+                            共 {{ activation_fee_groups|length }} 条记录
+                        </span>
+                        <button type="button" class="btn btn-primary" onclick="openActivationModal()" style="margin-left: auto;">
+                            <i class="fas fa-plus"></i>添加PO激活费
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="table-container">
+                    <table class="advanced-table activation-table">
+                        <thead>
+                            <tr>
+                                <th>PO_ID</th>
+                                <th>目的地</th>
+                                <th>CBM</th>
+                                <th>重量(lbs)</th>
+                                <th>板数</th>
+                                <th>费用(USD)</th>
+                                <th>备注</th>
+                                <th>状态</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="activation-fee-tbody">
+                            {% for item in activation_fee_groups %}
+                            <tr data-activation-id="{{ item.id }}" data-po="{{ item.PO_ID }}">
+                                <td class="cell-po">{{ item.PO_ID|default:"-" }}</td>
+                                <td>{{ item.destination|default:"-" }}</td>
+                                <td>{{ item.cbm|floatformat:2|default:"0.00" }}</td>
+                                <td>{{ item.weight|floatformat:2|default:"0.00" }}</td>
+                                <td>{{ item.pallet|floatformat:2|default:"0.00" }}</td>
+                                <td>
+                                    <input type="number" 
+                                        name="activation_amount_{{ forloop.counter0 }}"
+                                        class="input-control input-amount activation-amount-input"
+                                        value="{{ item.amount|default:'' }}"
+                                        step="0.01" min="0"
+                                        data-index="{{ forloop.counter0 }}"
+                                        placeholder="0.00">
+                                </td>
+                                <td>
+                                    <input type="text" 
+                                        name="activation_note_{{ forloop.counter0 }}"
+                                        class="input-control input-note"
+                                        value="{{ item.note|default:'' }}"
+                                        placeholder="备注"
+                                        data-index="{{ forloop.counter0 }}">
+                                </td>
+                                <td class="cell-status">
+                                    {% if item.is_existing %}
+                                    <span class="status-indicator existing">已录</span>
+                                    {% else %}
+                                    <span class="status-indicator">未录</span>
+                                    {% endif %}
+                                </td>
+                                <td class="cell-action">
+                                    <button type="button" class="action-btn btn-danger" onclick="removeActivationItem('{{ item.PO_ID }}')">
+                                        <i class="fas fa-trash"></i>移除
+                                    </button>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr id="no-activation-row">
+                                <td colspan="8" style="text-align: center; padding: 40px 20px; color: var(--text-secondary);">
+                                    <i class="fas fa-bolt" style="font-size: 2.5rem; margin-bottom: 15px; color: #e0e0e0;"></i>
+                                    <p>暂无PO激活费记录</p>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    
+                    <!-- PO激活费单独保存按钮 -->
+                    <div class="activation-action-bar" style="padding: 15px 30px; text-align: right; background: #f8f9fa; border: 1px solid var(--border-color); border-top: none; border-radius: 0 0 8px 8px;">
+                        <button type="button" class="btn btn-success" onclick="saveAllActivationFees()">
+                            <i class="fas fa-save"></i>保存所有PO激活费
+                        </button>
+                    </div>
+                </div>
+            </div>
 
             <!-- 总计区域 -->
             <div class="total-section">
@@ -1681,7 +1770,6 @@
                     </div>
                 </div>
             </div>
-            
             <!-- 表单操作按钮 -->
             <div class="form-actions">
                 <div class="form-buttons">
@@ -1690,6 +1778,7 @@
                     </button>
                 </div>
             </div>
+
             <!-- ================ 其他类型PO区域 ================ -->
             {% if other_pallet_groups %}
             <div class="other-section">
@@ -1782,6 +1871,70 @@
     </main>
 </div>
 
+<!-- 选择PO激活费模态框 -->
+<div class="modal fade" id="activationModal" tabindex="-1" aria-labelledby="activationModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg" style="max-width: 90%;">
+        <div class="modal-content">
+            <div class="modal-header green-modal-header">
+                <h5 class="modal-title" id="activationModalLabel">
+                    <i class="fas fa-bolt me-2"></i> 选择PO激活费项目
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            
+            <div class="modal-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th style="width: 50px;">
+                                    <input type="checkbox" id="select-all-activation">
+                                </th>                             
+                                <th>目的地</th>
+                                <th>CBM</th>
+                                <th>重量(lbs)</th>
+                                <th>板数</th>
+                                <th>派送方式</th>
+                                <th>PO_ID</th>
+                            </tr>
+                        </thead>
+                        <tbody id="activation-modal-tbody">
+                            {% for group in activation_table %}
+                            <tr data-po="{{ group.PO_ID }}">
+                                <td>
+                                    <input type="checkbox" class="activation-po-checkbox" 
+                                           value="{{ group.PO_ID }}"
+                                           data-destination="{{ group.destination }}"
+                                           data-cbm="{{ group.total_cbm }}"
+                                           data-weight="{{ group.total_weight_lbs }}"
+                                           data-pallet="{{ group.total_pallets }}">
+                                </td>
+                                
+                                <td>{{ group.destination }}</td>
+                                <td>{{ group.total_cbm|floatformat:2 }}</td>
+                                <td>{{ group.total_weight_lbs|floatformat:2 }}</td>
+                                <td>{{ group.total_pallets }}</td>
+                                <td>{{ group.delivery_method }}</td>
+                                <td>{{ group.PO_ID }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <div class="modal-footer">
+                <button type="button" class="btn btn-green-outline" data-bs-dismiss="modal">
+                    <i class="fas fa-times"></i> 取消
+                </button>
+                <button type="button" class="btn btn-green" onclick="addSelectedActivationItems()">
+                    <i class="fas fa-plus"></i> 添加选中项
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- 转换类型的form -->
 <form method="post" id="convert-form" style="display: none;">
     {% csrf_token %}
@@ -1836,6 +1989,9 @@
 
 <script>
 
+    // PO激活费功能
+    let activationItems = [];
+
     $(document).ready(function() {
         // 计算总金额
         function calculateTotalAmount() {
@@ -1846,21 +2002,33 @@
                 const amount = parseFloat($(this).val()) || 0;
                 total += amount;
             });
-            console.log('组合柜总费用', total);
-            
+            console.log('组合柜',total);
             // 2. 计算转运计费总金额
             $('.amount-input').each(function() {
                 const amount = parseFloat($(this).val()) || 0;
                 total += amount;
             });
-            console.log('+转运总费用', total);
-            
+            console.log('转运',total);
+            $('.activation-amount-input').each(function() {
+                const amount = parseFloat($(this).val()) || 0;
+                total += amount;
+            });
             $('#total-amount').text(total.toFixed(2));
             return total;
         }
         // 初始化时计算总金额
         calculateTotalAmount();
 
+        // 添加PO激活费金额变化的监听
+        $(document).on('input', '.activation-amount-input', function() {
+            const index = $(this).data('index');
+            const amount = $(this).val();
+            if (activationItems[index]) {
+                activationItems[index].amount = amount;
+            }
+            // 重新计算总金额
+            calculateTotalAmount();
+        });
         $(document).on('input change', '.input-rate, .input-pallets, .input-surcharge, .delivery-type-select', function() {
             const $row = $(this).closest('tr');
             const rowIndex = $row.data('row');
@@ -2332,9 +2500,9 @@
             return;
         }
 
-        
+        // 2. 收集所有数据
         const allItems = [];
-
+        // 2.1 收集转运计费表格数据
         $('table.normal-table tbody tr').each(function () {
             const rowIndex = $(this).data('row');
             const $row = $(this);
@@ -2342,7 +2510,6 @@
             // 获取CBM和重量
             const cbm = $row.find('.cell-stats').first().find('.stat-value').text().trim() || "0";
             const weight = $row.find('.cell-stats').eq(1).find('.stat-value').text().trim() || "0";
-            console.log('转运的cbm',cbm);
             allItems.push({
                 rowIndex: rowIndex,
                 item_id: $(this).data('item-id') || "",
@@ -2396,6 +2563,35 @@
             
             allItems.push(combinaItem);
         });
+        
+        // 2.3 收集PO激活费数据（新增部分）
+        const activationData = [];
+        let activationHasError = false;
+        
+        $('.activation-amount-input').each(function() {
+            const index = $(this).data('index');
+            const amount = parseFloat($(this).val()) || 0;
+            const note = $(`input[name="activation_note_${index}"]`).val() || '';
+            const item = activationItems[index];
+            
+            // 验证
+            if (amount <= 0) {
+                showToast(`PO ${item.po_id} 的激活费必须大于0`, 'error');
+                hasError = true;
+                return false;
+            }
+            
+            activationData.push({
+                po_id: item.po_id,
+                destination: item.destination,
+                cbm: item.cbm,
+                weight: item.weight,
+                pallet: item.pallet,
+                amount: amount,
+                note: note,
+                item_id: item.id || '',  // 如果有已存在的记录
+            });
+        });
 
         // 3. 验证组合柜金额是否有效
         let combinaHasError = false;
@@ -2422,6 +2618,7 @@
         const itemsDataJson = JSON.stringify(allItems);
 
         // 5. 创建或更新hidden input
+        // 5.1 转运和组合柜数据
         let hidden = document.querySelector('input[name="items_data"]');
         if (!hidden) {
             hidden = document.createElement("input");
@@ -2430,6 +2627,16 @@
             document.getElementById("delivery-billing-form").appendChild(hidden);
         }
         hidden.value = itemsDataJson;
+
+        let hidden1 = document.querySelector('input[name="activation_fee_data"]');
+        if (!hidden1) {
+            hidden1 = document.createElement("input");
+            hidden1.type = "hidden";
+            hidden1.name = "activation_fee_data";
+            document.getElementById("delivery-billing-form").appendChild(hidden1);
+        }
+        activationJson = JSON.stringify(activationData);
+        hidden1.value = activationJson;
 
         // 6. 设置step值
         let stepInput = document.querySelector('input[name="step"]');
@@ -2445,12 +2652,14 @@
         const totalItems = allItems.length;
         const normalCount = $('table.normal-table tbody tr').length;
         const combinaCount = $('.combina-table tbody tr.row-combina').length;
+        const activationCount = activationData.length;
         
         const confirmMsg = `确认保存账单吗？\n` +
                         `包含数据：\n` +
                         `- 转运计费：${normalCount} 条\n` +
                         `- 组合柜计费：${combinaCount} 条\n` +
-                        `总计：${totalItems} 条记录`;
+                        `- PO激活费：${activationCount} 条\n` +
+                        `总计：${totalItems} 条记录+ ${activationCount} 条激活费记录`;
         
         if (confirm(confirmMsg)) {
             // 8. 提交表单
@@ -2467,6 +2676,280 @@
 
     function closeRulesModal() {
         document.getElementById("rules-modal").style.display = "none";
+    }
+
+    // 打开选择模态框
+    function openActivationModal() {
+        // 每次打开时重置状态
+        resetActivationModal();
+
+        const modal = new bootstrap.Modal(document.getElementById('activationModal'));
+        modal.show();
+    }
+
+    // 全选/取消全选
+    $('#select-all-activation').on('change', function() {
+        const isChecked = $(this).prop('checked');
+        $('.activation-po-checkbox').prop('checked', isChecked);
+    });
+    // 添加选中的PO激活费
+    function addSelectedActivationItems() {
+        const selectedItems = [];
+        
+        $('.activation-po-checkbox:checked').each(function() {
+            const poId = $(this).val();
+            const destination = $(this).data('destination');
+            const cbm = $(this).data('cbm');
+            const weight = $(this).data('weight');
+            const pallet = $(this).closest('tr').find('td:nth-child(5)').text().trim();
+            const palletValue = parseFloat(pallet) || 0;
+            
+            // 检查是否已存在
+            if (!activationItems.some(item => item.po_id === poId)) {
+                selectedItems.push({
+                    po_id: poId,
+                    destination: destination,
+                    cbm: cbm,
+                    weight: weight,
+                    pallet: palletValue,
+                    amount: '',
+                    note: '',
+                    is_existing: false
+                });
+            }
+        });
+        
+        if (selectedItems.length === 0) {
+            showToast('请至少选择一个PO', 'error');
+            return;
+        }
+        
+        // 添加到现有列表
+        activationItems.push(...selectedItems);
+        
+        // 更新表格显示
+        updateActivationTable();
+        
+        // 关闭模态框
+        const modal = bootstrap.Modal.getInstance(document.getElementById('activationModal'));
+        modal.hide();
+    }
+
+    // 更新激活费表格显示
+    function updateActivationTable() {
+        const $tbody = $('#activation-fee-tbody');
+        $tbody.empty();
+        
+        if (activationItems.length === 0) {
+            $tbody.append(`
+                <tr id="no-activation-row">
+                    <td colspan="8" style="text-align: center; padding: 40px 20px; color: var(--text-secondary);">
+                        <i class="fas fa-bolt" style="font-size: 2.5rem; margin-bottom: 15px; color: #e0e0e0;"></i>
+                        <p>暂无PO激活费记录</p>
+                    </td>
+                </tr>
+            `);
+            return;
+        }
+        
+        activationItems.forEach((item, index) => {
+            const row = `
+                <tr data-activation-index="${index}" data-po="${item.po_id}">
+                    <td class="cell-po">${item.po_id}</td>
+                    <td>${item.destination || '-'}</td>
+                    <td>${parseFloat(item.cbm || 0).toFixed(2)}</td>
+                    <td>${parseFloat(item.weight || 0).toFixed(2)}</td>
+                    <td>${parseFloat(item.pallet || 0).toFixed(2)}</td>
+                    <td>
+                        <input type="number" 
+                            name="activation_amount_${index}"
+                            class="input-control input-amount activation-amount-input"
+                            value="${item.amount || ''}"
+                            step="0.01" min="0"
+                            data-index="${index}"
+                            placeholder="0.00">
+                    </td>
+                    <td>
+                        <input type="text" 
+                            name="activation_note_${index}"
+                            class="input-control input-note"
+                            value="${item.note || ''}"
+                            placeholder="备注"
+                            data-index="${index}">
+                    </td>
+                    <td class="cell-status">
+                        ${item.is_existing ? 
+                            '<span class="status-indicator existing">已录</span>' : 
+                            '<span class="status-indicator">未录</span>'}
+                    </td>
+                    <td class="cell-action">
+                        <button type="button" class="action-btn btn-danger" onclick="removeActivationItem('${item.po_id}')">
+                            <i class="fas fa-trash"></i>移除
+                        </button>
+                    </td>
+                </tr>
+            `;
+            $tbody.append(row);
+        });
+    }
+
+    // 移除激活费项目
+    function removeActivationItem(poId) {
+        if (!confirm(`确定要移除PO ${poId} 的激活费吗？`)) return;
+        
+        activationItems = activationItems.filter(item => item.po_id !== poId);
+        updateActivationTable();
+        calculateTotalAmount(); // 重新计算总金额
+    }
+
+    // 保存所有PO激活费
+    function saveAllActivationFees() {
+        // 收集所有激活费数据
+        const activationData = [];
+        let hasError = false;
+        
+        $('.activation-amount-input').each(function() {
+            const index = $(this).data('index');
+            const amount = parseFloat($(this).val()) || 0;
+            const note = $(`input[name="activation_note_${index}"]`).val() || '';
+            const item = activationItems[index];
+            
+            // 验证
+            if (amount <= 0) {
+                showToast(`PO ${item.po_id} 的激活费必须大于0`, 'error');
+                hasError = true;
+                return false;
+            }
+            
+            activationData.push({
+                po_id: item.po_id,
+                destination: item.destination,
+                cbm: item.cbm,
+                weight: item.weight,
+                pallet: item.pallet,
+                amount: amount,
+                note: note,
+                item_id: item.id || '',  // 如果有已存在的记录
+            });
+        });
+        
+        if (hasError) return;
+        
+        if (activationData.length === 0) {
+            showToast('没有PO激活费数据', 'error');
+            return;
+        }
+        
+        // 创建表单提交
+        const form = document.createElement('form');
+        form.method = 'post';
+        form.style.display = 'none';
+        
+        const csrf = document.createElement('input');
+        csrf.type = 'hidden';
+        csrf.name = 'csrfmiddlewaretoken';
+        csrf.value = document.querySelector('[name=csrfmiddlewaretoken]').value;
+        form.appendChild(csrf);
+        
+        const step = document.createElement('input');
+        step.type = 'hidden';
+        step.name = 'step';
+        step.value = 'save_activation_fees';
+        form.appendChild(step);
+        
+        const container = document.createElement('input');
+        container.type = 'hidden';
+        container.name = 'container_number';
+        container.value = '{{ container_number }}';
+        form.appendChild(container);
+        
+        const invoice = document.createElement('input');
+        invoice.type = 'hidden';
+        invoice.name = 'invoice_id';
+        invoice.value = '{{ invoice_id }}';
+        form.appendChild(invoice);
+        
+        const dataInput = document.createElement('input');
+        dataInput.type = 'hidden';
+        dataInput.name = 'activation_fee_data';
+        dataInput.value = JSON.stringify(activationData);
+        form.appendChild(dataInput);
+        
+        document.body.appendChild(form);
+        form.submit();
+    }
+
+    // 计算激活费总金额
+    function calculateActivationTotal() {
+        let total = 0;
+        $('.activation-amount-input').each(function() {
+            const amount = parseFloat($(this).val()) || 0;
+            total += amount;
+        });
+        return total;
+    }
+
+    // 在页面加载时初始化激活费数据
+    $(document).ready(function() {
+        // 初始化从后端传来的激活费数据
+        activationItems = [
+            {% for item in activation_fee_groups %}
+            {
+                id: '{{ item.id }}',
+                po_id: '{{ item.PO_ID }}',
+                destination: '{{ item.destination }}',
+                cbm: {{ item.cbm|default:0 }},
+                weight: {{ item.weight|default:0 }},
+                pallet: {{ item.pallet|default:0 }},
+                amount: '{{ item.amount|default:'' }}',
+                note: '{{ item.note|default:'' }}',
+                is_existing: {% if item.is_existing %}true{% else %}false{% endif %}
+            },
+            {% endfor %}
+        ];
+        
+        // 监听激活费金额变化
+        $(document).on('input', '.activation-amount-input', function() {
+            const index = $(this).data('index');
+            const amount = $(this).val();
+            if (activationItems[index]) {
+                activationItems[index].amount = amount;
+            }
+            // 自动重新计算总金额
+            calculateTotalAmount();
+        });
+        
+        // 监听备注变化
+        $(document).on('input', 'input[name^="activation_note_"]', function() {
+            const index = $(this).data('index');
+            const note = $(this).val();
+            if (activationItems[index]) {
+                activationItems[index].note = note;
+            }
+        });
+        calculateTotalAmount();
+    });
+    // 重置激活费模态框状态
+    function resetActivationModal() {
+        // 取消全选
+        $('#select-all-activation').prop('checked', false);
+        
+        // 获取当前已添加的PO_ID列表
+        const currentPoIds = activationItems.map(item => item.po_id);
+        
+        // 重置所有复选框状态
+        $('.activation-po-checkbox').each(function() {
+            const poId = $(this).val();
+            // 如果这个PO已经添加过了，就禁用并取消选中
+            if (currentPoIds.includes(poId)) {
+                $(this).prop('checked', false).prop('disabled', true);
+                // 添加已添加标记
+                $(this).closest('tr').addClass('already-added');
+            } else {
+                $(this).prop('checked', false).prop('disabled', false);
+                $(this).closest('tr').removeClass('already-added');
+            }
+        });
     }
 </script>
 {% endblock %}
