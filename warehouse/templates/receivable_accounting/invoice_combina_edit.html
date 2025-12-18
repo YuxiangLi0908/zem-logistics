@@ -401,9 +401,9 @@
                                             </td>
 
                                             <td class="cell-stats">
-                                                <div class="percentage-bar" style="background: linear-gradient(to right, #4CAF50 {{ item.cbm_ratio|multiply:100|floatformat:2|default:'0' }}%, #e9ecef {{ item.cbm_ratio|multiply:100|floatformat:2|default:'0' }}%); 
+                                                <div class="percentage-bar" style="background: linear-gradient(to right, #4CAF50 {{ item.cbm_ratio|multiply:100|floatformat:4|default:'0' }}%, #e9ecef {{ item.cbm_ratio|multiply:100|floatformat:2|default:'0' }}%); 
                                                             padding: 4px 8px; border-radius: 4px; text-align: center; font-size: 12px;">
-                                                    {{ item.cbm_ratio|multiply:100|floatformat:2|default:"0.00" }}%
+                                                    {{ item.cbm_ratio|multiply:100|floatformat:4|default:"0.00" }}%
                                                 </div>
                                             </td>
 
