@@ -4470,6 +4470,7 @@ class ReceivableAccounting(View):
             "zipcode",
             "delivery_method",
             "location",
+            "delivery_type",
         ]
 
         if delivery_type == "other":
@@ -4488,7 +4489,7 @@ class ReceivableAccounting(View):
         )
 
         other_pallet_groups = list(
-            base_query.values(*group_fields)
+            other_query.values(*group_fields)
             .annotate(
                 total_pallets=models.Count("pallet_id"),
                 total_cbm=models.Sum("cbm"),
