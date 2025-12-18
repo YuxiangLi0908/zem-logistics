@@ -3739,7 +3739,7 @@ class ReceivableAccounting(View):
                     "destinations": list(set(item.get("destination", "") for item in items)),
                     "items": items
                 })
-        
+        print('combina_items',combina_items)
         # 计算组合柜总信息
         if combina_items:
             total_base_fee = sum(item.get("amount", 0) for item in combina_items)
@@ -4587,15 +4587,96 @@ class ReceivableAccounting(View):
             item_category=item_category,
             invoice_type="receivable"
         )
+        
+        items_without_po = []
+        items_with_po = []
+        for item in items:
+            print('看看什么类型',item.delivery_type)
+            if item.PO_ID:
+                items_with_po.append(item)
+            else:
+                items_without_po.append(item)
 
+        if items_without_po:
+            items_without_po = self._supplement_po_ids(invoice, items_without_po, items_with_po)
+        
+        all_items = items_with_po + items_without_po
         # 按PO_ID建立索引
         item_dict = {}
-        for item in items:
+        for item in all_items:
             if item.PO_ID:
                 item_dict[item.PO_ID] = item
 
         return item_dict
     
+    def _supplement_po_ids(self, invoice, items_without_po, items_with_po):
+        """补充缺失的PO_ID"""
+        print('开始补PO_ID了')
+        container = invoice.container_number
+        pallet_po_groups = (
+            Pallet.objects
+            .filter(container_number=container)
+            .values("PO_ID", "destination")
+            .annotate(
+                cbm_sum=Sum("cbm"),
+                weight_sum=Sum("weight_lbs"),
+            )
+        )
+        # 2️⃣ destination -> [po_group]
+        destination_to_po_map = defaultdict(list)
+        for row in pallet_po_groups:
+            destination_to_po_map[row["destination"]].append(row)
+        
+        # 3️⃣ items_without_po 按 destination 分组
+        items_by_destination = defaultdict(list)
+        for item in items_without_po:
+            if item.warehouse_code:
+                items_by_destination[item.warehouse_code].append(item)
+        
+        def po_group_distance(item, po_group):
+            score = 0
+
+            if item.cbm and po_group["cbm_sum"]:
+                score += abs(item.cbm - po_group["cbm_sum"])
+
+            if item.weight and po_group["weight_sum"]:
+                score += abs(item.weight - po_group["weight_sum"])
+
+            return score
+
+         # 4️⃣ 记录被修改的 items
+        updated_items = []
+
+        # 5️⃣ 开始补 PO_ID
+        for destination, items in items_by_destination.items():
+            po_groups = destination_to_po_map.get(destination, [])
+
+            if not po_groups:
+                # pallet 里根本没有这个 destination，跳过
+                continue
+
+            # ✅ 情况一：destination 在 pallet 中唯一
+            if len(po_groups) == 1:
+                po_id = po_groups[0]["PO_ID"]
+                for item in items:
+                    item.PO_ID = po_id
+                    updated_items.append(item)
+                continue
+
+            # ⚠️ 情况二：destination 对应多个 PO，用 cbm / weight 匹配
+            for item in items:
+                best_po = min(
+                    po_groups,
+                    key=lambda g: po_group_distance(item, g)
+                )
+                item.PO_ID = best_po["PO_ID"]
+                updated_items.append(item)
+
+        if updated_items:
+            InvoiceItemv2.objects.bulk_update(updated_items, ["PO_ID"])
+            print(f"已补并保存 PO_ID 条数: {len(updated_items)}")
+        return items_without_po
+
     def handle_invoice_warehouse_save(self, request:HttpRequest) -> Dict[str, Any]:
         """保存仓库账单"""
         context = {} 
