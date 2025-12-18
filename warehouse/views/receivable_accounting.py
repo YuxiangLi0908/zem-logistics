@@ -1764,7 +1764,9 @@ class ReceivableAccounting(View):
         error_messages = []
         # 遍历每条数据
         for item_data in items_data:
-            
+            po_id = item_data.get("po_id", "")
+            if not po_id:
+                raise ValueError('缺少PO_ID')
             row_index = item_data.get("rowIndex")
 
             # 提取数据
@@ -1774,7 +1776,7 @@ class ReceivableAccounting(View):
                 continue
             
             item_id = item_data.get("item_id")
-            po_id = item_data.get("po_id", "")
+            
             destination = item_data.get("destination", "")
             
             rate = item_data.get("rate")
@@ -3303,6 +3305,7 @@ class ReceivableAccounting(View):
             template = self.template_delivery_other_edit
         
         invoice_id = request.GET.get("invoice_id")
+
         order = Order.objects.select_related(
             'container_number',
             'customer_name',
@@ -3362,7 +3365,6 @@ class ReceivableAccounting(View):
         activation_fee_groups = self._get_existing_activation_items(invoice, order.container_number)
         # 获取本次账单已录入的派送费项
         existing_items = self._get_existing_invoice_items(invoice, "delivery_" + delivery_type)
-
         # 如果所有PO都已录入，直接返回已有数据
         if existing_items:
             result_existing = self._separate_existing_items(existing_items, pallet_groups)
@@ -4522,12 +4524,13 @@ class ReceivableAccounting(View):
             item_category=item_category,
             invoice_type="receivable"
         )
+
         # 按PO_ID建立索引
         item_dict = {}
         for item in items:
             if item.PO_ID:
                 item_dict[item.PO_ID] = item
-                
+
         return item_dict
     
     def handle_invoice_warehouse_save(self, request:HttpRequest) -> Dict[str, Any]:
