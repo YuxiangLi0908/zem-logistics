@@ -3715,7 +3715,6 @@ class ReceivableAccounting(View):
             pallet_group = next((g for g in pallet_groups if g.get("PO_ID") == po_id), None)
             if pallet_group:
                 item_data = self._create_item_from_existing(existing_item, pallet_group)
-
                 # 根据类型分类
                 if existing_item.delivery_type == 'combine':
                     combina_total_cbm += item_data.get("total_cbm", 0.0)
@@ -3743,6 +3742,7 @@ class ReceivableAccounting(View):
                     "destinations": list(set(item.get("destination", "") for item in items)),
                     "items": items
                 })
+        
         # 计算组合柜总信息
         if combina_items:
             total_base_fee = sum(item.get("amount", 0) for item in combina_items)
@@ -4596,7 +4596,7 @@ class ReceivableAccounting(View):
             item_category=item_category,
             invoice_type="receivable"
         )
-        
+
         items_without_po = []
         items_with_po = []
         for item in items:
@@ -4607,7 +4607,13 @@ class ReceivableAccounting(View):
 
         if items_without_po:
             items_without_po = self._supplement_po_ids(invoice, items_without_po, items_with_po)
-        
+
+        items = InvoiceItemv2.objects.filter(
+            invoice_number=invoice,
+            item_category=item_category,
+            invoice_type="receivable"
+        )
+
         all_items = items_with_po + items_without_po
         # 按PO_ID建立索引
         item_dict = {}
