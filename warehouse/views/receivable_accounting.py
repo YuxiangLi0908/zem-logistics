@@ -3739,7 +3739,6 @@ class ReceivableAccounting(View):
                     "destinations": list(set(item.get("destination", "") for item in items)),
                     "items": items
                 })
-        print('combina_items',combina_items)
         # 计算组合柜总信息
         if combina_items:
             total_base_fee = sum(item.get("amount", 0) for item in combina_items)
@@ -4591,7 +4590,6 @@ class ReceivableAccounting(View):
         items_without_po = []
         items_with_po = []
         for item in items:
-            print('看看什么类型',item.delivery_type)
             if item.PO_ID:
                 items_with_po.append(item)
             else:
@@ -4611,7 +4609,6 @@ class ReceivableAccounting(View):
     
     def _supplement_po_ids(self, invoice, items_without_po, items_with_po):
         """补充缺失的PO_ID"""
-        print('开始补PO_ID了')
         container = invoice.container_number
         pallet_po_groups = (
             Pallet.objects
@@ -4674,7 +4671,6 @@ class ReceivableAccounting(View):
 
         if updated_items:
             InvoiceItemv2.objects.bulk_update(updated_items, ["PO_ID"])
-            print(f"已补并保存 PO_ID 条数: {len(updated_items)}")
         return items_without_po
 
     def handle_invoice_warehouse_save(self, request:HttpRequest) -> Dict[str, Any]:
