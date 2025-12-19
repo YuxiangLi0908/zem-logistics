@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta
-from typing import Any
+from typing import Any, Dict
 from django.db.models import Prefetch
 from collections import OrderedDict
 import pandas as pd
@@ -3961,7 +3961,252 @@ class PostNsop(View):
         elif st_type == "floor":
             return 80, 38
         return 80, 35
-
+    
+    async def _ltl_packing_list(
+        self,
+        pl_criteria: models.Q | None = None,
+        plt_criteria: models.Q | None = None,
+        name: str | None = None
+    ) -> list[Any]:
+        pl_criteria &= models.Q(container_number__order__cancel_notification=False)& ~models.Q(container_number__order__order_type='直送')
+        plt_criteria &= models.Q(container_number__order__cancel_notification=False)& ~models.Q(container_number__order__order_type='直送')
+        
+        data = []
+        if plt_criteria:
+            pal_list = await sync_to_async(list)(
+                Pallet.objects.prefetch_related(
+                    "container_number",
+                    "container_number__order",
+                    "container_number__order__warehouse",
+                    "shipment_batch_number",
+                    "shipment_batch_number__fleet_number",
+                    "container_number__order__offload_id",
+                    "container_number__order__customer_name",
+                    "container_number__order__retrieval_id",
+                    "container_number__order__vessel_id",
+                )
+                .filter(plt_criteria)
+                .annotate(
+                    str_id=Cast("id", CharField()),
+                    str_container_number=Cast("container_number__container_number", CharField()),
+                    data_source=Value("PALLET", output_field=CharField()),
+                    is_pass=Value(True, output_field=BooleanField()),
+                    # 重量换算：lbs 转 kg
+                    weight_kg=ExpressionWrapper(
+                        F("weight_lbs") * 0.453592,
+                        output_field=FloatField()
+                    ),
+                )
+                .values(
+                    "destination",
+                    "delivery_method",
+                    "shipping_mark",
+                    "abnormal_palletization",
+                    "delivery_window_start",
+                    "delivery_window_end",
+                    "note",
+                    "container_number",
+                    "address",  # 地址字段
+                    "is_dropped_pallet",
+                    "shipment_batch_number__shipment_batch_number",
+                    "data_source",
+                    "shipment_batch_number__fleet_number__fleet_number",
+                    "location",
+                    "is_pass",
+                    warehouse=F("container_number__order__retrieval_id__retrieval_destination_precise"),
+                    retrieval_destination_precise=F("container_number__order__retrieval_id__retrieval_destination_precise"),
+                    customer_name=F("container_number__order__customer_name__zem_name"),
+                    vessel_name=F("container_number__order__vessel_id__vessel"),
+                    vessel_eta=F("container_number__order__vessel_id__vessel_eta"),
+                    offload_at=F("container_number__order__offload_id__offload_at"),
+                )
+                .annotate(
+                    # 分组依据：destination + shipping_mark
+                    custom_delivery_method=F("delivery_method"),
+                    shipping_marks=F("shipping_mark"),  # 保持原有字段名
+                    # 移除 fba_ids 和 ref_ids
+                    plt_ids=StringAgg(
+                        "str_id", delimiter=",", distinct=True, ordering="str_id"
+                    ),
+                    # 柜号列表
+                    container_numbers=StringAgg(
+                        "str_container_number", delimiter="\n", distinct=True, ordering="str_container_number"
+                    ),
+                    cns=StringAgg(
+                        "str_container_number", delimiter="\n", distinct=True, ordering="str_container_number"
+                    ),
+                    total_pcs=Sum("pcs", output_field=IntegerField()),
+                    total_cbm=Round(Sum("cbm", output_field=FloatField()), 3),
+                    total_weight_lbs=Round(Sum("weight_lbs", output_field=FloatField()), 3),
+                    # 新增：总重量kg
+                    total_weight_kg=Round(Sum("weight_kg", output_field=FloatField()), 3),
+                    total_n_pallet_act=Count("pallet_id", distinct=True),
+                    label=Value("ACT"),
+                    note_sp=StringAgg("note_sp", delimiter=",", distinct=True),
+                )
+                .order_by("destination", "shipping_mark")
+            )
+            data += pal_list
+        
+        # 查询 PackingList 数据
+        if pl_criteria:
+            pl_list = await sync_to_async(list)(
+                PackingList.objects.prefetch_related(
+                    "container_number",
+                    "container_number__order",
+                    "container_number__order__warehouse",
+                    "shipment_batch_number",
+                    "shipment_batch_number__fleet_number",
+                    "container_number__order__offload_id",
+                    "container_number__order__customer_name",
+                    "container_number__order__retrieval_id",
+                    "container_number__order__vessel_id",
+                )
+                .filter(pl_criteria)
+                .annotate(
+                    custom_delivery_method=Case(
+                        When(
+                            Q(delivery_method="暂扣留仓(HOLD)")
+                            | Q(delivery_method="暂扣留仓"),
+                            then=Concat(
+                                "delivery_method",
+                                Value("-"),
+                                "fba_id",
+                                Value("-"),
+                                "id",
+                            ),
+                        ),
+                        default=F("delivery_method"),
+                        output_field=CharField(),
+                    ),
+                    str_container_number=Cast("container_number__container_number", CharField()),
+                    str_id=Cast("id", CharField()),
+                    str_shipping_mark=Cast("shipping_mark", CharField()),
+                    data_source=Value("PACKINGLIST", output_field=CharField()),
+                    # 重量换算：lbs 转 kg
+                    weight_kg=ExpressionWrapper(
+                        F("total_weight_lbs") * 0.453592,
+                        output_field=FloatField()
+                    ),
+                    is_pass=Case(
+                        When(
+                            container_number__order__retrieval_id__planned_release_time__isnull=False,
+                            then=Value(True)
+                        ),
+                        When(
+                            container_number__order__retrieval_id__temp_t49_available_for_pickup=True,
+                            then=Value(True)
+                        ),
+                        default=Value(False),
+                        output_field=BooleanField()
+                    ),
+                )
+                .values(
+                    "destination",
+                    "custom_delivery_method",
+                    "delivery_window_start",
+                    "delivery_window_end",
+                    "note",
+                    "container_number",
+                    "shipping_mark",
+                    "address",  # 地址字段
+                    "data_source",
+                    "shipment_batch_number__shipment_batch_number",
+                    "shipment_batch_number__fleet_number__fleet_number",
+                    warehouse=F("container_number__order__retrieval_id__retrieval_destination_precise"),
+                    vessel_eta=F("container_number__order__vessel_id__vessel_eta"),
+                    is_pass=F("is_pass"),
+                    customer_name=F("container_number__order__customer_name__zem_name"),
+                    vessel_name=F("container_number__order__vessel_id__vessel"),
+                    offload_at=F("container_number__order__offload_id__offload_at"),
+                    actual_retrieval_time=F("container_number__order__retrieval_id__actual_retrieval_timestamp"),
+                    arm_time=F("container_number__order__retrieval_id__generous_and_wide_target_retrieval_timestamp"),
+                    estimated_time=F("container_number__order__retrieval_id__target_retrieval_timestamp"),
+                )
+                .annotate(
+                    # 分组依据：destination + shipping_mark
+                    shipping_marks=StringAgg(
+                        "str_shipping_mark",
+                        delimiter=",",
+                        distinct=True,
+                        ordering="str_shipping_mark",
+                    ),
+                    # 移除 fba_ids 和 ref_ids
+                    ids=StringAgg(
+                        "str_id", delimiter=",", distinct=True, ordering="str_id"
+                    ),
+                    # 柜号列表
+                    container_numbers=StringAgg(
+                        "str_container_number", delimiter="\n", distinct=True, ordering="str_container_number"
+                    ),
+                    cns=StringAgg(
+                        "str_container_number", delimiter="\n", distinct=True, ordering="str_container_number"
+                    ),
+                    total_pcs=Sum("pcs", output_field=FloatField()),
+                    total_cbm=Round(Sum("cbm", output_field=FloatField()), 3),
+                    total_weight_lbs=Round(Sum("total_weight_lbs", output_field=FloatField()), 3),
+                    # 新增：总重量kg
+                    total_weight_kg=Round(Sum("weight_kg", output_field=FloatField()), 3),
+                    total_n_pallet_est=Ceil(Sum("cbm", output_field=FloatField()) / 2),
+                    label=Value("EST"),
+                    note_sp=StringAgg("note_sp", delimiter=",", distinct=True)
+                )
+                .distinct()
+                .order_by("destination", "shipping_marks")
+            )
+            data += pl_list
+        
+        return data
+    
+    async def _ltl_unscheduled_cargo(self, pl_criteria, plt_criteria) -> Dict[str, Any]:
+        """获取未放行货物 - Tab 1"""
+        # 未放行条件：没有批次号，没有卸货完成，ETA在两周内，不是异常状态      
+        raw_cargos = await self._ltl_packing_list(
+            pl_criteria,
+            plt_criteria
+        )
+        cargos = []
+        for cargo in raw_cargos:
+            if not cargo["is_pass"]:
+                cargos.append(cargo)
+        return cargos
+    
+    async def _ltl_scheduled_self_pickup(self, pl_criteria, plt_criteria) -> Dict[str, Any]:
+        """获取已放行客提货物 - Tab 2"""
+        
+        # 已放行客提条件：有批次号，delivery_type为self_pickup
+        pl_criteria = pl_criteria&Q(
+            delivery_method__contains="自提"
+        )
+        
+        plt_criteria = plt_criteria&Q(
+            delivery_method__contains="自提"
+        )
+        
+        cargos = await self._ltl_packing_list(
+            pl_criteria,
+            plt_criteria
+        )
+        
+        return cargos
+    
+    async def _ltl_scheduled_fleet(self, pl_criteria, plt_criteria) -> Dict[str, Any]:
+        """获取已放行自发货物 - Tab 3"""
+        pl_criteria = pl_criteria&~Q(
+            delivery_method="自发"
+        )
+        
+        plt_criteria = plt_criteria&~Q(
+            delivery_method="自发"
+        )
+        
+        cargos = await self._ltl_packing_list(
+            pl_criteria,
+            plt_criteria
+        )
+        
+        return cargos
+    
     async def handle_ltl_unscheduled_pos_post(
         self, request: HttpRequest, context: dict| None = None,
     ) -> tuple[str, dict[str, Any]]:
@@ -3976,75 +4221,56 @@ class PostNsop(View):
             return self.template_unscheduled_pos_all, context
         
         nowtime = timezone.now()
-        two_weeks_later = nowtime + timezone.timedelta(weeks=2)   
-        pl_criteria = (models.Q(
-                shipment_batch_number__shipment_batch_number__isnull=True,
-                container_number__order__offload_id__offload_at__isnull=True,
-                container_number__order__vessel_id__vessel_eta__lte=two_weeks_later, 
-                container_number__order__retrieval_id__retrieval_destination_area=warehouse_name,
-                container_number__is_abnormal_state=False,
-                delivery_type="other"
-            )
+
+        one_weeks_later = nowtime + timezone.timedelta(weeks=1)   
+        
+        pl_criteria = Q(
+            shipment_batch_number__shipment_batch_number__isnull=True,
+            container_number__order__offload_id__offload_at__isnull=True,
+            container_number__order__vessel_id__vessel_eta__lte=one_weeks_later,
+            container_number__order__retrieval_id__retrieval_destination_area=warehouse_name,
+            container_number__is_abnormal_state=False,
+            delivery_type="other"
         )
 
-        plt_criteria = (models.Q(
-                location=warehouse,
-                shipment_batch_number__shipment_batch_number__isnull=True,
-                container_number__order__offload_id__offload_at__gt=datetime(2025, 1, 1),
-                delivery_type="other"
-            )
+        plt_criteria = Q(
+            location=warehouse,
+            shipment_batch_number__shipment_batch_number__isnull=True,
+            container_number__order__offload_id__offload_at__gt=datetime(2025, 1, 1),
+            delivery_type="other"
         )
-        unshipment_pos = await self._get_packing_list(
-            request.user,
-            pl_criteria,
-            plt_criteria,
-        )
-        if len(unshipment_pos) == 0:
-            context.update({'error_messages':"没有查到相关库存！"})
-            return self.template_unscheduled_pos_all, context
+        # 未放行
+        release_cargos = await self._ltl_unscheduled_cargo(pl_criteria, plt_criteria)
 
-        #已排约
-        scheduled_data = await self.sp_scheduled_data(warehouse, request.user, None, 'ltl')
-
-        #未排车+已排车
-        fleets = await self._fl_unscheduled_data(request, warehouse, None, 'ltl')
-        #已排车
-        schedule_fleet_data = fleets['fleet_list']
+        # 已放行-客提
+        selfpick_cargos = await self._ltl_scheduled_self_pickup(pl_criteria, plt_criteria)
+        # 已放行-自发
+        selfdel_cargos = await self._ltl_scheduled_fleet(pl_criteria, plt_criteria)
 
         #待出库
-        ready_to_ship_data = await self._sp_ready_to_ship_data(warehouse,request.user, None, 'ltl')
-        # 待送达
-        delivery_data_raw = await self._fl_delivery_get(warehouse, None, 'ltl')
-        delivery_data = delivery_data_raw['shipments']
-        #待传POD
-        pod_data_raw = await self._fl_pod_get(warehouse, None, 'ltl')
-        pod_data = pod_data_raw['fleet']
-
-        #四大仓的不看船列表    
-        destination_list = []
-        for item in unshipment_pos:
-            destination = item.get('destination')
-            destination_list.append(destination)
-            
-        #if await self._validate_user_four_major_whs(request.user):
-        vessel_dict = {}       
-        destination_list = sorted(list(set(destination_list)))
+        # ready_to_ship_data = await self._sp_ready_to_ship_data(warehouse,request.user, None, 'ltl')
+        # # 待送达
+        # delivery_data_raw = await self._fl_delivery_get(warehouse, None, 'ltl')
+        # delivery_data = delivery_data_raw['shipments']
+        # #待传POD
+        # pod_data_raw = await self._fl_pod_get(warehouse, None, 'ltl')
+        # pod_data = pod_data_raw['fleet']
+        summary = {
+            'release_count': len(release_cargos),
+            'selfpick_count': len(selfpick_cargos),
+            'selfdel_count': len(selfdel_cargos),
+        }
         if not context:
             context = {}
         context.update({
             'warehouse': warehouse,
             'warehouse_options': self.warehouse_options,
-            'cargos': unshipment_pos,
-            'cargo_count': len(unshipment_pos),
-            "vessel_dict": vessel_dict,
-            "destination_list": destination_list,
             'account_options': self.arm_account_options,
             'load_type_options': LOAD_TYPE_OPTIONS,
-            "scheduled_data": scheduled_data,
-            "schedule_fleet_data": schedule_fleet_data,
-            "ready_to_ship_data": ready_to_ship_data,
-            "delivery_shipments": delivery_data,
-            "pod_shipments": pod_data,
+            "release_cargos": release_cargos,
+            "selfpick_cargos": selfpick_cargos,
+            "selfdel_cargos": selfdel_cargos,
+            "summary": summary,
             'shipment_type_options': self.shipment_type_options,
             "carrier_options": self.carrier_options,
             "abnormal_fleet_options": self.abnormal_fleet_options,
@@ -4053,7 +4279,7 @@ class PostNsop(View):
         
         if active_tab:
             context.update({'active_tab':active_tab})
-        return self.template_unscheduled_pos_all, context
+        return self.template_ltl_pos_all, context
     
     async def handle_unscheduled_pos_post(
         self, request: HttpRequest, context: dict| None = None,

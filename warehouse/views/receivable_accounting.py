@@ -3978,6 +3978,8 @@ class ReceivableAccounting(View):
                             break
                     if is_combina_origin:
                         break
+            if destination.upper() == "UPS":
+                is_combina_origin = False
             # 检查是否属于组合区域
             is_combina_region = False
             for region, region_data in rules.items():
