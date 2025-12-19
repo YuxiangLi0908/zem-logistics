@@ -171,6 +171,7 @@ class FleetManagement(View):
         if not await self._user_authenticate(request):
             return redirect("login")
         step = request.POST.get("step")
+        print('step',step)
         if step == "fleet_warehouse_search":
             template, context = await self.handle_fleet_warehouse_search_post(request)
             return render(request, template, context)
@@ -1349,6 +1350,7 @@ class FleetManagement(View):
     ) -> HttpResponse:
         fleet_number = request.POST.get("fleet_number")
         customerInfo = request.POST.get("customerInfo")
+        print(request.POST)
         packing_list = []
 
         if customerInfo:
@@ -1366,6 +1368,7 @@ class FleetManagement(View):
                         "shipment_batch_number__fleet_number__pickup_number": row[8].strip(),
                     }
                 )
+            print("customer_info",customer_info)
         else:
             packing_list_db1 = await sync_to_async(list)(
                 PackingList.objects.select_related(
@@ -2180,6 +2183,7 @@ class FleetManagement(View):
     async def _export_ltl_bol(self, request: HttpRequest) -> HttpResponse:
         fleet_number = request.POST.get("fleet_number")
         customerInfo = request.POST.get("customerInfo")
+        print('customerInfo',customerInfo)
         warehouse = request.POST.get("warehouse")
         contact_flag = False  # 表示地址栏空出来，客服手动P上去
         contact = {}
