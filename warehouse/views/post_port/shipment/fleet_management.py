@@ -412,7 +412,7 @@ class FleetManagement(View):
                 "slot",
             )
             .annotate(
-                total_pcs=Sum("pcs", distinct=True),
+                total_pcs=Sum("pcs"),
                 total_pallet=Count("pallet_id", distinct=True),
                 total_weight=Sum("weight_lbs"),
                 total_cbm=Sum("cbm"),

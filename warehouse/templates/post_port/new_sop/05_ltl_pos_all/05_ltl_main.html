@@ -396,28 +396,6 @@
     </div>
 
     <div class="appointment-main">
-        <div class="summary-cards">
-            <div class="summary-card expired">
-                <div class="card-title">已过期预约</div>
-                <div class="card-value">{{ summary.expired_count }}</div>
-                <div class="card-trend">需重新安排</div>
-            </div>
-            <div class="summary-card urgent">
-                <div class="card-title">即将过期</div>
-                <div class="card-value">{{ summary.urgent_count }}</div>
-                <div class="card-trend">7天内到期</div>
-            </div>
-            <div class="summary-card available">
-                <div class="card-title">可用预约</div>
-                <div class="card-value">{{ summary.available_count }}</div>
-                <div class="card-trend">可立即使用</div>
-            </div>
-            <div class="summary-card used">
-                <div class="card-title">已使用预约</div>
-                <div class="card-value">{{ summary.used_count }}</div>
-                <div class="card-trend">已绑定PO</div>
-            </div>
-        </div>
 
         <div class="tab-navigation">
             <div class="tab active" data-tab="cargo">
@@ -438,9 +416,6 @@
             <div class="tab" data-tab="pod">
                 待传POD批次 <span class="badge">{{ summary.pod_count }}</span>
             </div>    
-            <div class="tab" data-tab="appointments">
-                备约管理 <span class="badge">{{ appointment_count }}</span>
-            </div>
         </div>
 
         <!-- PO管理标签页 -->
