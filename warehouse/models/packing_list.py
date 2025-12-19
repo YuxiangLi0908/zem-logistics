@@ -87,7 +87,7 @@ class PackingList(models.Model):
         Quote, null=True, blank=True, on_delete=models.SET_NULL
     )
     PO_ID = models.CharField(max_length=200, null=True, blank=True)
-    ltl_verify = models.BooleanField(default=True, verbose_name="ltl组是否核实")
+    ltl_verify = models.BooleanField(default=False, verbose_name="ltl组是否核实")
     carrier_company = models.CharField(max_length=200, null=True, blank=True, verbose_name="ltl承运公司")
     pl_ltl_bol_num = models.CharField(max_length=200, null=True, blank=True, verbose_name="ltl-bol")
     pl_ltl_pro_num = models.CharField(max_length=200, null=True, blank=True, verbose_name="ltl-pro")

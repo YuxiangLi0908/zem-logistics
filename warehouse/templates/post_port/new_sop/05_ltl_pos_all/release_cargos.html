@@ -291,7 +291,7 @@
                 data-weight-lbs="{{ cargo.total_weight_lbs|default:0 }}"
                 data-weight-kg="{{ cargo.total_weight_kg|default:0 }}"
                 data-pcs="{{ cargo.total_pcs|default:0 }}"
-                data-is-verify="{{ cargo.is_verify|default:0 }}">
+                data-is-verify="{{ cargo.ltl_verify|default:0 }}">
                 <td class="checkbox-cell">
                     <input type="checkbox" class="cargo-checkbox" 
                         value="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
@@ -320,7 +320,7 @@
                     <span class="weight-kg">{{ cargo.total_weight_kg|floatformat:2 }}</span>
                 </td>
                 <td>
-                    {% if cargo.is_verify %}
+                    {% if cargo.ltl_verify %}
                         <span class="verified-status">
                             <i class="fas fa-check-circle"></i> 已核实
                         </span>
@@ -331,13 +331,13 @@
                     {% endif %}
                 </td>
                 <td class="action-col">
-                    {% if not cargo.is_verify %}
+                    {% if not cargo.ltl_verify %}
                         <form method="post" action="" class="verify-form">
                             {% csrf_token %}
                             <input type="hidden" name="step" value="verify_ltl_cargo">
                             <input type="hidden" name="cargo_ids" value="{{ cargo.ids }}">
                             <input type="hidden" name="plt_ids" value="{{ cargo.plt_ids|default:'' }}">
-                            <input type="hidden" name="is_verify" value="true">
+                            <input type="hidden" name="ltl_verify" value="true">
                             <input type="hidden" name="warehouse" value="{{ warehouse }}">
                             <input type="hidden" name="active_tab" value="cargo">
                             <button type="submit" class="action-btn btn-success verify-btn">
@@ -350,7 +350,7 @@
                             <input type="hidden" name="step" value="verify_ltl_cargo">
                             <input type="hidden" name="cargo_ids" value="{{ cargo.ids }}">
                             <input type="hidden" name="plt_ids" value="{{ cargo.plt_ids|default:'' }}">
-                            <input type="hidden" name="is_verify" value="false">
+                            <input type="hidden" name="ltl_verify" value="false">
                             <input type="hidden" name="warehouse" value="{{ warehouse }}">
                             <input type="hidden" name="active_tab" value="cargo">
                             <button type="submit" class="action-btn btn-warning verify-btn">
@@ -411,7 +411,7 @@
             // 核实表单提交确认
             document.querySelectorAll('.verify-form').forEach(form => {
                 form.addEventListener('submit', function(e) {
-                    const isVerify = this.querySelector('input[name="is_verify"]').value === 'true';
+                    const isVerify = this.querySelector('input[name="ltl_verify"]').value === 'true';
                     const action = isVerify ? '核实' : '取消核实';
                     if (!confirm(`确定要${action}这些货物吗？`)) {
                         e.preventDefault();

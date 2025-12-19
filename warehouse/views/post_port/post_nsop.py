@@ -339,6 +339,11 @@ class PostNsop(View):
             return await self.handle_bol_post(request)
         elif step =="export_bol_fleet":
             return await self.handle_bol_fleet_post(request)
+        elif step == "verify_ltl_cargo":
+            template, context = await self.handle_verify_ltl_cargo(request)
+            return render(request, template, context)  
+        elif step == "export_ltl_unscheduled":
+            return await self.export_ltl_unscheduled(request)
         else:
             raise ValueError('输入错误',step)
     
@@ -3966,7 +3971,6 @@ class PostNsop(View):
         self,
         pl_criteria: models.Q | None = None,
         plt_criteria: models.Q | None = None,
-        name: str | None = None
     ) -> list[Any]:
         pl_criteria &= models.Q(container_number__order__cancel_notification=False)& ~models.Q(container_number__order__order_type='直送')
         plt_criteria &= models.Q(container_number__order__cancel_notification=False)& ~models.Q(container_number__order__order_type='直送')
@@ -4111,6 +4115,7 @@ class PostNsop(View):
                     "shipping_mark",
                     "address",  # 地址字段
                     "data_source",
+                    "ltl_verify",
                     "shipment_batch_number__shipment_batch_number",
                     "shipment_batch_number__fleet_number__fleet_number",
                     warehouse=F("container_number__order__retrieval_id__retrieval_destination_precise"),
@@ -4160,6 +4165,7 @@ class PostNsop(View):
     
     async def _ltl_unscheduled_cargo(self, pl_criteria, plt_criteria) -> Dict[str, Any]:
         """获取未放行货物 - Tab 1"""
+        plt_criteria = models.Q(pk__isnull=True) & models.Q(pk__isnull=False)
         # 未放行条件：没有批次号，没有卸货完成，ETA在两周内，不是异常状态      
         raw_cargos = await self._ltl_packing_list(
             pl_criteria,
@@ -4207,11 +4213,220 @@ class PostNsop(View):
         
         return cargos
     
+    async def export_ltl_unscheduled(
+        self, request: HttpRequest
+    ) -> tuple[str, dict[str, Any]]:
+        
+        cargo_ids = request.POST.get('cargo_ids', '')
+        
+        # 构建筛选条件
+        pl_criteria = Q()
+        plt_criteria = models.Q(pk__isnull=True) & models.Q(pk__isnull=False)
+        
+        # 如果指定了 ID，则只导出选中的货物
+        if cargo_ids:
+            cargo_id_list = [int(id.strip()) for id in cargo_ids.split(',') if id.strip()]
+            pl_criteria &= Q(id__in=cargo_id_list)
+        
+        # 获取数据
+        release_cargos = await self._ltl_unscheduled_cargo(pl_criteria, plt_criteria)
+        
+        # 准备 Excel 数据
+        excel_data = []
+        for cargo in release_cargos:
+            # 获取数据并格式化
+            customer_name = cargo.get('customer_name', '-')
+            container_numbers = cargo.get('container_numbers', '-')
+            destination = cargo.get('destination', '-')
+            shipping_marks = cargo.get('shipping_marks', '-')
+            address = cargo.get('address', '-')
+            note = cargo.get('note', '-')
+            
+            # 格式化数字
+            try:
+                total_cbm = float(cargo.get('total_cbm', 0))
+                total_cbm = round(total_cbm, 3)
+            except (ValueError, TypeError):
+                total_cbm = 0
+            
+            try:
+                total_pcs = int(cargo.get('total_pcs', 0))
+            except (ValueError, TypeError):
+                total_pcs = 0
+            
+            try:
+                weight_lbs = float(cargo.get('total_weight_lbs', 0))
+                weight_lbs = round(weight_lbs, 2)
+            except (ValueError, TypeError):
+                weight_lbs = 0
+            
+            try:
+                weight_kg = float(cargo.get('total_weight_kg', 0))
+                weight_kg = round(weight_kg, 2)
+            except (ValueError, TypeError):
+                weight_kg = 0
+            
+            # 核实状态
+            ltl_verify = cargo.get('ltl_verify', False)
+            verify_status = '已核实' if ltl_verify else '未核实'
+            
+            row = {
+                '客户': customer_name,
+                '柜号': container_numbers,
+                '目的地': destination,
+                '唛头': shipping_marks,
+                '详细地址': address,
+                '备注': note,
+                'CBM': total_cbm,
+                '件数': total_pcs,
+                '重量(lbs)': weight_lbs,
+                '重量(kg)': weight_kg,
+                '核实状态': verify_status,
+            }
+            
+            excel_data.append(row)
+        
+        # 创建 DataFrame
+        df = pd.DataFrame(excel_data)
+        
+        # 如果没有数据，创建一个空的DataFrame
+        if df.empty:
+            df = pd.DataFrame(columns=[
+                '客户', '柜号', '目的地', '唛头', '详细地址', '备注',
+                'CBM', '件数', '重量(lbs)', '重量(kg)', '核实状态'
+            ])
+        
+        # 创建 Excel 文件
+        output = BytesIO()
+        
+        # 使用 ExcelWriter
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            # 主数据 sheet
+            df.to_excel(writer, sheet_name='未放行货物', index=False)
+            
+            # 获取 worksheet 对象
+            worksheet = writer.sheets['未放行货物']
+            
+            # 设置列宽
+            column_widths = {
+                '客户': 20,
+                '柜号': 25,
+                '目的地': 15,
+                '唛头': 25,
+                '详细地址': 40,
+                '备注': 40,
+                'CBM': 10,
+                '件数': 10,
+                '重量(lbs)': 12,
+                '重量(kg)': 12,
+                '核实状态': 12,
+            }
+            
+            # 设置列宽
+            from openpyxl.utils import get_column_letter
+            
+            for i, column in enumerate(df.columns, 1):
+                col_letter = get_column_letter(i)
+                width = column_widths.get(column, 15)
+                worksheet.column_dimensions[col_letter].width = width
+            
+            # 设置数字格式
+            from openpyxl.styles import numbers
+            
+            # 设置CBM列为3位小数格式
+            if 'CBM' in df.columns:
+                cbm_col_idx = df.columns.get_loc('CBM') + 1
+                cbm_col_letter = get_column_letter(cbm_col_idx)
+                for row in range(2, len(df) + 2):
+                    cell = worksheet[f"{cbm_col_letter}{row}"]
+                    cell.number_format = numbers.FORMAT_NUMBER_00  # 默认2位，Excel会自动显示实际小数位数
+                    # 如果需要在Excel中强制显示3位小数，使用：
+                    # cell.number_format = '0.000'
+            
+            # 设置重量列为2位小数格式
+            if '重量(lbs)' in df.columns:
+                lbs_col_idx = df.columns.get_loc('重量(lbs)') + 1
+                lbs_col_letter = get_column_letter(lbs_col_idx)
+                for row in range(2, len(df) + 2):
+                    cell = worksheet[f"{lbs_col_letter}{row}"]
+                    cell.number_format = numbers.FORMAT_NUMBER_00
+            
+            if '重量(kg)' in df.columns:
+                kg_col_idx = df.columns.get_loc('重量(kg)') + 1
+                kg_col_letter = get_column_letter(kg_col_idx)
+                for row in range(2, len(df) + 2):
+                    cell = worksheet[f"{kg_col_letter}{row}"]
+                    cell.number_format = numbers.FORMAT_NUMBER_00
+            
+            # 设置样式：标题行加粗
+            for cell in worksheet[1]:
+                cell.font = cell.font.copy(bold=True)
+            
+            # 自动换行设置
+            from openpyxl.styles import Alignment
+            wrap_alignment = Alignment(wrap_text=True, vertical='top')
+            
+            # 对可能有多行内容的列设置自动换行
+            wrap_columns = ['柜号', '详细地址', '备注', '唛头']
+            for col_name in wrap_columns:
+                if col_name in df.columns:
+                    col_idx = df.columns.get_loc(col_name) + 1
+                    col_letter = get_column_letter(col_idx)
+                    for row in range(1, len(df) + 2):
+                        cell = worksheet[f"{col_letter}{row}"]
+                        cell.alignment = wrap_alignment
+            
+            # 添加筛选器
+            worksheet.auto_filter.ref = f"A1:{get_column_letter(len(df.columns))}1"
+            
+            # 可选：冻结标题行
+            worksheet.freeze_panes = 'A2'
+        
+        output.seek(0)
+        
+        # 创建 HTTP 响应
+        response = HttpResponse(
+            output.getvalue(),
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        
+        # 生成文件名
+        timestamp = timezone.now().strftime('%Y%m%d_%H%M%S')
+        filename = f'未放行货物_导出_{timestamp}.xlsx'
+        
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        
+        return response
+
+
+    async def handle_verify_ltl_cargo(
+        self, request: HttpRequest, context: dict| None = None,
+    ) -> tuple[str, dict[str, Any]]:
+        """LTL对po更改核实状态"""
+        if not context:
+            context = {}
+        cargo_ids = request.POST.get('cargo_ids', '')
+        ltl_verify = request.POST.get('ltl_verify', 'false').lower() == 'true'
+        
+        # 处理 PackingList 的核实
+        if cargo_ids:
+            cargo_id_list = [int(id.strip()) for id in cargo_ids.split(',') if id.strip()]
+            packinglist_ids = cargo_id_list
+            if packinglist_ids:
+                # 更新 PackingList 的核实状态
+                await sync_to_async(PackingList.objects.filter(
+                    id__in=packinglist_ids
+                ).update)(
+                    ltl_verify=ltl_verify
+                )
+        return self.handle_ltl_unscheduled_pos_post(request)
+        
+
     async def handle_ltl_unscheduled_pos_post(
         self, request: HttpRequest, context: dict| None = None,
     ) -> tuple[str, dict[str, Any]]:
-        #warehouse = request.POST.get("warehouse")
-        warehouse = 'LA-91761'
+        '''LTL组的港后全流程'''
+        warehouse = request.POST.get("warehouse")
         if not context:
             context = {}
         if warehouse:
