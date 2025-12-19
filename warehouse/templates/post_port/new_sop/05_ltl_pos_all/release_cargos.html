@@ -1,34 +1,6 @@
 {% load custom_filters %}
 <style>
     /* 未放行页面精简样式 */
-    .search-box {
-        display: flex;
-        gap: 15px;
-        margin-bottom: 20px;
-        align-items: center;
-        flex-wrap: wrap;
-        padding: 0;
-    }
-
-    .search-input {
-        padding: 10px 15px;
-        border: 1px solid #dce1e6;
-        border-radius: 5px;
-        font-size: 0.9rem;
-        min-width: 300px;
-        margin: 0;
-    }
-
-    .search-btn {
-        padding: 10px 20px;
-        background: var(--primary-color);
-        color: white;
-        border: none;
-        border-radius: 5px;
-        cursor: pointer;
-        font-weight: 600;
-    }
-
     .batch-actions {
         display: flex;
         gap: 10px;
@@ -78,11 +50,41 @@
         font-size: 0.85rem;
     }
 
-    .data-table tr:nth-child(even) {
+    /* 筛选行样式 */
+    .filter-row {
+        background-color: #f8f9fa !important;
+        position: sticky;
+        top: 48px; /* 表头高度 */
+        z-index: 5;
+    }
+
+    .filter-row td {
+        padding: 8px 12px;
+        background-color: #f8f9fa;
+        border-bottom: 2px solid #dee2e6;
+    }
+
+    .filter-input, .filter-select {
+        width: 100%;
+        padding: 6px 10px;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+        font-size: 0.85rem;
+        box-sizing: border-box;
+        background-color: white;
+    }
+
+    .filter-input:focus, .filter-select:focus {
+        outline: none;
+        border-color: #80bdff;
+        box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+    }
+
+    .data-table tr:nth-child(even):not(.filter-row) {
         background-color: #f9fafb;
     }
 
-    .data-table tr:hover {
+    .data-table tr:hover:not(.filter-row) {
         background-color: #edf2f7;
     }
 
@@ -137,33 +139,54 @@
         font-size: 0.9rem;
     }
 
-    /* 重量显示样式 */
-    .weight-display {
-        display: flex;
-        flex-direction: column;
-        gap: 2px;
+    /* 核实状态样式 */
+    .verify-btn {
+        padding: 4px 12px;
+        font-size: 0.8rem;
     }
 
-    .weight-lbs {
-        color: #7b1fa2;
+    .verified-status {
+        color: #28a745;
         font-weight: 600;
     }
 
-    .weight-kg {
-        color: #388e3c;
-        font-size: 0.75rem;
+    /* 地址和备注列限制宽度 */
+    .address-col, .note-col {
+        max-width: 200px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .address-col:hover, .note-col:hover {
+        overflow: visible;
+        white-space: normal;
+        position: relative;
+        z-index: 10;
+        background: white;
+        box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        border-radius: 4px;
+        padding: 8px;
+    }
+
+    /* 操作列样式 */
+    .action-col {
+        min-width: 100px;
+        text-align: center;
+    }
+
+    /* 表单样式 */
+    .hidden-form {
+        display: none;
+    }
+
+    /* 操作按钮样式 */
+    .action-buttons {
+        display: flex;
+        gap: 5px;
+        justify-content: center;
     }
 </style>
-
-<!-- 搜索区域 -->
-<div class="search-box">
-    <div style="display: flex; gap: 10px; align-items: center; flex: 1;">
-        <input type="text" class="search-input" placeholder="搜索客户、目的地、唛头、柜号..." id="cargoSearch">
-        <button class="search-btn" id="searchCargoBtn">
-            <i class="fas fa-search"></i> 搜索
-        </button>
-    </div>
-</div>
 
 <!-- 批量操作区域 -->
 <div class="batch-actions">
@@ -177,11 +200,14 @@
             选中总CBM: <span id="selectedCbmCount">0.00</span>
         </span>
         <span style="font-weight: 600; color: #7b1fa2;">
-            选中总重量: <span id="selectedWeightLbsCount">0.00</span> lbs
+            选中总重量: <span id="selectedWeightLbsCount">0.00</span> lbs / <span id="selectedWeightKgCount">0.00</span> kg
         </span>
     </div>
     <button class="action-btn btn-primary" onclick="exportSelectedCargos()">
-        <i class="fas fa-file-export"></i> 导出选PO
+        <i class="fas fa-file-export"></i> 导出未放行表格
+    </button>
+    <button class="action-btn btn-secondary" onclick="clearAllFilters()">
+        <i class="fas fa-times"></i> 清空筛选
     </button>
 </div>
 
@@ -197,26 +223,75 @@
                 <th>柜号</th>
                 <th>目的地</th>
                 <th>唛头</th>
-                <th>详细地址</th>
-                <th>备注</th>
+                <th class="address-col">详细地址</th>
+                <th class="note-col">备注</th>
                 <th>CBM</th>
                 <th>件数</th>
-                <th>重量</th>
-                <th>板数</th>
+                <th>重量(lbs)</th>
+                <th>重量(kg)</th>
+                <th>核实状态</th>
+                <th class="action-col">操作</th>
             </tr>
         </thead>
         <tbody>
+            <!-- 筛选行 -->
+            <tr class="filter-row">
+                <td class="checkbox-cell"></td>
+                <td>
+                    <input type="text" class="filter-input" placeholder="筛选客户..." data-column="0" onkeyup="applyColumnFilter(this)">
+                </td>
+                <td>
+                    <input type="text" class="filter-input" placeholder="筛选柜号..." data-column="1" onkeyup="applyColumnFilter(this)">
+                </td>
+                <td>
+                    <input type="text" class="filter-input" placeholder="筛选目的地..." data-column="2" onkeyup="applyColumnFilter(this)">
+                </td>
+                <td>
+                    <input type="text" class="filter-input" placeholder="筛选唛头..." data-column="3" onkeyup="applyColumnFilter(this)">
+                </td>
+                <td>
+                    <input type="text" class="filter-input" placeholder="筛选地址..." data-column="4" onkeyup="applyColumnFilter(this)">
+                </td>
+                <td>
+                    <input type="text" class="filter-input" placeholder="筛选备注..." data-column="5" onkeyup="applyColumnFilter(this)">
+                </td>
+                <td>
+                    <input type="text" class="filter-input" placeholder="筛选CBM..." data-column="6" onkeyup="applyColumnFilter(this)">
+                </td>
+                <td>
+                    <input type="text" class="filter-input" placeholder="筛选件数..." data-column="7" onkeyup="applyColumnFilter(this)">
+                </td>
+                <td>
+                    <input type="text" class="filter-input" placeholder="筛选重量..." data-column="8" onkeyup="applyColumnFilter(this)">
+                </td>
+                <td>
+                    <input type="text" class="filter-input" placeholder="筛选重量..." data-column="9" onkeyup="applyColumnFilter(this)">
+                </td>
+                <td>
+                    <select class="filter-select" data-column="10" onchange="applyColumnFilter(this)">
+                        <option value="">全部状态</option>
+                        <option value="已核实">已核实</option>
+                        <option value="未核实">未核实</option>
+                    </select>
+                </td>
+                <td class="action-col">
+                    <!-- 操作列不需要筛选 -->
+                </td>
+            </tr>
+
+            <!-- 数据行 -->
             {% for cargo in release_cargos %}
-            <tr data-cargo-id="{{ cargo.ids }}" 
+            <tr class="data-row" 
+                data-cargo-id="{{ cargo.ids }}" 
                 data-customer="{{ cargo.customer_name|default:'' }}"
                 data-destination="{{ cargo.destination|default:'' }}" 
                 data-shipping-mark="{{ cargo.shipping_marks|default:'' }}"
                 data-container-number="{{ cargo.container_numbers|default:'' }}"
-                data-pallets="{% if cargo.label == 'ACT' %}{{ cargo.total_n_pallet_act|default:0 }}{% else %}{{ cargo.total_n_pallet_est|default:0 }}{% endif %}" 
                 data-cbm="{{ cargo.total_cbm|default:0 }}"
                 data-weight-lbs="{{ cargo.total_weight_lbs|default:0 }}"
                 data-weight-kg="{{ cargo.total_weight_kg|default:0 }}"
-                data-pcs="{{ cargo.total_pcs|default:0 }}">
+                data-pcs="{{ cargo.total_pcs|default:0 }}"
+                data-is-verify="{{ cargo.is_verify|default:0 }}">
                 <td class="checkbox-cell">
                     <input type="checkbox" class="cargo-checkbox" 
                         value="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
@@ -228,33 +303,66 @@
                 </td>
                 <td>{{ cargo.destination|default:"-" }}</td>
                 <td>{{ cargo.shipping_marks|default:"-" }}</td>
-                <td>{{ cargo.address|default:"-" }}</td>
-                <td>{{ cargo.note|default_if_none:"-" }}</td>
+                <td class="address-col" title="{{ cargo.address|default:'' }}">
+                    {{ cargo.address|default:"-" }}
+                </td>
+                <td class="note-col" title="{{ cargo.note|default:'' }}">
+                    {{ cargo.note|default_if_none:"-" }}
+                </td>
                 <td>
                     <span class="status-badge status-expired">{{ cargo.total_cbm|floatformat:3 }}</span>
                 </td>
                 <td>{{ cargo.total_pcs|default:0 }}</td>
                 <td>
-                    <div class="weight-display">
-                        <span class="weight-lbs">{{ cargo.total_weight_lbs|floatformat:2 }} lbs</span>
-                        <span class="weight-kg">{{ cargo.total_weight_kg|floatformat:2 }} kg</span>
-                    </div>
+                    <span class="weight-lbs">{{ cargo.total_weight_lbs|floatformat:2 }}</span>
                 </td>
-                <td class="pallet-col">
-                    {% if cargo.label == 'ACT' %}
-                        <span class="pallet-badge pallet-actual">
-                            <span style="font-size: 16px; font-weight: bold;">{{ cargo.total_n_pallet_act|default:0 }}</span> ACT
+                <td>
+                    <span class="weight-kg">{{ cargo.total_weight_kg|floatformat:2 }}</span>
+                </td>
+                <td>
+                    {% if cargo.is_verify %}
+                        <span class="verified-status">
+                            <i class="fas fa-check-circle"></i> 已核实
                         </span>
                     {% else %}
-                        <span class="pallet-badge pallet-estimated">
-                            <span style="font-size: 16px; font-weight: bold;">{{ cargo.total_n_pallet_est|default:0 }}</span> EST
+                        <span style="color: #dc3545;">
+                            <i class="fas fa-times-circle"></i> 未核实
                         </span>
+                    {% endif %}
+                </td>
+                <td class="action-col">
+                    {% if not cargo.is_verify %}
+                        <form method="post" action="" class="verify-form">
+                            {% csrf_token %}
+                            <input type="hidden" name="step" value="verify_ltl_cargo">
+                            <input type="hidden" name="cargo_ids" value="{{ cargo.ids }}">
+                            <input type="hidden" name="plt_ids" value="{{ cargo.plt_ids|default:'' }}">
+                            <input type="hidden" name="is_verify" value="true">
+                            <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                            <input type="hidden" name="active_tab" value="cargo">
+                            <button type="submit" class="action-btn btn-success verify-btn">
+                                <i class="fas fa-check"></i> 核实
+                            </button>
+                        </form>
+                    {% else %}
+                        <form method="post" action="" class="verify-form">
+                            {% csrf_token %}
+                            <input type="hidden" name="step" value="verify_ltl_cargo">
+                            <input type="hidden" name="cargo_ids" value="{{ cargo.ids }}">
+                            <input type="hidden" name="plt_ids" value="{{ cargo.plt_ids|default:'' }}">
+                            <input type="hidden" name="is_verify" value="false">
+                            <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                            <input type="hidden" name="active_tab" value="cargo">
+                            <button type="submit" class="action-btn btn-warning verify-btn">
+                                <i class="fas fa-undo"></i> 取消
+                            </button>
+                        </form>
                     {% endif %}
                 </td>
             </tr>
             {% empty %}
             <tr>
-                <td colspan="11" style="text-align: center; padding: 20px;">
+                <td colspan="13" style="text-align: center; padding: 20px;">
                     暂无未放行货物
                 </td>
             </tr>
@@ -262,218 +370,328 @@
         </tbody>
     </table>
 </div>
+
 <!-- 导PO的表单 -->
 <form method="post" action="" id="exportForm" style="display: none;">
     {% csrf_token %}
-    <input type="hidden" name="step" value="export_ltl_pos">
+    <input type="hidden" name="step" value="export_ltl_unscheduled">
     <input type="hidden" name="cargo_ids" id="cargoIdsInput">
     <input type="hidden" name="plt_ids" id="pltIdsInput">
     <input type="hidden" name="warehouse" value="{{ warehouse }}">
+    <input type="hidden" name="active_tab" value="cargo">
 </form>
 
 <script>
-    // 未放行页面JavaScript - 精简版
-    document.addEventListener('DOMContentLoaded', function() {
-        initializeUnscheduledPage();
-    });
-
-    function initializeUnscheduledPage() {
-        updateSelectedCount();
-        
-        // 全选/取消全选
-        const selectAllCheckbox = document.getElementById('selectAllCargos');
-        if (selectAllCheckbox) {
-            selectAllCheckbox.addEventListener('change', toggleSelectAll);
-        }
-
-        // 单个选择框变化
-        document.querySelectorAll('.cargo-checkbox').forEach(checkbox => {
-            checkbox.addEventListener('change', function() {
-                updateSelectedCount();
-            });
+    // 使用IIFE避免变量污染
+    (function() {
+        // 未放行页面JavaScript
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeUnscheduledPage();
         });
 
-        // 搜索功能
-        const searchCargoBtn = document.getElementById('searchCargoBtn');
-        if (searchCargoBtn) {
-            searchCargoBtn.addEventListener('click', applySearchFilter);
-        }
+        // 全局变量
+        let columnFilters = {};
 
-        const cargoSearch = document.getElementById('cargoSearch');
-        if (cargoSearch) {
-            cargoSearch.addEventListener('keypress', function(e) {
-                if (e.key === 'Enter') {
-                    applySearchFilter();
-                }
-            });
-        }
-    }
-
-    // 全选功能
-    function toggleSelectAll() {
-        const selectAllCheckbox = document.getElementById('selectAllCargos');
-        const cargoCheckboxes = document.querySelectorAll('.cargo-checkbox');
-        const isChecked = selectAllCheckbox.checked;
-        
-        cargoCheckboxes.forEach(checkbox => {
-            const row = checkbox.closest('tr');
-            if (row.style.display !== 'none') {
-                checkbox.checked = isChecked;
+        function initializeUnscheduledPage() {
+            updateSelectedCount();
+            
+            // 全选/取消全选
+            const selectAllCheckbox = document.getElementById('selectAllCargos');
+            if (selectAllCheckbox) {
+                selectAllCheckbox.addEventListener('change', toggleSelectAll);
             }
-        });
-        updateSelectedCount();
-    }
 
-    function exportSelectedCargos() {
-        const selectedCheckboxes = Array.from(document.querySelectorAll('.cargo-checkbox:checked'))
-        .filter(checkbox => checkbox.closest('tr').style.display !== 'none');
-        
-        if (selectedCheckboxes.length === 0) {
-            alert('请先选择要导出的货物');
-            return;
-        }
-
-        const cargoIds = [];
-        const pltIds = [];
-
-        selectedCheckboxes.forEach(checkbox => {
-            const value = checkbox.value.trim();
-            if (value.startsWith('plt_')) {
-                pltIds.push(value.replace(/^plt_/, ''));
-            } else {
-                cargoIds.push(value);
-            }
-        });
-
-        // 设置隐藏表单字段并提交
-        const cargoIdsInput = document.getElementById('cargoIdsInput');
-        const pltIdsInput = document.getElementById('pltIdsInput');
-        const exportForm = document.getElementById('exportForm');
-        
-        if (cargoIdsInput && pltIdsInput && exportForm) {
-            cargoIdsInput.value = cargoIds.join(',');
-            pltIdsInput.value = pltIds.join(',');
-            exportForm.submit();
-        }
-    }
-
-    // 搜索功能
-    function applySearchFilter() {
-        const searchTerm = document.getElementById('cargoSearch');
-        if (!searchTerm) return;
-        
-        const searchValue = searchTerm.value.trim().toLowerCase();
-        const rows = document.querySelectorAll('#cargoTable tbody tr');
-        
-        // 将搜索词按空格分割成多个关键词
-        const searchKeywords = searchValue.split(/\s+/).filter(keyword => keyword.length > 0);
-
-        rows.forEach(row => {
-            const customer = (row.dataset.customer || '').toLowerCase();
-            const destination = (row.dataset.destination || '').toLowerCase();
-            const shippingMark = (row.dataset.shippingMark || '').toLowerCase();
-            const containerNumber = (row.dataset.containerNumber || '').toLowerCase();
-            const address = row.cells[5].textContent.toLowerCase();
-            const note = row.cells[6].textContent.toLowerCase();
-
-            let match = true;
-            if (searchKeywords.length > 0) {
-                // 检查任一关键词是否匹配任一字段
-                match = searchKeywords.some(keyword => {
-                    return customer.includes(keyword) ||
-                           destination.includes(keyword) ||
-                           shippingMark.includes(keyword) ||
-                           containerNumber.includes(keyword) ||
-                           address.includes(keyword) ||
-                           note.includes(keyword);
+            // 单个选择框变化
+            document.querySelectorAll('.cargo-checkbox').forEach(checkbox => {
+                checkbox.addEventListener('change', function() {
+                    updateSelectedCount();
                 });
-            }
+            });
+            
+            // 核实表单提交确认
+            document.querySelectorAll('.verify-form').forEach(form => {
+                form.addEventListener('submit', function(e) {
+                    const isVerify = this.querySelector('input[name="is_verify"]').value === 'true';
+                    const action = isVerify ? '核实' : '取消核实';
+                    if (!confirm(`确定要${action}这些货物吗？`)) {
+                        e.preventDefault();
+                    }
+                });
+            });
+        }
 
-            if (match) {
-                row.style.display = '';
-            } else {
-                row.style.display = 'none';
-                // 隐藏行时取消选中
+        // 全选功能
+        function toggleSelectAll() {
+            const selectAllCheckbox = document.getElementById('selectAllCargos');
+            if (!selectAllCheckbox) return;
+            
+            const isChecked = selectAllCheckbox.checked;
+            
+            // 获取所有可见的数据行（不包括筛选行）
+            const visibleRows = Array.from(document.querySelectorAll('.data-row:not(.filter-row)'))
+                .filter(row => row.style.display !== 'none');
+            
+            // 更新所有可见行的复选框
+            visibleRows.forEach(row => {
                 const checkbox = row.querySelector('.cargo-checkbox');
                 if (checkbox) {
-                    checkbox.checked = false;
+                    checkbox.checked = isChecked;
                 }
-            }
-        });
-
-        updateSelectedCount();
-    }
-
-    // 更新选中数量
-    function updateSelectedCount() {
-        const selectedCountEl = document.getElementById('selectedCount');
-        if (!selectedCountEl) return;
-        
-        const selectedCheckboxes = Array.from(document.querySelectorAll('.cargo-checkbox:checked'))
-            .filter(checkbox => checkbox.closest('tr').style.display !== 'none');
-        
-        const selectedCount = selectedCheckboxes.length;
-        selectedCountEl.textContent = selectedCount;
-
-        // 计算选中货物的统计数据
-        let totalSelectedPallets = 0;
-        let totalSelectedCbm = 0;
-        let totalSelectedWeightLbs = 0;
-        
-        selectedCheckboxes.forEach(checkbox => {
-            const row = checkbox.closest('tr');
-            const pallets = parseFloat(row.dataset.pallets) || 0;
-            const cbm = parseFloat(row.dataset.cbm) || 0;
-            const weightLbs = parseFloat(row.dataset.weightLbs) || 0;
+            });
             
-            totalSelectedPallets += pallets;
-            totalSelectedCbm += cbm;
-            totalSelectedWeightLbs += weightLbs;
-        });
-        
-        // 更新选中统计显示
-        const selectedPalletsCountEl = document.getElementById('selectedPalletsCount');
-        const selectedCbmCountEl = document.getElementById('selectedCbmCount');
-        const selectedWeightLbsCountEl = document.getElementById('selectedWeightLbsCount');
-        
-        if (selectedPalletsCountEl) {
-            selectedPalletsCountEl.textContent = Math.round(totalSelectedPallets);
+            updateSelectedCount();
         }
-        if (selectedCbmCountEl) {
-            selectedCbmCountEl.textContent = totalSelectedCbm.toFixed(2);
-        }
-        if (selectedWeightLbsCountEl) {
-            selectedWeightLbsCountEl.textContent = totalSelectedWeightLbs.toFixed(2);
-        }
-        
-        // 更新全选框的状态
-        updateSelectAllCheckbox();
-    }
 
-    function updateSelectAllCheckbox() {
-        const selectAllCheckbox = document.getElementById('selectAllCargos');
-        if (!selectAllCheckbox) return;
-        
-        const visibleCheckboxes = Array.from(document.querySelectorAll('.cargo-checkbox'))
-            .filter(checkbox => checkbox.closest('tr').style.display !== 'none');
-        
-        if (visibleCheckboxes.length === 0) {
-            selectAllCheckbox.checked = false;
-            selectAllCheckbox.indeterminate = false;
-            return;
+        function exportSelectedCargos() {
+            const selectedCheckboxes = Array.from(document.querySelectorAll('.cargo-checkbox:checked'))
+            .filter(checkbox => {
+                const row = checkbox.closest('tr');
+                return row.style.display !== 'none' && !row.classList.contains('filter-row');
+            });
+            
+            if (selectedCheckboxes.length === 0) {
+                alert('请先选择要导出的货物');
+                return;
+            }
+
+            const cargoIds = [];
+            const pltIds = [];
+
+            selectedCheckboxes.forEach(checkbox => {
+                const value = checkbox.value.trim();
+                if (value.startsWith('plt_')) {
+                    pltIds.push(value.replace(/^plt_/, ''));
+                } else {
+                    cargoIds.push(value);
+                }
+            });
+
+            // 设置隐藏表单字段并提交
+            const cargoIdsInput = document.getElementById('cargoIdsInput');
+            const pltIdsInput = document.getElementById('pltIdsInput');
+            const exportForm = document.getElementById('exportForm');
+            
+            if (cargoIdsInput && pltIdsInput && exportForm) {
+                cargoIdsInput.value = cargoIds.join(',');
+                pltIdsInput.value = pltIds.join(',');
+                exportForm.submit();
+            }
         }
-        
-        const checkedCount = visibleCheckboxes.filter(checkbox => checkbox.checked).length;
-        
-        if (checkedCount === 0) {
-            selectAllCheckbox.checked = false;
-            selectAllCheckbox.indeterminate = false;
-        } else if (checkedCount === visibleCheckboxes.length) {
-            selectAllCheckbox.checked = true;
-            selectAllCheckbox.indeterminate = false;
-        } else {
-            selectAllCheckbox.checked = false;
-            selectAllCheckbox.indeterminate = true;
+
+        // 列筛选函数
+        function applyColumnFilter(input) {
+            const columnIndex = parseInt(input.getAttribute('data-column'));
+            const filterValue = input.value.trim().toLowerCase();
+            
+            
+            if (filterValue) {
+                columnFilters[columnIndex] = filterValue;
+            } else {
+                delete columnFilters[columnIndex];
+            }
+            
+            applyCombinedFilter();
         }
-    }
+
+        // 清空所有筛选
+        function clearAllFilters() {
+            
+            // 1. 保存当前所有复选框的状态（用于后续比较）
+            const allRows = document.querySelectorAll('#cargoTable .data-row:not(.filter-row)');
+            const checkboxStates = {};
+            
+            allRows.forEach((row, index) => {
+                const checkbox = row.querySelector('.cargo-checkbox');
+                if (checkbox) {
+                    checkboxStates[index] = checkbox.checked;
+                }
+            });
+            
+            // 2. 清空输入框和选择框
+            document.querySelectorAll('.filter-input, .filter-select').forEach(input => {
+                input.value = '';
+            });
+            
+            // 3. 清空筛选状态对象
+            columnFilters = {};
+            
+            // 4. 显示所有数据行，并重置复选框
+            allRows.forEach((row, index) => {
+                row.style.display = '';
+                
+                // 重置复选框状态（取消选中）
+                const checkbox = row.querySelector('.cargo-checkbox');
+                if (checkbox) {
+                    // 如果是之前选中的，现在取消选中
+                    if (checkboxStates[index] === true) {
+                        checkbox.checked = false;
+                    }
+                }
+            });
+            
+            // 5. 更新全选复选框状态
+            const selectAllCheckbox = document.getElementById('selectAllCargos');
+            if (selectAllCheckbox) {
+                selectAllCheckbox.checked = false;
+                selectAllCheckbox.indeterminate = false;
+            }
+            
+            // 6. 更新计数
+            updateSelectedCount();
+        }
+
+
+        // 组合筛选函数
+        function applyCombinedFilter() {
+            
+            const rows = document.querySelectorAll('#cargoTable .data-row');
+            let visibleCount = 0;
+            let hiddenCount = 0;
+            
+            rows.forEach(row => {
+                if (row.classList.contains('filter-row')) return;
+                
+                // 检查是否匹配所有筛选条件
+                let match = true;
+                
+                for (const [columnIndex, filterValue] of Object.entries(columnFilters)) {
+                    if (filterValue.trim() === '') {
+                        continue;
+                    }
+                    
+                    const idx = parseInt(columnIndex);
+                    const cell = row.cells[idx + 1]; // +1 因为有复选框列
+                    let cellValue = '';
+                    
+                    if (cell) {
+                        // 获取单元格文本
+                        cellValue = cell.textContent.toLowerCase().trim();
+                        
+                        // 特殊处理核实状态列
+                        if (idx === 10) { // 核实状态是第10列（0-based，排除复选框）
+                            const isVerified = row.dataset.isVerify === '1';
+                            cellValue = isVerified ? '已核实' : '未核实';
+                        }
+                        
+                        if (!cellValue.includes(filterValue.toLowerCase())) {
+                            match = false;
+                            break;
+                        }
+                    }
+                }
+                
+                if (match) {
+                    row.style.display = '';
+                    visibleCount++;
+                } else {
+                    row.style.display = 'none';
+                    hiddenCount++;
+                    
+                    // 重要：隐藏行时取消选中该行的复选框
+                    const checkbox = row.querySelector('.cargo-checkbox');
+                    if (checkbox && checkbox.checked) {
+                        
+                        checkbox.checked = false;
+                    }
+                }
+            });
+            
+            
+            updateSelectedCount();
+        }
+        // 更新选中数量
+        function updateSelectedCount() {
+            const selectedCountEl = document.getElementById('selectedCount');
+            if (!selectedCountEl) return;
+            
+            const selectedCheckboxes = Array.from(document.querySelectorAll('.cargo-checkbox:checked'))
+                .filter(checkbox => {
+                    const row = checkbox.closest('tr');
+                    return row.style.display !== 'none' && !row.classList.contains('filter-row');
+                });
+            
+            const selectedCount = selectedCheckboxes.length;
+            selectedCountEl.textContent = selectedCount;
+
+            // 计算选中货物的统计数据
+            let totalSelectedPallets = 0;
+            let totalSelectedCbm = 0;
+            let totalSelectedWeightLbs = 0;
+            let totalSelectedWeightKg = 0;
+            
+            selectedCheckboxes.forEach(checkbox => {
+                const row = checkbox.closest('tr');
+                const pallets = parseFloat(row.dataset.pallets) || 0;
+                const cbm = parseFloat(row.dataset.cbm) || 0;
+                const weightLbs = parseFloat(row.dataset.weightLbs) || 0;
+                const weightKg = parseFloat(row.dataset.weightKg) || 0;
+                
+                totalSelectedPallets += pallets;
+                totalSelectedCbm += cbm;
+                totalSelectedWeightLbs += weightLbs;
+                totalSelectedWeightKg += weightKg;
+            });
+            
+            // 更新选中统计显示
+            const selectedPalletsCountEl = document.getElementById('selectedPalletsCount');
+            const selectedCbmCountEl = document.getElementById('selectedCbmCount');
+            const selectedWeightLbsCountEl = document.getElementById('selectedWeightLbsCount');
+            const selectedWeightKgCountEl = document.getElementById('selectedWeightKgCount');
+            
+            if (selectedPalletsCountEl) {
+                selectedPalletsCountEl.textContent = Math.round(totalSelectedPallets);
+            }
+            if (selectedCbmCountEl) {
+                selectedCbmCountEl.textContent = totalSelectedCbm.toFixed(2);
+            }
+            if (selectedWeightLbsCountEl) {
+                selectedWeightLbsCountEl.textContent = totalSelectedWeightLbs.toFixed(2);
+            }
+            if (selectedWeightKgCountEl) {
+                selectedWeightKgCountEl.textContent = totalSelectedWeightKg.toFixed(2);
+            }
+            
+            // 更新全选框的状态
+            updateSelectAllCheckbox();
+        }
+
+        function updateSelectAllCheckbox() {
+            const selectAllCheckbox = document.getElementById('selectAllCargos');
+            if (!selectAllCheckbox) return;
+            
+            // 获取所有可见的复选框（不包括隐藏行和筛选行）
+            const visibleCheckboxes = Array.from(document.querySelectorAll('.cargo-checkbox'))
+                .filter(checkbox => {
+                    const row = checkbox.closest('tr');
+                    return !row.classList.contains('filter-row') && row.style.display !== 'none';
+                });
+            
+            if (visibleCheckboxes.length === 0) {
+                selectAllCheckbox.checked = false;
+                selectAllCheckbox.indeterminate = false;
+                return;
+            }
+            
+            const checkedCount = visibleCheckboxes.filter(checkbox => checkbox.checked).length;
+            
+            // 更新全选复选框状态
+            if (checkedCount === 0) {
+                selectAllCheckbox.checked = false;
+                selectAllCheckbox.indeterminate = false;
+            } else if (checkedCount === visibleCheckboxes.length) {
+                selectAllCheckbox.checked = true;
+                selectAllCheckbox.indeterminate = false;
+            } else {
+                selectAllCheckbox.checked = false;
+                selectAllCheckbox.indeterminate = true;
+            }
+        }
+
+        // 将函数暴露到全局作用域，以便HTML中的onclick能调用
+        window.toggleSelectAll = toggleSelectAll;
+        window.exportSelectedCargos = exportSelectedCargos;
+        window.clearAllFilters = clearAllFilters;
+        window.applyColumnFilter = applyColumnFilter;
+        window.updateSelectedCount = updateSelectedCount;
+    })(); // 立即执行
 </script>
