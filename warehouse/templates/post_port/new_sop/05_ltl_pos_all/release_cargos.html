@@ -408,16 +408,6 @@
                 });
             });
             
-            // 核实表单提交确认
-            document.querySelectorAll('.verify-form').forEach(form => {
-                form.addEventListener('submit', function(e) {
-                    const isVerify = this.querySelector('input[name="ltl_verify"]').value === 'true';
-                    const action = isVerify ? '核实' : '取消核实';
-                    if (!confirm(`确定要${action}这些货物吗？`)) {
-                        e.preventDefault();
-                    }
-                });
-            });
         }
 
         // 全选功能

@@ -4215,7 +4215,7 @@ class PostNsop(View):
     
     async def export_ltl_unscheduled(
         self, request: HttpRequest
-    ) -> tuple[str, dict[str, Any]]:
+    ) -> HttpResponse:
         
         cargo_ids = request.POST.get('cargo_ids', '')
         
@@ -4391,10 +4391,25 @@ class PostNsop(View):
         )
         
         # 生成文件名
-        timestamp = timezone.now().strftime('%Y%m%d_%H%M%S')
-        filename = f'未放行货物_导出_{timestamp}.xlsx'
+        timestamp = timezone.now().strftime('_%m%d')
+        filename = f'未放行货物_{timestamp}.xlsx'
         
-        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        # 对文件名进行 URL 编码，确保中文正确处理
+        import urllib.parse
+        encoded_filename = urllib.parse.quote(filename)
+        
+        # 创建 HTTP 响应
+        response = HttpResponse(
+            output.getvalue(),
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        
+        # 使用 RFC 6266 标准设置 Content-Disposition
+        # 这样能确保所有浏览器都能正确显示中文文件名
+        response['Content-Disposition'] = f"attachment; filename*=UTF-8''{encoded_filename}"
+        
+        # 备用方案：对于不支持 RFC 6266 的旧浏览器
+        response['Content-Disposition'] = f"attachment; filename={encoded_filename}"
         
         return response
 
@@ -4419,7 +4434,7 @@ class PostNsop(View):
                 ).update)(
                     ltl_verify=ltl_verify
                 )
-        return self.handle_ltl_unscheduled_pos_post(request)
+        return await self.handle_ltl_unscheduled_pos_post(request)
         
 
     async def handle_ltl_unscheduled_pos_post(
