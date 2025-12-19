@@ -76,6 +76,77 @@
         backdrop-filter: blur(8px);
         border: 1px solid rgba(255, 255, 255, 0.15);
     }
+    .top-actions-bar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 20px 30px;
+        background: white;
+        border-bottom: 1px solid var(--border-color);
+        margin-top: 20px;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    }
+
+    .cbm-display {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        font-size: 1.1rem;
+    }
+
+    .cbm-item {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .cbm-label {
+        font-size: 0.85rem;
+        color: var(--text-secondary);
+        margin-bottom: 4px;
+    }
+
+    .cbm-value {
+        font-weight: 600;
+        color: var(--primary-color);
+        font-size: 1.2rem;
+    }
+
+    .total-display {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+    }
+
+    .total-item {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+    }
+
+    .total-label {
+        font-size: 0.85rem;
+        color: var(--text-secondary);
+        margin-bottom: 4px;
+    }
+
+    .total-value {
+        font-size: 1.4rem;
+        font-weight: 600;
+        color: var(--primary-color);
+    }
+
+    .save-button-container {
+        display: flex;
+        gap: 10px;
+    }
+
+    .combina-action-bar,
+    .activation-action-bar {
+        display: none !important;
+    }
+
     .info-group {
         display: flex;
         gap: 20px;
@@ -1361,8 +1432,32 @@
             <input type="hidden" name="end_date" value="{{ end_date }}">
             <input type="hidden" name="warehouse_filter" value="{{ warehouse_filter }}">
             
+            <!-- ================ 顶部操作栏 ================ -->
+            <div class="top-actions-bar">
+                <!-- CBM信息 -->
+                <div class="cbm-display">
+                    <div class="cbm-item">
+                        <div class="cbm-label">柜子总CBM</div>
+                        <div class="cbm-value">{{ total_container_cbm|floatformat:2 }}</div>
+                    </div>
+                </div>
+                
+                <!-- 总金额 -->
+                <div class="total-display">
+                    <div class="total-item">
+                        <div class="total-label">总金额 (USD)</div>
+                        <div class="total-value" id="total-amount">0.00</div>
+                    </div>
+                </div>
+                
+                <!-- 保存按钮 -->
+                <div class="save-button-container">
+                    <button id="save-bill-btn" type="button" class="btn btn-success" style="padding: 12px 30px; font-size: 1rem;">
+                        <i class="fas fa-save"></i>保存账单
+                    </button>
+                </div>
+            </div>
             <!-- ================ 组合柜计费区域 ================ -->
-            柜子总CBM：{{ total_container_cbm }}
             {% if is_combina and combina_groups %}
             <div class="combina-section">
                 <div class="section-header">
@@ -1766,23 +1861,7 @@
                 </div>
             </div>
 
-            <!-- 总计区域 -->
-            <div class="total-section">
-                <div class="total-row">
-                    <div class="total-item">
-                        <div class="total-label">总金额 (USD)</div>
-                        <div class="total-value" id="total-amount">0.00</div>
-                    </div>
-                </div>
-            </div>
-            <!-- 表单操作按钮 -->
-            <div class="form-actions">
-                <div class="form-buttons">
-                    <button id="save-bill-btn" type="submit" class="btn btn-success">
-                        <i class="fas fa-save"></i>保存账单
-                    </button>
-                </div>
-            </div>
+            
 
             <!-- ================ 其他类型PO区域 ================ -->
             {% if other_pallet_groups %}
@@ -2002,31 +2081,31 @@
 
     // PO激活费功能
     let activationItems = [];
-
+    function calculateTotalAmount() {
+        let total = 0;
+        
+        // 1. 计算组合柜总金额
+        $('.combina-amount-input').each(function() {
+            const amount = parseFloat($(this).val()) || 0;
+            total += amount;
+        });
+        console.log('组合柜',total);
+        // 2. 计算转运计费总金额
+        $('.amount-input').each(function() {
+            const amount = parseFloat($(this).val()) || 0;
+            total += amount;
+        });
+        console.log('转运',total);
+        $('.activation-amount-input').each(function() {
+            const amount = parseFloat($(this).val()) || 0;
+            total += amount;
+        });
+        $('#total-amount').text(total.toFixed(2));
+        return total;
+    }
     $(document).ready(function() {
         // 计算总金额
-        function calculateTotalAmount() {
-            let total = 0;
-            
-            // 1. 计算组合柜总金额
-            $('.combina-amount-input').each(function() {
-                const amount = parseFloat($(this).val()) || 0;
-                total += amount;
-            });
-            console.log('组合柜',total);
-            // 2. 计算转运计费总金额
-            $('.amount-input').each(function() {
-                const amount = parseFloat($(this).val()) || 0;
-                total += amount;
-            });
-            console.log('转运',total);
-            $('.activation-amount-input').each(function() {
-                const amount = parseFloat($(this).val()) || 0;
-                total += amount;
-            });
-            $('#total-amount').text(total.toFixed(2));
-            return total;
-        }
+        
         // 初始化时计算总金额
         calculateTotalAmount();
 
@@ -2507,19 +2586,70 @@
         event.preventDefault();
 
         // 1. 验证所有 normal_items 是否选择派送类型
-        let hasEmpty = false;
+        let errorMessages = [];
+        let hasError = false;
+
+        // 1. 验证所有 normal_items 是否选择派送类型
         $('.normal-table .delivery-type-select').each(function () {
             const val = $(this).val();
+            const $row = $(this).closest('tr');
+            const poId = $row.data('po') || '未知PO';
+            
             if (!val) {
-                hasEmpty = true;
+                errorMessages.push(`PO ${poId}: 请选择派送类型`);
+                hasError = true;
                 $(this).addClass('highlight-select');
             } else {
                 $(this).removeClass('highlight-select');
+                
+                // 2. 验证金额是否为0（除了UPS类型）
+                if (val !== 'upsdelivery') {
+                    const amount = parseFloat($row.find('.amount-input').val()) || 0;
+                    if (amount <= 0) {
+                        errorMessages.push(`PO ${poId}: 金额必须大于0（派送类型: ${$(this).find('option:selected').text()}）`);
+                        hasError = true;
+                        $row.find('.amount-input').css('border-color', 'var(--error-color)');
+                    } else {
+                        $row.find('.amount-input').css('border-color', '');
+                    }
+                }
             }
         });
 
-        if (hasEmpty) {
-            showToast("请填写所有派送类型后再保存账单！", "danger");
+        // 3. 验证组合柜金额是否有效
+        $('.combina-table tbody tr.row-combina').each(function () {
+            const $row = $(this);
+            const poId = $row.data('po') || "";
+            const amount = parseFloat($row.find('.combina-amount-input').val()) || 0;
+            
+            // 组合柜不是UPS类型，必须检查金额
+            if (amount <= 0) {
+                errorMessages.push(`组合柜PO ${poId}: 金额必须大于0`);
+                hasError = true;
+                $row.find('.combina-amount-input').css('border-color', 'var(--error-color)');
+            } else {
+                $row.find('.combina-amount-input').css('border-color', '');
+            }
+        });
+        // 4. 验证PO激活费金额
+        $('.activation-amount-input').each(function() {
+            const amount = parseFloat($(this).val()) || 0;
+            const $row = $(this).closest('tr');
+            const poId = $row.data('po') || '未知PO';
+            
+            if (amount <= 0) {
+                errorMessages.push(`激活费PO ${poId}: 金额必须大于0`);
+                hasError = true;
+                $(this).css('border-color', 'var(--error-color)');
+            } else {
+                $(this).css('border-color', '');
+            }
+        });
+
+        if (hasError) {
+            // 显示所有错误信息
+            const errorHtml = errorMessages.map(msg => `<div style="margin-bottom: 8px;">• ${msg}</div>`).join('');
+            showToast('验证错误', errorHtml, 'error');
             return;
         }
 

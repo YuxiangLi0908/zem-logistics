@@ -3495,8 +3495,8 @@ class ReceivableAccounting(View):
         total_container_cbm = PackingList.objects.filter(
             container_number__container_number=container_number  
         ).aggregate(
-            total_cbm=Sum('cbm')
-        )
+            total_cbm=Coalesce(Sum('cbm'), 0.0)
+        )['total_cbm']
         # 构建上下文
         context.update({
             "container_number": container_number,
