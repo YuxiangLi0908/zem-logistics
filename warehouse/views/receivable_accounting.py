@@ -128,6 +128,7 @@ class ReceivableAccounting(View):
         "MO-62025": "MO-62025",
         "TX-77503": "TX-77503",
         "LA-91789": "LA-91789",
+        "LA-91766": "LA-91766",
         "直送": "直送",
     }
     CATEGORY_STATUS_FIELD = {
