@@ -17,7 +17,7 @@ from django.db import transaction
 from django.db.models.fields.json import KeyTextTransform
 from django.core.paginator import Paginator
 
-from typing import Any
+from typing import Any, Dict
 
 import openpyxl
 import openpyxl.workbook
@@ -49,6 +49,7 @@ from django.db.models import (
 from django.db.models.fields.json import KeyTextTransform
 from django.db.models.functions import Cast, Coalesce
 from django.db.models.query import QuerySet
+from django.forms import model_to_dict
 from django.http import HttpRequest, HttpResponse, HttpResponseForbidden
 from django.shortcuts import render
 from django.utils import timezone
@@ -142,6 +143,7 @@ class Accounting(View):
     template_invoice_payable = "accounting/invoice_payable.html"
     template_invoice_payable_v1 = "accounting/invoice_payable_v1.html"
     template_invoice_payable_edit = "accounting/invoice_payable_edit.html"
+    template_invoice_payable_edit_v1 = "accounting/invoice_payable_edit_v1.html"
     template_invoice_payable_direct_edit = "accounting/invoice_payable_direct_edit.html"
     allowed_group = "accounting"
     warehouse_options = {
@@ -365,6 +367,9 @@ class Accounting(View):
             return render(request, template, context)
         elif step == "payable_save":
             template, context = self.handle_invoice_payable_save_post(request)
+            return render(request, template, context)
+        elif step == "payable_save_v1":
+            template, context = self.handle_invoice_payable_save_post_v1(request)
             return render(request, template, context)
         elif step == "add_delivery_type":
             template, context = self.handle_invoice_delivery_type_save(request)
@@ -1678,104 +1683,65 @@ class Accounting(View):
             "pending_review": "待组长审核",
             "completed": "已完成",
             "rejected": "已驳回",
+            "tobeconfirmed": "待财务确认",
+            "confirmed": "财务已确认",
         }
 
         WAREHOUSE_DELIVERY_STATUS_MAPPING = {
             "unstarted": "未录入",
             "in_progress": "录入中",
+            "pending_review": "待组长审核",
             "completed": "已完成",
             "rejected": "已驳回",
         }
 
-        is_dict_type = orders and isinstance(orders[0], dict)
-
-        if is_dict_type:
-            status_ids = [
-                o[f"container_number__invoice_statusesv2"]
-                for o in orders
-                if o.get(f"container_number__invoice_statusesv2")
-            ]
-            status_objects = InvoiceStatusv2.objects.filter(id__in=status_ids).in_bulk()
-
         processed_orders = []
         for order in orders:
-            if is_dict_type:
-                status_id = order.get(f"container_number__invoice_statusesv2")
-                status_obj = status_objects.get(status_id) if status_id else None
-
-                if status_obj:
-                    # 港前提拆,仓库,派送状态
-                    raw_preport_status = status_obj.preport_status
-                    raw_warehouse_public_status = status_obj.warehouse_public_status
-                    raw_warehouse_other_status = status_obj.warehouse_other_status
-                    raw_delivery_public_status = status_obj.delivery_public_status
-                    raw_delivery_other_status = status_obj.delivery_other_status
-                    # 港前提拆,仓库,派送驳回原因
-                    raw_preport_reason = status_obj.preport_reason
-                    raw_warehouse_public_reason = status_obj.warehouse_public_reason
-                    raw_warehouse_self_reason = status_obj.warehouse_self_reason
-                    raw_delivery_public_reason = status_obj.delivery_public_reason
-                    raw_delivery_other_reason = status_obj.delivery_other_reason
-                else:
-                    # 港前提拆,仓库,派送状态
-                    raw_preport_status = None
-                    raw_warehouse_public_status = None
-                    raw_warehouse_other_status = None
-                    raw_delivery_public_status = None
-                    raw_delivery_other_status = None
-                    # 港前提拆,仓库,派送驳回原因
-                    raw_preport_reason = ""
-                    raw_warehouse_public_reason = ""
-                    raw_warehouse_self_reason = ""
-                    raw_delivery_public_reason = ""
-                    raw_delivery_other_reason = ""
-
-                order_data = order.copy()
+            status_obj = InvoiceStatusv2.objects.filter(container_number=order.container_number.id).get()
+            if status_obj:
+                # 港前提拆,仓库,派送状态
+                raw_preport_status = status_obj.preport_status
+                raw_warehouse_public_status = status_obj.warehouse_public_status
+                raw_warehouse_other_status = status_obj.warehouse_other_status
+                raw_delivery_public_status = status_obj.delivery_public_status
+                raw_delivery_other_status = status_obj.delivery_other_status
+                # 港前提拆,仓库,派送驳回原因
+                raw_preport_reason = status_obj.preport_reason
+                raw_warehouse_public_reason = status_obj.warehouse_public_reason
+                raw_warehouse_self_reason = status_obj.warehouse_self_reason
+                raw_delivery_public_reason = status_obj.delivery_public_reason
+                raw_delivery_other_reason = status_obj.delivery_other_reason
             else:
-                status_obj = getattr(order, f"container_number__invoice_statusesv2", None)
+                # 港前提拆,仓库,派送状态
+                raw_preport_status = None
+                raw_warehouse_public_status = None
+                raw_warehouse_other_status = None
+                raw_delivery_public_status = None
+                raw_delivery_other_status = None
+                # 港前提拆,仓库,派送驳回原因
+                raw_preport_reason = ""
+                raw_warehouse_public_reason = ""
+                raw_warehouse_self_reason = ""
+                raw_delivery_public_reason = ""
+                raw_delivery_other_reason = ""
 
-                if status_obj:
-                    # 港前提拆,仓库,派送状态
-                    raw_preport_status = status_obj.preport_status
-                    raw_warehouse_public_status = status_obj.warehouse_public_status
-                    raw_warehouse_other_status = status_obj.warehouse_other_status
-                    raw_delivery_public_status = status_obj.delivery_public_status
-                    raw_delivery_other_status = status_obj.delivery_other_status
-                    # 港前提拆,仓库,派送驳回原因
-                    raw_preport_reason = status_obj.preport_reason
-                    raw_warehouse_public_reason = status_obj.warehouse_public_reason
-                    raw_warehouse_self_reason = status_obj.warehouse_self_reason
-                    raw_delivery_public_reason = status_obj.delivery_public_reason
-                    raw_delivery_other_reason = status_obj.delivery_other_reason
-                else:
-                    # 港前提拆,仓库,派送状态
-                    raw_preport_status = None
-                    raw_warehouse_public_status = None
-                    raw_warehouse_other_status = None
-                    raw_delivery_public_status = None
-                    raw_delivery_other_status = None
-                    # 港前提拆,仓库,派送驳回原因
-                    raw_preport_reason = ""
-                    raw_warehouse_public_reason = ""
-                    raw_warehouse_self_reason = ""
-                    raw_delivery_public_reason = ""
-                    raw_delivery_other_reason = ""
-
-                order_data = order
-
-            if raw_warehouse_public_status:
+            order_data = order
+            if raw_preport_status != "unstarted":
+                stage = STAGE_MAPPING.get(raw_preport_status, str(raw_preport_status))
+                display_stage = f"提拆柜: {stage}"
+            elif raw_warehouse_public_status != "unstarted":
                 stage = WAREHOUSE_DELIVERY_STATUS_MAPPING.get(raw_warehouse_public_status,
                                                               str(raw_warehouse_public_status))
                 display_stage = f"仓库公仓: {stage}"
-            elif raw_warehouse_other_status:
+            elif raw_warehouse_other_status !="unstarted":
                 stage = WAREHOUSE_DELIVERY_STATUS_MAPPING.get(raw_warehouse_other_status,
                                                               str(raw_warehouse_other_status))
                 display_stage = f"仓库私仓: {stage}"
-            elif raw_delivery_public_status:
+            elif raw_delivery_public_status !="unstarted":
                 stage = WAREHOUSE_DELIVERY_STATUS_MAPPING.get(raw_delivery_public_status,
                                                               str(raw_delivery_public_status))
                 display_stage = f"派送公仓: {stage}"
-            elif raw_delivery_other_status:
+            elif raw_delivery_other_status !="unstarted":
                 stage = WAREHOUSE_DELIVERY_STATUS_MAPPING.get(raw_delivery_other_status,
                                                               str(raw_delivery_other_status))
                 display_stage = f"派送私仓: {stage}"
@@ -1786,38 +1752,19 @@ class Accounting(View):
                     else "未录入任何费用"
                 )
 
-            if is_dict_type:
-                order_data.update(
-                    {
-                        "display_stage": display_stage,
-                        "display_is_rejected": "已驳回" if raw_preport_status == "rejected"
-                                                           or raw_warehouse_public_status == "rejected"
-                                                           or raw_warehouse_other_status == "rejected"
-                                                           or raw_delivery_public_status == "rejected"
-                                                           or raw_delivery_other_status == "rejected"
-                                                        else "正常",
-                        "display_reject_reason": raw_preport_reason
-                                                 or raw_warehouse_public_reason
-                                                 or raw_warehouse_self_reason
-                                                 or raw_delivery_public_reason
-                                                 or raw_delivery_other_reason
-                                                 or " ",
-                    }
-                )
-            else:
-                order.display_stage = display_stage
-                order.display_is_rejected = "已驳回" if (raw_preport_status == "rejected"
-                                                         or raw_warehouse_public_status == "rejected"
-                                                         or raw_warehouse_other_status == "rejected"
-                                                         or raw_delivery_public_status == "rejected"
-                                                         or raw_delivery_other_status == "rejected") \
-                                                    else "正常"
-                order.display_reject_reason = (raw_preport_reason
-                                               or raw_warehouse_public_reason
-                                               or raw_warehouse_self_reason
-                                               or raw_delivery_public_reason
-                                               or raw_delivery_other_reason
-                                               or " ")
+            order_data.display_stage = display_stage
+            order_data.display_is_rejected = "已驳回" if (raw_preport_status == "rejected"
+                                                     or raw_warehouse_public_status == "rejected"
+                                                     or raw_warehouse_other_status == "rejected"
+                                                     or raw_delivery_public_status == "rejected"
+                                                     or raw_delivery_other_status == "rejected") \
+                                                else "正常"
+            order_data.display_reject_reason = (raw_preport_reason
+                                           or raw_warehouse_public_reason
+                                           or raw_warehouse_self_reason
+                                           or raw_delivery_public_reason
+                                           or raw_delivery_other_reason
+                                           or " ")
 
             processed_orders.append(order_data)
 
@@ -2308,6 +2255,413 @@ class Accounting(View):
             }
             return self.template_invoice_confirm, context
         else:
+            #待确认账单应付
+            selected_customer_id = request.POST.get("customer_name", "")  # 重点：字段名是"customer_name"（Form字段名）
+            order_form = OrderForm(
+                initial={
+                    "customer_name": selected_customer_id  # 关键：让表单默认选中该客户
+                }
+            )
+            criteria &= models.Q(
+                models.Q(vessel_id__vessel_etd__gte=start_date_confirm),
+                models.Q(vessel_id__vessel_etd__lte=end_date_confirm),
+            )
+            # 查找提拆的待开和已开
+            payable_preport_subquery = InvoicePreport.objects.filter(
+                invoice_number=OuterRef("invoice_id"), invoice_type="payable"
+            )
+            payable_other_fee_subquery = InvoicePreport.objects.filter(
+                invoice_number=OuterRef("invoice_id"), invoice_type="payable"
+            ).values("other_fees__other_fee")[:1]
+            pick_pending_orders = (
+                Order.objects.select_related(
+                    "customer_name", "container_number", "retrieval_id", "invoice_id", "payable_status"
+                )
+                .annotate(
+                    payable_pickup=Subquery(payable_preport_subquery.values("pickup")[:1]),
+                    payable_chassis=Subquery(
+                        payable_preport_subquery.values("chassis")[:1]
+                    ),
+                    payable_over_weight=Subquery(
+                        payable_preport_subquery.values("over_weight")[:1]
+                    ),
+                    payable_demurrage=Subquery(
+                        payable_preport_subquery.values("demurrage")[:1]
+                    ),
+                    payable_per_diem=Subquery(
+                        payable_preport_subquery.values("per_diem")[:1]
+                    ),
+                    payable_other_fee_data=Subquery(payable_other_fee_subquery),
+                )
+                .filter(
+                    criteria,
+                    models.Q(payable_status__stage="tobeconfirmed")
+                    | models.Q(payable_status__stage="confirmed"),
+                    payable_status__isnull=False,
+                    payable_status__payable_status__has_key="pickup",
+                    payable_status__payable_status__pickup="pending",
+                )
+                .values(
+                    "container_number__container_number",
+                    "customer_name__zem_name",
+                    "retrieval_id__retrieval_destination_area",
+                    "invoice_id__invoice_number",
+                    "payable_pickup",  # 提柜费
+                    "payable_over_weight",  # 超重费
+                    "payable_chassis",  # 车架费
+                    "payable_demurrage",  # 滞港费
+                    "payable_per_diem",  # 滞箱费
+                    "payable_other_fee_data",  # 其他费用
+                    "invoice_id__payable_preport_amount",  # 总费用
+                    "invoice_id",
+                    "retrieval_id__retrieval_carrier",
+                    "payable_status__payable_date"
+                )
+            )
+
+            for item in pick_pending_orders:
+                raw_time = item.get("payable_status__payable_date")
+                item["is_over_3_days"] = False  # 默认未超过 3 天
+                item["payable_date_str"] = ""  # 用于前端显示时间（可选）
+                if isinstance(raw_time, datetime):
+                    if raw_time.tzinfo is None or raw_time.tzinfo.utcoffset(raw_time) is None:
+                        raw_time = timezone.make_aware(raw_time, timezone=timezone.utc)
+                    current_utc_time = timezone.now()
+                    time_diff = current_utc_time - raw_time
+                    if time_diff > timedelta(days=3):
+                        item["is_over_3_days"] = True
+                    item["payable_date_str"] = raw_time.strftime("%Y-%m-%d %H:%M:%S %Z")
+
+            pick_pending_orders = sorted(
+                pick_pending_orders,
+                key=lambda x: x["is_over_3_days"],
+                reverse=True
+            )
+
+            pick_confirmed_orders = (
+                Order.objects.select_related(
+                    "customer_name", "container_number", "retrieval_id", "invoice_id"
+                )
+                .annotate(
+                    payable_pickup=Subquery(payable_preport_subquery.values("pickup")[:1]),
+                    payable_chassis=Subquery(
+                        payable_preport_subquery.values("chassis")[:1]
+                    ),
+                    payable_over_weight=Subquery(
+                        payable_preport_subquery.values("over_weight")[:1]
+                    ),
+                    payable_demurrage=Subquery(
+                        payable_preport_subquery.values("demurrage")[:1]
+                    ),
+                    payable_per_diem=Subquery(
+                        payable_preport_subquery.values("per_diem")[:1]
+                    ),
+                    payable_other_fee_data=Subquery(payable_other_fee_subquery),
+                )
+                .filter(
+                    criteria,
+                    models.Q(payable_status__stage="tobeconfirmed")
+                    | models.Q(payable_status__stage="confirmed"),
+                    payable_status__isnull=False,
+                    payable_status__payable_status__has_key="pickup",
+                    payable_status__payable_status__pickup="confirmed",
+                )
+                .values(
+                    "container_number__container_number",
+                    "customer_name__zem_name",
+                    "retrieval_id__retrieval_destination_area",
+                    "invoice_id__invoice_number",
+                    "payable_pickup",  # 提柜费
+                    "payable_over_weight",  # 超重费
+                    "payable_chassis",  # 车架费
+                    "payable_demurrage",  # 滞港费
+                    "payable_per_diem",  # 滞箱费
+                    "payable_other_fee_data",  # 其他费用
+                    "invoice_id__payable_preport_amount",  # 总费用
+                    "retrieval_id__retrieval_carrier",
+                )
+            )
+
+            # 查找提拆的待开和已开
+            payable_warehouse_subquery = InvoiceWarehouse.objects.filter(
+                invoice_number=OuterRef("invoice_id"), invoice_type="payable"
+            )
+            payable_other_fee_wh_subquery = InvoiceWarehouse.objects.filter(
+                invoice_number=OuterRef("invoice_id"), invoice_type="payable"
+            ).values("other_fees__other")[:1]
+
+            warehouse_pending_orders = (
+                Order.objects.select_related(
+                    "customer_name", "container_number", "retrieval_id", "invoice_id", "payable_status"
+                )
+                .annotate(
+                    payable_palletization_fee=Subquery(
+                        payable_warehouse_subquery.values("palletization_fee")[:1]
+                    ),
+                    payable_arrive_fee=Subquery(
+                        payable_warehouse_subquery.values("arrive_fee")[:1]
+                    ),
+                    payable_carrier=Subquery(
+                        payable_warehouse_subquery.values("carrier")[:1]
+                    ),
+                    payable_other_fee_data=Subquery(payable_other_fee_wh_subquery),
+                )
+                .filter(
+                    criteria,
+                    models.Q(payable_status__stage="tobeconfirmed")
+                    | models.Q(payable_status__stage="confirmed"),
+                    payable_status__isnull=False,
+                    payable_status__payable_status__has_key="warehouse",
+                    payable_status__payable_status__warehouse="pending",
+                )
+                .values(
+                    "container_number__container_number",
+                    "customer_name__zem_name",
+                    "retrieval_id__retrieval_destination_area",
+                    "invoice_id__invoice_number",
+                    "payable_palletization_fee",  # 拆柜费
+                    "payable_arrive_fee",  # 入库费
+                    "payable_carrier",  # 供应商
+                    "payable_other_fee_data",  # 其他费用
+                    "invoice_id__payable_warehouse_amount",  # 总费用
+                    "invoice_id",
+                )
+            )
+            for warehouse_pending_order in warehouse_pending_orders:
+                if warehouse_pending_order["retrieval_id__retrieval_destination_area"] == "SAV" and \
+                        warehouse_pending_order["payable_arrive_fee"]:
+                    warehouse_pending_order["payable_carrier"] = "大方广"
+            warehouse_confirmed_orders = (
+                Order.objects.select_related(
+                    "customer_name", "container_number", "retrieval_id", "invoice_id"
+                )
+                .annotate(
+                    payable_palletization_fee=Subquery(
+                        payable_warehouse_subquery.values("palletization_fee")[:1]
+                    ),
+                    payable_arrive_fee=Subquery(
+                        payable_warehouse_subquery.values("arrive_fee")[:1]
+                    ),
+                    payable_carrier=Subquery(
+                        payable_warehouse_subquery.values("carrier")[:1]
+                    ),
+                    payable_other_fee_data=Subquery(payable_other_fee_wh_subquery),
+                )
+                .filter(
+                    criteria,
+                    models.Q(payable_status__stage="tobeconfirmed")
+                    | models.Q(payable_status__stage="confirmed"),
+                    payable_status__isnull=False,
+                    payable_status__payable_status__has_key="warehouse",
+                    payable_status__payable_status__warehouse="confirmed",
+                )
+                .values(
+                    "container_number__container_number",
+                    "customer_name__zem_name",
+                    "retrieval_id__retrieval_destination_area",
+                    "invoice_id__invoice_number",
+                    "payable_palletization_fee",  # 拆柜费
+                    "payable_arrive_fee",  # 入库费
+                    "payable_carrier",  # 供应商
+                    "payable_other_fee_data",  # 其他费用
+                    "invoice_id__payable_warehouse_amount",  # 总费用
+                    "invoice_id",
+                )
+            )
+
+            # criteria和fleetshipmentpallet表直接关联较为复杂，所以先筛选pallet表，然后根据PO_ID去筛选
+            container_numbers = Order.objects.filter(criteria).values_list(
+                "container_number", flat=True
+            )
+            delivery_po_ids = (
+                Pallet.objects.filter(container_number__in=container_numbers)
+                .values_list("PO_ID", flat=True)
+                .distinct()
+            )
+            delivery_pending_orders = (
+                FleetShipmentPallet.objects.select_related(
+                    "fleet_number",  # 确保预取关联的Fleet对象
+                    "shipment_batch_number",
+                    "container_number",
+                )
+                .filter(
+                    expense__isnull=False,
+                    PO_ID__in=delivery_po_ids,
+                )
+                .annotate(
+                    appointment_id=F("shipment_batch_number__appointment_id"),
+                    container_num=F("container_number__container_number"),
+                    pallet_destination=Subquery(
+                        Pallet.objects.filter(
+                            PO_ID=OuterRef("PO_ID"),
+                            shipment_batch_number=OuterRef("shipment_batch_number"),
+                        ).values("destination")[:1]
+                    ),
+                )
+                .order_by("fleet_number", "pickup_number", "container_num")
+            )
+
+            deliverys = {}
+            for order in delivery_pending_orders:
+                fleet_id = order.fleet_number_id
+                if fleet_id not in deliverys:
+                    # 获取carrier信息
+                    carrier = order.fleet_number.carrier if order.fleet_number else None
+
+                    deliverys[fleet_id] = {
+                        "fleets": {},
+                        "total_pallets": 0,
+                        "total_expense": 0,
+                        "total_rows": 0,
+                        "carrier": carrier,
+                    }
+
+                if order.pickup_number not in deliverys[fleet_id]["fleets"]:
+                    deliverys[fleet_id]["fleets"][order.pickup_number] = {
+                        "appointments": {},
+                        "ISA_total_pallets": 0,
+                        "ISA_total_expense": 0,
+                        "total_rows": 0,
+                    }
+
+                if (
+                        order.appointment_id
+                        not in deliverys[fleet_id]["fleets"][order.pickup_number][
+                    "appointments"
+                ]
+                ):
+                    deliverys[fleet_id]["fleets"][order.pickup_number]["appointments"][
+                        order.appointment_id
+                    ] = {"orders": [], "total_pallets": 0, "total_expense": 0, "rowspan": 0}
+
+                # 计算单板成本并保留2位小数
+                per_expense = (
+                    round(order.expense / int(order.total_pallet), 2)
+                    if order.total_pallet
+                    else 0
+                )
+
+                # 为每个order添加统计字段
+                order_data = {
+                    "object": order,
+                    "cn_total_pallet": int(order.total_pallet) if order.total_pallet else 0,
+                    "cn_total_expense": order.expense or 0,
+                    "cn_per_expense": per_expense,
+                    "container_num": order.container_num,
+                    "pallet_destination": order.pallet_destination,
+                    "carrier": deliverys[fleet_id]["carrier"],
+                }
+
+                deliverys[fleet_id]["fleets"][order.pickup_number]["appointments"][
+                    order.appointment_id
+                ]["orders"].append(order_data)
+
+                deliverys[fleet_id]["fleets"][order.pickup_number]["appointments"][
+                    order.appointment_id
+                ]["total_pallets"] += int(order_data["cn_total_pallet"])
+                deliverys[fleet_id]["fleets"][order.pickup_number]["appointments"][
+                    order.appointment_id
+                ]["total_expense"] += order_data["cn_total_expense"]
+                deliverys[fleet_id]["fleets"][order.pickup_number]["appointments"][
+                    order.appointment_id
+                ]["rowspan"] += 1
+
+                deliverys[fleet_id]["fleets"][order.pickup_number][
+                    "ISA_total_pallets"
+                ] += int(order_data["cn_total_pallet"])
+                deliverys[fleet_id]["fleets"][order.pickup_number][
+                    "ISA_total_expense"
+                ] += order_data["cn_total_expense"]
+                deliverys[fleet_id]["fleets"][order.pickup_number]["total_rows"] += 1
+
+                deliverys[fleet_id]["total_pallets"] += int(order_data["cn_total_pallet"])
+                deliverys[fleet_id]["total_expense"] += order_data["cn_total_expense"]
+                deliverys[fleet_id]["total_rows"] += 1
+
+            # 转换数据结构
+            delivery_pending_orders = [
+                {
+                    "fleets": fleet_data["fleets"],
+                    "total_pallets": int(fleet_data["total_pallets"]),
+                    "total_expense": fleet_data["total_expense"],
+                    "carrier": fleet_data["carrier"],
+                }
+                for fleet_data in deliverys.values()
+            ]
+
+            start_date_export = (current_date + timedelta(days=-15)).strftime("%Y-%m-%d")
+            end_date_export = current_date.strftime("%Y-%m-%d")
+            pickup_carriers = {
+                "Kars": "Kars",
+                "东海岸": "东海岸",
+                "ARM": "ARM",
+                "GM": "GM",
+                "BEST": "BEST",
+            }
+            warehouse_carriers = {
+                "BBR": "BBR",
+                "KNO": "KNO",
+            }
+            existing_customers = Customer.objects.all().order_by("zem_name")
+            context = {
+                "pickup_carriers": pickup_carriers,
+                "warehouse_carriers": warehouse_carriers,
+                "pick_pending_orders": pick_pending_orders,
+                "pick_confirmed_orders": pick_confirmed_orders,
+                "warehouse_pending_orders": warehouse_pending_orders,
+                "warehouse_confirmed_orders": warehouse_confirmed_orders,
+                "delivery_pending_orders": delivery_pending_orders,
+                "delivery_confirmed_orders": None,
+                "warehouse_options": self.warehouse_options,
+                "existing_customers": existing_customers,
+                "order_form": order_form,
+                "selected_customer_id": selected_customer_id,
+                "start_date_confirm": start_date_confirm,
+                "end_date_confirm": end_date_confirm,
+                "start_date_export": start_date_export,
+                "end_date_export": end_date_export,
+                "invoice_type_filter": "payable",
+                "CARRIER_FLEET": CARRIER_FLEET,
+                "warehouse_filter": request.POST.get("warehouse_filter"),
+            }
+            return self.template_invoice_payable_confirm, context
+
+    def handle_invoice_confirm_get_v1(
+        self,
+        request: HttpRequest,
+        start_date_confirm: str = None,
+        end_date_confirm: str = None,
+        customer: str = None,
+        warehouse: str = None,
+    ) -> tuple[Any, Any]:
+        current_date = datetime.now().date()
+        start_date_confirm = (
+            (current_date + timedelta(days=-90)).strftime("%Y-%m-%d")
+            if not start_date_confirm
+            else start_date_confirm
+        )
+        end_date_confirm = (
+            current_date.strftime("%Y-%m-%d")
+            if not end_date_confirm
+            else end_date_confirm
+        )
+        # 客服录入完毕的账单
+        invoice_type = (
+            request.POST.get("invoice_type")
+            or request.GET.get("invoice_type")
+        )
+        criteria = models.Q()
+        if warehouse:
+            if warehouse == "直送":
+                criteria &= models.Q(order_type="直送")
+            else:
+                # 这是非直送的筛选，标记一下加上直送的筛选
+                criteria &= models.Q(
+                    retrieval_id__retrieval_destination_precise=warehouse
+                )
+        if customer:
+            criteria &= models.Q(customer_name__zem_name=customer)
+        if invoice_type == "payable":
             #待确认账单应付
             selected_customer_id = request.POST.get("customer_name", "")  # 重点：字段名是"customer_name"（Form字段名）
             order_form = OrderForm(
@@ -3788,6 +4142,193 @@ class Accounting(View):
                 invoice_status.payable_status[key] = "pending"
         invoice_status.save()
         return self.handle_invoice_payable_get(
+            request,
+            data.get("start_date"),
+            data.get("end_date"),
+            None,
+            data.get("warehouse_filter"),
+        )
+
+    def handle_invoice_payable_save_post_v1(self, request: HttpRequest) -> tuple[Any, Any]:
+        """
+        单个账单点击--确认账单/返回/初级审核驳回/初级审核通过
+        """
+        data = request.POST.copy()
+        save_type = data.get("save_type")
+        container_number = data.get("container_number")
+        invoice_status = InvoiceStatusv2.objects.get(
+            container_number__container_number=container_number, invoice_type="payable"
+        )
+        if save_type == "return":  # 返回不需要保存数据
+            return self.handle_invoice_payable_get_v1(
+                request,
+                data.get("start_date"),
+                data.get("end_date"),
+                None,
+                data.get("warehouse_filter"),
+            )
+        elif save_type == "reject":  # 财务驳回
+            if invoice_status.preport_status != "unstarted":
+                invoice_status.preport_status = "rejected"
+                invoice_status.preport_reason = data.get("reject_reason")
+            elif invoice_status.warehouse_public_status != "unstarted":
+                invoice_status.warehouse_public_status = "rejected"
+                invoice_status.warehouse_public_reason = data.get("reject_reason")
+            elif invoice_status.warehouse_other_status != "unstarted":
+                invoice_status.warehouse_other_status = "rejected"
+                invoice_status.warehouse_self_reason = data.get("reject_reason")
+            elif invoice_status.delivery_public_status != "unstarted":
+                invoice_status.delivery_public_status = "rejected"
+                invoice_status.delivery_public_reason = data.get("reject_reason")
+            elif invoice_status.delivery_other_status != "unstarted":
+                invoice_status.delivery_other_status = "rejected"
+                invoice_status.delivery_other_reason = data.get("reject_reason")
+            invoice_status.save()
+            return self.handle_invoice_confirm_get_v1(request)
+        elif save_type == "reject_check":  # 初级审核驳回，驳回不改数据
+            if invoice_status.preport_status != "unstarted":
+                invoice_status.preport_status = "rejected"
+                invoice_status.preport_reason = data.get("reject_reason")
+            elif invoice_status.warehouse_public_status != "unstarted":
+                invoice_status.warehouse_public_status = "rejected"
+                invoice_status.warehouse_public_reason = data.get("reject_reason")
+            elif invoice_status.warehouse_other_status != "unstarted":
+                invoice_status.warehouse_other_status = "rejected"
+                invoice_status.warehouse_self_reason = data.get("reject_reason")
+            elif invoice_status.delivery_public_status != "unstarted":
+                invoice_status.delivery_public_status = "rejected"
+                invoice_status.delivery_public_reason = data.get("reject_reason")
+            elif invoice_status.delivery_other_status != "unstarted":
+                invoice_status.delivery_other_status = "rejected"
+                invoice_status.delivery_other_reason = data.get("reject_reason")
+            invoice_status.save()
+            return self.handle_invoice_payable_get_v1(
+                request,
+                data.get("start_date"),
+                data.get("end_date"),
+                None,
+                data.get("warehouse_filter"),
+            )
+        elif save_type == "check_confirm_without_data":  # 列表中确认通过，不需要改数据
+            invoice_status.finance_status = "tobeconfirmed"
+            current_time = timezone.now()
+            invoice_status.payable_date = current_time
+            invoice_status.save()
+            return self.handle_invoice_payable_get_v1(
+                request,
+                data.get("start_date"),
+                data.get("end_date"),
+                None,
+                data.get("warehouse_filter"),
+            )
+
+        total_amount = data.get("total_amount")
+        if not total_amount and total_amount == 0:
+            raise ValueError("审核时，数据存储错误")
+        # 直送的托架费提示信息
+        chassis_comment = data.get("chassis_comment")
+        # 将额外费用构建键值对
+        pickup_fee_names = data.getlist("pickup_fee_name")
+        pickup_fee_amounts = data.getlist("pickup_fee_amount")
+        pt_amount = 0
+        pickup_fees = {}
+        for name, amount in zip(pickup_fee_names, pickup_fee_amounts):
+            if name and amount:
+                pt_amount += float(amount)
+                pickup_fees[name] = float(amount)
+
+        pallet_fee_names = data.getlist("pallet_fee_name")
+        pallet_fee_amounts = data.getlist("pallet_fee_amount")
+
+        wh_amount = 0
+        pallet_fees = {}
+        for name, amount in zip(pallet_fee_names, pallet_fee_amounts):
+            if name and amount:
+                wh_amount += float(amount)
+                pallet_fees[name] = float(amount)
+        # 存到invoice表里
+        invoice = Invoicev2.objects.get(
+            container_number__container_number=container_number
+        )
+        container = Container.objects.get(
+            container_number=container_number
+        )
+        try:
+            invoice_item = InvoiceItemv2.objects.get(
+                container_number__container_number=container_number,
+                invoice_number__invoice_number=invoice.invoice_number,
+                invoice_type="payable",
+            )
+        except InvoiceItemv2.DoesNotExist:
+            invoice_item = InvoiceItemv2(
+                **{"container_number":container,"invoice_number": invoice, "invoice_type": "payable"}
+            )
+
+        # 拆柜费用
+        if data.get("palletization_fee"):
+            invoice_item.description = "拆柜费用"
+            invoice_item.rate = data.get("palletization_fee")
+            wh_amount += float(data.get("palletization_fee"))
+        # 入库拆柜费
+        if data.get("arrive_fee"):
+            invoice_item.description = "入库拆柜费"
+            invoice_item.rate = data.get("arrive_fee")
+            wh_amount += float(data.get("arrive_fee"))
+        invoice.amount = wh_amount
+        # 应付仓库费
+        invoice.payable_warehouse_amount = wh_amount
+        # 提柜费
+        if data.get("basic_fee"):
+            invoice_item.description = "提柜费用"
+            invoice_item.rate = data.get("basic_fee")
+            pt_amount += float(data.get("basic_fee"))
+        # 超重费
+        if data.get("overweight_fee"):
+            invoice_item.description = "超重费用"
+            invoice_item.over_weight = data.get("overweight_fee")
+            pt_amount += float(data.get("overweight_fee"))
+        # 车架费
+        if data.get("chassis_fee"):
+            invoice_item.description = "车架费用"
+            invoice_item.chassis = data.get("chassis_fee")
+            pt_amount += float(data.get("chassis_fee"))
+        # 港内滞港费
+        if data.get("demurrage_fee"):
+            invoice_item.description = "港内滞港费"
+            invoice_item.demurrage = data.get("demurrage_fee")
+            pt_amount += float(data.get("demurrage_fee"))
+        # 港外滞箱费
+        if data.get("per_diem_fee"):
+            invoice_item.description = "港外滞箱费"
+            invoice_item.per_diem = data.get("per_diem_fee")
+            pt_amount += float(data.get("per_diem_fee"))
+        # 应付提拆费
+        invoice.payable_preport_amount = pt_amount
+        # 应付总金额
+        invoice.payable_total_amount = total_amount
+        invoice_item.save()
+        invoice.save()
+        if save_type == "check_confirm":  # 初级审核，可以修改价格确认完就转到财务审核
+            invoice_status.finance_status = "tobeconfirmed"
+            invoice_status.save()
+            return self.handle_invoice_payable_get_v1(
+                request,
+                data.get("start_date"),
+                data.get("end_date"),
+                None,
+                data.get("warehouse_filter"),
+            )
+        # 如果确认，就改变状态
+        if save_type == "complete":
+            invoice_status.preport_status = "pending_review"  # 这是转给rose去审核 待组长审核
+            invoice_status.preport_reason = ""
+
+        # 修改payable_status字段
+        for key, value in invoice_status.payable_status.items():
+            if value != "confirmed":
+                invoice_status.payable_status[key] = "pending"
+        invoice_status.save()
+        return self.handle_invoice_payable_get_v1(
             request,
             data.get("start_date"),
             data.get("end_date"),
@@ -5448,12 +5989,7 @@ class Accounting(View):
         return orders, pre_order_pending
 
     def get_orders_v1(self, criteria):
-        """审核应付看到的"""
-        payable_preport_subq = InvoiceItemv2.objects.filter(
-            invoice_number=OuterRef("invoice_id"),
-            invoice_type="payable"
-        ).values()
-
+        """审核应付看到的--待审核账单 已审核账单"""
         order_pending = (
             Order.objects.select_related(
                 "customer_name",
@@ -5683,10 +6219,10 @@ class Accounting(View):
             & Q(invoice_type="payable")
             & (
                     Q(preport_status__in=["unstarted", "in_progress", "rejected"])
-                    | Q(warehouse_public_status__in=["unstarted", "in_progress", "rejected"])
-                    | Q(warehouse_other_status__in=["unstarted", "in_progress", "rejected"])
-                    | Q(delivery_public_status__in=["unstarted", "in_progress", "rejected"])
-                    | Q(delivery_other_status__in=["unstarted", "in_progress", "rejected"])
+                    & Q(warehouse_public_status__in=["unstarted", "in_progress", "rejected"])
+                    & Q(warehouse_other_status__in=["unstarted", "in_progress", "rejected"])
+                    & Q(delivery_public_status__in=["unstarted", "in_progress", "rejected"])
+                    & Q(delivery_other_status__in=["unstarted", "in_progress", "rejected"])
             )
         )
 
@@ -5823,8 +6359,11 @@ class Accounting(View):
                     InvoiceStatusv2.objects.bulk_create(create_status_list)
 
         # 先判断权限，如果是初级审核应付账单权限，状态就是preport
+        # 待审核账单
         order_pending = None
+        # 已审核账单
         pre_order_pending = None
+        # 客服已录入
         previous_order = None
 
         is_payable_check = self._validate_user_invoice_payable_check(request.user)
@@ -5843,6 +6382,7 @@ class Accounting(View):
                 "container_number__invoice_statusesv2",
                 "container_number__invoicesv2__statement_id",
                 "container_number__invoicesv2",
+                "container_number__invoice_itemv2"
             ).filter(
                 criteria,
                 ~models.Q(container_number__invoice_statusesv2__preport_status="rejected")|
@@ -8040,45 +8580,85 @@ class Accounting(View):
         order = Order.objects.select_related(
             "retrieval_id", "container_number", "warehouse"
         ).get(container_number__container_number=container_number)
-
-        invoice_status, created = InvoiceStatusv2.objects.get_or_create(
-            container_number=order.container_number,
-            invoice_type="payable",
-            defaults={"payable_stage": "unstarted"},
-        )
-
-        if created:
-            invoice_status.save()
+        is_save_invoice = False
+        current_date = datetime.now().date()
+        order_id = str(order.id)
+        customer_id = order.customer_name.id
 
         invoice, created = Invoicev2.objects.get_or_create(
             container_number=order.container_number,
-            defaults=self._create_invoice_defaults_v1(order),
+            invoice_number=f"{current_date.strftime('%Y-%m-%d').replace('-', '')}C{customer_id}{order_id}",
+            created_at=current_date,
         )
 
         if created:
             invoice.save()
+            is_save_invoice = True
+
+        invoice_status, created = InvoiceStatusv2.objects.get_or_create(
+            container_number=order.container_number,
+            invoice_type="payable",
+            invoice=invoice,
+        )
+
+        if created:
+            invoice_status.save()
+            is_save_invoice = True
 
         # 确定是否可编辑
         payable_check = self._validate_user_invoice_payable_check(request.user)
         # 未存储过，或者存储了被驳回，或者是组长权限其未被财务确认
         is_editable = (
-            invoice_status.payable_status == "unstarted"
-            or invoice_status.payable_status == "rejected"
-            or (payable_check and invoice_status.payable_status == "tobeconfirmed")
+            invoice_status.preport_status == "unstarted"
+            or invoice_status.warehouse_public_status == "unstarted"
+            or invoice_status.warehouse_other_status == "unstarted"
+            or invoice_status.delivery_public_status == "unstarted"
+            or invoice_status.delivery_other_status == "unstarted"
+            or invoice_status.preport_status == "rejected"
+            or invoice_status.warehouse_public_status == "rejected"
+            or invoice_status.warehouse_other_status == "rejected"
+            or invoice_status.delivery_public_status == "rejected"
+            or invoice_status.delivery_other_status == "rejected"
+            or (payable_check and invoice_status.finance_status == "tobeconfirmed")
         )
+
+        groups = [group.name for group in request.user.groups.all()]
+        if request.user.is_staff:
+            groups.append("staff")
+
+        is_rejected = False
+        reject_reason = None
+        if invoice_status.preport_status == "rejected":
+            is_rejected = True
+            reject_reason = invoice_status.preport_reason
+        elif invoice_status.warehouse_public_status == "rejected":
+            is_rejected = True
+            reject_reason = invoice_status.warehouse_public_reason
+        elif invoice_status.warehouse_other_status == "rejected":
+            is_rejected = True
+            reject_reason = invoice_status.warehouse_self_reason
+        elif invoice_status.delivery_public_status == "rejected":
+            is_rejected = True
+            reject_reason = invoice_status.delivery_public_reason
+        elif invoice_status.delivery_other_status == "rejected":
+            is_rejected = True
+            reject_reason = invoice_status.delivery_other_reason
+
         # 构建基础上下文
         context = {
+            "is_save_invoice": is_save_invoice,
             "start_date": request.GET.get("start_date"),
             "end_date": request.GET.get("end_date"),
             "warehouse_filter": request.GET.get("warehouse_filter"),
             "is_editable": is_editable,
-            "invoice_stage": invoice_status.stage,
             "is_confirm": is_confirm,
             "user_is_leader": payable_check,
-            "is_rejected": invoice_status.is_rejected,
-            "reject_reason": (
-                invoice_status.reject_reason if invoice_status.is_rejected else None
-            ),
+            "is_rejected": is_rejected,
+            "reject_reason": reject_reason,
+            "groups": groups,
+            "invoice": invoice,
+            "invoice_status": invoice_status,
+            "order": order,
             "account_confirm": account_confirm,
             "payable_check": payable_check,
             "invoice_number": invoice.invoice_number,
@@ -8101,9 +8681,7 @@ class Accounting(View):
                 context, order, invoice, invoice_status, is_editable
             )
 
-        return self._handle_regular_order_v1(
-            context, order, invoice, invoice_status, is_editable
-        )
+        return self.handle_container_preport_post_payable(context)
 
     def _handle_direct_order(
         self, context, order, invoice, invoice_status, is_editable
@@ -8132,58 +8710,6 @@ class Accounting(View):
                 )
                 is_save_invoice = True
             except InvoicePreport.DoesNotExist:
-                basic_fee = 0
-                chassis_comment = ""
-                is_save_invoice = False
-        else:
-            is_save_invoice = False
-            # 从报价表获取
-            DETAILS = self._get_feetail(vessel_etd, "PAYABLE_DIRECT")
-            destination = order.retrieval_id.retrieval_destination_area
-
-            result = None
-            for warehouse, destinations in DETAILS.items():
-                if destination in destinations:
-                    destination_carriers = destinations[destination]
-                    if carrier in destination_carriers:
-                        result = destination_carriers[carrier]
-                        break
-            # 应付报价表，只有两个信息，一个是价格，一个是提示信息
-            if result:
-                basic_fee = result["price"]
-                chassis_comment = result.get("chassis", "")
-            else:
-                basic_fee = 0
-                chassis_comment = "无相关信息"
-
-        context.update(
-            {
-                "basic_fee": basic_fee,
-                "chassis_comment": chassis_comment,
-                "is_save_invoice": is_save_invoice,
-                "is_editable":is_editable,
-            }
-        )
-
-        return self.template_invoice_payable_direct_edit, context
-
-    def _handle_direct_order_v1(
-        self, context, order, invoice, invoice_status, is_editable
-    ):
-        # 处理直送账单
-        vessel_etd = order.vessel_id.vessel_etd
-        carrier = order.retrieval_id.retrieval_carrier
-
-        # 如果已保存且不是驳回状态，从数据库读取
-        if invoice_status.payable_status != "unstarted" and invoice_status.payable_status != "rejected":
-            try:
-                invoice_preport = InvoiceItemv2.objects.get(
-                    invoice_number=invoice, invoice_type="payable"
-                )
-                description = invoice_preport.invoice_preport
-                basic_fee = invoice_preport.amount
-                is_save_invoice = True
-            except InvoiceItemv2.DoesNotExist:
                 basic_fee = 0
                 chassis_comment = ""
                 is_save_invoice = False
@@ -8400,187 +8926,300 @@ class Accounting(View):
 
         return self.template_invoice_payable_edit, context
 
-    def _handle_regular_order_v1(
-            self, context, order, invoice, invoice_status, is_editable
-    ):
-        # 处理转运&组合账单
-        vessel_etd = order.vessel_id.vessel_etd
-        if not vessel_etd:
-            raise ValueError('缺失ETD时间！')
-        act_pick_time = order.retrieval_id.actual_retrieval_timestamp
-        if not act_pick_time:
-            raise ValueError('缺少实际提柜时间！')
-        warehouse = context["warehouse"]
-        warehouse_precise = context["warehouse_precise"]
+
+    def handle_container_preport_post_payable(self, context: dict | None = None) -> Dict[str, Any]:
+        """处理柜号点击进入港前账单编辑页面"""
+        if not context:
+            context = {}
+        start_date = context["start_date"]
+        end_date = context["end_date"]
+
+        container_number = context["container_number"]
+        invoice = context["invoice"]
+        invoice_status = context["invoice_status"]
         preport_carrier = context["preport_carrier"]
-        is_first_find = False
-        # 初始化费用变量
-        fees = {
-            "basic_fee": None,
-            "overweight_fee": None,
-            "chassis_fee": None,
-            "arrive_fee": None,
-            "palletization_fee": None,
-            "palletization_carrier": None,
-            "demurrage_fee": None,
-            "per_diem_fee": None,
-        }
-        # 如果有值，从数据库读数据
-        try:
-            invoice_preport = InvoicePreport.objects.get(
-                invoice_number=invoice, invoice_type="payable"
-            )
-            invoice_warehouse = InvoiceWarehouse.objects.get(
-                invoice_number=invoice, invoice_type="payable"
-            )
+        is_save_invoice = False
+        warehouse_precise = context["warehouse_precise"].replace("-", " ")
+        # 获取订单信息
+        order = context["order"]
 
-            fees.update(
-                {
-                    "basic_fee": invoice_preport.pickup,
-                    "overweight_fee": (
-                        invoice_preport.over_weight
-                        if invoice_preport.over_weight
-                           and float(invoice_preport.over_weight) > 0
-                        else None
-                    ),
-                    "chassis_fee": (
-                        invoice_preport.chassis
-                        if invoice_preport.chassis
-                           and float(invoice_preport.chassis) > 0
-                        else None
-                    ),
-                    "demurrage_fee": (
-                        invoice_preport.demurrage
-                        if invoice_preport.demurrage
-                           and float(invoice_preport.demurrage) > 0
-                        else None
-                    ),
-                    "per_diem_fee": (
-                        invoice_preport.per_diem
-                        if invoice_preport.per_diem
-                           and float(invoice_preport.per_diem) > 0
-                        else None
-                    ),
-                    "palletization_fee": (
-                        invoice_warehouse.palletization_fee
-                        if invoice_warehouse.palletization_fee
-                           and float(invoice_warehouse.palletization_fee) > 0
-                        else None
-                    ),
-                    "arrive_fee": (
-                        invoice_warehouse.arrive_fee
-                        if invoice_warehouse.arrive_fee
-                           and float(invoice_warehouse.arrive_fee) > 0
-                        else None
-                    ),
-                    "palletization_carrier": invoice_warehouse.carrier,
-                }
-            )
-        except (InvoicePreport.DoesNotExist, InvoiceWarehouse.DoesNotExist):
-            is_first_find = True
-        # 正常情况下，第一次录，preport等表是空的，但是如果有异常，将状态改为未录入，那么也是初次查找
-        if invoice_status.stage == "unstarted" and not invoice_status.is_rejected:
-            is_first_find = True
-        DETAILS = self._get_feetail(act_pick_time, "PAYABLE")
-        precise_warehouse = warehouse_precise.replace("-", " ")
-        pallet_details = None
-        # 从报价表获取费用标准
-        try:
-            if warehouse == "NJ":
-                if "08817" in warehouse_precise:
-                    try:
-                        pickup_details = DETAILS[warehouse]["NJ 08817"][preport_carrier]
-                        search_carrier = DETAILS[warehouse]["NJ 08817"]
-                        # 获取拆柜供应商选项
-                        pallet_details = {
-                            carrier: value
-                            for carrier, details in search_carrier.items()
-                            for key in ["palletization", "arrive_warehouse"]
-                            if (value := details.get(key)) is not None and value != "/"
-                        }
-                    except KeyError:
-                        pickup_details = None
-                        search_carrier = None
-                        pallet_details = None
-                        fees["basic_fee"] = 0
+        # 查看仓库和柜型，计算提拆费
+        warehouse = order.retrieval_id.retrieval_destination_area
+        container_type = order.container_number.container_type
 
-                else:
-                    try:
-                        pickup_details = DETAILS[warehouse]["NJ 07001"][preport_carrier]
-                        search_carrier = DETAILS[warehouse]["NJ 07001"]
-                        # 获取拆柜供应商选项
-                        pallet_details = {
-                            carrier: value
-                            for carrier, details in search_carrier.items()
-                            for key in ["palletization", "arrive_warehouse"]
-                            if (value := details.get(key)) is not None and value != "/"
-                        }
-                    except KeyError:
-                        pickup_details = None
-                        search_carrier = None
-                        pallet_details = None
-                        fees["basic_fee"] = 0
+        # 查找报价表
+        quotation, quotation_error = self._get_quotation_for_order(order, 'payable')
+        if quotation_error:
+            context.update({"error_messages": quotation_error})
+            return self.template_invoice_payable_edit_v1, context
+
+        order_type = order.order_type
+        non_combina_reason = None
+
+        if order_type != "转运组合":
+            iscombina = False
+        else:
+            container = Container.objects.get(container_number=container_number)
+            if container.manually_order_type == "转运":
+                iscombina = False
+                non_combina_reason = container.non_combina_reason
+            elif container.manually_order_type == "转运组合":
+                iscombina = True
+            else:
+                combina_context, iscombina, non_combina_reason = self._is_combina(container_number)
+                if combina_context.get("error_messages"):
+                    return self.template_invoice_payable_edit_v1, combina_context
+
+        act_pick_time = order.retrieval_id.actual_retrieval_timestamp
+        fee_detail = self._get_feetail(act_pick_time, "PAYABLE")
+
+        # 计算提拆费
+        match = re.match(r"\d+", container_type)
+        pickup_fee = 0
+        if match:
+            pick_subkey = match.group()
+            if match == 40:
+                try:
+                    pickup_fee = fee_detail[warehouse][warehouse_precise][preport_carrier]["basic_40"]
+                except KeyError:
+                    pickup_fee = 0
+                    context.update({"error_messages": f"在报价表中找不到{warehouse}仓库{pick_subkey}柜型的提拆费"})
+                    return context
             else:
                 try:
-                    pickup_details = DETAILS[warehouse][precise_warehouse][preport_carrier]
+                    pickup_fee = fee_detail[warehouse][warehouse_precise][preport_carrier]["basic_45"]
                 except KeyError:
-                    fees["basic_fee"] = 0
-                    pickup_details = None
-                pallet_details = None  # 因为只有NJ的有两个拆柜供应商可以切换
-            if pickup_details and is_first_find:  # 从未存储过时，才从报价表计算费用
-                # 计算基础费用
-                if "40" in context["container_type"]:
-                    fees["basic_fee"] = pickup_details["basic_40"]
-                else:
-                    fees["basic_fee"] = pickup_details["basic_45"]
+                    pickup_fee = 0
+                    context.update({"error_messages": f"在报价表中找不到{warehouse}仓库{pick_subkey}柜型的提拆费"})
+                    return context
 
-                # 计算超重费
-                actual_weight = order.container_number.weight_lbs
-                if (
-                        pickup_details.get("overweight") not in (None, "/")
-                        and float(actual_weight) > 42000
-                ):
-                    fees["overweight_fee"] = pickup_details.get("overweight")
+        basic_fee = "N/A"
+        if fee_detail[warehouse][warehouse_precise][preport_carrier].get('basic_40'):
+            basic_fee = fee_detail[warehouse][warehouse_precise][preport_carrier].get('basic_40')
+        elif fee_detail[warehouse][warehouse_precise][preport_carrier].get('basic_45'):
+            basic_fee = fee_detail[warehouse][warehouse_precise][preport_carrier].get('basic_45')
+        # 超重费
+        overweight = 0
+        if float(order.container_number.weight_lbs) > 42000:
+            overweight = fee_detail[warehouse][warehouse_precise][preport_carrier].get('overweight')
+            if overweight:
+                overweight = overweight.replace("\n", ";")
 
-                # 计算车架费
-                cutoff_date = timezone.datetime(2025, 9, 1, tzinfo=timezone.utc)
-                if act_pick_time and act_pick_time < cutoff_date:
-                    fees = self._calculate_chassis_fee(fees, pickup_details, order)
-                else:
-                    fees = self._calculate_chassis_fee_91(fees, pickup_details, order)
+        # 入库费
+        arrive_fee = fee_detail[warehouse][warehouse_precise][preport_carrier].get('arrive_warehouse')
 
-                # 没有拆柜费时，获取入库费
-                if "palletization" not in pickup_details or pickup_details.get(
-                        "palletization"
-                ) in (None, "/"):
-                    if pickup_details.get("arrive_warehouse") not in (None, "/"):
-                        fees["arrive_fee"] = pickup_details.get("arrive_warehouse")
+        # 获取拆柜供应商选项
+        pallet_details = {
+            carrier: value
+            for carrier, details in fee_detail[warehouse][warehouse_precise].items()
+            for key in ["palletization", "arrive_warehouse"]
+            if (value := details.get(key)) is not None and value != "/"
+        }
+        palletization_carrier = fee_detail[warehouse][warehouse_precise][preport_carrier]
 
-        except (KeyError, TypeError) as e:
-            raise ValueError("报价表查找失败", e)
-
-        context["pallet_details"] = pallet_details
-        # 因为应付10/1之后的报价表格式没整理好，这条费用先按时间写成固定的
-        retrieval_destination_precise = order.retrieval_id.retrieval_destination_precise
-        if act_pick_time and act_pick_time > datetime(2025, 10, 1,
-                                                      tzinfo=timezone.utc) and 'LA' in retrieval_destination_precise:
-            fees["basic_fee"] = 1450
-        # 获取其他费用
-        pickup_other_fee, pallet_other_fee = self._get_other_fees(invoice)
-        # 更新时间数据
-        time_data = self._calculate_time_data(order)
-        context.update(
-            {
-                "pickup_other_fee": pickup_other_fee,
-                "pallet_other_fee": pallet_other_fee,
-            }
+        # 计算车架费
+        context["chassis_fee"] = 0
+        actual_day = None
+        cutoff_date = timezone.datetime(2025, 9, 1, tzinfo=timezone.utc)
+        if act_pick_time and act_pick_time < cutoff_date:
+            data = self._calculate_chassis_fee(context, fee_detail[warehouse][warehouse_precise][preport_carrier], order)
+            chassis_fee = data["chassis_fee"]
+            actual_day = data["actual_day"]
+        else:
+            data = self._calculate_chassis_fee_91(context, fee_detail[warehouse][warehouse_precise][preport_carrier], order)
+            chassis_fee = data["chassis_fee"]
+            actual_day = data["actual_day"]
+        demurrage_fee = fee_detail[warehouse][warehouse_precise][preport_carrier].get('demurrage')
+        per_diem_fee = fee_detail[warehouse][warehouse_precise][preport_carrier].get('per_diem')
+        # 构建费用提示信息
+        FS = {
+            "提柜费用": f"{basic_fee}",
+            "拆柜费用": f"{fee_detail[warehouse][warehouse_precise][preport_carrier].get('palletization')}",
+            "入库拆柜费": f"{fee_detail[warehouse][warehouse_precise][preport_carrier].get('arrive_warehouse')}",
+            "超重费用": f"{overweight}",
+            "车架费用": f"{fee_detail[warehouse][warehouse_precise][preport_carrier].get('chassis')}",
+            "港内滞港费": f"{fee_detail[warehouse][warehouse_precise][preport_carrier].get('demurrage')}",
+            "港外滞箱费": f"{fee_detail[warehouse][warehouse_precise][preport_carrier].get('per_diem')}",
+        }
+        # 获取现有的费用项目
+        existing_items = InvoiceItemv2.objects.filter(
+            invoice_number=invoice,
+            item_category="preport"
         )
-        context.update(time_data)
-        context.update(fees)
-        context["is_save_invoice"] = not is_first_find
-        context["actual_weight"] = order.container_number.weight_lbs
+        # 获取已存在的费用描述列表，用于前端过滤
+        existing_descriptions = [item.description for item in existing_items]
 
-        return self.template_invoice_payable_edit, context
+        # 标准费用项目列表
+        standard_fee_items = [
+            "提柜费用", "拆柜费用", "入库拆柜费", "超重费用", "车架费用",
+            "港内滞港费", "港外滞箱费"
+        ]
+        # 构建费用数据
+        fee_data = []
+        for item in existing_items:
+            fee_data.append({
+                'id': item.id,
+                'description': item.description,
+                'qty': item.qty or 1,
+                'rate': item.rate or 0,
+                'surcharges': item.surcharges or 0,
+                'amount': item.amount or 0,
+                'note': item.note or ''
+            })
+        # 如果是第一次录入且没有费用记录，添加提拆费作为默认
+        if not existing_items.exists() and invoice_status.preport_status == 'unstarted' and pickup_fee > 0:
+            for fee_name in standard_fee_items:
+                is_save_invoice = False
+                if fee_name == '提柜费用':
+                    # 提拆费特殊处理
+                    pickup_qty = 0 if iscombina else 1
+                    pickup_amount = pickup_fee * pickup_qty
+                    fee_data.append({
+                        'id': None,
+                        'description': fee_name,
+                        'qty': pickup_qty,
+                        'rate': pickup_fee,
+                        'surcharges': 0,
+                        'amount': pickup_amount,
+                        'note': '',
+                    })
+                else:
+                    ref_price = FS.get(fee_name, 0)
+                    numeric_price = self._extract_number(ref_price)
+                    # 其他费用默认显示，但数量和金额为0
+                    fee_data.append({
+                        'id': None,
+                        'description': fee_name,
+                        'qty': 0,
+                        'rate': numeric_price,
+                        'surcharges': 0,
+                        'amount': 0,
+                        'note': '',
+                    })
+
+        groups = context["groups"]
+        is_confirm = context["is_confirm"]
+        context["is_save_invoice"] = is_save_invoice
+        context.update({
+            "actual_day": actual_day,
+            "pallet_details": pallet_details,
+            "palletization_carrier": palletization_carrier,
+            "overweight_fee": overweight,
+            "arrive_fee": arrive_fee,
+            "chassis_fee": chassis_fee,
+            "demurrage_fee": demurrage_fee,
+            "per_diem_fee": per_diem_fee,
+            "actual_weight": order.container_number.weight_lbs,
+            "is_confirm": is_confirm,
+            "warehouse": warehouse,
+            "order_type": order_type,
+            "container_type": container_type,
+            "reject_reason": order.invoice_reject_reason,
+            "container_number": container_number,
+            "groups": groups,
+            "start_date": start_date,
+            "end_date": end_date,
+            "FS": FS,
+            "receivable_is_locked": invoice.receivable_is_locked,
+            "invoice_type": "receivable",
+            "non_combina_reason": non_combina_reason,
+            "fee_data": fee_data,
+            "invoice_number": invoice.invoice_number,
+            "invoice": invoice,  # 传递整个invoice对象
+            "quotation_info": {
+                "quotation_id": quotation.quotation_id,
+                "version": quotation.version,
+                "effective_date": quotation.effective_date,
+                "is_user_exclusive": quotation.is_user_exclusive,
+                "exclusive_user": quotation.exclusive_user,
+                "filename": quotation.filename,  # 添加文件名
+            },
+            "pickup_fee": pickup_fee,
+            "standard_fee_items": standard_fee_items,
+            "existing_descriptions": existing_descriptions,  # 用于前端过滤
+            "preport_status": invoice_status.preport_status,
+            "is_combina": iscombina
+        })
+
+        return self.template_invoice_payable_edit_v1, context
+
+    def _extract_number(self, value):
+        """从字符串里提取数字，失败则返回 0"""
+        if value is None:
+            return 0
+        try:
+            # 直接是数字
+            return float(value)
+        except:
+            pass
+
+        # 尝试从文本里提取数字
+        match = re.search(r"[-+]?\d*\.?\d+", str(value))
+        if match:
+            try:
+                return float(match.group())
+            except:
+                return 0
+
+        return 0
+
+    def _get_quotation_for_order(self, order: Order, quote_type: str = 'payable'):
+        """获取订单对应的报价表"""
+        try:
+            vessel_etd = order.vessel_id.vessel_etd
+
+            customer = order.customer_name
+            customer_name = customer.zem_name
+
+            # 先查找用户专属报价表
+            quotation = (
+                QuotationMaster.objects.filter(
+                    effective_date__lte=vessel_etd,
+                    is_user_exclusive=True,
+                    exclusive_user=customer_name,
+                    quote_type=quote_type,
+                )
+                .order_by("-effective_date")
+                .first()
+            )
+
+            if not quotation:
+                # 查找通用报价表
+                quotation = (
+                    QuotationMaster.objects.filter(
+                        effective_date__lte=vessel_etd,
+                        is_user_exclusive=False,
+                        quote_type=quote_type,
+                    )
+                    .order_by("-effective_date")
+                    .first()
+                )
+
+            if quotation:
+                return quotation, None
+            else:
+                error_msg = f"找不到生效日期在{vessel_etd}之前的{quote_type}报价表"
+                return None, error_msg
+
+        except Exception as e:
+            error_msg = f"查询报价表时发生错误: {str(e)}"
+            return None, error_msg
+
+    def _get_fee_details_from_quotation(self, quotation: QuotationMaster, fee_type: str = "PAYABLE") :
+        """从报价表中获取费用详情"""
+        try:
+            fee_detail = FeeDetail.objects.get(
+                quotation_id=quotation.id,
+                fee_type=fee_type
+            )
+            return fee_detail, None
+        except FeeDetail.DoesNotExist:
+            error_msg = f"报价表中找不到{fee_type}类型的费用详情"
+            return None, error_msg
+        except Exception as e:
+            error_msg = f"获取费用详情时发生错误: {str(e)}"
+            return None, error_msg
+
 
     def _calculate_chassis_fee_91(self, fees, pickup_details, order):
         #就用还空和实际提柜时间比较，5天内免费
@@ -8596,6 +9235,9 @@ class Accounting(View):
             delta = delta_days + 1
             if delta > 5:
                 fees["chassis_fee"] = (delta - 5) * pickup_details.get("chassis")
+                fees["actual_day"] = int(delta - 5)
+            else:
+                fees["actual_day"] = 0
         return fees
 
 
@@ -8620,7 +9262,7 @@ class Accounting(View):
 
                 actual_day = delta.days + 1
                 free_day = actual_day - int(pickup_details.get("chassis_free_day"))
-
+                fees["actual_day"] = free_day
                 if free_day < 0:
                     fees["chassis_fee"] = 0
                 else:
@@ -8675,10 +9317,10 @@ class Accounting(View):
             "actual_retrieval_timestamp": order.retrieval_id.actual_retrieval_timestamp,
         }
 
-    def _get_feetail(self, vessel_etd, TABLENAME: str) -> Any:
+    def _get_feetail(self, actual_retrieval_timestamp, TABLENAME: str) -> Any:
         quotation = (
             QuotationMaster.objects.filter(
-                effective_date__lte=vessel_etd, quote_type="payable"
+                effective_date__lte=actual_retrieval_timestamp, quote_type="payable"
             )
             .order_by("-effective_date")
             .first()
