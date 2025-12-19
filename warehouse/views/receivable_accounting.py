@@ -1130,11 +1130,14 @@ class ReceivableAccounting(View):
         )
 
         for item in invoice_item:
+            if item.delivery_type == "combine":
+                qty.append(item.cbm_ratio)
+            else:
+                qty.append(item.qty)
             description.append(item.description)
             warehouse_code.append(item.warehouse_code)
             cbm.append(item.cbm)
-            weight.append(item.weight)
-            qty.append(item.qty)
+            weight.append(item.weight)           
             rate.append(item.rate)
             amount.append(item.amount)
             note.append(item.note)
