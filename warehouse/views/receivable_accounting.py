@@ -1780,8 +1780,6 @@ class ReceivableAccounting(View):
             
         return items_data
 
-
-
     def batch_save_delivery_item(self, container, invoice, items_data, item_category, context, username: str| None=None):
         if not context:
             context = {}
@@ -1832,6 +1830,7 @@ class ReceivableAccounting(View):
             cbm_ratio = item_data.get("cbmRatio", 0)
             weight = item_data.get("weight", "")
             note = item_data.get("note", "")
+
             registered_user = item_data.get("registered_user") or username
             
             if delivery_category == "hold":
@@ -3518,8 +3517,8 @@ class ReceivableAccounting(View):
         total_container_cbm = PackingList.objects.filter(
             container_number__container_number=container_number  
         ).aggregate(
-            total_cbm=Coalesce(Sum('cbm'), 0.0)
-        )['total_cbm']
+            total_cbm=Sum('cbm')
+        )['total_cbm'] or 0.0
         # 构建上下文
         context.update({
             "container_number": container_number,
