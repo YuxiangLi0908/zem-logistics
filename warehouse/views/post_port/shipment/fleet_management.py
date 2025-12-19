@@ -2266,6 +2266,7 @@ class FleetManagement(View):
                     total_cbm=Sum("cbm"),
                 )
             )
+        print('arm_pickup',arm_pickup)
         fleet = await sync_to_async(Fleet.objects.get)(fleet_number=fleet_number)
         pickup_time_str = fleet.appointment_datetime
         pickup_time = pickup_time_str.strftime("%Y-%m-%d")
