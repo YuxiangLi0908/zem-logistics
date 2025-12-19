@@ -2850,110 +2850,79 @@ class ReceivableAccounting(View):
         })
         return context
     
+    def get_shipment_group_stats(self, queryset, delivery_type_q):
+        """
+        获取分组统计信息
+        """
+        # 应用delivery_type筛选
+        if delivery_type_q:
+            queryset = queryset.filter(delivery_type_q)
+        
+        # 按destination和shipment_batch_number分组
+        groups = queryset.values('destination', 'shipment_batch_number__shipment_batch_number').annotate(
+            group_count=Count('id')
+        )
+        total_groups = groups.count()
+        
+        # 统计已出库和未出库的分组
+        shipped_groups = 0
+        unshipped_groups = 0
+        
+        for group in groups:
+            shipment_batch_number = group['shipment_batch_number__shipment_batch_number']
+            
+            if shipment_batch_number:
+                # 检查shipment是否已出库
+                shipment = Shipment.objects.get(shipment_batch_number=shipment_batch_number)
+                if shipment.shipped_at:
+                    shipped_groups += 1
+                else:
+                    unshipped_groups += 1
+            else:
+                # 没有shipment_batch_number的视为未出库
+                unshipped_groups += 1
+        
+        return {
+            'total_groups': total_groups,
+            'shipped_groups': shipped_groups,
+            'unshipped_groups': unshipped_groups
+        }
+    
     def _add_shipment_group_stats(self, orders, display_mix):
         """
         为每个order添加分组统计信息
         """
         if not orders:
             return []
-
-        container_numbers = {
-            o.get("container_number")
-            for o in orders
-            if o.get("container_number")
-        }
-
-        if not container_numbers:
-            return orders
-
-        delivery_q = Q(delivery_type=display_mix) if display_mix else Q()
-        packinglist_groups = (
-            PackingList.objects
-            .filter(
-                container_number__container_number__in=container_numbers,
-                container_number__order__offload_id__offload_at__isnull=True,
-            )
-            .filter(delivery_q)
-            .values(
-                "container_number__container_number",
-                "destination",
-                "shipment_batch_number__shipment_batch_number",
-            )
-            .annotate(cnt=Count("id"))
-        )
-        pallet_groups = (
-            Pallet.objects
-            .filter(
-                container_number__container_number__in=container_numbers,
-                container_number__order__offload_id__offload_at__isnull=False,
-            )
-            .filter(delivery_q)
-            .values(
-                "container_number__container_number",
-                "destination",
-                "shipment_batch_number__shipment_batch_number",
-            )
-            .annotate(cnt=Count("id"))
-        )
-
-        groups_by_container = defaultdict(list)
-        for g in packinglist_groups:
-            groups_by_container[g["container_number__container_number"]].append(g)
-
-        for g in pallet_groups:
-            groups_by_container[g["container_number__container_number"]].append(g)
-
-        shipment_batch_numbers = {
-            g["shipment_batch_number__shipment_batch_number"]
-            for groups in groups_by_container.values()
-            for g in groups
-            if g["shipment_batch_number__shipment_batch_number"]
-        }
-        shipment_map = {}
-        if shipment_batch_numbers:
-            shipments = Shipment.objects.filter(
-                shipment_batch_number__in=shipment_batch_numbers
-            )
-            shipment_map = {
-                s.shipment_batch_number: s for s in shipments
-            }
-
         # 获取用户权限对应的delivery_type筛选条件
         for order in orders:
             # 查找该order关联的packinglist和pallet
-            container = order.get("container_number")
-            if not container:
-                order["total_shipment_groups"] = 0
-                order["shipped_shipment_groups"] = 0
-                order["unshipped_shipment_groups"] = 0
-                order["completion_ratio"] = 0
-                continue
-
-            groups = groups_by_container.get(container, [])
-            total_groups = len(groups)
-            shipped_groups = 0
-            unshipped_groups = 0
-
-            for g in groups:
-                sbn = g["shipment_batch_number__shipment_batch_number"]
-
-                if not sbn:
-                    unshipped_groups += 1
-                    continue
-
-                shipment = shipment_map.get(sbn)
-                if shipment and shipment.shipped_at:
-                    shipped_groups += 1
-                else:
-                    unshipped_groups += 1
-
-            order["total_shipment_groups"] = total_groups
-            order["shipped_shipment_groups"] = shipped_groups
-            order["unshipped_shipment_groups"] = unshipped_groups
-            order["completion_ratio"] = (
-                shipped_groups / total_groups if total_groups > 0 else 0
+            packinglist_stats = self.get_shipment_group_stats(
+                PackingList.objects.filter(
+                    container_number__container_number=order["container_number"],
+                    container_number__order__offload_id__offload_at__isnull=True,
+                ).select_related('shipment_batch_number'),
+                Q(delivery_type=display_mix)
             )
-
+            pallet_stats = self.get_shipment_group_stats(
+                Pallet.objects.filter(
+                    container_number__container_number=order['container_number'],
+                    container_number__order__offload_id__offload_at__isnull=False,
+                ).select_related('shipment_batch_number'),
+                Q(delivery_type=display_mix)
+            )
+            
+            # 合并统计结果
+            total_groups = packinglist_stats['total_groups'] + pallet_stats['total_groups']
+            shipped_groups = packinglist_stats['shipped_groups'] + pallet_stats['shipped_groups']
+            unshipped_groups = packinglist_stats['unshipped_groups'] + pallet_stats['unshipped_groups']
+            
+            # 添加到order对象（不改变原有结构）
+            order['total_shipment_groups'] = total_groups
+            order['shipped_shipment_groups'] = shipped_groups
+            order['unshipped_shipment_groups'] = unshipped_groups
+            order['completion_ratio'] = shipped_groups / total_groups if total_groups > 0 else 0
+            
         sorted_orders = sorted(orders, key=lambda x: x['completion_ratio'], reverse=True)
         return sorted_orders
     
