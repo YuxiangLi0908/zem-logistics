@@ -2190,7 +2190,6 @@ class FleetManagement(View):
             arm_pickup = [
                 [
                     "container_number__container_number",
-                    "zipcode",
                     "destination",
                     "shipping_mark",
                     "shipment_batch_number__ARM_PRO",
@@ -2234,6 +2233,7 @@ class FleetManagement(View):
                         ),
                     ]
                 )
+            print('arm_pickup',arm_pickup)
             keys = arm_pickup[0]
             arm_pickup_dict_list = []
             for row in arm_pickup[1:]:
