@@ -44,7 +44,8 @@ class POD(View):
         "LA-91748": "LA-91748",
         "MO-62025": "MO-62025",
         "TX-77503": "TX-77503",
-        "LA-91789": "LA-91789"
+        "LA-91789": "LA-91789",
+        "LA-91766": "LA-91766",
     }
 
     def get(self, request: HttpRequest) -> HttpResponse:
