@@ -2225,7 +2225,7 @@ class FleetManagement(View):
                         int(row[4].strip()),
                         int(row[5].strip()),
                         row[6].strip(),
-                        row[7].strip(),
+                        row[9].strip(),
                         (
                             row[10].strip()
                             if len(row) > 10 and row[10] is not None
@@ -2265,7 +2265,7 @@ class FleetManagement(View):
                     total_cbm=Sum("cbm"),
                 )
             )
-        print('arm_pickup',arm_pickup)
+
         fleet = await sync_to_async(Fleet.objects.get)(fleet_number=fleet_number)
         pickup_time_str = fleet.appointment_datetime
         pickup_time = pickup_time_str.strftime("%Y-%m-%d")
