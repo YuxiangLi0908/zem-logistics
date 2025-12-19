@@ -3491,6 +3491,12 @@ class ReceivableAccounting(View):
             context.update({"error_messages": '缺少组合柜信息'})
             return context
         rules_text = self._parse_combina_rules(COMBINA_STIPULATE.details, order.retrieval_id.retrieval_destination_area)
+
+        total_container_cbm = PackingList.objects.filter(
+            container_number__container_number=container_number  
+        ).aggregate(
+            total_cbm=Sum('cbm')
+        )
         # 构建上下文
         context.update({
             "container_number": container_number,
@@ -3523,6 +3529,7 @@ class ReceivableAccounting(View):
             "activation_table": activation_table,
             "start_date": request.GET.get("start_date"),
             "end_date": request.GET.get("end_date"),
+            "total_container_cbm": total_container_cbm,
         })
         
         if delivery_type == "public":
