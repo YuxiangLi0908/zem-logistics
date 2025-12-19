@@ -2204,9 +2204,9 @@ class FleetManagement(View):
             if has_slot_column:
                 arm_pickup[0].append("slot")
             for row in customerInfo:
-                if row[9] != "" and "None" not in row[8]:
+                if row[8] != "" and "None" not in row[7]:
                     contact_flag = True
-                    contact = row[9]
+                    contact = row[8]
                     contact = re.sub("[\u4e00-\u9fff]", " ", contact)
                     contact = re.sub(r"\uFF0C", ",", contact)
                     new_contact = contact.split(";")
