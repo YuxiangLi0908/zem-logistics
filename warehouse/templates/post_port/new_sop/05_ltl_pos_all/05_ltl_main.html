@@ -381,12 +381,6 @@
                     {% endfor %}
                 </select>
                 
-                <label for="st-type-select">约类型</label>
-                <select name="st_type" id="st-type-select" style="width: 60px !important; min-width: 60px !important; max-width: 60px !important; padding: 3px 5px !important; border-radius: 4px; border: 1px solid #ced4da; font-size: 13px; box-sizing: border-box;">
-                    <option value="pallet" {% if st_type == 'pallet' %}selected{% endif %}>卡板</option>
-                    <option value="floor" {% if st_type == 'floor' %}selected{% endif %}>地板</option>
-                </select>
-                
                 <input type="hidden" name="step" value="ltl_warehouse">
                 <button id="confirmWarehouse">
                     <i class="fas fa-check"></i> 确认
@@ -399,13 +393,13 @@
 
         <div class="tab-navigation">
             <div class="tab active" data-tab="cargo">
-                PO管理 <span class="badge">{{ cargo_count }}</span>
+                未放行 <span class="badge">{{ summary.release_count }}</span>
             </div>           
             <div class="tab" data-tab="scheduled">
-                已排约 <span class="badge">{{ summary.scheduled_sp_count }}</span>
+                已放行客提 <span class="badge">{{ summary.selfpick_count }}</span>
             </div>
             <div class="tab" data-tab="scheduledFleet">
-                已排车 <span class="badge">{{ summary.schedule_fl_count }}</span>
+                已放行自发 <span class="badge">{{ summary.selfdel_count }}</span>
             </div>
             <div class="tab" data-tab="readyShip">
                 待出库批次 <span class="badge">{{ summary.ready_to_ship_count }}</span>
@@ -420,39 +414,33 @@
 
         <!-- PO管理标签页 -->
         <div class="content-section active" id="cargo-section">
-            {% include 'post_port/new_sop/01_unscheduled_pos_all/po_management.html' %}
+            {% include 'post_port/new_sop/05_ltl_pos_all/release_cargos.html' %}
         </div>
 
         <!-- 已排约标签页 -->
         <div class="content-section" id="scheduled-section">
-            {% include 'post_port/new_sop/01_unscheduled_pos_all/scheduled_section.html' %}
+            {% include 'post_port/new_sop/05_ltl_pos_all/release_cargos.html' %}
         </div>
 
         <!-- 已排车标签页 -->
         <div class="content-section" id="scheduledFleet-section">
-            {% include 'post_port/new_sop/01_unscheduled_pos_all/scheduledFleet_section.html' %}
+            {% include 'post_port/new_sop/05_ltl_pos_all/release_cargos.html' %}
         </div>
 
         <!-- 待出库批次标签页 -->
         <div class="content-section" id="readyShip-section">
-            {% include 'post_port/new_sop/01_unscheduled_pos_all/ready_section.html' %}
+            {% include 'post_port/new_sop/05_ltl_pos_all/ready_section.html' %}
         </div>
 
         <!-- 待送达批次标签页 -->
         <div class="content-section" id="ready-section">
-            {% include 'post_port/new_sop/01_unscheduled_pos_all/delivery_section.html' %}
+            {% include 'post_port/new_sop/05_ltl_pos_all/delivery_section.html' %}
         </div>
 
         <!-- 待传POD批次标签页 -->
         <div class="content-section" id="pod-section">
-            {% include 'post_port/new_sop/01_unscheduled_pos_all/pod_section.html' %}
+            {% include 'post_port/new_sop/05_ltl_pos_all/pod_section.html' %}
         </div>
-
-        <!-- 预约管理标签页 -->
-        <div class="content-section" id="appointments-section">
-            {% include 'post_port/new_sop/01_unscheduled_pos_all/appointment_management.html' %}
-        </div>
-
     </div>
 </div>
 
