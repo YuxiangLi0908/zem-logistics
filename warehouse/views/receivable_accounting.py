@@ -1,66 +1,41 @@
-import ast
 import io
 import json
 import math
-import os
 import re
 import json
-import zipfile
 from collections import defaultdict
 from datetime import date, datetime, timedelta, time as datetime_time
-from io import BytesIO
-from itertools import chain, groupby
-from operator import attrgetter
 
-from asgiref.sync import sync_to_async, async_to_sync
 
 from django.db import transaction
-from django.db.models.fields.json import KeyTextTransform
-from django.core.paginator import Paginator
 
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List
 
 import openpyxl
 import openpyxl.workbook
 import openpyxl.worksheet
 import openpyxl.worksheet.worksheet
-import pandas as pd
-import pytz
 from django.contrib.auth.decorators import login_required
-from django.contrib.auth.models import User
 from django.contrib.postgres.aggregates import ArrayAgg, StringAgg
-from django.core.paginator import Paginator
 from django.db import models, transaction
 from django.db.models import (
     BooleanField,
     Case,
-    CharField,
     Count,
-    Exists,
     F,
     FloatField,
-    IntegerField,
-    OuterRef,
-    Prefetch,
-    Subquery,
     Sum,
     Value,
     When,
     Q
 )
-import logging
-import traceback
 from decimal import Decimal, InvalidOperation
 from django.utils.safestring import mark_safe
 
 from django.db import transaction
-from django.db.models.fields.json import KeyTextTransform
-from django.db.models.functions import Cast, Coalesce
-from django.db.models.query import QuerySet
 from django.http import JsonResponse, HttpRequest, HttpResponse, HttpResponseForbidden, QueryDict
 from django.shortcuts import render
 from django.utils import timezone
-from django.utils.decorators import method_decorator
 from django.views import View
 from office365.runtime.auth.user_credential import UserCredential
 from office365.runtime.client_request_exception import ClientRequestException
@@ -2711,7 +2686,36 @@ class ReceivableAccounting(View):
         dl_public_recorded_orders = []  #公仓已录入
         dl_self_to_record_orders = []  #私仓待录入
         dl_self_recorded_orders = []  #私仓已录入
-        
+
+        containers = [
+            order.container_number
+            for order in base_orders
+            if order.container_number
+        ]
+
+        hold_map = defaultdict(lambda: {"public": False, "other": False})
+        pallets = Pallet.objects.filter(
+            container_number__in=containers,
+            delivery_method__contains="暂扣留仓",
+            delivery_type__in=["public", "other"],
+        ).values("container_number", "delivery_type")
+        for p in pallets:
+            hold_map[p["container_number"]][p["delivery_type"]] = True
+
+        invoice_map = defaultdict(list)
+        invoices = Invoicev2.objects.filter(container_number__in=containers)
+        for inv in invoices:
+            invoice_map[inv.container_number].append(inv)
+
+        invoice_ids = [inv.id for inv in invoices]
+        status_map = {}
+        statuses = InvoiceStatusv2.objects.filter(
+            invoice_id__in=invoice_ids,
+            invoice_type="receivable",
+        )
+        for s in statuses:
+            status_map[s.invoice_id] = s
+
         for order in base_orders:
             container = order.container_number
             
@@ -2728,29 +2732,15 @@ class ReceivableAccounting(View):
                 should_process_self = True
 
             is_hold = False
-            if should_process_public:
-                public_hold_subquery = Pallet.objects.filter(
-                    container_number=container,
-                    delivery_method__contains="暂扣留仓",
-                    delivery_type="public"
-                )
-                if public_hold_subquery.exists():
-                    is_hold = True
-            
-            # 私仓暂扣板子查询（只查询delivery_type为other的）
-            if should_process_self:
-                self_hold_subquery = Pallet.objects.filter(
-                    container_number=container,
-                    delivery_method__contains="暂扣留仓",
-                    delivery_type="other"
-                )
-                if self_hold_subquery.exists():
-                    is_hold = True
+            if should_process_public and hold_map[container]["public"]:
+                is_hold = True
+            if should_process_self and hold_map[container]["other"]:
+                is_hold = True
 
             # 查询这个柜子的所有应收账单
-            invoices = Invoicev2.objects.filter(container_number=container)
-            
-            if not invoices.exists():
+            container_invoices = invoice_map.get(container, [])
+
+            if not container_invoices:
                 # 没有账单的情况 - 归到待录入
                 order_data = {
                     'order': order,
@@ -2769,27 +2759,25 @@ class ReceivableAccounting(View):
                 if should_process_self:
                     dl_self_to_record_orders.append(order_data)
             else:
-                has_multiple_invoices = invoices.count() > 1 #看看是不是补开的账单
+                has_multiple_invoices = len(container_invoices) > 1 #看看是不是补开的账单
                 # 有账单的情况 - 每个账单都要单独处理
-                for invoice in invoices:
+                for invoice in container_invoices:
                     # 查询这个账单对应的状态
-                    try:
-                        status_obj = InvoiceStatusv2.objects.get(
-                            invoice=invoice,
-                            invoice_type='receivable'
-                        )
-                        public_status = status_obj.delivery_public_status #公仓状态
-                        self_status = status_obj.delivery_other_status  #私仓状态
-                        finance_status = status_obj.finance_status #财务状态
+                    status_obj = status_map.get(invoice.id)
+
+                    if status_obj:
+                        public_status = status_obj.delivery_public_status
+                        self_status = status_obj.delivery_other_status
+                        finance_status = status_obj.finance_status
                         delivery_public_reason = status_obj.delivery_public_reason
                         delivery_other_reason = status_obj.delivery_other_reason
-                    except InvoiceStatusv2.DoesNotExist:
+                    else:
                         public_status = None
                         self_status = None
                         finance_status = None
                         delivery_public_reason = None
                         delivery_other_reason = None
-                    
+
                     # 只在有多个账单时添加 invoice_created_at                 
                     invoice_created_at = None
                     if has_multiple_invoices:
@@ -2863,75 +2851,106 @@ class ReceivableAccounting(View):
         """
         if not orders:
             return []
+
+        container_numbers = {
+            o.get("container_number")
+            for o in orders
+            if o.get("container_number")
+        }
+
+        if not container_numbers:
+            return orders
+
+        delivery_q = Q(delivery_type=display_mix) if display_mix else Q()
+        packinglist_groups = (
+            PackingList.objects
+            .filter(
+                container_number__container_number__in=container_numbers,
+                container_number__order__offload_id__offload_at__isnull=True,
+            )
+            .filter(delivery_q)
+            .values(
+                "container_number__container_number",
+                "destination",
+                "shipment_batch_number__shipment_batch_number",
+            )
+            .annotate(cnt=Count("id"))
+        )
+        pallet_groups = (
+            Pallet.objects
+            .filter(
+                container_number__container_number__in=container_numbers,
+                container_number__order__offload_id__offload_at__isnull=False,
+            )
+            .filter(delivery_q)
+            .values(
+                "container_number__container_number",
+                "destination",
+                "shipment_batch_number__shipment_batch_number",
+            )
+            .annotate(cnt=Count("id"))
+        )
+
+        groups_by_container = defaultdict(list)
+        for g in packinglist_groups:
+            groups_by_container[g["container_number__container_number"]].append(g)
+
+        for g in pallet_groups:
+            groups_by_container[g["container_number__container_number"]].append(g)
+
+        shipment_batch_numbers = {
+            g["shipment_batch_number__shipment_batch_number"]
+            for groups in groups_by_container.values()
+            for g in groups
+            if g["shipment_batch_number__shipment_batch_number"]
+        }
+        shipment_map = {}
+        if shipment_batch_numbers:
+            shipments = Shipment.objects.filter(
+                shipment_batch_number__in=shipment_batch_numbers
+            )
+            shipment_map = {
+                s.shipment_batch_number: s for s in shipments
+            }
+
         # 获取用户权限对应的delivery_type筛选条件
         for order in orders:
             # 查找该order关联的packinglist和pallet
-            packinglist_stats = self.get_shipment_group_stats(
-                PackingList.objects.filter(
-                    container_number__container_number=order["container_number"],
-                    container_number__order__offload_id__offload_at__isnull=True,
-                ).select_related('shipment_batch_number'),
-                Q(delivery_type=display_mix)
-            )
-            pallet_stats = self.get_shipment_group_stats(
-                Pallet.objects.filter(
-                    container_number__container_number=order['container_number'],
-                    container_number__order__offload_id__offload_at__isnull=False,
-                ).select_related('shipment_batch_number'),
-                Q(delivery_type=display_mix)
-            )
-            
-            # 合并统计结果
-            total_groups = packinglist_stats['total_groups'] + pallet_stats['total_groups']
-            shipped_groups = packinglist_stats['shipped_groups'] + pallet_stats['shipped_groups']
-            unshipped_groups = packinglist_stats['unshipped_groups'] + pallet_stats['unshipped_groups']
-            
-            # 添加到order对象（不改变原有结构）
-            order['total_shipment_groups'] = total_groups
-            order['shipped_shipment_groups'] = shipped_groups
-            order['unshipped_shipment_groups'] = unshipped_groups
-            order['completion_ratio'] = shipped_groups / total_groups if total_groups > 0 else 0
-            
-        sorted_orders = sorted(orders, key=lambda x: x['completion_ratio'], reverse=True)
-        return sorted_orders
-    
-    def get_shipment_group_stats(self, queryset, delivery_type_q):
-        """
-        获取分组统计信息
-        """
-        # 应用delivery_type筛选
-        if delivery_type_q:
-            queryset = queryset.filter(delivery_type_q)
-        
-        # 按destination和shipment_batch_number分组
-        groups = queryset.values('destination', 'shipment_batch_number__shipment_batch_number').annotate(
-            group_count=Count('id')
-        )
-        total_groups = groups.count()
-        
-        # 统计已出库和未出库的分组
-        shipped_groups = 0
-        unshipped_groups = 0
-        
-        for group in groups:
-            shipment_batch_number = group['shipment_batch_number__shipment_batch_number']
-            
-            if shipment_batch_number:
-                # 检查shipment是否已出库
-                shipment = Shipment.objects.get(shipment_batch_number=shipment_batch_number)
-                if shipment.shipped_at:
+            container = order.get("container_number")
+            if not container:
+                order["total_shipment_groups"] = 0
+                order["shipped_shipment_groups"] = 0
+                order["unshipped_shipment_groups"] = 0
+                order["completion_ratio"] = 0
+                continue
+
+            groups = groups_by_container.get(container, [])
+            total_groups = len(groups)
+            shipped_groups = 0
+            unshipped_groups = 0
+
+            for g in groups:
+                sbn = g["shipment_batch_number__shipment_batch_number"]
+
+                if not sbn:
+                    unshipped_groups += 1
+                    continue
+
+                shipment = shipment_map.get(sbn)
+                if shipment and shipment.shipped_at:
                     shipped_groups += 1
                 else:
                     unshipped_groups += 1
-            else:
-                # 没有shipment_batch_number的视为未出库
-                unshipped_groups += 1
-        
-        return {
-            'total_groups': total_groups,
-            'shipped_groups': shipped_groups,
-            'unshipped_groups': unshipped_groups
-        }
+
+            order["total_shipment_groups"] = total_groups
+            order["shipped_shipment_groups"] = shipped_groups
+            order["unshipped_shipment_groups"] = unshipped_groups
+            order["completion_ratio"] = (
+                shipped_groups / total_groups if total_groups > 0 else 0
+            )
+
+        sorted_orders = sorted(orders, key=lambda x: x['completion_ratio'], reverse=True)
+        return sorted_orders
     
     def handle_modify_order_type(self, request:HttpRequest) -> Dict[str, Any]:
         container_number = request.POST.get("container_number")
