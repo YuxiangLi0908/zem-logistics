@@ -893,9 +893,11 @@ class ReceivableAccounting(View):
 
         context = {'success_messages': f'{container_number}补开成功，编号为{invoice.invoice_number}！'}
         if "delivery" in status:
-            return self.handle_delivery_entry_post(request, context)
+            context = self.handle_delivery_entry_post(request, context)
+            return self.template_delivery_entry, context
         elif "warehouse" in status:
-            return self.handle_warehouse_entry_post(request, context)
+            context = self.handle_warehouse_entry_post(request, context)
+            return self.template_warehouse_entry, context
         return self.template_supplementary_entry, context
     
     def _update_invoice_status(self, invoice_status, status_field):
