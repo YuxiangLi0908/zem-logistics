@@ -3978,10 +3978,7 @@ class ReceivableAccounting(View):
                             break
                     if is_combina_origin:
                         break
-            if destination.upper() == "UPS":
-                is_combina_region = False
-            if group.get("total_cbm") == 0:
-                is_combina_region = False
+            
             # 检查是否属于组合区域
             is_combina_region = False
             for region, region_data in rules.items():
@@ -3991,7 +3988,13 @@ class ReceivableAccounting(View):
                         break
                 if is_combina_region:
                     break
-            
+
+            if destination.upper() == "UPS":
+                is_combina_region = False
+            cbm = group.get("total_cbm")
+            if float(cbm or 0) == 0:
+                is_combina_region = False
+                   
             if is_combina_region:
                 combina_pallet_groups.append(group)
                 processed_po_ids.add(po_id)
