@@ -6572,13 +6572,17 @@ class Accounting(View):
             context["reason"] = "未录入拆柜数据"
             return self.template_invoice_combina_edit, context
 
-        default_combina = stipulate["global_rules"]["max_mixed"]["default"]
-        exceptions = stipulate["global_rules"]["max_mixed"].get("exceptions", {})
-        combina_threshold = exceptions.get(warehouse, default_combina) if exceptions else default_combina
+        warehouse_specific_key = f'{warehouse}_max_mixed'
+        if warehouse_specific_key in stipulate.get("global_rules", {}):
+            combina_threshold = stipulate["global_rules"][warehouse_specific_key]["default"]
+        else:
+            combina_threshold = stipulate["global_rules"]["max_mixed"]["default"]
 
-        default_threshold = stipulate["global_rules"]["bulk_threshold"]["default"]
-        exceptions = stipulate["global_rules"]["bulk_threshold"].get("exceptions", {})
-        uncombina_threshold = exceptions.get(warehouse, default_threshold) if exceptions else default_threshold
+        warehouse_specific_key1 = f'{warehouse}_bulk_threshold'
+        if warehouse_specific_key1 in stipulate.get("global_rules", {}):
+            uncombina_threshold = stipulate["global_rules"][warehouse_specific_key1]["default"]
+        else:
+            uncombina_threshold = stipulate["global_rules"]["bulk_threshold"]["default"]
 
         if (
             plts["unique_destinations"]
