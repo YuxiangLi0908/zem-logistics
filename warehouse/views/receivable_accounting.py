@@ -3826,7 +3826,7 @@ class ReceivableAccounting(View):
                 result["combina_info"] = combina_result.get("info", {})           
                 # 从待处理的pallet_groups中移除已处理的组合柜记录
                 pallet_groups = [g for g in pallet_groups if g.get("PO_ID") not in processed_po_ids]
-
+        print('pallet_groups',pallet_groups)
 
         # 处理未录入的PO
         if pallet_groups:
@@ -3933,6 +3933,14 @@ class ReceivableAccounting(View):
         
         return None, second_result
 
+    def _process_destination_wlm(self,destination):
+        """处理目的地字段"""
+        if destination and '-' in destination:
+            parts = destination.split('-')
+            if len(parts) > 1:
+                return parts[1]
+        return destination
+    
     def _process_combina_items_with_grouping(
         self,
         pallet_groups: List[Dict],
@@ -3994,7 +4002,7 @@ class ReceivableAccounting(View):
             cbm = group.get("total_cbm")
             if float(cbm or 0) == 0:
                 is_combina_region = False
-                   
+            print('destination',destination,is_combina_region)
             if is_combina_region:
                 combina_pallet_groups.append(group)
                 processed_po_ids.add(po_id)
@@ -4002,7 +4010,7 @@ class ReceivableAccounting(View):
                 # 如果是组合->非组合，要补收一份组合柜
                 need_Additional_des.append(destination_str)
                 combina_pallet_groups.append(group)
-
+        
         # 如果没有组合区域，直接返回原数据和空列表，都按转运算
         if not combina_pallet_groups:
             return {"items": [], "info": {}}
@@ -4054,7 +4062,7 @@ class ReceivableAccounting(View):
         missing_records = PackingList.objects.filter(container_number=container).exclude(PO_ID__in=poid_list)
 
         has_missing = missing_records.exists()
-
+        
         if not has_missing:
             #修正比例：保证总和 = 1.0000, 现在不按组合柜占比为1了，和其他仓点不好算
             ratio_sum = round(sum(group_cbm_ratios.values()), 4)
@@ -4068,7 +4076,7 @@ class ReceivableAccounting(View):
                         (
                             round(g.get("total_cbm", 0), 2)
                             for g in combina_pallet_groups
-                            if (g.get("PO_ID"), g.get("destination")) == k
+                            if (g.get("PO_ID"), self._process_destination_wlm(g.get("destination", ""))) == k
                         ),
                         0
                     )
@@ -4081,12 +4089,19 @@ class ReceivableAccounting(View):
         destination_price_map = {}
 
         # 按区域计算费用， combina_destinations_cbm = {"LAX": 25.5, "ONT": 18.2,"SFO": 12.8 }
+
         for destination, cbm in combina_destinations_cbm.items():
             region_found = False
             #rules = {"CA1": [ {"location": ["LAX", "ONT"], "prices": [1500, 1800]}],
                 #{"CA2": [  {"location": ["SFO", "SJC"], "prices": [1600, 1900]}]}
             for region, region_data in rules.items():
+                
                 for item in region_data:
+                    if destination and '-' in destination:
+                        # 分割并取第二部分
+                        parts = destination.split('-')
+                        if len(parts) > 1:
+                            destination = parts[1]
                     if destination in item["location"]:
                         destination_region_map[destination] = region
                         destination_price_map[destination] = item["prices"][container_type_temp]
@@ -4128,6 +4143,12 @@ class ReceivableAccounting(View):
             # 对该区域内的每个目的地构建item
             for group in combina_pallet_groups:
                 destination = group.get("destination", "")
+                if destination and '-' in destination:
+                    # 分割并取第二部分
+                    parts = destination.split('-')
+                    if len(parts) > 1:
+                        destination = parts[1]
+
                 if destination not in region_data["destinations"]:
                     continue
                 

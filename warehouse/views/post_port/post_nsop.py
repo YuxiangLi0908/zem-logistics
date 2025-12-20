@@ -4018,6 +4018,10 @@ class PostNsop(View):
                     "delivery_window_start",
                     "delivery_window_end",
                     "note",
+                    "carrier_company",
+                    "plt_ltl_bol_num",
+                    "plt_ltl_pro_num",
+                    "PickupAddr",
                     "container_number",
                     "address",  # 地址字段
                     "is_dropped_pallet",
@@ -4026,6 +4030,7 @@ class PostNsop(View):
                     "shipment_batch_number__fleet_number__fleet_number",
                     "location",
                     "is_pass",
+                    
                     warehouse=F("container_number__order__retrieval_id__retrieval_destination_precise"),
                     retrieval_destination_precise=F("container_number__order__retrieval_id__retrieval_destination_precise"),
                     customer_name=F("container_number__order__customer_name__zem_name"),
@@ -4125,6 +4130,10 @@ class PostNsop(View):
                     "address",  # 地址字段
                     "data_source",
                     "ltl_verify",
+                    "carrier_company",
+                    "pl_ltl_bol_num",
+                    "pl_ltl_pro_num",
+                    "PickupAddr",
                     "shipment_batch_number__shipment_batch_number",
                     "shipment_batch_number__fleet_number__fleet_number",
                     warehouse=F("container_number__order__retrieval_id__retrieval_destination_precise"),
