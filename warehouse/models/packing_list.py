@@ -91,6 +91,7 @@ class PackingList(models.Model):
     carrier_company = models.CharField(max_length=200, null=True, blank=True, verbose_name="ltl承运公司")
     pl_ltl_bol_num = models.CharField(max_length=200, null=True, blank=True, verbose_name="ltl-bol")
     pl_ltl_pro_num = models.CharField(max_length=200, null=True, blank=True, verbose_name="ltl-pro")
+    PickupAddr = models.CharField(max_length=200, null=True, blank=True, verbose_name="客提详细地址")
     history = HistoricalRecords()
 
     class Meta:

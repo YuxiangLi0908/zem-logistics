@@ -4426,7 +4426,6 @@ class PostNsop(View):
         self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
         """LTL对po更改核实状态"""
-        print(request.POST)
         fleet_number = request.POST.get('fleet_number')
         fleet_cost = request.POST.get('fleet_cost')
         
