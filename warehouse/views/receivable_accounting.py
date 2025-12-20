@@ -5550,8 +5550,6 @@ class ReceivableAccounting(View):
             delivery_type="combine"  # 排除组合柜
         ).exclude(
             delivery_type="hold"     # 排除暂扣
-        ).exclude(
-            item_category__in=["delivery_public", "delivery_other"]  # 排除派送费用
         ).order_by('item_category', 'id')
         
         # 转换为前端需要的格式
