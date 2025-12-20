@@ -2601,18 +2601,6 @@
                 $(this).addClass('highlight-select');
             } else {
                 $(this).removeClass('highlight-select');
-                
-                // 2. 验证金额是否为0（除了UPS类型）
-                if (val !== 'upsdelivery') {
-                    const amount = parseFloat($row.find('.amount-input').val()) || 0;
-                    if (amount <= 0) {
-                        errorMessages.push(`PO ${poId}: 金额必须大于0（派送类型: ${$(this).find('option:selected').text()}）`);
-                        hasError = true;
-                        $row.find('.amount-input').css('border-color', 'var(--error-color)');
-                    } else {
-                        $row.find('.amount-input').css('border-color', '');
-                    }
-                }
             }
         });
 
@@ -2623,8 +2611,8 @@
             const amount = parseFloat($row.find('.combina-amount-input').val()) || 0;
             
             // 组合柜不是UPS类型，必须检查金额
-            if (amount <= 0) {
-                errorMessages.push(`组合柜PO ${poId}: 金额必须大于0`);
+            if (isNaN(amount)) {
+                errorMessages.push(`组合柜PO ${poId}: 金额必须是有效数字`);
                 hasError = true;
                 $row.find('.combina-amount-input').css('border-color', 'var(--error-color)');
             } else {

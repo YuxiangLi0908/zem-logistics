@@ -3979,9 +3979,9 @@ class ReceivableAccounting(View):
                     if is_combina_origin:
                         break
             if destination.upper() == "UPS":
-                is_combina_origin = False
+                is_combina_region = False
             if group.get("total_cbm") == 0:
-                is_combina_origin = False
+                is_combina_region = False
             # 检查是否属于组合区域
             is_combina_region = False
             for region, region_data in rules.items():
@@ -5244,15 +5244,13 @@ class ReceivableAccounting(View):
                 f"目的地集合：{filtered_destinations}\n"
                 f"目的地总数：{len(filtered_destinations)}"
             )
-        if non_combina_region_count > (
-            uncombina_threshold
-            - combina_threshold
-        ):
+        sum_region_count = non_combina_region_count + combina_region_count
+        if sum_region_count > uncombina_threshold:
             # 当非组合柜的区域数量超出时，不能按转运组合
             container.account_order_type = "转运"
-            container.non_combina_reason = f"非组合柜区数量为{non_combina_region_count},要求是{uncombina_threshold}-{combina_threshold}"
+            container.non_combina_reason = f"总区数量为{sum_region_count},要求是{uncombina_threshold}"
             container.save()
-            return context, False,f"非组合柜区数量为{non_combina_region_count},要求是{uncombina_threshold}-{combina_threshold}"
+            return context, False,f"总区数量为{sum_region_count},要求是{uncombina_threshold}"
         container.non_combina_reason = None
         container.account_order_type = "转运组合"
         container.save()
@@ -5958,22 +5956,15 @@ class ReceivableAccounting(View):
             sum(data["cbm"] for data in matched_regions["non_combina_dests"].values()),
             4,
         )
-
-        if combina_region_count > combina_threshold or non_combina_region_count > ( uncombina_threshold - combina_threshold ):
+        sum_region_count = combina_region_count + non_combina_region_count
+        if combina_region_count > combina_threshold or sum_region_count > uncombina_threshold :
             container.account_order_type = "转运"
             container.save()
             if combina_region_count > combina_threshold:
                 # reason = '不满足组合柜区域要求'
                 reason = f"规定{combina_threshold}组合柜区,但实际有{combina_region_count}个:matched_regions['combina_dests']，所以按照转运方式统计价格"
-            elif non_combina_region_count > (
-                uncombina_threshold
-                - combina_threshold
-            ):
-                stipulate_non_combina = (
-                    uncombina_threshold
-                    - combina_threshold
-                )
-                reason = f"规定{stipulate_non_combina}个非组合柜区，总共{uncombina_threshold}个区，组合柜{combina_threshold}个区，但是有{non_combina_region_count}个：{list(matched_regions['non_combina_dests'].keys())}，所以按照转运方式统计价格"
+            elif sum_region_count > uncombina_threshold:
+                reason = f"规定共{uncombina_threshold}个区，但是有组合柜{combina_threshold}个区，有非组合柜{non_combina_region_count}个：{list(matched_regions['non_combina_dests'].keys())}，所以按照转运方式统计价格"
                 # reason = '不满足组合柜区域要求'
             actual_fees = self._combina_get_extra_fees(invoice)
             context["reason"] = reason

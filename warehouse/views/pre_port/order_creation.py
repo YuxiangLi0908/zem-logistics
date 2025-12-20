@@ -2073,13 +2073,10 @@ class OrderCreation(View):
         combina_region_count = matched_regions["combina_dests"]
 
         
-        if len(non_combina_region_count) > (
-            uncombina_threshold
-            - combina_threshold
-        ):
+        if len(non_combina_region_count) + len(combina_region_count)> uncombina_threshold:
             # 当非组合柜的区域数量超出时，不能按转运组合
             container.account_order_type = "转运"
-            container.non_combina_reason = "非组合柜区的数量不符合标准"
+            container.non_combina_reason = "总仓点的数量不符合标准"
             await sync_to_async(container.save)()
             is_combina = False
         return {
