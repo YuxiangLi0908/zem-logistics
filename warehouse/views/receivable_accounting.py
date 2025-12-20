@@ -3998,7 +3998,6 @@ class ReceivableAccounting(View):
             if is_combina_region:
                 combina_pallet_groups.append(group)
                 processed_po_ids.add(po_id)
-
             if is_combina_origin and not is_combina_region:
                 # 如果是组合->非组合，要补收一份组合柜
                 need_Additional_des.append(destination_str)

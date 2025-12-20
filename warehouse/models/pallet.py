@@ -70,6 +70,10 @@ class Pallet(models.Model):
         on_delete=models.SET_NULL,
         related_name="pallet_delivery",
     )
+    carrier_company = models.CharField(max_length=200, null=True, blank=True, verbose_name="ltl承运公司")
+    plt_ltl_bol_num = models.CharField(max_length=200, null=True, blank=True, verbose_name="ltl-bol")
+    plt_ltl_pro_num = models.CharField(max_length=200, null=True, blank=True, verbose_name="ltl-pro")
+    PickupAddr = models.CharField(max_length=200, null=True, blank=True, verbose_name="客提详细地址")
     history = HistoricalRecords()
 
     class Meta:
