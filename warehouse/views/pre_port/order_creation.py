@@ -2079,6 +2079,11 @@ class OrderCreation(View):
             container.non_combina_reason = "总仓点的数量不符合标准"
             await sync_to_async(container.save)()
             is_combina = False
+        if is_combina:
+            container.account_order_type = "转运组合"
+            container.non_combina_reason = ""
+            await sync_to_async(container.save)()
+            
         return {
             "combina_dests": combina_region_count,
             "non_combina_dests": non_combina_region_count,
