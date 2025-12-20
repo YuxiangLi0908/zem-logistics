@@ -210,6 +210,8 @@ class PostNsop(View):
             page = request.POST.get("page")
             if page == "arm_appointment":
                 template, context = await self.handle_unscheduled_pos_post(request)
+            elif page == "ltl_devliery_section":
+                template, context = await self.handle_ltl_unscheduled_pos_post(request)
             else:
                 template, context = await self.handle_fleet_schedule_post(request)
             context.update({"success_messages": '确认送达成功!'})  
@@ -230,6 +232,8 @@ class PostNsop(View):
             page = request.POST.get("page")
             if page == "arm_appointment":
                 template, context = await self.handle_unscheduled_pos_post(request)
+            elif page == "ltl_pod_section":
+                template, context = await self.handle_ltl_unscheduled_pos_post(request)
             else:
                 template, context = await self.handle_fleet_schedule_post(request)
             context.update({"success_messages": 'POD上传成功!'})           
@@ -4478,17 +4482,19 @@ class PostNsop(View):
         selfdel_cargos = await self._ltl_scheduled_fleet(pl_criteria, plt_criteria)
 
         #待出库
-        # ready_to_ship_data = await self._sp_ready_to_ship_data(warehouse,request.user, None, 'ltl')
-        # # 待送达
-        # delivery_data_raw = await self._fl_delivery_get(warehouse, None, 'ltl')
-        # delivery_data = delivery_data_raw['shipments']
-        # #待传POD
-        # pod_data_raw = await self._fl_pod_get(warehouse, None, 'ltl')
-        # pod_data = pod_data_raw['fleet']
+        #ready_to_ship_data = await self._sp_ready_to_ship_data(warehouse,request.user, None, 'ltl')
+        # 待送达
+        delivery_data_raw = await self._fl_delivery_get(warehouse, None, 'ltl')
+        delivery_data = delivery_data_raw['shipments']
+        #待传POD
+        pod_data_raw = await self._fl_pod_get(warehouse, None, 'ltl')
+        pod_data = pod_data_raw['fleet']
         summary = {
             'release_count': len(release_cargos),
             'selfpick_count': len(selfpick_cargos),
             'selfdel_count': len(selfdel_cargos),
+            'ready_count': len(delivery_data),
+            'pod_count': len(pod_data),
         }
         if not context:
             context = {}
@@ -4500,6 +4506,8 @@ class PostNsop(View):
             "release_cargos": release_cargos,
             "selfpick_cargos": selfpick_cargos,
             "selfdel_cargos": selfdel_cargos,
+            "delivery_data": delivery_data,
+            "pod_data": pod_data,
             "summary": summary,
             'shipment_type_options': self.shipment_type_options,
             "carrier_options": self.carrier_options,

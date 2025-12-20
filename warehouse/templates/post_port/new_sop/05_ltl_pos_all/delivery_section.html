@@ -83,13 +83,21 @@
     }
 
     .status-span-red {
-        color: #e74c3c;
-        font-weight: 600;
+        background-color: #ff4444; 
+        color: #ffffff !important; 
+        padding: 2px 6px;
+        border-radius: 3px;
+        font-weight: bold;
+        display: inline-block;
     }
 
     .status-span-yellow {
-        color: #f39c12;
-        font-weight: 600;
+        background-color: #ffcc00;
+        color: #000000; 
+        padding: 2px 6px;
+        border-radius: 3px;
+        font-weight: bold;
+        display: inline-block;
     }
 </style>
 
@@ -127,7 +135,7 @@
         </tr>
     </thead>
     <tbody>
-        {% for s in delivery_shipments %}
+        {% for s in delivery_data %}
         <tr>
             <td style="max-width: 120px; word-break: break-all;">
                 {{ s.fleet_number.fleet_number }}<br>
@@ -162,7 +170,7 @@
                     <input type="hidden" name="step" value="confirm_delivery">
                     <input type="hidden" name="fleet_number" value="{{ s.fleet_number.fleet_number }}">
                     <input type="hidden" name="shipment_batch_number" value="{{ s.shipment_batch_number }}">
-                    <input type="hidden" name="page" value="arm_appointment">
+                    <input type="hidden" name="page" value="ltl_devliery_section">
                     <input type="hidden" name="active_tab" value="ready">
                     <input type="hidden" name="warehouse" value="{{ warehouse }}">
                     <button type="submit" class="table-btn btn-success-small">确认送达</button>
