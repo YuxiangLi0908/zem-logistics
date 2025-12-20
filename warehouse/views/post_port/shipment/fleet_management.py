@@ -2078,12 +2078,13 @@ class FleetManagement(View):
         fleet_number = request.POST.get("fleet_number")
         customerInfo = request.POST.get("customerInfo")
         contact_flag = False  # 表示地址栏空出来，客服手动P上去
+        contact = ""
         if customerInfo and customerInfo != "[]":
             customerInfo = json.loads(customerInfo)
             for row in customerInfo:
-                if row[9] != "":
+                if row[8] != "":
                     contact_flag = True
-                    contact = row[9]
+                    contact = row[8]
                     contact = re.sub("[\u4e00-\u9fff]", " ", contact)
                     contact = re.sub(r"\uFF0C", ",", contact)
                     new_contact = contact.split(";")
@@ -2094,8 +2095,6 @@ class FleetManagement(View):
                         "name": new_contact[3],
                         "phone": new_contact[4],
                     }
-        else:
-            contact = ""
         arm_pickup = await sync_to_async(list)(
             Pallet.objects.select_related(
                 "container_number__container_number",
