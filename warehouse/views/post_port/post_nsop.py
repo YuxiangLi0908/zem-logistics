@@ -348,6 +348,9 @@ class PostNsop(View):
             return render(request, template, context)  
         elif step == "export_ltl_unscheduled":
             return await self.export_ltl_unscheduled(request)
+        elif step == "save_fleet_cost":
+            template, context = await self.handle_save_fleet_cost(request)
+            return render(request, template, context)  
         else:
             raise ValueError('输入错误',step)
     
@@ -3776,6 +3779,8 @@ class PostNsop(View):
         for fleet in fleets:
             fleet_group = {
                 'fleet_number': fleet.fleet_number,
+                'fleet_type': fleet.fleet_type,
+                'fleet_cost': fleet.fleet_cost or 0,
                 'third_party_address': fleet.third_party_address,
                 'pickup_number': fleet.pickup_number,
                 'motor_carrier_number': fleet.motor_carrier_number,
@@ -4417,6 +4422,20 @@ class PostNsop(View):
         
         return response
 
+    async def handle_save_fleet_cost(
+        self, request: HttpRequest
+    ) -> tuple[str, dict[str, Any]]:
+        """LTL对po更改核实状态"""
+        print(request.POST)
+        fleet_number = request.POST.get('fleet_number')
+        fleet_cost = request.POST.get('fleet_cost')
+        
+        if fleet_number and fleet_cost:
+            fleet = await sync_to_async(Fleet.objects.get)(fleet_number=fleet_number)
+            fleet.fleet_cost = float(fleet_cost)
+            await sync_to_async(fleet.save)()
+        
+        return await self.handle_ltl_unscheduled_pos_post(request)
 
     async def handle_verify_ltl_cargo(
         self, request: HttpRequest, context: dict| None = None,
@@ -4482,7 +4501,7 @@ class PostNsop(View):
         selfdel_cargos = await self._ltl_scheduled_fleet(pl_criteria, plt_criteria)
 
         #待出库
-        #ready_to_ship_data = await self._sp_ready_to_ship_data(warehouse,request.user, None, 'ltl')
+        ready_to_ship_data = await self._sp_ready_to_ship_data(warehouse,request.user, None, 'ltl')
         # 待送达
         delivery_data_raw = await self._fl_delivery_get(warehouse, None, 'ltl')
         delivery_data = delivery_data_raw['shipments']
@@ -4493,6 +4512,7 @@ class PostNsop(View):
             'release_count': len(release_cargos),
             'selfpick_count': len(selfpick_cargos),
             'selfdel_count': len(selfdel_cargos),
+            'ready_to_ship_count': len(ready_to_ship_data),
             'ready_count': len(delivery_data),
             'pod_count': len(pod_data),
         }
@@ -4506,6 +4526,7 @@ class PostNsop(View):
             "release_cargos": release_cargos,
             "selfpick_cargos": selfpick_cargos,
             "selfdel_cargos": selfdel_cargos,
+            "ready_to_ship_data": ready_to_ship_data,
             "delivery_data": delivery_data,
             "pod_data": pod_data,
             "summary": summary,

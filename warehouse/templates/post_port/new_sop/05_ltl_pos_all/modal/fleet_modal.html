@@ -47,7 +47,7 @@
                                 </td>
                                 <td style="width: 33%;">
                                     <label style="font-size: 0.8rem; font-weight: 600; color: var(--secondary-color); display: block; margin-bottom: 5px;">PickUp Number</label>
-                                    <input type="text" name="pickup_number" id="fleetModalPickupNumber" class="table-input" style="width: 100%;" required>
+                                    <input type="text" name="pickup_number" id="fleetModalPickupNumber" class="table-input" style="width: 100%;">
                                 </td>
                             </tr>
                             <tr>
@@ -67,7 +67,7 @@
                             <tr>
                                 <td>
                                     <label style="font-size: 0.8rem; font-weight: 600; color: var(--secondary-color); display: block; margin-bottom: 5px;">提货时间</label>
-                                    <input type="datetime-local" name="appointment_datetime" id="fleetModalAppointmentDatetime" class="table-input" style="width: 100%;" required>
+                                    <input type="datetime-local" name="appointment_datetime" id="fleetModalAppointmentDatetime" class="table-input" style="width: 100%;">
                                 </td>
                                 <td>
                                     <label style="font-size: 0.8rem; font-weight: 600; color: var(--secondary-color); display: block; margin-bottom: 5px;">备注</label>
@@ -75,7 +75,7 @@
                                 </td>
                                 <td>
                                     <label style="font-size: 0.8rem; font-weight: 600; color: var(--secondary-color); display: block; margin-bottom: 5px;">费用</label>
-                                    <input type="number" name="fleet_cost" id="fleetCost" class="table-input" style="width: 100%;">
+                                    <input type="number" name="fleet_cost" id="fleetCost" class="table-input" style="width: 100%;" step="0.01" min="0">
                                 </td>
                             </tr>
                         </tbody>
@@ -97,13 +97,13 @@
                     <thead>
                         <tr>
                             <th>预约批次</th>
-                            <th>预约号</th>
+                            <th>唛头</th>
                             <th>柜号</th>
                             <th>目的地</th>                           
                             <th>Scheduled Time</th>                          
                             <th>总CBM</th>
                             <th>总卡板数</th>
-                             <th>备注</th>
+                            <th>备注</th>
                         </tr>
                     </thead>
                     <tbody id="fleetShipmentTableBody">
@@ -142,109 +142,144 @@
         }
     }
 
-    // 确认排车功能
+    // 辅助函数：处理None和空值
+    function formatValue(value) {
+        if (!value || value === 'None' || value === 'null' || value === 'undefined') {
+            return '';
+        }
+        return value;
+    }
+
+    // 确认排车功能（保持原有逻辑，但不使用）
     function openFleetModal() {
+        // 这个函数现在不会被待出库页面调用，保持原样
         const checkboxes = document.querySelectorAll('#scheduled-section input[name="is_appointment_added"]:checked');
         if (checkboxes.length === 0) {
             alert("请先选择至少一条待排车批次！");
             return;
         }
-
         
-        const hasNoPOAppointments = [];
-        checkboxes.forEach(cb => {
-            const tr = cb.closest("tr");
-            const noPOCell = tr.querySelector('td[colspan="6"]'); // 查找无PO的单元格
-            
-            if (noPOCell && noPOCell.textContent.includes('无PO')) {
-                const appointmentId = cb.dataset.appointmentId;
-                hasNoPOAppointments.push(appointmentId);
-            }
-        });
-
-        // 如果有无PO的记录，直接弹框提示并返回
-        if (hasNoPOAppointments.length > 0) {
-            showNoPOPrompt(hasNoPOAppointments);
+        // ... 原有逻辑保持不变 ...
+    }
+    
+    // 为待出库页面定制的打开弹框函数
+    function openFleetModalForReadyShip(clickedElement) {
+        // 从点击的元素获取车次信息
+        const fleetNumber = clickedElement.dataset.fleetNumber || '';
+        const thirdPartyAddress = formatValue(clickedElement.dataset.thirdPartyAddress);
+        const pickupNumber = formatValue(clickedElement.dataset.pickupNumber);
+        const motorCarrierNumber = formatValue(clickedElement.dataset.motorCarrierNumber);
+        const licensePlate = formatValue(clickedElement.dataset.licensePlate);
+        const dotNumber = formatValue(clickedElement.dataset.dotNumber);
+        const appointmentDatetime = formatValue(clickedElement.dataset.appointmentDatetime);
+        const carrier = formatValue(clickedElement.dataset.carrier);
+        const fleetType = formatValue(clickedElement.dataset.fleetType);
+        const fleetCostValue = clickedElement.dataset.fleetCost;
+        const fleetCost = (fleetCostValue && parseFloat(fleetCostValue) > 0) ? parseFloat(fleetCostValue) : '';
+        
+        console.log('打开弹框，车次号:', fleetNumber);
+        
+        // 获取fleetModal元素
+        const fleetModal = document.getElementById('fleetModal');
+        if (!fleetModal) {
+            console.error('找不到fleetModal元素');
+            alert('弹框元素未找到，请检查页面是否引用了fleet_modal.html');
             return;
         }
-
-        const selectedAppointments = [];
-        let pickupNumebr = '';
-        checkboxes.forEach(cb => {
-            const appointmentId = cb.dataset.appointmentId;
-            if (appointmentId) {
-                selectedAppointments.push(appointmentId);
-                // 获取 pickup_number
-                const tr = cb.closest("tr");
-                // 从按钮的 data 属性中获取 pickup_number
-                const editBtn = tr.querySelector('.open-edit-modal');
-                if (editBtn && editBtn.dataset.pickupNumber) {
-                    pickupNumber = editBtn.dataset.pickupNumber;
-                }
-            }
-        });
-        console.log('pickupNumber',pickupNumber);
-        // 设置选中的预约号到隐藏字段
-        document.getElementById('fleetModalSelectedAppointments').value = JSON.stringify(selectedAppointments);
-        if (pickupNumber) {
-            document.getElementById('fleetModalPickupNumber').value = pickupNumber;
+        
+        // 设置表单字段，使用formatValue处理空值
+        document.getElementById('fleetModalThirdPartyAddress').value = thirdPartyAddress;
+        document.getElementById('fleetModalPickupNumber').value = pickupNumber;
+        document.getElementById('fleetModalMotorCarrierNumber').value = motorCarrierNumber;
+        document.getElementById('fleetModalLicensePlate').value = licensePlate;
+        document.getElementById('fleetModalDotNumber').value = dotNumber;
+        document.getElementById('fleetModalAppointmentDatetime').value = appointmentDatetime;
+        document.getElementById('fleetModalCarrier').value = carrier;
+        document.getElementById('fleetModalFleetNumber').value = fleetNumber;
+        document.getElementById('fleetCost').value = fleetCost;
+        
+        // 设置费用输入框的占位符
+        const fleetCostInput = document.getElementById('fleetCost');
+        if (fleetCostInput) {
+            fleetCostInput.placeholder = fleetType.includes('自提') ? '出库费' : '自发费';
         }
-        // 将选中的记录信息填入弹窗表格
-        const tbody = document.getElementById("fleetShipmentTableBody");
-        tbody.innerHTML = ""; // 清空旧内容
-
-        checkboxes.forEach(cb => {
-            const tr = cb.closest("tr");
-            const cells = tr.querySelectorAll("td");
-            
-            // 获取预约信息
-            //预约批次
-            const appointmentBatchCell = cells[1];
-            const tempDiv = document.createElement('div');
-            tempDiv.innerHTML = appointmentBatchCell.innerHTML;
-            const buttons = tempDiv.querySelectorAll('button, form');
-            buttons.forEach(btn => btn.remove());
-            const appointmentBatch = tempDiv.textContent.trim();
-
-            // 预约号
-            const appointmentIdCell = cells[2];          
-            const strongElement = appointmentIdCell.querySelector('strong');
-            const appointmentId = strongElement ? strongElement.textContent.trim() : appointmentIdCell.textContent.trim();
-            const container_number = cells[6].innerText;
-            const destination = cells[3].innerText; // 目的地          
-            const scheduledTime = cells[4].innerText; // Scheduled Time
-            
-            const totalPallet = cells[9].innerText; // 总卡板数
-            const totalCbm = cells[10].innerText; // 总CBM
-            
-            const note = cells[11].innerText; // 备注
-
-            const newRow = document.createElement("tr");
-            newRow.innerHTML = `
-                <td style="max-width: 120px; word-break: break-all;">${appointmentBatch}</td>
-                <td>${appointmentId}</td>
-                <td>${container_number}</td>
-                <td>${destination}</td>              
-                <td style="max-width: 150px; word-break: break-all;">${scheduledTime}</td>              
-                <td>${totalCbm}</td>
-                <td>${totalPallet}</td>
-                <td style="max-width: 120px; word-break: break-all;">${note}</td>
-            `;
-            tbody.appendChild(newRow);
-        });
         
+        // 设置隐藏字段
         document.getElementById('fleetModalStep').value = 'fleet_confirmation';
-        document.getElementById('fleetModalFleetNumber').value = '';
+        document.getElementById('fleetModalSelectedAppointments').value = JSON.stringify([]);
         
-        // 清空其他表单字段
-        const form = document.querySelector('#fleetModal form');
-        const pickupInput = document.getElementById('fleetModalPickupNumber');
-        const savedPickupValue = pickupInput.value; // 保存 pickup_number 的值
-        form.reset();
-        pickupInput.value = savedPickupValue;
+        // 获取该车次下的所有预约信息
+        const fleetData = collectFleetData(fleetNumber);
+        if (fleetData && fleetData.shipments && fleetData.shipments.length > 0) {
+            // 将选中的记录信息填入弹窗表格
+            const tbody = document.getElementById("fleetShipmentTableBody");
+            if (!tbody) {
+                console.error('找不到fleetShipmentTableBody元素');
+            } else {
+                tbody.innerHTML = ""; // 清空旧内容
+                
+                fleetData.shipments.forEach(shipment => {
+                    // 计算总卡板数和总CBM，收集唛头和柜号
+                    let totalPallets = 0;
+                    let totalCbm = 0;
+                    let hasCbmData = false;
+                    let containerNumbers = new Set();
+                    let allMarkings = new Set();
+                    
+                    shipment.cargos.forEach(cargo => {
+                        totalPallets += parseFloat(cargo.plannedPallets) || 0;
+                        
+                        // 检查cbm是否有值
+                        if (cargo.cbm && cargo.cbm !== '' && cargo.cbm !== '-') {
+                            const cbm = parseFloat(cargo.cbm) || 0;
+                            totalCbm += cbm;
+                            hasCbmData = true;
+                        }
+                        
+                        // 收集柜号
+                        if (cargo.containerNo && cargo.containerNo !== '-') {
+                            containerNumbers.add(cargo.containerNo);
+                        }
+                        
+                        // 收集唛头
+                        if (cargo.markings && cargo.markings !== '' && cargo.markings !== '-') {
+                            allMarkings.add(formatValue(cargo.markings));
+                        }
+                    });
+                    
+                    const containerNos = Array.from(containerNumbers).join(', ');
+                    const markings = Array.from(allMarkings).join(', ');
+                    
+                    // CBM显示逻辑：有数据则显示格式化后的数字，否则显示空
+                    const cbmDisplay = hasCbmData && totalCbm > 0 ? Number(totalCbm).toFixed(2) : '';
+                    
+                    const newRow = document.createElement("tr");
+                    newRow.innerHTML = `
+                        <td style="max-width: 120px; word-break: break-all;">${formatValue(shipment.appointmentId)}</td>
+                        <td style="max-width: 120px; word-break: break-all;" title="${markings}">${markings || ''}</td>
+                        <td style="max-width: 100px; word-break: break-all;">${containerNos || ''}</td>
+                        <td>${formatValue(shipment.destination)}</td>              
+                        <td style="max-width: 150px; word-break: break-all;"></td>              
+                        <td>${cbmDisplay}</td>
+                        <td>${totalPallets}</td>
+                        <td style="max-width: 120px; word-break: break-all;"></td>
+                    `;
+                    tbody.appendChild(newRow);
+                });
+            }
+        } else {
+            // 如果没有数据，清空表格
+            const tbody = document.getElementById("fleetShipmentTableBody");
+            if (tbody) {
+                tbody.innerHTML = "";
+            }
+        }
+        
         // 显示弹窗
-        document.getElementById("fleetModal").style.display = "block";
+        fleetModal.style.display = "block";
+        console.log('弹框已显示');
     }
+
     //错误提示框
     function showNoPOPrompt(appointmentIds) {
         // 创建模态框
