@@ -1,7 +1,8 @@
 <!-- 待出库标签页 -->
- <style>
+<style>
     .fleet-number-cell:hover {
         background-color: #e8f4fd !important;
+        cursor: pointer;
     }
 
     .fleet-number-cell:hover strong {
@@ -47,8 +48,41 @@
         background: #b4c9ff;
         font-weight: bold;
     }
- </style>
- 
+    
+    .cost-input {
+        width: 80px;
+        padding: 2px 4px;
+        border: 1px solid #ced4da;
+        border-radius: 3px;
+        font-size: 0.8rem;
+        text-align: right;
+    }
+    
+    .cost-input.save-btn {
+        background-color: #28a745;
+        color: white;
+        border: none;
+        cursor: pointer;
+        margin-left: 5px;
+        padding: 2px 4px;  /* 减少内边距 */
+        width: 24px;       /* 固定宽度 */
+        height: 24px;      /* 固定高度 */
+        border-radius: 3px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.7rem; /* 减小字体大小 */
+    }
+    
+    .cost-input.save-btn:hover {
+        background-color: #218838;
+    }
+
+    .cost-input.save-btn i {
+        margin: 0; /* 移除图标边距 */
+    }
+</style>
+
 <div class="table-container">
     <table class="data-table">
         <thead>
@@ -56,14 +90,12 @@
                 <th>车次号</th>
                 <th>提货时间</th>
                 <th>预约批次</th>
-                <th>预约号</th>
                 <th>目的地</th>
                 <th>柜号</th>
-                <th>REF ID</th>
-                <th>FBA ID</th>
+                <th>唛头</th>
                 <th>板数</th>
                 <th>CBM</th>
-                <th>加塞</th>
+                <th>费用</th>
                 <th>出库</th>
             </tr>
             <tr class="search-row">
@@ -77,13 +109,11 @@
                     </div>
                 </td>
                 <td><input type="text" class="header-search" placeholder="搜索预约批次" data-column="2"></td>
-                <td><input type="text" class="header-search" placeholder="搜索预约号" data-column="3"></td>
-                <td><input type="text" class="header-search" placeholder="搜索目的地" data-column="4"></td>
-                <td><input type="text" class="header-search" placeholder="搜索柜号" data-column="5"></td>
-                <td><input type="text" class="header-search" placeholder="搜索REF ID" data-column="6"></td>
-                <td><input type="text" class="header-search" placeholder="搜索FBA ID" data-column="7"></td>
-                <td><input type="text" class="header-search" placeholder="搜索板数" data-column="8"></td>
-                <td><input type="text" class="header-search" placeholder="搜索CBM" data-column="9"></td>
+                <td><input type="text" class="header-search" placeholder="搜索目的地" data-column="3"></td>
+                <td><input type="text" class="header-search" placeholder="搜索柜号" data-column="4"></td>
+                <td><input type="text" class="header-search" placeholder="搜索唛头" data-column="5"></td>
+                <td><input type="text" class="header-search" placeholder="搜索板数" data-column="6"></td>
+                <td><input type="text" class="header-search" placeholder="搜索CBM" data-column="7"></td>
                 <td></td>
                 <td></td>
             </tr>
@@ -92,7 +122,7 @@
             {% for fleet_group in ready_to_ship_data %}
                 {% with fleet_rowspan=fleet_group.total_cargos %}
                     <tr class="group-separator">
-                        <td colspan="12" style="background: linear-gradient(90deg, #3498db, #6c8bc7); 
+                        <td colspan="10" style="background: linear-gradient(90deg, #3498db, #6c8bc7); 
                                             height: 2px; padding: 0;"></td>
                     </tr>
                     {% for shipment_id, shipment in fleet_group.shipments.items %}
@@ -102,7 +132,18 @@
                                     <tr data-appointment-id="{{ shipment.appointment_id }}"
                                         data-destination="{{ shipment.destination }}">
                                         {% if is_first_shipment %}
-                                            <td rowspan="{{ fleet_rowspan }}" class="fleet-number-cell" style="vertical-align: middle; background-color: #f8f9fa;">
+                                            <td rowspan="{{ fleet_rowspan }}" class="fleet-number-cell" style="vertical-align: middle; background-color: #f8f9fa;"
+                                                data-fleet-number="{{ fleet_group.fleet_number }}"
+                                                data-third-party-address="{{ fleet_group.third_party_address }}"
+                                                data-pickup-number="{{ fleet_group.pickup_number }}"
+                                                data-motor-carrier-number="{{ fleet_group.motor_carrier_number }}"
+                                                data-license-plate="{{ fleet_group.license_plate }}"
+                                                data-dot-number="{{ fleet_group.dot_number }}"
+                                                data-appointment-datetime="{{ fleet_group.appointment_datetime }}"
+                                                data-carrier="{{ fleet_group.carrier }}"
+                                                data-fleet-type="{{ fleet_group.fleet_type }}"
+                                                data-fleet-cost="{{ fleet_group.fleet_cost|default:0 }}"
+                                                onclick="openFleetModalForReadyShip(this)">
                                                 <strong style="color: #3498db; text-decoration: underline;">{{ fleet_group.fleet_number }}</strong>
                                                 <br>
                                                 <span style="color: #7f8c8d; font-size: 0.85em;">{{ fleet_group.pickup_number|default_if_none:'' }}</span>
@@ -119,27 +160,26 @@
                                             {{ shipment.shipment_batch_number }}<br>
                                             <span style="color: #3498db; font-size: 0.85em;">预计送仓 {{ shipment.shipment_appointment|date:"Y-m-d"}}</span>
                                         </td>
-                                        <td style="vertical-align: middle; background-color: #f8f9fa;">{{ shipment.appointment_id }}</td>
                                         <td style="vertical-align: middle; background-color: #f8f9fa;">{{ shipment.destination }}</td>
 
-                                        <td colspan="5" style="text-align:center; color:#aaa;">无可出库货物</td>
-
-                                        <td>
-                                            <form method="post" action="">
-                                                {% csrf_token %}
-                                                <input type="hidden" name="destination" value="{{ shipment.destination }}">
-                                                <input type="hidden" name="add_pallet_ISA" value="{{ shipment.appointment_id }}">
-                                                <input type="hidden" name="warehouse" value="{{ warehouse }}">
-                                                <input type="hidden" name="step" value="add_pallet">
-                                                <input type="hidden" name="page" value="arm_appointment">
-                                                <input type="hidden" name="active_tab" value="readyShip">
-                                                <button type="submit" class="action-btn btn-primary" onclick="handleAddPallet(this)">
-                                                    <i class="fas fa-plus"></i> 加塞
-                                                </button>
-                                            </form>
-                                        </td>
+                                        <td colspan="4" style="text-align:center; color:#aaa;">无可出库货物</td>
 
                                         {% if is_first_shipment %}
+                                            <td rowspan="{{ fleet_rowspan }}">
+                                                <div class="cost-cell" style="padding: 5px;">
+                                                    <input type="number" 
+                                                        class="cost-input" 
+                                                        value="{% if fleet_group.fleet_cost and fleet_group.fleet_cost > 0 %}{{ fleet_group.fleet_cost }}{% endif %}" 
+                                                        step="0.01" 
+                                                        min="0"
+                                                        data-fleet-number="{{ fleet_group.fleet_number }}"
+                                                        placeholder="{% if '客提' in fleet_group.fleet_type %}出库费{% else %}自发费{% endif %}"
+                                                        onchange="saveFleetCost('{{ fleet_group.fleet_number }}', this.value)">
+                                                    <button class="cost-input save-btn" onclick="saveFleetCost('{{ fleet_group.fleet_number }}', this.previousElementSibling.value)">
+                                                        <i class="fas fa-save"></i>
+                                                    </button>
+                                                </div>
+                                            </td>
                                             <td rowspan="{{ fleet_rowspan }}">
                                                 <button class="action-btn btn-disabled" disabled onclick="confirmFleetDeparture('{{ fleet_group.fleet_number }}')">出库</button>
                                             </td>
@@ -152,8 +192,7 @@
                                             data-appointment-id="{{ shipment.appointment_id }}"
                                             data-destination="{{ shipment.destination }}"
                                             data-container-no="{{ cargo.cns }}"
-                                            data-ref-ids="{{ cargo.ref_ids|default:'' }}"
-                                            data-fba-ids="{{ cargo.fba_ids|default:'' }}"
+                                            data-markings="{{ cargo.markings|default:'' }}"
                                             data-planned="{{ cargo.total_n_pallet_act|default:0 }}"
                                             data-label="{{ cargo.label|default:'' }}"
                                             data-cbm="{{ cargo.total_cbm|default:0 }}">
@@ -167,7 +206,10 @@
                                                     data-license-plate="{{ fleet_group.license_plate }}"
                                                     data-dot-number="{{ fleet_group.dot_number }}"
                                                     data-appointment-datetime="{{ fleet_group.appointment_datetime }}"
-                                                    data-carrier="{{ fleet_group.carrier }}">
+                                                    data-carrier="{{ fleet_group.carrier }}"
+                                                    data-fleet-type="{{ fleet_group.fleet_type }}"
+                                                    data-fleet-cost="{{ fleet_group.fleet_cost|default:0 }}"
+                                                    onclick="openFleetModalForReadyShip(this)">
                                                     <strong style="color: #3498db; text-decoration: underline;">{{ fleet_group.fleet_number }}</strong>
                                                     
                                                     <br><span style="color: #7f8c8d; font-size: 0.85em;">{{ fleet_group.pickup_number }}</span>
@@ -186,16 +228,12 @@
                                                     <span style="color: #3498db; font-size: 0.85em;">预计送仓 {{ shipment.shipment_appointment|date:"Y-m-d"}}</span>
                                                 </td>
                                                 <td rowspan="{{ shipment_rowspan }}" style="vertical-align: middle; background-color: #f8f9fa;">
-                                                    {{ shipment.appointment_id }}
-                                                </td>
-                                                <td rowspan="{{ shipment_rowspan }}" style="vertical-align: middle; background-color: #f8f9fa;">
                                                     {{ shipment.destination }}
                                                 </td>
                                             {% endif %}
 
                                             <td class="cns-col">{{ cargo.cns|linebreaksbr }}</td>
-                                            <td class="ref-ids-col" data-full="{{ cargo.ref_ids|default:'' }}">{{ cargo.ref_ids|default:"-"|truncatechars:20 }}</td>
-                                            <td class="fba-ids-col" data-full="{{ cargo.fba_ids|default:'' }}">{{ cargo.fba_ids|default:"-"|truncatechars:20 }}</td>
+                                            <td class="markings-col" data-full="{{ cargo.markings|default:'' }}">{{ cargo.markings|default:"-"|truncatechars:20 }}</td>
                                             <td>
                                                 {% if cargo.label == "ACT" %}
                                                     {{ cargo.total_n_pallet_act|default:0 }}
@@ -208,19 +246,20 @@
                                             <td>{{ cargo.total_cbm|default:0 }}</td>
 
                                             {% if forloop.first %}
-                                                <td rowspan="{{ shipment_rowspan }}" style="vertical-align: middle;">
-                                                    <form method="post" action="">
-                                                        {% csrf_token %}
-                                                        <input type="hidden" name="destination" value="{{ shipment.destination }}">
-                                                        <input type="hidden" name="add_pallet_ISA" value="{{ shipment.appointment_id }}">
-                                                        <input type="hidden" name="warehouse" value="{{ warehouse }}">
-                                                        <input type="hidden" name="step" value="add_pallet">
-                                                        <input type="hidden" name="page" value="arm_appointment">
-                                                        <input type="hidden" name="active_tab" value="readyShip">
-                                                        <button type="submit" class="action-btn btn-primary" onclick="handleAddPallet(this)">
-                                                            <i class="fas fa-plus"></i> 加塞
+                                                <td rowspan="{{ shipment_rowspan }}">
+                                                    <div class="cost-cell" style="padding: 5px;">
+                                                        <input type="number" 
+                                                            class="cost-input" 
+                                                            value="{% if fleet_group.fleet_cost and fleet_group.fleet_cost > 0 %}{{ fleet_group.fleet_cost }}{% endif %}" 
+                                                            step="0.01" 
+                                                            min="0"
+                                                            data-fleet-number="{{ fleet_group.fleet_number }}"
+                                                            placeholder="{% if '客提' in fleet_group.fleet_type %}出库费{% else %}自发费{% endif %}"
+                                                            onchange="saveFleetCost('{{ fleet_group.fleet_number }}', this.value)">
+                                                        <button class="cost-input save-btn" onclick="saveFleetCost('{{ fleet_group.fleet_number }}', this.previousElementSibling.value)">
+                                                            <i class="fas fa-save"></i>
                                                         </button>
-                                                    </form>
+                                                    </div>
                                                 </td>
                                             {% endif %}
 
@@ -238,40 +277,256 @@
                 {% endwith %}
             {% empty %}
                 <tr>
-                    <td colspan="12" style="text-align:center; padding:20px;">暂无待出库货物</td>
+                    <td colspan="10" style="text-align:center; padding:20px;">暂无待出库货物</td>
                 </tr>
             {% endfor %}
         </tbody>
     </table>
 </div>
 
-
 <script>
-    function handleAddPallet(button) {
-        // 获取当前激活的标签页
-        const activeTab = document.querySelector('.tab.active');
-        let tabValue = '';
-        
-        if (activeTab) {
-            // 直接从 data-tab 属性获取值
-            tabValue = activeTab.getAttribute('data-tab');
+    // 首先定义collectFleetData函数
+    function collectFleetData(fleetNumber) {
+        const fleetCell = document.querySelector(`#readyShip-section td.fleet-number-cell[data-fleet-number="${fleetNumber}"]`);
+        if (!fleetCell) {
+            console.error(`未找到车次 ${fleetNumber}`);
+            return null;
+        }
+        const fleetRow = fleetCell.closest('tr');
+        const allRows = Array.from(document.querySelectorAll('#readyShip-section tbody tr'));
+        const startIndex = allRows.indexOf(fleetRow);
+        if (startIndex === -1) return null;
+
+        let endIndex = allRows.length;
+        for (let i = startIndex + 1; i < allRows.length; i++) {
+            if (allRows[i].querySelector('.fleet-number-cell')) { 
+                endIndex = i; 
+                break; 
+            }
+        }
+        const rows = allRows.slice(startIndex, endIndex);
+
+        const fleetData = { 
+            fleetNumber, 
+            shipments: [] 
+        };
+        const shipmentsMap = {};
+
+        rows.forEach((row, idx) => {
+            // Read raw dataset values (may be mixed)
+            const rawAppt = row.dataset.appointmentId || '';
+            // If appointment id not in dataset, skip (非货物行或占位行)
+            if (!rawAppt) return;
+            const rawPlt = (row.dataset.pltId || '').toString().trim();
+            const rawCargo = (row.dataset.cargoId || '').toString().trim();
+            const dest = row.dataset.destination || '';
+            const containerNo = row.dataset.containerNo || '';
+            const markings = row.dataset.markings || '';
+            const planned = parseFloat(row.dataset.planned || 0) || 0;
+            const label = row.dataset.label || '';
+            const cbm = row.dataset.cbm || '';
+
+            let pltId = '';
+            let cargoId = '';
+
+            if (rawCargo) {
+                cargoId = rawCargo;
+            }
+            if (rawPlt) {
+                if (/^cargo_/i.test(rawPlt)) {
+                    if (!cargoId) cargoId = rawPlt;
+                } else {
+                    pltId = rawPlt;
+                }
+            }
+            // Assemble into shipments map
+            if (!shipmentsMap[rawAppt]) {
+                shipmentsMap[rawAppt] = { 
+                    appointmentId: rawAppt, 
+                    destination: dest, 
+                    cargos: [] 
+                };
+            }
+            shipmentsMap[rawAppt].cargos.push({
+                containerNo,
+                markings,  // 添加唛头信息
+                plannedPallets: planned,
+                palletLabel: label,
+                actualPallets: planned,
+                cbm,
+                // keep separate fields
+                pltId: pltId || '',
+                cargoId: cargoId || ''
+            });
+        });
+
+        fleetData.shipments = Object.values(shipmentsMap);
+        return fleetData;
+    }
+
+    // 保存费用函数
+    function saveFleetCost(fleetNumber, cost) {
+        if (!cost || isNaN(cost) || parseFloat(cost) < 0) {
+            alert('请输入有效的费用金额');
+            return;
         }
         
-        // 获取表单
-        const form = button.closest('form');
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.style.display = 'none';
         
-        // 创建或更新 active_tab 输入框
-        let activeTabInput = form.querySelector('input[name="active_tab"]');
-        if (!activeTabInput) {
-            activeTabInput = document.createElement('input');
-            activeTabInput.type = 'hidden';
-            activeTabInput.name = 'active_tab';
-            form.appendChild(activeTabInput);
-        }
-        activeTabInput.value = tabValue;
+        // 添加CSRF token
+        const csrfInput = document.createElement('input');
+        csrfInput.type = 'hidden';
+        csrfInput.name = 'csrfmiddlewaretoken';
+        csrfInput.value = '{{ csrf_token }}';
+        form.appendChild(csrfInput);
         
-        // 提交表单
+        // 添加步骡标识
+        const stepInput = document.createElement('input');
+        stepInput.type = 'hidden';
+        stepInput.name = 'step';
+        stepInput.value = 'save_fleet_cost';
+        form.appendChild(stepInput);
+        
+        // 添加车次号
+        const fleetInput = document.createElement('input');
+        fleetInput.type = 'hidden';
+        fleetInput.name = 'fleet_number';
+        fleetInput.value = fleetNumber;
+        form.appendChild(fleetInput);
+        
+        // 添加费用
+        const costInput = document.createElement('input');
+        costInput.type = 'hidden';
+        costInput.name = 'fleet_cost';
+        costInput.value = cost;
+        form.appendChild(costInput);
+        
+        // 添加上下文
+        const warehouseInput = document.createElement('input');
+        warehouseInput.type = 'hidden';
+        warehouseInput.name = 'warehouse';
+        warehouseInput.value = '{{ warehouse }}';
+        form.appendChild(warehouseInput);
+        
+        // 添加激活标签页
+        const activeTabInput = document.createElement('input');
+        activeTabInput.type = 'hidden';
+        activeTabInput.name = 'active_tab';
+        activeTabInput.value = 'readyShip';
+        form.appendChild(activeTabInput);
+        
+        document.body.appendChild(form);
         form.submit();
+    }
+
+    // 修改弹框函数，用于待出库页面的车次号点击
+    function openFleetModalForReadyShip(clickedElement) {
+        // 从点击的元素获取车次信息
+        const fleetNumber = clickedElement.dataset.fleetNumber || '';
+        const thirdPartyAddress = clickedElement.dataset.thirdPartyAddress || '';
+        const pickupNumber = clickedElement.dataset.pickupNumber || '';
+        const motorCarrierNumber = clickedElement.dataset.motorCarrierNumber || '';
+        const licensePlate = clickedElement.dataset.licensePlate || '';
+        const dotNumber = clickedElement.dataset.dotNumber || '';
+        const appointmentDatetime = clickedElement.dataset.appointmentDatetime || '';
+        const carrier = clickedElement.dataset.carrier || '';
+        const fleetType = clickedElement.dataset.fleetType || '';
+        const fleetCost = clickedElement.dataset.fleetCost || 0;
+        
+        console.log('打开弹框，车次号:', fleetNumber);
+        
+        // 获取fleetModal元素
+        const fleetModal = document.getElementById('fleetModal');
+        if (!fleetModal) {
+            console.error('找不到fleetModal元素');
+            alert('弹框元素未找到，请检查页面是否引用了fleet_modal.html');
+            return;
+        }
+        
+        // 设置表单字段
+        document.getElementById('fleetModalThirdPartyAddress').value = thirdPartyAddress;
+        document.getElementById('fleetModalPickupNumber').value = pickupNumber;
+        document.getElementById('fleetModalMotorCarrierNumber').value = motorCarrierNumber;
+        document.getElementById('fleetModalLicensePlate').value = licensePlate;
+        document.getElementById('fleetModalDotNumber').value = dotNumber;
+        document.getElementById('fleetModalAppointmentDatetime').value = appointmentDatetime;
+        document.getElementById('fleetModalCarrier').value = carrier;
+        document.getElementById('fleetModalFleetNumber').value = fleetNumber;
+        document.getElementById('fleetCost').value = fleetCost;
+        
+        // 设置费用输入框的占位符
+        const fleetCostInput = document.getElementById('fleetCost');
+        if (fleetCostInput) {
+            fleetCostInput.placeholder = fleetType.includes('自提') ? '出库费' : '自发费';
+        }
+        
+        // 设置隐藏字段
+        document.getElementById('fleetModalStep').value = 'fleet_confirmation';
+        document.getElementById('fleetModalSelectedAppointments').value = JSON.stringify([]);
+        
+        // 获取该车次下的所有预约信息
+        const fleetData = collectFleetData(fleetNumber);
+        if (fleetData && fleetData.shipments && fleetData.shipments.length > 0) {
+            // 将选中的记录信息填入弹窗表格
+            const tbody = document.getElementById("fleetShipmentTableBody");
+            if (!tbody) {
+                console.error('找不到fleetShipmentTableBody元素');
+            } else {
+                tbody.innerHTML = ""; // 清空旧内容
+                
+                fleetData.shipments.forEach(shipment => {
+                    // 计算总卡板数和总CBM
+                    let totalPallets = 0;
+                    let totalCbm = 0;
+                    let hasCbmData = false;
+                    let containerNumbers = new Set();
+                    
+                    shipment.cargos.forEach(cargo => {
+                        // 确保转换为数字
+                        const pallets = parseFloat(cargo.plannedPallets) || 0;
+                        totalPallets += pallets;
+                        
+                        // 检查cbm是否有值
+                        if (cargo.cbm && cargo.cbm !== '' && cargo.cbm !== '-') {
+                            const cbm = parseFloat(cargo.cbm) || 0;
+                            totalCbm += cbm;
+                            hasCbmData = true;
+                        }
+                        
+                        if (cargo.containerNo && cargo.containerNo !== '-') {
+                            containerNumbers.add(cargo.containerNo);
+                        }
+                    });
+                    
+                    const containerNos = Array.from(containerNumbers).join(', ');
+                    
+                    // 如果有CBM数据则显示，否则显示空
+                    let cbmDisplay = '';
+                    if (hasCbmData && totalCbm > 0) {
+                        cbmDisplay = Number(totalCbm).toFixed(2);
+                    }
+                    
+                    const newRow = document.createElement("tr");
+                    newRow.innerHTML = `
+                        <td style="max-width: 120px; word-break: break-all;">${shipment.appointmentId || ''}</td>
+                        <td>${shipment.appointmentId || ''}</td>
+                        <td>${containerNos}</td>
+                        <td>${shipment.destination || ''}</td>              
+                        <td style="max-width: 150px; word-break: break-all;"></td>              
+                        <td>${cbmDisplay}</td>
+                        <td>${totalPallets}</td>
+                        <td style="max-width: 120px; word-break: break-all;"></td>
+                    `;
+                    tbody.appendChild(newRow);
+                });
+            }
+        }
+        
+        // 显示弹窗
+        fleetModal.style.display = "block";
+        console.log('弹框已显示');
     }
 
     document.addEventListener('DOMContentLoaded', function() {
@@ -468,13 +723,10 @@
             
             let cellText = cell.textContent.toLowerCase();
             
-            // 处理特殊列（REF ID和FBA ID有完整数据在data-full属性中）
-            if (colIndex === '6') { // REF ID列
-                const fullRefIds = cell.getAttribute('data-full') || cellText;
-                cellText = fullRefIds.toLowerCase();
-            } else if (colIndex === '7') { // FBA ID列
-                const fullFbaIds = cell.getAttribute('data-full') || cellText;
-                cellText = fullFbaIds.toLowerCase();
+            // 处理特殊列（唛头有完整数据在data-full属性中）
+            if (colIndex === '5') { // 唛头列
+                const fullMarkings = cell.getAttribute('data-full') || cellText;
+                cellText = fullMarkings.toLowerCase();
             }
                        
             if (!cellText.includes(searchValue)) {
@@ -543,8 +795,8 @@
                     cell.setAttribute('data-original-text', cellText);
                 }
                 
-                // 对于REF ID和FBA ID列，使用完整数据进行高亮
-                if (colIndex === '6' || colIndex === '7') {
+                // 对于唛头列，使用完整数据进行高亮
+                if (colIndex === '5') {
                     const fullData = cell.getAttribute('data-full') || cellText;
                     cellText = fullData;
                 }
@@ -581,75 +833,5 @@
             return;
         }
         openDepartureModal(fleetNumber, fleetData);
-    }
-
-    function collectFleetData(fleetNumber) {
-        const fleetCell = document.querySelector(`#readyShip-section td.fleet-number-cell[data-fleet-number="${fleetNumber}"]`);
-        if (!fleetCell) {
-            console.error(`未找到车次 ${fleetNumber}`);
-            return null;
-        }
-        const fleetRow = fleetCell.closest('tr');
-        const allRows = Array.from(document.querySelectorAll('#readyShip-section tbody tr'));
-        const startIndex = allRows.indexOf(fleetRow);
-        if (startIndex === -1) return null;
-
-        let endIndex = allRows.length;
-        for (let i = startIndex + 1; i < allRows.length; i++) {
-            if (allRows[i].querySelector('.fleet-number-cell')) { endIndex = i; break; }
-        }
-        const rows = allRows.slice(startIndex, endIndex);
-
-        const fleetData = { fleetNumber, shipments: [] };
-        const shipmentsMap = {};
-
-        rows.forEach((row, idx) => {
-            // Read raw dataset values (may be mixed)
-            const rawAppt = row.dataset.appointmentId || '';
-            // If appointment id not in dataset, skip (非货物行或占位行)
-            if (!rawAppt) return;
-            const rawPlt = (row.dataset.pltId || '').toString().trim();
-            const rawCargo = (row.dataset.cargoId || '').toString().trim();
-            const dest = row.dataset.destination || '';
-            const containerNo = row.dataset.containerNo || '';
-            const refIds = row.dataset.refIds || '';
-            const fbaIds = row.dataset.fbaIds || '';
-            const planned = parseFloat(row.dataset.planned || 0) || 0;
-            const label = row.dataset.label || '';
-            const cbm = row.dataset.cbm || '';
-
-            let pltId = '';
-            let cargoId = '';
-
-            if (rawCargo) {
-                cargoId = rawCargo;
-            }
-            if (rawPlt) {
-                if (/^cargo_/i.test(rawPlt)) {
-                    if (!cargoId) cargoId = rawPlt;
-                } else {
-                    pltId = rawPlt;
-                }
-            }
-            // Assemble into shipments map
-            if (!shipmentsMap[rawAppt]) {
-                shipmentsMap[rawAppt] = { appointmentId: rawAppt, destination: dest, cargos: [] };
-            }
-            shipmentsMap[rawAppt].cargos.push({
-                containerNo,
-                refIds,
-                fbaIds,
-                plannedPallets: planned,
-                palletLabel: label,
-                actualPallets: planned,
-                cbm,
-                // keep separate fields
-                pltId: pltId || '',
-                cargoId: cargoId || ''
-            });
-        });
-
-        fleetData.shipments = Object.values(shipmentsMap);
-        return fleetData;
     }
 </script>
