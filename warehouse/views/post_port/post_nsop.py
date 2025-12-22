@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
-from typing import Any, Dict
-from django.db.models import Prefetch
+from typing import Any, Dict, List, Tuple
+from django.db.models import Prefetch, F
 from collections import OrderedDict
 import pandas as pd
 import json
@@ -241,6 +241,9 @@ class PostNsop(View):
         elif step == "bind_group_shipment":
             template, context = await self.handle_appointment_post(request)
             return render(request, template, context) 
+        elif step =="ltl_bind_group_shipment":
+            template, context = await self.handle_ltl_bind_group_shipment(request)
+            return render(request, template, context) 
         elif step == "unassign_shipment":
             template, context = await self.handle_cancel_appointment_post(request)
             return render(request, template, context) 
@@ -351,6 +354,9 @@ class PostNsop(View):
         elif step == "save_fleet_cost":
             template, context = await self.handle_save_fleet_cost(request)
             return render(request, template, context)  
+        elif step =="save_selfpick_cargo":
+            template, context = await self.handle_save_selfpick_cargo(request)
+            return render(request, template, context) 
         else:
             raise ValueError('输入错误',step)
     
@@ -431,7 +437,8 @@ class PostNsop(View):
                 + current_time.strftime("%m%d%H%M%S")
                 + str(uuid.uuid4())[:2].upper()
             )
-            batch_number = batch_id.replace(" ", "").replace("/", "-").upper()       
+            batch_number = batch_id.replace(" ", "").replace("/", "-").upper()  
+            print('batch_number',batch_number)     
             exists = await sync_to_async(
                 Shipment.objects.filter(shipment_batch_number=batch_number).exists
             )()
@@ -1543,6 +1550,175 @@ class PostNsop(View):
                  
         return pickup_number
 
+    async def _get_pl_plt_total_weight(self, ids: list[int], plt_ids: list[int]) -> Tuple[float, float, int, int]:
+        total_weight = 0.0
+        total_cbm = 0.0
+        total_pcs = 0
+        total_pallet = 0
+        
+        # 计算PackingList的统计信息
+        if ids:
+            # 使用aggregate计算总和
+            packinglist_stats = await sync_to_async(
+                PackingList.objects.filter(id__in=ids).aggregate
+            )(
+                total_weight_sum=Sum('total_weight_lbs'),
+                total_cbm_sum=Sum('cbm'),
+                total_pcs_sum=Sum('pcs'),
+            )
+            
+            total_weight += packinglist_stats.get('total_weight_sum') or 0.0
+            total_cbm += packinglist_stats.get('total_cbm_sum') or 0.0
+            total_pcs += packinglist_stats.get('total_pcs_sum') or 0
+            # PackingList的板数需要特殊计算：cbm/1.8取上限
+            if packinglist_stats.get('total_cbm_sum'):
+                total_pallet += math.ceil(packinglist_stats['total_cbm_sum'] / 1.8)
+        
+        # 计算Pallet的统计信息
+        if plt_ids:
+            # 使用aggregate计算总和
+            pallet_stats = await sync_to_async(
+                Pallet.objects.filter(id__in=plt_ids).aggregate
+            )(
+                total_weight_sum=Sum('weight_lbs'),
+                total_cbm_sum=Sum('cbm'),
+                total_pcs_sum=Sum('pcs'),
+                pallet_count=Count('id'),  # 每个pallet算一个板
+            )
+            
+            total_weight += pallet_stats.get('total_weight_sum') or 0.0
+            total_cbm += pallet_stats.get('total_cbm_sum') or 0.0
+            total_pcs += pallet_stats.get('total_pcs_sum') or 0
+            total_pallet += pallet_stats.get('pallet_count') or 0
+        
+        # 四舍五入处理
+        total_weight = round(total_weight, 2)
+        total_cbm = round(total_cbm, 3)
+        total_pallet = math.ceil(total_pallet)  # 确保板数是整数
+        return (float(total_weight), float(total_cbm), int(total_pcs),  int(total_pallet) )
+
+    async def handle_ltl_bind_group_shipment(
+        self, request: HttpRequest
+    ) -> tuple[str, dict[str, Any]]:    
+        context = {}
+        # 获取表单数据
+        cargo_ids = request.POST.get('cargo_ids', '').strip()
+        plt_ids = request.POST.get('plt_ids', '').strip()
+        destination = request.POST.get('destination', '').strip()
+        address = request.POST.get('address', '').strip()
+        carrier = request.POST.get('carrier', '').strip()
+        shipment_appointment = request.POST.get('shipment_appointment', '').strip()
+        arm_bol = request.POST.get('arm_bol', '').strip()
+        arm_pro = request.POST.get('arm_pro', '').strip()
+        is_print_label = request.POST.get('is_print_label', 'false').strip() == 'true'
+        shipment_type = request.POST.get('shipment_type', '').strip()
+        warehouse = request.POST.get('warehouse')
+        
+        # 解析ID列表
+        packinglist_ids = []
+        pallet_ids = []
+        
+        if cargo_ids:
+            packinglist_ids = [int(id.strip()) for id in cargo_ids.split(',') if id.strip()]
+        
+        if plt_ids:
+            pallet_ids = [int(id.strip()) for id in plt_ids.split(',') if id.strip()]
+        
+        if not packinglist_ids and not pallet_ids:
+            context = {'error_messages':'请选择要绑定的货物！'}
+            return await self.handle_ltl_unscheduled_pos_post(request, context)
+        
+        #计算总重量等参数
+        total_weight, total_cbm, total_pcs, total_pallet = await self._get_pl_plt_total_weight(packinglist_ids,pallet_ids)
+        # 时间字段处理
+        try:
+            pickup_time = timezone.make_aware(datetime.fromisoformat(shipment_appointment.replace('Z', '')))
+        except (ValueError, TypeError):
+            context = {'error_messages':'提货时间格式错误！'}
+            return await self.handle_ltl_unscheduled_pos_post(request, context)
+        
+        current_time = datetime.now()
+        try:
+            shipment_appointment_dt = datetime.fromisoformat(shipment_appointment.replace('Z', ''))
+            month_day = shipment_appointment_dt.strftime("%m%d")
+        except:
+            month_day = current_time.strftime("%m%d")
+        pickupNumber = "ZEM" + "-" + warehouse + "-" + "" + month_day + carrier + destination
+        fleet = Fleet(
+            **{
+                "carrier": request.POST.get("carrier").strip(),
+                "fleet_type": shipment_type,
+                "pickup_number": pickupNumber,
+                "appointment_datetime": shipment_appointment,  # 车次的提货时间
+                "fleet_number": "FO"
+                + current_time.strftime("%m%d%H%M%S")
+                + str(uuid.uuid4())[:2].upper(),
+                "scheduled_at": current_time,
+                "total_weight": total_weight,
+                "total_cbm": total_cbm,
+                "total_pallet": total_pallet,
+                "total_pcs": total_pcs,
+                "origin": warehouse,
+            }
+        )
+        # NJ仓的客户自提和UPS，都不需要确认出库和确认到达，客户自提需要POD上传
+        if shipment_type == "客户自提" and "NJ" in warehouse: 
+            fleet.departured_at = shipment_appointment
+            fleet.arrived_at = shipment_appointment
+        await sync_to_async(fleet.save)()
+        
+        if len(destination) > 8:
+            destination_name = destination[:8]
+        else:
+            destination_name = destination
+        batch_number = await self.generate_unique_batch_number(destination_name)
+        # 创建Shipment记录
+        shipment_data = {
+            'shipment_batch_number': batch_number,
+            'shipment_type': shipment_type,
+            'destination': destination,
+            'address': address,
+            'carrier': carrier,
+            'ARM_BOL': arm_bol,
+            'ARM_PRO': arm_pro,
+            'is_print_label': is_print_label,
+            'pickup_time': pickup_time,
+            'fleet_number': fleet,
+            'total_weight': total_weight,
+            'total_cbm': total_cbm,
+            'total_pallet': total_pallet,
+            'total_pcs': total_pcs,
+        }
+        if shipment_type == "客户自提" and "NJ" in warehouse: 
+            # 客户自提的预约完要直接跳到POD上传,时间按预计提货时间
+            tzinfo = self._parse_tzinfo(warehouse)
+            shipmentappointment_utc = self._parse_ts(shipment_appointment, tzinfo)
+
+            shipment_data.update({
+                'is_shipped': True,
+                'shipped_at': shipment_appointment,
+                'shipped_at_utc': shipmentappointment_utc,
+                'is_arrived': True,
+                'arrived_at': shipment_appointment,
+                'arrived_at_utc': shipmentappointment_utc
+            })
+        shipment = await sync_to_async(Shipment.objects.create)(**shipment_data)
+        
+        if packinglist_ids:
+            # 直接使用update()方法批量更新
+            await sync_to_async(PackingList.objects.filter(id__in=packinglist_ids).update)(
+                shipment_batch_number=shipment
+            )
+
+        if pallet_ids:
+            # 直接使用update()方法批量更新
+            await sync_to_async(Pallet.objects.filter(id__in=pallet_ids).update)(
+                shipment_batch_number=shipment
+            )
+        
+        context = {'success_messages':f'预约出库绑定成功!预约批次号是{batch_number}!'}
+        return await self.handle_ltl_unscheduled_pos_post(request, context)
+        
     async def handle_appointment_post(
         self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:    
@@ -4030,7 +4206,8 @@ class PostNsop(View):
                     "shipment_batch_number__fleet_number__fleet_number",
                     "location",
                     "is_pass",
-                    
+                    "plt_ltl_bol_num",
+                    "est_pickup_time",
                     warehouse=F("container_number__order__retrieval_id__retrieval_destination_precise"),
                     retrieval_destination_precise=F("container_number__order__retrieval_id__retrieval_destination_precise"),
                     customer_name=F("container_number__order__customer_name__zem_name"),
@@ -4064,7 +4241,35 @@ class PostNsop(View):
                 )
                 .order_by("destination", "shipping_mark")
             )
-            data += pal_list
+
+            # 处理托盘尺寸信息
+            processed_pal_list = []
+
+            for cargo in pal_list:
+                plt_ids = [pid.strip() for pid in cargo['plt_ids'].split(',') if pid.strip()]
+
+                pallets = await sync_to_async(list)(
+                    Pallet.objects.filter(id__in=plt_ids)
+                    .values('id', 'length', 'width', 'height', 'cbm', 'weight_lbs')
+                    .order_by('id')
+                )
+                # 强制序列化
+                cargo['pallet_items'] = [
+                    {
+                        'id': int(p['id']),
+                        'length': float(p['length']) if p['length'] is not None else 0,
+                        'width': float(p['width']) if p['width'] is not None else 0,
+                        'height': float(p['height']) if p['height'] is not None else 0,
+                        'cbm': float(p['cbm']) if p['cbm'] is not None else 0,
+                        'weight_lbs': float(p['weight_lbs']) if p['weight_lbs'] is not None else 0,
+                    }
+                    for p in pallets
+                ]
+                
+                cargo['pallet_items_json'] = json.dumps(cargo['pallet_items'])
+                processed_pal_list.append(cargo)
+
+            data += processed_pal_list
         
         # 查询 PackingList 数据
         if pl_criteria:
@@ -4134,6 +4339,7 @@ class PostNsop(View):
                     "pl_ltl_bol_num",
                     "pl_ltl_pro_num",
                     "PickupAddr",
+                    "est_pickup_time",
                     "shipment_batch_number__shipment_batch_number",
                     "shipment_batch_number__fleet_number__fleet_number",
                     warehouse=F("container_number__order__retrieval_id__retrieval_destination_precise"),
@@ -4168,7 +4374,6 @@ class PostNsop(View):
                     total_pcs=Sum("pcs", output_field=FloatField()),
                     total_cbm=Round(Sum("cbm", output_field=FloatField()), 3),
                     total_weight_lbs=Round(Sum("total_weight_lbs", output_field=FloatField()), 3),
-                    # 新增：总重量kg
                     total_weight_kg=Round(Sum("weight_kg", output_field=FloatField()), 3),
                     total_n_pallet_est=Ceil(Sum("cbm", output_field=FloatField()) / 2),
                     label=Value("EST"),
@@ -4431,6 +4636,169 @@ class PostNsop(View):
         
         return response
 
+    async def handle_save_selfpick_cargo(
+        self, request: HttpRequest
+    ) -> tuple[str, dict[str, Any]]:
+        cargo_id = request.POST.get('cargo_id')
+        carrier_company = request.POST.get('carrier_company', '').strip()
+        address = request.POST.get('address', '').strip()
+        bol_number = request.POST.get('bol_number', '').strip()
+        pickup_time_str = request.POST.get('pickup_time', '').strip()
+        pallet_size = request.POST.get('pallet_size', '').strip()
+        
+        pickup_time = None
+        if pickup_time_str:
+            try:
+                pickup_time = timezone.datetime.fromisoformat(pickup_time_str.replace('Z', '+00:00'))
+            except ValueError:
+                # 如果ISO格式解析失败，尝试其他格式
+                try:
+                    pickup_time = timezone.datetime.strptime(pickup_time_str, '%Y-%m-%dT%H:%M')
+                except ValueError:
+                    pickup_time = None
+        
+        # 1. 直接保存承运公司和地址
+        if cargo_id.startswith('plt_'):
+            # PALLET数据
+            ids = cargo_id.replace('plt_', '').split(',')
+            model = Pallet
+            bol_field_name = 'plt_ltl_bol_num'
+        else:
+            # PACKINGLIST数据
+            ids = cargo_id.split(',')
+            model = PackingList
+            bol_field_name = 'pl_ltl_bol_num'
+        
+        # 构建更新字典（公共逻辑）
+        update_data = {}
+        
+        if carrier_company:
+            update_data['carrier_company'] = carrier_company
+        if address:
+            update_data['address'] = address
+        if bol_number:
+            update_data[bol_field_name] = bol_number
+        if pickup_time:
+            update_data['delivery_window_start'] = pickup_time
+        
+        # 批量更新通用字段
+        if update_data:
+            await sync_to_async(model.objects.filter(id__in=ids).update)(**update_data)
+        
+        # 特殊处理：如果是PALLET数据且有托盘尺寸，保存托盘尺寸
+        success_message = '保存成功！'
+        if cargo_id.startswith('plt_') and pallet_size:
+            success, message = await self._save_pallet_sizes(ids, pallet_size)
+            if not success:
+                context = {'error_messages': message}
+                success_message = None
+                
+        # 构建返回上下文
+        if success_message:
+            context = {'success_messages': success_message}
+        return await self.handle_ltl_unscheduled_pos_post(request, context)
+
+    async def _save_pallet_sizes(self, plt_ids: List[str], pallet_size: str) -> Tuple[bool, str]:
+        """
+        单独保存托盘尺寸
+        格式：长*宽*高*数量板（换行分隔不同尺寸）
+        示例：32*35*60*3板\n30*30*50*2板
+        """
+        # 1. 获取所有托盘
+        pallets = await sync_to_async(list)(Pallet.objects.filter(id__in=plt_ids))
+        total_pallets = len(pallets)
+        
+        # 2. 解析托盘尺寸
+        lines = [line.strip() for line in pallet_size.split('\n') if line.strip()]
+        if not lines:
+            return True, ""  # 空尺寸，直接返回成功
+        
+        #如果就给了一组尺寸，查到的板子都按这个赋值
+        if len(lines) == 1:
+            line = lines[0]
+            # 检查是否包含"板"字
+            if '板' not in line:
+                # 格式：长*宽*高
+                parts = line.split('*')
+                if len(parts) == 3:
+                    try:
+                        length = float(parts[0]) if parts[0] else None
+                        width = float(parts[1]) if parts[1] else None
+                        height = float(parts[2]) if parts[2] else None
+                        
+                        # 所有pallet都按这个尺寸赋值
+                        for pallet in pallets:
+                            pallet.length = length
+                            pallet.width = width
+                            pallet.height = height
+                            await sync_to_async(pallet.save)()
+                        
+                        return True, ""
+                    except ValueError:
+                        return False, f"数值错误：'{line}'中的长宽高必须是数字"
+        # 解析尺寸数据
+        size_assignments = []
+        total_specified = 0
+        
+        for line in lines:
+            if not line:
+                continue
+                
+            # 移除板字并分割
+            line_clean = line.replace('板', '')
+            parts = line_clean.split('*')
+            
+            if len(parts) == 3:
+                # 格式：长*宽*高（默认1板）
+                length, width, height = parts
+                count = 1
+            elif len(parts) == 4:
+                # 格式：长*宽*高*数量
+                length, width, height, count_str = parts
+                count = int(count_str) if count_str.isdigit() else 1
+            else:
+                return False, f"托盘尺寸的格式错误：'{line}'"
+            
+            # 转换为数值
+            try:
+                length_val = float(length) if length else None
+                width_val = float(width) if width else None
+                height_val = float(height) if height else None
+            except ValueError:
+                return False, f"托盘尺寸数值错误：'{line}'中的长宽高必须是数字"
+            
+            size_assignments.append({
+                'length': length_val,
+                'width': width_val,
+                'height': height_val,
+                'count': count
+            })
+            total_specified += count
+        
+        # 3. 验证总数
+        if total_specified != total_pallets:
+            return False, f"托盘尺寸赋值时，板数不匹配：尺寸给出{total_specified}板，实际系统有{total_pallets}板"
+        
+        # 4. 分配尺寸
+        idx = 0
+        for size_info in size_assignments:
+            for _ in range(size_info['count']):
+                if idx >= total_pallets:
+                    break
+                    
+                pallet = pallets[idx]
+                pallet.length = size_info['length']
+                pallet.width = size_info['width']
+                pallet.height = size_info['height']
+                await sync_to_async(pallet.save)()
+                idx += 1
+        
+        # 5. 验证是否所有托盘都已处理
+        if idx != total_pallets:
+            return False, f"托盘尺寸分配错误：只分配了{idx}个托盘"
+        
+        return True, ""
+    
     async def handle_save_fleet_cost(
         self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
@@ -4543,7 +4911,6 @@ class PostNsop(View):
             "abnormal_fleet_options": self.abnormal_fleet_options,
         })
         active_tab = request.POST.get('active_tab')
-        
         if active_tab:
             context.update({'active_tab':active_tab})
         return self.template_ltl_pos_all, context
@@ -5770,6 +6137,18 @@ class PostNsop(View):
         except:
             return 0
     
+    def _parse_ts(self, ts: str, tzinfo: str) -> str:
+        if ts:
+            if isinstance(ts, str):
+                ts_naive = datetime.fromisoformat(ts)
+            else:
+                ts_naive = ts.replace(tzinfo=None)
+            tz = pytz.timezone(tzinfo)
+            ts = tz.localize(ts_naive).astimezone(timezone.utc)
+            return ts.strftime("%Y-%m-%d %H:%M:%S")
+        else:
+            return None
+        
     async def _user_authenticate(self, request: HttpRequest):
         if await sync_to_async(lambda: request.user.is_authenticated)():
             return True
