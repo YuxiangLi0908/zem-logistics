@@ -4726,7 +4726,7 @@ class PostNsop(View):
 
         if follow_status or follow_status == '':  
             update_data[follow_status_field_name] = follow_status
-            
+
         # 成本字段：只有前端传递了这个参数才更新
         if has_ltl_cost_param:
             update_data[cost_field_name] = ltl_cost
@@ -4989,7 +4989,7 @@ class PostNsop(View):
         plt_criteria = Q(
             location=warehouse,
             shipment_batch_number__shipment_batch_number__isnull=True,
-            container_number__order__offload_id__offload_at__gt=datetime(2025, 1, 1),
+            container_number__order__offload_id__offload_at__gt=datetime(2025, 12, 1),
             delivery_type="other"
         )
         # 未放行
