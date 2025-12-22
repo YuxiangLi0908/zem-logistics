@@ -3018,8 +3018,8 @@ class ReceivableAccounting(View):
                 pickup_fee = fee_detail.details[warehouse][pick_subkey]
             except KeyError:
                 pickup_fee = 0
-                context.update({"error_messages": f"在报价表中找不到{warehouse}仓库{pick_subkey}柜型的提拆费"})
-                return context
+                # context.update({"error_messages": f"在报价表中找不到{warehouse}仓库{pick_subkey}柜型的提拆费"})
+                # return self.template_preport_edit, context
         # 构建费用提示信息
         FS = {
             "提拆/打托缠膜": f"{pickup_fee}",
