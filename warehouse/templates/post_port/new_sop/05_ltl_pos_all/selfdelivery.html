@@ -1,0 +1,1389 @@
+{% load custom_filters %}
+<style>
+    /* 自发页面样式 - 独立样式避免冲突 */
+    .fleet-batch-actions {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 15px;
+        padding: 15px;
+        background: #f8f9fa;
+        border-radius: 8px;
+        align-items: center;
+        border: 1px solid #e9ecef;
+        flex-wrap: wrap;
+    }
+    .fleet-mark-col {
+        min-width: 100px;
+        max-width: 150px;
+        word-wrap: break-word;
+        word-break: break-word;
+        white-space: normal;
+        line-height: 1.5;
+    }
+    .fleet-follow-col {
+        min-width: 100px;
+        max-width: 150px;
+    }
+    
+    .fleet-follow-input {
+        width: 100%;
+        border: 1px solid #dee2e6;
+        border-radius: 4px;
+        padding: 6px 8px;
+        font-size: 0.85rem;
+        resize: vertical;
+        min-height: 40px;
+        box-sizing: border-box;
+        font-family: inherit;
+        line-height: 1.4;
+    }
+    
+    .fleet-follow-input:focus {
+        outline: none;
+        border-color: #80bdff;
+        box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+    }
+    /* 调整所有列的行高 */
+    .fleet-data-table td {
+        padding: 12px 12px;  /* 增加垂直padding */
+        border-bottom: 1px solid #eaecef;
+        font-size: 0.85rem;
+        vertical-align: top;
+        line-height: 1.6;  /* 增加行高 */
+    }
+    
+    /* 调整textarea的行高和高度 */
+    .fleet-editable-textarea {
+        width: 100%;
+        border: 1px solid #dee2e6;
+        border-radius: 4px;
+        padding: 8px 8px;  /* 增加padding */
+        font-size: 0.85rem;
+        resize: vertical;
+        min-height: 40px;  /* 增加最小高度 */
+        box-sizing: border-box;
+        font-family: inherit;
+        line-height: 1.5;  /* 增加行高 */
+    }
+    .fleet-bol-input, .fleet-pickup-time-input, .fleet-carrier-input, 
+    .fleet-address-input, .fleet-pallet-size-input, .fleet-note-input,
+    .fleet-cost-input, .fleet-quote-input, .fleet-pro-input {
+        width: 100%;
+        padding: 4px 6px;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+        font-size: 0.85rem;
+        box-sizing: border-box;
+    }
+
+    .fleet-pickup-time-input {
+        font-family: inherit;
+    }
+    .fleet-pickup-time-input::-webkit-datetime-edit-fields-wrapper {
+        padding: 0 !important;
+        margin: 0 !important;
+    }
+    
+    .fleet-bol-input:focus, .fleet-pickup-time-input:focus,
+    .fleet-carrier-input:focus, .fleet-address-input:focus,
+    .fleet-pallet-size-input:focus, .fleet-note-input:focus,
+    .fleet-cost-input:focus, .fleet-quote-input:focus, .fleet-pro-input:focus {
+        outline: none;
+        border-color: #80bdff;
+        box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+    }
+    
+    .fleet-selected-count {
+        font-weight: 600;
+        color: #4a90e2;
+    }
+    
+    .fleet-pallet-size-container {
+        position: relative;
+    }
+
+    .fleet-help-tooltip {
+        position: absolute;
+        top: 2px;
+        right: 2px;
+        cursor: help;
+        color: #6c757d;
+        font-size: 12px;
+        width: 16px;
+        height: 16px;
+        text-align: center;
+        line-height: 16px;
+        border-radius: 50%;
+        background: #f8f9fa;
+        border: 1px solid #dee2e6;
+        z-index: 10;
+    }
+
+    .fleet-tooltip-content {
+        display: none;
+        position: absolute;
+        top: 100%;
+        right: 0;
+        width: 320px;
+        padding: 12px;
+        background: white;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        z-index: 1000;
+        font-size: 12px;
+        white-space: normal;
+        line-height: 1.5;
+        text-align: left;
+    }
+
+    .fleet-help-tooltip:hover .fleet-tooltip-content {
+        display: block;
+    }
+
+    .fleet-tooltip-content strong {
+        color: #2c3e50;
+        font-weight: 600;
+    }
+
+    .fleet-tooltip-content br {
+        margin-bottom: 4px;
+    }
+    
+    /* 表格样式 */
+    .fleet-table-container {
+        overflow-x: auto;
+        overflow-y: auto;
+        max-height: 600px;
+        border-radius: 8px;
+        box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
+        margin-bottom: 20px;
+    }
+
+    .fleet-data-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .fleet-data-table th {
+        position: sticky;
+        top: 0;
+        background: #34a853;
+        color: white;
+        padding: 12px;
+        text-align: left;
+        font-weight: 600;
+        font-size: 0.9rem;
+    }
+
+    .fleet-data-table td {
+        padding: 10px 12px;
+        border-bottom: 1px solid #eaecef;
+        font-size: 0.85rem;
+        vertical-align: top;
+    }
+
+    /* 筛选行样式 */
+    .fleet-filter-row {
+        background-color: #f8f9fa !important;
+        position: sticky;
+        top: 48px;
+        z-index: 5;
+    }
+
+    .fleet-filter-row td {
+        padding: 8px 12px;
+        background-color: #f8f9fa;
+        border-bottom: 2px solid #dee2e6;
+    }
+
+    .fleet-filter-input, .fleet-filter-select {
+        width: 100%;
+        padding: 6px 10px;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+        font-size: 0.85rem;
+        box-sizing: border-box;
+        background-color: white;
+    }
+
+    .fleet-filter-input:focus, .fleet-filter-select:focus {
+        outline: none;
+        border-color: #80bdff;
+        box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+    }
+
+    .fleet-data-table tr:nth-child(even):not(.fleet-filter-row) {
+        background-color: #f9fafb;
+    }
+
+    .fleet-data-table tr:hover:not(.fleet-filter-row) {
+        background-color: #edf2f7;
+    }
+
+    .fleet-checkbox-cell {
+        width: 20px;
+        text-align: center;
+    }
+
+    /* 操作按钮样式 */
+    .fleet-action-btn {
+        padding: 6px 12px;
+        border: none;
+        border-radius: 4px;
+        font-size: 0.85rem;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        transition: all 0.2s;
+    }
+
+    .fleet-btn-primary {
+        background-color: #34a853;
+        color: white;
+    }
+
+    .fleet-btn-primary:hover {
+        background-color: #2e8b47;
+    }
+
+    .fleet-btn-secondary {
+        background-color: #6c757d;
+        color: white;
+    }
+
+    .fleet-btn-secondary:hover {
+        background-color: #5a6268;
+    }
+
+    .fleet-btn-success {
+        background-color: #28a745;
+        color: white;
+    }
+
+    .fleet-btn-success:hover {
+        background-color: #218838;
+    }
+
+    .fleet-btn-warning {
+        background-color: #ffc107;
+        color: #212529;
+    }
+
+    .fleet-btn-warning:hover {
+        background-color: #e0a800;
+    }
+
+    .fleet-selected-stats {
+        display: flex; 
+        align-items: center;
+        gap: 15px;
+        padding: 8px 15px;
+        background: #e8f5e9;
+        border-radius: 6px;
+        border: 1px solid #c8e6c9;
+        font-size: 0.9rem;
+    }
+
+    /* 列宽度调整 */
+    .fleet-pallet-col {
+        min-width: 80px;
+        max-width: 100px;
+        text-align: center;
+    }
+    
+    /* 板数标记样式 */
+    .fleet-pallet-count {
+        font-weight: bold;
+    }
+    
+    .fleet-pallet-tag {
+        display: inline-block;
+        font-size: 10px;
+        padding: 2px 6px;
+        border-radius: 3px;
+        margin-left: 5px;
+        font-weight: bold;
+        text-transform: uppercase;
+    }
+    
+    .fleet-pallet-tag-act {
+        background-color: #28a745;
+        color: white;
+    }
+    
+    .fleet-pallet-tag-est {
+        background-color: #ffc107;
+        color: #212529;
+    }
+
+    /* BOL号和PRO号列宽度 */
+    .fleet-bol-col, .fleet-pro-col {
+        min-width: 100px;
+        max-width: 120px;
+    }
+
+    .fleet-pallet-size-col {
+        min-width: 150px;
+        max-width: 180px;
+    }
+
+    .fleet-pallet-size-input {
+        width: 100%;
+        border: 1px solid #dee2e6;
+        border-radius: 4px;
+        padding: 6px 8px;
+        font-size: 0.85rem;
+        resize: vertical;
+        min-height: 60px; 
+        box-sizing: border-box;
+        font-family: inherit;
+        line-height: 1.4;
+    }
+    /* 地址列样式 */
+    .fleet-address-col, .fleet-note-col {
+        min-width: 150px;
+        max-width: 180px;
+    }
+
+    /* 可编辑单元格的悬停效果 */
+    .fleet-editable-cell:hover {
+        background-color: #f8f9fa;
+        cursor: text;
+    }
+
+    /* 操作列样式 */
+    .fleet-action-col {
+        min-width: 120px;
+        text-align: center;
+    }
+
+    /* 小按钮样式 */
+    .fleet-small-btn {
+        padding: 4px 8px;
+        font-size: 0.8rem;
+    }
+
+    /* 成本、报价列样式 */
+    .fleet-cost-col, .fleet-quote-col {
+        min-width: 80px;
+        max-width: 100px;
+        text-align: center;
+    }
+
+    /* 多行文本显示 */
+    .fleet-pallet-size-display, .fleet-address-display, .fleet-note-display {
+        white-space: pre-line;
+        line-height: 1.4;
+        max-height: none;
+        overflow: visible;
+    }
+
+    /* 隐藏表单 */
+    .fleet-hidden-form {
+        display: none;
+    }
+    
+    /* 日期列样式 */
+    .fleet-date-col {
+        min-width: 60px;
+        max-width: 80px;
+    }
+    
+    /* 数字输入框样式 */
+    .fleet-cost-input, .fleet-quote-input {
+        text-align: right;
+    }
+    
+    /* 可编辑文本区域样式 */
+    .fleet-editable-textarea {
+        width: 100%;
+        border: 1px solid #dee2e6;
+        border-radius: 4px;
+        padding: 6px 8px;
+        font-size: 0.85rem;
+        resize: vertical;
+        min-height: 60px;
+        box-sizing: border-box;
+        font-family: inherit;
+    }
+    
+    .fleet-editable-textarea:focus {
+        outline: none;
+        border-color: #80bdff;
+        box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+    }
+    
+    /* 日期显示样式 */
+    .fleet-month-day {
+        font-size: 0.85rem;
+        white-space: nowrap;
+    }
+</style>
+
+<div id="fleet-page">
+    <!-- 批量操作区域 -->
+    <div class="fleet-batch-actions">
+        <span class="fleet-selected-count">已选择 <span id="fleet_selectedCount">0</span> 组货物</span>
+
+        <div id="fleet_selectedStats" class="fleet-selected-stats">
+            <span style="font-weight: 600; color: #2e7d32;">
+                选中总板数: <span id="fleet_selectedPalletsCount">0</span>
+            </span>
+            <span style="font-weight: 600; color: #1565c0;">
+                选中总CBM: <span id="fleet_selectedCbmCount">0.00</span>
+            </span>
+            <span style="font-weight: 600; color: #7b1fa2;">
+                选中总重量: <span id="fleet_selectedWeightLbsCount">0.00</span> lbs
+            </span>
+        </div>
+        
+        <button class="fleet-action-btn fleet-btn-primary" onclick="fleet_scheduleShipment()">
+            <i class="fas fa-calendar-check"></i> 预约出库
+        </button>
+        <button class="fleet-action-btn fleet-btn-secondary" onclick="fleet_clearAllFilters()">
+            <i class="fas fa-times"></i> 清空筛选
+        </button>
+    </div>
+
+    <!-- 数据表格 -->
+    <div class="fleet-table-container">
+        <table class="data-table" id="fleet_cargoTable">
+            <thead>
+                <tr>
+                    <th class="fleet-checkbox-cell">
+                        <input type="checkbox" id="fleet_selectAllCargos">
+                    </th>
+                    <th>跟进状态</th>
+                    <th>客户</th>
+                    <th class="fleet-date-col">拆柜日期</th>
+                    <th>柜号</th>
+                    <th>目的地</th>
+                    <th class="fleet-mark-col">唛头</th>
+                    <th class="fleet-address-col">地址</th>
+                    <th class="fleet-note-col">备注</th>
+                    <th>CBM</th>
+                    <th>件数</th>
+                    <th class="fleet-pallet-col">板数</th>
+                    <th class="fleet-pallet-size-col">托盘尺寸</th>
+                    <th class="fleet-cost-col">成本</th>
+                    <th class="fleet-quote-col">报价</th>
+                    <th>承运公司</th>
+                    <th class="fleet-bol-col">BOL号</th>
+                    <th class="fleet-pro-col">PRO号</th>
+                    <th class="fleet-action-col">操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- 筛选行 -->
+                <tr class="fleet-filter-row">
+                    <td class="fleet-checkbox-cell"></td>
+                    <td>
+                        <input type="text" class="fleet-filter-input" placeholder="筛选跟进状态..." data-column="0" onkeyup="fleet_applyColumnFilter(this)">
+                    </td>
+                    <td>
+                        <input type="text" class="fleet-filter-input" placeholder="筛选客户..." data-column="0" onkeyup="fleet_applyColumnFilter(this)">
+                    </td>
+                    <td>
+                        <input type="text" class="fleet-filter-input" placeholder="筛选拆柜日期..." data-column="1" onkeyup="fleet_applyColumnFilter(this)">
+                    </td>
+                    <td>
+                        <input type="text" class="fleet-filter-input" placeholder="筛选柜号..." data-column="2" onkeyup="fleet_applyColumnFilter(this)">
+                    </td>
+                    <td>
+                        <input type="text" class="fleet-filter-input" placeholder="筛选目的地..." data-column="3" onkeyup="fleet_applyColumnFilter(this)">
+                    </td>
+                    <td class="fleet-mark-col">
+                        <input type="text" class="fleet-filter-input" placeholder="筛选唛头..." data-column="4" onkeyup="fleet_applyColumnFilter(this)">
+                    </td>
+                    <td>
+                        <input type="text" class="fleet-filter-input" placeholder="筛选地址..." data-column="5" onkeyup="fleet_applyColumnFilter(this)">
+                    </td>
+                    <td>
+                        <input type="text" class="fleet-filter-input" placeholder="筛选备注..." data-column="6" onkeyup="fleet_applyColumnFilter(this)">
+                    </td>
+                    <td>
+                        <input type="text" class="fleet-filter-input" placeholder="筛选CBM..." data-column="7" onkeyup="fleet_applyColumnFilter(this)">
+                    </td>
+                    <td>
+                        <input type="text" class="fleet-filter-input" placeholder="筛选件数..." data-column="8" onkeyup="fleet_applyColumnFilter(this)">
+                    </td>
+                    <td>
+                        <input type="text" class="fleet-filter-input" placeholder="筛选板数..." data-column="9" onkeyup="fleet_applyColumnFilter(this)">
+                    </td>
+                    <td>
+                        <input type="text" class="fleet-filter-input" placeholder="筛选托盘尺寸..." data-column="10" onkeyup="fleet_applyColumnFilter(this)">
+                    </td>
+                    <td>
+                        <input type="text" class="fleet-filter-input" placeholder="筛选成本..." data-column="11" onkeyup="fleet_applyColumnFilter(this)">
+                    </td>
+                    <td>
+                        <input type="text" class="fleet-filter-input" placeholder="筛选报价..." data-column="12" onkeyup="fleet_applyColumnFilter(this)">
+                    </td>
+                    <td>
+                        <input type="text" class="fleet-filter-input" placeholder="筛选承运公司..." data-column="13" onkeyup="fleet_applyColumnFilter(this)">
+                    </td>
+                    <td>
+                        <input type="text" class="fleet-filter-input" placeholder="筛选BOL号..." data-column="14" onkeyup="fleet_applyColumnFilter(this)">
+                    </td>
+                    <td>
+                        <input type="text" class="fleet-filter-input" placeholder="筛选PRO号..." data-column="15" onkeyup="fleet_applyColumnFilter(this)">
+                    </td>
+                    <td class="fleet-action-col">
+                        <!-- 操作列不需要筛选 -->
+                    </td>
+                </tr>
+
+                <!-- 数据行 -->
+                {% for cargo in selfdel_cargos %}
+                <tr class="fleet-data-row" 
+                    data-cargo-id="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
+                    data-customer="{{ cargo.customer_name|default:'' }}"
+                    data-follow-status="{{ cargo.ltl_follow_status|default:'' }}"
+                    data-offload-date="{{ cargo.offload_at|date:'Y-m-d'|default:'' }}"
+                    data-container-number="{{ cargo.container_numbers|default:'' }}"
+                    data-destination="{{ cargo.destination|default:'' }}"
+                    data-shipping-mark="{{ cargo.shipping_marks|default:'' }}"
+                    data-cbm="{{ cargo.total_cbm|default:0 }}"
+                    data-pcs="{{ cargo.total_pcs|default:0 }}"
+                    {% if cargo.total_n_pallet_act %}
+                        data-pallets="{{ cargo.total_n_pallet_act }}"
+                    {% elif cargo.total_n_pallet_est %}
+                        data-pallets="{{ cargo.total_n_pallet_est }}"
+                    {% else %}
+                        data-pallets="0"
+                    {% endif %}
+                    data-pallet-size="{{ cargo.pallet_size_formatted|default:'' }}"
+                    data-cost="{{ cargo.ltl_cost|default:0 }}"
+                    data-quote="{{ cargo.ltl_quote|default:0 }}"
+                    data-carrier="{{ cargo.fleet_carrier_company|default:'' }}"
+                    data-address="{{ cargo.address|default:'' }}"
+                    data-note="{{ cargo.fleet_note|default:'' }}"
+                    data-bol="{{ cargo.fleet_ltl_bol_num|default:'' }}"
+                    data-pro="{{ cargo.fleet_ltl_pro_num|default:'' }}"
+                    data-weight-lbs="{{ cargo.total_weight_lbs|default:0 }}"
+                    data-pallet-items='{{ cargo.pallet_items_json|safe }}'>
+                    <td class="fleet-checkbox-cell">
+                        <input type="checkbox" class="fleet-cargo-checkbox" 
+                            value="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
+                            onchange="fleet_updateSelectedCount()">
+                    </td>
+                    <td class="fleet-follow-col">
+                        <textarea class="fleet-editable-textarea fleet-follow-input"
+                            data-id="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
+                            placeholder="输入跟进状态"
+                            oninput="fleet_autoResizeTextarea(this)"
+                            onchange="fleet_saveFollowStatus(this)"
+                            rows="1">{{ cargo.ltl_follow_status|default:'' }}</textarea>
+                    </td>
+                    <td>{{ cargo.customer_name|default:"-" }}</td>
+                    <td class="fleet-date-col">
+                        {% if cargo.offload_at %}
+                            <span class="fleet-month-day">
+                                {{ cargo.offload_at|date:"m-d" }}
+                            </span>
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                    <td class="fleet-container-col" title="{{ cargo.container_numbers|default:'' }}">
+                        {{ cargo.container_numbers|default:"-" }}
+                    </td>
+                    <td>{{ cargo.destination|default:"-" }}</td>
+                    <td>{{ cargo.shipping_marks|default:"-" }}</td>
+                    <td class="fleet-address-col">
+                        <textarea class="fleet-editable-textarea fleet-address-input"
+                            data-id="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
+                            placeholder="输入地址"
+                            oninput="fleet_autoResizeTextarea(this)"
+                            onchange="fleet_saveAddress(this)"
+                            rows="1">{{ cargo.address|default:'' }}</textarea>
+                    </td>
+                    <td class="fleet-note-col">
+                        <textarea class="fleet-editable-textarea fleet-note-input"
+                            data-id="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
+                            placeholder="输入备注"
+                            oninput="fleet_autoResizeTextarea(this)"
+                            onchange="fleet_saveNote(this)"
+                            rows="1">{{ cargo.fleet_note|default:'' }}</textarea>
+                    </td>
+                    <td>{{ cargo.total_cbm|floatformat:3|default:"0.000" }}</td>
+                    <td>{{ cargo.total_pcs|default:0 }}</td>
+                    <td class="fleet-pallet-col">
+                        {% if cargo.total_n_pallet_act %}
+                            <span class="fleet-pallet-count">{{ cargo.total_n_pallet_act }}</span>
+                            <span class="fleet-pallet-tag fleet-pallet-tag-act">ACT</span>
+                        {% elif cargo.total_n_pallet_est %}
+                            <span class="fleet-pallet-count">{{ cargo.total_n_pallet_est|floatformat:"0" }}</span>
+                            <span class="fleet-pallet-tag fleet-pallet-tag-est">EST</span>
+                        {% else %}
+                            <span class="fleet-pallet-count">0</span>
+                        {% endif %}
+                    </td>
+                    <td class="fleet-pallet-size-col">
+                        {% if cargo.data_source == "PALLET" %}
+                            <div style="position: relative;">
+                                <textarea class="fleet-pallet-size-input"
+                                    data-id="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
+                                    placeholder="输入托盘尺寸，如：32*35*60*3板"
+                                    oninput="fleet_autoResizeTextarea(this)"
+                                    onchange="fleet_savePalletSize(this)"
+                                    rows="1">{{ cargo.pallet_size_formatted }}</textarea>
+                                <span class="fleet-help-tooltip" title="尺寸分配规则：
+                    1. 单行格式：长*宽*高（所有托盘按此尺寸）
+                    2. 多行格式：长*宽*高*数量板（换行分隔）
+                    3. 板数总和必须等于托盘总数
+                    示例：
+                    32*35*60*3板
+                    30*30*50*2板">❓</span>
+                            </div>
+                        {% else %}
+                            <span style="color: #999; font-style: italic;">-</span>
+                        {% endif %}
+                    </td>
+                    <td class="fleet-cost-col">
+                        <input type="number" class="fleet-cost-input" 
+                            data-id="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
+                            value="{{ cargo.ltl_cost|default:0 }}"
+                            placeholder="0.00"
+                            step="0.01"
+                            min="0"
+                            onchange="fleet_saveCost(this)">
+                    </td>
+                    <td class="fleet-quote-col">
+                        <input type="number" class="fleet-quote-input" 
+                            data-id="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
+                            value="{{ cargo.ltl_quote|default:0 }}"
+                            placeholder="0.00"
+                            step="0.01"
+                            min="0"
+                            onchange="fleet_saveQuote(this)">
+                    </td>
+                    <td>
+                        <input type="text" class="fleet-carrier-input" 
+                            data-id="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
+                            value="{{ cargo.fleet_carrier_company|default:'' }}"
+                            placeholder="输入承运公司"
+                            onchange="fleet_saveCarrier(this)">
+                    </td>
+                    <td class="fleet-bol-col">
+                        <textarea class="fleet-bol-input" 
+                            data-id="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
+                            placeholder="输入BOL号"
+                            oninput="fleet_autoResizeTextarea(this)"
+                            onchange="fleet_saveBolNumber(this)"
+                            rows="1">{{ cargo.fleet_ltl_bol_num|default:'' }}</textarea>
+                    </td>
+                    <td class="fleet-pro-col">
+                        <textarea class="fleet-pro-input" 
+                            data-id="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
+                            placeholder="输入PRO号"
+                            oninput="fleet_autoResizeTextarea(this)"
+                            onchange="fleet_saveProNumber(this)"
+                            rows="1">{{ cargo.fleet_ltl_pro_num|default:'' }}</textarea>
+                    </td>
+                    <td class="fleet-action-col">
+                        <div class="fleet-action-buttons">
+                            <button class="fleet-action-btn fleet-btn-success fleet-small-btn" onclick="fleet_saveRowData(this)">
+                                <i class="fas fa-save"></i> 保存
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="19" style="text-align: center; padding: 20px;">
+                        暂无自发货物
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- 保存表单 -->
+<form method="post" action="" id="fleet_saveForm" style="display: none;">
+    {% csrf_token %}
+    <input type="hidden" name="step" value="save_selfdel_cargo">
+    <input type="hidden" name="cargo_id" id="fleet_cargoIdInput">
+    <input type="hidden" name="carrier_company" id="fleet_carrierInput">
+    <input type="hidden" name="address" id="fleet_addressInput">
+    <input type="hidden" name="note" id="fleet_noteInput">
+    <input type="hidden" name="ltl_cost" id="fleet_costInput">
+    <input type="hidden" name="ltl_quote" id="fleet_quoteInput">
+    <input type="hidden" name="bol_number" id="fleet_bolNumberInput">
+    <input type="hidden" name="pro_number" id="fleet_proNumberInput">
+    <input type="hidden" name="pallet_size" id="fleet_palletSizeInput">
+    <input type="hidden" name="follow_status" id="fleet_followInput">
+    <input type="hidden" name="warehouse" value="{{ warehouse }}">
+    <input type="hidden" name="active_tab" value="scheduledFleet">
+</form>
+
+<script>
+    // 使用IIFE避免变量污染
+    (function() {
+        // 自发页面JavaScript - 所有函数名都有fleet_前缀
+        document.addEventListener('DOMContentLoaded', function() {
+            fleet_initializeFleetPage();
+            // 初始化所有textarea的高度
+            document.querySelectorAll('.fleet-pallet-size-input, .fleet-address-input, .fleet-bol-input, .fleet-pro-input, .fleet-note-input').forEach(fleet_autoResizeTextarea);
+        });
+
+        // 全局变量 - 使用fleet_前缀
+        let fleet_columnFilters = {};
+        let fleet_pendingChanges = {};
+
+        function fleet_initializeFleetPage() {
+            fleet_updateSelectedCount();
+            
+            // 全选/取消全选
+            const selectAllCheckbox = document.getElementById('fleet_selectAllCargos');
+            if (selectAllCheckbox) {
+                selectAllCheckbox.addEventListener('change', fleet_toggleSelectAll);
+            }
+
+            // 单个选择框变化
+            document.querySelectorAll('.fleet-cargo-checkbox').forEach(checkbox => {
+                checkbox.addEventListener('change', function() {
+                    fleet_updateSelectedCount();
+                });
+            });
+            
+            // 初始化保存状态
+            fleet_initializeSaveState();
+        }
+
+        // 自动调整textarea高度
+        function fleet_autoResizeTextarea(textarea) {
+            textarea.style.height = 'auto';
+            const newHeight = Math.max(32, textarea.scrollHeight);
+            textarea.style.height = newHeight + 'px';
+        }
+
+        // 初始化保存状态
+        function fleet_initializeSaveState() {
+            document.querySelectorAll('.fleet-carrier-input, .fleet-address-input, .fleet-bol-input, .fleet-pro-input, .fleet-pallet-size-input, .fleet-note-input, .fleet-cost-input, .fleet-quote-input').forEach(input => {
+                const id = input.getAttribute('data-id');
+                let type = '';
+                if (input.classList.contains('fleet-carrier-input')) {
+                    type = 'fleet_carrier';
+                } else if (input.classList.contains('fleet-address-input')) {
+                    type = 'fleet_address';
+                } else if (input.classList.contains('fleet-bol-input')) {
+                    type = 'fleet_bol_number';
+                } else if (input.classList.contains('fleet-pro-input')) {
+                    type = 'fleet_pro_number';
+                } else if (input.classList.contains('fleet-pallet-size-input')) {
+                    type = 'fleet_pallet_size';
+                } else if (input.classList.contains('fleet-note-input')) {
+                    type = 'fleet_note';
+                } else if (input.classList.contains('fleet-cost-input')) {
+                    type = 'fleet_cost';
+                } else if (input.classList.contains('fleet-quote-input')) {
+                    type = 'fleet_quote';
+                } else if (input.classList.contains('fleet-follow-input')) { // 新增
+                    type = 'fleet_follow_status';
+                }
+                
+                const key = `${id}_${type}`;
+                const savedValue = localStorage.getItem(key);
+                
+                if (savedValue !== null && savedValue !== input.value) {
+                    input.value = savedValue;
+                    
+                    if (input.tagName === 'TEXTAREA') {
+                        setTimeout(() => fleet_autoResizeTextarea(input), 10);
+                    }
+                }
+            });
+        }
+
+        // 保存承运公司
+        function fleet_saveCarrier(input) {
+            const id = input.getAttribute('data-id');
+            const value = input.value.trim();
+            const key = `${id}_fleet_carrier`;
+            
+            if (value) {
+                localStorage.setItem(key, value);
+            } else {
+                localStorage.removeItem(key);
+            }
+            
+            if (!fleet_pendingChanges[id]) {
+                fleet_pendingChanges[id] = {};
+            }
+            fleet_pendingChanges[id].carrier_company = value;
+            
+            fleet_showSaveNotification(`承运公司已保存到本地`);
+        }
+        // 保存跟进状态
+        function fleet_saveFollowStatus(textarea) {
+            const id = textarea.getAttribute('data-id');
+            const value = textarea.value.trim();
+            const key = `${id}_fleet_follow_status`;
+            
+            fleet_autoResizeTextarea(textarea);
+            
+            if (value) {
+                localStorage.setItem(key, value);
+            } else {
+                localStorage.removeItem(key);
+            }
+            
+            if (!fleet_pendingChanges[id]) {
+                fleet_pendingChanges[id] = {};
+            }
+            fleet_pendingChanges[id].follow_status = value;
+            
+            fleet_showSaveNotification(`跟进状态已保存到本地`);
+        }
+        // 保存地址
+        function fleet_saveAddress(textarea) {
+            const id = textarea.getAttribute('data-id');
+            const value = textarea.value.trim();
+            const key = `${id}_fleet_address`;
+            
+            fleet_autoResizeTextarea(textarea);
+            
+            if (value) {
+                localStorage.setItem(key, value);
+            } else {
+                localStorage.removeItem(key);
+            }
+            
+            if (!fleet_pendingChanges[id]) {
+                fleet_pendingChanges[id] = {};
+            }
+            fleet_pendingChanges[id].address = value;
+            
+            fleet_showSaveNotification(`地址已保存到本地`);
+        }
+
+        // 保存备注
+        function fleet_saveNote(textarea) {
+            const id = textarea.getAttribute('data-id');
+            const value = textarea.value.trim();
+            const key = `${id}_fleet_note`;
+            
+            fleet_autoResizeTextarea(textarea);
+            
+            if (value) {
+                localStorage.setItem(key, value);
+            } else {
+                localStorage.removeItem(key);
+            }
+            
+            if (!fleet_pendingChanges[id]) {
+                fleet_pendingChanges[id] = {};
+            }
+            fleet_pendingChanges[id].note = value;
+            
+            fleet_showSaveNotification(`备注已保存到本地`);
+        }
+
+        // 保存成本
+        function fleet_saveCost(input) {
+            const id = input.getAttribute('data-id');
+            const value = input.value.trim();
+            const key = `${id}_fleet_cost`;
+            
+            if (value) {
+                localStorage.setItem(key, value);
+            } else {
+                localStorage.removeItem(key);
+            }
+            
+            if (!fleet_pendingChanges[id]) {
+                fleet_pendingChanges[id] = {};
+            }
+            fleet_pendingChanges[id].cost = value;
+            
+            fleet_showSaveNotification(`成本已保存到本地`);
+        }
+
+        // 保存报价
+        function fleet_saveQuote(input) {
+            const id = input.getAttribute('data-id');
+            const value = input.value.trim();
+            const key = `${id}_fleet_quote`;
+            
+            if (value) {
+                localStorage.setItem(key, value);
+            } else {
+                localStorage.removeItem(key);
+            }
+            
+            if (!fleet_pendingChanges[id]) {
+                fleet_pendingChanges[id] = {};
+            }
+            fleet_pendingChanges[id].quote = value;
+            
+            fleet_showSaveNotification(`报价已保存到本地`);
+        }
+
+        // 保存托盘尺寸
+        function fleet_savePalletSize(textarea) {
+            const id = textarea.getAttribute('data-id');
+            const value = textarea.value.trim();
+            const key = `${id}_fleet_pallet_size`;
+            
+            fleet_autoResizeTextarea(textarea);
+            
+            if (value) {
+                localStorage.setItem(key, value);
+            } else {
+                localStorage.removeItem(key);
+            }
+            
+            if (!fleet_pendingChanges[id]) {
+                fleet_pendingChanges[id] = {};
+            }
+            fleet_pendingChanges[id].pallet_size = value;
+            
+            fleet_showSaveNotification(`托盘尺寸已保存到本地`);
+        }
+
+        // 保存BOL号
+        function fleet_saveBolNumber(textarea) {
+            const id = textarea.getAttribute('data-id');
+            const value = textarea.value.trim();
+            const key = `${id}_fleet_bol_number`;
+            
+            fleet_autoResizeTextarea(textarea);
+            
+            if (value) {
+                localStorage.setItem(key, value);
+            } else {
+                localStorage.removeItem(key);
+            }
+            
+            if (!fleet_pendingChanges[id]) {
+                fleet_pendingChanges[id] = {};
+            }
+            fleet_pendingChanges[id].bol_number = value;
+            
+            fleet_showSaveNotification(`BOL号已保存到本地`);
+        }
+
+        // 保存PRO号
+        function fleet_saveProNumber(textarea) {
+            const id = textarea.getAttribute('data-id');
+            const value = textarea.value.trim();
+            const key = `${id}_fleet_pro_number`;
+            
+            fleet_autoResizeTextarea(textarea);
+            
+            if (value) {
+                localStorage.setItem(key, value);
+            } else {
+                localStorage.removeItem(key);
+            }
+            
+            if (!fleet_pendingChanges[id]) {
+                fleet_pendingChanges[id] = {};
+            }
+            fleet_pendingChanges[id].pro_number = value;
+            
+            fleet_showSaveNotification(`PRO号已保存到本地`);
+        }
+
+        // 保存行数据到服务器
+        function fleet_saveRowData(button) {
+            const row = button.closest('tr');
+            const id = row.querySelector('.fleet-cargo-checkbox').value;
+            
+            // 获取当前行的数据
+            const carrierInput = row.querySelector('.fleet-carrier-input');
+            const addressInput = row.querySelector('.fleet-address-input');
+            const noteInput = row.querySelector('.fleet-note-input');
+            const costInput = row.querySelector('.fleet-cost-input');
+            const quoteInput = row.querySelector('.fleet-quote-input');
+            const bolInput = row.querySelector('.fleet-bol-input');
+            const proInput = row.querySelector('.fleet-pro-input');
+            const palletSizeInput = row.querySelector('.fleet-pallet-size-input');
+            const followInput = row.querySelector('.fleet-follow-input');
+            
+            const carrierValue = carrierInput ? carrierInput.value.trim() : '';
+            const addressValue = addressInput ? addressInput.value.trim() : '';
+            const noteValue = noteInput ? noteInput.value.trim() : '';
+            const costValue = costInput ? costInput.value.trim() : '';
+            const quoteValue = quoteInput ? quoteInput.value.trim() : '';
+            const bolValue = bolInput ? bolInput.value.trim() : '';
+            const proValue = proInput ? proInput.value.trim() : '';
+            const palletSizeValue = palletSizeInput ? palletSizeInput.value.trim() : '';
+            const followValue = followInput ? followInput.value.trim() : '';
+            
+            // 设置表单数据
+            const cargoIdInput = document.getElementById('fleet_cargoIdInput');
+            const carrierInputField = document.getElementById('fleet_carrierInput');
+            const addressInputField = document.getElementById('fleet_addressInput');
+            const noteInputField = document.getElementById('fleet_noteInput');
+            const costInputField = document.getElementById('fleet_costInput');
+            const quoteInputField = document.getElementById('fleet_quoteInput');
+            const bolNumberInputField = document.getElementById('fleet_bolNumberInput');
+            const proNumberInputField = document.getElementById('fleet_proNumberInput');
+            const palletSizeInputField = document.getElementById('fleet_palletSizeInput');
+            const followInputField = document.getElementById('fleet_followInput');
+            const saveForm = document.getElementById('fleet_saveForm');
+            
+            if (cargoIdInput && carrierInputField && addressInputField && noteInputField && 
+                costInputField && quoteInputField && bolNumberInputField && proNumberInputField && 
+                palletSizeInputField && followInputField && saveForm) {
+                cargoIdInput.value = id;
+                carrierInputField.value = carrierValue;
+                addressInputField.value = addressValue;
+                noteInputField.value = noteValue;
+                costInputField.value = costValue;
+                quoteInputField.value = quoteValue;
+                bolNumberInputField.value = bolValue;
+                proNumberInputField.value = proValue;
+                palletSizeInputField.value = palletSizeValue;
+                followInputField.value = followValue; 
+                saveForm.submit();
+            } else {
+                console.error('保存表单元素未找到');
+            }
+        }
+
+        // 显示保存通知
+        function fleet_showSaveNotification(message) {
+            const notification = document.createElement('div');
+            notification.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: #34a853;
+                color: white;
+                padding: 12px 20px;
+                border-radius: 4px;
+                box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                z-index: 1000;
+                animation: fleet_slideIn 0.3s ease-out;
+                font-size: 0.9rem;
+            `;
+            
+            notification.innerHTML = `
+                <i class="fas fa-check-circle" style="margin-right: 8px;"></i>
+                ${message}
+            `;
+            
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.style.animation = 'fleet_slideOut 0.3s ease-out';
+                setTimeout(() => {
+                    document.body.removeChild(notification);
+                }, 300);
+            }, 3000);
+            
+            if (!document.querySelector('#fleet-save-notification-styles')) {
+                const style = document.createElement('style');
+                style.id = 'fleet-save-notification-styles';
+                style.textContent = `
+                    @keyframes fleet_slideIn {
+                        from { transform: translateX(100%); opacity: 0; }
+                        to { transform: translateX(0); opacity: 1; }
+                    }
+                    @keyframes fleet_slideOut {
+                        from { transform: translateX(0); opacity: 1; }
+                        to { transform: translateX(100%); opacity: 0; }
+                    }
+                `;
+                document.head.appendChild(style);
+            }
+        }
+
+        // 预约出库功能
+        function fleet_scheduleShipment() {
+            const selectedCheckboxes = Array.from(document.querySelectorAll('.fleet-cargo-checkbox:checked'))
+                .filter(checkbox => {
+                    const row = checkbox.closest('tr');
+                    return row.style.display !== 'none' && !row.classList.contains('fleet-filter-row');
+                });
+
+            if (selectedCheckboxes.length === 0) {
+                alert('请先选择要预约出库的货物');
+                return;
+            }
+
+            // 获取选中的货物信息
+            const selectedCargos = selectedCheckboxes.map(checkbox => {
+                const row = checkbox.closest('tr');
+                const carrierInput = row.querySelector('.fleet-carrier-input');
+                const addressInput = row.querySelector('.fleet-address-input');
+                const noteInput = row.querySelector('.fleet-note-input');
+                const costInput = row.querySelector('.fleet-cost-input');
+                const quoteInput = row.querySelector('.fleet-quote-input');
+                const palletSizeInput = row.querySelector('.fleet-pallet-size-input');
+                const bolInput = row.querySelector('.fleet-bol-input');
+                const proInput = row.querySelector('.fleet-pro-input');
+
+                // 生成 pallet_items
+                let pallet_items = [];
+                const palletItemsRaw = row.getAttribute('data-pallet-items');
+
+                if (palletItemsRaw) {
+                    try {
+                        pallet_items = JSON.parse(palletItemsRaw);
+                    } catch (err) {
+                        console.error('解析 pallet_items 失败:', err, palletItemsRaw);
+                        pallet_items = [];
+                    }
+                }
+                
+                return {
+                    id: checkbox.value,
+                    customer: row.dataset.customer,
+                    containerNumber: row.dataset.containerNumber,
+                    destination: row.dataset.destination,
+                    shippingMark: row.dataset.shippingMark,
+                    cbm: parseFloat(row.dataset.cbm) || 0,
+                    pcs: parseInt(row.dataset.pcs) || 0,
+                    pallets: parseInt(row.dataset.pallets) || 0,
+                    palletSize: palletSizeInput ? palletSizeInput.value.trim() : '',
+                    bol: bolInput ? bolInput.value.trim() : '',
+                    pro: proInput ? proInput.value.trim() : '',
+                    carrier: carrierInput ? carrierInput.value.trim() : '',
+                    address: addressInput ? addressInput.value.trim() : '',
+                    note: noteInput ? noteInput.value.trim() : '',
+                    cost: costInput ? parseFloat(costInput.value) || 0 : 0,
+                    quote: quoteInput ? parseFloat(quoteInput.value) || 0 : 0,
+                    weight_lbs: parseFloat(row.dataset.weightLbs) || 0,
+                    pallet_items
+                };
+            });
+
+            // 调用弹框的open函数
+            if (window.ShipmentModal && window.ShipmentModal.open) {
+                window.ShipmentModal.open(selectedCargos, {
+                    active_tab: 'scheduledFleet'
+                });
+            } else {
+                alert('预约出库功能暂不可用，请刷新页面重试');
+                console.error('ShipmentModal 未初始化');
+            }
+        }
+
+        // 全选功能
+        function fleet_toggleSelectAll() {
+            const selectAllCheckbox = document.getElementById('fleet_selectAllCargos');
+            if (!selectAllCheckbox) return;
+            
+            const isChecked = selectAllCheckbox.checked;
+            
+            // 获取所有可见的数据行（不包括筛选行）
+            const visibleRows = Array.from(document.querySelectorAll('.fleet-data-row:not(.fleet-filter-row)'))
+                .filter(row => row.style.display !== 'none');
+            
+            // 更新所有可见行的复选框
+            visibleRows.forEach(row => {
+                const checkbox = row.querySelector('.fleet-cargo-checkbox');
+                if (checkbox) {
+                    checkbox.checked = isChecked;
+                }
+            });
+            
+            fleet_updateSelectedCount();
+        }
+
+        // 列筛选函数
+        function fleet_applyColumnFilter(input) {
+            const columnIndex = parseInt(input.getAttribute('data-column'));
+            const filterValue = input.value.trim().toLowerCase();
+            
+            if (filterValue) {
+                fleet_columnFilters[columnIndex] = filterValue;
+            } else {
+                delete fleet_columnFilters[columnIndex];
+            }
+            
+            fleet_applyCombinedFilter();
+        }
+
+        // 清空所有筛选
+        function fleet_clearAllFilters() {
+            // 清空输入框
+            document.querySelectorAll('.fleet-filter-input, .fleet-filter-select').forEach(input => {
+                input.value = '';
+            });
+            
+            // 清空筛选状态对象
+            fleet_columnFilters = {};
+            
+            // 显示所有数据行
+            const allRows = document.querySelectorAll('#fleet_cargoTable .fleet-data-row:not(.fleet-filter-row)');
+            allRows.forEach(row => {
+                row.style.display = '';
+            });
+            
+            // 取消所有选中状态
+            document.querySelectorAll('.fleet-cargo-checkbox').forEach(checkbox => {
+                checkbox.checked = false;
+            });
+            
+            // 更新全选复选框状态
+            const selectAllCheckbox = document.getElementById('fleet_selectAllCargos');
+            if (selectAllCheckbox) {
+                selectAllCheckbox.checked = false;
+                selectAllCheckbox.indeterminate = false;
+            }
+            
+            // 更新计数
+            fleet_updateSelectedCount();
+        }
+
+        // 组合筛选函数
+        function fleet_applyCombinedFilter() {
+            const rows = document.querySelectorAll('#fleet_cargoTable .fleet-data-row');
+            
+            rows.forEach(row => {
+                if (row.classList.contains('fleet-filter-row')) return;
+                
+                let match = true;
+                
+                for (const [columnIndex, filterValue] of Object.entries(fleet_columnFilters)) {
+                    if (filterValue.trim() === '') {
+                        continue;
+                    }
+                    
+                    const idx = parseInt(columnIndex);
+                    const cell = row.cells[idx + 1];
+                    let cellValue = '';
+                    
+                    if (cell) {
+                        const inputElement = cell.querySelector('input, textarea');
+                        if (inputElement) {
+                            cellValue = inputElement.value.toLowerCase().trim();
+                        } else {
+                            cellValue = cell.textContent.toLowerCase().trim();
+                        }
+                        
+                        if (idx === 1) { // 拆柜日期
+                            const dateSpan = cell.querySelector('.fleet-month-day');
+                            if (dateSpan) {
+                                cellValue = dateSpan.textContent.toLowerCase().trim();
+                            } else {
+                                cellValue = cell.textContent.toLowerCase().trim();
+                            }
+                        }
+                        
+                        if (!cellValue.includes(filterValue.toLowerCase())) {
+                            match = false;
+                            break;
+                        }
+                    }
+                }
+                
+                if (match) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                    
+                    const checkbox = row.querySelector('.fleet-cargo-checkbox');
+                    if (checkbox && checkbox.checked) {
+                        checkbox.checked = false;
+                    }
+                }
+            });
+            
+            fleet_updateSelectedCount();
+        }
+
+        // 更新选中数量
+        function fleet_updateSelectedCount() {
+            const selectedCountEl = document.getElementById('fleet_selectedCount');
+            if (!selectedCountEl) return;
+            
+            const selectedCheckboxes = Array.from(document.querySelectorAll('.fleet-cargo-checkbox:checked'))
+                .filter(checkbox => {
+                    const row = checkbox.closest('tr');
+                    return row.style.display !== 'none' && !row.classList.contains('fleet-filter-row');
+                });
+            
+            const selectedCount = selectedCheckboxes.length;
+            selectedCountEl.textContent = selectedCount;
+
+            // 计算选中货物的统计数据
+            let totalSelectedPallets = 0;
+            let totalSelectedCbm = 0;
+            let totalSelectedWeightLbs = 0;
+            
+            selectedCheckboxes.forEach(checkbox => {
+                const row = checkbox.closest('tr');
+                const pallets = parseFloat(row.dataset.pallets) || 0;
+                const cbm = parseFloat(row.dataset.cbm) || 0;
+                const weightLbs = parseFloat(row.dataset.weightLbs) || 0;
+                
+                totalSelectedPallets += pallets;
+                totalSelectedCbm += cbm;
+                totalSelectedWeightLbs += weightLbs;
+            });
+            
+            const selectedPalletsCountEl = document.getElementById('fleet_selectedPalletsCount');
+            const selectedCbmCountEl = document.getElementById('fleet_selectedCbmCount');
+            const selectedWeightLbsCountEl = document.getElementById('fleet_selectedWeightLbsCount');
+            
+            if (selectedPalletsCountEl) {
+                selectedPalletsCountEl.textContent = Math.floor(totalSelectedPallets);
+            }
+            if (selectedCbmCountEl) {
+                selectedCbmCountEl.textContent = totalSelectedCbm.toFixed(2);
+            }
+            if (selectedWeightLbsCountEl) {
+                selectedWeightLbsCountEl.textContent = totalSelectedWeightLbs.toFixed(2);
+            }
+            
+            fleet_updateSelectAllCheckbox();
+        }
+
+        function fleet_updateSelectAllCheckbox() {
+            const selectAllCheckbox = document.getElementById('fleet_selectAllCargos');
+            if (!selectAllCheckbox) return;
+            
+            const visibleCheckboxes = Array.from(document.querySelectorAll('.fleet-cargo-checkbox'))
+                .filter(checkbox => {
+                    const row = checkbox.closest('tr');
+                    return !row.classList.contains('fleet-filter-row') && row.style.display !== 'none';
+                });
+            
+            if (visibleCheckboxes.length === 0) {
+                selectAllCheckbox.checked = false;
+                selectAllCheckbox.indeterminate = false;
+                return;
+            }
+            
+            const checkedCount = visibleCheckboxes.filter(checkbox => checkbox.checked).length;
+            
+            if (checkedCount === 0) {
+                selectAllCheckbox.checked = false;
+                selectAllCheckbox.indeterminate = false;
+            } else if (checkedCount === visibleCheckboxes.length) {
+                selectAllCheckbox.checked = true;
+                selectAllCheckbox.indeterminate = false;
+            } else {
+                selectAllCheckbox.checked = false;
+                selectAllCheckbox.indeterminate = true;
+            }
+        }
+
+        // 将函数暴露到全局作用域
+        window.fleet_toggleSelectAll = fleet_toggleSelectAll;
+        window.fleet_scheduleShipment = fleet_scheduleShipment;
+        window.fleet_clearAllFilters = fleet_clearAllFilters;
+        window.fleet_applyColumnFilter = fleet_applyColumnFilter;
+        window.fleet_updateSelectedCount = fleet_updateSelectedCount;
+        window.fleet_saveCarrier = fleet_saveCarrier;
+        window.fleet_saveAddress = fleet_saveAddress;
+        window.fleet_saveNote = fleet_saveNote;
+        window.fleet_saveCost = fleet_saveCost;
+        window.fleet_saveQuote = fleet_saveQuote;
+        window.fleet_savePalletSize = fleet_savePalletSize;
+        window.fleet_saveBolNumber = fleet_saveBolNumber;
+        window.fleet_saveProNumber = fleet_saveProNumber;
+        window.fleet_saveRowData = fleet_saveRowData;
+        window.fleet_autoResizeTextarea = fleet_autoResizeTextarea;
+    })();
+</script>

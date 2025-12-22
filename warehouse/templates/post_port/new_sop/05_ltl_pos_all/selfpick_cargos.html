@@ -12,7 +12,7 @@
         border: 1px solid #e9ecef;
         flex-wrap: wrap;
     }
-    .bol-input, .pickup-time-input {
+    .bol-input, .pickup-date-input {
         width: 100%;
         padding: 4px 6px;
         border: 1px solid #ced4da;
@@ -20,15 +20,35 @@
         font-size: 0.85rem;
         box-sizing: border-box;
     }
+    .fleet-mark-col {
+        min-width: 100px;
+        max-width: 150px;
+        word-wrap: break-word;
+        word-break: break-word;
+        white-space: normal;
+        line-height: 1.5;
+    }
 
-    .pickup-time-input {
+    .pickup-date-input {
+        width: 100%;
+        padding: 4px 6px;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+        font-size: 0.85rem;
+        box-sizing: border-box;
         font-family: inherit;
     }
-    .pickup-time-input::-webkit-datetime-edit-fields-wrapper {
+    
+    .pickup-date-input:focus {
+        outline: none;
+        border-color: #80bdff;
+        box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+    }
+    .pickup-date-input::-webkit-datetime-edit-fields-wrapper {
         padding: 0 !important;
         margin: 0 !important;
     }
-    .bol-input:focus, .pickup-time-input:focus {
+    .bol-input:focus {
         outline: none;
         border-color: #80bdff;
         box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
@@ -259,8 +279,8 @@
         color: #212529;
     }
 
-    /* BOL号和PRO号列宽度 */
-    .bol-col, .pro-col {
+    /* BOL号列宽度 */
+    .bol-col {
         min-width: 100px;
         max-width: 120px;
     }
@@ -299,9 +319,19 @@
         padding: 4px 8px;
         font-size: 0.8rem;
     }
-
-    /* 输入框样式 */
-    .carrier-input, .address-input, .pallet-size-input, .bol-input, .pro-input {
+    .pallet-size-input {
+        width: 100%;
+        border: 1px solid #dee2e6;
+        border-radius: 4px;
+        padding: 6px 8px;
+        font-size: 0.85rem;
+        resize: vertical;
+        min-height: 60px; 
+        box-sizing: border-box;
+        font-family: inherit;
+        line-height: 1.4;
+    }
+    .carrier-input, .address-input, .bol-input {
         width: 100%;
         padding: 4px 8px;
         border: 1px solid #ced4da;
@@ -315,7 +345,7 @@
     }
 
     .carrier-input:focus, .address-input:focus, .pallet-size-input:focus,
-    .bol-input:focus, .pro-input:focus {
+    .bol-input:focus {
         outline: none;
         border-color: #80bdff;
         box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
@@ -378,16 +408,15 @@
                     <th class="date-col">拆柜日期</th>
                     <th>柜号</th>
                     <th>目的地</th>
-                    <th>唛头</th>
+                    <th class="fleet-mark-col">唛头</th>
                     <th>CBM</th>
                     <th>件数</th>
                     <th class="pallet-col">板数</th>
                     <th class="pallet-size-col">托盘尺寸</th>
-                    <th class="bol-col">BOL号</th>
-                    <th class="pro-col">PRO号</th>
-                    <th class="date-col">预计提货时间</th>
+                    <th class="bol-col">BOL号</th>                   
                     <th>承运公司</th>
                     <th class="address-col">地址</th>
+                    <th class="date-col">预计提货日期</th>
                     <th class="action-col">操作</th>
                 </tr>
             </thead>
@@ -427,18 +456,15 @@
                     </td>
                     <td>
                         <input type="text" class="filter-input" placeholder="筛选BOL号..." data-column="9" onkeyup="applySelfPickColumnFilter(this)">
+                    </td>                  
+                    <td>
+                        <input type="text" class="filter-input" placeholder="筛选承运公司..." data-column="10" onkeyup="applySelfPickColumnFilter(this)">
                     </td>
                     <td>
-                        <input type="text" class="filter-input" placeholder="筛选PRO号..." data-column="10" onkeyup="applySelfPickColumnFilter(this)">
+                        <input type="text" class="filter-input" placeholder="筛选地址..." data-column="11" onkeyup="applySelfPickColumnFilter(this)">
                     </td>
                     <td>
-                        <input type="text" class="filter-input" placeholder="筛选提货时间..." data-column="11" onkeyup="applySelfPickColumnFilter(this)">
-                    </td>
-                    <td>
-                        <input type="text" class="filter-input" placeholder="筛选承运公司..." data-column="12" onkeyup="applySelfPickColumnFilter(this)">
-                    </td>
-                    <td>
-                        <input type="text" class="filter-input" placeholder="筛选地址..." data-column="13" onkeyup="applySelfPickColumnFilter(this)">
+                        <input type="text" class="filter-input" placeholder="筛选提货日期..." data-column="12" onkeyup="applySelfPickColumnFilter(this)">
                     </td>
                     <td class="action-col">
                         <!-- 操作列不需要筛选 -->
@@ -465,7 +491,6 @@
                     {% endif %}
                     data-pallet-size="{{ cargo.pallet_size_formatted|default:'' }}"
                     data-bol="{% if cargo.data_source == 'PALLET' %}{{ cargo.plt_ltl_bol_num|default:'' }}{% else %}{{ cargo.pl_ltl_bol_num|default:'' }}{% endif %}"
-                    data-pro="{% if cargo.data_source == 'PALLET' %}{{ cargo.plt_ltl_pro_num|default:'' }}{% else %}{{ cargo.pl_ltl_pro_num|default:'' }}{% endif %}"
                     data-pickup-time="{{ cargo.est_pickup_time|default:'' }}"
                     data-carrier="{{ cargo.carrier_company|default:'' }}"
                     data-address="{{ cargo.address|default:'' }}"
@@ -477,7 +502,7 @@
                             onchange="updateSelfPickSelectedCount()">
                     </td>
                     <td>{{ cargo.customer_name|default:"-" }}</td>
-                    <td>{{ cargo.offload_at|date:"Y-m-d"|default:"-" }}</td>
+                    <td>{{ cargo.offload_at|date:"m-d"|default:"-" }}</td>
                     <td class="container-col" title="{{ cargo.container_numbers|default:'' }}">
                         {{ cargo.container_numbers|default:"-" }}
                     </td>
@@ -526,21 +551,6 @@
                             onchange="saveBolNumber(this)"
                             rows="1">{% if cargo.data_source == 'PALLET' %}{{ cargo.plt_ltl_bol_num|default:'' }}{% else %}{{ cargo.pl_ltl_bol_num|default:'' }}{% endif %}</textarea>
                     </td>
-                    <td class="pro-col">
-                        <textarea class="pro-input" 
-                            data-id="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
-                            placeholder="输入PRO号"
-                            oninput="autoResizeTextarea(this)"
-                            onchange="saveProNumber(this)"
-                            rows="1">{% if cargo.data_source == 'PALLET' %}{{ cargo.plt_ltl_pro_num|default:'' }}{% else %}{{ cargo.pl_ltl_pro_num|default:'' }}{% endif %}</textarea>
-                    </td>
-                    <td>
-                        <input type="datetime-local" class="pickup-time-input" 
-                        data-id="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
-                        value="{% if cargo.est_pickup_time %}{{ cargo.est_pickup_time|date:'Y-m-d\\TH:i' }}{% endif %}"
-                        placeholder="选择预计提货时间"
-                        onchange="savePickupTime(this)">
-                    </td>
                     <td>
                         <input type="text" class="carrier-input" 
                             data-id="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
@@ -555,6 +565,13 @@
                             oninput="autoResizeTextarea(this)"
                             onchange="saveAddress(this)"
                             rows="1">{{ cargo.address|default:'' }}</textarea>
+                    </td>
+                    <td>
+                        <input type="date" class="pickup-date-input" 
+                            data-id="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
+                            value="{% if cargo.est_pickup_time %}{{ cargo.est_pickup_time|date:'Y-m-d' }}{% endif %}" 
+                            placeholder="选择预计提货日期"
+                            onchange="savePickupDate(this)">
                     </td>
                     <td class="action-col">
                         <div class="action-buttons">
@@ -584,8 +601,7 @@
     <input type="hidden" name="carrier_company" id="carrierInput">
     <input type="hidden" name="address" id="addressInput">
     <input type="hidden" name="bol_number" id="bolNumberInput">
-    <input type="hidden" name="pro_number" id="proNumberInput">
-    <input type="hidden" name="pickup_time" id="pickupTimeInput">
+    <input type="hidden" name="pickup_date" id="pickupTimeInput">
     <input type="hidden" name="pallet_size" id="palletSizeInput">
     <input type="hidden" name="warehouse" value="{{ warehouse }}">
     <input type="hidden" name="active_tab" value="scheduled">
@@ -598,7 +614,7 @@
         document.addEventListener('DOMContentLoaded', function() {
             initializeSelfpickPage();
             // 初始化所有textarea的高度
-            document.querySelectorAll('.pallet-size-input, .address-input, .bol-input, .pro-input').forEach(autoResizeTextarea);
+            document.querySelectorAll('.pallet-size-input, .address-input, .bol-input').forEach(autoResizeTextarea);
         });
 
         // 全局变量
@@ -638,7 +654,7 @@
         // 初始化保存状态
         function initializeSaveState() {
             // 从localStorage恢复保存状态
-            document.querySelectorAll('.carrier-input, .address-input, .bol-input, .pro-input, .pickup-time-input, .pallet-size-input').forEach(input => {
+            document.querySelectorAll('.carrier-input, .address-input, .bol-input, .pickup-date-input, .pallet-size-input').forEach(input => {
                 const id = input.getAttribute('data-id');
                 let type = '';
                 if (input.classList.contains('carrier-input')) {
@@ -647,10 +663,8 @@
                     type = 'address';
                 } else if (input.classList.contains('bol-input')) {
                     type = 'bol_number';
-                } else if (input.classList.contains('pro-input')) {
-                    type = 'pro_number';
-                } else if (input.classList.contains('pickup-time-input')) {
-                    type = 'pickup_time';
+                } else if (input.classList.contains('pickup-date-input')) {
+                    type = 'pickup_date';
                 } else if (input.classList.contains('pallet-size-input')) {
                     type = 'pallet_size';
                 }
@@ -766,36 +780,11 @@
             showSaveNotification(`BOL号已保存到本地`);
         }
 
-        // 保存PRO号
-        function saveProNumber(textarea) {
-            const id = textarea.getAttribute('data-id');
-            const value = textarea.value.trim();
-            const key = `${id}_pro_number`;
-            
-            // 自动调整高度
-            autoResizeTextarea(textarea);
-            
-            // 保存到localStorage
-            if (value) {
-                localStorage.setItem(key, value);
-            } else {
-                localStorage.removeItem(key);
-            }
-            
-            // 添加到待处理更改
-            if (!pendingChanges[id]) {
-                pendingChanges[id] = {};
-            }
-            pendingChanges[id].pro_number = value;
-            
-            showSaveNotification(`PRO号已保存到本地`);
-        }
-
         // 保存预计提货时间
-        function savePickupTime(input) {
+        function savePickupDate(input) {
             const id = input.getAttribute('data-id');
             const value = input.value.trim();
-            const key = `${id}_pickup_time`;
+            const key = `${id}_pickup_date`; // 修改key名称
             
             // 保存到localStorage
             if (value) {
@@ -808,10 +797,11 @@
             if (!pendingChanges[id]) {
                 pendingChanges[id] = {};
             }
-            pendingChanges[id].pickup_time = value;
+            pendingChanges[id].pickup_date = value; // 修改字段名
             
-            showSaveNotification(`预计提货时间已保存到本地`);
+            showSaveNotification(`预计提货日期已保存到本地`);
         }
+
 
         // 保存行数据到服务器
         function saveRowData(button) {
@@ -822,15 +812,13 @@
             const carrierInput = row.querySelector('.carrier-input');
             const addressInput = row.querySelector('.address-input');
             const bolInput = row.querySelector('.bol-input');
-            const proInput = row.querySelector('.pro-input');
-            const pickupTimeInput = row.querySelector('.pickup-time-input');
+            const pickupDateInput = row.querySelector('.pickup-date-input');
             const palletSizeInput = row.querySelector('.pallet-size-input');
             
             const carrierValue = carrierInput ? carrierInput.value.trim() : '';
             const addressValue = addressInput ? addressInput.value.trim() : '';
             const bolValue = bolInput ? bolInput.value.trim() : '';
-            const proValue = proInput ? proInput.value.trim() : '';
-            const pickupTimeValue = pickupTimeInput ? pickupTimeInput.value.trim() : '';
+            const pickupDateValue = pickupDateInput ? pickupDateInput.value.trim() : '';
             
             // 只有PALLET数据才有托盘尺寸输入框
             if (cargo.id.startsWith('plt_')) {
@@ -879,18 +867,16 @@
             const carrierInputField = document.getElementById('carrierInput');
             const addressInputField = document.getElementById('addressInput');
             const bolNumberInputField = document.getElementById('bolNumberInput');
-            const proNumberInputField = document.getElementById('proNumberInput');
-            const pickupTimeInputField = document.getElementById('pickupTimeInput');
+            const pickupDateInputField = document.getElementById('pickupTimeInput'); 
             const palletSizeInputField = document.getElementById('palletSizeInput');
             const saveForm = document.getElementById('saveForm');
             
             if (cargoIdInput && carrierInputField && addressInputField && 
-                bolNumberInputField && proNumberInputField && pickupTimeInputField && palletSizeInputField && saveForm) {
+                bolNumberInputField && pickupTimeInputField && palletSizeInputField && saveForm) {
                 cargoIdInput.value = id;
                 carrierInputField.value = carrierValue;
                 addressInputField.value = addressValue;
                 bolNumberInputField.value = bolValue;
-                proNumberInputField.value = proValue;
                 pickupTimeInputField.value = pickupTimeValue;
                 palletSizeInputField.value = palletSizeValue;
                 saveForm.submit();
@@ -969,8 +955,7 @@
                 const palletSizeInput = row.querySelector('.pallet-size-input');
                 const carrierInput = row.querySelector('.carrier-input');
                 const addressInput = row.querySelector('.address-input');
-                const proInput = row.querySelector('.pro-input');
-                const pickupTimeInput = row.querySelector('.pickup-time-input');
+                const pickupDateInput = row.querySelector('.pickup-date-input');
                 const bolInput = row.querySelector('.bol-input');
 
                 // 生成 pallet_items，从 data-pallet-items 直接取
@@ -985,6 +970,12 @@
                         pallet_items = [];
                     }
                 }
+
+                let pickupTime = '';
+                if (pickupDateInput && pickupDateInput.value.trim()) {
+                    // 将日期格式转换为完整的时间格式，默认00:00
+                    pickupTime = pickupDateInput.value.trim() + 'T00:00';
+                }
                 return {
                     id: checkbox.value,
                     customer: row.dataset.customer,
@@ -996,10 +987,9 @@
                     pallets: parseInt(row.dataset.pallets) || 0,
                     palletSize: palletSizeInput ? palletSizeInput.value.trim() : '',
                     bol: bolInput ? bolInput.value.trim() : '',
-                    pro: proInput ? proInput.value.trim() : '',
                     carrier: carrierInput ? carrierInput.value.trim() : '',
                     address: addressInput ? addressInput.value.trim() : '',
-                    pickupTime: pickupTimeInput ? pickupTimeInput.value : '',
+                    pickupTime: pickupTime,
                     weight_lbs: parseFloat(row.dataset.weightLbs) || 0,
                     pallet_items // 直接使用后端传过来的数组
                 };
@@ -1238,8 +1228,7 @@
         window.saveAddress = saveAddress;
         window.savePalletSize = savePalletSize;
         window.saveBolNumber = saveBolNumber;
-        window.saveProNumber = saveProNumber;
-        window.savePickupTime = savePickupTime;
+        window.savePickupDate = savePickupDate;
         window.saveRowData = saveRowData;
         window.autoResizeTextarea = autoResizeTextarea;
     })(); // 立即执行

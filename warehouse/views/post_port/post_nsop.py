@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, time
 from typing import Any, Dict, List, Tuple
 from django.db.models import Prefetch, F
 from collections import OrderedDict
@@ -357,6 +357,9 @@ class PostNsop(View):
         elif step =="save_selfpick_cargo":
             template, context = await self.handle_save_selfpick_cargo(request)
             return render(request, template, context) 
+        elif step == "save_selfdel_cargo":
+            template, context = await self.handle_save_selfdel_cargo(request)
+            return render(request, template, context) 
         else:
             raise ValueError('输入错误',step)
     
@@ -437,8 +440,7 @@ class PostNsop(View):
                 + current_time.strftime("%m%d%H%M%S")
                 + str(uuid.uuid4())[:2].upper()
             )
-            batch_number = batch_id.replace(" ", "").replace("/", "-").upper()  
-            print('batch_number',batch_number)     
+            batch_number = batch_id.replace(" ", "").replace("/", "-").upper()      
             exists = await sync_to_async(
                 Shipment.objects.filter(shipment_batch_number=batch_number).exists
             )()
@@ -4199,7 +4201,7 @@ class PostNsop(View):
                     "plt_ltl_pro_num",
                     "PickupAddr",
                     "container_number",
-                    "address",  # 地址字段
+                    "address", 
                     "is_dropped_pallet",
                     "shipment_batch_number__shipment_batch_number",
                     "data_source",
@@ -4208,6 +4210,8 @@ class PostNsop(View):
                     "is_pass",
                     "plt_ltl_bol_num",
                     "est_pickup_time",
+                    "ltl_cost",
+                    "ltl_quote",
                     warehouse=F("container_number__order__retrieval_id__retrieval_destination_precise"),
                     retrieval_destination_precise=F("container_number__order__retrieval_id__retrieval_destination_precise"),
                     customer_name=F("container_number__order__customer_name__zem_name"),
@@ -4239,7 +4243,7 @@ class PostNsop(View):
                     label=Value("ACT"),
                     note_sp=StringAgg("note_sp", delimiter=",", distinct=True),
                 )
-                .order_by("destination", "shipping_mark")
+                .order_by("offload_at","destination", "shipping_mark")
             )
 
             # 处理托盘尺寸信息
@@ -4332,7 +4336,7 @@ class PostNsop(View):
                     "note",
                     "container_number",
                     "shipping_mark",
-                    "address",  # 地址字段
+                    "address", 
                     "data_source",
                     "ltl_verify",
                     "carrier_company",
@@ -4340,6 +4344,8 @@ class PostNsop(View):
                     "pl_ltl_pro_num",
                     "PickupAddr",
                     "est_pickup_time",
+                    "ltl_cost",
+                    "ltl_quote",
                     "shipment_batch_number__shipment_batch_number",
                     "shipment_batch_number__fleet_number__fleet_number",
                     warehouse=F("container_number__order__retrieval_id__retrieval_destination_precise"),
@@ -4380,7 +4386,7 @@ class PostNsop(View):
                     note_sp=StringAgg("note_sp", delimiter=",", distinct=True)
                 )
                 .distinct()
-                .order_by("destination", "shipping_marks")
+                .order_by("actual_retrieval_time","destination", "shipping_marks")
             )
             data += pl_list
         
@@ -4419,15 +4425,11 @@ class PostNsop(View):
         
         return cargos
     
-    async def _ltl_scheduled_fleet(self, pl_criteria, plt_criteria) -> Dict[str, Any]:
+    async def _ltl_self_delivery(self, pl_criteria, plt_criteria) -> Dict[str, Any]:
         """获取已放行自发货物 - Tab 3"""
-        pl_criteria = pl_criteria&~Q(
-            delivery_method="自发"
-        )
+        pl_criteria = pl_criteria & ~Q(delivery_method__contains="自提")
         
-        plt_criteria = plt_criteria&~Q(
-            delivery_method="自发"
-        )
+        plt_criteria = plt_criteria & ~Q(delivery_method__contains="自提")
         
         cargos = await self._ltl_packing_list(
             pl_criteria,
@@ -4636,6 +4638,126 @@ class PostNsop(View):
         
         return response
 
+    async def handle_save_selfdel_cargo(
+        self, request: HttpRequest
+    ) -> tuple[str, dict[str, Any]]:
+        print(request.POST)
+        
+        cargo_id = request.POST.get('cargo_id')
+        # 地址列
+        address = request.POST.get('address', '').strip()
+        # 自行编辑备注
+        note = request.POST.get('note', '').strip()
+        # 托盘尺寸
+        pallet_size = request.POST.get('pallet_size', '').strip()
+        # 承运公司
+        carrier_company = request.POST.get('carrier_company', '').strip()     
+        # BOL号
+        bol_number = request.POST.get('bol_number', '').strip()
+        # PRO号
+        pro_number = request.POST.get('pro_number', '').strip()
+        follow_status = request.POST.get('follow_status', '').strip()
+        
+        # 判断前端是否传递了成本和报价参数
+        has_ltl_cost_param = 'ltl_cost' in request.POST
+        has_ltl_quote_param = 'ltl_quote' in request.POST
+        
+        # 处理成本字段：只有前端传了这个参数时才处理
+        ltl_cost = None
+        if has_ltl_cost_param:
+            ltl_cost_raw = request.POST.get('ltl_cost', '').strip()
+            if ltl_cost_raw:  # 如果不是空字符串
+                try:
+                    ltl_cost = float(ltl_cost_raw)
+                except (ValueError, TypeError):
+                    ltl_cost = None
+            else:  # 如果是空字符串，设置为None
+                ltl_cost = None
+                
+        # 处理报价字段：只有前端传了这个参数时才处理
+        ltl_quote = None
+        if has_ltl_quote_param:
+            ltl_quote_raw = request.POST.get('ltl_quote', '').strip()
+            if ltl_quote_raw:  # 如果不是空字符串
+                try:
+                    ltl_quote = float(ltl_quote_raw)
+                except (ValueError, TypeError):
+                    ltl_quote = None
+            else:  # 如果是空字符串，设置为None
+                ltl_quote = None
+        
+        cost_field_name = 'ltl_cost'
+        quote_field_name = 'ltl_quote'
+        note_field_name = 'note'
+        follow_status_field_name = 'ltl_follow_status'
+        # 1. 确定是哪种类型的数据
+        if cargo_id.startswith('plt_'):
+            # PALLET数据
+            ids = cargo_id.replace('plt_', '').split(',')
+            model = Pallet
+            bol_field_name = 'plt_ltl_bol_num'
+            pro_field_name = 'plt_ltl_pro_num'
+            
+        else:
+            # PACKINGLIST数据
+            ids = cargo_id.split(',')
+            model = PackingList
+            bol_field_name = 'pl_ltl_bol_num'
+            pro_field_name = 'pl_ltl_pro_num'
+        
+        # 构建更新字典（只包含前端明确传递的参数）
+        update_data = {}
+        
+        # 只有前端传递了这些参数才更新
+        if carrier_company or carrier_company == '':
+            update_data['carrier_company'] = carrier_company
+            
+        if address or address == '':
+            update_data['address'] = address
+            
+        if bol_number or bol_number == '':
+            update_data[bol_field_name] = bol_number
+            
+        if pro_number or pro_number == '':
+            update_data[pro_field_name] = pro_number
+            
+        if note or note == '':
+            update_data[note_field_name] = note
+
+        if follow_status or follow_status == '':  
+            update_data[follow_status_field_name] = follow_status
+
+        # 成本字段：只有前端传递了这个参数才更新
+        if has_ltl_cost_param:
+            update_data[cost_field_name] = ltl_cost
+            
+        # 报价字段：只有前端传递了这个参数才更新
+        if has_ltl_quote_param:
+            update_data[quote_field_name] = ltl_quote
+        
+        # 批量更新通用字段
+        if update_data:
+            try:
+                await sync_to_async(model.objects.filter(id__in=ids).update)(**update_data)
+            except Exception as e:
+                context = {'error_messages': f'保存失败: {str(e)}'}
+                return await self.handle_ltl_unscheduled_pos_post(request, context)
+        
+        # 特殊处理：如果是PALLET数据且有托盘尺寸，保存托盘尺寸
+        success_message = '保存成功！'
+        if cargo_id.startswith('plt_') and pallet_size:
+            success, message = await self._save_pallet_sizes(ids, pallet_size)
+            if not success:
+                context = {'error_messages': message}
+                success_message = None
+        
+        # 构建返回上下文
+        if success_message:
+            context = {'success_messages': success_message}
+        else:
+            context = {}
+        return await self.handle_ltl_unscheduled_pos_post(request, context)
+
     async def handle_save_selfpick_cargo(
         self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
@@ -4643,19 +4765,26 @@ class PostNsop(View):
         carrier_company = request.POST.get('carrier_company', '').strip()
         address = request.POST.get('address', '').strip()
         bol_number = request.POST.get('bol_number', '').strip()
-        pickup_time_str = request.POST.get('pickup_time', '').strip()
+        pickup_date_str = request.POST.get('pickup_date', '').strip()
         pallet_size = request.POST.get('pallet_size', '').strip()
         
-        pickup_time = None
-        if pickup_time_str:
+        est_pickup_time = None
+        if pickup_date_str:
             try:
-                pickup_time = timezone.datetime.fromisoformat(pickup_time_str.replace('Z', '+00:00'))
-            except ValueError:
-                # 如果ISO格式解析失败，尝试其他格式
+                # 解析日期字符串（格式：YYYY-MM-DD）
+                pickup_date = datetime.strptime(pickup_date_str, '%Y-%m-%d').date()
+                # 将日期转换为带时间的datetime，默认时间为00:00
+                est_pickup_time = timezone.make_aware(
+                    datetime.combine(pickup_date, time.min)
+                )
+            except ValueError as e:
+                print(f"解析预计提货日期失败: {pickup_date_str}, 错误: {e}")
+                # 尝试其他可能的格式
                 try:
-                    pickup_time = timezone.datetime.strptime(pickup_time_str, '%Y-%m-%dT%H:%M')
+                    # 如果传过来的是完整的时间格式
+                    est_pickup_time = timezone.datetime.fromisoformat(pickup_date_str.replace('Z', '+00:00'))
                 except ValueError:
-                    pickup_time = None
+                    est_pickup_time = None
         
         # 1. 直接保存承运公司和地址
         if cargo_id.startswith('plt_'):
@@ -4678,8 +4807,8 @@ class PostNsop(View):
             update_data['address'] = address
         if bol_number:
             update_data[bol_field_name] = bol_number
-        if pickup_time:
-            update_data['delivery_window_start'] = pickup_time
+        if est_pickup_time:
+            update_data['est_pickup_time'] = est_pickup_time
         
         # 批量更新通用字段
         if update_data:
@@ -4849,14 +4978,9 @@ class PostNsop(View):
             context.update({'error_messages':"没选仓库！"})
             return self.template_unscheduled_pos_all, context
         
-        nowtime = timezone.now()
-
-        one_weeks_later = nowtime + timezone.timedelta(weeks=1)   
-        
         pl_criteria = Q(
             shipment_batch_number__shipment_batch_number__isnull=True,
             container_number__order__offload_id__offload_at__isnull=True,
-            container_number__order__vessel_id__vessel_eta__lte=one_weeks_later,
             container_number__order__retrieval_id__retrieval_destination_area=warehouse_name,
             container_number__is_abnormal_state=False,
             delivery_type="other"
@@ -4865,7 +4989,7 @@ class PostNsop(View):
         plt_criteria = Q(
             location=warehouse,
             shipment_batch_number__shipment_batch_number__isnull=True,
-            container_number__order__offload_id__offload_at__gt=datetime(2025, 1, 1),
+            container_number__order__offload_id__offload_at__gt=datetime(2025, 12, 1),
             delivery_type="other"
         )
         # 未放行
@@ -4874,7 +4998,7 @@ class PostNsop(View):
         # 已放行-客提
         selfpick_cargos = await self._ltl_scheduled_self_pickup(pl_criteria, plt_criteria)
         # 已放行-自发
-        selfdel_cargos = await self._ltl_scheduled_fleet(pl_criteria, plt_criteria)
+        selfdel_cargos = await self._ltl_self_delivery(pl_criteria, plt_criteria)
 
         #待出库
         ready_to_ship_data = await self._sp_ready_to_ship_data(warehouse,request.user, None, 'ltl')
