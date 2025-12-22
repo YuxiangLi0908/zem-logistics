@@ -3096,8 +3096,10 @@ class ReceivableAccounting(View):
                         'note': '',
                     })
         groups = [group.name for group in request.user.groups.all()]
-        if request.user.is_staff:
-            groups.append("staff")
+        is_leader = False
+        if "invoice_preport_leader" in groups or request.user.is_staff:
+            is_leader = True
+  
         COMBINA_STIPULATE = FeeDetail.objects.get(
             quotation_id=quotation.id,
             fee_type='COMBINA_STIPULATE'
@@ -3111,7 +3113,7 @@ class ReceivableAccounting(View):
             "container_type": container_type,
             "reject_reason": order.invoice_reject_reason,
             "container_number": container_number,
-            "groups": groups,
+            "is_leader": is_leader,
             "start_date": start_date,
             "end_date": end_date,
             "FS": FS,
@@ -3134,7 +3136,7 @@ class ReceivableAccounting(View):
             "existing_descriptions": existing_descriptions,  # 用于前端过滤
             "preport_status": invoice_status.preport_status,
             "combina_rules_text": rules_text,
-            "is_combina":iscombina
+            "is_combina":iscombina,
         })
 
         return self.template_preport_edit, context
