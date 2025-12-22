@@ -1033,10 +1033,14 @@
                 <!-- 表单操作按钮 -->
                 <div class="form-actions">
                     <div class="form-buttons">
+                        {% if not receivable_is_locked%}
                         <button type="submit" name="step" value="save_all" class="btn btn-success">
                             <i class="fas fa-save"></i>
                             保存账单
                         </button>
+                        {% else %}
+                            财务已确认，不可编辑
+                        {% endif %}
                         {% if can_finish %}
                         <button type="submit" name="step" value="finish" class="btn btn-primary">
                             <i class="fas fa-check-double"></i>
