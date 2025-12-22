@@ -1451,11 +1451,15 @@
                 </div>
                 
                 <!-- 保存按钮 -->
+                {% if not receivable_is_locked%}
                 <div class="save-button-container">
                     <button id="save-bill-btn" type="button" class="btn btn-success" style="padding: 12px 30px; font-size: 1rem;">
                         <i class="fas fa-save"></i>保存账单
                     </button>
                 </div>
+                {% else %}
+                    财务已确认，不可编辑
+                {% endif %}
             </div>
             <!-- ================ 组合柜计费区域 ================ -->
             {% if is_combina and combina_groups %}

@@ -755,7 +755,8 @@ class ReceivableAccounting(View):
             invoice_updated = Invoicev2.objects.filter(
                 id__in=invoice_id_list
             ).update(
-                is_invoice_delivered=False
+                is_invoice_delivered=False,
+                is_receivable_is_locked=False
             )
         context = {'success_messages':'账单退回状态成功！'}
         return self.handle_confirm_entry_post(request,context)
@@ -1059,6 +1060,7 @@ class ReceivableAccounting(View):
         # 更新发票总额
         try:
             invoice.receivable_total_amount = total_amount
+            invoice.receivable_is_locked = True
             invoice.save()
         except Exception as e:
             error_messages = f'更新发票总额失败: {str(e)}'
@@ -3170,11 +3172,6 @@ class ReceivableAccounting(View):
             #说明这个柜子没有创建过账单，需要创建
             invoice, invoice_status = self._create_invoice_and_status(container_number)
         
-        # 确定delivery_type
-        groups = [group.name for group in request.user.groups.all()]
-        if request.user.is_staff:
-            groups.append("staff")
-        
         # 设置item_category
         item_category = f"warehouse_{delivery_type}"
         
@@ -3269,7 +3266,7 @@ class ReceivableAccounting(View):
             "warehouse": order.retrieval_id.retrieval_destination_area,
             "warehouse_filter": request.GET.get("warehouse_filter"),
             "container_number": container_number,
-            "groups": groups,
+            "receivable_is_locked": invoice.receivable_is_locked,
             "start_date": start_date,
             "end_date": end_date,
             "FS": FS,
@@ -3523,6 +3520,7 @@ class ReceivableAccounting(View):
             "start_date": request.GET.get("start_date"),
             "end_date": request.GET.get("end_date"),
             "total_container_cbm": total_container_cbm,
+            "receivable_is_locked": invoice.receivable_is_locked,
         })
         
         if delivery_type == "public":
