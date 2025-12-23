@@ -4776,6 +4776,7 @@ class PostNsop(View):
             pl_criteria,
             plt_criteria
         )
+        print('未放行',pl_criteria)
         cargos = []
         for cargo in raw_cargos:
             if not cargo["is_pass"]:
