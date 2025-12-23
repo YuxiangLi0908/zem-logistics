@@ -263,7 +263,7 @@
                                             <td>{{ cargo.total_pcs|default:0 }}</td>
 
                                             {% if forloop.first and forloop.parentloop.first %}
-                                                <td rowspan="{{ fleet_rowspan }}">
+                                                <td rowspan="{{ fleet_rowspan }}" style="vertical-align: middle;">
                                                     <button class="action-btn btn-success" onclick="confirmFleetDeparture('{{ fleet_group.fleet_number }}')">出库</button>
                                                 </td>
                                                 <td rowspan="{{ fleet_rowspan }}" style="vertical-align: middle;">
@@ -284,89 +284,88 @@
                                                         拣货单
                                                     </button>
                                                 </td>
+                                                <td rowspan="{{ fleet_rowspan }}">
+                                                    {% if fleet_group.fleet_type == '客户自提' %}
+                                                        <div style="margin-top: 5px;">
+                                                            <form method="post" action="" enctype="multipart/form-data" class="upload-form" style="display: inline-block;">
+                                                                {% csrf_token %}
+                                                                <input type="hidden" name="fleet_number" value="{{ fleet_group.fleet_number }}">
+                                                                <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                                                                <input type="hidden" name="step" value="upload_self_pickup_file">
+                                                                <input type="hidden" name="active_tab" value="readyShip">
+                                                                <input type="hidden" name="arm_pickup_data" class="arm-pickup-data">
+                                                                
+                                                                <input type="file" 
+                                                                    name="file" 
+                                                                    id="uploadFile_{{ fleet_group.fleet_number }}_{{ forloop.parentloop.counter0 }}_{{ forloop.counter0 }}" 
+                                                                    class="file-input" 
+                                                                    onchange="this.closest('form').submit()"
+                                                                    accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.xls,.xlsx">
+                                                                
+                                                                <button type="button" class="upload-btn" 
+                                                                        onclick="prepareUpload('{{ fleet_group.fleet_number }}', this)" style="vertical-align: middle;">
+                                                                    <i class="fas fa-upload"></i>
+                                                                    上传文件
+                                                                </button>
+                                                            </form>
+                                                        </div>
+                                                    {% else %}
+                                                        <div style="margin-top: 5px;">
+                                                            <form method="post" action="" class="notify-customer-form" style="display: inline-block;">
+                                                                {% csrf_token %}
+                                                                <input type="hidden" name="fleet_number" value="{{ fleet_group.fleet_number }}">                                        
+                                                                <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                                                                <input type="hidden" name="step" value="export_ltl_label">
+                                                                <input type="hidden" name="active_tab" value="readyShip"> 
+                                                                <input type="hidden" name="arm_pickup_data" class="arm-pickup-data">
+                                                                <button class="action-btn" style="
+                                                                    background: linear-gradient(135deg, #28a745, #1e7e34);
+                                                                    border: none;
+                                                                    color: white;
+                                                                    padding: 6px 12px;
+                                                                    border-radius: 6px;
+                                                                    font-size: 0.8rem;
+                                                                    cursor: pointer;
+                                                                    transition: all 0.3s ease;
+                                                                    box-shadow: 0 2px 4px rgba(40, 167, 69, 0.3);
+                                                                    display: flex;
+                                                                    align-items: center;
+                                                                    gap: 5px;
+                                                                ">
+                                                                    <i class="fas fa-file-word" style="font-size: 0.9rem; color: white;"></i>
+                                                                    LABEL下载
+                                                                </button>
+                                                            </form>
+                                                        <div style="margin-top: 5px;">
+                                                            <form method="post" action="" class="notify-customer-form" style="display: inline-block;">
+                                                                {% csrf_token %}
+                                                                <input type="hidden" name="fleet_number" value="{{ fleet_group.fleet_number }}">                                  
+                                                                <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                                                                <input type="hidden" name="step" value="export_ltl_bol">
+                                                                <input type="hidden" name="active_tab" value="readyShip"> 
+                                                                <input type="hidden" name="arm_pickup_data" class="arm-pickup-data">
+                                                                <button class="action-btn" style="
+                                                                    background: linear-gradient(135deg, #3498db, #2980b9);
+                                                                    border: none;
+                                                                    color: white;
+                                                                    padding: 6px 12px;
+                                                                    border-radius: 6px;
+                                                                    font-size: 0.8rem;
+                                                                    cursor: pointer;
+                                                                    transition: all 0.3s ease;
+                                                                    box-shadow: 0 2px 4px rgba(52, 152, 219, 0.3);
+                                                                    display: flex;
+                                                                    align-items: center;
+                                                                    gap: 5px;
+                                                                ">
+                                                                    <i class="fas fa-file-word" style="font-size: 0.9rem;"></i>
+                                                                    BOL下载
+                                                                </button>
+                                                            </form>
+                                                        </div>
+                                                    {% endif %}
+                                                </td>
                                             {% endif %}
-                                            <td>
-                                                {% if fleet_group.fleet_type == '客户自提' %}
-                                                    <div style="margin-top: 5px;">
-                                                        <form method="post" action="" enctype="multipart/form-data" class="upload-form" style="display: inline-block;">
-                                                            {% csrf_token %}
-                                                            <input type="hidden" name="fleet_number" value="{{ fleet_group.fleet_number }}">
-                                                            <input type="hidden" name="warehouse" value="{{ warehouse }}">
-                                                            <input type="hidden" name="step" value="upload_self_pickup_file">
-                                                            <input type="hidden" name="active_tab" value="readyShip">
-                                                            <input type="hidden" name="arm_pickup_data" class="arm-pickup-data">
-                                                            
-                                                            <input type="file" 
-                                                                name="file" 
-                                                                id="uploadFile_{{ fleet_group.fleet_number }}_{{ forloop.parentloop.counter0 }}_{{ forloop.counter0 }}" 
-                                                                class="file-input" 
-                                                                onchange="this.closest('form').submit()"
-                                                                accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.xls,.xlsx">
-                                                            
-                                                            <button type="button" class="upload-btn" 
-                                                                    onclick="prepareUpload('{{ fleet_group.fleet_number }}', this)">
-                                                                <i class="fas fa-upload"></i>
-                                                                上传文件
-                                                            </button>
-                                                        </form>
-                                                    </div>
-                                                {% else %}
-                                                    <div style="margin-top: 5px;">
-                                                        <form method="post" action="" class="notify-customer-form" style="display: inline-block;">
-                                                            {% csrf_token %}
-                                                            <input type="hidden" name="fleet_number" value="{{ fleet_group.fleet_number }}">                                        
-                                                            <input type="hidden" name="warehouse" value="{{ warehouse }}">
-                                                            <input type="hidden" name="step" value="export_ltl_label">
-                                                            <input type="hidden" name="active_tab" value="readyShip"> 
-                                                            <input type="hidden" name="arm_pickup_data" class="arm-pickup-data">
-                                                            <button class="action-btn" style="
-                                                                background: linear-gradient(135deg, #28a745, #1e7e34);
-                                                                border: none;
-                                                                color: white;
-                                                                padding: 6px 12px;
-                                                                border-radius: 6px;
-                                                                font-size: 0.8rem;
-                                                                cursor: pointer;
-                                                                transition: all 0.3s ease;
-                                                                box-shadow: 0 2px 4px rgba(40, 167, 69, 0.3);
-                                                                display: flex;
-                                                                align-items: center;
-                                                                gap: 5px;
-                                                            ">
-                                                                <i class="fas fa-file-word" style="font-size: 0.9rem; color: white;"></i>
-                                                                LABEL下载
-                                                            </button>
-                                                        </form>
-                                                    <div style="margin-top: 5px;">
-                                                        <form method="post" action="" class="notify-customer-form" style="display: inline-block;">
-                                                            {% csrf_token %}
-                                                            <input type="hidden" name="fleet_number" value="{{ fleet_group.fleet_number }}">                                  
-                                                            <input type="hidden" name="warehouse" value="{{ warehouse }}">
-                                                            <input type="hidden" name="step" value="export_ltl_bol">
-                                                            <input type="hidden" name="active_tab" value="readyShip"> 
-                                                            <input type="hidden" name="arm_pickup_data" class="arm-pickup-data">
-                                                            <button class="action-btn" style="
-                                                                background: linear-gradient(135deg, #3498db, #2980b9);
-                                                                border: none;
-                                                                color: white;
-                                                                padding: 6px 12px;
-                                                                border-radius: 6px;
-                                                                font-size: 0.8rem;
-                                                                cursor: pointer;
-                                                                transition: all 0.3s ease;
-                                                                box-shadow: 0 2px 4px rgba(52, 152, 219, 0.3);
-                                                                display: flex;
-                                                                align-items: center;
-                                                                gap: 5px;
-                                                            ">
-                                                                <i class="fas fa-file-word" style="font-size: 0.9rem;"></i>
-                                                                BOL下载
-                                                            </button>
-                                                        </form>
-                                                    </div>
-                                                {% endif %}
-                                                
-                                            </td>
                                         </tr>
                                     {% endfor %}
                                 {% endif %}
