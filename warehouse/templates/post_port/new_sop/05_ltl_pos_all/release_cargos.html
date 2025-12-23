@@ -213,6 +213,16 @@
         <button class="action-btn btn-secondary" onclick="clearAllFilters()">
             <i class="fas fa-times"></i> 清空筛选
         </button>
+
+        <div class="filter-notice" style="font-size: 14px; padding: 8px 12px;">
+            <i class="fas fa-filter"></i> 
+            当前显示 <strong>{{ warehouse_name }}</strong> 入库仓库的货物，筛选条件：
+            <strong>未预约出库</strong>、
+            <strong>未打板</strong>、
+            <strong><u>私仓</u></strong>、
+            <strong>柜子未取消</strong>、
+            <strong>柜子非直送</strong>
+        </div>
     </div>
 
     <!-- 数据表格 -->

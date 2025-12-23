@@ -5386,7 +5386,6 @@ class PostNsop(View):
         #     shipment_batch_number__shipment_batch_number__isnull=True,
         #     container_number__order__offload_id__offload_at__isnull=True,
         #     container_number__order__retrieval_id__retrieval_destination_area=warehouse_name,
-        #     container_number__is_abnormal_state=False,
         #     delivery_type="other"
         # )
         pl_criteria = Q()
@@ -5400,18 +5399,23 @@ class PostNsop(View):
         release_cargos = await self._ltl_unscheduled_cargo(pl_criteria, plt_criteria)
 
         # 已放行-客提
-        selfpick_cargos = await self._ltl_scheduled_self_pickup(pl_criteria, plt_criteria)
+        #selfpick_cargos = await self._ltl_scheduled_self_pickup(pl_criteria, plt_criteria)
         # 已放行-自发
-        selfdel_cargos = await self._ltl_self_delivery(pl_criteria, plt_criteria)
+        #selfdel_cargos = await self._ltl_self_delivery(pl_criteria, plt_criteria)
 
         #待出库
-        ready_to_ship_data = await self._ltl_ready_to_ship_data(warehouse,request.user)
+        #ready_to_ship_data = await self._ltl_ready_to_ship_data(warehouse,request.user)
         # 待送达
-        delivery_data_raw = await self._fl_delivery_get(warehouse, None, 'ltl')
-        delivery_data = delivery_data_raw['shipments']
-        #待传POD
-        pod_data_raw = await self._fl_pod_get(warehouse, None, 'ltl')
-        pod_data = pod_data_raw['fleet']
+        # delivery_data_raw = await self._fl_delivery_get(warehouse, None, 'ltl')
+        # delivery_data = delivery_data_raw['shipments']
+        # #待传POD
+        # pod_data_raw = await self._fl_pod_get(warehouse, None, 'ltl')
+        # pod_data = pod_data_raw['fleet']
+        selfpick_cargos = []
+        selfdel_cargos = []
+        ready_to_ship_data = []
+        delivery_data = []
+        pod_data = []
         summary = {
             'release_count': len(release_cargos),
             'selfpick_count': len(selfpick_cargos),
@@ -5437,6 +5441,7 @@ class PostNsop(View):
             'shipment_type_options': self.shipment_type_options,
             "carrier_options": self.carrier_options,
             "abnormal_fleet_options": self.abnormal_fleet_options,
+            "warehouse_name": warehouse_name,
         })
         active_tab = request.POST.get('active_tab')
         if active_tab:
