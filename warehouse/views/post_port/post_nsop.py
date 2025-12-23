@@ -5400,7 +5400,6 @@ class PostNsop(View):
         selfpick_cargos = await self._ltl_scheduled_self_pickup(pl_criteria, plt_criteria)
         # 已放行-自发
         selfdel_cargos = await self._ltl_self_delivery(pl_criteria, plt_criteria)
-        print('selfdel_cargos',selfdel_cargos)
         #待出库
         ready_to_ship_data = await self._ltl_ready_to_ship_data(warehouse,request.user)
         # 待送达
