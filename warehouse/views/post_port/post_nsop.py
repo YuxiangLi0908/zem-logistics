@@ -4490,7 +4490,7 @@ class PostNsop(View):
         pl_criteria: models.Q | None = None,
         plt_criteria: models.Q | None = None,
     ) -> list[Any]:
-        # pl_criteria &= models.Q(container_number__order__cancel_notification=False)& ~models.Q(container_number__order__order_type='直送')
+        pl_criteria &= models.Q(container_number__order__cancel_notification=False)& ~models.Q(container_number__order__order_type='直送')
         plt_criteria &= models.Q(container_number__order__cancel_notification=False)& ~models.Q(container_number__order__order_type='直送')
         
         data = []
@@ -5382,13 +5382,13 @@ class PostNsop(View):
             context.update({'error_messages':"没选仓库！"})
             return self.template_unscheduled_pos_all, context
         
-        # pl_criteria = Q(
-        #     shipment_batch_number__shipment_batch_number__isnull=True,
-        #     container_number__order__offload_id__offload_at__isnull=True,
-        #     container_number__order__retrieval_id__retrieval_destination_area=warehouse_name,
-        #     delivery_type="other"
-        # )
-        pl_criteria = Q()
+        pl_criteria = Q(
+            shipment_batch_number__shipment_batch_number__isnull=True,
+            container_number__order__offload_id__offload_at__isnull=True,
+            container_number__order__retrieval_id__retrieval_destination_area=warehouse_name,
+            delivery_type="other"
+        )
+        #pl_criteria = Q()
         plt_criteria = Q(
             location=warehouse,
             shipment_batch_number__shipment_batch_number__isnull=True,
