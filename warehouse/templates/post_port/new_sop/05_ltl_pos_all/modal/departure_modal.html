@@ -1,6 +1,13 @@
 <!--确认出库的弹框-->
 <!-- 样式部分保持不变，只需要修改表格结构 -->
 
+<style>
+    .modal-body {
+        padding: 30px;
+        max-height: calc(100vh - 200px);
+        overflow-y: auto;
+    }
+</style>
 <div id="confirmDepartureModal" class="modal">
     <div class="modal-content" style="width: 95%; max-width: 1200px; max-height: 700px;">
         <div class="modal-header">
@@ -16,7 +23,7 @@
                 <input type="hidden" name="debug_info" id="debugInfo">
                 <input type="hidden" name="scheduled_pallet" id="formScheduledPallet">
                 <input type="hidden" name="actual_shipped_pallet" id="formActualShippedPallet">
-                <input type="hidden" name="page" value="arm_appointment">
+                <input type="hidden" name="page" value="ltl_readyShip">
                 <input type="hidden" name="active_tab" value="readyShip">
                 <input type="hidden" name="plt_ids" id="formPltIds">
                 <div id="cargoDataContainer" style="display: none;"></div>
@@ -26,7 +33,8 @@
                     <label style="font-weight: bold; margin-right: 15px;">
                         <i class="fas fa-calendar-alt"></i> 出库时间:
                     </label>
-                    <input type="datetime-local" name="departured_at" id="departuredAt" class="form-input" required>
+                    <input type="datetime-local" name="departured_at" id="departuredAt" class="form-input" 
+                        style="width: 250px; min-width: 250px;" required>
                 </div>
 
                 <!-- 货物信息表格 -->
@@ -216,7 +224,83 @@ function openDepartureModal(fleetNumber, fleetData) {
     modal.style.display = 'block';
     updateTotalsAndWarning();
 }
+function updateTotalsAndWarning() {
+    const tbody = document.getElementById('departureCargoBody');
+    const totalScheduledElem = document.getElementById('totalScheduledPallets');
+    const totalActualElem = document.getElementById('totalActualPallets');
+    const estWarning = document.getElementById('estWarning');
+    if (!tbody) return;
 
+    let tp = 0;
+    let ta = 0;
+    let anyUnplated = false;   // pltId 为空且 cargoId 有值 -> “未打板”
+    let anyUnfilledLocal = false; // 实际 < 计划
+    let anyAnomaly = false;    // 双ID 或 无ID
+
+    Array.from(tbody.children).forEach((tr, rowIndex) => {
+        const plannedNum = parseFloat(tr.dataset.planned || 0) || 0;
+        const input = tr.querySelector('input[type="number"]');
+        const actualNum = input ? (parseFloat(input.value || 0) || 0) : 0;
+
+        // 累加
+        tp += plannedNum;
+        ta += actualNum;
+
+        // 未打板判断：pltId 为空且 cargoId 有值
+        const hasPltLocal = Boolean((tr.dataset.pltId || '').trim());
+        const hasCargoIdLocal = Boolean((tr.dataset.cargoId || '').trim());
+        if (!hasPltLocal && hasCargoIdLocal) anyUnplated = true;
+
+        // 实际小于计划 => 未满
+        if (actualNum > plannedNum) anyUnfilledLocal = true;
+
+        // 异常判断：同时有 pltId 和 cargoId（双ID） 或 两者都没有（无ID）
+        if ((hasPltLocal && hasCargoIdLocal) || (!hasPltLocal && !hasCargoIdLocal)) {
+            anyAnomaly = true;
+        }
+
+        // 重新计算状态文字（保持原逻辑，但用本地判断）
+        const statusTd = tr.children[tr.children.length - 1];
+        if (statusTd) {
+            let newStatus = '';
+            if (hasPltLocal && !hasCargoIdLocal) newStatus = '已打板';
+            else if (!hasPltLocal && hasCargoIdLocal) newStatus = '未打板';
+            else if (hasPltLocal && hasCargoIdLocal) { newStatus = '异常（双ID）'; }
+            else { newStatus = '异常（无ID）'; }
+            statusTd.textContent = newStatus;
+
+            // 更新类名（清理旧类后加新类）
+            statusTd.classList.remove('status-ok','status-warning','status-error');
+            if (newStatus === '已打板') statusTd.classList.add('status-ok');
+            else if (newStatus === '未打板') statusTd.classList.add('status-warning');
+            else statusTd.classList.add('status-error');
+        }
+    });
+
+    if (totalScheduledElem) totalScheduledElem.textContent = tp;
+    if (totalActualElem) totalActualElem.textContent = ta;
+
+    // 提示区逻辑：优先显示异常 ID 配置；否则显示“未打板”提示；若都没有则隐藏
+    if (estWarning) {
+        if (anyAnomaly) {
+            estWarning.style.display = 'block';
+            estWarning.textContent = '存在异常 ID 配置（双ID或无ID），请核实！';
+        } else if (anyUnplated) {
+            estWarning.style.display = 'block';
+            estWarning.textContent = '存在未打板货物（pltId 为空且 cargoId 有值），请核实！';
+        } else {
+            // 如果仅仅是实际小于计划（未满）但没有未打板，按照你原需求，这种不一定阻止提交，
+            // 这里我们仍显示提示（原行为）但文案更明确；如果不想显示，可把下面两行删掉。
+            if (anyUnfilledLocal) {
+                estWarning.style.display = 'block';
+                estWarning.textContent = '实际出库大于计划的记录，请确认。';
+            } else {
+                estWarning.style.display = 'none';
+                estWarning.textContent = '';
+            }
+        }
+    }
+}
 // ... 其他JavaScript函数保持不变，但需要修改submitFleetDepartureSimple函数中的列索引 ...
 function submitFleetDepartureSimple() {
     const tbody = document.getElementById('departureCargoBody');
@@ -328,7 +412,6 @@ function submitFleetDepartureSimple() {
         actualInput.value = actualArr.join(',');
         form.appendChild(actualInput);
     }
-
     // 所有校验通过，提交表单
     console.log('提交表单...');
     form.submit();

@@ -6,8 +6,16 @@ import pandas as pd
 import json
 import uuid
 import pytz
+import re
+import base64
 import io
 import zipfile
+import barcode
+from PIL import Image
+from django.template.loader import get_template
+from PyPDF2 import PdfMerger, PdfReader
+from xhtml2pdf import pisa
+from barcode.writer import ImageWriter
 from django.db.models.functions import Ceil
 from django.utils.safestring import mark_safe
 from asgiref.sync import sync_to_async
@@ -57,6 +65,7 @@ from warehouse.models.transfer_location import TransferLocation
 from warehouse.views.post_port.shipment.fleet_management import FleetManagement
 from warehouse.views.post_port.shipment.shipping_management import ShippingManagement
 from warehouse.views.po import PO
+from warehouse.views.export_file import link_callback
 from warehouse.utils.constants import (
     LOAD_TYPE_OPTIONS,
     amazon_fba_locations,
@@ -72,6 +81,11 @@ class PostNsop(View):
     template_unscheduled_pos_all = "post_port/new_sop/01_unscheduled_pos_all/01_unscheduled_main.html"
     template_ltl_pos_all = "post_port/new_sop/05_ltl_pos_all/05_ltl_main.html"
     template_history_shipment = "post_port/new_sop/04_history_shipment/04_history_shipment_main.html"
+    template_bol = "export_file/bol_base_template.html"
+    template_bol_pickup = "export_file/bol_template.html"
+    template_la_bol_pickup = "export_file/LA_bol_template.html"
+    template_ltl_label = "export_file/ltl_label.html"
+    template_ltl_bol = "export_file/ltl_bol.html"
     area_options = {"NJ": "NJ", "SAV": "SAV", "LA": "LA", "MO": "MO", "TX": "TX", "LA": "LA"}
     warehouse_options = {"":"", "NJ-07001": "NJ-07001", "SAV-31326": "SAV-31326", "LA-91761": "LA-91761", "LA-91789": "LA-91789", "LA-91766": "LA-91766",}
     load_type_options = {
@@ -200,6 +214,8 @@ class PostNsop(View):
             page = request.POST.get("page")
             if page == "arm_appointment":
                 template, context = await self.handle_unscheduled_pos_post(request,context)
+            elif page == "ltl_readyShip":
+                template, context = await self.handle_ltl_unscheduled_pos_post(request)
             else:
                 template, context = await self.handle_td_shipment_post(request)
             context.update({"success_messages": '取消批次成功!'})  
@@ -360,8 +376,304 @@ class PostNsop(View):
         elif step == "save_selfdel_cargo":
             template, context = await self.handle_save_selfdel_cargo(request)
             return render(request, template, context) 
+        elif step == "export_ltl_label":
+            return await self.export_ltl_label(request)
+        elif step == "export_ltl_bol":
+            return await self.export_ltl_bol(request)
         else:
             raise ValueError('输入错误',step)
+    
+    async def export_ltl_bol(self, request: HttpRequest) -> HttpResponse:
+        fleet_number = request.POST.get("fleet_number")
+        arm_pickup_data = request.POST.get("arm_pickup_data")
+        print('arm_pickup_data',arm_pickup_data)
+        warehouse = request.POST.get("warehouse")
+        contact_flag = False  # 表示地址栏空出来，客服手动P上去
+        contact = {}
+
+        if arm_pickup_data and arm_pickup_data != "[]":
+            arm_pickup_data = json.loads(arm_pickup_data)
+            arm_pickup = [
+                [
+                    "container_number__container_number",
+                    "destination",
+                    "shipping_mark",
+                    "shipment_batch_number__ARM_PRO",
+                    "total_pallet",
+                    "total_pcs",
+                    "shipment_batch_number__fleet_number__carrier",
+                    "shipment_batch_number__note",
+                ]
+            ]
+            for row in arm_pickup_data:
+                address = row.get("address", "")
+                if address:
+                    contact_flag = True
+                    address = re.sub("[\u4e00-\u9fff]", " ", address)
+                    address = re.sub(r"\uFF0C", ",", address)
+                    parts = [p.strip() for p in address.split(";")]
+                    
+                    contact = {
+                        "company": parts[0] if len(parts) > 0 else "",
+                        "road":    parts[1] if len(parts) > 1 else "",
+                        "city":    parts[2] if len(parts) > 2 else "",
+                        "name":    parts[3] if len(parts) > 3 else "",
+                        "phone":   parts[4] if len(parts) > 4 else "",
+                    }
+                slot = row.get("slot", "").strip()
+                arm_pickup.append(
+                    [
+                        row.get("container_number__container_number", "").strip(),
+                        row.get("destination", "").strip(),
+                        row.get("shipping_mark", "").strip(),
+                        row.get("shipment_batch_number__ARM_PRO", "").strip(),
+                        int(row.get("total_pallet", "").strip()),
+                        int(row.get("total_pcs", "").strip()),
+                        row.get("shipment_batch_number__fleet_number__carrier", "").strip(),
+                        row.get("shipment_batch_number__note", "").strip(),
+                        (
+                            slot
+                            if slot
+                            else ""
+                        ),
+                    ]
+                )
+
+            keys = arm_pickup[0]
+            arm_pickup_dict_list = []
+            for row in arm_pickup[1:]:
+                row_dict = dict(zip(keys, row))
+                arm_pickup_dict_list.append(row_dict)
+            arm_pickup = arm_pickup_dict_list
+        else:  # 没有就从数据库查
+            arm_pickup = await sync_to_async(list)(
+                Pallet.objects.select_related(
+                    "container_number__container_number",
+                    "shipment_batch_number__fleet_number",
+                )
+                .filter(shipment_batch_number__fleet_number__fleet_number=fleet_number)
+                .values(
+                    "container_number__container_number",
+                    "shipment_batch_number__shipment_appointment",
+                    "shipment_batch_number__ARM_PRO",
+                    "shipment_batch_number__fleet_number__carrier",
+                    "shipment_batch_number__fleet_number__appointment_datetime",
+                    "shipment_batch_number__fleet_number__fleet_type",
+                    "destination",
+                    "shipping_mark",
+                    "shipment_batch_number__note",
+                    "slot",
+                )
+                .annotate(
+                    total_pcs=Sum("pcs"),
+                    total_pallet=Count("pallet_id", distinct=True),
+                    total_weight=Sum("weight_lbs"),
+                    total_cbm=Sum("cbm"),
+                )
+            )
+
+        fleet = await sync_to_async(Fleet.objects.get)(fleet_number=fleet_number)
+        pickup_time_str = fleet.appointment_datetime
+        pickup_time = pickup_time_str.strftime("%Y-%m-%d")
+        pallet = 0
+        pcs = 0
+        shipping_mark = ""
+        notes = set()
+        for arm in arm_pickup:
+            arm_pro = arm["shipment_batch_number__ARM_PRO"]
+            carrier = arm["shipment_batch_number__fleet_number__carrier"]
+            pallet += arm["total_pallet"]
+            pcs += int(arm["total_pcs"])
+            container_number = arm["container_number__container_number"]
+            destination = arm["destination"]
+            shipping_mark += arm["shipping_mark"]
+            notes.add(arm["shipment_batch_number__note"])
+            marks = arm["shipping_mark"]
+            if marks:
+                array = marks.split(",")
+                if len(array) > 1:
+                    parts = []
+                    for i in range(0, len(array)):
+                        part = ",".join(array[i : i + 1])
+                        parts.append(part)
+                    new_marks = "\n".join(parts)
+                else:
+                    new_marks = marks
+            arm["shipping_mark"] = new_marks
+        notes_str = "<br>".join(filter(None, notes))
+        # 生成条形码
+
+        barcode_type = "code128"
+        barcode_class = barcode.get_barcode_class(barcode_type)
+        if arm_pro == "" or arm_pro == "None" or arm_pro == None:
+            barcode_content = f"{container_number}|{destination}"
+        else:
+            barcode_content = f"{arm_pro}"
+        my_barcode = barcode_class(
+            barcode_content, writer=ImageWriter()
+        )  # 将条形码转换为图像形式
+        buffer = io.BytesIO()  # 创建缓冲区
+        my_barcode.write(buffer, options={"dpi": 600})  # 缓冲区存储图像
+        buffer.seek(0)
+        image = Image.open(buffer)
+        width, height = image.size
+        new_height = int(height * 0.7)
+        cropped_image = image.crop((0, 0, width, new_height))
+        new_buffer = io.BytesIO()
+        cropped_image.save(new_buffer, format="PNG")
+
+        barcode_base64 = base64.b64encode(new_buffer.getvalue()).decode("utf-8")
+        # 增加一个拣货单的表格
+        context = {
+            "warehouse": warehouse,
+            "arm_pro": arm_pro,
+            "carrier": carrier,
+            "pallet": pallet,
+            "pcs": pcs,
+            "barcode": barcode_base64,
+            "arm_pickup": arm_pickup,
+            "contact": contact,
+            "contact_flag": contact_flag,
+            "pickup_time": pickup_time,
+            "notes": notes_str,
+        }
+        template = get_template(self.template_ltl_bol)
+        html = template.render(context)
+        response = HttpResponse(content_type="application/pdf")
+        def sanitize_filename(value: str) -> str:
+            """清理文件名中的换行和非法字符"""
+            if not value:
+                return ""
+            # 去掉换行符
+            value = value.replace("\n", "_").replace("\r", "_")
+            # 替换 Windows 不允许的字符
+            value = re.sub(r'[\\/:*?"<>|]+', "_", value)
+            # 防止文件名太长
+            return value[:100]
+        safe_shipping_mark = sanitize_filename(shipping_mark)
+        safe_destination = sanitize_filename(destination)
+        response["Content-Disposition"] = (
+            f'attachment; filename="{container_number}+{safe_destination}+{safe_shipping_mark}+BOL.pdf"'
+        )
+        pisa_status = pisa.CreatePDF(html, dest=response, link_callback=link_callback)
+        if pisa_status.err:
+            raise ValueError(
+                "Error during PDF generation: %s" % pisa_status.err,
+                content_type="text/plain",
+            )
+        return response
+    
+    async def export_ltl_label(self, request: HttpRequest) -> HttpResponse:
+        '''新功能LTL的LABEL文件下载'''
+        fleet_number = request.POST.get("fleet_number")
+        arm_pickup_data = request.POST.get("arm_pickup_data")
+        contact_flag = False  # 表示地址栏空出来，客服手动P上去
+        contact = ""
+        if arm_pickup_data and arm_pickup_data != "[]":
+            arm_pickup_data = json.loads(arm_pickup_data)
+            for row in arm_pickup_data:
+                address = row.get("address", "")
+                if address:
+                    contact_flag = True
+                    address = re.sub("[\u4e00-\u9fff]", " ", address)
+                    address = re.sub(r"\uFF0C", ",", address)
+                    parts = [p.strip() for p in address.split(";")]
+                    
+                    contact = {
+                        "company": parts[0] if len(parts) > 0 else "",
+                        "road":    parts[1] if len(parts) > 1 else "",
+                        "city":    parts[2] if len(parts) > 2 else "",
+                        "name":    parts[3] if len(parts) > 3 else "",
+                        "phone":   parts[4] if len(parts) > 4 else "",
+                    }
+        
+        arm_pickup = await sync_to_async(list)(
+            Pallet.objects.select_related(
+                "container_number__container_number",
+                "shipment_batch_number__fleet_number",
+            )
+            .filter(shipment_batch_number__fleet_number__fleet_number=fleet_number)
+            .values(
+                "container_number__container_number",
+                "shipment_batch_number__shipment_appointment",
+                "shipment_batch_number__ARM_PRO",
+                "shipment_batch_number__fleet_number__carrier",
+                "shipment_batch_number__fleet_number__appointment_datetime",
+                "destination",
+                "shipping_mark",
+            )
+            .annotate(
+                total_pcs=Sum("pcs"),
+                total_pallet=Count("pallet_id", distinct=True),
+                total_weight=Sum("weight_lbs"),
+                total_cbm=Sum("cbm"),
+            )
+        )
+        if not arm_pickup:
+            raise ValueError('该车次下未查到板子记录！')
+        pallets = 0
+        for arm in arm_pickup:
+            if not arm["shipment_batch_number__shipment_appointment"]:
+                raise ValueError(f'{fleet_number}的约没有时间!')
+            arm_pro = arm["shipment_batch_number__ARM_PRO"]
+            carrier = arm["shipment_batch_number__fleet_number__carrier"]
+            pickup_time = arm["shipment_batch_number__shipment_appointment"]
+            container_number = arm["container_number__container_number"]
+            destination = arm["destination"]
+            shipping_mark = arm["shipping_mark"]
+            pallets += arm["total_pallet"]
+        pickup_time_str = str(pickup_time)
+        date_str = datetime.strptime(pickup_time_str[:19], "%Y-%m-%d %H:%M:%S")
+        pickup_time = date_str.strftime("%Y-%m-%d")
+
+        # 生成条形码
+        barcode_type = "code128"
+        barcode_class = barcode.get_barcode_class(barcode_type)
+        if arm_pro == "" or arm_pro == "None" or arm_pro == None:
+            barcode_content = f"{container_number}|{shipping_mark}"
+        else:
+            barcode_content = f"{arm_pro}"
+        my_barcode = barcode_class(
+            barcode_content, writer=ImageWriter()
+        )  # 将条形码转换为图像形式
+        buffer = io.BytesIO()  # 创建缓冲区
+        my_barcode.write(buffer, options={"dpi": 600})  # 缓冲区存储图像
+        buffer.seek(0)
+        image = Image.open(buffer)
+        width, height = image.size
+        new_height = int(height * 0.7)
+        cropped_image = image.crop((0, 0, width, new_height))
+        new_buffer = io.BytesIO()
+        cropped_image.save(new_buffer, format="PNG")
+
+        barcode_base64 = base64.b64encode(new_buffer.getvalue()).decode("utf-8")
+        data = [
+            {
+                "warehouse": request.POST.get("warehouse"),
+                "arm_pro": arm_pro,
+                "barcode": barcode_base64,
+                "carrier": carrier,
+                "contact": contact,
+                "contact_flag": contact_flag,
+                "fraction": f"{i + 1}/{pallets}",
+            }
+            for i in range(pallets)
+        ]
+        context = {"data": data}
+        template = get_template(self.template_ltl_label)
+        html = template.render(context)
+        response = HttpResponse(content_type="application/pdf")
+        response["Content-Disposition"] = (
+            f'attachment; filename="{pickup_time}+{container_number}+{destination}+{shipping_mark}+LABEL.pdf"'
+        )
+        pisa_status = pisa.CreatePDF(html, dest=response, link_callback=link_callback)
+        if pisa_status.err:
+            raise ValueError(
+                "Error during PDF generation: %s" % pisa_status.err,
+                content_type="text/plain",
+            )
+        return response
+
     
     async def handle_bol_fleet_post(self, request: HttpRequest) -> HttpResponse:
         #准备参数
@@ -764,6 +1076,18 @@ class PostNsop(View):
                 )
             except ValueError:
                 raise ValueError("⚠️ batch_number 转换为 int 出错，原始值:", raw_value)
+        else:
+            #LTL那边确认出库时，没有batch_number
+            raw_plt_ids = request.POST.get("plt_ids")
+            plt_ids_int = [int(x) for x in raw_plt_ids.split(",") if x.strip()]
+            batch_numbers = await sync_to_async(
+                lambda: list(
+                    Pallet.objects
+                    .filter(id__in=plt_ids_int, shipment_batch_number__isnull=False)
+                    .values_list('shipment_batch_number__shipment_batch_number', flat=True)
+                    .distinct()
+                )
+            )()
 
         request.POST = request.POST.copy()
         request.POST.setlist('batch_number', batch_numbers)
@@ -773,6 +1097,8 @@ class PostNsop(View):
         page = request.POST.get("page")
         if page == "arm_appointment":
             return await self.handle_unscheduled_pos_post(request,context)
+        elif page == "ltl_readyShip":
+            return await self.handle_ltl_unscheduled_pos_post(request)       
         else:
             return await self.handle_fleet_schedule_post(request,context)         
     
@@ -3970,7 +4296,7 @@ class PostNsop(View):
                 'shipments': {},  # 改回字典结构，保持与前端兼容
                 'pl_ids': [],
                 'plt_ids': [],
-                'total_cargos': 0  # 总货物行数
+                'total_cargos': 0,  # 总货物行数
             }
             
             shipments = await sync_to_async(list)(
@@ -4187,6 +4513,12 @@ class PostNsop(View):
                         F("weight_lbs") * 0.453592,
                         output_field=FloatField()
                     ),
+                    offload_at=Func(
+                        F("container_number__order__offload_id__offload_at"),
+                        Value("MM-DD"),
+                        function="to_char",
+                        output_field=CharField(),
+                    )
                 )
                 .values(
                     "destination",
@@ -4212,12 +4544,12 @@ class PostNsop(View):
                     "est_pickup_time",
                     "ltl_cost",
                     "ltl_quote",
+                    "offload_at",
                     warehouse=F("container_number__order__retrieval_id__retrieval_destination_precise"),
                     retrieval_destination_precise=F("container_number__order__retrieval_id__retrieval_destination_precise"),
                     customer_name=F("container_number__order__customer_name__zem_name"),
                     vessel_name=F("container_number__order__vessel_id__vessel"),
-                    vessel_eta=F("container_number__order__vessel_id__vessel_eta"),
-                    offload_at=F("container_number__order__offload_id__offload_at"),
+                    vessel_eta=F("container_number__order__vessel_id__vessel_eta"),                   
                 )
                 .annotate(
                     # 分组依据：destination + shipping_mark
@@ -4353,10 +4685,47 @@ class PostNsop(View):
                     is_pass=F("is_pass"),
                     customer_name=F("container_number__order__customer_name__zem_name"),
                     vessel_name=F("container_number__order__vessel_id__vessel"),
-                    offload_at=F("container_number__order__offload_id__offload_at"),
                     actual_retrieval_time=F("container_number__order__retrieval_id__actual_retrieval_timestamp"),
                     arm_time=F("container_number__order__retrieval_id__generous_and_wide_target_retrieval_timestamp"),
                     estimated_time=F("container_number__order__retrieval_id__target_retrieval_timestamp"),
+                    offload_at=Case(
+                        When(
+                            container_number__order__retrieval_id__actual_retrieval_timestamp__isnull=False,
+                            then=Func(
+                                F("container_number__order__retrieval_id__actual_retrieval_timestamp"),
+                                Value("MM-DD"),
+                                function="to_char",
+                                output_field=CharField(),
+                            )
+                        ),
+                        When(
+                            container_number__order__retrieval_id__target_retrieval_timestamp__isnull=False,
+                            then=Func(
+                                F("container_number__order__retrieval_id__target_retrieval_timestamp"),
+                                Value("MM-DD"),
+                                function="to_char",
+                                output_field=CharField(),
+                            )
+                        ),
+                        default=Func(
+                            F("container_number__order__vessel_id__vessel_eta"),
+                            Value("MM-DD"),
+                            function="to_char",
+                            output_field=CharField(),
+                        ),
+                        output_field=CharField(),
+                    ),
+                    offload_tag=Case(
+                        When(
+                            container_number__order__retrieval_id__actual_retrieval_timestamp__isnull=False,
+                            then=Value("实际")
+                        ),
+                        When(
+                            container_number__order__retrieval_id__target_retrieval_timestamp__isnull=False,
+                            then=Value("预计")
+                        ),
+                        default=Value("ETA")
+                    )
                 )
                 .annotate(
                     # 分组依据：destination + shipping_mark
@@ -4388,6 +4757,7 @@ class PostNsop(View):
                 .distinct()
                 .order_by("actual_retrieval_time","destination", "shipping_marks")
             )
+
             data += pl_list
         
         return data
@@ -4641,7 +5011,6 @@ class PostNsop(View):
     async def handle_save_selfdel_cargo(
         self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
-        print(request.POST)
         
         cargo_id = request.POST.get('cargo_id')
         # 地址列
@@ -5001,7 +5370,7 @@ class PostNsop(View):
         selfdel_cargos = await self._ltl_self_delivery(pl_criteria, plt_criteria)
 
         #待出库
-        ready_to_ship_data = await self._sp_ready_to_ship_data(warehouse,request.user, None, 'ltl')
+        ready_to_ship_data = await self._ltl_ready_to_ship_data(warehouse,request.user)
         # 待送达
         delivery_data_raw = await self._fl_delivery_get(warehouse, None, 'ltl')
         delivery_data = delivery_data_raw['shipments']
@@ -5038,6 +5407,195 @@ class PostNsop(View):
         if active_tab:
             context.update({'active_tab':active_tab})
         return self.template_ltl_pos_all, context
+    
+    async def _ltl_ready_to_ship_data(self, warehouse: str, user:User) -> list:
+        """获取待出库数据 - 按fleet_number分组"""
+        # 获取指定仓库的未出发且未取消的fleet
+        base_bq = models.Q(
+            origin=warehouse,
+            departured_at__isnull=True,
+            is_canceled=False,
+            fleet_type__in=['LTL', '客户自提']
+        )
+        
+        fleets = await sync_to_async(list)(
+            Fleet.objects.filter(base_bq).prefetch_related(
+                Prefetch(
+                    'shipment',
+                    queryset=Shipment.objects.prefetch_related(
+                        Prefetch(
+                            'packinglist',
+                            queryset=PackingList.objects.select_related('container_number')
+                        ),
+                        Prefetch(
+                            'pallet', 
+                            queryset=Pallet.objects.select_related('packing_list', 'container_number')
+                        )
+                    )
+                )
+            )
+        )
+        
+        grouped_data = []
+        
+        for fleet in fleets:
+            arm_pickup = await self._get_fleet_arm_pickup(fleet)
+            fleet_group = {
+                'fleet_number': fleet.fleet_number,
+                'fleet_type': fleet.fleet_type,
+                'fleet_cost': fleet.fleet_cost or 0,
+                'third_party_address': fleet.third_party_address,
+                'pickup_number': fleet.pickup_number,
+                'motor_carrier_number': fleet.motor_carrier_number,
+                'license_plate': fleet.license_plate,
+                'dot_number': fleet.dot_number,
+                'appointment_datetime': fleet.appointment_datetime,
+                'carrier': fleet.carrier,
+                'is_virtual': fleet.is_virtual,
+                'shipments': {},  # 改回字典结构，保持与前端兼容
+                'pl_ids': [],
+                'plt_ids': [],
+                'total_cargos': 0,  # 总货物行数
+                'arm_pickup':arm_pickup,
+            }
+            
+            shipments = await sync_to_async(list)(
+                Shipment.objects.filter(fleet_number__fleet_number=fleet.fleet_number)
+            )
+            
+            for shipment in shipments:
+                if not shipment.shipment_batch_number:
+                    continue
+
+                batch_number = shipment.shipment_batch_number
+                
+                # 初始化shipment数据
+                if batch_number not in fleet_group['shipments']:
+                    fleet_group['shipments'][batch_number] = {
+                        'shipment_batch_number': shipment.shipment_batch_number or '-',
+                        'appointment_id': shipment.appointment_id or '-',
+                        'destination': shipment.destination or '-',
+                        'shipment_appointment': shipment.shipment_appointment,
+                        'cargos': []
+                    }
+                
+                # 处理packinglists
+                raw_data = await self._get_packing_list(
+                    user,
+                    models.Q(
+                        shipment_batch_number__shipment_batch_number=batch_number,
+                        container_number__order__offload_id__offload_at__isnull=True,
+                    ),
+                    models.Q(
+                        shipment_batch_number__shipment_batch_number=batch_number,
+                        container_number__order__offload_id__offload_at__isnull=False,
+                    ),
+                )
+                fleet_group['shipments'][batch_number]['cargos'].extend(raw_data)
+            
+            # 排序 shipments，cargos 为空的放后面
+            fleet_group['shipments'] = dict(
+                sorted(
+                    fleet_group['shipments'].items(),
+                    key=lambda item: not item[1]['cargos']
+                )
+            )
+            fleet_group['total_cargos'] = sum(
+                len(s['cargos']) if s['cargos'] else 1
+                for s in fleet_group['shipments'].values()
+            )
+            # 只有有数据的fleet才返回
+            #if fleet_group['shipments']:
+            grouped_data.append(fleet_group)
+        # 按 appointment_datetime 排序，时间早的排在前面
+        grouped_data.sort(
+            key=lambda x: (
+                x['appointment_datetime'].replace(tzinfo=None)
+                if x['appointment_datetime'] else datetime.max
+            )
+        )
+        return grouped_data
+    
+    async def _get_fleet_arm_pickup(self, fleet:Fleet):
+        arm_pickup = await sync_to_async(list)(
+            Pallet.objects.select_related(
+                "container_number__container_number",
+                "shipment_batch_number__fleet_number",
+            )
+            .filter(
+                shipment_batch_number__fleet_number=fleet
+            )
+            .values(
+                "container_number__container_number",
+                "zipcode",
+                "shipping_mark",
+                "destination",
+                "shipment_batch_number__ARM_BOL",
+                "shipment_batch_number__ARM_PRO",
+                "shipment_batch_number__fleet_number__carrier",
+                "shipment_batch_number__fleet_number__appointment_datetime",
+                "address",
+                "slot",
+                "shipment_batch_number__note",
+            )
+            .annotate(
+                total_pcs=Sum("pcs"),
+                total_pallet=Count("pallet_id", distinct=True),
+                total_weight=Sum("weight_lbs"),
+                total_cbm=Sum("cbm"),
+            )
+        )
+        for arm in arm_pickup:
+            marks = arm["shipping_mark"]
+            if marks:
+                array = marks.split(",")
+                if len(array) > 2:
+                    parts = []
+                    for i in range(0, len(array), 2):
+                        part = ",".join(array[i : i + 2])
+                        parts.append(part)
+                    new_marks = "\n".join(parts)
+                else:
+                    new_marks = marks
+                arm["shipping_mark"] = new_marks
+            else:
+                arm["shipping_mark"] = ""
+            arm["address_parts"] = {
+                "company": "",
+                "road": "",
+                "city": "",
+                "name": "",
+                "phone": ""
+            }
+        arm_json = []
+        for item in arm_pickup:
+            arm_json.append({
+                'container_number': item.get('container_number__container_number', ''),
+                'zipcode': item.get('zipcode', ''),
+                'shipping_mark': item.get('shipping_mark', ''),
+                'destination': item.get('destination', ''),
+                'address': item.get('address', ''),
+                'slot': item.get('slot', ''),
+                'arm_bol': item.get('shipment_batch_number__ARM_BOL', ''),
+                'arm_pro': item.get('shipment_batch_number__ARM_PRO', ''),
+                'carrier': item.get('shipment_batch_number__fleet_number__carrier', ''),
+                'appointment_datetime': (
+                    item.get('shipment_batch_number__fleet_number__appointment_datetime').isoformat()
+                    if item.get('shipment_batch_number__fleet_number__appointment_datetime')
+                    else ''
+                ),
+                'note': item.get('shipment_batch_number__note', ''),
+                'total_pcs': int(item.get('total_pcs', 0)),
+                'total_pallet': int(item.get('total_pallet', 0)),
+                'total_weight': float(item.get('total_weight', 0)),
+                'total_cbm': float(item.get('total_cbm', 0)),
+                'address_parts': dict(item.get('address_parts') or {
+                    'company': '', 'road': '', 'city': '', 'name': '', 'phone': ''
+                })
+            })
+
+        arm_json_str = json.dumps(arm_json, cls=DjangoJSONEncoder)
+        return arm_json_str
     
     async def handle_unscheduled_pos_post(
         self, request: HttpRequest, context: dict| None = None,
