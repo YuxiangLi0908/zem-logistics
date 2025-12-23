@@ -4492,7 +4492,7 @@ class PostNsop(View):
     ) -> list[Any]:
         pl_criteria &= models.Q(container_number__order__cancel_notification=False)& ~models.Q(container_number__order__order_type='直送')
         plt_criteria &= models.Q(container_number__order__cancel_notification=False)& ~models.Q(container_number__order__order_type='直送')
-        print('筛选条件',pl_criteria,plt_criteria)
+        
         data = []
         if plt_criteria:
             pal_list = await sync_to_async(list)(
@@ -4804,7 +4804,6 @@ class PostNsop(View):
         pl_criteria = pl_criteria & ~Q(delivery_method__contains="自提")
         
         plt_criteria = plt_criteria & ~Q(delivery_method__contains="自提")
-        #pl_criteria = models.Q()
         cargos = await self._ltl_packing_list(
             pl_criteria,
             plt_criteria
