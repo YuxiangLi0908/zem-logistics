@@ -5388,7 +5388,6 @@ class PostNsop(View):
             container_number__order__retrieval_id__retrieval_destination_area=warehouse_name,
             delivery_type="other"
         )
-        #pl_criteria = Q()
         plt_criteria = Q(
             location=warehouse,
             shipment_batch_number__shipment_batch_number__isnull=True,
@@ -5399,18 +5398,18 @@ class PostNsop(View):
         release_cargos = await self._ltl_unscheduled_cargo(pl_criteria, plt_criteria)
 
         # 已放行-客提
-        #selfpick_cargos = await self._ltl_scheduled_self_pickup(pl_criteria, plt_criteria)
+        selfpick_cargos = await self._ltl_scheduled_self_pickup(pl_criteria, plt_criteria)
         # 已放行-自发
-        #selfdel_cargos = await self._ltl_self_delivery(pl_criteria, plt_criteria)
+        selfdel_cargos = await self._ltl_self_delivery(pl_criteria, plt_criteria)
 
         #待出库
-        #ready_to_ship_data = await self._ltl_ready_to_ship_data(warehouse,request.user)
+        ready_to_ship_data = await self._ltl_ready_to_ship_data(warehouse,request.user)
         # 待送达
-        # delivery_data_raw = await self._fl_delivery_get(warehouse, None, 'ltl')
-        # delivery_data = delivery_data_raw['shipments']
+        delivery_data_raw = await self._fl_delivery_get(warehouse, None, 'ltl')
+        delivery_data = delivery_data_raw['shipments']
         # #待传POD
-        # pod_data_raw = await self._fl_pod_get(warehouse, None, 'ltl')
-        # pod_data = pod_data_raw['fleet']
+        pod_data_raw = await self._fl_pod_get(warehouse, None, 'ltl')
+        pod_data = pod_data_raw['fleet']
         selfpick_cargos = []
         selfdel_cargos = []
         ready_to_ship_data = []
