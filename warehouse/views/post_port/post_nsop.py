@@ -392,7 +392,6 @@ class PostNsop(View):
     async def export_ltl_bol(self, request: HttpRequest) -> HttpResponse:
         fleet_number = request.POST.get("fleet_number")
         arm_pickup_data = request.POST.get("arm_pickup_data")
-        print('arm_pickup_data',arm_pickup_data)
         warehouse = request.POST.get("warehouse")
         contact_flag = False  # 表示地址栏空出来，客服手动P上去
         contact = {}
@@ -4491,7 +4490,7 @@ class PostNsop(View):
         pl_criteria: models.Q | None = None,
         plt_criteria: models.Q | None = None,
     ) -> list[Any]:
-        pl_criteria &= models.Q(container_number__order__cancel_notification=False)& ~models.Q(container_number__order__order_type='直送')
+        # pl_criteria &= models.Q(container_number__order__cancel_notification=False)& ~models.Q(container_number__order__order_type='直送')
         plt_criteria &= models.Q(container_number__order__cancel_notification=False)& ~models.Q(container_number__order__order_type='直送')
         
         data = []
@@ -4612,9 +4611,8 @@ class PostNsop(View):
                 processed_pal_list.append(cargo)
 
             data += processed_pal_list
-
         # 查询 PackingList 数据
-        if pl_criteria:
+        if True:
             pl_list = await sync_to_async(list)(
                 PackingList.objects.prefetch_related(
                     "container_number",
@@ -5153,7 +5151,6 @@ class PostNsop(View):
                     datetime.combine(pickup_date, time.min)
                 )
             except ValueError as e:
-                print(f"解析预计提货日期失败: {pickup_date_str}, 错误: {e}")
                 # 尝试其他可能的格式
                 try:
                     # 如果传过来的是完整的时间格式
@@ -5385,14 +5382,14 @@ class PostNsop(View):
             context.update({'error_messages':"没选仓库！"})
             return self.template_unscheduled_pos_all, context
         
-        pl_criteria = Q(
-            #shipment_batch_number__shipment_batch_number__isnull=True,
-            #container_number__order__offload_id__offload_at__isnull=True,
-            #container_number__order__retrieval_id__retrieval_destination_area=warehouse_name,
-            #container_number__is_abnormal_state=False,
-            delivery_type="other"
-        )
-
+        # pl_criteria = Q(
+        #     shipment_batch_number__shipment_batch_number__isnull=True,
+        #     container_number__order__offload_id__offload_at__isnull=True,
+        #     container_number__order__retrieval_id__retrieval_destination_area=warehouse_name,
+        #     container_number__is_abnormal_state=False,
+        #     delivery_type="other"
+        # )
+        pl_criteria = Q()
         plt_criteria = Q(
             location=warehouse,
             shipment_batch_number__shipment_batch_number__isnull=True,
