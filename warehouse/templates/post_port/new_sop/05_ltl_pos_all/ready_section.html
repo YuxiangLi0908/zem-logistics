@@ -22,6 +22,28 @@
         border-radius: 4px;
         font-size: 0.8rem;
     }
+    .upload-btn {
+        background: linear-gradient(135deg, #9c27b0, #673ab7);
+        border: none;
+        color: white;
+        padding: 6px 12px;
+        border-radius: 6px;
+        font-size: 0.8rem;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        box-shadow: 0 2px 4px rgba(156, 39, 176, 0.3);
+        display: flex;
+        align-items: center;
+        gap: 5px;
+    }
+    
+    .upload-btn:hover {
+        background: linear-gradient(135deg, #8e24aa, #5e35b1);
+    }
+    
+    .file-input {
+        display: none;
+    }
     .date-filter {
         width: 100%;
         padding: 4px 8px;
@@ -94,9 +116,10 @@
                 <th>柜号</th>
                 <th>唛头</th>
                 <th>板数</th>
-                <th>CBM</th>
-                <th>费用</th>
+                <th>件数</th>
                 <th>出库</th>
+                <th>拣货单</th> 
+                <th>下载</th>
             </tr>
             <tr class="search-row">
                 <td><input type="text" class="header-search" placeholder="搜索车次号" data-column="0"></td>
@@ -113,7 +136,8 @@
                 <td><input type="text" class="header-search" placeholder="搜索柜号" data-column="4"></td>
                 <td><input type="text" class="header-search" placeholder="搜索唛头" data-column="5"></td>
                 <td><input type="text" class="header-search" placeholder="搜索板数" data-column="6"></td>
-                <td><input type="text" class="header-search" placeholder="搜索CBM" data-column="7"></td>
+                <td><input type="text" class="header-search" placeholder="搜索件数" data-column="7"></td>
+                <td></td>
                 <td></td>
                 <td></td>
             </tr>
@@ -142,7 +166,6 @@
                                                 data-appointment-datetime="{{ fleet_group.appointment_datetime }}"
                                                 data-carrier="{{ fleet_group.carrier }}"
                                                 data-fleet-type="{{ fleet_group.fleet_type }}"
-                                                data-fleet-cost="{{ fleet_group.fleet_cost|default:0 }}"
                                                 onclick="openFleetModalForReadyShip(this)">
                                                 <strong style="color: #3498db; text-decoration: underline;">{{ fleet_group.fleet_number }}</strong>
                                                 <br>
@@ -165,23 +188,18 @@
                                         <td colspan="4" style="text-align:center; color:#aaa;">无可出库货物</td>
 
                                         {% if is_first_shipment %}
-                                            <td rowspan="{{ fleet_rowspan }}">
-                                                <div class="cost-cell" style="padding: 5px;">
-                                                    <input type="number" 
-                                                        class="cost-input" 
-                                                        value="{% if fleet_group.fleet_cost and fleet_group.fleet_cost > 0 %}{{ fleet_group.fleet_cost }}{% endif %}" 
-                                                        step="0.01" 
-                                                        min="0"
-                                                        data-fleet-number="{{ fleet_group.fleet_number }}"
-                                                        placeholder="{% if '客提' in fleet_group.fleet_type %}出库费{% else %}自发费{% endif %}"
-                                                        onchange="saveFleetCost('{{ fleet_group.fleet_number }}', this.value)">
-                                                    <button class="cost-input save-btn" onclick="saveFleetCost('{{ fleet_group.fleet_number }}', this.previousElementSibling.value)">
-                                                        <i class="fas fa-save"></i>
+                                            <td rowspan="{{ fleet_rowspan }}" colspan="2">
+                                                <form method="post" action="" class="notify-customer-form" style="display: inline-block;">
+                                                    {% csrf_token %}
+                                                    <input type="hidden" name="fleet_number" value="{{ fleet_group.fleet_number }}">
+                                                    <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                                                    <input type="hidden" name="step" value="cancel_fleet">
+                                                    <input type="hidden" name="active_tab" value="readyShip">
+                                                    <input type="hidden" name="page" value="ltl_readyShip">
+                                                    <button type="submit" class="btn btn-danger btn-sm">
+                                                        删除车次
                                                     </button>
-                                                </div>
-                                            </td>
-                                            <td rowspan="{{ fleet_rowspan }}">
-                                                <button class="action-btn btn-disabled" disabled onclick="confirmFleetDeparture('{{ fleet_group.fleet_number }}')">出库</button>
+                                                </form>
                                             </td>
                                         {% endif %}
                                     </tr>
@@ -195,7 +213,7 @@
                                             data-markings="{{ cargo.markings|default:'' }}"
                                             data-planned="{{ cargo.total_n_pallet_act|default:0 }}"
                                             data-label="{{ cargo.label|default:'' }}"
-                                            data-cbm="{{ cargo.total_cbm|default:0 }}">
+                                            data-pcs="{{ cargo.total_pcs|default:0 }}">
                                             {% if forloop.first and forloop.parentloop.first %}
                                                 <td rowspan="{{ fleet_rowspan }}" style="vertical-align: middle; background-color: #f8f9fa; cursor: pointer;" 
                                                     class="fleet-number-cell" 
@@ -208,7 +226,6 @@
                                                     data-appointment-datetime="{{ fleet_group.appointment_datetime }}"
                                                     data-carrier="{{ fleet_group.carrier }}"
                                                     data-fleet-type="{{ fleet_group.fleet_type }}"
-                                                    data-fleet-cost="{{ fleet_group.fleet_cost|default:0 }}"
                                                     onclick="openFleetModalForReadyShip(this)">
                                                     <strong style="color: #3498db; text-decoration: underline;">{{ fleet_group.fleet_number }}</strong>
                                                     
@@ -243,31 +260,113 @@
                                                     0
                                                 {% endif %}
                                             </td>
-                                            <td>{{ cargo.total_cbm|default:0 }}</td>
-
-                                            {% if forloop.first %}
-                                                <td rowspan="{{ shipment_rowspan }}">
-                                                    <div class="cost-cell" style="padding: 5px;">
-                                                        <input type="number" 
-                                                            class="cost-input" 
-                                                            value="{% if fleet_group.fleet_cost and fleet_group.fleet_cost > 0 %}{{ fleet_group.fleet_cost }}{% endif %}" 
-                                                            step="0.01" 
-                                                            min="0"
-                                                            data-fleet-number="{{ fleet_group.fleet_number }}"
-                                                            placeholder="{% if '客提' in fleet_group.fleet_type %}出库费{% else %}自发费{% endif %}"
-                                                            onchange="saveFleetCost('{{ fleet_group.fleet_number }}', this.value)">
-                                                        <button class="cost-input save-btn" onclick="saveFleetCost('{{ fleet_group.fleet_number }}', this.previousElementSibling.value)">
-                                                            <i class="fas fa-save"></i>
-                                                        </button>
-                                                    </div>
-                                                </td>
-                                            {% endif %}
+                                            <td>{{ cargo.total_pcs|default:0 }}</td>
 
                                             {% if forloop.first and forloop.parentloop.first %}
                                                 <td rowspan="{{ fleet_rowspan }}">
                                                     <button class="action-btn btn-success" onclick="confirmFleetDeparture('{{ fleet_group.fleet_number }}')">出库</button>
                                                 </td>
+                                                <td rowspan="{{ fleet_rowspan }}" style="vertical-align: middle;">
+                                                    <button class="action-btn"
+                                                            data-fleet-number="{{ fleet_group.fleet_number }}"
+                                                            data-fleet-type="{{ fleet_group.fleet_type }}"
+                                                            data-arm-pickup='{{ fleet_group.arm_pickup|safe }}'
+                                                            onclick="handleArmPickupClick(this)"
+                                                            style="background: linear-gradient(135deg, #ff9800, #f57c00);
+                                                                color: white;
+                                                                border: none;
+                                                                padding: 6px 12px;
+                                                                border-radius: 6px;
+                                                                font-size: 0.8rem;
+                                                                cursor: pointer;
+                                                                transition: all 0.3s ease;
+                                                                box-shadow: 0 2px 4px rgba(255, 152, 0, 0.3);">
+                                                        拣货单
+                                                    </button>
+                                                </td>
                                             {% endif %}
+                                            <td>
+                                                {% if fleet_group.fleet_type == '客户自提' %}
+                                                    <div style="margin-top: 5px;">
+                                                        <form method="post" action="" enctype="multipart/form-data" class="upload-form" style="display: inline-block;">
+                                                            {% csrf_token %}
+                                                            <input type="hidden" name="fleet_number" value="{{ fleet_group.fleet_number }}">
+                                                            <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                                                            <input type="hidden" name="step" value="upload_self_pickup_file">
+                                                            <input type="hidden" name="active_tab" value="readyShip">
+                                                            <input type="hidden" name="arm_pickup_data" class="arm-pickup-data">
+                                                            
+                                                            <input type="file" 
+                                                                name="file" 
+                                                                id="uploadFile_{{ fleet_group.fleet_number }}_{{ forloop.parentloop.counter0 }}_{{ forloop.counter0 }}" 
+                                                                class="file-input" 
+                                                                onchange="this.closest('form').submit()"
+                                                                accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.xls,.xlsx">
+                                                            
+                                                            <button type="button" class="upload-btn" 
+                                                                    onclick="prepareUpload('{{ fleet_group.fleet_number }}', this)">
+                                                                <i class="fas fa-upload"></i>
+                                                                上传文件
+                                                            </button>
+                                                        </form>
+                                                    </div>
+                                                {% else %}
+                                                    <div style="margin-top: 5px;">
+                                                        <form method="post" action="" class="notify-customer-form" style="display: inline-block;">
+                                                            {% csrf_token %}
+                                                            <input type="hidden" name="fleet_number" value="{{ fleet_group.fleet_number }}">                                        
+                                                            <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                                                            <input type="hidden" name="step" value="export_ltl_label">
+                                                            <input type="hidden" name="active_tab" value="readyShip"> 
+                                                            <input type="hidden" name="arm_pickup_data" class="arm-pickup-data">
+                                                            <button class="action-btn" style="
+                                                                background: linear-gradient(135deg, #28a745, #1e7e34);
+                                                                border: none;
+                                                                color: white;
+                                                                padding: 6px 12px;
+                                                                border-radius: 6px;
+                                                                font-size: 0.8rem;
+                                                                cursor: pointer;
+                                                                transition: all 0.3s ease;
+                                                                box-shadow: 0 2px 4px rgba(40, 167, 69, 0.3);
+                                                                display: flex;
+                                                                align-items: center;
+                                                                gap: 5px;
+                                                            ">
+                                                                <i class="fas fa-file-word" style="font-size: 0.9rem; color: white;"></i>
+                                                                LABEL下载
+                                                            </button>
+                                                        </form>
+                                                    <div style="margin-top: 5px;">
+                                                        <form method="post" action="" class="notify-customer-form" style="display: inline-block;">
+                                                            {% csrf_token %}
+                                                            <input type="hidden" name="fleet_number" value="{{ fleet_group.fleet_number }}">                                  
+                                                            <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                                                            <input type="hidden" name="step" value="export_ltl_bol">
+                                                            <input type="hidden" name="active_tab" value="readyShip"> 
+                                                            <input type="hidden" name="arm_pickup_data" class="arm-pickup-data">
+                                                            <button class="action-btn" style="
+                                                                background: linear-gradient(135deg, #3498db, #2980b9);
+                                                                border: none;
+                                                                color: white;
+                                                                padding: 6px 12px;
+                                                                border-radius: 6px;
+                                                                font-size: 0.8rem;
+                                                                cursor: pointer;
+                                                                transition: all 0.3s ease;
+                                                                box-shadow: 0 2px 4px rgba(52, 152, 219, 0.3);
+                                                                display: flex;
+                                                                align-items: center;
+                                                                gap: 5px;
+                                                            ">
+                                                                <i class="fas fa-file-word" style="font-size: 0.9rem;"></i>
+                                                                BOL下载
+                                                            </button>
+                                                        </form>
+                                                    </div>
+                                                {% endif %}
+                                                
+                                            </td>
                                         </tr>
                                     {% endfor %}
                                 {% endif %}
@@ -282,6 +381,28 @@
             {% endfor %}
         </tbody>
     </table>
+</div>
+
+<!-- 拣货单模态框 -->
+<div id="armPickupModal" class="modal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5);">
+    <div class="modal-content" style="background-color: #fefefe; margin: 5% auto; padding: 20px; border: 1px solid #888; width: 95%; max-width: 1600px; border-radius: 8px; max-height: 85vh; display: flex; flex-direction: column;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-shrink: 0;">
+            <h3 style="margin: 0;">拣货单 - <span id="armPickupFleetNumber"></span></h3>
+            <div>
+                <button id="addArmPickupRow" style="background-color: #4CAF50; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; margin-right: 10px;">
+                    <i class="fas fa-plus"></i> 增加一行
+                </button>
+                <button onclick="saveArmPickupData()" style="background-color: #2196F3; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; margin-right: 10px;">
+                    <i class="fas fa-save"></i> 临时保存
+                </button>
+                <span onclick="closeArmPickupModal()" style="cursor: pointer; font-size: 24px; color: #aaa;">&times;</span>
+            </div>
+        </div>
+        
+        <div id="armPickupContent" style="flex: 1; overflow: auto; min-height: 100px;">
+            <!-- 内容根据fleet_type动态加载 -->
+        </div>
+    </div>
 </div>
 
 <script>
@@ -324,7 +445,7 @@
             const markings = row.dataset.markings || '';
             const planned = parseFloat(row.dataset.planned || 0) || 0;
             const label = row.dataset.label || '';
-            const cbm = row.dataset.cbm || '';
+            const pcs = parseFloat(row.dataset.pcs || 0) || 0;
 
             let pltId = '';
             let cargoId = '';
@@ -353,7 +474,7 @@
                 plannedPallets: planned,
                 palletLabel: label,
                 actualPallets: planned,
-                cbm,
+                pcs,
                 // keep separate fields
                 pltId: pltId || '',
                 cargoId: cargoId || ''
@@ -433,9 +554,6 @@
         const appointmentDatetime = clickedElement.dataset.appointmentDatetime || '';
         const carrier = clickedElement.dataset.carrier || '';
         const fleetType = clickedElement.dataset.fleetType || '';
-        const fleetCost = clickedElement.dataset.fleetCost || 0;
-        
-        console.log('打开弹框，车次号:', fleetNumber);
         
         // 获取fleetModal元素
         const fleetModal = document.getElementById('fleetModal');
@@ -454,13 +572,6 @@
         document.getElementById('fleetModalAppointmentDatetime').value = appointmentDatetime;
         document.getElementById('fleetModalCarrier').value = carrier;
         document.getElementById('fleetModalFleetNumber').value = fleetNumber;
-        document.getElementById('fleetCost').value = fleetCost;
-        
-        // 设置费用输入框的占位符
-        const fleetCostInput = document.getElementById('fleetCost');
-        if (fleetCostInput) {
-            fleetCostInput.placeholder = fleetType.includes('自提') ? '出库费' : '自发费';
-        }
         
         // 设置隐藏字段
         document.getElementById('fleetModalStep').value = 'fleet_confirmation';
@@ -833,5 +944,710 @@
             return;
         }
         openDepartureModal(fleetNumber, fleetData);
+    }
+    // 存储拣货单数据
+    let currentArmPickupData = {
+        fleet_number: '',
+        fleet_type: '',
+        data: []
+    };
+
+    // 存储当前编辑的拣货单数据
+    let editedArmPickupData = [];
+
+    // 显示拣货单模态框
+    function showArmPickupModal(fleetNumber, fleetType, armPickupData = null) {
+        currentArmPickupData.fleet_number = fleetNumber;
+        currentArmPickupData.fleet_type = fleetType;
+        
+        // 设置模态框标题
+        document.getElementById('armPickupFleetNumber').textContent = fleetNumber;
+        
+        // 清空内容
+        const contentDiv = document.getElementById('armPickupContent');
+        
+        // 显示模态框
+        document.getElementById('armPickupModal').style.display = 'block';
+        
+        // 优先使用传入的arm_pickup数据
+        if (armPickupData && Array.isArray(armPickupData) && armPickupData.length > 0) {
+            renderArmPickupTable(armPickupData, fleetType);
+            return;
+        }
+        
+        // 其次尝试从localStorage获取编辑过的数据
+        const savedData = localStorage.getItem(`arm_pickup_${fleetNumber}`);
+        
+        if (savedData) {
+            try {
+                const data = JSON.parse(savedData);
+                renderArmPickupTable(data.data, fleetType);
+                return;
+            } catch (e) {
+                console.error('解析保存的拣货单数据失败:', e);
+            }
+        }
+        
+        // 如果都没有数据，显示空表格
+        renderArmPickupTable([], fleetType);
+    }
+
+    function renderArmPickupTable(data, fleetType) {
+        const contentDiv = document.getElementById('armPickupContent');
+        
+        if (fleetType === '客户自提') {
+            renderSelfPickupTable(data);
+        } else if (fleetType === 'LTL') {
+            renderLTLPickupTable(data);
+        } else {
+            contentDiv.innerHTML = '<div style="text-align:center; padding:20px;">未知的车次类型</div>';
+        }
+    }
+    // 渲染客户自提表格
+    function renderSelfPickupTable(data) {
+        const contentDiv = document.getElementById('armPickupContent');
+        let html = `
+            <table style="width:100%; border-collapse:collapse; font-size:13px; min-width: 1200px;" 
+                cellpadding="8" 
+                id="armPickupTable">
+                <thead style="background:#f6f8fa; font-weight:600; position: sticky; top: 0;">                       
+                    <th style="text-align: center; border: 1px solid #ddd; padding: 8px; width: 150px;">柜号</th>
+                    <th style="text-align: center; border: 1px solid #ddd; padding: 8px; width: 100px;">邮编</th>
+                    <th style="text-align: center; border: 1px solid #ddd; padding: 8px; width: 250px;">唛头</th>
+                    <th style="text-align: center; border: 1px solid #ddd; padding: 8px; width: 80px;">板数</th> 
+                    <th style="text-align: center; border: 1px solid #ddd; padding: 8px; width: 80px;">箱数</th>   
+                    <th style="text-align: center; border: 1px solid #ddd; padding: 8px; width: 120px;">Carrier</th>  
+                    <th style="text-align: center; border: 1px solid #ddd; padding: 8px; width: 180px;">提货时间</th>
+                    <th style="text-align: center; border: 1px solid #ddd; padding: 8px; width: 80px;">操作</th>
+                </thead>
+                <tbody id="armPickupTableBody">
+        `;
+        
+        data.forEach((item, index) => {
+            const cleanData = {
+                container_number: item.container_number || '',
+                zipcode: item.zipcode || '',
+                shipping_mark: item.shipping_mark || '',
+                total_pallet: item.total_pallet || '',
+                total_pcs: item.total_pcs || '',
+                carrier: item.carrier || '',
+                appointment_datetime: item.appointment_datetime || ''
+            };
+            if (cleanData.total_pallet === 0) cleanData.total_pallet = 0;
+            if (cleanData.total_pcs === 0) cleanData.total_pcs = 0;
+            html += `
+                <tr id="arm-row-${index}" style="border-bottom: 1px solid #eee;">
+                    <td style="border: 1px solid #ddd; padding: 8px;">
+                        <input type="text" class="arm-input" 
+                            data-field="container_number" 
+                            value="${cleanData.container_number || ''}" 
+                            style="width: 100%; border: none; background: transparent;">
+                    </td>
+                    <td style="border: 1px solid #ddd; padding: 8px;">
+                        <input type="text" class="arm-input" 
+                            data-field="zipcode" 
+                            value="${cleanData.zipcode || ''}" 
+                            style="width: 100%; border: none; background: transparent;">
+                    </td>
+                    <td style="border: 1px solid #ddd; padding: 8px;">
+                        <textarea class="arm-textarea" 
+                                data-field="shipping_mark" 
+                                style="width: 100%; border: none; background: transparent; resize: vertical; min-height: 60px;">${item.shipping_mark || ''}</textarea>
+                    </td>
+                    <td style="border: 1px solid #ddd; padding: 8px;">
+                        <input type="number" class="arm-input" 
+                            data-field="total_pallet" 
+                            value="${cleanData.total_pallet || ''}" 
+                            style="width: 100%; border: none; background: transparent;">
+                    </td>
+                    <td style="border: 1px solid #ddd; padding: 8px;">
+                        <input type="number" class="arm-input" 
+                            data-field="total_pcs" 
+                            value="${cleanData.total_pcs || ''}" 
+                            style="width: 100%; border: none; background: transparent;">
+                    </td>
+                    <td style="border: 1px solid #ddd; padding: 8px;">
+                        <input type="text" class="arm-input" 
+                            data-field="carrier" 
+                            value="${cleanData.carrier || ''}" 
+                            style="width: 100%; border: none; background: transparent;">
+                    </td>
+                    <td style="border: 1px solid #ddd; padding: 8px;">
+                        <input type="datetime-local" class="arm-input" 
+                            data-field="appointment_datetime" 
+                            value="${formatDateTimeForInput(cleanData.appointment_datetime)}" 
+                            style="width: 100%; border: none; background: transparent;">
+                    </td>
+                    <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">
+                        <button onclick="removeArmPickupRow(${index})" 
+                                style="background: #dc3545; color: white; border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer;">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </td>
+                </tr>
+            `;
+        });
+        
+        html += `</tbody></table>`;
+        contentDiv.innerHTML = html;
+        
+        // 添加事件监听
+        addArmPickupEventListeners();
+        editedArmPickupData = [...data];
+    }
+
+    // 渲染LTL表格
+    function renderLTLPickupTable(data) {
+        console.log('数据详情',data);
+        const contentDiv = document.getElementById('armPickupContent');
+        let html = `
+            <div style="overflow-x: auto;">
+            <table style="min-width: 1600px; border-collapse:collapse; font-size:13px;" 
+                cellpadding="6" 
+                id="armPickupTable">
+                <thead style="background:#f6f8fa; font-weight:600; position: sticky; top: 0;">                       
+                    <th style="text-align: center; border: 1px solid #ddd; padding: 8px; width: 150px; min-width: 150px;">柜号</th>
+                    <th style="text-align: center; border: 1px solid #ddd; padding: 8px; width: 200px; min-width: 200px;">目的地</th>
+                    <th style="text-align: center; border: 1px solid #ddd; padding: 8px; width: 300px; min-width: 300px;">唛头</th>
+                    <th style="text-align: center; border: 1px solid #ddd; padding: 8px; width: 120px; min-width: 120px;">PRO</th>
+                    <th style="text-align: center; border: 1px solid #ddd; padding: 8px; width: 80px; min-width: 80px;">板数</th> 
+                    <th style="text-align: center; border: 1px solid #ddd; padding: 8px; width: 80px; min-width: 80px;">箱数</th>  
+                    <th style="text-align: center; border: 1px solid #ddd; padding: 8px; width: 120px; min-width: 120px;">Carrier</th>  
+                    <th style="text-align: center; border: 1px solid #ddd; padding: 8px; width: 150px; min-width: 150px;">Company</th>
+                    <th style="text-align: center; border: 1px solid #ddd; padding: 8px; width: 120px; min-width: 120px;">Road</th>
+                    <th style="text-align: center; border: 1px solid #ddd; padding: 8px; width: 100px; min-width: 100px;">City</th>
+                    <th style="text-align: center; border: 1px solid #ddd; padding: 8px; width: 120px; min-width: 120px;">Name</th>
+                    <th style="text-align: center; border: 1px solid #ddd; padding: 8px; width: 120px; min-width: 120px;">Phone</th>
+                    <th style="text-align: center; border: 1px solid #ddd; padding: 8px; width: 150px; min-width: 150px;">备注</th>
+                    <th style="text-align: center; border: 1px solid #ddd; padding: 8px; width: 100px; min-width: 100px;">库位</th>
+                    <th style="text-align: center; border: 1px solid #ddd; padding: 8px; width: 80px; min-width: 80px;">操作</th>
+                </thead>
+                <tbody id="armPickupTableBody">
+        `;
+        
+        data.forEach((item, index) => {
+            // 清理数据，将undefined、null、'None'转换为空字符串
+            const cleanData = {
+                container_number: (item.container_number__container_number || item.container_number || '').toString().replace('None', ''),
+                destination: (item.destination || '').toString().replace('None', ''),
+                shipping_mark: (item.shipping_mark || '').toString().replace('None', ''),
+                arm_pro: (item.shipment_batch_number__ARM_PRO || item.arm_pro || '').toString().replace('None', ''),
+                total_pallet: item.total_pallet || '',
+                total_pcs: item.total_pcs || '',
+                carrier: (item.shipment_batch_number__fleet_number__carrier || item.carrier || '').toString().replace('None', ''),
+                address: (item.address || '').toString().replace('None', ''),
+                note: (item.shipment_batch_number__note || '').toString().replace('None', ''),
+                slot: (item.slot || '').toString().replace('None', '')
+            };
+            
+            // 特别处理数值字段，如果是数字0就显示0
+            if (cleanData.total_pallet === 0) cleanData.total_pallet = 0;
+            if (cleanData.total_pcs === 0) cleanData.total_pcs = 0;
+            
+            // 在前端解析address字段
+            let addressParts = {
+                company: '', road: '', city: '', name: '', phone: ''
+            };
+            
+            if (cleanData.address && cleanData.address !== '') {
+                const parts = cleanData.address.split(";");
+                addressParts = {
+                    company: parts[0] || '',
+                    road: parts[1] || '',
+                    city: parts[2] || '',
+                    name: parts[3] || '',
+                    phone: parts[4] || ''
+                };
+            }
+            
+            html += `
+                <tr id="arm-row-${index}" style="border-bottom: 1px solid #eee;">
+                    <td style="border: 1px solid #ddd; padding: 8px; width: 150px; min-width: 150px;">
+                        <input type="text" class="arm-input" 
+                            data-field="container_number__container_number" 
+                            value="${cleanData.container_number}" 
+                            style="width: 100%; border: 1px solid #ddd; background: #fff; padding: 6px; font-size: 13px;">
+                    </td>
+                    <td style="border: 1px solid #ddd; padding: 8px; width: 200px; min-width: 200px;">
+                        <input type="text" class="arm-input" 
+                            data-field="destination" 
+                            value="${cleanData.destination}" 
+                            style="width: 100%; border: 1px solid #ddd; background: #fff; padding: 6px; font-size: 13px;">
+                    </td>
+                    <td style="border: 1px solid #ddd; padding: 8px; width: 300px; min-width: 300px;">
+                        <textarea class="arm-textarea" 
+                                data-field="shipping_mark" 
+                                style="width: 100%; border: 1px solid #ddd; background: #fff; resize: vertical; min-height: 80px; padding: 6px; font-size: 13px;">${cleanData.shipping_mark}</textarea>
+                    </td>
+                    <td style="border: 1px solid #ddd; padding: 8px; width: 120px; min-width: 120px;">
+                        <input type="text" class="arm-input" 
+                            data-field="shipment_batch_number__ARM_PRO" 
+                            value="${cleanData.arm_pro}" 
+                            style="width: 100%; border: 1px solid #ddd; background: #fff; padding: 6px; font-size: 13px;">
+                    </td>
+                    <td style="border: 1px solid #ddd; padding: 8px; width: 80px; min-width: 80px;">
+                        <input type="number" class="arm-input" 
+                            data-field="total_pallet" 
+                            value="${cleanData.total_pallet}" 
+                            style="width: 100%; border: 1px solid #ddd; background: #fff; padding: 6px; font-size: 13px;">
+                    </td>
+                    <td style="border: 1px solid #ddd; padding: 8px; width: 80px; min-width: 80px;">
+                        <input type="number" class="arm-input" 
+                            data-field="total_pcs" 
+                            value="${cleanData.total_pcs}" 
+                            style="width: 100%; border: 1px solid #ddd; background: #fff; padding: 6px; font-size: 13px;">
+                    </td>
+                    <td style="border: 1px solid #ddd; padding: 8px; width: 120px; min-width: 120px;">
+                        <input type="text" class="arm-input" 
+                            data-field="shipment_batch_number__fleet_number__carrier" 
+                            value="${cleanData.carrier}" 
+                            style="width: 100%; border: 1px solid #ddd; background: #fff; padding: 6px; font-size: 13px;">
+                    </td>
+                    <td style="border: 1px solid #ddd; padding: 8px; width: 150px; min-width: 150px;">
+                        <input type="text" class="arm-input address-part" 
+                            data-field="address_company" 
+                            value="${addressParts.company}" 
+                            style="width: 100%; border: 1px solid #ddd; background: #fff; padding: 6px; font-size: 13px;">
+                    </td>
+                    <td style="border: 1px solid #ddd; padding: 8px; width: 120px; min-width: 120px;">
+                        <input type="text" class="arm-input address-part" 
+                            data-field="address_road" 
+                            value="${addressParts.road}" 
+                            style="width: 100%; border: 1px solid #ddd; background: #fff; padding: 6px; font-size: 13px;">
+                    </td>
+                    <td style="border: 1px solid #ddd; padding: 8px; width: 100px; min-width: 100px;">
+                        <input type="text" class="arm-input address-part" 
+                            data-field="address_city" 
+                            value="${addressParts.city}" 
+                            style="width: 100%; border: 1px solid #ddd; background: #fff; padding: 6px; font-size: 13px;">
+                    </td>
+                    <td style="border: 1px solid #ddd; padding: 8px; width: 120px; min-width: 120px;">
+                        <input type="text" class="arm-input address-part" 
+                            data-field="address_name" 
+                            value="${addressParts.name}" 
+                            style="width: 100%; border: 1px solid #ddd; background: #fff; padding: 6px; font-size: 13px;">
+                    </td>
+                    <td style="border: 1px solid #ddd; padding: 8px; width: 120px; min-width: 120px;">
+                        <input type="text" class="arm-input address-part" 
+                            data-field="address_phone" 
+                            value="${addressParts.phone}" 
+                            style="width: 100%; border: 1px solid #ddd; background: #fff; padding: 6px; font-size: 13px;">
+                    </td>
+                    <td style="border: 1px solid #ddd; padding: 8px; width: 150px; min-width: 150px;">
+                        <textarea class="arm-textarea" 
+                                data-field="shipment_batch_number__note" 
+                                style="width: 100%; border: 1px solid #ddd; background: #fff; resize: vertical; min-height: 80px; padding: 6px; font-size: 13px;">${cleanData.note}</textarea>
+                    </td>
+                    <td style="border: 1px solid #ddd; padding: 8px; width: 100px; min-width: 100px;">
+                        <input type="text" class="arm-input" 
+                            data-field="slot" 
+                            value="${cleanData.slot}" 
+                            style="width: 100%; border: 1px solid #ddd; background: #fff; padding: 6px; font-size: 13px;">
+                    </td>
+                    <td style="border: 1px solid #ddd; padding: 8px; width: 80px; min-width: 80px; text-align: center;">
+                        <button onclick="removeArmPickupRow(${index})" 
+                                style="background: #dc3545; color: white; border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer;">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </td>
+                </tr>
+            `;
+        });
+        
+        html += `</tbody></table></div>`;
+        
+        if (data.length === 0) {
+            html = '<div style="text-align:center; padding:20px; color:#666;">暂无拣货单数据</div>';
+        }
+        
+        contentDiv.innerHTML = html;
+        
+        addArmPickupEventListeners();
+        editedArmPickupData = [...data];
+    }
+
+    function cleanDataValue(value) {
+        if (value === undefined || value === null) {
+            return '';
+        }
+        
+        // 如果是字符串，检查是否是'None'或'null'
+        if (typeof value === 'string') {
+            if (value.toLowerCase() === 'none' || value.toLowerCase() === 'null') {
+                return '';
+            }
+            return value;
+        }
+        
+        // 如果是数字0，保留0
+        if (typeof value === 'number' && value === 0) {
+            return 0;
+        }
+        
+        // 其他情况转换为字符串
+        return value.toString();
+    }
+    // 添加事件监听器
+    function addArmPickupEventListeners() {
+        const inputs = document.querySelectorAll('.arm-input, .arm-textarea');
+        inputs.forEach(input => {
+            input.addEventListener('change', function() {
+                updateArmPickupData();
+            });
+            input.addEventListener('input', function() {
+                updateArmPickupData();
+            });
+        });
+    }
+
+    // 更新拣货单数据
+    function updateArmPickupData() {
+        const rows = document.querySelectorAll('#armPickupTable tbody tr[id^="arm-row-"]');
+        editedArmPickupData = [];
+        
+        rows.forEach((row, index) => {
+            const inputs = row.querySelectorAll('.arm-input, .arm-textarea');
+            const rowData = {};
+            
+            inputs.forEach(input => {
+                const field = input.getAttribute('data-field');
+                const value = input.value;
+                
+                // 处理地址字段
+                if (field.startsWith('address_')) {
+                    // address字段会在最后合并
+                    if (!rowData.address_parts) {
+                        rowData.address_parts = {};
+                    }
+                    const addressField = field.replace('address_', '');
+                    rowData.address_parts[addressField] = value;
+                } else {
+                    rowData[field] = value;
+                }
+            });
+            
+            // 如果是LTL类型，合并地址字段到address
+            if (currentArmPickupData.fleet_type === 'LTL' && rowData.address_parts) {
+                const parts = rowData.address_parts;
+                rowData.address = `${parts.company || ''};${parts.road || ''};${parts.city || ''};${parts.name || ''};${parts.phone || ''}`;
+                // 删除临时的address_parts，只保留address
+                delete rowData.address_parts;
+            }
+            
+            editedArmPickupData.push(rowData);
+        });
+    }
+
+    // 添加新行
+    document.getElementById('addArmPickupRow').addEventListener('click', function() {
+        const tbody = document.getElementById('armPickupTableBody');
+        const newIndex = editedArmPickupData.length;
+        
+        let newRowHtml = '';
+        if (currentArmPickupData.fleet_type === '客户自提') {
+            newRowHtml = `
+                <tr id="arm-row-${newIndex}" style="border-bottom: 1px solid #eee;">
+                    <td style="border: 1px solid #ddd; padding: 8px;">
+                        <input type="text" class="arm-input" 
+                            data-field="container_number__container_number" 
+                            value="" 
+                            style="width: 100%; border: 1px solid #ccc; background: #fff;">
+                    </td>
+                    <td style="border: 1px solid #ddd; padding: 8px;">
+                        <input type="text" class="arm-input" 
+                            data-field="zipcode" 
+                            value="" 
+                            style="width: 100%; border: 1px solid #ccc; background: #fff;">
+                    </td>
+                    <td style="border: 1px solid #ddd; padding: 8px;">
+                        <textarea class="arm-textarea" 
+                                data-field="shipping_mark" 
+                                style="width: 100%; border: 1px solid #ccc; background: #fff; resize: vertical; min-height: 60px;"></textarea>
+                    </td>
+                    <td style="border: 1px solid #ddd; padding: 8px;">
+                        <input type="number" class="arm-input" 
+                            data-field="total_pallet" 
+                            value="" 
+                            style="width: 100%; border: 1px solid #ccc; background: #fff;">
+                    </td>
+                    <td style="border: 1px solid #ddd; padding: 8px;">
+                        <input type="number" class="arm-input" 
+                            data-field="total_pcs" 
+                            value="" 
+                            style="width: 100%; border: 1px solid #ccc; background: #fff;">
+                    </td>
+                    <td style="border: 1px solid #ddd; padding: 8px;">
+                        <input type="text" class="arm-input" 
+                            data-field="shipment_batch_number__fleet_number__carrier" 
+                            value="" 
+                            style="width: 100%; border: 1px solid #ccc; background: #fff;">
+                    </td>
+                    <td style="border: 1px solid #ddd; padding: 8px;">
+                        <input type="datetime-local" class="arm-input" 
+                            data-field="shipment_batch_number__fleet_number__appointment_datetime" 
+                            value="" 
+                            style="width: 100%; border: 1px solid #ccc; background: #fff;">
+                    </td>
+                    <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">
+                        <button onclick="removeArmPickupRow(${newIndex})" 
+                                style="background: #dc3545; color: white; border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer;">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </td>
+                </tr>
+            `;
+        } else {
+            // LTL类型的新行
+            newRowHtml = `
+                <tr id="arm-row-${newIndex}" style="border-bottom: 1px solid #eee;">
+                    <td style="border: 1px solid #ddd; padding: 8px;">
+                        <input type="text" class="arm-input" 
+                            data-field="container_number__container_number" 
+                            value="" 
+                            style="width: 100%; border: 1px solid #ccc; background: #fff; padding: 4px;">
+                    </td>
+                    <td style="border: 1px solid #ddd; padding: 8px;">
+                        <input type="text" class="arm-input" 
+                            data-field="destination" 
+                            value="" 
+                            style="width: 100%; border: 1px solid #ccc; background: #fff; padding: 4px;">
+                    </td>
+                    <td style="border: 1px solid #ddd; padding: 8px;">
+                        <textarea class="arm-textarea" 
+                                data-field="shipping_mark" 
+                                style="width: 100%; border: 1px solid #ccc; background: #fff; resize: vertical; min-height: 60px; padding: 4px;"></textarea>
+                    </td>
+                    <td style="border: 1px solid #ddd; padding: 8px;">
+                        <input type="text" class="arm-input" 
+                            data-field="shipment_batch_number__ARM_PRO" 
+                            value="" 
+                            style="width: 100%; border: 1px solid #ccc; background: #fff; padding: 4px;">
+                    </td>
+                    <td style="border: 1px solid #ddd; padding: 8px;">
+                        <input type="number" class="arm-input" 
+                            data-field="total_pallet" 
+                            value="" 
+                            style="width: 100%; border: 1px solid #ccc; background: #fff; padding: 4px;">
+                    </td>
+                    <td style="border: 1px solid #ddd; padding: 8px;">
+                        <input type="number" class="arm-input" 
+                            data-field="total_pcs" 
+                            value="" 
+                            style="width: 100%; border: 1px solid #ccc; background: #fff; padding: 4px;">
+                    </td>
+                    <td style="border: 1px solid #ddd; padding: 8px;">
+                        <input type="text" class="arm-input" 
+                            data-field="shipment_batch_number__fleet_number__carrier" 
+                            value="" 
+                            style="width: 100%; border: 1px solid #ccc; background: #fff; padding: 4px;">
+                    </td>
+                    <td style="border: 1px solid #ddd; padding: 8px;">
+                        <input type="text" class="arm-input address-part" 
+                            data-field="address_company" 
+                            value="" 
+                            style="width: 100%; border: 1px solid #ccc; background: #fff; padding: 4px;">
+                    </td>
+                    <td style="border: 1px solid #ddd; padding: 8px;">
+                        <input type="text" class="arm-input address-part" 
+                            data-field="address_road" 
+                            value="" 
+                            style="width: 100%; border: 1px solid #ccc; background: #fff; padding: 4px;">
+                    </td>
+                    <td style="border: 1px solid #ddd; padding: 8px;">
+                        <input type="text" class="arm-input address-part" 
+                            data-field="address_city" 
+                            value="" 
+                            style="width: 100%; border: 1px solid #ccc; background: #fff; padding: 4px;">
+                    </td>
+                    <td style="border: 1px solid #ddd; padding: 8px;">
+                        <input type="text" class="arm-input address-part" 
+                            data-field="address_name" 
+                            value="" 
+                            style="width: 100%; border: 1px solid #ccc; background: #fff; padding: 4px;">
+                    </td>
+                    <td style="border: 1px solid #ddd; padding: 8px;">
+                        <input type="text" class="arm-input address-part" 
+                            data-field="address_phone" 
+                            value="" 
+                            style="width: 100%; border: 1px solid #ccc; background: #fff; padding: 4px;">
+                    </td>
+                    <td style="border: 1px solid #ddd; padding: 8px;">
+                        <textarea class="arm-textarea" 
+                                data-field="shipment_batch_number__note" 
+                                style="width: 100%; border: 1px solid #ccc; background: #fff; resize: vertical; min-height: 60px; padding: 4px;"></textarea>
+                    </td>
+                    <td style="border: 1px solid #ddd; padding: 8px;">
+                        <input type="text" class="arm-input" 
+                            data-field="slot" 
+                            value="" 
+                            style="width: 100%; border: 1px solid #ccc; background: #fff; padding: 4px;">
+                    </td>
+                    <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">
+                        <button onclick="removeArmPickupRow(${newIndex})" 
+                                style="background: #dc3545; color: white; border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer;">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </td>
+                </tr>
+            `;
+
+        }
+        
+        tbody.insertAdjacentHTML('beforeend', newRowHtml);
+        
+        // 重新绑定事件
+        const newRow = document.getElementById(`arm-row-${newIndex}`);
+        const inputs = newRow.querySelectorAll('.arm-input, .arm-textarea');
+        inputs.forEach(input => {
+            input.addEventListener('change', function() {
+                updateArmPickupData();
+            });
+            input.addEventListener('input', function() {
+                updateArmPickupData();
+            });
+        });
+        
+        // 添加到数据数组
+        const emptyData = {
+            container_number__container_number: '',
+            destination: '',
+            shipping_mark: '',
+            shipment_batch_number__ARM_PRO: '',
+            total_pallet: '',
+            total_pcs: '',
+            shipment_batch_number__fleet_number__carrier: '',
+            address: ';;;;',  // 空地址用5个分号
+            shipment_batch_number__note: '',
+            slot: ''
+        };
+        
+        editedArmPickupData.push(emptyData);
+    });
+
+    // 删除行
+    function removeArmPickupRow(index) {
+        if (!confirm('确定要删除这一行吗？')) return;
+        
+        const row = document.getElementById(`arm-row-${index}`);
+        if (row) {
+            row.remove();
+            editedArmPickupData.splice(index, 1);
+            
+            // 重新索引所有行
+            const rows = document.querySelectorAll('#armPickupTable tbody tr[id^="arm-row-"]');
+            rows.forEach((row, newIndex) => {
+                row.id = `arm-row-${newIndex}`;
+                const deleteBtn = row.querySelector('button');
+                if (deleteBtn) {
+                    deleteBtn.setAttribute('onclick', `removeArmPickupRow(${newIndex})`);
+                }
+            });
+        }
+    }
+    function handleArmPickupClick(btn) {
+        try {
+            const armPickupData = JSON.parse(btn.dataset.armPickup);
+            showArmPickupModal(
+                btn.dataset.fleetNumber,
+                btn.dataset.fleetType,
+                armPickupData
+            );
+        } catch (e) {
+            console.error('armPickup JSON parse failed:', btn.dataset.armPickup);
+            console.error(e);
+            alert('拣货单数据异常，请联系开发');
+        }
+    }
+    // 临时保存拣货单数据
+    function saveArmPickupData() {
+        updateArmPickupData();
+        
+        // 保存到localStorage
+        localStorage.setItem(`arm_pickup_${currentArmPickupData.fleet_number}`, JSON.stringify({
+            fleet_number: currentArmPickupData.fleet_number,
+            fleet_type: currentArmPickupData.fleet_type,
+            data: editedArmPickupData,
+            saved_at: new Date().toISOString()
+        }));
+        
+        // 更新页面中的隐藏输入框
+        const fleetElements = document.querySelectorAll(`[data-fleet-number="${currentArmPickupData.fleet_number}"]`);
+        fleetElements.forEach(element => {
+            const downloadForms = element.closest('tr').querySelectorAll('.arm-pickup-data');
+            downloadForms.forEach(formInput => {
+                formInput.value = JSON.stringify(editedArmPickupData);
+            });
+        });
+        
+        alert('拣货单数据已临时保存！');
+        closeArmPickupModal();
+    }
+
+    // 关闭模态框
+    function closeArmPickupModal() {
+        document.getElementById('armPickupModal').style.display = 'none';
+    }
+
+    // 工具函数：格式化日期时间
+    function formatDateTimeForInput(datetimeStr) {
+        if (!datetimeStr) return '';
+        const date = new Date(datetimeStr);
+        if (isNaN(date.getTime())) return '';
+        
+        const pad = (num) => num.toString().padStart(2, '0');
+        return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+    }
+
+    // 修改下载表单提交事件
+    document.addEventListener('DOMContentLoaded', function() {
+        // 为下载按钮添加点击事件
+        document.querySelectorAll('#readyShip-section .notify-customer-form button').forEach(button => {
+            button.addEventListener('click', function(e) {
+                const form = this.closest('form');
+                const fleetNumber = this.closest('tr').querySelector('.fleet-number-cell')?.dataset?.fleetNumber;
+                
+                if (fleetNumber) {
+                    // 从localStorage获取最新的拣货单数据
+                    const savedData = localStorage.getItem(`arm_pickup_${fleetNumber}`);
+                    if (savedData) {
+                        const armPickupData = JSON.parse(savedData);
+                        const armPickupInput = form.querySelector('.arm-pickup-data');
+                        if (armPickupInput) {
+                            armPickupInput.value = JSON.stringify(armPickupData.data);
+                        }
+                    }
+                }
+                
+                // 正常提交表单
+                form.submit();
+            });
+        });
+        
+        // 为上传按钮添加点击事件
+        document.querySelectorAll('#readyShip-section .upload-btn').forEach(button => {
+            button.addEventListener('click', function(e) {
+                const fleetNumber = this.closest('tr').querySelector('.fleet-number-cell')?.dataset?.fleetNumber;
+                if (fleetNumber) {
+                    prepareUpload(fleetNumber, this);
+                }
+            });
+        });
+    });
+    // 准备上传文件
+    function prepareUpload(fleetNumber, button) {
+        // 从localStorage获取拣货单数据
+        const savedData = localStorage.getItem(`arm_pickup_${fleetNumber}`);
+        if (savedData) {
+            const data = JSON.parse(savedData);
+            const form = button.closest('form');
+            const armPickupInput = form.querySelector('.arm-pickup-data');
+            if (armPickupInput) {
+                armPickupInput.value = JSON.stringify(data.data);
+            }
+        }
+        
+        // 触发文件选择
+        const fileInput = form.querySelector('input[type="file"]');
+        fileInput.click();
     }
 </script>

@@ -343,8 +343,8 @@
     }
     /* 地址列样式 */
     .fleet-address-col, .fleet-note-col {
-        min-width: 150px;
-        max-width: 180px;
+        min-width: 300px;
+        max-width: 360px;
     }
 
     /* 可编辑单元格的悬停效果 */
@@ -581,7 +581,14 @@
                     <td class="fleet-date-col">
                         {% if cargo.offload_at %}
                             <span class="fleet-month-day">
-                                {{ cargo.offload_at|date:"m-d" }}
+                                {{ cargo.offload_at }}
+                                {% if cargo.offload_tag == "实际" %}
+                                    <span style="color:#e53935">{{ cargo.offload_tag }}</span>
+                                {% elif cargo.offload_tag == "预计" %}
+                                    <span style="color:#fb8c00">{{ cargo.offload_tag }}</span>
+                                {% else %}
+                                    <span style="color:#757575">{{ cargo.offload_tag }}</span>
+                                {% endif %}
                             </span>
                         {% else %}
                             -
