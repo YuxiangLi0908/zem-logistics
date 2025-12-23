@@ -549,8 +549,11 @@
 
         // 组合筛选函数
         function applyCombinedFilter() {
-            
+            console.log('applyCombinedFilter called - 筛选条件:', columnFilters);
+            console.log('筛选条件数量:', Object.keys(columnFilters).length);
+
             const rows = document.querySelectorAll('#unscheduled_cargoTable .data-row');
+            console.log('总数据行数:', rows.length);
             let visibleCount = 0;
             let hiddenCount = 0;
             
@@ -602,7 +605,7 @@
                 }
             });
             
-            
+            console.log('筛选结果 - 显示:', visibleCount, '隐藏:', hiddenCount);
             updateSelectedCount();
         }
         // 更新选中数量
