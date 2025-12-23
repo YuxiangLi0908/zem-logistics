@@ -4492,7 +4492,7 @@ class PostNsop(View):
     ) -> list[Any]:
         pl_criteria &= models.Q(container_number__order__cancel_notification=False)& ~models.Q(container_number__order__order_type='直送')
         plt_criteria &= models.Q(container_number__order__cancel_notification=False)& ~models.Q(container_number__order__order_type='直送')
-        
+        print('筛选条件',pl_criteria,plt_criteria)
         data = []
         if plt_criteria:
             pal_list = await sync_to_async(list)(
@@ -4612,7 +4612,7 @@ class PostNsop(View):
 
             data += processed_pal_list
         # 查询 PackingList 数据
-        if True:
+        if pl_criteria:
             pl_list = await sync_to_async(list)(
                 PackingList.objects.prefetch_related(
                     "container_number",
@@ -4804,7 +4804,7 @@ class PostNsop(View):
         pl_criteria = pl_criteria & ~Q(delivery_method__contains="自提")
         
         plt_criteria = plt_criteria & ~Q(delivery_method__contains="自提")
-        
+        #pl_criteria = models.Q()
         cargos = await self._ltl_packing_list(
             pl_criteria,
             plt_criteria
@@ -5401,7 +5401,7 @@ class PostNsop(View):
         selfpick_cargos = await self._ltl_scheduled_self_pickup(pl_criteria, plt_criteria)
         # 已放行-自发
         selfdel_cargos = await self._ltl_self_delivery(pl_criteria, plt_criteria)
-
+        print('selfdel_cargos',selfdel_cargos)
         #待出库
         ready_to_ship_data = await self._ltl_ready_to_ship_data(warehouse,request.user)
         # 待送达
@@ -5410,11 +5410,7 @@ class PostNsop(View):
         # #待传POD
         pod_data_raw = await self._fl_pod_get(warehouse, None, 'ltl')
         pod_data = pod_data_raw['fleet']
-        selfpick_cargos = []
-        selfdel_cargos = []
-        ready_to_ship_data = []
-        delivery_data = []
-        pod_data = []
+
         summary = {
             'release_count': len(release_cargos),
             'selfpick_count': len(selfpick_cargos),
