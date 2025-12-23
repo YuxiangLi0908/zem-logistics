@@ -445,6 +445,15 @@
         <button class="fleet-action-btn fleet-btn-secondary" onclick="fleet_clearAllFilters()">
             <i class="fas fa-times"></i> 清空筛选
         </button>
+        <div class="filter-notice" style="font-size: 14px; padding: 8px 12px;">
+            <i class="fas fa-filter"></i> 
+            当前显示 <strong>{{ warehouse }}</strong> 入库仓库的货物，筛选条件：
+            <strong>未预约出库</strong>、
+            <strong><u>私仓</u></strong>、
+            <strong>柜子未取消</strong>、
+            <strong>柜子非直送</strong>、
+            <strong>派送方式为非自提</strong>
+        </div>
     </div>
 
     <!-- 数据表格 -->
