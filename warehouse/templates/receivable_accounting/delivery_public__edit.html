@@ -1673,7 +1673,7 @@
                                                 class="select-control delivery-type-select {% if not item.delivery_category %}highlight-select{% endif %}"
                                                 data-row="{{ forloop.counter0 }}">
                                             <option value="">请选择</option>
-                                            <option value="upsdelivery" {% if item.delivery_category == "upsdelivery" %}selected{% endif %}>UPS</option>
+                                            <option value="upsdelivery" {% if item.delivery_category == "upsdelivery" %}selected{% endif %}>快递</option>
                                             <option value="walmart" {% if item.delivery_category == "walmart" %}selected{% endif %}>沃尔玛</option>
                                             <option value="amazon" {% if item.delivery_category == "amazon" %}selected{% endif %}>亚马逊</option>
                                             <option value="hold" {% if item.delivery_category == "hold" %}selected{% endif %}>暂扣留仓</option>
