@@ -226,7 +226,7 @@ class PostNsop(View):
             page = request.POST.get("page")
             if page == "arm_appointment":
                 template, context = await self.handle_unscheduled_pos_post(request)
-            elif page == "ltl_devliery_section":
+            elif page == "ltl_delivery_section":
                 template, context = await self.handle_ltl_unscheduled_pos_post(request)
             else:
                 template, context = await self.handle_fleet_schedule_post(request)
@@ -380,6 +380,12 @@ class PostNsop(View):
             return await self.export_ltl_label(request)
         elif step == "export_ltl_bol":
             return await self.export_ltl_bol(request)
+        elif step == "save_shipping_tracking":
+            template, context = await self.handle_save_shipping_tracking(request)
+            return render(request, template, context) 
+        elif step == "update_pod_status":
+            template, context = await self.handle_update_pod_status(request)
+            return render(request, template, context) 
         else:
             raise ValueError('输入错误',step)
     
@@ -5296,6 +5302,38 @@ class PostNsop(View):
             return False, f"托盘尺寸分配错误：只分配了{idx}个托盘"
         
         return True, ""
+    
+    async def handle_update_pod_status(
+        self, request: HttpRequest
+    ) -> tuple[str, dict[str, Any]]:
+        """LTL对po更改核实状态"""
+        shipment_batch_number = request.POST.get('shipment_batch_number')
+        pod_to_customer_str = request.POST.get("pod_to_customer")
+        if pod_to_customer_str == "True":
+            pod_to_customer_str = True
+        else:
+            pod_to_customer_str = False
+
+        if shipment_batch_number:
+            shipment = await sync_to_async(Shipment.objects.get)(shipment_batch_number=shipment_batch_number)
+            shipment.pod_to_customer = pod_to_customer_str
+            await sync_to_async(shipment.save)()
+        
+        return await self.handle_ltl_unscheduled_pos_post(request)
+    
+    async def handle_save_shipping_tracking(
+        self, request: HttpRequest
+    ) -> tuple[str, dict[str, Any]]:
+        """LTL对po更改核实状态"""
+        fleet_number = request.POST.get('fleet_number')
+        ltl_shipping_tracking = request.POST.get('ltl_shipping_tracking')
+        
+        if fleet_number and ltl_shipping_tracking:
+            fleet = await sync_to_async(Fleet.objects.get)(fleet_number=fleet_number)
+            fleet.ltl_shipping_tracking = ltl_shipping_tracking
+            await sync_to_async(fleet.save)()
+        
+        return await self.handle_ltl_unscheduled_pos_post(request)
     
     async def handle_save_fleet_cost(
         self, request: HttpRequest

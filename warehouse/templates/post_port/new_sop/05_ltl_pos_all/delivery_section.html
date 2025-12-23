@@ -54,6 +54,35 @@
         font-size: 0.8rem;
     }
 
+    /* 物流跟踪输入框样式 */
+    .tracking-input {
+        width: 100%;
+        min-width: 200px;
+        padding: 6px 8px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 0.8rem;
+        resize: vertical;
+        min-height: 60px;
+        font-family: inherit;
+        line-height: 1.4;
+        box-sizing: border-box;
+    }
+
+    .tracking-input:focus {
+        outline: none;
+        border-color: #4a90e2;
+        box-shadow: 0 0 0 2px rgba(74, 144, 226, 0.2);
+    }
+
+    /* 物流跟踪表单 */
+    .tracking-form {
+        margin: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+    }
+
     .table-btn {
         padding: 6px 12px;
         border: none;
@@ -82,6 +111,15 @@
         background: #c0392b;
     }
 
+    .btn-primary-small {
+        background: #4a90e2;
+        color: white;
+    }
+
+    .btn-primary-small:hover {
+        background: #3a7bc8;
+    }
+
     .status-span-red {
         background-color: #ff4444; 
         color: #ffffff !important; 
@@ -106,14 +144,11 @@
         <tr>
             <th style="width:160px;">出库批次</th>
             <th style="width:150px;">预约批次</th>
-            <th>预约号</th>
-            <th>Carrier</th>
             <th>预约发车日期</th>
             <th style="width:140px;">实际发车日期</th>
-            <th>总重lbs</th>
-            <th style="width:80px;">总CBM</th>
-            <th style="width:80px;">总卡板数</th>
-            <th style="width:80px;">一提两卸</th>
+            <th style="width:80px;">板数</th> 
+            <th style="width:80px;">件数</th> 
+            <th style="min-width:200px;">物流跟踪</th> 
             <th>备注</th>
             <th>实际送达时间</th>
             <th>车次异常</th>
@@ -121,15 +156,12 @@
         <tr class="search-row">
             <td><input type="text" class="header-search" placeholder="搜索出库批次" data-column="0"></td>
             <td><input type="text" class="header-search" placeholder="搜索预约批次" data-column="1"></td>
-            <td><input type="text" class="header-search" placeholder="搜索预约号" data-column="2"></td>
-            <td><input type="text" class="header-search" placeholder="搜索Carrier" data-column="3"></td>
-            <td><input type="text" class="header-search" placeholder="搜索预约发车日期" data-column="4"></td>
-            <td><input type="text" class="header-search" placeholder="搜索实际发车日期" data-column="5"></td>
-            <td><input type="text" class="header-search" placeholder="搜索总重" data-column="6"></td>
-            <td><input type="text" class="header-search" placeholder="搜索CBM" data-column="7"></td>
-            <td><input type="text" class="header-search" placeholder="搜索卡板数" data-column="8"></td>
-            <td><input type="text" class="header-search" placeholder="搜索一提两卸" data-column="9"></td>
-            <td><input type="text" class="header-search" placeholder="搜索备注" data-column="10"></td>
+            <td><input type="text" class="header-search" placeholder="搜索预约发车日期" data-column="2"></td>
+            <td><input type="text" class="header-search" placeholder="搜索实际发车日期" data-column="3"></td>
+            <td><input type="text" class="header-search" placeholder="搜索板数" data-column="4"></td>
+            <td><input type="text" class="header-search" placeholder="搜索件数" data-column="5"></td>
+            <td><input type="text" class="header-search" placeholder="搜索物流跟踪" data-column="6"></td>
+            <td><input type="text" class="header-search" placeholder="搜索备注" data-column="7"></td>
             <td></td>
             <td></td>
         </tr>
@@ -142,8 +174,6 @@
                 <span style="color: #7f8c8d; font-size: 0.8em;">{{ s.fleet_number.pickup_number|default_if_none:'' }}</span>
             </td>
             <td style="max-width: 120px; word-break: break-all;">{{ s.shipment_batch_number }}</td>
-            <td style="max-width: 120px; word-break: break-all;">{{ s.appointment_id }}</td>
-            <td>{{ s.fleet_number.carrier }}</td>
             <td>{{ s.fleet_number.appointment_datetime|date:"M-j H:i" }}</td>
             <td>
                 {% if s.fleet_number.arrival_status == "past_due" %}
@@ -154,13 +184,21 @@
                 {{ s.fleet_number.departured_at|date:"M-j H:i" }}
                 {% endif %}
             </td>
-            <td>{{ s.total_weight|floatformat:2 }}</td>
-            <td>{{ s.total_cbm|floatformat:2 }}</td>
             <td>{{ s.total_pallet|floatformat:0 }}</td>
-            <td>
-                {% if s.fleet_number.multipule_destination %}
-                <i class="fas fa-check-circle" style="color: var(--success-color); font-size: 1rem"></i>
-                {% endif %}
+            <td>{{ s.total_pcs|default:0|floatformat:0 }}</td> 
+            <td style="min-width: 200px;">
+                <form method="post" class="tracking-form" action="">
+                    {% csrf_token %}
+                    <textarea class="tracking-input" 
+                              name="ltl_shipping_tracking" 
+                              placeholder="输入物流跟踪信息..."
+                              oninput="autoResizeTextarea(this)">{{ s.fleet_number.ltl_shipping_tracking|default:"" }}</textarea>
+                    <input type="hidden" name="step" value="save_shipping_tracking">
+                    <input type="hidden" name="fleet_number" value="{{ s.fleet_number.fleet_number }}">
+                    <input type="hidden" name="active_tab" value="ready">
+                    <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                    <button type="submit" class="table-btn btn-primary-small">保存跟踪</button>
+                </form>
             </td>
             <td style="max-width: 120px; word-break: break-all;">{{ s.fleet_number.note|default_if_none:"" }}</td>
             <td>
@@ -170,7 +208,7 @@
                     <input type="hidden" name="step" value="confirm_delivery">
                     <input type="hidden" name="fleet_number" value="{{ s.fleet_number.fleet_number }}">
                     <input type="hidden" name="shipment_batch_number" value="{{ s.shipment_batch_number }}">
-                    <input type="hidden" name="page" value="ltl_devliery_section">
+                    <input type="hidden" name="page" value="ltl_delivery_section">
                     <input type="hidden" name="active_tab" value="ready">
                     <input type="hidden" name="warehouse" value="{{ warehouse }}">
                     <button type="submit" class="table-btn btn-success-small">确认送达</button>
@@ -193,6 +231,18 @@
                 filterDeliveryTable(this);
             });
         });
+
+        // 初始化所有物流跟踪输入框的高度
+        document.querySelectorAll('.tracking-input').forEach(autoResizeTextarea);
+    }
+
+    // 自动调整textarea高度
+    function autoResizeTextarea(textarea) {
+        // 重置高度以计算准确的高度
+        textarea.style.height = 'auto';
+        // 设置最小高度为60px，然后根据内容增加
+        const newHeight = Math.max(60, textarea.scrollHeight);
+        textarea.style.height = newHeight + 'px';
     }
 
     function filterDeliveryTable(input) {
@@ -204,8 +254,19 @@
         for (let i = 0; i < rows.length; i++) {
             const cell = rows[i].getElementsByTagName('td')[columnIndex];
             if (cell) {
-                const txtValue = cell.textContent || cell.innerText;
-                if (txtValue.toUpperCase().indexOf(filter) > -1) {
+                // 特殊处理物流跟踪列（包含textarea）
+                let txtValue = '';
+                if (columnIndex === 6) { // 物流跟踪列
+                    const textarea = cell.querySelector('.tracking-input');
+                    if (textarea) {
+                        txtValue = textarea.value.toUpperCase();
+                    }
+                } else {
+                    txtValue = cell.textContent || cell.innerText;
+                    txtValue = txtValue.toUpperCase();
+                }
+                
+                if (txtValue.indexOf(filter) > -1) {
                     rows[i].style.display = '';
                 } else {
                     rows[i].style.display = 'none';
@@ -227,4 +288,9 @@
     function closeAbnormalModal() {
         document.getElementById('abnormalModal').style.display = 'none';
     }
+
+    // 页面加载完成后初始化
+    document.addEventListener('DOMContentLoaded', function() {
+        initializeDeliverySection();
+    });
 </script>
