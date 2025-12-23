@@ -4612,7 +4612,7 @@ class PostNsop(View):
                 processed_pal_list.append(cargo)
 
             data += processed_pal_list
-        
+
         # 查询 PackingList 数据
         if pl_criteria:
             pl_list = await sync_to_async(list)(
@@ -4776,7 +4776,6 @@ class PostNsop(View):
             pl_criteria,
             plt_criteria
         )
-        print('未放行',pl_criteria)
         cargos = []
         for cargo in raw_cargos:
             if not cargo["is_pass"]:
@@ -5387,10 +5386,10 @@ class PostNsop(View):
             return self.template_unscheduled_pos_all, context
         
         pl_criteria = Q(
-            shipment_batch_number__shipment_batch_number__isnull=True,
-            container_number__order__offload_id__offload_at__isnull=True,
-            container_number__order__retrieval_id__retrieval_destination_area=warehouse_name,
-            container_number__is_abnormal_state=False,
+            #shipment_batch_number__shipment_batch_number__isnull=True,
+            #container_number__order__offload_id__offload_at__isnull=True,
+            #container_number__order__retrieval_id__retrieval_destination_area=warehouse_name,
+            #container_number__is_abnormal_state=False,
             delivery_type="other"
         )
 
