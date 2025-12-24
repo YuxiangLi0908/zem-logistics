@@ -4792,11 +4792,14 @@ class PostNsop(View):
             delivery_method__contains="自提"
         )
         
-        cargos = await self._ltl_packing_list(
+        raw_cargos = await self._ltl_packing_list(
             pl_criteria,
             plt_criteria
         )
-        
+        cargos = []
+        for cargo in raw_cargos:
+            if cargo["is_pass"]:
+                cargos.append(cargo)
         return cargos
     
     async def _ltl_self_delivery(self, pl_criteria, plt_criteria) -> Dict[str, Any]:
@@ -4804,11 +4807,14 @@ class PostNsop(View):
         pl_criteria = pl_criteria & ~Q(delivery_method__contains="自提")
         
         plt_criteria = plt_criteria & ~Q(delivery_method__contains="自提")
-        cargos = await self._ltl_packing_list(
+        raw_cargos = await self._ltl_packing_list(
             pl_criteria,
             plt_criteria
         )
-        
+        cargos = []
+        for cargo in raw_cargos:
+            if cargo["is_pass"]:
+                cargos.append(cargo)
         return cargos
     
     async def export_ltl_unscheduled(

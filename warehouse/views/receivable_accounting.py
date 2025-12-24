@@ -243,8 +243,8 @@ class ReceivableAccounting(View):
             # 转运，财务保存
             template, context = self.handle_confirm_save_all(request)
             return render(request, template, context)
-        elif step == "supplement_search":
-            template, context = self.handle_supplement_search(request)
+        elif step == "manual_process_search":
+            template, context = self.handle_manual_process_search(request)
             return render(request, template, context)
         elif step == "confirm_combina_save":
             template, context = self.handle_invoice_confirm_combina_save(request)
@@ -2319,43 +2319,47 @@ class ReceivableAccounting(View):
         })
         return context
     
-    def handle_supplement_search(self, request:HttpRequest, context: dict| None = None,) -> Dict[str, Any]:
+    def handle_manual_process_search(self, request:HttpRequest, context: dict| None = None,) -> Dict[str, Any]:
         if not context:
             context = {}
+        container_number = request.POST.get("container_number")
         warehouse = request.POST.get("warehouse_filter")
         customer = request.POST.get("customer")
         start_date = request.POST.get("start_date")
         end_date = request.POST.get("end_date")
 
-        current_date = datetime.now().date()
-        start_date = (
-            (current_date + timedelta(days=-90)).strftime("%Y-%m-%d")
-            if not start_date
-            else start_date
-        )
-        end_date = current_date.strftime("%Y-%m-%d") if not end_date else end_date
-
-        criteria = (
-            Q(cancel_notification=False)
-            & (Q(order_type="转运") | Q(order_type="转运组合"))
-            & Q(vessel_id__vessel_etd__gte=start_date)
-            & Q(vessel_id__vessel_etd__lte=end_date)
-            & Q(offload_id__offload_at__isnull=False)
-        )
-
-        if warehouse:
-            criteria &= Q(retrieval_id__retrieval_destination_precise=warehouse)
-        if customer:
-            criteria &= Q(customer_name__zem_name=customer)
+        if not container_number:
+            current_date = datetime.now().date()
+            start_date = (
+                (current_date + timedelta(days=-90)).strftime("%Y-%m-%d")
+                if not start_date
+                else start_date
+            )
+            end_date = current_date.strftime("%Y-%m-%d") if not end_date else end_date
+            criteria = (
+                Q(cancel_notification=False)
+                & (Q(order_type="转运") | Q(order_type="转运组合"))
+                & Q(vessel_id__vessel_etd__gte=start_date)
+                & Q(vessel_id__vessel_etd__lte=end_date)
+                & Q(offload_id__offload_at__isnull=False)
+            )
+            if warehouse:
+                criteria &= Q(retrieval_id__retrieval_destination_precise=warehouse)
+            if customer:
+                criteria &= Q(customer_name__zem_name=customer)
+        else:
+            criteria = (
+                Q(container_number__container_number=container_number)
+            )      
     
         # 获取基础订单数据
         base_orders = (
             Order.objects
             .select_related(
-                'retrieval_id', 
-                'offload_id', 
-                'container_number',
-                'customer_name'
+                "retrieval_id",
+                "offload_id",
+                "container_number",
+                "customer_name",
             )
             .annotate(
                 retrieval_time=F("retrieval_id__actual_retrieval_timestamp"),
@@ -2365,130 +2369,128 @@ class ReceivableAccounting(View):
             .filter(criteria)
             .distinct()
         )
-        order = [] #可补开的账单
-        previous_order = []  #已补开的账单
+        rows = []
+
         for o in base_orders:
             container = o.container_number
-            
             if not container:
                 continue
 
-            # 查询这个柜子的所有应收账单
-            invoices = Invoicev2.objects.filter(container_number=container)
-            
-            if invoices.exists():
+            invoices = (
+                Invoicev2.objects
+                .filter(container_number=container)
+            )
+
+            if not invoices.exists():
                 continue
 
+            # 一次性取 status，避免 N+1
+            status_map = {
+                s.invoice_id: s
+                for s in InvoiceStatusv2.objects.filter(
+                    invoice__in=invoices,
+                    invoice_type="receivable",
+                )
+            }
+
             for invoice in invoices:
-                try:
-                    invoice_status = InvoiceStatusv2.objects.get(
-                        invoice=invoice,
-                        invoice_type="receivable"
-                    )
-                    finance_status = invoice_status.finance_status
-                except InvoiceStatusv2.DoesNotExist:
-                    # 如果没有状态记录，跳过处理
+                invoice_status = status_map.get(invoice.id)
+                if not invoice_status:
                     continue
-                
-                # 如果只有一条发票记录
-                if invoices.count() == 1:
-                    # finance_status不是completed的不用处理
-                    if finance_status != 'completed':
-                        continue
 
-                    # 查询Pallet表的所有PO_ID去重
-                    pallet_po_ids = Pallet.objects.filter(
-                        container_number=container
-                    ).exclude(PO_ID__isnull=True).exclude(PO_ID='').values_list(
-                        'PO_ID', flat=True
-                    ).distinct()
-                    
-                    # 查询InvoiceItemv2表已记录的PO_ID
-                    recorded_po_ids = InvoiceItemv2.objects.filter(
-                        container_number=container,
-                        invoice_number=invoice,
-                        invoice_type="receivable",
-                    ).exclude(PO_ID__isnull=True).exclude(PO_ID='').values_list(
-                        'PO_ID', flat=True
-                    ).distinct()
+                rows.append({
+                    # ===== Order =====
+                    "order_id": o.id,
+                    "order_type": o.order_type,
+                    "created_at": o.created_at,
+                    "offload_time": o.offload_time,
 
-                    # 找出未记录的PO_ID
-                    unrecorded_po_ids = set(pallet_po_ids) - set(recorded_po_ids)
+                    "container_id": container.id,
+                    "container_number": container.container_number,
 
-                    # 如果有没记录到的PO_ID，order_data就加入到order列表
-                    if unrecorded_po_ids:
-                        order_data = {
-                            'order': o,
-                            'order_id': o.id,
-                            'container_number__container_number': o.container_number.container_number if o.container_number else None,
-                            'customer_name__zem_name': o.customer_name.zem_name if o.customer_name else None,
-                            'order_type': o.order_type,
-                            'retrieval_id__retrieval_destination_precise': o.retrieval_id.retrieval_destination_precise if o.retrieval_id else None,
-                            'retrieval_id__retrieval_carrier': getattr(o.retrieval_id, 'retrieval_carrier', None) if o.retrieval_id else None,
-                            'retrieval_id__actual_retrieval_timestamp': getattr(o.retrieval_id, 'actual_retrieval_timestamp', None) if o.retrieval_id else None,
-                            'created_at': o.created_at,
-                            'offload_time': o.offload_time,
-                            
-                            # 发票信息
-                            'invoice_id__invoice_number': invoice.invoice_number,
-                            'invoice_number': invoice.invoice_number,
-                            'invoice_id': invoice.id,
-                            'invoice_created_at': invoice.created_at if hasattr(invoice, 'created_at') else invoice.history.first().history_date if invoice.history.exists() else None,
-                            'finance_status': finance_status,
-                            'has_invoice': True,
-                            'offload_time': o.offload_time,
-                            
-                            # 新增字段用于前端显示
-                            'unrecorded_po_ids_count': len(unrecorded_po_ids),
-                            'unrecorded_po_ids': list(unrecorded_po_ids)[:10],  # 只显示前10个
-                            'pallet_total_count': len(pallet_po_ids),
-                            'recorded_po_ids_count': len(recorded_po_ids),
-                            'container_id': container.id if container else None,
-                        }
-                        order.append(order_data)
-                
-                # 如果有多条invoices的话
-                else:
-                    order_data = {
-                        'order': o,
-                        'order_id': o.id,
-                        'container_number__container_number': o.container_number.container_number if o.container_number else None,
-                        'customer_name__zem_name': o.customer_name.zem_name if o.customer_name else None,
-                        'order_type': o.order_type,
-                        'retrieval_id__retrieval_destination_precise': o.retrieval_id.retrieval_destination_precise if o.retrieval_id else None,
-                        'retrieval_id__retrieval_carrier': getattr(o.retrieval_id, 'retrieval_carrier', None) if o.retrieval_id else None,
-                        'retrieval_id__actual_retrieval_timestamp': getattr(o.retrieval_id, 'actual_retrieval_timestamp', None) if o.retrieval_id else None,
-                        'created_at': o.created_at,
-                        'offload_time': o.offload_time,
-                        
-                        # 发票信息
-                        'invoice_id__invoice_number': invoice.invoice_number,
-                        'invoice_number': invoice.invoice_number,
-                        'invoice_id': invoice.id,
-                        'invoice_created_at': invoice.created_at if hasattr(invoice, 'created_at') else invoice.history.first().history_date if invoice.history.exists() else None,
-                        'finance_status': finance_status,
-                        'has_invoice': True,
-                        'offload_time': o.offload_time,
-                        
-                        # 新增字段用于显示有多条发票
-                        'invoice_count': invoices.count(),
-                        'invoice_index': list(invoices).index(invoice) + 1,
-                        'container_id': container.id if container else None,
-                    }
-                    previous_order.append(order_data)
+                    "customer_name": o.customer_name.zem_name if o.customer_name else None,
+                    "warehouse": (
+                        o.retrieval_id.retrieval_destination_precise
+                        if o.retrieval_id else None
+                    ),
+
+                    # ===== Invoice =====
+                    "invoice_id": invoice.id,
+                    "invoice_number": invoice.invoice_number,
+                    "invoice_date": invoice.invoice_date,
+                    "invoice_created_at": invoice.created_at,
+
+                    # ===== Status =====
+                    "preport_status": invoice_status.preport_status,
+                    "warehouse_public_status": invoice_status.warehouse_public_status,
+                    "warehouse_other_status": invoice_status.warehouse_other_status,
+                    "delivery_public_status": invoice_status.delivery_public_status,
+                    "delivery_other_status": invoice_status.delivery_other_status,
+                    "finance_status": invoice_status.finance_status,
+
+                    # ===== Amounts =====
+                    "receivable_total_amount": invoice.receivable_total_amount,
+                    "receivable_preport_amount": invoice.receivable_preport_amount,
+                    "receivable_wh_public_amount": invoice.receivable_wh_public_amount,
+                    "receivable_wh_other_amount": invoice.receivable_wh_other_amount,
+                    "receivable_delivery_public_amount": invoice.receivable_delivery_public_amount,
+                    "receivable_delivery_other_amount": invoice.receivable_delivery_other_amount,
+                    "receivable_direct_amount": invoice.receivable_direct_amount,
+                })
 
         context.update({
-            'start_date': start_date,
-            'end_date': end_date,
-            'order': order,
-            'previous_order': previous_order,
+            "rows": rows,
             "order_form": OrderForm(),
             "warehouse_options": self.warehouse_options,
             "warehouse_filter": warehouse,
+            "start_date": start_date,
+            "end_date": end_date,
         })
+
         return self.template_supplementary_entry, context
 
-
+    def get_status_display(self, status_type, status_value):
+        """根据状态类型和值获取显示文本"""
+        status_display_map = {
+            'finance_status': {
+                'unstarted': '未开始',
+                'tobeconfirmed': '待确认',
+                'completed': '已完成',
+            },
+            'preport_status': {
+                'unstarted': '未录入',
+                'in_progress': '录入中',
+                'pending_review': '待组长审核',
+                'completed': '已完成',
+                'rejected': '已驳回',
+            },
+            'warehouse_public_status': {
+                'unstarted': '未录入',
+                'in_progress': '录入中',
+                'completed': '已完成',
+                'rejected': '已驳回',
+            },
+            'warehouse_other_status': {
+                'unstarted': '未录入',
+                'in_progress': '录入中',
+                'completed': '已完成',
+                'rejected': '已驳回',
+            },
+            'delivery_public_status': {
+                'unstarted': '未录入',
+                'in_progress': '录入中',
+                'completed': '已完成',
+                'rejected': '已驳回',
+            },
+            'delivery_other_status': {
+                'unstarted': '未录入',
+                'in_progress': '录入中',
+                'completed': '已完成',
+                'rejected': '已驳回',
+            }
+        }
+        
+        return status_display_map.get(status_type, {}).get(status_value, status_value)
     def handle_confirm_entry_post(self, request:HttpRequest, context: dict| None = None,) -> Dict[str, Any]:
         if not context:
             context = {}
