@@ -75,7 +75,7 @@
         min-width: 150px;
     }
 
-    .filter-controls button {
+    .btn-filter {
         padding: 10px 20px;
         background: var(--success-color);
         color: white;
@@ -86,7 +86,7 @@
         transition: all 0.3s ease;
     }
 
-    .filter-controls button:hover {
+    .btn-filter:hover {
         background: #219652;
         transform: translateY(-1px);
     }
@@ -95,68 +95,27 @@
         padding: 25px;
     }
 
-    .tables-grid {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 25px;
-        height: 650px;
-    }
-
-    .container-section {
+    .table-container {
+        overflow-x: auto;
         background: white;
         border-radius: var(--border-radius);
         box-shadow: var(--card-shadow);
-        overflow: hidden;
-        display: flex;
-        flex-direction: column;
-        height: 100%;
         border: 1px solid #f0f0f0;
-    }
-
-    .section-header {
-        background: linear-gradient(135deg, #f8f9fa, #e9ecef);
-        padding: 20px;
-        border-bottom: 1px solid #dee2e6;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        flex-shrink: 0;
-    }
-
-    .section-header h3 {
-        margin: 0;
-        color: var(--secondary-color);
-        font-size: 1.2rem;
-        font-weight: 600;
-    }
-
-    .section-count {
-        background: var(--primary-color);
-        color: white;
-        border-radius: 20px;
-        padding: 4px 12px;
-        font-size: 0.85rem;
-        font-weight: 600;
-    }
-
-    .table-container {
-        overflow-x: auto;
-        overflow-y: auto;
-        flex: 1;
-        background: #fafbfc;
+        max-height: 700px;
     }
 
     .table {
         width: 100%;
         border-collapse: separate;
         border-spacing: 0;
-        font-size: 14px;
+        font-size: 13px;
         background: white;
+        min-width: 1400px; /* 减少最小宽度 */
     }
 
     .th {
         background: linear-gradient(135deg, #f8f9fa, #e9ecef);
-        padding: 16px 12px;
+        padding: 14px 8px;
         text-align: left;
         font-weight: 600;
         border-bottom: 2px solid #dee2e6;
@@ -164,9 +123,9 @@
         top: 0;
         z-index: 10;
         color: var(--secondary-color);
-        font-size: 0.95rem;
+        font-size: 0.9rem;
         border-right: 1px solid #e9ecef;
-        height: 50px;
+        white-space: nowrap;
     }
 
     .th:last-child {
@@ -174,247 +133,135 @@
     }
 
     .td {
-        padding: 14px 12px;
+        padding: 12px 8px;
         border-bottom: 1px solid #f0f0f0;
         vertical-align: middle;
+        font-size: 12px;
     }
 
-    .action-buttons {
+    /* 合并后的状态样式 */
+    .status-combined {
         display: flex;
-        gap: 8px;
+        flex-direction: column;
+        gap: 2px;
+    }
+
+    .status-item {
+        display: flex;
         align-items: center;
+        gap: 4px;
     }
 
-    .action-btn {
-        padding: 8px 16px;
-        border: none;
-        border-radius: 6px;
-        font-size: 14px;
+    .status-label {
+        font-size: 11px;
+        color: #666;
+        min-width: 40px;
+        text-align: right;
+    }
+
+    .status-value {
         font-weight: 500;
-        cursor: pointer;
-        transition: all 0.3s ease;
+        padding: 2px 6px;
+        border-radius: 10px;
+        font-size: 11px;
+        min-width: 70px;
+        text-align: center;
+        white-space: nowrap;
     }
 
-    .btn-primary {
-        background: #1890ff;
-        color: white;
+    /* 合并后的费用样式 */
+    .cost-combined {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
     }
 
-    .btn-primary:hover {
-        background: #096dd9;
+    .cost-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 10px;
     }
 
-    .btn-success {
-        background: #52c41a;
-        color: white;
+    .cost-type {
+        font-size: 11px;
+        color: #666;
     }
 
-    .btn-success:hover {
-        background: #389e0d;
+    .cost-amount {
+        font-weight: 600;
+        color: #1890ff;
+        font-size: 12px;
     }
 
-    .btn-warning {
-        background: #fa8c16;
-        color: white;
-    }
-
-    .btn-warning:hover {
-        background: #d46b08;
-    }
-
-    .btn-danger {
-        background: #f5222d;
-        color: white;
-    }
-
-    .btn-danger:hover {
-        background: #cf1322;
-    }
-
+    /* 状态徽章样式 */
     .status-badge {
         display: inline-block;
-        padding: 4px 10px;
-        border-radius: 12px;
-        font-size: 12px;
+        padding: 3px 8px;
+        border-radius: 10px;
+        font-size: 11px;
         font-weight: 500;
+        text-align: center;
+        white-space: nowrap;
+        min-width: 60px;
     }
 
-    .status-notified {
+    .status-unstarted {
+        background: #f5f5f5;
+        color: #8c8c8c;
+        border: 1px solid #d9d9d9;
+    }
+
+    .status-in_progress {
         background: #e6f7ff;
         color: #1890ff;
         border: 1px solid #91d5ff;
     }
 
-    .status-unnotified {
+    .status-pending_review {
         background: #fff7e6;
         color: #fa8c16;
         border: 1px solid #ffd591;
     }
 
-    .status-pending {
+    .status-completed {
         background: #f6ffed;
         color: #52c41a;
         border: 1px solid #b7eb8f;
     }
 
-    .search-row .th {
-        background: #e9ecef !important;
-        position: sticky;
-        top: 50px !important;
-        z-index: 9;
-        padding: 8px 12px !important;
-        height: 40px !important;
-        border-bottom: 1px solid #dee2e6 !important;
+    .status-rejected {
+        background: #fff1f0;
+        color: #f5222d;
+        border: 1px solid #ffa39e;
     }
 
-    .search-row .th input[type="text"] {
-        width: 100%;
-        padding: 6px 10px;
-        border: 1px solid #ced4da;
-        border-radius: 4px;
-        font-size: 12px;
-        box-sizing: border-box;
-        transition: all 0.3s ease;
-        background: white;
-    }
-
-    .search-row .th input[type="text"]:focus {
-        outline: none;
-        border-color: var(--primary-color);
-        box-shadow: 0 0 0 2px rgba(27, 94, 32, 0.1);
-    }
-
-    .monthly-total-controls {
-        display: flex;
-        align-items: center;
-        gap: 15px;
-        background: #f8f9fa;
-        padding: 15px;
-        border-radius: 8px;
-        margin-bottom: 20px;
-    }
-
-    .monthly-total-controls label {
-        font-weight: bold;
-        color: #333;
-    }
-
-    .monthly-total-controls select {
-        padding: 8px 12px;
-        border: 1px solid #ced4da;
-        border-radius: 4px;
-        font-size: 14px;
-    }
-
-    .total-amount {
-        font-weight: bold;
-        color: #1890ff;
-        padding: 8px 16px;
-        border-radius: 4px;
+    .status-tobeconfirmed {
         background: #f0f8ff;
-        min-width: 150px;
-        text-align: center;
+        color: #096dd9;
+        border: 1px solid #69c0ff;
     }
 
-    .modal {
-        display: none;
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background-color: rgba(0,0,0,0.5);
-        z-index: 999;
-        overflow-y: auto;
+    /* 金额样式 */
+    .amount-cell {
+        font-weight: 600;
+        text-align: right;
     }
 
-    .modal-content {
-        position: relative;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        width: 90%;
-        max-width: 700px;
-        background: white;
-        border-radius: 8px;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.15);
-        padding: 25px;
+    .amount-total {
+        color: var(--primary-color);
     }
 
-    .close-modal {
-        position: absolute;
-        top: 15px;
-        right: 15px;
-        font-size: 24px;
-        cursor: pointer;
-        color: #666;
+    .amount-section {
+        color: #096dd9;
     }
 
-    .form-group {
-        margin-bottom: 20px;
+    .amount-zero {
+        color: #8c8c8c;
+        font-weight: normal;
     }
 
-    .form-group label {
-        display: block;
-        margin-bottom: 6px;
-        font-size: 14px;
-        color: #555;
-        font-weight: 500;
-    }
-
-    .form-group input,
-    .form-group textarea {
-        width: 100%;
-        padding: 10px 12px;
-        border: 1px solid #ddd;
-        border-radius: 4px;
-        font-size: 14px;
-        box-sizing: border-box;
-    }
-
-    .form-group textarea {
-        min-height: 100px;
-        resize: vertical;
-    }
-
-    .modal-footer {
-        display: flex;
-        justify-content: flex-end;
-        gap: 10px;
-        margin-top: 20px;
-    }
-
-    .selected-orders-info {
-        margin-bottom: 20px;
-        padding: 15px;
-        background: #f8f9fa;
-        border-radius: 6px;
-    }
-
-    .customer-info {
-        margin-bottom: 15px;
-        padding-bottom: 15px;
-        border-bottom: 1px solid #dee2e6;
-    }
-
-    .selected-orders-table {
-        width: 100%;
-        border-collapse: collapse;
-        font-size: 14px;
-    }
-
-    .selected-orders-table th {
-        background: #e9ecef;
-        padding: 10px;
-        text-align: left;
-        border: 1px solid #dee2e6;
-    }
-
-    .selected-orders-table td {
-        padding: 10px;
-        border: 1px solid #dee2e6;
-    }
-
+    /* 链接样式 */
     .container-link {
         color: #1890ff;
         text-decoration: none;
@@ -427,50 +274,100 @@
         text-decoration: underline;
     }
 
-    .amount-cell {
-        font-weight: 600;
-        color: var(--primary-color);
-    }
-
-    .remain-amount {
-        color: #fa8c16;
-    }
-
     .invoice-link {
         color: #52c41a;
-        margin-right: 8px;
+        text-decoration: none;
     }
 
-    .delete-link {
-        color: #f5222d;
-        cursor: pointer;
+    .invoice-link:hover {
+        text-decoration: underline;
     }
 
     .statement-link {
-        color: #1890ff;
+        color: #722ed1;
+        text-decoration: none;
     }
 
-    /* 核销金额样式 */
-    .offset-info {
-        background: #fff7e6;
-        padding: 10px;
-        border-radius: 4px;
-        margin-bottom: 15px;
-        border-left: 4px solid #fa8c16;
+    .statement-link:hover {
+        text-decoration: underline;
     }
 
-    /* 行选中样式 */
-    .selected-row {
-        background-color: #e6f7ff !important;
-        transition: background-color 0.3s ease;
+    /* 行样式 */
+    .no-invoice-row {
+        background-color: #fff7e6 !important;
+        border-left: 3px solid #ffd591;
     }
 
-    /* 复选框样式优化 */
-    .td input[type="checkbox"] {
-        cursor: pointer;
-        width: 18px;
-        height: 18px;
-        vertical-align: middle;
+    .has-unrecorded-po {
+        background-color: #fff1f0 !important;
+        border-left: 3px solid #ffa39e;
+    }
+
+    tr:hover {
+        background-color: #fafafa !important;
+    }
+
+    /* 空状态 */
+    .empty-state {
+        text-align: center;
+        padding: 40px;
+        color: #8c8c8c;
+        font-size: 14px;
+    }
+
+    /* PO徽章 */
+    .po-badge {
+        display: inline-block;
+        padding: 2px 6px;
+        background: #f0f8ff;
+        border: 1px solid #91d5ff;
+        border-radius: 10px;
+        font-size: 11px;
+        color: #096dd9;
+        margin-right: 4px;
+        margin-bottom: 4px;
+    }
+
+    /* 响应式调整 */
+    @media (max-width: 1600px) {
+        .finance-header {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 20px;
+        }
+        
+        .filter-controls {
+            flex-wrap: wrap;
+            width: 100%;
+        }
+    }
+
+    @media (max-width: 1200px) {
+        .table-container {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+        
+        .table {
+            min-width: 1200px;
+        }
+    }
+
+    /* 表头分组样式 - 新增 */
+    .header-group {
+        background: linear-gradient(135deg, #e6f7ff, #bae7ff);
+        border-bottom: 2px solid #91d5ff;
+        color: #096dd9;
+        font-weight: bold;
+        text-align: center;
+    }
+
+    /* 费用总计样式 */
+    .cost-total {
+        background: linear-gradient(135deg, #f6ffed, #d9f7be);
+        border-top: 1px solid #b7eb8f;
+        font-weight: bold;
+        color: var(--primary-color);
     }
 </style>
 
@@ -483,15 +380,26 @@
                 <span>应收账单补开管理</span>
             </div>       
             <div class="filter-controls">
+                <div class="filter-group" style="position: relative;">
+                    <label>柜号：</label>
+                    <input type="text" name="container_number" 
+                        value="{{ container_number|default:'' }}"
+                        placeholder="输入柜号（可选）"
+                        style="width: 180px; padding-right: 30px;"
+                        title="输入柜号时，仓点和时间筛选将自动忽略">
+                    <i class="fas fa-info-circle" 
+                    style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); color: #999; font-size: 14px; cursor: help;"
+                    title="输入柜号时，仓点和时间筛选将自动忽略"></i>
+                </div>
                 <div class="filter-group">
                     <label>客户：</label>
                     {{ order_form.customer_name }}
                 </div>
                 <div class="filter-group">
                     <label>ETD时间：</label>
-                    <input type="date" name="start_date_confirm" value="{{ start_date_confirm }}">
+                    <input type="date" name="start_date_confirm" value="{{ start_date|default:'' }}">
                     <span style="color: white; margin: 0 5px;">至</span>
-                    <input type="date" name="end_date_confirm" value="{{ end_date_confirm }}">
+                    <input type="date" name="end_date_confirm" value="{{ end_date|default:'' }}">
                 </div>
                 <div class="filter-group">
                     <label>仓点区域：</label>
@@ -501,7 +409,7 @@
                         {% endfor %}
                     </select>
                 </div>
-                <input type="hidden" name="step" value="supplement_search">
+                <input type="hidden" name="step" value="manual_process_search">
                 <button type="submit" class="btn-filter">
                     <i class="fas fa-search"></i> 查询
                 </button>
@@ -509,219 +417,284 @@
         </div>
     </form>
 
-    <div class="finance-main">
-        <div class="tables-grid">
-            <!-- 待开账单 -->
-            <div class="container-section">
-                <div class="section-header">
-                    <h3>
-                        可补开账单
-                        <span class="section-count">{{ order|length }}条</span>
-                    </h3>
-                    <form method="post" action="" class="order-type-form">
-                        {% csrf_token %}
-                        <input type="hidden" name="step" value="supplement_order">
-                        <input type="text" 
-                            name="container_number" 
-                            placeholder="输入柜号"
-                            style="padding: 8px 12px; border: 1px solid #1b5e20; border-radius: 4px; width: 180px;">
 
-                        <button type="submit" 
-                            class="btn-change-order-type"
-                            style="padding: 8px 16px; background: linear-gradient(135deg, #2e7d32, #1b5e20); color: white; border: none; border-radius: 4px; cursor: pointer;">
-                            <i class="fas fa-exchange-alt"></i>
-                            补开
-                        </button>
-                    </form>
-                </div>
-                <div class="table-container">
-                    <table class="table" id="order-table">
-                        <thead>
-                            <tr>
-                                <th class="th">客户</th>
-                                <th class="th">货柜号</th>
-                                <th class="th">订单类型</th>
-                                <th class="th">仓库</th>
-                                <th class="th">建单日期</th>
-                            </tr>
-                            <tr class="search-row">
-                                <th class="th">
-                                    <input type="text" placeholder="搜索客户..." oninput="filterTable(this, 0, 'order-table')">
-                                </th>
-                                <th class="th">
-                                    <input type="text" placeholder="搜索柜号..." oninput="filterTable(this, 1, 'order-table')">
-                                </th>
-                                <th class="th">
-                                    <input type="text" placeholder="搜索类型..." oninput="filterTable(this, 2, 'order-table')">
-                                </th>
-                                <th class="th">
-                                    <input type="text" placeholder="搜索仓库..." oninput="filterTable(this, 3, 'order-table')">
-                                </th>
-                                <th class="th">
-                                    <input type="text" placeholder="搜索日期..." oninput="filterTable(this, 4, 'order-table')">
-                                </th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% if order %}       
-                                {% for c in order %}
-                                <tr>
-                                    <td class="td">{{ c.customer_name__zem_name }}</td>
-                                    <td class="td">
-                                        <a href="/receivable_accounting/?step=container_confirm&container_number={{ c.container_number__container_number }}&invoice_id={{ c.invoice_id }}&start_date={{ start_date }}&end_date={{ end_date }}&warehouse_filter={{ warehouse_filter }}" class="container-link">
-                                            {{ c.container_number__container_number }}
-                                        </a>
-                                    </td>
-                                    <td class="td">{{ c.order_type }}</td>
-                                    <td class="td">{{ c.retrieval_id__retrieval_destination_precise }}</td>
-                                    <td class="td">{{ c.created_at|date:"Y-m-d" }}</td>
-                                </tr>
-                                {% endfor %}
-                            {% else %}
-                                <tr>
-                                    <td colspan="5" class="td" style="text-align: center; color: #6c757d;">
-                                        暂无待开账单
-                                    </td>
-                                </tr>
-                            {% endif %}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
+    <div class="table-container">
+        <table class="table" id="invoice-table">
+            <thead>
+                <tr>
+                    <th class="th" rowspan="2">客户</th>
+                    <th class="th" rowspan="2">柜号</th>
+                    <th class="th" rowspan="2">订单类型</th>
+                    <th class="th" rowspan="2">仓库</th>
+                    <th class="th" rowspan="2">Invoice #</th>
 
-            <!-- 已开账单 -->
-            <div class="container-section">
-                <div class="section-header">
-                    <h3>
-                        已补开账单
-                        <span class="section-count">{{ previous_order|length }}条</span>
-                    </h3>
+                    <th class="th" colspan="2">操作状态</th>
+                    <th class="th" rowspan="2">财务状态</th>
+
+                    <th class="th" rowspan="2">应收合计</th>
+                    <th class="th" rowspan="2">港前费用</th>
+                    <th class="th" colspan="2">仓库费用</th>
+                    <th class="th" colspan="2">派送费用</th>
+                    <th class="th" rowspan="2">直送费用</th>
+                </tr>
+                <tr>
+                    <!-- 操作状态子列 -->
+                    <th class="th" style="font-size: 11px; font-weight: 500;">港前</th>
+                    <th class="th" style="font-size: 11px; font-weight: 500;">库内</th>
+                    <th class="th" style="font-size: 11px; font-weight: 500;">派送</th>
                     
-                </div>
-                <div class="table-container">
-                    <table class="table" id="order-table-previous">
-                        <thead>
-                            <tr>
-                                <th class="th" style="width: 40px;">
-                                    <input type="checkbox" id="selectAll">
-                                </th>
-                                <th class="th">客户</th>
-                                <th class="th">货柜号</th>
-                                <th class="th">订单类型</th>
-                                <th class="th">仓库</th>
-                                <th class="th">INVOICE #</th>
-                                <th class="th">建单日期</th>
-                                <th class="th">账单日期</th>
-                                <th class="th">应收金额</th>
-                                <th class="th">待核销</th>
-                                <th class="th">操作</th>
-                                <th class="th">STMT #</th>
-                                <th class="th">通知状态</th>
-                            </tr>
-                            <tr class="search-row">
-                                <th class="th" style="width: 40px;"></th>
-                                <th class="th">
-                                    <input type="text" placeholder="搜索客户..." oninput="filterTable(this, 1, 'order-table-previous')">
-                                </th>
-                                <th class="th">
-                                    <input type="text" placeholder="搜索柜号..." oninput="filterTable(this, 2, 'order-table-previous')">
-                                </th>
-                                <th class="th">
-                                    <input type="text" placeholder="搜索类型..." oninput="filterTable(this, 3, 'order-table-previous')">
-                                </th>
-                                <th class="th">
-                                    <input type="text" placeholder="搜索仓库..." oninput="filterTable(this, 4, 'order-table-previous')">
-                                </th>
-                                <th class="th">
-                                    <input type="text" placeholder="搜索INVOICE #..." oninput="filterTable(this, 5, 'order-table-previous')">
-                                </th>
-                                <th class="th">
-                                    <input type="text" placeholder="搜索建单日期..." oninput="filterTable(this, 6, 'order-table-previous')">
-                                </th>
-                                <th class="th">
-                                    <input type="text" placeholder="搜索账单日期..." oninput="filterTable(this, 7, 'order-table-previous')">
-                                </th>
-                                <th class="th">
-                                    <input type="text" placeholder="搜索金额..." oninput="filterTable(this, 8, 'order-table-previous')">
-                                </th>
-                                <th class="th">
-                                    <input type="text" placeholder="搜索待核销..." oninput="filterTable(this, 9, 'order-table-previous')">
-                                </th>
-                                <th class="th"></th>
-                                <th class="th">
-                                    <input type="text" placeholder="搜索STMT #..." oninput="filterTable(this, 11, 'order-table-previous')">
-                                </th>
-                                <th class="th">
-                                    <input type="text" placeholder="搜索状态..." oninput="filterTable(this, 12, 'order-table-previous')">
-                                </th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% if previous_order %}        
-                                {% for c in previous_order %}
-                                <tr>
-                                    <td class="td" style="text-align: center;">
-                                        <input type='checkbox' name='is_order_selected_click' onclick="toggleRowBackground(this)">
-                                        <input type="hidden" name="is_order_selected" value='off'>
-                                        <input type="hidden" name="order_id" value='{{ c.order_id }}'>
-                                    </td>
-                                    <td class="td">{{ c.customer_name__zem_name }}</td>
-                                    <td class="td">
-                                        <a href="/accounting/?step=container_confirm&container_number={{ c.container_number__container_number }}&invoice_id={{ item.invoice_id }}&start_date_confirm={{ start_date_confirm }}&end_date_confirm={{ end_date_confirm }}&invoice_type={{ invoice_type_filter }}&warehouse_filter={{ warehouse_filter }}" class="container-link">
-                                            {{ c.container_number__container_number }}
-                                        </a>
-                                    </td>
-                                    <td class="td">{{ c.order_type }}</td>
-                                    <td class="td">{{ c.retrieval_id__retrieval_destination_area }}</td>
-                                    <td class="td">{{ c.invoice_id__invoice_number }}</td>
-                                    <td class="td">{{ c.created_at|date:"Y-m-d" }}</td>
-                                    <td class="td">{{ c.invoice_id__invoice_date|date:"Y-m-d" }}</td>
-                                    <td class="td amount-cell">${{ c.invoice_id__receivable_total_amount|floatformat:"2g" }}</td>
-                                    <td class="td remain-amount">${{ c.invoice_id__remain_offset|floatformat:"2g" }}</td>
-                                    <td class="td">
-                                        <div class="action-buttons">
-                                            <a href="{{ c.invoice_id__invoice_link }}" target="_blank" class="invoice-link" title="查看发票">
-                                                <i class="fas fa-file-invoice"></i>
-                                            </a>
-                                            <a href="#" onclick="confirmDelete(event, '{{ c.container_number__container_number }}', '{{ c.invoice_id__invoice_number }}')" class="delete-link" title="删除">
-                                                <i class="fas fa-trash-alt"></i>
-                                            </a>
-                                        </div>
-                                    </td>
-                                    <td class="td">
-                                        {% if c.invoice_id__statement_id__invoice_statement_id %}
-                                            <a href="{{ c.invoice_id__statement_id__statement_link }}" target="_blank" class="statement-link">
-                                                {{ c.invoice_id__statement_id__invoice_statement_id }}
-                                            </a>
-                                        {% else %}
-                                            -
-                                        {% endif %}
-                                    </td>
-                                    <td class="td">
-                                        {% if c.invoice_id__is_invoice_delivered %}
-                                            <span class="status-badge status-notified">已通知</span>
-                                        {% else %}
-                                            <span class="status-badge status-unnotified">未通知</span>
-                                        {% endif %}
-                                    </td>
-                                </tr>
-                                {% endfor %}
-                            {% else %}
-                                <tr>
-                                    <td colspan="13" class="td" style="text-align: center; color: #6c757d;">
-                                        暂无已开账单
-                                    </td>
-                                </tr>
+                    <!-- 费用子列 -->
+                    <th class="th" style="font-size: 11px; font-weight: 500;">公仓</th>
+                    <th class="th" style="font-size: 11px; font-weight: 500;">私仓</th>
+                    <th class="th" style="font-size: 11px; font-weight: 500;">公仓</th>
+                    <th class="th" style="font-size: 11px; font-weight: 500;">私仓</th>
+                </tr>
+            </thead>
+
+            <tbody>
+            {% for r in rows %}
+                <tr>
+                    <td class="td">{{ r.customer_name }}</td>
+
+                    <td class="td">
+                        <a class="container-link"
+                        href="/receivable_accounting/?step=container_confirm
+                        &container_number={{ r.container_number }}
+                        &invoice_id={{ r.invoice_id }}">
+                            {{ r.container_number }}
+                        </a>
+                    </td>
+
+                    <td class="td">{{ r.order_type }}</td>
+                    <td class="td">{{ r.warehouse }}</td>
+                    <td class="td">{{ r.invoice_number }}</td>
+
+                    <!-- 合并后的状态列 -->
+                    <td class="td">
+                        <div class="status-combined">
+                            <div class="status-item">
+                                <span class="status-label">港前：</span>
+                                <span class="status-badge {{ r.preport_status|lower|cut:' ' }}">{{ r.preport_status }}</span>
+                            </div>
+                        </div>
+                    </td>
+                    
+                    <td class="td">
+                        <div class="status-combined">
+                            <div class="status-item">
+                                <span class="status-label">公仓：</span>
+                                <span class="status-badge {{ r.warehouse_public_status|lower|cut:' ' }}">{{ r.warehouse_public_status }}</span>
+                            </div>
+                            <div class="status-item">
+                                <span class="status-label">私仓：</span>
+                                <span class="status-badge {{ r.warehouse_other_status|lower|cut:' ' }}">{{ r.warehouse_other_status }}</span>
+                            </div>
+                        </div>
+                    </td>
+                    
+                    <td class="td">
+                        <div class="status-combined">
+                            <div class="status-item">
+                                <span class="status-label">公仓：</span>
+                                <span class="status-badge {{ r.delivery_public_status|lower|cut:' ' }}">{{ r.delivery_public_status }}</span>
+                            </div>
+                            <div class="status-item">
+                                <span class="status-label">私仓：</span>
+                                <span class="status-badge {{ r.delivery_other_status|lower|cut:' ' }}">{{ r.delivery_other_status }}</span>
+                            </div>
+                        </div>
+                    </td>
+                    
+                    <td class="td">
+                        <span class="status-badge {{ r.finance_status|lower|cut:' ' }}">{{ r.finance_status }}</span>
+                    </td>
+
+                    <!-- 应收合计 -->
+                    <td class="td amount-cell">
+                        <strong style="color: var(--primary-color);">
+                            ${{ r.receivable_total_amount|floatformat:2 }}
+                        </strong>
+                    </td>
+                    
+                    <!-- 港前费用 -->
+                    <td class="td amount-cell">
+                        ${{ r.receivable_preport_amount|floatformat:2 }}
+                    </td>
+                    
+                    <!-- 合并后的仓库费用 -->
+                    <td class="td">
+                        <div class="cost-combined">
+                            <div class="cost-item">
+                                <span class="cost-type">公仓</span>
+                                <span class="cost-amount">
+                                    ${{ r.receivable_wh_public_amount|floatformat:2 }}
+                                </span>
+                            </div>
+                            <div class="cost-item">
+                                <span class="cost-type">私仓</span>
+                                <span class="cost-amount">
+                                    ${{ r.receivable_wh_other_amount|floatformat:2 }}
+                                </span>
+                            </div>
+                            {% if r.receivable_wh_public_amount or r.receivable_wh_other_amount %}
+                            <div class="cost-item cost-total">
+                                <span>合计</span>
+                                <span>
+                                    ${{ r.receivable_wh_public_amount|add:r.receivable_wh_other_amount|floatformat:2 }}
+                                </span>
+                            </div>
                             {% endif %}
-                        </tbody>
-                    </table>
-                </div>
-                
-            </div>
-        </div>
+                        </div>
+                    </td>
+                    
+                    <!-- 合并后的派送费用 -->
+                    <td class="td">
+                        <div class="cost-combined">
+                            <div class="cost-item">
+                                <span class="cost-type">公仓</span>
+                                <span class="cost-amount">
+                                    ${{ r.receivable_delivery_public_amount|floatformat:2 }}
+                                </span>
+                            </div>
+                            <div class="cost-item">
+                                <span class="cost-type">私仓</span>
+                                <span class="cost-amount">
+                                    ${{ r.receivable_delivery_other_amount|floatformat:2 }}
+                                </span>
+                            </div>
+                            {% if r.receivable_delivery_public_amount or r.receivable_delivery_other_amount %}
+                            <div class="cost-item cost-total">
+                                <span>合计</span>
+                                <span>
+                                    ${{ r.receivable_delivery_public_amount|add:r.receivable_delivery_other_amount|floatformat:2 }}
+                                </span>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </td>
+                    
+                    <!-- 直送费用 -->
+                    <td class="td amount-cell">
+                        ${{ r.receivable_direct_amount|floatformat:2 }}
+                    </td>
+                </tr>
+            {% empty %}
+                <tr>
+                    <td colspan="15" class="td" style="text-align:center;">
+                        暂无数据
+                    </td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
     </div>
 </div>
 
-{% include 'receivable_accounting/modals/message_modal.html' %}
+<script>
+// 表格筛选函数
+function filterTable(input, columnIndex) {
+    const table = document.getElementById('invoice-table');
+    const filterValue = input.value.toLowerCase();
+    const rows = table.getElementsByTagName('tr');
+    
+    for (let i = 2; i < rows.length; i++) { // 从第2行开始（跳过表头）
+        const cells = rows[i].getElementsByTagName('td');
+        if (cells.length > columnIndex) {
+            const cell = cells[columnIndex];
+            const cellText = cell.textContent || cell.innerText;
+            
+            if (cellText.toLowerCase().indexOf(filterValue) > -1) {
+                rows[i].style.display = "";
+            } else {
+                rows[i].style.display = "none";
+            }
+        }
+    }
+}
+
+// 查看发票详情
+function viewInvoiceDetails(invoiceId) {
+    if (invoiceId) {
+        window.open(`/receivable_accounting/?step=invoice_details&invoice_id=${invoiceId}`, '_blank');
+    }
+}
+
+// 创建发票
+function createInvoice(orderId, containerNumber) {
+    if (confirm(`确定要为柜号 ${containerNumber} 创建发票吗？`)) {
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '';
+        
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+        const csrfInput = document.createElement('input');
+        csrfInput.type = 'hidden';
+        csrfInput.name = 'csrfmiddlewaretoken';
+        csrfInput.value = csrfToken;
+        form.appendChild(csrfInput);
+        
+        const stepInput = document.createElement('input');
+        stepInput.type = 'hidden';
+        stepInput.name = 'step';
+        stepInput.value = 'create_invoice';
+        form.appendChild(stepInput);
+        
+        const orderIdInput = document.createElement('input');
+        orderIdInput.type = 'hidden';
+        orderIdInput.name = 'order_id';
+        orderIdInput.value = orderId;
+        form.appendChild(orderIdInput);
+        
+        const containerInput = document.createElement('input');
+        containerInput.type = 'hidden';
+        containerInput.name = 'container_number';
+        containerInput.value = containerNumber;
+        form.appendChild(containerInput);
+        
+        document.body.appendChild(form);
+        form.submit();
+    }
+}
+
+// 发送通知
+function sendNotification(invoiceId) {
+    if (confirm('确定要发送发票通知吗？')) {
+        // 这里可以添加发送通知的AJAX请求
+        alert('通知发送功能待实现');
+    }
+}
+
+// 重新发送通知
+function resendNotification(invoiceId) {
+    if (confirm('确定要重新发送发票通知吗？')) {
+        // 这里可以添加重新发送通知的AJAX请求
+        alert('重新发送通知功能待实现');
+    }
+}
+
+// 页面加载完成后初始化
+document.addEventListener('DOMContentLoaded', function() {
+    // 如果URL中有柜号参数，自动填入搜索框
+    const urlParams = new URLSearchParams(window.location.search);
+    const containerNumber = urlParams.get('container_number');
+    if (containerNumber) {
+        const containerInput = document.querySelector('input[name="container_number"]');
+        if (containerInput) {
+            containerInput.value = containerNumber;
+        }
+    }
+    
+    // 高亮有未记录PO的行
+    const unrecordedRows = document.querySelectorAll('.has-unrecorded-po');
+    unrecordedRows.forEach(row => {
+        row.addEventListener('mouseenter', function() {
+            this.style.backgroundColor = '#fff2f0';
+        });
+        row.addEventListener('mouseleave', function() {
+            this.style.backgroundColor = '#fff1f0';
+        });
+    });
+});
+</script>
 
 {% endblock %}

@@ -226,7 +226,7 @@
                                 
                                 <!-- 财务管理 -->
                                 <a href="{% url 'receivable_accounting' %}?step=confirm" target="_blank">财务确认账单</a>
-                                <a href="{% url 'receivable_accounting' %}?step=supplementary" target="_blank">补开账单</a>
+                                <a href="{% url 'receivable_accounting' %}?step=supplementary" target="_blank">财务账单手动更改</a>
                                 {% if user.is_authenticated and user.is_staff %}
                                 <a href="{% url 'receivable_accounting' %}?step=finance_stats" target="_blank">财务统计分析</a>
                                  <!-- 报价管理 -->
