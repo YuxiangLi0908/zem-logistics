@@ -406,7 +406,7 @@
     <input type="hidden" name="step" value="save_manual_invoice_items">
     <input type="hidden" name="items_data" id="items-data">
 </form>
-
+{% include 'receivable_accounting/modals/message_modal.html' %}
 <div class="finance-system">
     <div class="finance-header">
         <div class="finance-logo">
@@ -429,8 +429,20 @@
                 </button>
             {% endif %}
         </div>
+        
     </div>
-
+    <br>
+    <form method="post">
+        {% csrf_token %}
+        <input type="hidden" name="container_number" value="{{ container_number }}">
+        <input type="hidden" name="invoice_number" value="{{ invoice_number }}">
+        <input type="hidden" name="step" value="generate_manual_excel">
+        <button type="submit" class="btn btn-success">
+            <i class="fas fa-save"></i>
+            生成新的Excel
+        </button>
+        
+    </form>
     <div class="finance-main">
         <!-- 非派送费用表格 -->
         <div class="table-container">
