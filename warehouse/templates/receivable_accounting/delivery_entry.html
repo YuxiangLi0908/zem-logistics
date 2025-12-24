@@ -407,7 +407,7 @@
                 <div class="filter-group">
                     <b style="margin-right: 5px;">客户:</b>
                     {{ order_form.customer_name }}
-                    <b style="margin-right: 5px;">选择仓点区域:</b>
+                    <b style="margin-right: 5px;">仓库:</b>
                     <select name="warehouse_filter">
                         {% for k, v in warehouse_options.items %}
                             {% if warehouse_filter == v %}
@@ -419,11 +419,11 @@
                     </select>
                 </div>
                 <div class="filter-group">
-                    <label for="start_date"><i class="fas fa-calendar-alt"></i> 开始:</label>
+                    <label for="start_date"><i class="fas fa-calendar-alt"></i> ETD开始:</label>
                     <input type="date" name="start_date" id="start_date" value="{{ start_date }}">
                 </div>
                 <div class="filter-group">
-                    <label for="end_date"><i class="fas fa-calendar-alt"></i> 结束:</label>
+                    <label for="end_date"><i class="fas fa-calendar-alt"></i> ETD结束:</label>
                     <input type="date" name="end_date" id="end_date" value="{{ end_date }}">
                 </div>
                 <button type="submit" class="btn-filter">
@@ -450,7 +450,11 @@
                 <!-- 公仓待录入 -->
                 <div class="container-section">
                     <div class="section-header">
-                        <h3>公仓待录入<span class="section-count">{{ wh_public_to_record_orders|length }}</span></h3>
+                        <h3>公仓待录入
+                            <span style="display: inline-block; color: #495057; background-color: #f8f9fa; padding: 1px 8px; border-radius: 10px; font-size: 0.85em; margin-left: 8px; border: 1px solid #dee2e6;">
+                                {{ wh_public_to_record_orders|length }}
+                            </span>
+                        </h3>
                         
                         <form method="post" action="" class="order-type-form">
                             {% csrf_token %}
@@ -519,7 +523,7 @@
                                         <td class="td" data-column="customer">{{ item.order.customer_name.zem_name }}</td>
                                         <td class="td" data-column="container">
                                             {% if item.has_invoice %}
-                                                <a href="/receivable_accounting/?step=container_delivery&container_number={{ item.order.container_number.container_number }}&invoice_id={{ item.invoice_id }}&delivery_type=public&start_date={{ start_date }}&end_date={{ end_date }}" class="container-link">
+                                                <a href="/receivable_accounting/?step=container_delivery&container_number={{ item.order.container_number.container_number }}&invoice_id={{ item.invoice_id }}&delivery_type=public&start_date={{ start_date }}&end_date={{ end_date }}&warehouse_filter={{ warehouse_filter }}" class="container-link">
                                                     {{ item.order.container_number.container_number }}
                                                     {% if item.is_hold %}
                                                         <span class="hold-badge">暂扣</span>
@@ -529,7 +533,7 @@
                                                     <span class="invoice-date">补开: {{ item.invoice_created_at|date:"m/d" }} {{ item.invoice_created_at|time:"H:i" }}</span>
                                                 {% endif %}
                                             {% else %}
-                                                <a href="/receivable_accounting/?step=container_delivery&container_number={{ item.order.container_number.container_number }}&delivery_type=public&start_date={{ start_date }}&end_date={{ end_date }}" class="container-link">
+                                                <a href="/receivable_accounting/?step=container_delivery&container_number={{ item.order.container_number.container_number }}&delivery_type=public&start_date={{ start_date }}&end_date={{ end_date }}&warehouse_filter={{ warehouse_filter }}" class="container-link">
                                                     {{ item.order.container_number.container_number }}
                                                     {% if item.is_hold %}
                                                         <span class="hold-badge">暂扣</span>
@@ -553,13 +557,9 @@
                                             {% endif %}
                                         </td>
                                         <td class="td" data-column="shipped-count" style="text-align: center;">
-                                            {% if item.shipment_stats %}
-                                                <span class="shipment-count completed">
-                                                    {{ item.shipment_stats.shipped_count|default:0 }}
-                                                </span>
-                                            {% else %}
-                                                <span class="shipment-count completed">0</span>
-                                            {% endif %}
+                                            <span class="shipment-count {% if item.shipped_shipment_groups == item.total_shipment_groups %}completed{% else %}in-progress{% endif %}">
+                                                {{ item.shipped_shipment_groups }} / {{ item.total_shipment_groups }}
+                                            </span>
                                         </td>
                                     </tr>
                                     {% endfor %}
@@ -579,7 +579,9 @@
                 <div class="container-section">
                     <div class="section-header">
                         <h3>公仓已录入</h3>
-                        <span class="section-count">{{ wh_public_recorded_orders|length }}</span>
+                        <span style="display: inline-block; color: #495057; background-color: #f8f9fa; padding: 1px 8px; border-radius: 10px; font-size: 0.85em; margin-left: 8px; border: 1px solid #dee2e6;">
+                            {{ wh_public_recorded_orders|length }}
+                        </span>
                     </div>
                     <div class="table-container">
                         <table class="table" id="recorded-table">
@@ -633,7 +635,7 @@
                                         {% if item.public_status == 'rejected' %}class="status-rejected-row"{% endif %}>
                                         <td class="td" data-column="customer">{{ item.order.customer_name.zem_name }}</td>
                                         <td class="td" data-column="container">
-                                            <a href="/receivable_accounting/?step=container_delivery&container_number={{ item.order.container_number.container_number }}&invoice_id={{ item.invoice_id }}&delivery_type=public&start_date={{ start_date }}&end_date={{ end_date }}" class="container-link">
+                                            <a href="/receivable_accounting/?step=container_delivery&container_number={{ item.order.container_number.container_number }}&invoice_id={{ item.invoice_id }}&delivery_type=public&start_date={{ start_date }}&end_date={{ end_date }}&warehouse_filter={{ warehouse_filter }}" class="container-link">
                                                 {{ item.order.container_number.container_number }}
                                                 {% if item.is_hold %}
                                                     <span class="hold-badge">暂扣</span>
@@ -688,7 +690,12 @@
                 <!-- 私仓待录入 -->
                 <div class="container-section">
                     <div class="section-header">
-                        <h3>私仓待录入<span class="section-count">{{ wh_self_to_record_orders|length }}</span></h3>
+                        <h3>
+                            私仓待录入
+                            <span style="display: inline-block; color: #495057; background-color: #f8f9fa; padding: 1px 8px; border-radius: 10px; font-size: 0.85em; margin-left: 8px; border: 1px solid #dee2e6;">
+                                {{ wh_public_recorded_orders|length }}
+                            </span>
+                        </h3>
                         
                         <form method="post" action="" class="order-type-form">
                             {% csrf_token %}
@@ -753,7 +760,7 @@
                                         data-shipped="{% if item.shipment_stats %}{{ item.shipment_stats.shipped_count|default:0 }}{% else %}0{% endif %}">
                                         <td class="td" data-column="customer">{{ item.order.customer_name.zem_name }}</td>
                                         <td class="td" data-column="container">
-                                            <a href="/receivable_accounting/?step=container_delivery&container_number={{ item.order.container_number.container_number }}&invoice_id={{ item.invoice_id }}&delivery_type=other&start_date={{ start_date }}&end_date={{ end_date }}" class="container-link">
+                                            <a href="/receivable_accounting/?step=container_delivery&container_number={{ item.order.container_number.container_number }}&invoice_id={{ item.invoice_id }}&delivery_type=other&start_date={{ start_date }}&end_date={{ end_date }}&warehouse_filter={{ warehouse_filter }}" class="container-link">
                                                 {{ item.order.container_number.container_number }}
                                                 {% if item.is_hold %}
                                                     <span class="hold-badge">暂扣</span>
@@ -777,7 +784,7 @@
                                             </span>
                                         </td>
                                         <td class="td" data-column="shipped-count" style="text-align: center;">
-                                            <span class="shipment-count completed">
+                                            <span class="shipment-count {% if item.shipped_shipment_groups == item.total_shipment_groups %}completed{% else %}in-progress{% endif %}">
                                                 {{ item.shipped_shipment_groups }} / {{ item.total_shipment_groups }}
                                             </span>
                                         </td>
@@ -799,7 +806,9 @@
                 <div class="container-section">
                     <div class="section-header">
                         <h3>私仓已录入订单</h3>
-                        <span class="section-count">{{ wh_self_recorded_orders|length }}</span>
+                        <span style="display: inline-block; color: #495057; background-color: #f8f9fa; padding: 1px 8px; border-radius: 10px; font-size: 0.85em; margin-left: 8px; border: 1px solid #dee2e6;">
+                            {{ wh_public_recorded_orders|length }}
+                        </span>
                     </div>
                     <div class="table-container">
                         <table class="table" id="completed-table">
@@ -853,7 +862,7 @@
                                         {% if item.public_status == 'rejected' %}class="status-rejected-row"{% endif %}>
                                         <td class="td" data-column="customer">{{ item.order.customer_name.zem_name }}</td>
                                         <td class="td" data-column="container">
-                                            <a href="/receivable_accounting/?step=container_delivery&container_number={{ item.order.container_number.container_number }}&invoice_id={{ item.invoice_id }}&delivery_type=other&start_date={{ start_date }}&end_date={{ end_date }}" class="container-link">
+                                            <a href="/receivable_accounting/?step=container_delivery&container_number={{ item.order.container_number.container_number }}&invoice_id={{ item.invoice_id }}&delivery_type=other&start_date={{ start_date }}&end_date={{ end_date }}&warehouse_filter={{ warehouse_filter }}" class="container-link">
                                                 {{ item.order.container_number.container_number }}
                                                 {% if item.is_hold %}
                                                     <span class="hold-badge">暂扣</span>

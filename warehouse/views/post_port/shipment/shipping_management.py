@@ -100,6 +100,7 @@ class ShippingManagement(View):
         "SAV-31326": "SAV-31326",
         "LA-91761": "LA-91761",
         "LA-91748": "LA-91748",
+        "LA-91766": "LA-91766",
         "MO-62025": "MO-62025",
         "TX-77503": "TX-77503",
         "LA-91789": "LA-91789",
@@ -125,6 +126,7 @@ class ShippingManagement(View):
         if not await self._user_authenticate(request):
             return redirect("login")
         step = request.GET.get("step", None)
+        print('GET step',step)
         if step == "shipment_info":
             template, context = await self.handle_shipment_info_get(request)
             return render(request, template, context)
@@ -151,6 +153,7 @@ class ShippingManagement(View):
         if not await self._user_authenticate(request):
             return redirect("login")
         step = request.POST.get("step")
+        print('step',step)
         if step == "warehouse":
             template, context = await self.handle_warehouse_post(request)
             return render(request, template, context)

@@ -646,7 +646,7 @@
     <!-- 头部信息 -->
     <div class="invoice-header">
         <div class="header-main">
-            <h1 class="header-title">港前账单编辑 - {{ container_number }}</h1>
+            <h1 class="header-title">港前账单编辑 - {{ container_number }} - {{ invoice_number }}</h1>
             <div class="header-badges">
                 <span class="badge">仓库: {{ warehouse }}</span>
                 <span class="badge">订单类型: {{ order_type }}</span>
@@ -724,6 +724,7 @@
                             <input type="hidden" name="new_order_type" id="new_order_type" value="">
                             <input type="hidden" name="container_number" value="{{ container_number }}">
                             <input type="hidden" name="invoice_id" value="{{ invoice.id }}">
+                            <input type="hidden" name="warehouse_filter" value="{{ warehouse_filter }}">
                             <input type="hidden" name="start_date" value="{{ start_date }}">
                             <input type="hidden" name="end_date" value="{{ end_date }}">
                             <!-- 是组合柜类型 -->
@@ -885,11 +886,11 @@
             <input type="hidden" name="invoice_id" value="{{ invoice.id }}">
             <input type="hidden" name="start_date" value="{{ start_date }}">
             <input type="hidden" name="end_date" value="{{ end_date }}">
+            <input type="hidden" name="warehouse_filter" value="{{ warehouse_filter }}">
 
             <!-- 操作按钮 -->
             {% if not receivable_is_locked %}
                 <div class="action-buttons">
-                    {% if "invoice_preport" in groups or "staff" in groups %}
                     <button type="submit" class="btn btn-success" onclick="setSaveType('pending_review')">
                         <i class="fas fa-check-circle"></i>
                         保存完成
@@ -898,9 +899,8 @@
                         <i class="fas fa-save"></i>
                         暂存未完成
                     </button>
-                    {% endif %}
                     
-                    {% if "invoice_preport_leader" in groups or "staff" in groups %}
+                    {% if is_leader %}
                     <button type="submit" class="btn btn-warning" onclick="setSaveType('completed')">
                         <i class="fas fa-thumbs-up"></i>
                         审核通过
@@ -913,6 +913,8 @@
                         style="padding: 12px; border: 1px solid #e2e8f0; border-radius: 8px; min-width: 200px;">
                     {% endif %}
                 </div>
+            {% else %}
+                财务已确认，不可编辑
             {% endif %}
         </form>
     </div>

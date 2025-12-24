@@ -74,7 +74,24 @@
         border: 1px solid #e9ecef;
         flex-wrap: wrap;
     }
+    .is-dropped-col {
+        width: 100px;
+        text-align: center;
+    }
 
+    .is-dropped-badge {
+        display: inline-block;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        background-color: #ff4444;
+        color: white;
+    }
+
+    .is-dropped-badge.warning {
+        background-color: #ff9800;
+    }
     .selected-count {
         font-weight: 600;
         color: var(--secondary-color);
@@ -384,11 +401,12 @@
                 <th data-sort="ref_ids">REF ID</th>
                 <th data-sort="fba_ids">FBA ID</th>
                 <th data-sort="destination">目的地</th>
-                <th data-sort="destination">放行状态</th>
+                <th>放行状态</th>
                 <th class="delivery-method-col" data-sort="delivery_method">派送方式</th>
                 <th class="vessel-col" data-sort="vessels">是否特操</th>
                 <th class="container-col" data-sort="containers">柜号</th>
                 <th class="offload-time">入仓时间</th>
+                <th class="is-dropped-col">是否甩板</th>
                 <th data-sort="delivery_window">派送时间窗口</th>
                 <th data-sort="pallets">板数</th>
                 <th data-sort="cbm">CBM</th>
@@ -409,6 +427,7 @@
                 data-vessel-name="{{ cargo.vessel_name|default:'' }}"
                 data-container-number="{{ cargo.cns|default:'' }}"
                 data-offload-time="{{ cargo.offload_time|default:'' }}"
+                data-is-dropped="{{ cargo.is_dropped_pallet|default:False }}"
                 >
                 <td class="checkbox-cell">
                     <input type="checkbox" class="cargo-checkbox" 
@@ -447,6 +466,21 @@
                 <td class="offload-time-col">
                     {{ cargo.offload_time }}
                 </td>
+                <td class="is-dropped-col" style="text-align: center;">
+                    {% if cargo.is_dropped_pallet == True %}
+                        {% if cargo.rebuilt_is_dropped_pallet %}
+                            <span class="pallet-badge status-expired" style="background-color: #ff4444; color: white; padding: 4px 8px;">
+                                {{ cargo.rebuilt_is_dropped_pallet }}
+                            </span>
+                        {% else %}
+                            <span class="pallet-badge status-expired" style="background-color: #ff4444; color: white; padding: 4px 8px;">
+                                无主约时间
+                            </span>
+                        {% endif %}
+                    {% else %}
+                        <span style="color: #999; font-style: italic;">-</span>
+                    {% endif %}
+                </td>
                 <td>
                     {% if not cargo.delivery_window_start and not cargo.delivery_window_end %}
                         -
@@ -477,7 +511,7 @@
             </tr>
             {% empty %}
             <tr>
-                <td colspan="13" style="text-align: center; padding: 20px;">
+                <td colspan="14" style="text-align: center; padding: 20px;">
                     暂无待匹配PO
                 </td>
             </tr>

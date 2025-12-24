@@ -1757,6 +1757,50 @@ class OrderCreation(View):
                 delivery_type="other"
             )
 
+    def _process_destination(self, destination_origin):
+        """处理目的地字符串"""
+        destination_origin = str(destination_origin)
+
+        # 匹配模式：按"改"或"送"分割，分割符放在第一组的末尾
+        if "改" in destination_origin or "送" in destination_origin:
+            # 找到第一个"改"或"送"的位置
+            first_change_pos = min(
+                (destination_origin.find(char) for char in ["改", "送"] 
+                if destination_origin.find(char) != -1),
+                default=-1
+            )
+            
+            if first_change_pos != -1:
+                # 第一部分：到第一个"改"或"送"（包含分隔符）
+                first_part = destination_origin[:first_change_pos + 1]
+                # 第二部分：剩下的部分
+                second_part = destination_origin[first_change_pos + 1:]
+                
+                # 处理第一部分：按"-"分割取后面的部分
+                if "-" in first_part:
+                    first_result = first_part.split("-", 1)[1]
+                else:
+                    first_result = first_part
+                
+                # 处理第二部分：按"-"分割取后面的部分
+                if "-" in second_part:
+                    second_result = second_part.split("-", 1)[1]
+                else:
+                    second_result = second_part
+                
+                return first_result, second_result
+            else:
+                raise ValueError(first_change_pos)
+        
+        # 如果不包含"改"或"送"或者没有找到
+        # 只处理第二部分（假设第一部分为空）
+        if "-" in destination_origin:
+            second_result = destination_origin.split("-", 1)[1]
+        else:
+            second_result = destination_origin
+        
+        return None, second_result
+
     def _find_compre_matching_regions(
         self,
         plts_by_destination: dict,
@@ -1777,9 +1821,14 @@ class OrderCreation(View):
                 non_combina_dests.add("UPS")
                 continue
 
-            destination = plts["destination"]
+            destination_str = plts["destination"]
+            destination_origin, destination = self._process_destination(destination_str)
             dest = destination.replace("沃尔玛", "").split("-")[-1].strip()
+            
             cbm = plts["total_cbm"]
+            if cbm == 0:
+                non_combina_dests.add(dest)
+                continue
             matched = False
 
             # 遍历所有区域和location
@@ -1967,14 +2016,20 @@ class OrderCreation(View):
         )()
         if isinstance(combina_fee, str):
             combina_fee = json.loads(combina_fee)
-        # 看是否超出组合柜限定仓点,NJ/SAV是14个
-        default_combina = stipulate["global_rules"]["max_mixed"]["default"]
-        exceptions = stipulate["global_rules"]["max_mixed"].get("exceptions", {})
-        combina_threshold = exceptions.get(warehouse, default_combina) if exceptions else default_combina
 
-        default_threshold = stipulate["global_rules"]["bulk_threshold"]["default"]
-        exceptions = stipulate["global_rules"]["bulk_threshold"].get("exceptions", {})
-        uncombina_threshold = exceptions.get(warehouse, default_threshold) if exceptions else default_threshold
+        # 看是否超出组合柜限定仓点,NJ/SAV是14个
+        warehouse_specific_key = f'{warehouse}_max_mixed'
+        if warehouse_specific_key in stipulate.get("global_rules", {}):
+            combina_threshold = stipulate["global_rules"][warehouse_specific_key]["default"]
+        else:
+            combina_threshold = stipulate["global_rules"]["max_mixed"]["default"]
+
+        warehouse_specific_key1 = f'{warehouse}_bulk_threshold'
+        if warehouse_specific_key1 in stipulate.get("global_rules", {}):
+            uncombina_threshold = stipulate["global_rules"][warehouse_specific_key1]["default"]
+        else:
+            uncombina_threshold = stipulate["global_rules"]["bulk_threshold"]["default"]
+        
         if plts["unique_destinations"] > uncombina_threshold:
             container.account_order_type = "转运"
             container.non_combina_reason = (
@@ -2018,15 +2073,17 @@ class OrderCreation(View):
         combina_region_count = matched_regions["combina_dests"]
 
         
-        if len(non_combina_region_count) > (
-            uncombina_threshold
-            - combina_threshold
-        ):
+        if len(non_combina_region_count) + len(combina_region_count)> uncombina_threshold:
             # 当非组合柜的区域数量超出时，不能按转运组合
             container.account_order_type = "转运"
-            container.non_combina_reason = "非组合柜区的数量不符合标准"
+            container.non_combina_reason = "总仓点的数量不符合标准"
             await sync_to_async(container.save)()
             is_combina = False
+        if is_combina:
+            container.account_order_type = "转运组合"
+            container.non_combina_reason = ""
+            await sync_to_async(container.save)()
+            
         return {
             "combina_dests": combina_region_count,
             "non_combina_dests": non_combina_region_count,

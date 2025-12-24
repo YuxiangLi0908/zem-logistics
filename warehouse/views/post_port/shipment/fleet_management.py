@@ -112,6 +112,7 @@ class FleetManagement(View):
         "MO-62025": "MO-62025",
         "TX-77503": "TX-77503",
         "LA-91789": "LA-91789",
+        "LA-91766": "LA-91766",
     }
     shipment_type_options = {
         "": "",
@@ -171,6 +172,7 @@ class FleetManagement(View):
         if not await self._user_authenticate(request):
             return redirect("login")
         step = request.POST.get("step")
+        print('step',step)
         if step == "fleet_warehouse_search":
             template, context = await self.handle_fleet_warehouse_search_post(request)
             return render(request, template, context)
@@ -349,6 +351,30 @@ class FleetManagement(View):
         )
         return self.template_fleet_schedule_info, context
 
+    async def _update_fleet_type(self, fleet:Fleet):
+        shipments_list = []
+        async for shipment in Shipment.objects.filter(fleet_number=fleet):
+            shipments_list.append(shipment)
+        
+        if not shipments_list:
+            context = {'error_messages':f'{fleet.fleet_number}没有绑定的预约批次，请核实！'}
+            return context
+        
+        # 获取所有shipment_type并去重
+        shipment_types = set()
+        for shipment in shipments_list:
+            if shipment.shipment_type:
+                shipment_types.add(shipment.shipment_type)
+        
+        if not shipment_types:
+            context = {'error_messages':f'{fleet.fleet_number}绑定的预约批次没有预约类型，请核实'}
+            return context
+        
+        fleet_type = list(shipment_types)[0]
+        fleet.fleet_type = fleet_type
+        await fleet.asave()
+        return None
+                    
     async def handle_fleet_depature_get(
         self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
@@ -357,6 +383,16 @@ class FleetManagement(View):
         selected_fleet = await sync_to_async(Fleet.objects.get)(
             fleet_number=selected_fleet_number
         )
+        error_messages = None
+        if not selected_fleet.fleet_type:
+            #重新赋值类型
+            ctx = await self._update_fleet_type(selected_fleet)
+            if ctx and ctx.get('error_messages'):
+                error_messages = ctx.get('error_messages')
+            selected_fleet = await sync_to_async(Fleet.objects.get)(
+                fleet_number=selected_fleet_number
+            )
+            
         # 因为LTL和客户自提，要求的拣货单字段不一样，所以这个是LTL和客户自提的拣货单
         arm_pickup = await sync_to_async(list)(
             Pallet.objects.select_related(
@@ -378,7 +414,7 @@ class FleetManagement(View):
                 "slot",
             )
             .annotate(
-                total_pcs=Sum("pcs", distinct=True),
+                total_pcs=Sum("pcs"),
                 total_pallet=Count("pallet_id", distinct=True),
                 total_weight=Sum("weight_lbs"),
                 total_cbm=Sum("cbm"),
@@ -575,6 +611,8 @@ class FleetManagement(View):
                 "delivery_options": DELIVERY_METHOD_OPTIONS,
             }
         )
+        if error_messages:
+            context.update({'error_messages':error_messages})
         return self.template_outbound_departure, context
 
     async def handle_delivery_and_pod_get(
@@ -1534,6 +1572,14 @@ class FleetManagement(View):
                 ).count
             )()
         pickup_time = shipment.pickup_time
+        # 如果目的地没有沃尔玛，预约账户是沃尔玛的，导出地址加上沃尔玛前缀
+        if "walmart" in shipment.account.lower():
+            destination = shipment.destination
+            if destination and "walmart" not in destination.lower():
+                shipment.destination = f"walmart-{destination}"
+            # 如果 destination 为空，也加上 walmart 前缀
+            elif not destination:
+                shipment.destination = "walmart"
         context = {
             "warehouse_obj": warehouse_obj.address,
             "warehouse": warehouse,
@@ -2040,12 +2086,13 @@ class FleetManagement(View):
         fleet_number = request.POST.get("fleet_number")
         customerInfo = request.POST.get("customerInfo")
         contact_flag = False  # 表示地址栏空出来，客服手动P上去
+        contact = ""
         if customerInfo and customerInfo != "[]":
             customerInfo = json.loads(customerInfo)
             for row in customerInfo:
-                if row[9] != "":
+                if row[8] != "":
                     contact_flag = True
-                    contact = row[9]
+                    contact = row[8]
                     contact = re.sub("[\u4e00-\u9fff]", " ", contact)
                     contact = re.sub(r"\uFF0C", ",", contact)
                     new_contact = contact.split(";")
@@ -2056,8 +2103,6 @@ class FleetManagement(View):
                         "name": new_contact[3],
                         "phone": new_contact[4],
                     }
-        else:
-            contact = ""
         arm_pickup = await sync_to_async(list)(
             Pallet.objects.select_related(
                 "container_number__container_number",
@@ -2152,7 +2197,6 @@ class FleetManagement(View):
             arm_pickup = [
                 [
                     "container_number__container_number",
-                    "zipcode",
                     "destination",
                     "shipping_mark",
                     "shipment_batch_number__ARM_PRO",
@@ -2166,9 +2210,9 @@ class FleetManagement(View):
             if has_slot_column:
                 arm_pickup[0].append("slot")
             for row in customerInfo:
-                if row[9] != "" and "None" not in row[8]:
+                if row[8] != "" and "None" not in row[7]:
                     contact_flag = True
-                    contact = row[9]
+                    contact = row[8]
                     contact = re.sub("[\u4e00-\u9fff]", " ", contact)
                     contact = re.sub(r"\uFF0C", ",", contact)
                     new_contact = contact.split(";")
@@ -2188,7 +2232,7 @@ class FleetManagement(View):
                         int(row[4].strip()),
                         int(row[5].strip()),
                         row[6].strip(),
-                        row[7].strip(),
+                        row[9].strip(),
                         (
                             row[10].strip()
                             if len(row) > 10 and row[10] is not None
@@ -2196,6 +2240,7 @@ class FleetManagement(View):
                         ),
                     ]
                 )
+            print('arm_pickup',arm_pickup)
             keys = arm_pickup[0]
             arm_pickup_dict_list = []
             for row in arm_pickup[1:]:
@@ -2228,6 +2273,7 @@ class FleetManagement(View):
                     total_cbm=Sum("cbm"),
                 )
             )
+
         fleet = await sync_to_async(Fleet.objects.get)(fleet_number=fleet_number)
         pickup_time_str = fleet.appointment_datetime
         pickup_time = pickup_time_str.strftime("%Y-%m-%d")

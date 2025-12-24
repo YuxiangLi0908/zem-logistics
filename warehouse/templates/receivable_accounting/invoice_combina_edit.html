@@ -228,6 +228,8 @@
                     <form method="post" action="" class="order-type-form">
                         {% csrf_token %}
                         <input type="hidden" name="step" value="modify_order_type">
+                        <input type="hidden" name="start_date" value="{{ start_date }}">
+                        <input type="hidden" name="end_date" value="{{ end_date }}">
                         <input type="hidden" name="new_order_type" id="new_order_type" value="">
                         <input type="hidden" name="container_number" value="{{ container_number }}">
                         <input type="hidden" name="invoice_id" value="{{ invoice.id }}">
@@ -281,8 +283,6 @@
     <input type="hidden" name="plts_by_destination" value="{{ plts_by_destination }}">
     <input type="hidden" name="start_date" value="{{ start_date }}">
     <input type="hidden" name="end_date" value="{{ end_date }}">
-    <input type="hidden" name="start_date_confirm" value="{{ start_date_confirm }}">
-    <input type="hidden" name="end_date_confirm" value="{{ end_date_confirm }}">
     <input type="hidden" name="customer" value="{{ customer }}">
     <input type="hidden" name="warehouse" value="{{ warehouse }}">
 
@@ -401,9 +401,9 @@
                                             </td>
 
                                             <td class="cell-stats">
-                                                <div class="percentage-bar" style="background: linear-gradient(to right, #4CAF50 {{ item.cbm_ratio|multiply:100|floatformat:2|default:'0' }}%, #e9ecef {{ item.cbm_ratio|multiply:100|floatformat:2|default:'0' }}%); 
+                                                <div class="percentage-bar" style="background: linear-gradient(to right, #4CAF50 {{ item.cbm_ratio|multiply:100|floatformat:4|default:'0' }}%, #e9ecef {{ item.cbm_ratio|multiply:100|floatformat:2|default:'0' }}%); 
                                                             padding: 4px 8px; border-radius: 4px; text-align: center; font-size: 12px;">
-                                                    {{ item.cbm_ratio|multiply:100|floatformat:2|default:"0.00" }}%
+                                                    {{ item.cbm_ratio|multiply:100|floatformat:4|default:"0.00" }}%
                                                 </div>
                                             </td>
 
@@ -952,8 +952,6 @@
         <input type="hidden" name="invoice_type" value="receivable">
         <input type="hidden" name="start_date" value="{{ start_date }}">
         <input type="hidden" name="end_date" value="{{ end_date }}">
-        <input type="hidden" name="start_date_confirm" value="{{ start_date_confirm }}">
-        <input type="hidden" name="end_date_confirm" value="{{ end_date_confirm }}">
         <div class="card mb-3 shadow-sm">
             <div class="card-header bg-danger text-white p-2">
                 <h6 class="mb-0">

@@ -635,6 +635,8 @@
             {% csrf_token %}
             <input type="hidden" name="container_number" value="{{ container_number }}">
             <input type="hidden" name="invoice_number" value="{{ invoice_number }}">
+            <input type="hidden" name="start_date" value="{{ start_date }}">
+            <input type="hidden" name="end_date" value="{{ end_date }}">
             <input type="hidden" name="step" id="step-input" value="confirm_save_all">
             <!-- 在表格后面添加隐藏字段用于存储所有行数据 -->
             <input type="hidden" name="items_data" id="items-data">
@@ -1080,7 +1082,8 @@ function showRejectModal(category) {
         'warehouse_public': '公仓库内费用',
         'warehouse_other': '私仓库内费用',
         'delivery_public': '公仓派送费用',
-        'delivery_other': '私仓派送费用'
+        'delivery_other': '私仓派送费用',
+        'activation_fee': 'PO激活费'
     };
     
     // 设置驳回的类别

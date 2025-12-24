@@ -296,10 +296,68 @@
                         <span>至</span>
                         <input type="number" name="end_index" placeholder="结束" value="{{ end_index|default:'100' }}" min="1">
                     </div>
-                    <input type="hidden" name="step" value="receivale_status_migrate">
-                    <button type="submit" class="btn btn-primary">开始数据迁移</button>
+                    <!--
+                    <input type="hidden" name="step" value="search_extra_invoice">
+                    <button type="submit" class="btn btn-primary">查询多余的账单</button>
+                    -->
+                    <input type="hidden" name="step" value="search_wrong_status">
+                    <button type="submit" class="btn btn-primary">查询状态迁移错误的</button>
                 </div>
             </form>
+        </div>
+    </div>
+    {% if containers_list %}
+        查询的所有柜号： {{ containers_list }}
+    {% endif %}
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="post" id="migrationForm">
+                {% csrf_token %}
+                <div class="d-flex justify-content-between align-items-center">
+                    <div class="range-inputs">
+                        <span>迁移范围:</span>
+                        <input type="number" name="start_index" placeholder="起始" value="{{ start_index|default:'0' }}" min="0">
+                        <span>至</span>
+                        <input type="number" name="end_index" placeholder="结束" value="{{ end_index|default:'100' }}" min="1">
+                    </div>
+                    <input type="hidden" name="step" value="search_wrong_fee">
+                    <button type="submit" class="btn btn-primary">查询迁移金额有误的</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    <div class="card mb-4">
+        <div class="card-body">
+                <form method="post" id="migrationForm">
+                    {% csrf_token %}
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div class="range-inputs">
+                            <span>迁移范围:</span>
+                            <input type="number" name="start_index" placeholder="起始" value="{{ start_index|default:'0' }}" min="0">
+                            <span>至</span>
+                            <input type="number" name="end_index" placeholder="结束" value="{{ end_index|default:'100' }}" min="1">
+                        </div>
+                        <input type="hidden" name="step" value="receivale_status_migrate">
+                        <button type="submit" class="btn btn-primary">数据迁移，漏的直接补上</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    <div class="card mb-4">
+        <div class="card-body">
+                <form method="post" id="migrationForm">
+                    {% csrf_token %}
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div class="range-inputs">
+                            <span>要删除柜号id:</span>
+                            <input type="number" name="search_index" value="{{ search_index|default:'0' }}" min="0">
+                        </div>
+                        <input type="hidden" name="step" value="receivale_status_migrate_delete_old">
+                        <button type="submit" class="btn btn-primary">删除原来的，重新迁移</button>
+                    </div>
+                </form>
+            </div>
         </div>
     </div>
     <form method="post" id="migrationForm">
@@ -309,6 +367,17 @@
             <button type="submit" class="btn btn-primary">查询应付待确认账单</button>
         </div>
     </form>
+    <br>
+    <form method="post" id="migrationForm">
+        {% csrf_token %}
+        <div class="d-flex justify-content-between align-items-center">
+            <input type="hidden" name="step" value="modify_direct_status">
+            <button type="submit" class="btn btn-primary">直送的港前录完所有状态都录完</button>
+        </div>
+    </form>
+    {% if inconsistent_count %}
+        异常数量为：{{ inconsistent_count }}
+    {% endif %}
     <!-- 迁移结果 -->
     {% if message %}
     <div class="alert alert-success alert-area">
@@ -354,6 +423,10 @@
                             <td>
                                 <div class="container-number">
                                     <strong>{{ log.container_number }}</strong>
+                                    <br>           
+                                    
+                                    <small class="text-muted">{{ log.invoicev2_count }}</small>
+                                    <small class="text-muted">{{ log.old_invoice_id }}</small>
                                     <br>
                                     <small class="text-muted">{{ log.old_invoice_number }}</small>
                                 </div>
@@ -365,8 +438,8 @@
                                     <div class="status-row">
                                         <span class="status-name">阶段:</span>
                                         <div class="status-value">
-                                            {% if log.old_data.stage and log.old_data.stage != 'unstarted' and log.old_data.stage != 'error' %}
-                                                <span class="badge bg-info status-badge">{{ log.old_data.stage }}</span>
+                                            {% if log.new_data %}
+                                                <span class="badge bg-info status-badge"></span>
                                             {% elif log.old_data.stage == 'error' %}
                                                 <span class="badge bg-danger status-badge">错误</span>
                                             {% else %}
@@ -512,11 +585,11 @@
                             <!-- 操作记录 -->
                             <td class="actions-column">
                                 <div class="actions-section">
-                                    {% for action in log.actions %}
+                                    <!--{% for action in log.actions %}-->
                                     <div class="action-item">
-                                        <span class="action-text">{{ action }}</span>
+                                        <span class="action-text">{{ log.actions }}</span>
                                     </div>
-                                    {% endfor %}
+                                    <!--{% endfor %}-->
                                 </div>
                             </td>
                         </tr>

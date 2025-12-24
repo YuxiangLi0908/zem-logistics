@@ -164,7 +164,8 @@ h2 {
             <select name="search_type" class="search-select" required>
                 <option value="">选择查询类型</option>
                 <option value="container" {% if search_type == 'container' %}selected{% endif %}>柜号查询</option>
-                <option value="invoice" {% if search_type == 'invoice' %}selected{% endif %}>发票号查询</option>
+                <option value="invoice" {% if search_type == 'invoice' %}selected{% endif %}>旧账单查询</option>
+                <option value="invoicev2" {% if search_type == 'invoicev2' %}selected{% endif %}>新账单查询</option>
                 <option value="pallet" {% if search_type == 'pallet' %}selected{% endif %}>Pallet ID 查询</option>
             </select>
             <input type="text" name="search_value" class="search-input"
@@ -342,6 +343,80 @@ h2 {
             <input type="hidden" name="search_type" value="{{ search_type }}">
             <input type="hidden" name="search_value" value="{{ search_value }}">
             <button type="submit" style="padding:6px 12px; background:#c0392b; color:white; border:none; border-radius:4px;">删除全部</button>
+        </form>
+    </div>
+</div>
+{% endif %}
+
+{% if invoice_items %}
+<div style="overflow-x:auto;">
+    <table class="data-table" style="width:100%; border-collapse: collapse;">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Container ID</th>
+                <th>invoice_type</th>
+                <th>Item Category</th>
+                <th>delivery_type</th>
+                <th>PO_ID</th>
+                <th>warehouse_code</th>
+                <th>cbm</th>
+                <th>cbm_ratio</th>
+                <th>weight</th>
+                <th>description</th>
+                <th>qty</th>
+                <th>rate</th>
+                <th>amount</th>           
+                <th>region</th>
+                <th>regionPrice</th>
+                <th>surcharges</th>
+                <th>registered_user</th>
+                <th>note</th>
+            </tr>
+        </thead>
+        <tbody id="tableBody">
+            {% for item in invoice_items %}
+            <tr>
+                <td>{{ item.id }}</td>
+                <td>{{ item.container_number_id }}</td>
+                <td>{{ item.invoice_type }}</td>
+                <td>{{ item.item_category }}</td>
+                <td>{{ item.delivery_type|default_if_none:'' }}</td>
+                <td>{{ item.PO_ID|default_if_none:'' }}</td>
+                <td>{{ item.warehouse_code }}</td>
+                <td>{{ item.cbm|default_if_none:'' }}</td>
+                <td>{{ item.cbm_ratio|default_if_none:'' }}</td>
+                <td>{{ item.weight|default_if_none:'' }}</td>
+                <td>{{ item.description }}</td>
+                <td>{{ item.qty }}</td>
+                <td>{{ item.rate }}</td>
+                <td>{{ item.amount }}</td>      
+                <td>{{ item.region }}</td>
+                <td>{{ item.regionPrice }}</td>
+                <td>{{ item.surcharges }}</td>
+                <td>{{ item.registered_user }}</td>
+                <td>{{ item.note }}</td>
+                <td>
+                    <form method="post" style="display:inline;">
+                        {% csrf_token %}
+                        <input type="hidden" name="step" value="delete_invoice_item">
+                        <input type="hidden" name="invoice_item_id" value="{{ item.id }}">
+                        <input type="hidden" name="search_type" value="{{ search_type }}">
+                        <input type="hidden" name="search_value" value="{{ search_value }}">
+                        <button type="submit" style="padding:4px 8px; background:#e74c3c; color:white; border:none; border-radius:4px;">删除</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <div style="margin-top:10px;">
+        <form method="post">
+            {% csrf_token %}
+            <input type="hidden" name="step" value="delete_all_invoice_items">
+            <input type="hidden" name="search_type" value="{{ search_type }}">
+            <input type="hidden" name="search_value" value="{{ search_value }}">
+            <button type="submit" style="padding:6px 12px; background:#c0392b; color:white; border:none; border-radius:4px;">删除全部组合柜的</button>
         </form>
     </div>
 </div>

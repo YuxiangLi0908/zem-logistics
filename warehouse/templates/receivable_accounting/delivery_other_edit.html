@@ -775,7 +775,7 @@
             <div class="header-title">
                 <div>
                     <h1>私仓派送账单录入</h1>
-                    <div class="header-subtitle">柜号：{{ container_number }}</div>
+                    <div class="header-subtitle">柜号：{{ container_number }}-{{ invoice_number }}</div>
                 </div>
             </div>
             <div class="header-status">
@@ -1003,6 +1003,7 @@
                                 {% csrf_token %}
                                 <input type="hidden" name="step" value="save_all_items" id="step-input">
                                 <input type="hidden" name="container_number" value="{{ container_number }}">
+                                <input type="hidden" name="warehouse_filter" value="{{ warehouse_filter }}">
                                 <input type="hidden" name="delivery_type" value="other">
                                 <input type="hidden" name="invoice_id" value="{{ invoice_id }}">
                                 
@@ -1032,10 +1033,14 @@
                 <!-- 表单操作按钮 -->
                 <div class="form-actions">
                     <div class="form-buttons">
+                        {% if not receivable_is_locked%}
                         <button type="submit" name="step" value="save_all" class="btn btn-success">
                             <i class="fas fa-save"></i>
                             保存账单
                         </button>
+                        {% else %}
+                            财务已确认，不可编辑
+                        {% endif %}
                         {% if can_finish %}
                         <button type="submit" name="step" value="finish" class="btn btn-primary">
                             <i class="fas fa-check-double"></i>
@@ -1050,7 +1055,7 @@
                 <div class="other-section">
                     <div class="section-header">                        
                         <h3 style="margin: 0;">
-                            <i class="fas fa-exchange-alt me-2"></i>公仓组PO
+                            <i class="fas fa-exchange-alt me-2"></i>所有PO
                             <span class="section-count" style="margin-left: 10px; font-size: 0.9rem; color: #666;">
                                 共 {{ other_pallet_groups|length }} 条记录
                             </span>
@@ -1069,6 +1074,7 @@
                                     <th>板数</th>
                                     <th>PO_ID</th>
                                     <th>状态</th>
+                                    <th>类型</th>
                                     <th>操作</th>
                                 </tr>
                             </thead>
@@ -1093,12 +1099,38 @@
                                         </span>
                                         {% endif %}
                                     </td>
-                                    <td class="cell-action">
+                                    <td class="cell-po" style="{% if group.delivery_type == 'public' %}background-color: #e6f7ff; color: #0066cc;
+                                        {% elif group.delivery_type == 'other' %}background-color: #f6ffed; color: #52c41a;
+                                        {% else %}background-color: #fff2e8; color: #fa8c16;
+                                        {% endif %}">
+                                        {% if group.delivery_type == "public" %}
+                                            公仓
+                                        {% elif group.delivery_type == "other" %}
+                                            私仓
+                                        {% else %}
+                                            异常
+                                        {% endif %}
+                                    </td>
+                                    <td class="cell-action" style="{% if group.delivery_type == 'public' %}background-color: #e6f7ff; color: #0066cc;
+                                        {% elif group.delivery_type == 'other' %}background-color: #f6ffed; color: #52c41a;
+                                        {% else %}background-color: #fff2e8; color: #fa8c16;
+                                        {% endif %}">
                                         <!-- 转换类型按钮 -->
-                                        <button type="button" class="btn-convert"
-                                                onclick="convertToCurrentType('{{ group.PO_ID }}', '{{ group.item_id }}','{{ group.delivery_type }}')">
-                                            <i class="fas fa-sync-alt"></i>转类型
-                                        </button>
+                                        {% if group.delivery_type == "public" %}
+                                            <button type="button" class="btn-convert"
+                                                    onclick="convertToCurrentType('{{ group.PO_ID }}', '{{ group.item_id }}','other')"
+                                                    style="background-color: #bae7ff; color: #0050b3; border: 1px solid #69c0ff;">
+                                                <i class="fas fa-sync-alt"></i>转私仓
+                                            </button>
+                                        {% elif group.delivery_type == "other" %}
+                                            <button type="button" class="btn-convert"
+                                                    onclick="convertToCurrentType('{{ group.PO_ID }}', '{{ group.item_id }}','public')"
+                                                    style="background-color: #d9f7be; color: #389e0d; border: 1px solid #95de64;">
+                                                <i class="fas fa-sync-alt"></i>转公仓
+                                            </button>
+                                        {% else %}
+                                            {{ group.delivery_type }}联系技术人员
+                                        {% endif %}
                                     </td>
                                 </tr>
                                 {% endfor %}
@@ -1126,6 +1158,7 @@
             <form id="release-form" method="post">
                 {% csrf_token %}
                 <input type="hidden" name="step" value="release_hold">
+                <input type="hidden" name="warehouse_filter" value="{{ warehouse_filter }}">
                 <input type="hidden" id="release-container-number" name="container_number" value="{{ container_number }}">
                 <input type="hidden" id="release-po-id" name="po_id" value="">
                 <input type="hidden" name="invoice_id" value="{{ invoice_id }}">
@@ -1172,6 +1205,7 @@
 <form method="post" id="single-row-form" style="display: none;">
     {% csrf_token %}
     <input type="hidden" name="step" value="save_single">
+    <input type="hidden" name="warehouse_filter" value="{{ warehouse_filter }}">
     <input type="hidden" name="container_number" value="{{ container_number }}">
     <input type="hidden" name="invoice_id" value="{{ invoice_id }}">
     <input type="hidden" name="row_index" id="single-row-index" value="">
@@ -1186,14 +1220,18 @@
     <input type="hidden" name="surcharges" id="single-surcharges" value="">
     <input type="hidden" name="amount" id="single-amount" value="">
     <input type="hidden" name="note" id="single-note" value="">
+    <input type="hidden" name="cbm" id="single-cbm" value="">
+    <input type="hidden" name="weight" id="single-weight" value="">
 </form>
 <!-- 转换类型的form -->
 <form method="post" id="convert-form" style="display: none;">
     {% csrf_token %}
     <input type="hidden" name="step" value="convert_type">
+    <input type="hidden" name="warehouse_filter" value="{{ warehouse_filter }}">
     <input type="hidden" name="container_number" value="{{ container_number }}">
     <input type="hidden" name="invoice_id" value="{{ invoice_id }}">
-    <input type="hidden" name="to_delivery_type" value="other">
+    <input type="hidden" name="template_delivery_type" value="other">
+    <input type="hidden" name="to_delivery_type" id="to-delivery-type">
     <input type="hidden" name="po_id" id="convert-po-id" value="">
     <input type="hidden" name="item_id" id="convert-item-id" value="">
 </form>
@@ -1246,7 +1284,7 @@ $(document).ready(function() {
             if ($saveBtn.length) $saveBtn.prop('disabled', false);
         } else if (deliveryType === 'selfpickup') {
             $rateInput.prop('disabled', false);
-            $amountInput.prop('readonly', true).prop('disabled', false);
+            $amountInput.prop('readonly', false).prop('disabled', false);
             $palletsInput.prop('disabled', false);
             $surchargeInput.prop('disabled', false);
             $noteInput.prop('disabled', false);
@@ -1290,7 +1328,7 @@ $(document).ready(function() {
             amount = (rate * pallets) + surcharges;
         } else if (deliveryType === 'selfdelivery') {
             // 自发派送允许用户输入金额主体，但我们要确保附加费也累加进去
-            const userAmount = parseFloat($amountInput.val()) || 0;
+            const userAmount = parseFloat($amountInput.val());
             amount = userAmount + surcharges;
         } else {
             // 未选择类型时不自动计算（保持为0）
@@ -1315,14 +1353,16 @@ $(document).ready(function() {
     });
 
     // 事件：任意相关输入变化 -> 重新计算金额（注意使用统一的 class .input-surcharge）
-    $(document).on('input', '.input-rate, .input-pallets, .input-surcharge, .amount-input', function() {
+    $(document).on('input', '.input-rate, .input-pallets, .input-surcharge', function() {
         const rowIndex = $(this).closest('tr').data('row');
         if (typeof rowIndex === 'undefined') return;
         // 只要与金额相关的输入变动，都触发重新计算
         calculateRowAmount(rowIndex);
         calculateTotalAmount();
     });
-
+    $(document).on('input', '.amount-input', function () {
+        calculateTotalAmount();
+    });
     // 初始化每行状态并计算金额
     $('tbody tr[data-row]').each(function() {
         const rowIndex = $(this).data('row');
@@ -1353,6 +1393,8 @@ $(document).ready(function() {
         const poId = $row.data('po') || '';
         const shippingMarks = $row.find('.mark-text').attr('title') || '';
         const destination = $row.find('.cell-destination').text().trim();
+        const cbm = $row.find('td:nth-child(3) .stat-value').text().trim() || '0.00';
+        const weight = $row.find('td:nth-child(4) .stat-value').text().trim() || '0.00';
 
         // 验证
         if (!deliveryCategory) {
@@ -1380,6 +1422,8 @@ $(document).ready(function() {
         $('#single-surcharges').val(surcharges || '0');   // ← 确保把附加费写入
         $('#single-amount').val(amount || '0');          // ← 确保把金额写入
         $('#single-note').val(note || '');
+        $('#single-cbm').val(cbm); 
+        $('#single-weight').val(weight);
 
         // 状态变更
         const $btn = $row.find('.btn-save-row');
@@ -1414,6 +1458,8 @@ $(document).ready(function() {
             const surcharges = $(this).find('.input-surcharge').val() || '0';
             const amount = $(this).find('.amount-input').val() || '0';
             const note = $(this).find('.input-note').val() || '';
+            const cbm = $(this).find('td:nth-child(3) .stat-value').text().trim() || '0.00'; 
+            const weight = $(this).find('td:nth-child(4) .stat-value').text().trim() || '0.00';
 
             items.push({
                 rowIndex: rowIndex,
@@ -1426,7 +1472,9 @@ $(document).ready(function() {
                 pallets: pallets,
                 surcharges: surcharges,
                 amount: amount,
-                note: note
+                note: note,
+                cbm: cbm,
+                weight: weight
             });
         });
 
@@ -1458,9 +1506,10 @@ $(document).ready(function() {
         modal.show();
     }
     // ================ 转换类型 ================
-    function convertToCurrentType(poId, item_id, fromDeliveryType) {
+    function convertToCurrentType(poId, item_id, deliveryType) {
         $('#convert-po-id').val(poId);
         $('#convert-item-id').val(item_id);
+        $('#to-delivery-type').val(deliveryType);
         $('#convert-form').submit();
     }
 </script>

@@ -49,6 +49,7 @@ CONTAINER_PICKUP_CARRIER = [
     ("BEST", "BEST"),
     ("客户自送", "客户自送"),
     ("Janice", "Janice"),
+    ("辉煌", "辉煌")
 ]
 
 CLEARANCE_OPTIONS = [
@@ -119,6 +120,7 @@ WAREHOUSE_OPTIONS = [
     ("TX-77503", "TX-77503"),
     ("LA-91789", "LA-91789"),
     ("LA-91748", "LA-91748"),
+    ("LA-91766", "LA-91766"),
     ("N/A(直送)", "N/A(直送)"),
     ("Empty", "Empty"),
 ]

@@ -166,6 +166,7 @@ class InvoiceItemv2(models.Model):
         ("warehouse_other", "私仓库内"),
         ("delivery_public", "公仓派送"),
         ("delivery_other", "私仓派送"),
+        ("activation_fee", "激活费"),
     ]
     container_number = models.ForeignKey(
         Container, on_delete=models.CASCADE, related_name="invoice_itemv2"
