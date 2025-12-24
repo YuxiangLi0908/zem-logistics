@@ -276,7 +276,29 @@ class ReceivableAccounting(View):
         elif step =="save_manual_invoice_items":
             template, context = self.handle_save_manual_invoice_items(request)
             return render(request, template, context)
+        elif step == "generate_manual_excel":
+            template, context = self.handle_generate_manual_excel(request)
+            return render(request, template, context)
         
+    def handle_generate_manual_excel(self,request: HttpRequest) -> tuple[Any, Any]:
+        '''手动编辑账单时生成新的excel'''
+        container_number = request.POST.get("container_number")
+        invoice_number = request.POST.get("invoice_number")
+
+        order = Order.objects.get(container_number__container_number=container_number)
+        invoice = Invoicev2.objects.get(invoice_number=invoice_number)
+
+        ctx = self._parse_invoice_excel_data(order, invoice)
+        ac = Accounting()
+        workbook, invoice_data = ac._generate_invoice_excel(ctx)
+        invoice.invoice_date = invoice_data["invoice_date"]
+        invoice.invoice_link = invoice_data["invoice_link"]
+        invoice.save()
+
+        # 返回成功消息
+        success_message = f"成功生成新的excel!"
+        context = {'success_message': success_message}
+        return self.template_invoice_items_all ,context
     
     def handle_invoice_search_get(
         self,
@@ -1649,7 +1671,8 @@ class ReceivableAccounting(View):
                 else:
                     self._save_other_items(item, item_id, invoice, container)
         self._update_invoice_total(invoice,container)
-        return self.handle_invoice_item_search(request)
+        context = {'success_messages':'保存账单明细成功！'}
+        return self.handle_invoice_item_search(request,context)
     
     def _save_delivery_items(self, item_data, item_id, invoice, container):
         """保存派送费用项"""
@@ -3465,8 +3488,10 @@ class ReceivableAccounting(View):
         
         return result
     
-    def handle_invoice_item_search(self, request:HttpRequest) -> Dict[str, Any]:
+    def handle_invoice_item_search(self, request:HttpRequest, context: dict| None = None) -> Dict[str, Any]:
         '''查询全部的账单详情'''
+        if not context:
+            context = {}
         container_number = request.GET.get("container_number")
         invoice_id = request.GET.get("invoice_id")
         if not container_number:
@@ -3508,7 +3533,7 @@ class ReceivableAccounting(View):
                 delivery_items.append(item)
             else:
                 other_items.append(item)
-        context = {
+        context.update({
             'other_items': other_items,
             'delivery_items': delivery_items,
             'container_number': container_number,
@@ -3516,7 +3541,7 @@ class ReceivableAccounting(View):
             'start_date': request.POST.get("start_date"),
             'end_date': request.POST.get("end_date"),
             'order_type': order.order_type,
-        }
+        })
         return self.template_invoice_items_all, context
         
 
