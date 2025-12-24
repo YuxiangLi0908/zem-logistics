@@ -4759,7 +4759,7 @@ class PostNsop(View):
                     note_sp=StringAgg("note_sp", delimiter=",", distinct=True)
                 )
                 .distinct()
-                .order_by("actual_retrieval_time","destination", "shipping_marks")
+                .order_by("actual_retrieval_time")
             )
 
             data += pl_list
@@ -4778,7 +4778,8 @@ class PostNsop(View):
         for cargo in raw_cargos:
             if not cargo["is_pass"]:
                 cargos.append(cargo)
-        return cargos
+        sorted_cargos = sorted(cargos, key=lambda x: (x.get('ltl_verify', False),))
+        return sorted_cargos
     
     async def _ltl_scheduled_self_pickup(self, pl_criteria, plt_criteria) -> Dict[str, Any]:
         """获取已放行客提货物 - Tab 2"""
