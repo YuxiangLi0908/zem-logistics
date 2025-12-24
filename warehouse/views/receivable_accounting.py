@@ -4203,7 +4203,7 @@ class ReceivableAccounting(View):
 
         for group in combina_pallet_groups:
             destination_str = group.get("destination", "")     
-            destination = self._process_destination_wlm(destination_str)    
+            destination_origin, destination = self._process_destination(destination_str)  
             cbm = round(group.get("total_cbm", 0), 2) 
             total_combina_pallets += group.get("total_pallets", 0)     
             
@@ -4219,7 +4219,7 @@ class ReceivableAccounting(View):
         for g in combina_pallet_groups:
             po_id = g.get("PO_ID")
             destination_str = g.get("destination", "")
-            destination = self._process_destination_wlm(destination_str)  
+            destination_origin, destination = self._process_destination(destination_str)
             key = (po_id, destination)
 
             cbm = round(g.get("total_cbm", 0), 2)
@@ -4274,7 +4274,7 @@ class ReceivableAccounting(View):
                 
                 for item in region_data:
 
-                    destination = self._process_destination_wlm(destination_str)  
+                    destination_origin, destination = self._process_destination(destination_str)
                    
                     if destination in item["location"]:
                         destination_region_map[destination] = region
@@ -4317,7 +4317,7 @@ class ReceivableAccounting(View):
             # 对该区域内的每个目的地构建item
             for group in combina_pallet_groups:
                 destination_str = group.get("destination", "")
-                destination = self._process_destination_wlm(destination_str)  
+                destination_origin, destination = self._process_destination(destination_str) 
                 if destination and '-' in destination:
                     # 分割并取第二部分
                     parts = destination.split('-')
