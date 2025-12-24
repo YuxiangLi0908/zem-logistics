@@ -88,7 +88,7 @@ class PostNsop(View):
     template_ltl_label = "export_file/ltl_label.html"
     template_ltl_bol = "export_file/ltl_bol.html"
     area_options = {"NJ": "NJ", "SAV": "SAV", "LA": "LA", "MO": "MO", "TX": "TX", "LA": "LA"}
-    warehouse_options = {"":"", "NJ-07001": "NJ-07001", "SAV-31326": "SAV-31326", "LA-91761": "LA-91761", "LA-91789": "LA-91789", "LA-91766": "LA-91766",}
+    warehouse_options = {"":"", "NJ-07001": "NJ-07001", "SAV-31326": "SAV-31326", "LA-91761": "LA-91761", "LA-91748": "LA-91748", "LA-91766": "LA-91766",}
     load_type_options = {
         "卡板": "卡板",
         "地板": "地板",
@@ -396,7 +396,7 @@ class PostNsop(View):
         else:
             raise ValueError('输入错误',step)
         
-    async def handle_search_quote(self, request: HttpRequest) -> HttpResponse:
+    async def search_quote_container(self, request: HttpRequest) -> HttpResponse:
         context = {}
         return self.template_search_quote, context
     
@@ -5425,7 +5425,10 @@ class PostNsop(View):
         # #待传POD
         pod_data_raw = await self._fl_pod_get(warehouse, None, 'ltl')
         pod_data = pod_data_raw['fleet']
-
+        pod_data = sorted(
+            pod_data,
+            key=lambda p: p.pod_to_customer is True
+        )
         summary = {
             'release_count': len(release_cargos),
             'selfpick_count': len(selfpick_cargos),
