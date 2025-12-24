@@ -166,6 +166,11 @@
         color: #cf1322;
         border: 1px solid #ffa39e;
     }
+    .status-badge[data-status="待确认"] {
+        background: #f5f5f5;   /* 灰色背景 */
+        color: #8c8c8c;        /* 灰色文字 */
+        border: 1px solid #d9d9d9;
+    }
     .status-label {
         font-size: 12px;
     }
@@ -184,8 +189,11 @@
     }
 
     .cost-amount {
-        font-size: 14px;
         font-weight: 600;
+        color: #1890ff;
+        font-size: 14px;  
+        text-align: center; 
+        display: block;
     }
 
 
@@ -284,13 +292,6 @@
         color: #666;
     }
 
-    .cost-amount {
-        font-weight: 600;
-        color: #1890ff;
-        font-size: 12px;
-    }
-
-    /* 状态徽章样式 */
     .status-badge {
         display: inline-block;
         padding: 3px 8px;
@@ -473,7 +474,7 @@
         <div class="finance-header">
             <div class="finance-logo">
                 <i class="fas fa-file-invoice-dollar"></i>
-                <span>应收账单补开管理</span>
+                <span>应收账单手动编辑</span>
             </div>       
             <div class="filter-controls">
                 <div class="filter-group" style="position: relative;">
@@ -554,7 +555,7 @@
 
                     <td class="td">
                         <a class="container-link"
-                        href="/receivable_accounting/?step=container_confirm
+                        href="/receivable_accounting/?step=invoice_manual
                         &container_number={{ r.container_number }}
                         &invoice_id={{ r.invoice_id }}">
                             {{ r.container_number }}
@@ -562,7 +563,7 @@
                     </td>
 
                     <td class="td">{{ r.order_type }}</td>
-                    <td class="td">{{ r.warehouse }}</td>
+                    <td class="td">{{ r.warehouse|default_if_none:"" }}</td>
                     <td class="td">{{ r.invoice_number }}</td>
 
                     <!-- 应收合计 -->
@@ -621,14 +622,14 @@
 
                     <!-- 操作状态：财务 -->
                     <td class="td">
-                        <span class="status-badge {{ r.finance_status|lower|cut:' ' }}">
+                        <span class="status-badge" data-status="{{ r.finance_status }}">
                             {{ r.finance_status }}
                         </span>
                     </td>
 
                     <!-- 港前费用 -->
-                    <td class="td amount-cell">
-                        ${{ r.receivable_preport_amount|floatformat:2 }}
+                    <td class="cost-amount">  
+                        ${{ r.receivable_preport_amount|floatformat:2 }}                       
                     </td>
 
                     <!-- 仓库费用（无合计） -->
@@ -668,7 +669,7 @@
                     </td>
 
                     <!-- 直送费用 -->
-                    <td class="td amount-cell">
+                    <td class="cost-amount">
                         ${{ r.receivable_direct_amount|floatformat:2 }}
                     </td>
                 </tr>
