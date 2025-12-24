@@ -756,7 +756,7 @@ class ReceivableAccounting(View):
                 id__in=invoice_id_list
             ).update(
                 is_invoice_delivered=False,
-                is_receivable_is_locked=False
+                receivable_is_locked=False
             )
         context = {'success_messages':'账单退回状态成功！'}
         return self.handle_confirm_entry_post(request,context)
