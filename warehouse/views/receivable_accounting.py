@@ -2392,7 +2392,15 @@ class ReceivableAccounting(View):
                     invoice_type="receivable",
                 )
             }
-
+            # 状态映射字典
+            status_mapping = {
+                'unstarted': '未录入',
+                'in_progress': '录入中',
+                'pending_review': '待组长审核',
+                'completed': '已完成',
+                'rejected': '已驳回',
+                'tobeconfirmed': '待确认',
+            }
             for invoice in invoices:
                 invoice_status = status_map.get(invoice.id)
                 if not invoice_status:
@@ -2421,12 +2429,12 @@ class ReceivableAccounting(View):
                     "invoice_created_at": invoice.created_at,
 
                     # ===== Status =====
-                    "preport_status": invoice_status.preport_status,
-                    "warehouse_public_status": invoice_status.warehouse_public_status,
-                    "warehouse_other_status": invoice_status.warehouse_other_status,
-                    "delivery_public_status": invoice_status.delivery_public_status,
-                    "delivery_other_status": invoice_status.delivery_other_status,
-                    "finance_status": invoice_status.finance_status,
+                    "preport_status": status_mapping.get(invoice_status.preport_status, invoice_status.preport_status),
+                    "warehouse_public_status": status_mapping.get(invoice_status.warehouse_public_status, invoice_status.warehouse_public_status),
+                    "warehouse_other_status": status_mapping.get(invoice_status.warehouse_other_status, invoice_status.warehouse_other_status),
+                    "delivery_public_status": status_mapping.get(invoice_status.delivery_public_status, invoice_status.delivery_public_status),
+                    "delivery_other_status": status_mapping.get(invoice_status.delivery_other_status, invoice_status.delivery_other_status),
+                    "finance_status": status_mapping.get(invoice_status.finance_status, invoice_status.finance_status),
 
                     # ===== Amounts =====
                     "receivable_total_amount": invoice.receivable_total_amount,
@@ -2449,48 +2457,6 @@ class ReceivableAccounting(View):
 
         return self.template_supplementary_entry, context
 
-    def get_status_display(self, status_type, status_value):
-        """根据状态类型和值获取显示文本"""
-        status_display_map = {
-            'finance_status': {
-                'unstarted': '未开始',
-                'tobeconfirmed': '待确认',
-                'completed': '已完成',
-            },
-            'preport_status': {
-                'unstarted': '未录入',
-                'in_progress': '录入中',
-                'pending_review': '待组长审核',
-                'completed': '已完成',
-                'rejected': '已驳回',
-            },
-            'warehouse_public_status': {
-                'unstarted': '未录入',
-                'in_progress': '录入中',
-                'completed': '已完成',
-                'rejected': '已驳回',
-            },
-            'warehouse_other_status': {
-                'unstarted': '未录入',
-                'in_progress': '录入中',
-                'completed': '已完成',
-                'rejected': '已驳回',
-            },
-            'delivery_public_status': {
-                'unstarted': '未录入',
-                'in_progress': '录入中',
-                'completed': '已完成',
-                'rejected': '已驳回',
-            },
-            'delivery_other_status': {
-                'unstarted': '未录入',
-                'in_progress': '录入中',
-                'completed': '已完成',
-                'rejected': '已驳回',
-            }
-        }
-        
-        return status_display_map.get(status_type, {}).get(status_value, status_value)
     def handle_confirm_entry_post(self, request:HttpRequest, context: dict| None = None,) -> Dict[str, Any]:
         if not context:
             context = {}
