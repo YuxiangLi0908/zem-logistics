@@ -1,0 +1,1169 @@
+{% extends 'base.html' %}
+{% load custom_filters %}
+{% block content %}
+<style>
+    .direct-warning {
+        background: linear-gradient(135deg, #ffebee, #ffcdd2);
+        border: 1px solid #ef9a9a;
+        border-radius: 6px;
+        padding: 6px 12px;
+        margin-left: 15px;
+        display: inline-flex;
+        align-items: center;
+        font-size: 0.85rem;
+        color: #c62828;
+        font-weight: 500;
+        box-shadow: 0 2px 4px rgba(198, 40, 40, 0.1);
+    }
+
+    .direct-warning i {
+        margin-right: 6px;
+        font-size: 0.9rem;
+    }
+
+    .direct-warning:hover {
+        background: linear-gradient(135deg, #ffcdd2, #ef9a9a);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 8px rgba(198, 40, 40, 0.15);
+        transition: all 0.3s ease;
+    }
+    .finance-system {
+        width: 100%;
+        margin: 20px auto;
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+        overflow: hidden;
+    }
+
+    :root {
+        --primary-color: #1b5e20;
+        --secondary-color: #0d3d14;
+        --success-color: #2e7d32;
+        --warning-color: #ff6f00;
+        --danger-color: #b71c1c;
+        --light-bg: #f8f9fa;
+        --card-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+        --border-radius: 12px;
+    }
+
+    .finance-header { 
+        background: linear-gradient(135deg, #0d3d14, #1b5e20);
+        color: white; 
+        padding: 25px 30px;
+        display: flex; 
+        justify-content: space-between; 
+        align-items: center; 
+    }
+    
+    .finance-logo {
+        display: flex;
+        align-items: center;
+        font-size: 1.5rem;
+        font-weight: bold;
+    }
+
+    .finance-logo i {
+        margin-right: 12px;
+        font-size: 1.8rem;
+    }
+
+    .header-actions {
+        display: flex;
+        gap: 15px;
+        align-items: center;
+    }
+
+    .btn {
+        padding: 10px 20px;
+        border-radius: 6px;
+        font-weight: 500;
+        font-size: 0.9rem;
+        border: none;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+    }
+
+    .btn-success {
+        background: var(--success-color);
+        color: white;
+    }
+
+    .btn-success:hover {
+        background: #219652;
+        transform: translateY(-1px);
+    }
+
+    .btn-primary {
+        background: #2196f3;
+        color: white;
+    }
+
+    .btn-primary:hover {
+        background: #1976d2;
+    }
+
+    .btn-add {
+        background: #4caf50;
+        color: white;
+        padding: 8px 16px;
+        font-size: 0.85rem;
+    }
+
+    .btn-add:hover {
+        background: #388e3c;
+    }
+
+    .btn-delete {
+        background: #f44336;
+        color: white;
+        padding: 6px 12px;
+        border-radius: 4px;
+        font-size: 0.85rem;
+        cursor: pointer;
+        border: none;
+    }
+
+    .btn-delete:hover {
+        background: #d32f2f;
+    }
+
+    .finance-main {
+        padding: 25px;
+    }
+
+    /* 表格容器 */
+    .table-container {
+        overflow-x: auto;
+        background: white;
+        border-radius: var(--border-radius);
+        box-shadow: var(--card-shadow);
+        border: 1px solid #f0f0f0;
+        margin-bottom: 25px;
+    }
+
+    .table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+        background: white;
+    }
+
+    .table-header {
+        background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+        padding: 20px;
+        border-bottom: 1px solid #dee2e6;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .table-title {
+        font-size: 1.2rem;
+        font-weight: 600;
+        color: var(--secondary-color);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .th {
+        background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+        padding: 14px 6px;
+        text-align: left;
+        font-weight: 600;
+        border-bottom: 2px solid #dee2e6;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        color: var(--secondary-color);
+        font-size: 0.9rem;
+        border-right: 1px solid #e9ecef;
+        white-space: nowrap;
+    }
+
+    .th:last-child {
+        border-right: none;
+    }
+
+    .td {
+        padding: 12px 6px;
+        border-bottom: 1px solid #f0f0f0;
+        vertical-align: middle;
+        font-size: 12px;
+    }
+
+    tr:hover {
+        background-color: #fafafa !important;
+    }
+
+    /* 表单控件 */
+    .form-control {
+        width: 100%;
+        padding: 6px 8px;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+        font-size: 12px;
+        box-sizing: border-box;
+    }
+
+    .form-control:focus {
+        outline: none;
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 2px rgba(27, 94, 32, 0.1);
+    }
+
+    /* 窄列样式 */
+    .narrow-input {
+        width: 80px;
+        min-width: 80px;
+        max-width: 100px;
+    }
+    
+    .narrow-input-wide {
+        width: 120px;
+        min-width: 120px;
+        max-width: 150px;
+    }
+    
+    .normal-input {
+        width: 120px;
+        min-width: 120px;
+    }
+    
+    .wide-input {
+        width: 200px;
+        min-width: 200px;
+    }
+
+    .delivery-type-select {
+        width: 150px;
+        min-width: 150px;
+    }
+
+    .select-control {
+        width: 100%;
+        padding: 6px 24px 6px 8px;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+        font-size: 12px;
+        appearance: none;
+        background: white url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%236c757d' viewBox='0 0 16 16'%3E%3Cpath d='M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/%3E%3C/svg%3E") no-repeat right 8px center;
+        cursor: pointer;
+    }
+
+    .select-control:focus {
+        outline: none;
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 2px rgba(27, 94, 32, 0.1);
+    }
+
+    .number-input {
+        text-align: right;
+    }
+
+    .amount-input {
+        text-align: right;
+        font-weight: 600;
+        color: var(--primary-color);
+        background: #f8f9fa;
+        border-color: #c8e6c9;
+    }
+
+    /* 新增行样式 */
+    .row-new {
+        background-color: #fffaf0 !important;
+        animation: highlightNewRow 2s ease-in-out;
+    }
+
+    @keyframes highlightNewRow {
+        0% { background-color: #fffaf0; }
+        50% { background-color: #fff3e0; }
+        100% { background-color: #fffaf0; }
+    }
+
+    /* 总计区域 */
+    .total-section {
+        margin-top: 20px;
+        padding: 20px;
+        background: linear-gradient(135deg, #f8f9fa 0%, #f5f7fa 100%);
+        border-radius: 8px;
+        border: 1px solid #dee2e6;
+    }
+
+    .total-row {
+        display: flex;
+        justify-content: flex-end;
+        align-items: center;
+        gap: 30px;
+    }
+
+    .total-item {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+    }
+
+    .total-label {
+        font-size: 0.9rem;
+        color: #666;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 5px;
+    }
+
+    .total-value {
+        font-size: 1.6rem;
+        font-weight: 600;
+        color: var(--primary-color);
+    }
+
+    .category-badge {
+        display: inline-block;
+        padding: 4px 10px;
+        border-radius: 12px;
+        font-size: 0.8rem;
+        font-weight: 500;
+        white-space: nowrap;
+        border: 1px solid transparent;
+    }
+
+    .category-preport {
+        background: #e3f2fd;
+        color: #1565c0;
+        border-color: #bbdefb;
+    }
+
+    .category-warehouse_public {
+        background: #e8f5e9;
+        color: #2e7d32;
+        border-color: #c8e6c9;
+    }
+
+    .category-warehouse_other {
+        background: #fff3e0;
+        color: #ef6c00;
+        border-color: #ffe0b2;
+    }
+
+    .category-activation_fee {
+        background: #f3e5f5;
+        color: #7b1fa2;
+        border-color: #e1bee7;
+    }
+
+    .category-delivery_public {
+        background: #e0f2f1;
+        color: #00695c;
+        border-color: #b2dfdb;
+    }
+
+    .category-delivery_other {
+        background: #e8eaf6;
+        color: #3949ab;
+        border-color: #c5cae9;
+    }
+
+    /* 操作列 */
+    .action-buttons {
+        display: flex;
+        gap: 8px;
+        justify-content: center;
+    }
+
+    /* 响应式调整 */
+    @media (max-width: 1400px) {
+        .table-container {
+            overflow-x: auto;
+        }
+        
+        .table {
+            min-width: 1200px;
+        }
+    }
+
+    /* 隐藏字段 */
+    .hidden-field {
+        display: none;
+    }
+
+    /* 必填字段标识 */
+    .required-field::after {
+        content: ' *';
+        color: #f44336;
+    }
+</style>
+
+<!-- 隐藏的表单 -->
+<form method="post" id="invoice-items-form" style="display: none;">
+    {% csrf_token %}
+    <input type="hidden" name="container_number" value="{{ container_number }}">
+    <input type="hidden" name="invoice_number" value="{{ invoice_number }}">
+    <input type="hidden" name="step" value="save_manual_invoice_items">
+    <input type="hidden" name="items_data" id="items-data">
+</form>
+
+<div class="finance-system">
+    <div class="finance-header">
+        <div class="finance-logo">
+            <i class="fas fa-file-invoice-dollar"></i>
+            <span>应收账单明细编辑 - {{ container_number }} - {{ invoice_number }}</span>
+            <span class="direct-warning" title="直送模式不支持手动编辑，请使用其他方式管理">
+                <i class="fas fa-exclamation-triangle"></i>
+                直送模式不支持
+            </span>
+        </div>
+        <div class="header-actions">
+            <button onclick="window.history.back()" class="btn" style="background: #6b7280; color: white;">
+                <i class="fas fa-arrow-left"></i>
+                返回
+            </button>
+            {% if order_type != "直送" %}
+                <button type="button" onclick="saveAll()" class="btn btn-success">
+                    <i class="fas fa-save"></i>
+                    保存所有修改
+                </button>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="finance-main">
+        <!-- 非派送费用表格 -->
+        <div class="table-container">
+            <div class="table-header">
+                <div class="table-title">
+                    <i class="fas fa-warehouse"></i>
+                    其他费用明细
+                    <span style="font-size: 0.9rem; color: #666; margin-left: 10px;">
+                        共 {{ other_items|length }} 条记录
+                    </span>
+                </div>
+                <button type="button" class="btn btn-add" onclick="addOtherItem()">
+                    <i class="fas fa-plus"></i>
+                    新增费用
+                </button>
+            </div>
+            <table class="table" id="other-table">
+                <thead>
+                    <tr>
+                        <th class="th">ID</th>
+                        <th class="th required-field">费用类别</th>
+                        <th class="th">费用名称</th>
+                        <th class="th narrow-input">数量</th>
+                        <th class="th narrow-input">单价</th>
+                        <th class="th narrow-input">附加费</th>
+                        <th class="th narrow-input">金额</th>
+                        <th class="th normal-input">备注</th>
+                        <th class="th">操作</th>
+                    </tr>
+                </thead>
+                <tbody id="other-items-body">
+                    {% for item in other_items %}
+                    <tr data-item-id="{{ item.id }}" data-item-type="other" data-row-index="{{ forloop.counter0 }}">
+                        <td class="td">
+                            {{ item.id|default:"新记录" }}
+                        </td>
+                        <td class="td">
+                            <select class="select-control item-category" onchange="updateCategoryDisplay(this)">
+                                <option value="">请选择</option>
+                                <option value="preport" {% if item.item_category == 'preport' %}selected{% endif %}>港前</option>
+                                <option value="warehouse_public" {% if item.item_category == 'warehouse_public' %}selected{% endif %}>公仓库内</option>
+                                <option value="warehouse_other" {% if item.item_category == 'warehouse_other' %}selected{% endif %}>私仓库内</option>
+                                <option value="activation_fee" {% if item.item_category == 'activation_fee' %}selected{% endif %}>激活费</option>
+                            </select>
+                            <div class="category-display mt-1">
+                                <span class="category-badge category-{{ item.item_category }}">
+                                    {% if item.item_category == 'preport' %}港前
+                                    {% elif item.item_category == 'warehouse_public' %}公仓库内
+                                    {% elif item.item_category == 'warehouse_other' %}私仓库内
+                                    {% elif item.item_category == 'activation_fee' %}激活费
+                                    {% endif %}
+                                </span>
+                            </div>
+                        </td>
+                        <td class="td">
+                            <input type="text" class="form-control normal-input item-description" 
+                                   value="{{ item.description|default:'' }}" placeholder="费用名称">
+                        </td>
+                        <td class="td">
+                            <input type="number" class="form-control narrow-input number-input item-qty" 
+                                   value="{{ item.qty|default:0 }}" step="0.01" min="0"
+                                   onchange="calculateOtherAmount(this)" placeholder="0.00">
+                        </td>
+                        <td class="td">
+                            <input type="number" class="form-control narrow-input number-input item-rate" 
+                                   value="{{ item.rate|default:0 }}" step="0.01" min="0"
+                                   onchange="calculateOtherAmount(this)" placeholder="0.00">
+                        </td>
+                        <td class="td">
+                            <input type="number" class="form-control narrow-input number-input item-surcharges" 
+                                   value="{{ item.surcharges|default:0 }}" step="0.01" min="0"
+                                   onchange="calculateOtherAmount(this)" placeholder="0.00">
+                        </td>
+                        <td class="td">
+                            <input type="number" class="form-control narrow-input amount-input item-amount" 
+                                   value="{{ item.amount|default:0 }}" step="0.01" min="0"
+                                   readonly placeholder="0.00">
+                        </td>
+                        <td class="td">
+                            <input type="text" class="form-control normal-input item-note" 
+                                   value="{{ item.note|default:'' }}" placeholder="备注">
+                        </td>
+                        <td class="td">
+                            <div class="action-buttons">
+                                <button type="button" class="btn-delete" onclick="deleteRow(this)">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr id="no-other-data">
+                        <td colspan="9" class="td" style="text-align: center; padding: 40px;">
+                            <i class="fas fa-clipboard-list" style="font-size: 3rem; margin-bottom: 10px; color: #e0e0e0;"></i>
+                            <p style="color: #8c8c8c;">暂无其他费用记录</p>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- 派送费用表格 -->
+        <div class="table-container">
+            <div class="table-header">
+                <div class="table-title">
+                    <i class="fas fa-truck"></i>
+                    派送费用明细
+                    <span style="font-size: 0.9rem; color: #666; margin-left: 10px;">
+                        共 {{ delivery_items|length }} 条记录（不显示表示不显示在excel里，组合柜的数量是比例，非组合柜的是板数）
+                    </span>
+                </div>
+                <button type="button" class="btn btn-add" onclick="addDeliveryItem()">
+                    <i class="fas fa-plus"></i>
+                    新增派送费用
+                </button>
+            </div>
+            <table class="table" id="delivery-table">
+                <thead>
+                    <tr>
+                        <th class="th">ID</th>
+                        <th class="th required-field">费用类别</th>
+                        <th class="th">费用名称</th>
+                        <th class="th narrow-input-wide">目的地</th>
+                        <th class="th narrow-input">CBM</th>
+                        <th class="th narrow-input">重量</th>
+                        <th class="th delivery-type-select">派送类型（不显示）</th>
+                        <th class="th narrow-input">数量</th>
+                        <th class="th narrow-input">单价</th>
+                        <th class="th narrow-input">附加费</th>
+                        <th class="th narrow-input">金额</th>
+                        <th class="th normal-input">备注</th>
+                        <th class="th narrow-input-wide">PO_ID（不显示）</th>
+                        <th class="th">操作</th>
+                    </tr>
+                </thead>
+                <tbody id="delivery-items-body">
+                    {% for item in delivery_items %}
+                    <tr data-item-id="{{ item.id }}" data-item-type="delivery" data-row-index="{{ forloop.counter0 }}">
+                        <td class="td">
+                            {{ item.id|default:"新记录" }}
+                        </td>
+                        <td class="td">
+                            <select class="select-control item-category" onchange="updateCategoryDisplay(this)">
+                                <option value="">请选择</option>
+                                <option value="delivery_other" {% if item.item_category == 'delivery_other' %}selected{% endif %}>私仓派送</option>
+                                <option value="delivery_public" {% if item.item_category == 'delivery_public' %}selected{% endif %}>公仓派送</option>
+                            </select>
+                            <div class="category-display mt-1">
+                                <span class="category-badge category-{{ item.item_category }}">
+                                    {% if item.item_category == 'delivery_public' %}公仓派送
+                                    {% elif item.item_category == 'delivery_other' %}私仓派送
+                                    {% endif %}
+                                </span>
+                            </div>
+                        </td>
+                        <td class="td">
+                            <input type="text" class="form-control normal-input item-description" 
+                                   value="{{ item.description|default:'' }}" placeholder="费用名称">
+                        </td>
+                        <td class="td">
+                            <input type="text" class="form-control narrow-input-wide item-destination" 
+                                   value="{{ item.warehouse_code|default:'' }}" placeholder="目的地">
+                        </td>
+                        <td class="td">
+                            <input type="number" class="form-control narrow-input number-input item-cbm" 
+                                   value="{{ item.cbm|default:0 }}" step="0.01" min="0"
+                                   onchange="calculateDeliveryAmount(this)" placeholder="0.00">
+                        </td>
+                        <td class="td">
+                            <input type="number" class="form-control narrow-input number-input item-weight" 
+                                   value="{{ item.weight|default:0 }}" step="0.01" min="0"
+                                   onchange="calculateDeliveryAmount(this)" placeholder="0.00">
+                        </td>
+                        <td class="td">
+                            <select class="select-control delivery-type-select item-delivery-type"
+                                    onchange="updateQtyDisplay(this)">
+                                <option value="">请选择</option>
+                                <option value="amazon" {% if item.delivery_type == 'amazon' %}selected{% endif %}>亚马逊</option>
+                                <option value="combine" {% if item.delivery_type == 'combine' %}selected{% endif %}>组合柜</option>
+                                <option value="walmart" {% if item.delivery_type == 'walmart' %}selected{% endif %}>沃尔玛</option>
+                                <option value="upsdelivery" {% if item.delivery_type == 'upsdelivery' %}selected{% endif %}>快递</option>
+                            </select>
+                        </td>
+                        <td class="td">
+                            {% if item.delivery_type == 'combine' %}
+                                <input type="number" class="form-control narrow-input number-input item-cbm-ratio" 
+                                       value="{{ item.cbm_ratio|default:0 }}" step="0.01" min="0" max="1"
+                                       onchange="calculateDeliveryAmount(this)" placeholder="体积占比">
+                                <input type="hidden" class="item-qty" value="{{ item.qty|default:0 }}">
+                            {% else %}
+                                <input type="number" class="form-control narrow-input number-input item-qty" 
+                                       value="{{ item.qty|default:0 }}" step="0.01" min="0"
+                                       onchange="calculateDeliveryAmount(this)" placeholder="数量">
+                                <input type="hidden" class="item-cbm-ratio" value="{{ item.cbm_ratio|default:0 }}">
+                            {% endif %}
+                        </td>
+                        <td class="td">
+                            <input type="number" class="form-control narrow-input number-input item-rate" 
+                                   value="{{ item.rate|default:0 }}" step="0.01" min="0"
+                                   onchange="calculateDeliveryAmount(this)" placeholder="0.00">
+                        </td>
+                        <td class="td">
+                            <input type="number" class="form-control narrow-input number-input item-surcharges" 
+                                   value="{{ item.surcharges|default:0 }}" step="0.01" min="0"
+                                   onchange="calculateDeliveryAmount(this)" placeholder="0.00">
+                        </td>
+                        <td class="td">
+                            <input type="number" class="form-control narrow-input amount-input item-amount" 
+                                   value="{{ item.amount|default:0 }}" step="0.01" min="0"
+                                   readonly placeholder="0.00">
+                        </td>
+                        <td class="td">
+                            <input type="text" class="form-control normal-input item-note" 
+                                   value="{{ item.note|default:'' }}" placeholder="备注">
+                        </td>
+                        <td class="td">
+                            <input type="text" class="form-control narrow-input-wide item-po-id" 
+                                   value="{{ item.PO_ID|default:'' }}" placeholder="PO号">
+                        </td>
+                        <td class="td">
+                            <div class="action-buttons">
+                                <button type="button" class="btn-delete" onclick="deleteRow(this)">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr id="no-delivery-data">
+                        <td colspan="14" class="td" style="text-align: center; padding: 40px;">
+                            <i class="fas fa-truck" style="font-size: 3rem; margin-bottom: 10px; color: #e0e0e0;"></i>
+                            <p style="color: #8c8c8c;">暂无派送费用记录</p>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- 总计区域 -->
+        <div class="total-section">
+            <div class="total-row">
+                <div class="total-item">
+                    <div class="total-label">总金额 (USD)</div>
+                    <div class="total-value" id="total-amount">0.00</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// 页面加载完成后初始化
+$(document).ready(function() {
+    // 初始化金额计算
+    $('tbody tr').each(function() {
+        if ($(this).data('item-type') === 'other') {
+            calculateOtherRowAmount($(this));
+        } else {
+            calculateDeliveryRowAmount($(this));
+        }
+    });
+    
+    // 计算总金额
+    calculateTotalAmount();
+});
+
+// 更新派送类型的数量显示
+function updateQtyDisplay(selectElement) {
+    const $select = $(selectElement);
+    const $row = $select.closest('tr');
+    const deliveryType = $select.val();
+    const $qtyCell = $row.find('td:nth-child(8)');
+    
+    // 保存当前值
+    let currentValue = 0;
+    const $currentInput = $qtyCell.find('.item-qty, .item-cbm-ratio');
+    if ($currentInput.length) {
+        currentValue = parseFloat($currentInput.val()) || 0;
+    }
+    
+    $qtyCell.empty();
+    
+    if (deliveryType === 'combine') {
+        // 显示cbm_ratio，隐藏qty
+        $qtyCell.html(`
+            <input type="number" class="form-control narrow-input number-input item-cbm-ratio" 
+                   value="${currentValue}" step="0.01" min="0" max="1"
+                   onchange="calculateDeliveryAmount(this)" placeholder="体积占比">
+            <input type="hidden" class="item-qty" value="0">
+        `);
+    } else {
+        // 显示qty，隐藏cbm_ratio
+        $qtyCell.html(`
+            <input type="number" class="form-control narrow-input number-input item-qty" 
+                   value="${currentValue}" step="0.01" min="0"
+                   onchange="calculateDeliveryAmount(this)" placeholder="数量">
+            <input type="hidden" class="item-cbm-ratio" value="0">
+        `);
+    }
+    
+    // 重新计算金额
+    calculateDeliveryAmount($qtyCell.find('input'));
+}
+
+// 计算其他费用行金额
+function calculateOtherRowAmount($row) {
+    const qty = parseFloat($row.find('.item-qty').val()) || 0;
+    const rate = parseFloat($row.find('.item-rate').val()) || 0;
+    const surcharges = parseFloat($row.find('.item-surcharges').val()) || 0;
+    const amount = (qty * rate) + surcharges;
+    
+    $row.find('.item-amount').val(amount.toFixed(2));
+}
+
+// 计算其他费用金额
+function calculateOtherAmount(inputElement) {
+    const $row = $(inputElement).closest('tr');
+    calculateOtherRowAmount($row);
+    calculateTotalAmount();
+}
+
+// 计算派送费用行金额
+function calculateDeliveryRowAmount($row) {
+    const deliveryType = $row.find('.item-delivery-type').val();
+    let qty = 0;
+    
+    if (deliveryType === 'combine') {
+        const cbm = parseFloat($row.find('.item-cbm').val()) || 0;
+        const cbmRatio = parseFloat($row.find('.item-cbm-ratio').val()) || 0;
+        qty = cbm * cbmRatio;
+        // 更新隐藏的qty字段
+        $row.find('.item-qty').val(qty);
+    } else {
+        qty = parseFloat($row.find('.item-qty').val()) || 0;
+    }
+    
+    const rate = parseFloat($row.find('.item-rate').val()) || 0;
+    const surcharges = parseFloat($row.find('.item-surcharges').val()) || 0;
+    const amount = (qty * rate) + surcharges;
+    
+    $row.find('.item-amount').val(amount.toFixed(2));
+}
+
+// 计算派送费用金额
+function calculateDeliveryAmount(inputElement) {
+    const $row = $(inputElement).closest('tr');
+    calculateDeliveryRowAmount($row);
+    calculateTotalAmount();
+}
+
+// 计算总金额
+function calculateTotalAmount() {
+    let total = 0;
+    
+    $('.item-amount').each(function() {
+        const amount = parseFloat($(this).val()) || 0;
+        total += amount;
+    });
+    
+    $('#total-amount').text(total.toFixed(2));
+    return total;
+}
+
+// 新增其他费用项
+function addOtherItem() {
+    $('#no-other-data').remove();
+    
+    const rowIndex = $('#other-items-body tr').length;
+    
+    const newRow = `
+    <tr data-item-id="" data-item-type="other" data-row-index="${rowIndex}" class="row-new">
+        <td class="td">
+            新记录
+        </td>
+        <td class="td">
+            <select class="select-control item-category" onchange="updateCategoryDisplay(this)">
+                <option value="">请选择</option>
+                <option value="preport">港前</option>
+                <option value="warehouse_public">公仓库内</option>
+                <option value="warehouse_other">私仓库内</option>
+                <option value="activation_fee">激活费</option>
+            </select>
+            <div class="category-display mt-1"></div>
+        </td>
+        <td class="td">
+            <input type="text" class="form-control normal-input item-description" 
+                   value="" placeholder="费用名称">
+        </td>
+        <td class="td">
+            <input type="number" class="form-control narrow-input number-input item-qty" 
+                   value="0" step="0.01" min="0"
+                   onchange="calculateOtherAmount(this)" placeholder="0.00">
+        </td>
+        <td class="td">
+            <input type="number" class="form-control narrow-input number-input item-rate" 
+                   value="0" step="0.01" min="0"
+                   onchange="calculateOtherAmount(this)" placeholder="0.00">
+        </td>
+        <td class="td">
+            <input type="number" class="form-control narrow-input number-input item-surcharges" 
+                   value="0" step="0.01" min="0"
+                   onchange="calculateOtherAmount(this)" placeholder="0.00">
+        </td>
+        <td class="td">
+            <input type="number" class="form-control narrow-input amount-input item-amount" 
+                   value="0" step="0.01" min="0"
+                   readonly placeholder="0.00">
+        </td>
+        <td class="td">
+            <input type="text" class="form-control normal-input item-note" 
+                   value="" placeholder="备注">
+        </td>
+        <td class="td">
+            <div class="action-buttons">
+                <button type="button" class="btn-delete" onclick="deleteRow(this)">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>
+        </td>
+    </tr>`;
+    
+    $('#other-items-body').append(newRow);
+    scrollToNewRow($('#other-table tr:last'));
+}
+
+// 新增派送费用项
+function addDeliveryItem() {
+    $('#no-delivery-data').remove();
+    
+    const rowIndex = $('#delivery-items-body tr').length;
+    
+    const newRow = `
+    <tr data-item-id="" data-item-type="delivery" data-row-index="${rowIndex}" class="row-new">
+        <td class="td">
+            新记录
+        </td>
+        <td class="td">
+            <select class="select-control item-category" onchange="updateDeliveryCategoryDisplay(this)">
+                <option value="">请选择</option>
+                <option value="delivery_public">公仓派送</option>
+                <option value="delivery_other">私仓派送</option>
+            </select>
+            <div class="category-display mt-1"></div>
+        </td>
+        <td class="td">
+            <input type="text" class="form-control normal-input item-description" 
+                   value="" placeholder="费用名称">
+        </td>
+        <td class="td">
+            <input type="text" class="form-control narrow-input-wide item-destination" 
+                   value="" placeholder="目的地">
+        </td>
+        <td class="td">
+            <input type="number" class="form-control narrow-input number-input item-cbm" 
+                   value="0" step="0.01" min="0"
+                   onchange="calculateDeliveryAmount(this)" placeholder="0.00">
+        </td>
+        <td class="td">
+            <input type="number" class="form-control narrow-input number-input item-weight" 
+                   value="0" step="0.01" min="0"
+                   onchange="calculateDeliveryAmount(this)" placeholder="0.00">
+        </td>
+        <td class="td">
+            <select class="select-control delivery-type-select item-delivery-type"
+                    onchange="updateQtyDisplay(this)">
+                <option value="">请选择</option>
+                <option value="amazon">亚马逊</option>
+                <option value="combine">组合柜</option>
+                <option value="direct">直送</option>
+            </select>
+        </td>
+        <td class="td">
+            <input type="number" class="form-control narrow-input number-input item-qty" 
+                   value="0" step="0.01" min="0"
+                   onchange="calculateDeliveryAmount(this)" placeholder="数量">
+            <input type="hidden" class="item-cbm-ratio" value="0">
+        </td>
+        <td class="td">
+            <input type="number" class="form-control narrow-input number-input item-rate" 
+                   value="0" step="0.01" min="0"
+                   onchange="calculateDeliveryAmount(this)" placeholder="0.00">
+        </td>
+        <td class="td">
+            <input type="number" class="form-control narrow-input number-input item-surcharges" 
+                   value="0" step="0.01" min="0"
+                   onchange="calculateDeliveryAmount(this)" placeholder="0.00">
+        </td>
+        <td class="td">
+            <input type="number" class="form-control narrow-input amount-input item-amount" 
+                   value="0" step="0.01" min="0"
+                   readonly placeholder="0.00">
+        </td>
+        <td class="td">
+            <input type="text" class="form-control normal-input item-note" 
+                   value="" placeholder="备注">
+        </td>
+        <td class="td">
+            <input type="text" class="form-control narrow-input-wide item-po-id" 
+                   value="" placeholder="PO号">
+        </td>
+        <td class="td">
+            <div class="action-buttons">
+                <button type="button" class="btn-delete" onclick="deleteRow(this)">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>
+        </td>
+    </tr>`;
+    
+    $('#delivery-items-body').append(newRow);
+    scrollToNewRow($('#delivery-table tr:last'));
+}
+
+// 更新费用类别显示
+function updateCategoryDisplay(selectElement) {
+    const $select = $(selectElement);
+    const $row = $select.closest('tr');
+    const category = $select.val();
+    const $display = $row.find('.category-display');
+    
+    $display.empty();
+    
+    if (category) {
+        let categoryText = '';
+        let categoryClass = '';
+        
+        switch(category) {
+            case 'preport':
+                categoryText = '港前';
+                categoryClass = 'category-preport';
+                break;
+            case 'warehouse_public':
+                categoryText = '公仓库内';
+                categoryClass = 'category-warehouse_public';
+                break;
+            case 'warehouse_other':
+                categoryText = '私仓库内';
+                categoryClass = 'category-warehouse_other';
+                break;
+            case 'activation_fee':
+                categoryText = '激活费';
+                categoryClass = 'category-activation_fee';
+                break;
+        }
+        
+        if (categoryText) {
+            $display.html(`<span class="category-badge ${categoryClass}">${categoryText}</span>`);
+        }
+    }
+}
+
+// 更新派送类别显示
+function updateDeliveryCategoryDisplay(selectElement) {
+    const $select = $(selectElement);
+    const $row = $select.closest('tr');
+    const category = $select.val();
+    const $display = $row.find('.category-display');
+    
+    $display.empty();
+    
+    if (category) {
+        let categoryText = '';
+        let categoryClass = '';
+        
+        switch(category) {
+            case 'delivery_public':
+                categoryText = '公仓派送';
+                categoryClass = 'category-delivery_public';
+                break;
+            case 'delivery_other':
+                categoryText = '私仓派送';
+                categoryClass = 'category-delivery_other';
+                break;
+        }
+        
+        if (categoryText) {
+            $display.html(`<span class="category-badge ${categoryClass}">${categoryText}</span>`);
+        }
+    }
+}
+
+// 删除行
+function deleteRow(buttonElement) {
+    const $row = $(buttonElement).closest('tr');
+    const itemId = $row.data('item-id');
+    
+    if (itemId && !confirm('确定要删除这条记录吗？')) {
+        return;
+    }
+    
+    $row.remove();
+    calculateTotalAmount();
+    
+    // 如果没有数据了，显示空状态
+    if ($('#other-items-body tr').length === 0) {
+        $('#other-items-body').html(`
+            <tr id="no-other-data">
+                <td colspan="9" class="td" style="text-align: center; padding: 40px;">
+                    <i class="fas fa-clipboard-list" style="font-size: 3rem; margin-bottom: 10px; color: #e0e0e0;"></i>
+                    <p style="color: #8c8c8c;">暂无其他费用记录</p>
+                </td>
+            </tr>
+        `);
+    }
+    
+    if ($('#delivery-items-body tr').length === 0) {
+        $('#delivery-items-body').html(`
+            <tr id="no-delivery-data">
+                <td colspan="14" class="td" style="text-align: center; padding: 40px;">
+                    <i class="fas fa-truck" style="font-size: 3rem; margin-bottom: 10px; color: #e0e0e0;"></i>
+                    <p style="color: #8c8c8c;">暂无派送费用记录</p>
+                </td>
+            </tr>
+        `);
+    }
+}
+
+// 滚动到新行
+function scrollToNewRow($newRow) {
+    $('html, body').animate({
+        scrollTop: $newRow.offset().top - 100
+    }, 500);
+    
+    showToast('新增成功', 'success');
+}
+
+// 收集所有数据并保存
+function saveAll() {
+    // 收集数据
+    const itemsData = [];
+    let hasError = false;
+    
+    // 收集其他费用数据
+    $('#other-items-body tr[data-item-type="other"]').each(function(index) {
+        const $row = $(this);
+        const itemId = $row.data('item-id') || '';
+        const itemCategory = $row.find('.item-category').val();
+        
+        if (!itemCategory) {
+            showToast(`第${index + 1}行其他费用：请选择费用类别`, 'error');
+            hasError = true;
+            return false;
+        }
+        
+        const itemData = {
+            item_id: itemId,
+            rowIndex: index,
+            item_category: itemCategory,
+            description: $row.find('.item-description').val() || '',
+            qty: parseFloat($row.find('.item-qty').val()) || 0,
+            rate: parseFloat($row.find('.item-rate').val()) || 0,
+            surcharges: parseFloat($row.find('.item-surcharges').val()) || 0,
+            amount: parseFloat($row.find('.item-amount').val()) || 0,
+            note: $row.find('.item-note').val() || '',
+        };
+        
+        itemsData.push(itemData);
+    });
+    
+    if (hasError) return;
+    
+    // 收集派送费用数据
+    $('#delivery-items-body tr[data-item-type="delivery"]').each(function(index) {
+        const $row = $(this);
+        const itemId = $row.data('item-id') || '';
+        const itemCategory = $row.find('.item-category').val();
+        
+        if (!itemCategory) {
+            showToast(`第${index + 1}行派送费用：请选择费用类别`, 'error');
+            hasError = true;
+            return false;
+        }
+        
+        const poId = $row.find('.item-po-id').val() || '';
+        if (!poId) {
+            showToast(`第${index + 1}行派送费用：PO号不能为空`, 'error');
+            hasError = true;
+            return false;
+        }
+        
+        const deliveryType = $row.find('.item-delivery-type').val();
+        if (!deliveryType) {
+            showToast(`第${index + 1}行派送费用：请选择派送类型`, 'error');
+            hasError = true;
+            return false;
+        }
+        
+        const itemData = {
+            item_id: itemId,
+            rowIndex: index,
+            item_category: itemCategory,
+            po_id: poId,
+            description: $row.find('.item-description').val() || '',
+            destination: $row.find('.item-destination').val() || '',
+            cbm: parseFloat($row.find('.item-cbm').val()) || 0,
+            weight: parseFloat($row.find('.item-weight').val()) || 0,
+            delivery_type: deliveryType,
+            qty: parseFloat($row.find('.item-qty').val()) || 0,
+            cbm_ratio: parseFloat($row.find('.item-cbm-ratio').val()) || 0,
+            rate: parseFloat($row.find('.item-rate').val()) || 0,
+            surcharges: parseFloat($row.find('.item-surcharges').val()) || 0,
+            amount: parseFloat($row.find('.item-amount').val()) || 0,
+            note: $row.find('.item-note').val() || '',
+        };
+        
+        itemsData.push(itemData);
+    });
+    
+    if (hasError) return;
+    
+    // 将数据存入表单
+    $('#items-data').val(JSON.stringify(itemsData));
+    
+    // 显示保存提示
+    showToast('正在保存数据...', 'success');
+    
+    // 提交表单
+    setTimeout(() => {
+        $('#invoice-items-form').submit();
+    }, 100);
+}
+
+// Toast提示
+function showToast(message, type = 'success') {
+    // 简单的alert实现，你可以替换成更美观的toast
+    if (type === 'error') {
+        alert('错误: ' + message);
+    } else {
+        alert(message);
+    }
+}
+</script>
+
+{% endblock %}
