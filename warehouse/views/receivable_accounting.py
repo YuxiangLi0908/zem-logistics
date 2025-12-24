@@ -3646,7 +3646,7 @@ class ReceivableAccounting(View):
         quotation, quotation_error = self._get_quotation_for_order(order, 'receivable')
         if quotation_error:
             context.update({"error_messages": quotation_error})
-            return context
+            return template, context
         try:
             COMBINA_STIPULATE = FeeDetail.objects.get(
                 quotation_id=quotation.id,
@@ -3654,7 +3654,7 @@ class ReceivableAccounting(View):
             )
         except Exception as e:
             context.update({"error_messages": '缺少组合柜信息'})
-            return context
+            return template, context
         rules_text = self._parse_combina_rules(COMBINA_STIPULATE.details, order.retrieval_id.retrieval_destination_area)
 
         total_container_cbm = PackingList.objects.filter(

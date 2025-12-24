@@ -80,6 +80,7 @@ class PostNsop(View):
     template_fleet_schedule = "post_port/new_sop/03_fleet_schedule/03_fleet_schedule.html"
     template_unscheduled_pos_all = "post_port/new_sop/01_unscheduled_pos_all/01_unscheduled_main.html"
     template_ltl_pos_all = "post_port/new_sop/05_ltl_pos_all/05_ltl_main.html"
+    template_search_quote = "post_port/new_sop/06_search_quote.html"
     template_history_shipment = "post_port/new_sop/04_history_shipment/04_history_shipment_main.html"
     template_bol = "export_file/bol_base_template.html"
     template_bol_pickup = "export_file/bol_template.html"
@@ -161,6 +162,9 @@ class PostNsop(View):
         elif step == "history_shipment":
             context = {"warehouse_options": self.warehouse_options}
             return render(request, self.template_history_shipment, context)
+        elif step == "search_quote":
+            context = {}
+            return render(request, self.template_search_quote, context) 
         else:
             raise ValueError('输入错误')
 
@@ -386,8 +390,15 @@ class PostNsop(View):
         elif step == "update_pod_status":
             template, context = await self.handle_update_pod_status(request)
             return render(request, template, context) 
+        elif step == "search_quote_container":
+            template, context = await self.search_quote_container(request)
+            return render(request, template, context) 
         else:
             raise ValueError('输入错误',step)
+        
+    async def handle_search_quote(self, request: HttpRequest) -> HttpResponse:
+        context = {}
+        return self.template_search_quote, context
     
     async def export_ltl_bol(self, request: HttpRequest) -> HttpResponse:
         fleet_number = request.POST.get("fleet_number")
@@ -417,10 +428,9 @@ class PostNsop(View):
                     address = re.sub("[\u4e00-\u9fff]", " ", address)
                     address = re.sub(r"\uFF0C", ",", address)
                     parts = [p.strip() for p in address.split(";")]
-                    
                     contact = {
                         "company": parts[0] if len(parts) > 0 else "",
-                        "road":    parts[1] if len(parts) > 1 else "",
+                        "Road":    parts[1] if len(parts) > 1 else "",
                         "city":    parts[2] if len(parts) > 2 else "",
                         "name":    parts[3] if len(parts) > 3 else "",
                         "phone":   parts[4] if len(parts) > 4 else "",
