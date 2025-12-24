@@ -288,6 +288,8 @@
         font-weight: 600;
         color: #1890ff;
         font-size: 12px;
+        text-align: center; 
+        display: block;
     }
 
     /* 状态徽章样式 */
@@ -554,7 +556,7 @@
 
                     <td class="td">
                         <a class="container-link"
-                        href="/receivable_accounting/?step=container_confirm
+                        href="/receivable_accounting/?step=invoice_manual
                         &container_number={{ r.container_number }}
                         &invoice_id={{ r.invoice_id }}">
                             {{ r.container_number }}
@@ -562,7 +564,7 @@
                     </td>
 
                     <td class="td">{{ r.order_type }}</td>
-                    <td class="td">{{ r.warehouse }}</td>
+                    <td class="td">{{ r.warehouse|default_if_none:"" }}</td>
                     <td class="td">{{ r.invoice_number }}</td>
 
                     <!-- 应收合计 -->
@@ -627,8 +629,8 @@
                     </td>
 
                     <!-- 港前费用 -->
-                    <td class="td amount-cell">
-                        ${{ r.receivable_preport_amount|floatformat:2 }}
+                    <td class="cost-amount">  
+                        ${{ r.receivable_preport_amount|floatformat:2 }}                       
                     </td>
 
                     <!-- 仓库费用（无合计） -->
@@ -668,7 +670,7 @@
                     </td>
 
                     <!-- 直送费用 -->
-                    <td class="td amount-cell">
+                    <td class="cost-amount">
                         ${{ r.receivable_direct_amount|floatformat:2 }}
                     </td>
                 </tr>
