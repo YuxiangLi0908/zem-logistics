@@ -895,16 +895,16 @@
                         </button>
                     </div>
                     <div class="additional-fee-body" id="pickup-fees-container">
-                        {% for fee_name, fee_amount in pickup_other_fee.items %}
                         <div class="fee-group">
-                            <input type="text" class="input-field" name="pickup_fee_name"
-                                value="{{ fee_name }}" placeholder="费用名称">
-                            <input type="number" step="0.01" class="input-field fee-amount-input"
-                                name="pickup_fee_amount" value="{{ fee_amount|floatformat:2 }}"
-                                placeholder="金额" oninput="calculateTotal()">
-                            <button type="button" class="remove-btn" onclick="removeFeeGroup(this)">×</button>
+                            {% if "提柜其他费用" in fee.description%}
+                                <input type="text" class="input-field" name="pickup_fee_name[]"
+                                       value="{{ fee.description }}" placeholder="费用名称">
+                                <input type="number" step="0.01" class="input-field fee-amount-input"
+                                    name="pickup_fee_amount[]" value="{{ fee.rate|floatformat:2 }}"
+                                    placeholder="金额" oninput="calculateTotal()">
+                                <button type="button" class="remove-btn" onclick="removeFeeGroup(this)">×</button>
+                            {% endif %}
                         </div>
-                        {% endfor %}
                     </div>
                 </div>
 
@@ -919,16 +919,16 @@
                         </button>
                     </div>
                     <div class="additional-fee-body" id="pallet-fees-container">
-                        {% for fee_name, fee_amount in pallet_other_fee.items %}
                         <div class="fee-group">
-                            <input type="text" class="input-field" name="pallet_fee_name"
-                                value="{{ fee_name }}" placeholder="费用名称">
-                            <input type="number" step="0.01" class="input-field fee-amount-input"
-                                name="pallet_fee_amount" value="{{ fee_amount|floatformat:2 }}"
-                                placeholder="金额" oninput="calculateTotal()">
-                            <button type="button" class="remove-btn" onclick="removeFeeGroup(this)">×</button>
+                            {% if "拆柜其他费用" in fee.description%}
+                                <input type="text" class="input-field" name="pallet_fee_name[]"
+                                    value="{{ fee_name }}" placeholder="费用名称">
+                                <input type="number" step="0.01" class="input-field fee-amount-input"
+                                    name="pallet_fee_amount[]" value="{{ fee_amount|floatformat:2 }}"
+                                    placeholder="金额" oninput="calculateTotal()">
+                                <button type="button" class="remove-btn" onclick="removeFeeGroup(this)">×</button>
+                            {% endif %}
                         </div>
-                        {% endfor %}
                     </div>
                 </div>
             </div>
@@ -993,18 +993,18 @@
 <!-- 模板部分 -->
 <div id="pickup-fee-template" style="display: none;">
     <div class="fee-group">
-        <input type="text" class="input-field" name="pickup_fee_name" placeholder="费用名称">
+        <input type="text" class="input-field" name="pickup_fee_name[]" placeholder="费用名称">
         <input type="number" step="0.01" class="input-field fee-amount-input"
-            name="pickup_fee_amount" placeholder="金额" oninput="calculateTotal()">
+            name="pickup_fee_amount[]" placeholder="金额" oninput="calculateTotal()">
         <button type="button" class="remove-btn" onclick="removeFeeGroup(this)">×</button>
     </div>
 </div>
 
 <div id="pallet-fee-template" style="display: none;">
     <div class="fee-group">
-        <input type="text" class="input-field" name="pallet_fee_name" placeholder="费用名称">
+        <input type="text" class="input-field" name="pallet_fee_name[]" placeholder="费用名称">
         <input type="number" step="0.01" class="input-field fee-amount-input"
-            name="pallet_fee_amount" placeholder="金额" oninput="calculateTotal()">
+            name="pallet_fee_amount[]" placeholder="金额" oninput="calculateTotal()">
         <button type="button" class="remove-btn" onclick="removeFeeGroup(this)">×</button>
     </div>
 </div>
@@ -1079,11 +1079,11 @@
         });
 
         // 其他费用
-        document.querySelectorAll('input[name="pickup_fee_amount"]').forEach(input => {
+        document.querySelectorAll('input[name="pickup_fee_amount[]"]').forEach(input => {
             total += parseFloat(input.value) || 0;
         });
 
-        document.querySelectorAll('input[name="pallet_fee_amount"]').forEach(input => {
+        document.querySelectorAll('input[name="pallet_fee_amount[]"]').forEach(input => {
             total += parseFloat(input.value) || 0;
         });
 

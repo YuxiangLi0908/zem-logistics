@@ -281,6 +281,10 @@
         padding: 18px 14px 18px 20px !important;
     }
 
+    .table .td_fee {
+        padding: 18px 14px 18px 20px !important;
+    }
+
     .td:last-child {
         border-right: none;
     }
@@ -694,7 +698,7 @@
                 已审核账单 <span class="tab-badge">{{ pre_order_pending|length }}</span>
             </div>
             <div class="content-tab" data-tab="to-enter" id="tab-to-enter">
-                客服待录入 <span class="tab-badge">{{ order|length }}</span>
+                客服待录入 <span class="tab-badge">{{ orders|length }}</span>
             </div>
             <div class="content-tab" data-tab="entered" id="tab-entered">
                 客服已录入 <span class="tab-badge">{{ previous_order|length }}</span>
@@ -749,115 +753,206 @@
                             </tr>
                         </thead>
                         <tbody>
-                            {% if order_pending %}
-                                {% for c in order_pending %}
-                                <tr {% if c.payable_status.is_rejected %} class="table-warning"{% endif %}
-                                    data-container="{{ c.container_number|lower }}"
-                                    data-retrieval="{% if c.retrieval_id.actual_retrieval_timestamp %}{{ c.retrieval_id.actual_retrieval_timestamp|date:'Y-m-d' }}{% endif %}">
-                                    <td class="td">{{ c.customer_name.zem_name }}</td>
-                                    <td class="td">{{ c.retrieval_id.retrieval_destination_precise }}</td>
-                                    <td class="td">
-                                        <a href="/accounting/?step=container_payable_v1&container_number={{ c.container_number }}&start_date={{ start_date }}&end_date={{ end_date }}&warehouse_filter={{ warehouse_filter }}"
-                                           class="container-link">
-                                            {{ c.container_number }}
-                                        </a>
-                                    </td>
-                                    <td class="td">{{ c.container_number.container_type }}</td>
-                                    <td class="td">{{ c.retrieval_id.actual_retrieval_timestamp|date:"Y/m/d" }}</td>
-                                    <td class="td">{{ c.vessel_id.destination_port }}</td>
-                                    {% if c.container_number.description == "提柜费用" %}
-                                        <td class="td">${{ c.container_number.rate|floatformat:2 }}</td>
-                                    {% else %}
-                                        <td class="td">${{ 0.00 }}</td>
-                                    {% endif %}
-                                    {% if c.container_number.description == "拆柜费用" %}
-                                        <td class="td">${{ c.container_number.rate|floatformat:2 }}</td>
-                                    {% else %}
-                                        <td class="td">${{ 0.00 }}</td>
-                                    {% endif %}
-                                    {% if c.container_number.description == "超重费用" %}
-                                        <td class="td">${{ c.container_number.rate|floatformat:2 }}</td>
-                                    {% else %}
-                                        <td class="td">${{ 0.00 }}</td>
-                                    {% endif %}
-                                    {% if c.container_number.description == "港内滞港费" %}
-                                        <td class="td">${{ c.container_number.rate|floatformat:2 }}</td>
-                                    {% else %}
-                                        <td class="td">${{ 0.00 }}</td>
-                                    {% endif %}
-                                    {% if c.container_number.description == "港外滞箱费" %}
-                                        <td class="td">${{ c.container_number.rate|floatformat:2 }}</td>
-                                    {% else %}
-                                        <td class="td">${{ 0.00 }}</td>
-                                    {% endif %}
-                                    {% if c.container_number.description == "车架费用" %}
-                                        <td class="td">${{ c.container_number.rate|floatformat:2 }}</td>
-                                    {% else %}
-                                        <td class="td">${{ 0.00 }}</td>
-                                    {% endif %}
-                                    <td class="td">${{ c.overweight_fee|floatformat:2 }}</td>
-                                    <td class="td">${{ c.demurrage_fee|floatformat:2 }}</td>
-                                    <td class="td">${{ c.per_diem_fee|floatformat:2 }}</td>
-                                    <td class="td">${{ c.chassis_fee|floatformat:2 }}</td>
-                                    <td class="td">
-                                        {% if c.other_fee %}
-                                            <div class="other-fees-tooltip" data-bs-toggle="tooltip" data-bs-html="true"
-                                                 title="{% for name, amount in c.other_fee.items %}<div>{{ name }}: ${{ amount|floatformat:2 }}</div>{% endfor %}">
-                                                <span class="container-link cursor-pointer">查看详情</span>
-                                            </div>
-                                        {% else %}
-                                            <span class="text-gray-500">-</span>
-                                        {% endif %}
-                                    </td>
-                                    <td class="td fw-bold">${{ c.total_amount|floatformat:2 }}</td>
-                                    <td class="td">
-                                        <!-- 审核通过按钮 -->
-                                        <form method="post" action="" class="mb-0">
-                                            {% csrf_token %}
-                                            <input type="hidden" name="container_number" value="{{ c.container_number }}">
-                                            <input type="hidden" name="step" value="payable_save">
-                                            <input type="hidden" name="save_type" value="check_confirm_without_data">
-                                            <input type="hidden" name="start_date" value="{{ start_date }}">
-                                            <input type="hidden" name="end_date" value="{{ end_date }}">
-                                            <input type="hidden" name="warehouse_filter" value="{{ warehouse_filter }}">
-                                            <button type="submit" class="btn btn-success btn-sm w-100 py-1" title="审核通过">
-                                                <i class="bi bi-check-lg"></i>
-                                            </button>
-                                        </form>
-                                    </td>
-                                    <td class="td">
-                                        <!-- 驳回操作区域 -->
-                                        <form method="post" action="" class="mb-0">
-                                            {% csrf_token %}
-                                            <input type="hidden" name="container_number" value="{{ c.container_number }}">
-                                            <input type="hidden" name="step" value="payable_save">
-                                            <input type="hidden" name="save_type" value="reject_check">
-                                            <input type="hidden" name="start_date" value="{{ start_date }}">
-                                            <input type="hidden" name="end_date" value="{{ end_date }}">
-                                            <input type="hidden" name="warehouse_filter" value="{{ warehouse_filter }}">
+                        {% if order_pending %}  <!-- 保留原变量名 order_pending -->
+                            {% for c in order_pending %}
+                                <!-- 1. 先判断集装箱是否存在，避免 RelatedObjectDoesNotExist 报错 -->
+                                {% if c.container_number %}
+                                    <!-- 2. 取第一个关联订单 + 预加载该集装箱的所有费用项 -->
+                                    {% with order=c.container_number.orders.first %}
+                                        {% if order %}
+                                            <tr
+                                                    {% if c.preport_status == "rejected" or c.warehouse_public_status == "rejected" or c.warehouse_other_status == "rejected" or c.delivery_public_status == "rejected" or c.delivery_other_status == "rejected" %}
+                                                        class="table-warning"
+                                                    {% endif %}
+                                                        data-container="{{ c.container_number.container_number|lower }}"
+                                            data-retrieval="{% if order.retrieval_id and order.retrieval_id.actual_retrieval_timestamp %}
+                                                {{ order.retrieval_id.actual_retrieval_timestamp|date:'Y-m-d' }}{% endif %}">
 
-                                            <div class="d-flex flex-column gap-2">
-                                                <input type="text"
-                                                       name="reject_reason"
-                                                       placeholder="驳回原因"
-                                                       required
-                                                       class="reject-input"
-                                                       title="请输入驳回原因">
-                                                <button type="submit" class="btn btn-danger btn-sm w-100 py-1" title="审核驳回">
-                                                    <i class="bi bi-x-lg"></i>
-                                                </button>
-                                            </div>
-                                        </form>
-                                    </td>
-                                </tr>
-                                {% endfor %}
-                            {% else %}
-                                <tr>
-                                    <td colspan="16" class="td" style="text-align: center; color: #6c757d;">
-                                        暂无待审核账单
-                                    </td>
-                                </tr>
-                            {% endif %}
+                                            <!-- 客户名：容错（避免 customer_name 为 NULL） -->
+                                            <td class="td">{{ order.customer_name.zem_name|default:"无" }}</td>
+
+                                            <!-- 提柜目的地：容错（retrieval_id 可能为 NULL） -->
+                                            <td class="td">
+                                                {% if order.retrieval_id %}
+                                                    {{ order.retrieval_id.retrieval_destination_precise|default:"无" }}
+                                                {% else %}
+                                                    无
+                                                {% endif %}
+                                            </td>
+
+                                            <!-- 集装箱号链接：修复为具体字段 -->
+                                            <td class="td">
+                                                <a href="/accounting/?step=container_payable_pending_review&container_number={{ c.container_number.container_number }}&start_date={{ start_date }}&end_date={{ end_date }}&warehouse_filter={{ warehouse_filter }}"
+                                                   class="container-link">
+                                                    {{ c.container_number.container_number }}
+                                                </a>
+                                            </td>
+
+                                            <!-- 集装箱类型：容错（container_type 可能为 NULL） -->
+                                            <td class="td">{{ c.container_number.container_type|default:"无" }}</td>
+
+                                            <!-- 提柜时间：容错 -->
+                                            <td class="td">
+                                                {% if order.retrieval_id and order.retrieval_id.actual_retrieval_timestamp %}
+                                                    {{ order.retrieval_id.actual_retrieval_timestamp|date:"Y/m/d" }}
+                                                {% else %}
+                                                    无
+                                                {% endif %}
+                                            </td>
+
+                                            <!-- 目的港：容错（vessel_id 可能为 NULL） -->
+                                            <td class="td">
+                                                {% if order.vessel_id %}
+                                                    {{ order.vessel_id.destination_port|default:"无" }}
+                                                {% else %}
+                                                    无
+                                                {% endif %}
+                                            </td>
+
+                                            <!-- 费用明细列：遍历该集装箱的所有 InvoiceItemv2 费用项（核心修复） -->
+                                            <!-- 1. 提柜费用 -->
+                                            <td class="td_fee">
+                                                {% for fee in c.container_number.invoice_itemv2.all %}
+                                                    {% if fee.description == "提柜费用" %}
+                                                        <span class="pickup-fee-amount">${{ fee.rate|floatformat:2 }}</span>
+                                                    {% endif %}
+                                                {% endfor %}
+                                            </td>
+
+                                            <!-- 2. 拆柜费用 -->
+                                            <td class="td_fee">
+                                                {% for fee in c.container_number.invoice_itemv2.all %}
+                                                    {% if fee.description == "提柜费用" %}
+                                                        <span class="pickup-fee-amount">${{ fee.rate|floatformat:2 }}</span>
+                                                    {% endif %}
+                                                {% endfor %}
+                                            </td>
+
+                                            <!-- 3. 超重费用 -->
+                                            <td class="td_fee">
+                                                {% for fee in c.container_number.invoice_itemv2.all %}
+                                                    {% if fee.description == "超重费用" %}
+                                                        <span class="pickup-fee-amount">${{ fee.rate|floatformat:2 }}</span>
+                                                    {% endif %}
+                                                {% endfor %}
+                                            </td>
+
+                                            <!-- 4. 港内滞港费 -->
+                                            <td class="td_fee">
+                                                {% for fee in c.container_number.invoice_itemv2.all %}
+                                                    {% if fee.description == "港内滞港费" %}
+                                                        <span class="pickup-fee-amount">${{ fee.rate|floatformat:2 }}</span>
+                                                    {% endif %}
+                                                {% endfor %}
+                                            </td>
+
+                                            <!-- 5. 港外滞箱费 -->
+                                            <td class="td_fee">
+                                                {% for fee in c.container_number.invoice_itemv2.all %}
+                                                    {% if fee.description == "港外滞箱费" %}
+                                                        <span class="pickup-fee-amount">${{ fee.rate|floatformat:2 }}</span>
+                                                    {% endif %}
+                                                {% endfor %}
+                                            </td>
+
+                                            <!-- 6. 车架费用 -->
+                                            <td class="td_fee">
+                                                {% for fee in c.container_number.invoice_itemv2.all %}
+                                                    {% if fee.description == "车架费用" %}
+                                                        <span class="pickup-fee-amount">${{ fee.rate|floatformat:2 }}</span>
+                                                    {% endif %}
+                                                {% endfor %}
+                                            </td>
+
+                                            <!-- 7. 其他费用 -->
+                                            <td class="td_fee">
+                                                {% for fee in c.container_number.invoice_itemv2.all %}
+                                                    {% if fee.description == "其他费用" %}
+                                                        <span class="pickup-fee-amount">${{ fee.rate|floatformat:2 }}</span>
+                                                    {% endif %}
+                                                {% endfor %}
+                                            </td>
+
+                                            <!-- 8. 总费用（累加所有有效费用） -->
+                                            <td class="td_fee">
+                                                ${{ c.total_fee|default:0.00|floatformat:2 }}
+                                            </td>
+
+                                            <!-- 审核通过按钮：修复 container_number 传参（传具体字段值） -->
+                                            <td class="td">
+                                                <form method="post" action="" class="mb-0">
+                                                    {% csrf_token %}
+                                                    <input type="hidden" name="container_number"
+                                                           value="{{ c.container_number.container_number }}">
+                                                    <!-- 修复：传集装箱号 -->
+                                                    <input type="hidden" name="step" value="payable_save_v1">
+                                                    <input type="hidden" name="save_type"
+                                                           value="check_confirm_without_data">
+                                                    <input type="hidden" name="start_date" value="{{ start_date }}">
+                                                    <input type="hidden" name="end_date" value="{{ end_date }}">
+                                                    <input type="hidden" name="warehouse_filter"
+                                                           value="{{ warehouse_filter }}">
+                                                    <button type="submit" class="btn btn-success btn-sm w-100 py-1"
+                                                            title="审核通过">
+                                                        <i class="bi bi-check-lg"></i>
+                                                    </button>
+                                                </form>
+                                            </td>
+
+                                            <!-- 驳回操作区域：同样修复 container_number 传参 -->
+                                            <td class="td">
+                                                <form method="post" action="" class="mb-0">
+                                                    {% csrf_token %}
+                                                    <input type="hidden" name="container_number"
+                                                           value="{{ c.container_number.container_number }}">
+                                                    <!-- 修复：传集装箱号 -->
+                                                    <input type="hidden" name="step" value="payable_save_v1">
+                                                    <input type="hidden" name="save_type" value="reject_check">
+                                                    <input type="hidden" name="start_date" value="{{ start_date }}">
+                                                    <input type="hidden" name="end_date" value="{{ end_date }}">
+                                                    <input type="hidden" name="warehouse_filter"
+                                                           value="{{ warehouse_filter }}">
+
+                                                    <div class="d-flex flex-column gap-2">
+                                                        <input type="text"
+                                                               name="reject_reason"
+                                                               placeholder="驳回原因"
+                                                               required
+                                                               class="reject-input"
+                                                               title="请输入驳回原因">
+                                                        <button type="submit" class="btn btn-danger btn-sm w-100 py-1"
+                                                                title="审核驳回">
+                                                            <i class="bi bi-x-lg"></i>
+                                                        </button>
+                                                    </div>
+                                                </form>
+                                            </td>
+                                            </tr>
+                                        {% else %}
+                                            <!-- 无关联订单的占位行 -->
+                                            <tr>
+                                                <td colspan="16" class="td">
+                                                    集装箱 {{ c.container_number.container_number }} 无关联订单
+                                                </td>
+                                            </tr>
+                                        {% endif %}
+                                    {% endwith %}
+                                {% else %}
+                                    <!-- 无效集装箱的占位行 -->
+                                    <tr>
+                                        <td colspan="16" class="td text-danger">
+                                            无效记录（集装箱不存在）
+                                        </td>
+                                    </tr>
+                                {% endif %}
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="16" class="td" style="text-align: center; color: #6c757d;">
+                                    暂无待审核账单
+                                </td>
+                            </tr>
+                        {% endif %}
                         </tbody>
                     </table>
                 </div>
@@ -892,20 +987,23 @@
                         <tbody>
                             {% if pre_order_pending %}
                                 {% for c in pre_order_pending %}
-                                <tr {% if c.payable_status.is_rejected %} class="table-warning"{% endif %}
+                                    {% with order=c.container_number.orders.first %}
+                                <tr {% if c.preport_status == "rejected" or c.warehouse_public_status == "rejected" or c.warehouse_other_status == "rejected" or c.delivery_public_status == "rejected" or c.delivery_other_status == "rejected" %}
+                                class="table-warning"{% endif %}
                                     data-container="{{ c.container_number|lower }}"
-                                    data-retrieval="{% if c.retrieval_id.actual_retrieval_timestamp %}{{ c.retrieval_id.actual_retrieval_timestamp|date:'Y-m-d' }}{% endif %}">
-                                    <td class="td">{{ c.customer_name.zem_name }}</td>
-                                    <td class="td">{{ c.retrieval_id.retrieval_destination_precise }}</td>
+                                    data-retrieval="{% if order.retrieval_id.actual_retrieval_timestamp %}{{ order.retrieval_id.actual_retrieval_timestamp|date:'Y-m-d' }}{% endif %}">
+                                    <td class="td">{{ order.customer_name.zem_name }}</td>
+                                    <td class="td">{{ order.retrieval_id.retrieval_destination_precise }}</td>
                                     <td class="td">
-                                        <a href="/accounting/?step=container_payable_confirm&container_number={{ c.container_number }}&start_date={{ start_date }}&end_date={{ end_date }}&warehouse={{ warehouse_filter }}"
+                                        <a href="/accounting/?step=container_payable_reviewed&container_number={{ c.container_number }}&start_date={{ start_date }}&end_date={{ end_date }}&warehouse={{ warehouse_filter }}"
                                            class="container-link">
                                             {{ c.container_number }}
                                         </a>
                                     </td>
-                                    <td class="td">{{ c.retrieval_id.actual_retrieval_timestamp|date:"Y/m/d" }}</td>
-                                    <td class="td">{{ c.vessel_id.destination_port }}</td>
+                                    <td class="td">{{ order.retrieval_id.actual_retrieval_timestamp|date:"Y/m/d" }}</td>
+                                    <td class="td">{{ order.vessel_id.destination_port }}</td>
                                 </tr>
+                                    {% endwith %}
                                 {% endfor %}
                             {% else %}
                                 <tr>
@@ -925,7 +1023,7 @@
             <div class="container-section">
                 <div class="section-header">
                     <h3>客服待录入账单</h3>
-                    <span class="section-count">{{ order|length }}条记录</span>
+                    <span class="section-count">{{ orders|length }}条记录</span>
                 </div>
                 <div class="table-container">
                     <table class="table simple-table" id="to-enter-table">
@@ -948,36 +1046,75 @@
                             </tr>
                         </thead>
                         <tbody>
-                            {% if order %}
-                                {% for c in order %}
-                                <tr {% if c.payable_status.is_rejected %} class="table-warning"{% endif %}
-                                    data-container="{{ c.container_number|lower }}"
-                                    data-retrieval="{% if c.retrieval_id.actual_retrieval_timestamp %}{{ c.retrieval_id.actual_retrieval_timestamp|date:'Y-m-d' }}{% endif %}">
-                                    <td class="td">{{ c.customer_name.zem_name }}</td>
-                                    <td class="td">{{ c.retrieval_id.retrieval_destination_area }}</td>
-                                    <td class="td">
-                                        <a href="/accounting/?step=container_payable_v1&container_number={{ c.container_number }}&start_date={{ start_date }}&end_date={{ end_date }}&warehouse_filter={{ warehouse_filter }}"
-                                           class="container-link">
-                                            {{ c.container_number }}
-                                        </a>
-                                    </td>
-                                    <td class="td">
-                                        <span class="text-truncate" style="max-width: 120px;"
-                                              data-bs-toggle="tooltip" title="{{ c.payable_status.reject_reason|default:'无' }}">
-                                            {{ c.payable_status.reject_reason|default:"-" }}
-                                        </span>
-                                    </td>
-                                    <td class="td">{{ c.retrieval_id.actual_retrieval_timestamp|date:"Y/m/d" }}</td>
-                                    <td class="td">{{ c.vessel_id.destination_port }}</td>
-                                </tr>
-                                {% endfor %}
-                            {% else %}
-                                <tr>
-                                    <td colspan="6" class="td" style="text-align: center; color: #6c757d;">
-                                        暂无客服待录入账单
-                                    </td>
-                                </tr>
-                            {% endif %}
+                        {% if orders %}
+                            {% for c in orders %}
+                                {% if c.container_number %}
+                                    {% with order=c.container_number.orders.first %}
+                                        {% if order %}
+                                            <tr {% if c.preport_status == "rejected" or c.warehouse_public_status == "rejected" or c.warehouse_other_status == "rejected" or c.delivery_public_status == "rejected" or c.delivery_other_status == "rejected" %}
+                                                        class="table-warning"
+                                                    {% endif %}
+                                                        data-container="{{ c.container_number.container_number|lower }}"
+                                                        data-retrieval="{% if order.retrieval_id and order.retrieval_id.actual_retrieval_timestamp %}{{ order.retrieval_id.actual_retrieval_timestamp|date:'Y-m-d' }}{% endif %}">
+                                                <td class="td">{{ order.customer_name.zem_name|default:"无" }}</td>
+                                                <td class="td">
+                                                    {% if order.retrieval_id %}
+                                                        {{ order.retrieval_id.retrieval_destination_area|default:"无" }}
+                                                    {% else %}
+                                                        无
+                                                    {% endif %}
+                                                </td>
+                                                <td class="td">
+                                                    <a href="/accounting/?step=container_payable_to_be_entered&container_number={{ c.container_number.container_number }}&start_date={{ start_date }}&end_date={{ end_date }}&warehouse_filter={{ warehouse_filter }}"
+                                                       class="container-link">
+                                                        {{ c.container_number.container_number }}
+                                                    </a>
+                                                </td>
+                                                <td class="td">
+                                                    <span class="text-truncate" style="max-width: 120px;" data-bs-toggle="tooltip">
+                                                        {% firstof c.preport_reason c.warehouse_public_reason c.warehouse_self_reason c.delivery_public_reason c.delivery_other_reason "-" %}
+                                                    </span>
+                                                </td>
+                                                <td class="td">
+                                                    {% if order.retrieval_id and order.retrieval_id.actual_retrieval_timestamp %}
+                                                        {{ order.retrieval_id.actual_retrieval_timestamp|date:"Y/m/d" }}
+                                                    {% else %}
+                                                        无
+                                                    {% endif %}
+                                                </td>
+                                                <td class="td">
+                                                    {% if order.vessel_id %}
+                                                        {{ order.vessel_id.destination_port|default:"无" }}
+                                                    {% else %}
+                                                        无
+                                                    {% endif %}
+                                                </td>
+                                            </tr>
+                                        {% else %}
+                                            <!-- 无关联订单的占位行 -->
+                                            <tr>
+                                                <td colspan="14" class="td">
+                                                    集装箱 {{ c.container_number.container_number }} 无关联订单
+                                                </td>
+                                            </tr>
+                                        {% endif %}
+                                    {% endwith %}
+                                {% else %}
+                                    <!-- 无效集装箱的占位行 -->
+                                    <tr>
+                                        <td colspan="14" class="td text-danger">
+                                            无效记录（集装箱不存在）
+                                        </td>
+                                    </tr>
+                                {% endif %}
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="14" class="td" style="text-align: center; color: #6c757d;">
+                                    暂无客服待录入账单
+                                </td>
+                            </tr>
+                        {% endif %}
                         </tbody>
                     </table>
                 </div>
@@ -1012,41 +1149,109 @@
                             </tr>
                         </thead>
                         <tbody>
-                            {% if previous_order %}
-                                {% for c in previous_order %}
-                                <tr data-container="{{ c.container_number|lower }}"
-                                    data-retrieval="{% if c.retrieval_id.actual_retrieval_timestamp %}{{ c.retrieval_id.actual_retrieval_timestamp|date:'Y-m-d' }}{% endif %}"
-                                    data-status="{% if '已确认' in c.display_stage %}已确认{% elif '驳回' in c.display_stage %}已驳回{% elif '待录入' in c.display_stage %}待录入{% else %}{{ c.display_stage }}{% endif %}">
-                                    <td class="td">{{ c.customer_name.zem_name }}</td>
-                                    <td class="td">{{ c.retrieval_id.retrieval_destination_precise }}</td>
-                                    <td class="td">
-                                        <a href="/accounting/?step=container_payable_confirm&container_number={{ c.container_number }}&start_date={{ start_date }}&end_date={{ end_date }}&warehouse_filter={{ warehouse_filter }}"
-                                           class="container-link">
-                                            {{ c.container_number }}
-                                        </a>
-                                    </td>
-                                    <td class="td">{{ c.retrieval_id.actual_retrieval_timestamp|date:"Y/m/d" }}</td>
-                                    <td class="td">{{ c.vessel_id.destination_port }}</td>
-                                    <td class="td">
-                                        {% if '已确认' in c.display_stage %}
-                                            <span class="status-badge completed">已确认</span>
-                                        {% elif '驳回' in c.display_stage %}
-                                            <span class="status-badge rejected">已驳回</span>
-                                        {% elif '待录入' in c.display_stage %}
-                                            <span class="status-badge pending">待录入</span>
+                        {% if previous_order %}
+                            {% for c in previous_order %}
+                                {% if c.container_number %}
+                                    {% with order=c.container_number.orders.first %}
+                                        {% if order %}
+                                            <tr data-container="{{ c.container_number.container_number|lower }}"
+                                            data-retrieval="{% if order.retrieval_id and order.retrieval_id.actual_retrieval_timestamp %}
+                                                {{ order.retrieval_id.actual_retrieval_timestamp|date:'Y-m-d' }}{% endif %}"
+                                            data-status="
+                                                {% if 'completed' in c.preport_status or 'completed' in c.warehouse_public_status or 'completed' in c.warehouse_other_status or 'completed' in c.delivery_public_status or 'completed' in c.delivery_other_status %}
+                                                    <span class='status-badge completed'>已完成</span>
+                                                {% elif 'rejected' in c.preport_status or 'rejected' in c.warehouse_public_status or 'rejected' in c.warehouse_other_status or 'rejected' in c.delivery_public_status or 'rejected' in c.delivery_other_status %}
+                                                    <span class='status-badge rejected'>已驳回</span>
+                                                {% elif 'unstarted' in c.preport_status or 'unstarted' in c.warehouse_public_status or 'unstarted' in c.warehouse_other_status or 'unstarted' in c.delivery_public_status or 'unstarted' in c.delivery_other_status %}
+                                                    <span class='status-badge pending'>未录入</span>
+                                                {% elif 'in_progress' in c.preport_status or 'in_progress' in c.warehouse_public_status or 'in_progress' in c.warehouse_other_status or 'in_progress' in c.delivery_public_status or 'in_progress' in c.delivery_other_status %}
+                                                    <span class='status-badge in-progress'>录入中</span>
+                                                {% elif 'pending_review' in c.preport_status or 'pending_review' in c.warehouse_public_status or 'pending_review' in c.warehouse_other_status or 'pending_review' in c.delivery_public_status or 'pending_review' in c.delivery_other_status %}
+                                                    <span class='status-badge in-progress'>待组长审核</span>
+                                                {% else %}
+                                                    <span class='status-badge'>未知状态</span>
+                                                {% endif %}">
+
+                                            <!-- 客户名：容错（避免 customer_name 为 NULL） -->
+                                            <td class="td">{{ order.customer_name.zem_name|default:"无" }}</td>
+
+                                            <!-- 提柜目的地：容错（retrieval_id 可能为 NULL） -->
+                                            <td class="td">
+                                                {% if order.retrieval_id %}
+                                                    {{ order.retrieval_id.retrieval_destination_precise|default:"无" }}
+                                                {% else %}
+                                                    无
+                                                {% endif %}
+                                            </td>
+
+                                            <!-- 集装箱号链接：修复为具体字段 -->
+                                            <td class="td">
+                                                <a href="/accounting/?step=container_payable_recorded&container_number={{ c.container_number.container_number }}&start_date={{ start_date }}&end_date={{ end_date }}&warehouse_filter={{ warehouse_filter }}"
+                                                   class="container-link">
+                                                    {{ c.container_number.container_number }}
+                                                </a>
+                                            </td>
+
+                                            <!-- 提柜时间：容错 -->
+                                            <td class="td">
+                                                {% if order.retrieval_id and order.retrieval_id.actual_retrieval_timestamp %}
+                                                    {{ order.retrieval_id.actual_retrieval_timestamp|date:"Y/m/d" }}
+                                                {% else %}
+                                                    无
+                                                {% endif %}
+                                            </td>
+
+                                            <!-- 目的港：容错（vessel_id 可能为 NULL） -->
+                                            <td class="td">
+                                                {% if order.vessel_id %}
+                                                    {{ order.vessel_id.destination_port|default:"无" }}
+                                                {% else %}
+                                                    无
+                                                {% endif %}
+                                            </td>
+
+                                            <!-- 状态标签 -->
+                                            <td class="td">
+                                                {% if 'completed' in c.preport_status or 'completed' in c.warehouse_public_status or 'completed' in c.warehouse_other_status or 'completed' in c.delivery_public_status or 'completed' in c.delivery_other_status %}
+                                                    <span class='status-badge completed'>已完成</span>
+                                                {% elif 'rejected' in c.preport_status or 'rejected' in c.warehouse_public_status or 'rejected' in c.warehouse_other_status or 'rejected' in c.delivery_public_status or 'rejected' in c.delivery_other_status %}
+                                                    <span class='status-badge rejected'>已驳回</span>
+                                                {% elif 'in_progress' in c.preport_status or 'in_progress' in c.warehouse_public_status or 'in_progress' in c.warehouse_other_status or 'in_progress' in c.delivery_public_status or 'in_progress' in c.delivery_other_status %}
+                                                    <span class='status-badge in-progress'>录入中</span>
+                                                {% elif 'pending_review' in c.preport_status or 'pending_review' in c.warehouse_public_status or 'pending_review' in c.warehouse_other_status or 'pending_review' in c.delivery_public_status or 'pending_review' in c.delivery_other_status %}
+                                                    <span class='status-badge in-progress'>待组长审核</span>
+                                                {% elif 'unstarted' in c.preport_status or 'unstarted' in c.warehouse_public_status or 'unstarted' in c.warehouse_other_status or 'unstarted' in c.delivery_public_status or 'unstarted' in c.delivery_other_status %}
+                                                    <span class='status-badge pending'>未录入</span>
+                                                {% else %}
+                                                    <span class="status-badge">未知状态</span>  <!-- 新增：默认状态容错 -->
+                                                {% endif %}
+                                            </td>
+                                            </tr>
                                         {% else %}
-                                            <span class="status-badge in-progress">{{ c.display_stage }}</span>
+                                            <!-- 无关联订单的占位行 -->
+                                            <tr>
+                                                <td colspan="14" class="td">
+                                                    集装箱 {{ c.container_number.container_number }} 无关联订单
+                                                </td>
+                                            </tr>
                                         {% endif %}
-                                    </td>
-                                </tr>
-                                {% endfor %}
-                            {% else %}
-                                <tr>
-                                    <td colspan="6" class="td" style="text-align: center; color: #6c757d;">
-                                        暂无客服已录入账单
-                                    </td>
-                                </tr>
-                            {% endif %}
+                                    {% endwith %}
+                                {% else %}
+                                    <!-- 无效集装箱的占位行 -->
+                                    <tr>
+                                        <td colspan="14" class="td text-danger">
+                                            无效记录（集装箱不存在）
+                                        </td>
+                                    </tr>
+                                {% endif %}
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="14" class="td" style="text-align: center; color: #6c757d;">
+                                    暂无客服已录入账单
+                                </td>
+                            </tr>
+                        {% endif %}
                         </tbody>
                     </table>
                 </div>
@@ -1059,6 +1264,22 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // 计算费用
+    // 找到所有包含pickup-fee-amount的td
+    const cells = document.querySelectorAll('td.td_fee');
+
+    cells.forEach(cell => {
+        const pickupFeeSpan = cell.querySelector('.pickup-fee-amount');
+
+        if (pickupFeeSpan) {
+            // 有提柜费用，只保留这个span的内容
+            cell.innerHTML = pickupFeeSpan.textContent;
+        } else {
+            // 没有提柜费用，显示$0.00
+            cell.textContent = '$0.00';
+        }
+    });
+
     // 初始化Tooltip
     var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
     var tooltipList = tooltipTriggerList.map(function(tooltipTriggerEl) {
