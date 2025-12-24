@@ -74,7 +74,25 @@
         font-size: 0.95rem;
         min-width: 150px;
     }
+    .status-finished,
+    .status-completed {
+        background: linear-gradient(135deg, #f6ffed, #d9f7be);
+        color: #389e0d;
+        border: 1px solid #b7eb8f;
+    }
 
+    .status-unrecorded,
+    .status-unstarted {
+        background: #f5f5f5;
+        color: #8c8c8c;
+        border: 1px solid #d9d9d9;
+    }
+
+    .status-rejected {
+        background: #fff1f0;
+        color: #cf1322;
+        border: 1px solid #ffa39e;
+    }
     .btn-filter {
         padding: 10px 20px;
         background: var(--success-color);
@@ -103,14 +121,92 @@
         border: 1px solid #f0f0f0;
         max-height: 700px;
     }
+    #invoice-table {
+        font-size: 16px;            /* 原来 12~13，整体抬一档 */
+    }
 
+    /* 表头 */
+    #invoice-table .th {
+        font-size: 18px;
+        padding: 16px 10px;         /* 增加呼吸感 */
+    }
+
+    /* 单元格 */
+    #invoice-table .td {
+        font-size: 16px;
+        padding: 14px 10px;
+    }
+
+    #invoice-table thead tr:nth-child(2) .th {
+        text-align: center;
+    }
+
+    .status-badge {
+        font-size: 13px;
+        padding: 4px 10px;
+        font-weight: 600;
+    }
+    .status-badge[data-status="已完成"] {
+        background: linear-gradient(135deg, #f6ffed, #d9f7be);
+        color: #389e0d;
+        border: 1px solid #b7eb8f;
+    }
+
+    /* 未录入 */
+    .status-badge[data-status="未录入"],
+    .status-badge[data-status="未开始"] {
+        background: #f5f5f5;
+        color: #8c8c8c;
+        border: 1px solid #d9d9d9;
+    }
+
+    /* 已驳回 */
+    .status-badge[data-status="已驳回"] {
+        background: #fff1f0;
+        color: #cf1322;
+        border: 1px solid #ffa39e;
+    }
+    .status-label {
+        font-size: 12px;
+    }
+
+    .amount-cell {
+        font-size: 15px;
+    }
+
+    .amount-cell strong {
+        font-size: 16px;
+    }
+
+
+    .cost-type {
+        font-size: 13px;
+    }
+
+    .cost-amount {
+        font-size: 14px;
+        font-weight: 600;
+    }
+
+
+    .container-link {
+        font-size: 14px;
+    }
+
+    .invoice-link,
+    .statement-link {
+        font-size: 13px;
+    }
+
+    #invoice-table tr {
+        line-height: 1.45;
+    }
     .table {
         width: 100%;
         border-collapse: separate;
         border-spacing: 0;
-        font-size: 13px;
         background: white;
-        min-width: 1400px; /* 减少最小宽度 */
+        min-width: 1400px; 
     }
 
     .th {
@@ -428,32 +524,32 @@
                     <th class="th" rowspan="2">仓库</th>
                     <th class="th" rowspan="2">Invoice #</th>
 
-                    <th class="th" colspan="2">操作状态</th>
-                    <th class="th" rowspan="2">财务状态</th>
-
+                    <!-- 应收合计放这里 -->
                     <th class="th" rowspan="2">应收合计</th>
-                    <th class="th" rowspan="2">港前费用</th>
-                    <th class="th" colspan="2">仓库费用</th>
-                    <th class="th" colspan="2">派送费用</th>
-                    <th class="th" rowspan="2">直送费用</th>
+
+                    <!-- 操作状态 -->
+                    <th class="th" colspan="4" style="text-align:center;">操作状态</th>
+
+                    <!-- 费用详情 -->
+                    <th class="th" colspan="4" style="text-align:center;">费用详情</th>
                 </tr>
                 <tr>
-                    <!-- 操作状态子列 -->
-                    <th class="th" style="font-size: 11px; font-weight: 500;">港前</th>
-                    <th class="th" style="font-size: 11px; font-weight: 500;">库内</th>
-                    <th class="th" style="font-size: 11px; font-weight: 500;">派送</th>
-                    
-                    <!-- 费用子列 -->
-                    <th class="th" style="font-size: 11px; font-weight: 500;">公仓</th>
-                    <th class="th" style="font-size: 11px; font-weight: 500;">私仓</th>
-                    <th class="th" style="font-size: 11px; font-weight: 500;">公仓</th>
-                    <th class="th" style="font-size: 11px; font-weight: 500;">私仓</th>
+                    <th class="th sub-header">港前</th>
+                    <th class="th sub-header">库内</th>
+                    <th class="th sub-header">派送</th>
+                    <th class="th sub-header">财务</th>
+
+                    <th class="th sub-header">港前费用</th>
+                    <th class="th sub-header">仓库费用</th>
+                    <th class="th sub-header">派送费用</th>
+                    <th class="th sub-header">直送费用</th>
                 </tr>
             </thead>
 
             <tbody>
             {% for r in rows %}
                 <tr>
+                    <!-- 基础信息 -->
                     <td class="td">{{ r.customer_name }}</td>
 
                     <td class="td">
@@ -469,110 +565,108 @@
                     <td class="td">{{ r.warehouse }}</td>
                     <td class="td">{{ r.invoice_number }}</td>
 
-                    <!-- 合并后的状态列 -->
-                    <td class="td">
-                        <div class="status-combined">
-                            <div class="status-item">
-                                <span class="status-label">港前：</span>
-                                <span class="status-badge {{ r.preport_status|lower|cut:' ' }}">{{ r.preport_status }}</span>
-                            </div>
-                        </div>
-                    </td>
-                    
-                    <td class="td">
-                        <div class="status-combined">
-                            <div class="status-item">
-                                <span class="status-label">公仓：</span>
-                                <span class="status-badge {{ r.warehouse_public_status|lower|cut:' ' }}">{{ r.warehouse_public_status }}</span>
-                            </div>
-                            <div class="status-item">
-                                <span class="status-label">私仓：</span>
-                                <span class="status-badge {{ r.warehouse_other_status|lower|cut:' ' }}">{{ r.warehouse_other_status }}</span>
-                            </div>
-                        </div>
-                    </td>
-                    
-                    <td class="td">
-                        <div class="status-combined">
-                            <div class="status-item">
-                                <span class="status-label">公仓：</span>
-                                <span class="status-badge {{ r.delivery_public_status|lower|cut:' ' }}">{{ r.delivery_public_status }}</span>
-                            </div>
-                            <div class="status-item">
-                                <span class="status-label">私仓：</span>
-                                <span class="status-badge {{ r.delivery_other_status|lower|cut:' ' }}">{{ r.delivery_other_status }}</span>
-                            </div>
-                        </div>
-                    </td>
-                    
-                    <td class="td">
-                        <span class="status-badge {{ r.finance_status|lower|cut:' ' }}">{{ r.finance_status }}</span>
-                    </td>
-
                     <!-- 应收合计 -->
                     <td class="td amount-cell">
                         <strong style="color: var(--primary-color);">
                             ${{ r.receivable_total_amount|floatformat:2 }}
                         </strong>
                     </td>
-                    
+
+                    <!-- 操作状态：港前 -->
+                    <td class="td">
+                        <span class="status-badge" data-status="{{ r.preport_status }}">
+                            {{ r.preport_status }}
+                        </span>
+                    </td>
+
+                    <!-- 操作状态：仓库内 -->
+                    <td class="td">
+                        <div class="status-combined">
+                            <div class="status-item">
+                                <span class="status-label">公：</span>
+                                <span class="status-badge"
+                                    data-status="{{ r.warehouse_public_status }}">
+                                    {{ r.warehouse_public_status }}
+                                </span>
+                            </div>
+                            <div class="status-item">
+                                <span class="status-label">私：</span>
+                                <span class="status-badge"
+                                    data-status="{{ r.warehouse_other_status }}">
+                                    {{ r.warehouse_other_status }}
+                                </span>
+                            </div>
+                        </div>
+                    </td>
+
+                    <!-- 操作状态：派送 -->
+                    <td class="td">
+                        <div class="status-combined">
+                            <div class="status-item">
+                                <span class="status-label">公：</span>
+                                <span class="status-badge"
+                                    data-status="{{ r.delivery_public_status }}">
+                                    {{ r.delivery_public_status }}
+                                </span>
+                            </div>
+                            <div class="status-item">
+                                <span class="status-label">私：</span>
+                                <span class="status-badge"
+                                    data-status="{{ r.delivery_other_status }}">
+                                    {{ r.delivery_other_status }}
+                                </span>
+                            </div>
+                        </div>
+                    </td>
+
+                    <!-- 操作状态：财务 -->
+                    <td class="td">
+                        <span class="status-badge {{ r.finance_status|lower|cut:' ' }}">
+                            {{ r.finance_status }}
+                        </span>
+                    </td>
+
                     <!-- 港前费用 -->
                     <td class="td amount-cell">
                         ${{ r.receivable_preport_amount|floatformat:2 }}
                     </td>
-                    
-                    <!-- 合并后的仓库费用 -->
-                    <td class="td">
+
+                    <!-- 仓库费用（无合计） -->
+                    <td class="td cost-column">
                         <div class="cost-combined">
                             <div class="cost-item">
-                                <span class="cost-type">公仓</span>
+                                <span class="cost-type">公仓：</span>
                                 <span class="cost-amount">
                                     ${{ r.receivable_wh_public_amount|floatformat:2 }}
                                 </span>
                             </div>
                             <div class="cost-item">
-                                <span class="cost-type">私仓</span>
+                                <span class="cost-type">私仓：</span>
                                 <span class="cost-amount">
                                     ${{ r.receivable_wh_other_amount|floatformat:2 }}
                                 </span>
                             </div>
-                            {% if r.receivable_wh_public_amount or r.receivable_wh_other_amount %}
-                            <div class="cost-item cost-total">
-                                <span>合计</span>
-                                <span>
-                                    ${{ r.receivable_wh_public_amount|add:r.receivable_wh_other_amount|floatformat:2 }}
-                                </span>
-                            </div>
-                            {% endif %}
                         </div>
                     </td>
-                    
-                    <!-- 合并后的派送费用 -->
-                    <td class="td">
+
+                    <!-- 派送费用（无合计） -->
+                    <td class="td cost-column">
                         <div class="cost-combined">
                             <div class="cost-item">
-                                <span class="cost-type">公仓</span>
+                                <span class="cost-type">公派：</span>
                                 <span class="cost-amount">
                                     ${{ r.receivable_delivery_public_amount|floatformat:2 }}
                                 </span>
                             </div>
                             <div class="cost-item">
-                                <span class="cost-type">私仓</span>
+                                <span class="cost-type">私派：</span>
                                 <span class="cost-amount">
                                     ${{ r.receivable_delivery_other_amount|floatformat:2 }}
                                 </span>
                             </div>
-                            {% if r.receivable_delivery_public_amount or r.receivable_delivery_other_amount %}
-                            <div class="cost-item cost-total">
-                                <span>合计</span>
-                                <span>
-                                    ${{ r.receivable_delivery_public_amount|add:r.receivable_delivery_other_amount|floatformat:2 }}
-                                </span>
-                            </div>
-                            {% endif %}
                         </div>
                     </td>
-                    
+
                     <!-- 直送费用 -->
                     <td class="td amount-cell">
                         ${{ r.receivable_direct_amount|floatformat:2 }}
@@ -580,7 +674,7 @@
                 </tr>
             {% empty %}
                 <tr>
-                    <td colspan="15" class="td" style="text-align:center;">
+                    <td colspan="14" class="td" style="text-align:center;">
                         暂无数据
                     </td>
                 </tr>
