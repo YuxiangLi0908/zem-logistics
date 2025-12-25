@@ -181,7 +181,7 @@
 
     .total-amount {
         font-size: 1.8rem;
-        color: var(--secondary-color);
+        color: white;
         font-weight: 700;
     }
 
@@ -339,7 +339,7 @@
 
 <form method="post" action="" class="mb-0">
     {% csrf_token %}
-    <input type="hidden" name="step" value="payable_save">
+    <input type="hidden" name="step" value="payable_save_v1">
     <input type="hidden" name="save_type" id="save_type" value="">
     <input type="hidden" name="container_number" value="{{ container_number }}">
     <input type="hidden" name="start_date" value="{{ start_date }}">
@@ -358,7 +358,7 @@
 {% else %}
 <div class="container-fluid mt-3">
     <div class="invoice-header">
-        <div class="d-flex justify-content-between align-items-center">
+        <div class="d-flex justify-content-between align-items-center" style="width: 100%">
             <h5 class="mb-0 d-flex align-items-center">
                 <i class="bi bi-cash-stack me-2"></i>
                 应付费用账单: $
@@ -369,7 +369,7 @@
                 {% endif %}
             </h5>
 
-            <span class="mx-auto" style="font-size: 1.1rem; color: white;">
+            <span class="mx-auto" style="font-size: 1.1rem; color: white; width: 24%;">
                 {{ invoice_number }}-{{ container_number }}
                 {% if is_save_invoice %} （已存数据）{% else %}（报价表计算）{% endif %}
             </span>
@@ -381,16 +381,16 @@
                 </button>
             {% elif not is_save_invoice %}
                 <div class="d-flex align-items-center">
-                    <button type="submit" class="action-btn btn-success me-2" onclick="modifyStatus('complete')">
-                        <i class="bi bi-check-circle me-1"></i>确认账单1
+                    <button type="submit" class="action-btn btn-success me-2" onclick="modifyStatus('complete_direct')">
+                        <i class="bi bi-check-circle me-1"></i>确认账单
                     </button>
                 </div>
             {% elif is_save_invoice and is_rejected%}
                 <!--客服看到的-->
-                <button type="submit" class="action-btn btn-success" onclick="modifyStatus('complete')">
+                <button type="submit" class="action-btn btn-success" onclick="modifyStatus('complete_direct')">
                     <i class="bi bi-check-circle me-1"></i>确认账单
                 </button>
-                &nbsp;&nbsp;
+
                 {% if reject_reason %}
                     <div class="alert alert-warning">
                         <i class="bi bi-exclamation-triangle-fill me-2"></i>
@@ -408,7 +408,7 @@
                                 <i class="bi bi-x-circle me-1"></i>初级审核驳回
                             </button>
 
-                            <div class="me-3" style="width: 200px;">
+                            <div class="me-3">
                                 <input type="text" class="form-control"
                                     placeholder="请输入驳回原因" name="reject_reason">
                             </div>
@@ -472,10 +472,10 @@
                             </td>
                             <td class="text-end fee-amount">
                                 {% if not is_editable %}
-                                    <span class="readonly-amount">{{ basic_fee|floatformat:2 }}</span>
+                                    <span class="readonly-amount">{{ direct_basic_fee|floatformat:2 }}</span>
                                 {% else %}
                                     <input type="number" step="0.01" class="form-control text-end"
-                                           name="basic_fee" value="{{ basic_fee }}"
+                                           name="direct_basic_fee" value="{{ direct_basic_fee }}"
                                            oninput="calculateTotal()" style="width: 120px;">
                                 {% endif %}
                             </td>
@@ -510,53 +510,52 @@
                 <div class="d-flex justify-content-between align-items-center mb-3">
                     <h6 class="mb-3 d-flex align-items-center text-muted">
                         <i class="bi bi-plus-circle fee-icon me-2"></i>
-                        <span>其他费用&nbsp;&nbsp;</span>
+                        <span>直送其他费用&nbsp;&nbsp;</span>
                         <button type="button" class="action-btn btn-primary ms-3" onclick="addFeeGroup()">
                             <i class="bi bi-plus me-1"></i>添加费用
                         </button>
                     </h6>
                 </div>
-
-                {% for fee_name, fee_amount in pallet_other_fee.items %}
-                    <div class="fee-group row g-3 mb-3 align-items-center">
-                        {% if reject_reason %}
-                            <div class="col-md-5">
-                                <input type="text" class="form-control" name="fee_name"
-                                    value="{{ fee_name }}" placeholder="费用名称">
-                            </div>
-                            <div class="col-md-5">
-                                <input type="number" step="0.01" class="form-control fee-amount-input text-end"
-                                        name="fee_amount" value="{{ fee_amount|floatformat:2 }}"
-                                        placeholder="金额" oninput="calculateTotal()">
-                            </div>
-                            <div class="col-md-2">
-                                <button type="button" class="action-btn btn-outline-danger w-100"
-                                        onclick="removeFeeGroup(this)">
-                                    <i class="bi bi-trash"></i>
-                                </button>
-                            </div>
-                        {% else%}
-                            <div class="col-md-5">
-                                <span class="readonly-amount">{{ fee_name }}</span>
-                            </div>
-                            <div class="col-md-5">
-                                <span class="readonly-amount">{{ fee_amount|floatformat:2 }}</span>
+                <div class="additional-fee-body" id="additional-fees-container">
+                    {% for fee in invoice_items %}
+                        {% if "直送其他费用" in fee.description %}
+                            <div class="fee-group row g-3 mb-3 align-items-center">
+                                <div class="col-md-5">
+                                    <!-- 先渲染原始 description 到 data 属性，前端再拆分 -->
+                                    <input type="text" class="form-control fee-name-input"
+                                           name="direct_other_fee_name[]"
+                                           data-original-desc="{{ fee.description }}"
+                                    value=""
+                                    placeholder="费用名称">
+                                </div>
+                                <div class="col-md-5">
+                                    <div class="input-group">
+                                        <input type="number" step="0.01" class="form-control fee-amount-input text-end"
+                                               name="direct_other_fee_amount[]" value="{{ fee.rate|floatformat:2 }}"
+                                               placeholder="金额" oninput="calculateTotal()">
+                                        <span class="input-group-text">USD</span>
+                                    </div>
+                                </div>
+                                <div class="col-md-2">
+                                    <button type="button" class="action-btn btn-outline-danger w-100"
+                                            onclick="removeFeeGroup(this)">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </div>
                             </div>
                         {% endif %}
-                    </div>
-                {% endfor %}
-                <div id="additional-fees-container">
-                    {% for fee in additional_fees %}
+                    {% endfor %}
+                </div>
+                <div id="new-fee-template" style="display: none;">
                     <div class="fee-group row g-3 mb-3 align-items-center">
                         <div class="col-md-5">
-                            <input type="text" class="form-control" name="fee_name"
-                                value="{{ fee.name }}" placeholder="费用名称">
+                            <input type="text" class="form-control" name="direct_other_fee_name[]"
+                                   placeholder="费用名称">
                         </div>
                         <div class="col-md-5">
                             <div class="input-group">
                                 <input type="number" step="0.01" class="form-control fee-amount-input text-end"
-                                    name="fee_amount" value="{{ fee.amount }}"
-                                    placeholder="金额" oninput="calculateTotal()">
+                                       name="direct_other_fee_amount[]" placeholder="金额" oninput="calculateTotal()">
                                 <span class="input-group-text">USD</span>
                             </div>
                         </div>
@@ -566,28 +565,6 @@
                                 <i class="bi bi-trash"></i>
                             </button>
                         </div>
-                    </div>
-                    {% endfor %}
-                </div>
-            </div>
-
-            <div id="new-fee-template" style="display: none;">
-                <div class="fee-group row g-3 mb-3 align-items-center">
-                    <div class="col-md-5">
-                        <input type="text" class="form-control" name="fee_name" placeholder="费用名称">
-                    </div>
-                    <div class="col-md-5">
-                        <div class="input-group">
-                            <input type="number" step="0.01" class="form-control fee-amount-input text-end"
-                                name="fee_amount" placeholder="金额" oninput="calculateTotal()">
-                            <span class="input-group-text">USD</span>
-                        </div>
-                    </div>
-                    <div class="col-md-2">
-                        <button type="button" class="action-btn btn-outline-danger w-100"
-                                onclick="removeFeeGroup(this)">
-                            <i class="bi bi-trash"></i>
-                        </button>
                     </div>
                 </div>
             </div>
@@ -599,27 +576,72 @@
 
 <script>
     document.addEventListener('DOMContentLoaded', function() {
+        // 1. 处理已有费用项的名称拆分
+        initFeeNameInput();
+        // 2. 初始化总额计算
         calculateTotal();
     });
+
+    // 初始化费用名称输入框（拆分 description）
+    function initFeeNameInput() {
+        // 获取所有费用名称输入框
+        const nameInputs = document.querySelectorAll('.fee-name-input');
+        nameInputs.forEach(input => {
+            // 获取原始 description（从 data 属性）
+            const originalDesc = input.getAttribute('data-original-desc') || '';
+            // 前端拆分：按 '-' 分割，取第二个值
+            const descParts = originalDesc.split('-');
+            let displayName = originalDesc; // 兜底值
+            if (descParts.length >= 2) {
+                displayName = descParts[1]; // 取第二个值（索引1）
+            }
+            // 赋值到输入框
+            input.value = displayName;
+        });
+    }
+
 
     function setSaveType(type) {
         document.getElementById('save_type').value = type;
     }
 
     function addFeeGroup() {
+        // 1. 获取容器和模板（确认 ID 匹配）
         const container = document.getElementById('additional-fees-container');
         const template = document.getElementById('new-fee-template');
-        const newGroup = template.cloneNode(true);
-        newGroup.style.display = 'flex';
-        newGroup.removeAttribute('id');
+
+        // 2. 调试：打印容器/模板是否找到（F12 控制台查看）
+        console.log('容器是否找到：', !!container);
+        console.log('模板是否找到：', !!template);
+
+        // 3. 边界判断：防止容器/模板不存在
+        if (!container || !template) {
+            alert('添加费用失败：未找到容器或模板，请检查页面代码！');
+            return;
+        }
+
+        // 4. 修复：克隆普通 div 模板（不用 .content）
+        const newGroup = template.cloneNode(true); // 克隆整个模板 div
+        newGroup.removeAttribute('id'); // 移除模板的 id，避免重复
+        newGroup.style.display = 'block'; // 显示新增的费用项
+
+        // 5. 插入到容器末尾
         container.appendChild(newGroup);
+
+        // 6. 重新计算总额
+        calculateTotal();
+
+        // 调试：确认新增成功
+        console.log('新增费用项成功，当前容器内费用项数量：', container.querySelectorAll('.fee-group').length);
     }
 
     function removeFeeGroup(button) {
         if (confirm('确定要删除此费用吗？')) {
             const group = button.closest('.fee-group');
-            group.remove();
-            calculateTotal();
+            if (group) {
+                group.remove();
+                calculateTotal(); // 删除后重新计算总额
+            }
         }
     }
 
@@ -642,18 +664,18 @@
         let total = 0;
 
         const feeFields = [
-            'basic_fee',
+            'direct_basic_fee',
             'chassis_fee',
         ];
 
         feeFields.forEach(field => {
             const input = document.querySelector(`input[name="${field}"]`);
-            if (input && input.value !== "0") {
+            if (input) {
                 total += parseFloat(input.value) || 0;
             }
         });
 
-        document.querySelectorAll('input[name="fee_amount"]').forEach(input => {
+        document.querySelectorAll('input[name="direct_other_fee_amount[]"]').forEach(input => {
             total += parseFloat(input.value) || 0;
         });
 
