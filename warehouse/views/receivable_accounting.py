@@ -4499,7 +4499,7 @@ class ReceivableAccounting(View):
             #用转运方式计算费用
             public_key = f"{warehouse}_PUBLIC"
             if public_key not in fee_details:
-                context.update({'error_messages':f'{warehouse}_PUBLIC未找到亚马逊沃尔玛报价表'})
+                context.update({'error_messages':f'{warehouse}_PUBLIC-group-{group}未找到亚马逊沃尔玛报价表'})
                 return context
             rules = fee_details.get(f"{warehouse}_PUBLIC").details
             niche_warehouse = fee_details.get(f"{warehouse}_PUBLIC").niche_warehouse
