@@ -282,6 +282,87 @@ class ReceivableAccounting(View):
         elif step == "export_invoice":
             return self.handle_export_invoice_post(request)
 
+    def handle_save_manual_invoice_items(self, request: HttpRequest):
+        """处理保存所有账单记录的操作"""
+        context = {}
+        container_number = request.POST.get("container_number")
+        invoice_number = request.POST.get("invoice_number")
+        items_data = request.POST.get("items_data")
+
+        invoice = Invoicev2.objects.get(invoice_number=invoice_number)
+        container = Container.objects.get(container_number=container_number)
+        items_data_json = request.POST.get("items_data")
+        if not items_data_json:
+            context.update({"error_messages": "没有接收到数据"})
+        else:
+            items_data = json.loads(items_data_json)
+            for item in items_data:
+                item_id = item.get('item_id')
+                item_category = item.get('item_category','')
+                if item_category in ['delivery_public','delivery_other']:
+                    self._save_delivery_items(item, item_id, invoice, container)
+                else:
+                    self._save_other_items(item, item_id, invoice, container)
+        self._update_invoice_total(invoice,container)
+        context = {'success_messages':'保存账单明细成功！'}
+        return self.handle_invoice_item_search(request,context)
+
+    def handle_invoice_item_search(self, request:HttpRequest, context: dict| None = None) -> Dict[str, Any]:
+        '''查询全部的账单详情'''
+        if not context:
+            context = {}
+        container_number = request.GET.get("container_number")
+        invoice_id = request.GET.get("invoice_id")
+        if not container_number:
+            container_number = request.POST.get("container_number")
+            invoice_id = request.POST.get("invoice_id")
+
+        order = Order.objects.select_related(
+            'container_number',
+            'customer_name',
+            'warehouse',
+            'vessel_id',
+            'retrieval_id'
+        ).get(container_number__container_number=container_number)
+
+        if invoice_id and invoice_id != "None":
+            #找到要修改的那份账单
+            invoice = Invoicev2.objects.get(id=invoice_id)
+            invoice_status, created = InvoiceStatusv2.objects.get_or_create(
+                invoice=invoice,
+                invoice_type="receivable",
+                defaults={
+                    "container_number": order.container_number,
+                    "invoice": invoice,
+                }
+            )
+        else:
+            #说明这个柜子没有创建过账单，需要创建
+            invoice, invoice_status = self._create_invoice_and_status(container_number)
+            invoice_id = invoice.id
+
+        items = InvoiceItemv2.objects.filter(
+            invoice_number=invoice,
+            invoice_type="receivable"
+        )
+        other_items = []
+        delivery_items = []
+        for item in items:
+            if item.item_category == "delivery_public" or item.item_category == "delivery_other":
+                delivery_items.append(item)
+            else:
+                other_items.append(item)
+        context.update({
+            'other_items': other_items,
+            'delivery_items': delivery_items,
+            'container_number': container_number,
+            'invoice_number': invoice.invoice_number,
+            'start_date': request.POST.get("start_date"),
+            'end_date': request.POST.get("end_date"),
+            'order_type': order.order_type,
+        })
+        return self.template_invoice_items_all, context
+
     def handle_manual_process_search(self, request: HttpRequest, context: dict | None = None, ) -> Dict[str, Any]:
         if not context:
             context = {}
