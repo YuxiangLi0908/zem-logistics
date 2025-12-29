@@ -4349,10 +4349,50 @@ class Accounting(View):
         """
         data = request.POST.copy()
         save_type = data.get("save_type")
-        container_numbers = data.getlist("containers") or [data.get("container_number")]
-        for container_number in container_numbers:
+        # 财务驳回
+        if save_type == "reject":
+            container_numbers = data.getlist("containers")
+            for container_number in container_numbers:
+                invoice_status = InvoiceStatusv2.objects.get(
+                    container_number__container_number=container_number
+                )
+                if invoice_status.preport_status != "unstarted":
+                    invoice_status.preport_status = "rejected"
+                    invoice_status.finance_status = "unstarted"
+                    invoice_status.preport_reason = data.get("reject_reason")
+                elif invoice_status.warehouse_public_status != "unstarted":
+                    invoice_status.warehouse_public_status = "rejected"
+                    invoice_status.finance_status = "unstarted"
+                    invoice_status.warehouse_public_reason = data.get("reject_reason")
+                elif invoice_status.warehouse_other_status != "unstarted":
+                    invoice_status.warehouse_other_status = "rejected"
+                    invoice_status.finance_status = "unstarted"
+                    invoice_status.warehouse_self_reason = data.get("reject_reason")
+                elif invoice_status.delivery_public_status != "unstarted":
+                    invoice_status.delivery_public_status = "rejected"
+                    invoice_status.finance_status = "unstarted"
+                    invoice_status.delivery_public_reason = data.get("reject_reason")
+                elif invoice_status.delivery_other_status != "unstarted":
+                    invoice_status.delivery_other_status = "rejected"
+                    invoice_status.finance_status = "unstarted"
+                    invoice_status.delivery_other_reason = data.get("reject_reason")
+                invoice_status.save()
+            return self.handle_invoice_confirm_get_v1(request)
+        # 财务审核通过
+        elif save_type == "confirmed_finance":
+            container_numbers = data.getlist("containers")
+            for container_number in container_numbers:
+                invoice_status = InvoiceStatusv2.objects.get(
+                    container_number__container_number=container_number
+                )
+                invoice_status.finance_status = "completed"
+                current_time = timezone.now()
+                invoice_status.payable_date = current_time
+                invoice_status.save()
+            return self.handle_invoice_confirm_get_v1(request)
+        else:
+            container_number = data.get("container_number")
             self.handle_invoice_payable_save_post_v1_item(request, data, save_type, container_number)
-
     def handle_invoice_payable_save_post_v1_item(self, request: HttpRequest, data, save_type, container_number) -> tuple[Any, Any]:
         invoice_status = InvoiceStatusv2.objects.get(
             container_number__container_number=container_number
@@ -4365,29 +4405,6 @@ class Accounting(View):
                 None,
                 data.get("warehouse_filter"),
             )
-        elif save_type == "reject":  # 财务驳回
-            if invoice_status.preport_status != "unstarted":
-                invoice_status.preport_status = "rejected"
-                invoice_status.finance_status = "unstarted"
-                invoice_status.preport_reason = data.get("reject_reason")
-            elif invoice_status.warehouse_public_status != "unstarted":
-                invoice_status.warehouse_public_status = "rejected"
-                invoice_status.finance_status = "unstarted"
-                invoice_status.warehouse_public_reason = data.get("reject_reason")
-            elif invoice_status.warehouse_other_status != "unstarted":
-                invoice_status.warehouse_other_status = "rejected"
-                invoice_status.finance_status = "unstarted"
-                invoice_status.warehouse_self_reason = data.get("reject_reason")
-            elif invoice_status.delivery_public_status != "unstarted":
-                invoice_status.delivery_public_status = "rejected"
-                invoice_status.finance_status = "unstarted"
-                invoice_status.delivery_public_reason = data.get("reject_reason")
-            elif invoice_status.delivery_other_status != "unstarted":
-                invoice_status.delivery_other_status = "rejected"
-                invoice_status.finance_status = "unstarted"
-                invoice_status.delivery_other_reason = data.get("reject_reason")
-            invoice_status.save()
-            return self.handle_invoice_confirm_get_v1(request)
         elif save_type == "reject_check":  # 初级审核驳回，驳回不改数据
             if invoice_status.preport_status != "unstarted":
                 invoice_status.preport_status = "rejected"
@@ -4425,12 +4442,6 @@ class Accounting(View):
                 None,
                 data.get("warehouse_filter"),
             )
-        elif save_type == "confirmed_finance":  # 财务审核通过
-            invoice_status.finance_status = "completed"
-            current_time = timezone.now()
-            invoice_status.payable_date = current_time
-            invoice_status.save()
-            return self.handle_invoice_confirm_get_v1(request)
 
         total_amount = data.get("total_amount")
         if not total_amount and total_amount == 0:
