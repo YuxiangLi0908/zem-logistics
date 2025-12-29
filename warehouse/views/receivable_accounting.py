@@ -4796,9 +4796,10 @@ class ReceivableAccounting(View):
         # 对每个PO组，从PackingList表中获取准确的CBM和重量数据
         for group in pallet_groups:
             po_id = group.get("PO_ID")
+            shipping_mark = group.get("shipping_mark")
             if po_id:
                 try:
-                    aggregated = PackingList.objects.filter(PO_ID=po_id).aggregate(
+                    aggregated = PackingList.objects.filter(PO_ID=po_id, shipping_mark=shipping_mark).aggregate(
                         total_cbm=Sum('cbm'),
                         total_weight_lbs=Sum('total_weight_lbs')
                     )
