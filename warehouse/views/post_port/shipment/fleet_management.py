@@ -1574,7 +1574,7 @@ class FleetManagement(View):
             )()
         pickup_time = shipment.pickup_time
         # 如果目的地没有沃尔玛，预约账户是沃尔玛的，导出地址加上沃尔玛前缀
-        if "walmart" in shipment.account.lower():
+        if "walmart" in shipment.shipment_account.lower():
             destination = shipment.destination
             if destination and "walmart" not in destination.lower():
                 shipment.destination = f"walmart-{destination}"

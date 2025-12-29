@@ -21,8 +21,8 @@
         box-sizing: border-box;
     }
     .fleet-mark-col {
-        min-width: 100px;
-        max-width: 150px;
+        min-width: 140px;
+        max-width: 160px;
         word-wrap: break-word;
         word-break: break-word;
         white-space: normal;
@@ -444,7 +444,7 @@
                     <td>
                         <input type="text" class="filter-input" placeholder="筛选目的地..." data-column="3" onkeyup="applySelfPickColumnFilter(this)">
                     </td>
-                    <td>
+                    <td class="fleet-mark-col">
                         <input type="text" class="filter-input" placeholder="筛选唛头..." data-column="4" onkeyup="applySelfPickColumnFilter(this)">
                     </td>
                     <td>
@@ -515,7 +515,7 @@
                         {{ cargo.container_numbers|default:"-" }}
                     </td>
                     <td>{{ cargo.destination|default:"-" }}</td>
-                    <td>{{ cargo.shipping_marks|default:"-" }}</td>
+                    <td class="fleet-mark-col">{{ cargo.shipping_marks|default:"-" }}</td>
                     <td>{{ cargo.total_cbm|floatformat:3|default:"0.000" }}</td>
                     <td>{{ cargo.total_pcs|default:0 }}</td>
                     <td class="pallet-col">

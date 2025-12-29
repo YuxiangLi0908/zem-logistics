@@ -112,8 +112,11 @@ class ReceivableAccounting(View):
     template_invoice_statement = "receivable_accounting/invoice_statement.html"
     template_invoice_items_edit = "receivable_accounting/invoice_items_edit.html"
 
-    template_completed_bills = "receivable_accounting/completed_bills.html"
     template_supplementary_entry = "receivable_accounting/supplementary_entry.html"
+    template_invoice_items_all = "receivable_accounting/invoice_items_all.html"
+
+    template_completed_bills = "receivable_accounting/completed_bills.html"
+
     template_financial_statistics = "receivable_accounting/financial_statistics.html"
     template_quotation_management = "receivable_accounting/quotation_management.html"
     
@@ -185,7 +188,9 @@ class ReceivableAccounting(View):
         elif step == "container_delivery":
             template, context = self.handle_container_delivery_post(request)
             return render(request, template, context)   
-        
+        elif step == "invoice_manual":
+            template, context = self.handle_invoice_item_search(request)
+            return render(request, template, context)
         else:
             raise ValueError(f"unknow request {step}")
 
@@ -243,8 +248,8 @@ class ReceivableAccounting(View):
             # 转运，财务保存
             template, context = self.handle_confirm_save_all(request)
             return render(request, template, context)
-        elif step == "supplement_search":
-            template, context = self.handle_supplement_search(request)
+        elif step == "manual_process_search":
+            template, context = self.handle_manual_process_search(request)
             return render(request, template, context)
         elif step == "confirm_combina_save":
             template, context = self.handle_invoice_confirm_combina_save(request)
@@ -268,9 +273,35 @@ class ReceivableAccounting(View):
         elif step == "invoice_search":
             template, context = self.handle_invoice_search_get(request)
             return render(request, template, context)
+        elif step =="save_manual_invoice_items":
+            template, context = self.handle_save_manual_invoice_items(request)
+            return render(request, template, context)
+        elif step == "generate_manual_excel":
+            template, context = self.handle_generate_manual_excel(request)
+            return render(request, template, context)
         elif step == "export_invoice":
             return self.handle_export_invoice_post(request)
-    
+
+    def handle_generate_manual_excel(self,request: HttpRequest) -> tuple[Any, Any]:
+        '''手动编辑账单时生成新的excel'''
+        container_number = request.POST.get("container_number")
+        invoice_number = request.POST.get("invoice_number")
+
+        order = Order.objects.get(container_number__container_number=container_number)
+        invoice = Invoicev2.objects.get(invoice_number=invoice_number)
+
+        ctx = self._parse_invoice_excel_data(order, invoice)
+        ac = Accounting()
+        workbook, invoice_data = ac._generate_invoice_excel(ctx)
+        invoice.invoice_date = invoice_data["invoice_date"]
+        invoice.invoice_link = invoice_data["invoice_link"]
+        invoice.save()
+
+        # 返回成功消息
+        success_message = f"成功生成新的excel!"
+        context = {'success_message': success_message}
+        return self.template_invoice_items_all ,context
+
     def handle_export_invoice_post(self, request: HttpRequest) -> HttpResponse:
         resp, file_name, pdf_file, context = export_invoice(request)
         return resp

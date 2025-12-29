@@ -551,7 +551,7 @@
                                     <input type="text" placeholder="搜索客户..." oninput="filterTable(this, 0, 'order-table')">
                                 </th>
                                 <th class="th">
-                                    <input type="text" placeholder="搜索柜号..." oninput="filterTable(this, 1, 'order-table')">
+                                    <input type="text" placeholder="搜索柜号..." oninput="filterContainerNumbers(this, 1, 'order-table')">
                                 </th>
                                 <th class="th">
                                     <input type="text" placeholder="搜索类型..." oninput="filterTable(this, 2, 'order-table')">
@@ -623,7 +623,7 @@
                                     <input type="checkbox" id="selectAll">
                                 </th>
                                 <th class="th">客户</th>
-                                <th class="th">货柜号</th>
+                                <th class="th">柜号</th>
                                 <th class="th">订单类型</th>
                                 <th class="th">仓库</th>
                                 <th class="th">INVOICE #</th>
@@ -641,7 +641,7 @@
                                     <input type="text" placeholder="搜索客户..." oninput="filterTable(this, 1, 'order-table-previous')">
                                 </th>
                                 <th class="th">
-                                    <input type="text" placeholder="搜索柜号..." oninput="filterTable(this, 2, 'order-table-previous')">
+                                    <input type="text" placeholder="搜索柜号..." oninput="filterContainerNumbers(this, 2, 'order-table-previous')">
                                 </th>
                                 <th class="th">
                                     <input type="text" placeholder="搜索类型..." oninput="filterTable(this, 3, 'order-table-previous')">
@@ -1203,6 +1203,46 @@
         
         document.getElementById('monthlyTotalResult').innerHTML = 
             `总金额：$${total.toFixed(2)}`;
+    }
+    // 柜号多条件搜索（支持空格分隔多个柜号）
+    function filterContainerNumbers(input, columnIndex, tableId) {
+        const inputValue = input.value.trim().toLowerCase();
+        const table = document.getElementById(tableId);
+        const rows = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
+        
+        if (!tableFilters[tableId]) tableFilters[tableId] = {};
+        tableFilters[tableId][columnIndex] = inputValue;
+        
+        // 分割多个柜号
+        const searchTerms = inputValue.split(/\s+/).filter(term => term.length > 0);
+        
+        for (let i = 0; i < rows.length; i++) {
+            const row = rows[i];
+            
+            // 如果是空字符串，显示所有行
+            if (searchTerms.length === 0) {
+                row.style.display = '';
+                continue;
+            }
+            
+            const cell = row.cells[columnIndex];
+            if (cell) {
+                const cellText = cell.textContent.toLowerCase() || cell.innerText.toLowerCase();
+                const linkElement = cell.querySelector('.container-link');
+                const linkText = linkElement ? linkElement.textContent.toLowerCase() : '';
+                
+                // 检查是否匹配任一搜索条件
+                let matched = false;
+                for (const term of searchTerms) {
+                    if (cellText.includes(term) || linkText.includes(term)) {
+                        matched = true;
+                        break;
+                    }
+                }
+                
+                row.style.display = matched ? '' : 'none';
+            }
+        }
     }
 </script>
 {% endblock %}
