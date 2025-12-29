@@ -268,7 +268,13 @@ class ReceivableAccounting(View):
         elif step == "invoice_search":
             template, context = self.handle_invoice_search_get(request)
             return render(request, template, context)
+        elif step == "export_invoice":
+            return self.handle_export_invoice_post(request)
     
+    def handle_export_invoice_post(self, request: HttpRequest) -> HttpResponse:
+        resp, file_name, pdf_file, context = export_invoice(request)
+        return resp
+
     def handle_invoice_search_get(
         self,
         request: HttpRequest,
