@@ -340,6 +340,7 @@
 <form method="post" action="" class="mb-0">
     {% csrf_token %}
     <input type="hidden" name="step" value="payable_save_v1">
+    <input type="hidden" name="order_type" value="payable_direct">
     <input type="hidden" name="save_type" id="save_type" value="">
     <input type="hidden" name="container_number" value="{{ container_number }}">
     <input type="hidden" name="start_date" value="{{ start_date }}">

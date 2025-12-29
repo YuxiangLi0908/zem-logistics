@@ -244,14 +244,15 @@
     .th:nth-child(6), .td:nth-child(6) { width: 8%; }   /* 码头 */
     .th:nth-child(7), .td:nth-child(7) { width: 7%; }   /* 提柜费 */
     .th:nth-child(8), .td:nth-child(8) { width: 7%; }   /* 拆柜费 */
-    .th:nth-child(9), .td:nth-child(9) { width: 7%; }   /* 超重费 */
-    .th:nth-child(10), .td:nth-child(10) { width: 7%; } /* 滞港费 */
-    .th:nth-child(11), .td:nth-child(11) { width: 7%; } /* 滞箱费 */
-    .th:nth-child(12), .td:nth-child(12) { width: 7%; } /* 车架费 */
-    .th:nth-child(13), .td:nth-child(13) { width: 8%; } /* 其他费用 */
-    .th:nth-child(14), .td:nth-child(14) { width: 8%; } /* 总费用 */
-    .th:nth-child(15), .td:nth-child(15) { width: 6%; } /* 通过 */
-    .th:nth-child(16), .td:nth-child(16) { width: 8%; } /* 不通过 */
+    .th:nth-child(9), .td:nth-child(9) { width: 9%; }   /* 入库拆柜费 */
+    .th:nth-child(10), .td:nth-child(10) { width: 7%; }   /* 超重费 */
+    .th:nth-child(11), .td:nth-child(11) { width: 7%; } /* 滞港费 */
+    .th:nth-child(12), .td:nth-child(12) { width: 7%; } /* 滞箱费 */
+    .th:nth-child(13), .td:nth-child(13) { width: 7%; } /* 车架费 */
+    .th:nth-child(14), .td:nth-child(14) { width: 8%; } /* 其他费用 */
+    .th:nth-child(15), .td:nth-child(15) { width: 8%; } /* 总费用 */
+    .th:nth-child(16), .td:nth-child(16) { width: 6%; } /* 通过 */
+    .th:nth-child(17), .td:nth-child(17) { width: 8%; } /* 不通过 */
 
     /* 简化表格列宽设置 */
     .simple-table .th:nth-child(1), .simple-table .td:nth-child(1) { width: 15%; }
@@ -724,6 +725,7 @@
                                 <th class="th">码头</th>
                                 <th class="th">提柜费</th>
                                 <th class="th">拆柜费</th>
+                                <th class="th">入库拆柜费</th>
                                 <th class="th">超重费</th>
                                 <th class="th">滞港费</th>
                                 <th class="th">滞箱费</th>
@@ -737,6 +739,7 @@
                                 <th class="th"></th>
                                 <th class="th"></th>
                                 <th class="th"><input type="text" class="search-input" placeholder="搜索柜号..." oninput="filterTable(this, 2, 'pending-table')"></th>
+                                <th class="th"></th>
                                 <th class="th"></th>
                                 <th class="th"></th>
                                 <th class="th"></th>
@@ -814,7 +817,7 @@
                                             <td class="td_fee">
                                                 {% for fee in c.container_number.invoice_itemv2.all %}
                                                     {% if fee.description == "提柜费用" %}
-                                                        <span class="pickup-fee-amount">${{ fee.rate|floatformat:2 }}</span>
+                                                        <span class="pickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
                                                     {% endif %}
                                                 {% endfor %}
                                             </td>
@@ -822,8 +825,17 @@
                                             <!-- 2. 拆柜费用 -->
                                             <td class="td_fee">
                                                 {% for fee in c.container_number.invoice_itemv2.all %}
-                                                    {% if fee.description == "提柜费用" %}
-                                                        <span class="pickup-fee-amount">${{ fee.rate|floatformat:2 }}</span>
+                                                    {% if fee.description == "拆柜费用" %}
+                                                        <span class="pickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
+                                                    {% endif %}
+                                                {% endfor %}
+                                            </td>
+
+                                            <!-- 3. 入库拆柜费 -->
+                                            <td class="td_fee">
+                                                {% for fee in c.container_number.invoice_itemv2.all %}
+                                                    {% if fee.description == "入库拆柜费" %}
+                                                        <span class="pickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
                                                     {% endif %}
                                                 {% endfor %}
                                             </td>
@@ -832,7 +844,7 @@
                                             <td class="td_fee">
                                                 {% for fee in c.container_number.invoice_itemv2.all %}
                                                     {% if fee.description == "超重费用" %}
-                                                        <span class="pickup-fee-amount">${{ fee.rate|floatformat:2 }}</span>
+                                                        <span class="pickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
                                                     {% endif %}
                                                 {% endfor %}
                                             </td>
@@ -841,7 +853,7 @@
                                             <td class="td_fee">
                                                 {% for fee in c.container_number.invoice_itemv2.all %}
                                                     {% if fee.description == "港内滞港费" %}
-                                                        <span class="pickup-fee-amount">${{ fee.rate|floatformat:2 }}</span>
+                                                        <span class="pickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
                                                     {% endif %}
                                                 {% endfor %}
                                             </td>
@@ -850,7 +862,7 @@
                                             <td class="td_fee">
                                                 {% for fee in c.container_number.invoice_itemv2.all %}
                                                     {% if fee.description == "港外滞箱费" %}
-                                                        <span class="pickup-fee-amount">${{ fee.rate|floatformat:2 }}</span>
+                                                        <span class="pickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
                                                     {% endif %}
                                                 {% endfor %}
                                             </td>
@@ -859,23 +871,33 @@
                                             <td class="td_fee">
                                                 {% for fee in c.container_number.invoice_itemv2.all %}
                                                     {% if fee.description == "车架费用" %}
-                                                        <span class="pickup-fee-amount">${{ fee.rate|floatformat:2 }}</span>
+                                                        <span class="pickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
                                                     {% endif %}
                                                 {% endfor %}
                                             </td>
 
-                                            <!-- 7. 其他费用 -->
-                                            <td class="td_fee">
-                                                {% for fee in c.container_number.invoice_itemv2.all %}
-                                                    {% if fee.description == "其他费用" %}
-                                                        <span class="pickup-fee-amount">${{ fee.rate|floatformat:2 }}</span>
-                                                    {% endif %}
-                                                {% endfor %}
+                                            <!-- 7. 其他费用（修复 data-fees 拼接） -->
+                                            <td class="td_fee"
+                                                data-container-id="{{ c.container_number.id }}"
+                                                data-type="other"
+                                                    {% comment %} 核心修复：一行写完，无换行/空格，确保格式正确 {% endcomment %}
+                                                data-fees="
+                                                        {% for fee in c.container_number.invoice_itemv2.all %}{% if '其他费用' in fee.description %}{{ fee.rate|default:0|floatformat:2 }},{% endif %}{% endfor %}">
+                                                <div class="fee-total">
+                                                    <strong>合计：<span class="total-amount">$0.00</span></strong>
+                                                </div>
                                             </td>
 
-                                            <!-- 8. 总费用（累加所有有效费用） -->
-                                            <td class="td_fee">
-                                                ${{ c.total_fee|default:0.00|floatformat:2 }}
+                                            <!-- 8. 总费用（修复 data-fees 拼接） -->
+                                            <td class="td_fee"
+                                                data-container-id="{{ c.container_number.id }}"
+                                                data-type="total"
+                                                    {% comment %} 核心修复：一行写完，无换行/空格 {% endcomment %}
+                                                data-fees="
+                                                        {% for fee in c.container_number.invoice_itemv2.all %}{{ fee.rate|default:0|floatformat:2 }},{% endfor %}">
+                                                <div class="fee-total">
+                                                    <strong>合计：<span class="total-amount">$0.00</span></strong>
+                                                </div>
                                             </td>
 
                                             <!-- 审核通过按钮：修复 container_number 传参（传具体字段值） -->
@@ -1260,33 +1282,48 @@
     </div>
 </div>
 
-<!-- 交互脚本 -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // 计算费用
-    // 找到所有包含pickup-fee-amount的td
-    const cells = document.querySelectorAll('td.td_fee');
+    // ========== 1. 费用累加逻辑（从data-fees读取金额，无DOM冗余） ==========
+    function calculateTotalFromData(feeStr) {
+        if (!feeStr) return 0;
+        // 分割金额字符串，过滤空值，转数字求和
+        const fees = feeStr.split(',').filter(Boolean).map(Number);
+        const total = fees.reduce((sum, val) => sum + (val || 0), 0);
+        // 保留2位小数，解决浮点精度
+        return Math.round(total * 100) / 100;
+    }
 
-    cells.forEach(cell => {
-        const pickupFeeSpan = cell.querySelector('.pickup-fee-amount');
-
-        if (pickupFeeSpan) {
-            // 有提柜费用，只保留这个span的内容
-            cell.innerHTML = pickupFeeSpan.textContent;
-        } else {
-            // 没有提柜费用，显示$0.00
-            cell.textContent = '$0.00';
-        }
+    // 遍历所有费用列，计算合计
+    document.querySelectorAll('td.td_fee[data-type]').forEach(cell => {
+        const feeStr = cell.dataset.fees || '';
+        const total = calculateTotalFromData(feeStr);
+        // 更新合计值
+        cell.querySelector('.total-amount').textContent = `$${total.toFixed(2)}`;
     });
 
-    // 初始化Tooltip
+    // ========== 2. 处理其他费用列（提柜费/拆柜费等） ==========
+    const feeCells = document.querySelectorAll('td.td_fee');
+    feeCells.forEach(cell => {
+        if (cell.hasAttribute('data-type') && (cell.dataset.type === 'other' || cell.dataset.type === 'total')) {
+            return; // 跳过合计列
+        }
+        const pickupFeeSpan = cell.querySelector('.pickup-fee-amount');
+        if (pickupFeeSpan) {
+            cell.innerHTML = `<span class="pickup-fee-amount">${pickupFeeSpan.textContent}</span>`;
+        } else {
+            cell.innerHTML = '<span class="pickup-fee-amount">$0.00</span>';
+        }
+    }); // 修复：补全forEach的闭合括号
+
+    // ========== 3. 初始化Tooltip ==========
     var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
     var tooltipList = tooltipTriggerList.map(function(tooltipTriggerEl) {
         return new bootstrap.Tooltip(tooltipTriggerEl);
     });
 
-    // 标签页切换功能
+    // ========== 4. 标签页切换功能（核心修复：独立绑定，不嵌套） ==========
     const tabs = document.querySelectorAll('.content-tab');
     const tabContents = document.querySelectorAll('.tab-content');
 
@@ -1308,7 +1345,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    // 为表单字段添加样式（兼容Django表单）
+    // ========== 5. 为表单字段添加样式（兼容Django表单） ==========
     document.querySelectorAll('form select, form input:not([type="hidden"], [type="submit"], [type="date"])').forEach(el => {
         if (!el.classList.contains('form-control') && !el.classList.contains('form-select')) {
             el.classList.add('form-control', 'form-control-sm', 'rounded-3', 'border', 'border-gray-300');
@@ -1325,7 +1362,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // 表单提交加载状态
+    // ========== 6. 表单提交加载状态 ==========
     const filterForms = document.querySelectorAll('.warehouse-selector');
     filterForms.forEach(form => {
         form.addEventListener('submit', function() {
@@ -1338,6 +1375,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 
+// ========== 7. 表格筛选相关函数（全局函数，放在DOMContentLoaded外） ==========
 // 全局变量存储每个表格的筛选状态
 const tableFilters = {
     'pending-table': { container: '', retrieval: '', status: '' },

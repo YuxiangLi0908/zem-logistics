@@ -568,11 +568,11 @@
                                         <span class="reference-info">基础费用</span>
                                     </div>
                                     <div class="fee-cell">
-                                        {% if not is_confirm %}
+                                        {% if not is_save_invoice %}
                                             <input type="number" step="0.01" class="input-field fee-amount-input"
                                                    name="basic_fee"
-                                                    {% if fee.reference_price %}
-                                                   value="{{ fee.reference_price }}"
+                                                    {% if fee.rate %}
+                                                   value="{{ fee.rate }}"
                                                     {% elif FS and fee.description in FS %}
                                                    value="{{ FS|get_item:fee.description }}"
                                                     {% else %}
@@ -581,8 +581,8 @@
                                                    oninput="calculateTotal()">
                                         {% else %}
                                             <span class="amount-display">
-                                        {% if fee.reference_price %}
-                                            {{ fee.reference_price }}
+                                        {% if fee.rate %}
+                                            {{ fee.rate }}
                                         {% elif FS and fee.description in FS %}
                                             {{ FS|get_item:fee.description }}
                                         {% else %}
@@ -611,7 +611,7 @@
                                                 </span>
                                             </div>
                                             <div class="fee-cell">
-                                                {% if not is_confirm %}
+                                                {% if not is_save_invoice %}
                                                     {% if pallet_details %}
                                                         <select class="supplier-select" id="select_carrier"
                                                                 onchange="updateUnloadingFee(this)">
@@ -632,12 +632,12 @@
                                                 {% endif %}
                                             </div>
                                             <div class="fee-cell">
-                                                {% if not is_confirm %}
+                                                {% if not is_save_invoice %}
                                                     <input type="number" step="0.01"
                                                            class="input-field fee-amount-input"
                                                            name="palletization_fee" id="palletization_fee_input"
-                                                            {% if fee.reference_price %}
-                                                           value="{{ fee.reference_price }}"
+                                                            {% if fee.rate %}
+                                                           value="{{ fee.rate }}"
                                                             {% elif FS and fee.description in FS %}
                                                            value="{{ FS|get_item:fee.description }}"
                                                             {% else %}
@@ -645,8 +645,8 @@
                                                             {% endif %} oninput="calculateTotal()">
                                                 {% else %}
                                                     <span class="amount-display">
-                                                {% if fee.reference_price %}
-                                                    {{ fee.reference_price }}
+                                                {% if fee.rate %}
+                                                    {{ fee.rate }}
                                                 {% elif FS and fee.description in FS %}
                                                     {{ FS|get_item:fee.description }}
                                                 {% else %}
@@ -680,11 +680,11 @@
                                             <span class="reference-info">基础费用</span>
                                         </div>
                                         <div class="fee-cell">
-                                            {% if not is_confirm %}
+                                            {% if not is_save_invoice %}
                                                 <input type="number" step="0.01" class="input-field fee-amount-input"
                                                        name="arrive_fee"
-                                                        {% if fee.reference_price %}
-                                                       value="{{ fee.reference_price }}"
+                                                        {% if fee.rate %}
+                                                       value="{{ fee.rate }}"
                                                         {% elif FS and fee.description in FS %}
                                                        value="{{ FS|get_item:fee.description }}"
                                                         {% else %}
@@ -692,8 +692,8 @@
                                                         {% endif %} oninput="calculateTotal()">
                                             {% else %}
                                                 <span class="amount-display">
-                                        {% if fee.reference_price %}
-                                            {{ fee.reference_price }}
+                                        {% if fee.rate %}
+                                            {{ fee.rate }}
                                         {% elif FS and fee.description in FS %}
                                             {{ FS|get_item:fee.description }}
                                         {% else %}
@@ -726,13 +726,13 @@
                                         </span>
                                     </div>
                                     <div class="fee-cell">
-                                        {% if not is_confirm %}
+                                        {% if not is_save_invoice %}
                                             <input type="text" class="input-field fee-amount-input"
                                                    name="overweight_fee" value="{{ overweight_fee|default:0.00 }}"
                                                    oninput="calculateTotal()">
                                         {% else %}
-                                            {% if overweight_fee %}
-                                                <span class="amount-display">{{ overweight_fee }}</span>
+                                            {% if fee.rate %}
+                                                <span class="amount-display">{{ fee.rate }}</span>
                                             {% else %}
                                                 <span class="amount-display amount-zero">0.00</span>
                                             {% endif %}
@@ -779,13 +779,13 @@
                                         {% endif %}
                                     </div>
                                     <div class="fee-cell">
-                                        {% if not is_confirm and actual_day and preport_carrier != '东海岸' %}
+                                        {% if not is_save_invoice and actual_day and preport_carrier != '东海岸' %}
                                             <input type="number" step="0.01" class="input-field fee-amount-input"
                                                    name="chassis_fee" value="{{ chassis_fee|default:0 }}"
                                                    oninput="calculateTotal()">
                                         {% else %}
-                                            {% if chassis_fee %}
-                                                <span class="amount-display">{{ chassis_fee|floatformat:2 }}</span>
+                                            {% if fee.rate %}
+                                                <span class="amount-display">{{ fee.rate }}</span>
                                             {% else %}
                                                 <span class="amount-display amount-zero">0.00</span>
                                             {% endif %}
@@ -812,11 +812,11 @@
                                         <span class="reference-info">港内滞港费</span>
                                     </div>
                                     <div class="fee-cell">
-                                        {% if not is_confirm %}
+                                        {% if not is_save_invoice %}
                                             <input type="number" step="0.01" class="input-field fee-amount-input"
                                                    name="demurrage_fee"
-                                                    {% if fee.reference_price %}
-                                                   value="{{ fee.reference_price }}"
+                                                    {% if fee.rate %}
+                                                   value="{{ fee.rate }}"
                                                     {% elif FS and fee.description in FS %}
                                                    value="{{ FS|get_item:fee.description }}"
                                                     {% else %}
@@ -852,11 +852,11 @@
                                         <span class="reference-info">港外滞箱费</span>
                                     </div>
                                     <div class="fee-cell">
-                                        {% if not is_confirm %}
+                                        {% if not is_save_invoice %}
                                             <input type="number" step="0.01" class="input-field fee-amount-input"
                                                    name="per_diem_fee"
-                                                    {% if fee.reference_price %}
-                                                   value="{{ fee.reference_price }}"
+                                                    {% if fee.rate %}
+                                                   value="{{ fee.rate }}"
                                                     {% elif FS and fee.description in FS %}
                                                    value="{{ FS|get_item:fee.description }}"
                                                     {% else %}
@@ -895,16 +895,26 @@
                         </button>
                     </div>
                     <div class="additional-fee-body" id="pickup-fees-container">
-                        <div class="fee-group">
-                            {% if "提柜其他费用" in fee.description%}
-                                <input type="text" class="input-field" name="pickup_fee_name[]"
-                                       value="{{ fee.description }}" placeholder="费用名称">
-                                <input type="number" step="0.01" class="input-field fee-amount-input"
-                                    name="pickup_fee_amount[]" value="{{ fee.rate|floatformat:2 }}"
-                                    placeholder="金额" oninput="calculateTotal()">
-                                <button type="button" class="remove-btn" onclick="removeFeeGroup(this)">×</button>
+                        {% for fee in fee_data %}
+                            {% if "提柜其他费用" in fee.description %}
+                                <div class="fee-group">
+                                    <input type="text" class="input-field" name="pickup_fee_name[]"
+                                           value="{{ fee.description }}" placeholder="费用名称">
+                                    <input type="number" step="0.01" class="input-field fee-amount-input"
+                                           name="pickup_fee_amount[]" value="{{ fee.rate|floatformat:2 }}"
+                                           placeholder="金额" oninput="calculateTotal()">
+                                    <button type="button" class="remove-btn" onclick="removeFeeGroup(this)">×</button>
+                                </div>
                             {% endif %}
-                        </div>
+                        {% empty %}
+                            <!-- 无数据时显示空的费用组 -->
+                            <div class="fee-group">
+                                <input type="text" class="input-field" name="pickup_fee_name[]" placeholder="费用名称">
+                                <input type="number" step="0.01" class="input-field fee-amount-input"
+                                       name="pickup_fee_amount[]" placeholder="金额" oninput="calculateTotal()">
+                                <button type="button" class="remove-btn" onclick="removeFeeGroup(this)">×</button>
+                            </div>
+                        {% endfor %}
                     </div>
                 </div>
 
@@ -914,21 +924,32 @@
                         <div class="additional-fee-title">
                             <i class="bi bi-box-seam"></i> 拆柜其他费用
                         </div>
-                        <button type="button" class="add-fee-btn" style="background-color: #ffa940;" onclick="addFeeGroup('pallet')">
+                        <button type="button" class="add-fee-btn" style="background-color: #ffa940;"
+                                onclick="addFeeGroup('pallet')">
                             <i class="bi bi-plus"></i> 添加费用
                         </button>
                     </div>
                     <div class="additional-fee-body" id="pallet-fees-container">
-                        <div class="fee-group">
-                            {% if "拆柜其他费用" in fee.description%}
-                                <input type="text" class="input-field" name="pallet_fee_name[]"
-                                    value="{{ fee_name }}" placeholder="费用名称">
-                                <input type="number" step="0.01" class="input-field fee-amount-input"
-                                    name="pallet_fee_amount[]" value="{{ fee_amount|floatformat:2 }}"
-                                    placeholder="金额" oninput="calculateTotal()">
-                                <button type="button" class="remove-btn" onclick="removeFeeGroup(this)">×</button>
+                        {% for fee in fee_data %}
+                            {% if "拆柜其他费用" in fee.description %}
+                                <div class="fee-group">
+                                    <input type="text" class="input-field" name="pallet_fee_name[]"
+                                           value="{{ fee.description }}" placeholder="费用名称">
+                                    <input type="number" step="0.01" class="input-field fee-amount-input"
+                                           name="pallet_fee_amount[]" value="{{ fee.rate|floatformat:2 }}"
+                                           placeholder="金额" oninput="calculateTotal()">
+                                    <button type="button" class="remove-btn" onclick="removeFeeGroup(this)">×</button>
+                                </div>
                             {% endif %}
-                        </div>
+                        {% empty %}
+                            <!-- 无数据时显示空的费用组 -->
+                            <div class="fee-group">
+                                <input type="text" class="input-field" name="pallet_fee_name[]" placeholder="费用名称">
+                                <input type="number" step="0.01" class="input-field fee-amount-input"
+                                       name="pallet_fee_amount[]" placeholder="金额" oninput="calculateTotal()">
+                                <button type="button" class="remove-btn" onclick="removeFeeGroup(this)">×</button>
+                            </div>
+                        {% endfor %}
                     </div>
                 </div>
             </div>
@@ -967,8 +988,25 @@
                             </div>
                         </div>
                     </div>
+                {% elif is_save_invoice and is_finance %}
+                    <!-- 待审核 -->
+                    {% if user_is_leader %}
+                        <!-- 待审核页面（组长看到的审核按钮） -->
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <button type="submit" class="btn btn-danger" onclick="modifyStatus('reject')">
+                                <i class="bi bi-x-circle"></i> 财务审核驳回
+                            </button>
+
+                            <input type="text" class="reject-reason-input"
+                                placeholder="请输入驳回原因" name="reject_reason">
+
+                            <button type="submit" class="btn btn-success" onclick="modifyStatus('confirmed_finance')">
+                                <i class="bi bi-check-circle"></i> 财务审核通过
+                            </button>
+                        </div>
+                    {% endif %}
                 {% else %}
-                    <!-- 待审核/待录入页面 -->
+                    <!-- 待录入页面 -->
                     {% if user_is_leader %}
                         <!-- 待审核页面（组长看到的审核按钮） -->
                         <div style="display: flex; align-items: center; gap: 10px;">
@@ -1060,37 +1098,34 @@
     function calculateTotal() {
         let total = 0;
 
-        // 基础费用
-        const feeFields = [
-            'basic_fee',
-            'overweight_fee',
-            'chassis_fee',
-            'arrive_fee',
-            'palletization_fee',
-            'demurrage_fee',
-            'per_diem_fee'
-        ];
-
-        feeFields.forEach(field => {
-            const input = document.querySelector(`input[name="${field}"]`);
-            if (input && input.value) {
+        // ========== 1. 计算费用明细中的所有输入框金额（兼容隐藏/未渲染的输入框） ==========
+        // 方式1：通过类名获取所有费用输入框（更可靠，避免漏项）
+        document.querySelectorAll('.fee-amount-input').forEach(input => {
+            // 只计算可见的输入框，排除隐藏的
+            if (input.offsetParent !== null && input.value.trim() !== '') {
                 total += parseFloat(input.value) || 0;
             }
         });
 
-        // 其他费用
-        document.querySelectorAll('input[name="pickup_fee_amount[]"]').forEach(input => {
-            total += parseFloat(input.value) || 0;
+        // ========== 2. 兼容已保存状态的静态金额（非输入框） ==========
+        // 处理已保存状态下的静态金额（如超重费、车架费等显示为文本的情况）
+        document.querySelectorAll('.amount-display:not(.amount-zero)').forEach(display => {
+            // 排除其他费用区域外的静态金额（避免重复计算）
+            if (!display.closest('.additional-fee-card') && display.textContent.trim() !== '-') {
+                total += parseFloat(display.textContent) || 0;
+            }
         });
 
-        document.querySelectorAll('input[name="pallet_fee_amount[]"]').forEach(input => {
-            total += parseFloat(input.value) || 0;
-        });
-
-        // 更新显示和隐藏字段
+        // ========== 3. 格式化并更新总金额 ==========
         const formattedTotal = total.toFixed(2);
         document.getElementById('totalAmountDisplay').textContent = formattedTotal;
         document.getElementById('total_amount_input').value = formattedTotal;
+
+        // 调试日志（可选，方便排查）
+        console.log('总金额计算：', {
+            计算总额: total,
+            格式化后: formattedTotal
+        });
     }
 </script>
 {% endblock %}
