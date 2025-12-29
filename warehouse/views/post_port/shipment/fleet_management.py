@@ -129,6 +129,7 @@ class FleetManagement(View):
     }
     carrier_options = {
         "": "",
+        "大森林": "大森林",
         "Arm-AMF": "Arm-AMF",
         "Zem-AMF": "Zem-AMF",
         "ASH": "ASH",
