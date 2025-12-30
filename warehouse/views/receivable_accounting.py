@@ -3681,7 +3681,7 @@ class ReceivableAccounting(View):
         # 如果所有PO都已录入，直接返回已有数据
         if existing_items:
             result_existing = self._separate_existing_items(existing_items, pallet_groups)
-            unbilled_groups = [g for g in pallet_groups if g.get("PO_ID") not in existing_items]
+            unbilled_groups = [g for g in pallet_groups if g.get("PO_ID") and g.get("shipping_mark") not in existing_items]
         else:
             result_existing = {
                 "normal_items": [],
