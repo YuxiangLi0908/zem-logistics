@@ -4069,7 +4069,7 @@ class ReceivableAccounting(View):
                 if isinstance(combina_result, dict) and combina_result.get('error_messages'):
                     return combina_result
                 
-                result["combina_groups"] = combina_result.get("groups", {})
+                result["combina_groups"] = combina_result.get("groups", [])
                 # 合并组合柜数据
                 new_items = combina_result.get("items", [])
                 processed_po_ids = set(combina_result.get("processed_po_ids", []))
@@ -4086,7 +4086,6 @@ class ReceivableAccounting(View):
                 result["combina_info"] = combina_result.get("info", {})
                 # 从待处理的pallet_groups中移除已处理的组合柜记录
                 pallet_groups = [g for g in pallet_groups if g.get("PO_ID") not in processed_po_ids]
-        print('pallet_groups',pallet_groups)
 
         # 处理未录入的PO
         if pallet_groups:
