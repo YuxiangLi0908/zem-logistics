@@ -4069,10 +4069,7 @@ class ReceivableAccounting(View):
                 if isinstance(combina_result, dict) and combina_result.get('error_messages'):
                     return combina_result
                 
-                try:
-                    result["combina_groups"] = combina_result['groups']
-                except Exception as e:
-                    raise KeyError(f"Error accessing 'groups' in combina_result: {e}\n{combina_result}")
+                result["combina_groups"] = combina_result.get("groups", {})
                 # 合并组合柜数据
                 new_items = combina_result.get("items", [])
                 processed_po_ids = set(combina_result.get("processed_po_ids", []))
@@ -4086,7 +4083,7 @@ class ReceivableAccounting(View):
                             combina_items_by_region[region] = []
                         combina_items_by_region[region].append(item)
                 
-                result["combina_info"] = combina_result.get("info", {})           
+                result["combina_info"] = combina_result.get("info", {})
                 # 从待处理的pallet_groups中移除已处理的组合柜记录
                 pallet_groups = [g for g in pallet_groups if g.get("PO_ID") not in processed_po_ids]
         print('pallet_groups',pallet_groups)
@@ -4278,7 +4275,7 @@ class ReceivableAccounting(View):
         # 如果没有组合区域，直接返回原数据和空列表，都按转运算
         if not combina_pallet_groups:
             return {"items": [], "info": {}}
-        
+
         # 3. 计算组合柜每目的地 CBM（保留两位小数）
         combina_destinations_cbm = {}  # 记录每个目的地的CBM
         total_combina_pallets = 0
