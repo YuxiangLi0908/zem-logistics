@@ -406,7 +406,7 @@ class ShippingManagement(View):
             Shipment.objects.prefetch_related(
                 "packinglist",
                 "packinglist__container_number",
-                "packinglist__container_number__order",
+                "packinglist__container_number__orders",
                 "packinglist__container_number__orders__warehouse",
                 "order",
                 "pallet",
@@ -1033,7 +1033,7 @@ class ShippingManagement(View):
             Shipment.objects.prefetch_related(
                 "packinglist",
                 "packinglist__container_number",
-                "packinglist__container_number__order",
+                "packinglist__container_number__orders",
                 "packinglist__container_number__orders__warehouse",
                 "order",
                 "pallet",
