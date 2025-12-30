@@ -574,8 +574,7 @@
                         <th class="th narrow-input-wide">目的地</th>
                         <th class="th narrow-input">CBM</th>
                         <th class="th narrow-input">重量</th>
-                        <!-- 修改1：给派送类型表头添加标识类 -->
-                        <th class="th delivery-type-select {% for item in delivery_items %}{% if item.item_category == 'delivery_other' %}delivery-type-hidden{% endif %}{% endfor %}" id="delivery-type-th">
+                        <th class="th delivery-type-select">
                             派送类型（不显示）
                         </th>
                         <th class="th narrow-input">数量</th>
@@ -625,16 +624,25 @@
                                    value="{{ item.weight|default:0 }}" step="0.01" min="0"
                                    placeholder="0.00">
                         </td>
-                        <!-- 修改2：给派送类型单元格添加条件隐藏类 -->
-                        <td class="td {% if item.item_category == 'delivery_other' %}delivery-type-hidden{% endif %}" id="delivery-type-td-{{ forloop.counter0 }}">
-                            <select class="select-control delivery-type-select item-delivery-type"
-                                    onchange="updateQtyDisplay(this)">
-                                <option value="">请选择</option>
-                                <option value="amazon" {% if item.delivery_type == 'amazon' %}selected{% endif %}>亚马逊</option>
-                                <option value="combine" {% if item.delivery_type == 'combine' %}selected{% endif %}>组合柜</option>
-                                <option value="walmart" {% if item.delivery_type == 'walmart' %}selected{% endif %}>沃尔玛</option>
-                                <option value="upsdelivery" {% if item.delivery_type == 'upsdelivery' %}selected{% endif %}>快递</option>
-                            </select>
+                        <td class="td">
+                            {% if item.item_category != 'delivery_other' %}
+                                <select class="select-control delivery-type-select item-delivery-type"
+                                        onchange="updateQtyDisplay(this)">
+                                    <option value="">请选择</option>
+                                    <option value="amazon" {% if item.delivery_type == 'amazon' %}selected{% endif %}>
+                                        亚马逊
+                                    </option>
+                                    <option value="combine" {% if item.delivery_type == 'combine' %}selected{% endif %}>
+                                        组合柜
+                                    </option>
+                                    <option value="walmart" {% if item.delivery_type == 'walmart' %}selected{% endif %}>
+                                        沃尔玛
+                                    </option>
+                                    <option value="upsdelivery"
+                                            {% if item.delivery_type == 'upsdelivery' %}selected{% endif %}>快递
+                                    </option>
+                                </select>
+                            {% endif %}
                         </td>
                         <td class="td">
                             {% if item.delivery_type == 'combine' %}
