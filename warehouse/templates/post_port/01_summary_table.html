@@ -407,8 +407,8 @@
                         <input type="hidden" name="pl_ids" value='{{ c.ids }}'>
                         <input type="hidden" name="plt_ids" value='{{ c.plt_ids }}'>
                     </td>
-                    <td title="{{ c.location|default:c.container_number__order__warehouse__name }}">{{ c.location|default:c.container_number__order__warehouse__name }}</td>
-                    <td title="{{ c.container_number__order__customer_name__zem_name }}">{{ c.container_number__order__customer_name__zem_name }}</td>
+                    <td title="{{ c.location|default:c.container_number__orders__warehouse__name }}">{{ c.location|default:c.container_number__orders__warehouse__name }}</td>
+                    <td title="{{ c.container_number__orders__customer_name__zem_name }}">{{ c.container_number__orders__customer_name__zem_name }}</td>
                     <td title="{{ c.container_number__container_number }}">{{ c.container_number__container_number }}</td>
                     <td name="po-destination" title="{{ c.destination }}">
                         {{ c.destination }}
@@ -449,16 +449,16 @@
                     </td>
                     <td>{{ c.total_pcs }}</td>
                     <td>{{ c.total_weight_lbs|floatformat:2 }}</td>
-                    <td>{{ c.container_number__order__vessel_id__vessel_eta|date:"M-j" }}</td>
+                    <td>{{ c.container_number__orders__vessel_id__vessel_eta|date:"M-j" }}</td>
                     <td>
-                        {% if c.container_number__order__retrieval_id__actual_retrieval_timestamp %}
-                        {{ c.container_number__order__retrieval_id__actual_retrieval_timestamp|date:"M-j" }}
-                        {% elif c.container_number__order__retrieval_id__target_retrieval_timestamp %}
+                        {% if c.container_number__orders__retrieval_id__actual_retrieval_timestamp %}
+                        {{ c.container_number__orders__retrieval_id__actual_retrieval_timestamp|date:"M-j" }}
+                        {% elif c.container_number__orders__retrieval_id__target_retrieval_timestamp %}
                         <span class="status-span-blue-100">EST</span>
-                        {{ c.container_number__order__retrieval_id__target_retrieval_timestamp|date:"M-j" }}
+                        {{ c.container_number__orders__retrieval_id__target_retrieval_timestamp|date:"M-j" }}
                         {% endif %}
                     </td>
-                    <td>{{ c.container_number__order__offload_id__offload_at|date:"M-j" }}</td>
+                    <td>{{ c.container_number__orders__offload_id__offload_at|date:"M-j" }}</td>
                     <td title="{{ c.shipment_batch_number__shipment_batch_number|default_if_none:'' }}">
                         <a href="javascript:void(0)" onclick="exportShipmentBol('{{ c.shipment_batch_number__shipment_batch_number }}')">
                             {{ c.shipment_batch_number__shipment_batch_number|default_if_none:"" }}

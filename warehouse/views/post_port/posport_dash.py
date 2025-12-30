@@ -147,12 +147,12 @@ class PostportDash(View):
         )
         criteria = models.Q(
             (
-                models.Q(container_number__order__order_type="转运")
-                | models.Q(container_number__order__order_type="转运组合")
+                models.Q(container_number__orders__order_type="转运")
+                | models.Q(container_number__orders__order_type="转运组合")
             ),
-            container_number__order__packing_list_updloaded=True,
-            container_number__order__created_at__gte="2024-09-01",
-            container_number__order__cancel_notification=False,
+            container_number__orders__packing_list_updloaded=True,
+            container_number__orders__created_at__gte="2024-09-01",
+            container_number__orders__cancel_notification=False,
         )
         if (
             shipment_batch_number
@@ -179,66 +179,66 @@ class PostportDash(View):
             elif destination:
                 pl_criteria = models.Q(destination=destination)
                 plt_criteria = models.Q(
-                    container_number__order__offload_id__offload_at__isnull=True,  # 如果是查预报的仓点，就不看板子，所以这里加了一个不成立的条件
+                    container_number__orders__offload_id__offload_at__isnull=True,  # 如果是查预报的仓点，就不看板子，所以这里加了一个不成立的条件
                     container_number__container_number="0",
                 )
             elif act_destination:
                 pl_criteria = models.Q(
                     destination=act_destination,
-                    container_number__order__offload_id__offload_at__isnull=True,
+                    container_number__orders__offload_id__offload_at__isnull=True,
                 )
                 plt_criteria = models.Q(
                     destination=act_destination,
-                    container_number__order__offload_id__offload_at__isnull=False,
+                    container_number__orders__offload_id__offload_at__isnull=False,
                 )
             elif shipping_marks:
                 pl_criteria = models.Q(
                     shipping_mark__contains=shipping_marks,
-                    container_number__order__offload_id__offload_at__isnull=True,
+                    container_number__orders__offload_id__offload_at__isnull=True,
                 )
                 plt_criteria = models.Q(
                     shipping_mark__contains=shipping_marks,
-                    container_number__order__offload_id__offload_at__isnull=False,
+                    container_number__orders__offload_id__offload_at__isnull=False,
                 )
             elif fba_ids:
                 pl_criteria = models.Q(
                     fba_id__contains=fba_ids,
-                    container_number__order__offload_id__offload_at__isnull=True,
+                    container_number__orders__offload_id__offload_at__isnull=True,
                 )
                 plt_criteria = models.Q(
                     fba_id__contains=fba_ids,
-                    container_number__order__offload_id__offload_at__isnull=False,
+                    container_number__orders__offload_id__offload_at__isnull=False,
                 )
             elif ref_ids:
                 pl_criteria = models.Q(
                     ref_id__contains=ref_ids,
-                    container_number__order__offload_id__offload_at__isnull=True,
+                    container_number__orders__offload_id__offload_at__isnull=True,
                 )
                 plt_criteria = models.Q(
                     ref_id__contains=ref_ids,
-                    container_number__order__offload_id__offload_at__isnull=False,
+                    container_number__orders__offload_id__offload_at__isnull=False,
                 )
             if not destination and not shipping_marks and not fba_ids and not ref_ids and not act_destination:
                 pl_criteria = criteria & models.Q(
-                    container_number__order__offload_id__offload_at__isnull=True,
+                    container_number__orders__offload_id__offload_at__isnull=True,
                 )
                 plt_criteria = criteria & models.Q(
-                    container_number__order__offload_id__offload_at__isnull=False,
+                    container_number__orders__offload_id__offload_at__isnull=False,
                 )
             context = {
                 "area_options": self.area_options,
             }
         else:
             pl_criteria = criteria & models.Q(
-                container_number__order__vessel_id__vessel_eta__gte=start_date,
-                container_number__order__vessel_id__vessel_eta__lte=end_date,
-                container_number__order__offload_id__offload_at__isnull=True,
-                container_number__order__retrieval_id__retrieval_destination_area=area,
+                container_number__orders__vessel_id__vessel_eta__gte=start_date,
+                container_number__orders__vessel_id__vessel_eta__lte=end_date,
+                container_number__orders__offload_id__offload_at__isnull=True,
+                container_number__orders__retrieval_id__retrieval_destination_area=area,
             )
             plt_criteria = criteria & models.Q(
-                container_number__order__vessel_id__vessel_eta__gte=start_date,
-                container_number__order__vessel_id__vessel_eta__lte=end_date,
-                container_number__order__offload_id__offload_at__isnull=False,
+                container_number__orders__vessel_id__vessel_eta__gte=start_date,
+                container_number__orders__vessel_id__vessel_eta__lte=end_date,
+                container_number__orders__offload_id__offload_at__isnull=False,
                 location__startswith=area,
             )
             context = {
@@ -307,16 +307,16 @@ class PostportDash(View):
                     else:
                         n_pallet = n_pallet_est // 1
                 if pl.get(
-                    "container_number__order__retrieval_id__actual_retrieval_timestamp"
+                    "container_number__orders__retrieval_id__actual_retrieval_timestamp"
                 ):
                     retrieval_datetime = pl.get(
-                        "container_number__order__retrieval_id__actual_retrieval_timestamp"
+                        "container_number__orders__retrieval_id__actual_retrieval_timestamp"
                     ).strftime("%Y-%m-%d %H:%M:%S")
                 elif pl.get(
-                    "container_number__order__retrieval_id__target_retrieval_timestamp"
+                    "container_number__orders__retrieval_id__target_retrieval_timestamp"
                 ):
                     retrieval_datetime = pl.get(
-                        "container_number__order__retrieval_id__target_retrieval_timestamp"
+                        "container_number__orders__retrieval_id__target_retrieval_timestamp"
                     ).strftime("%Y-%m-%d %H:%M:%S")
                 else:
                     retrieval_datetime = ""
@@ -332,7 +332,7 @@ class PostportDash(View):
                     {
                         "所属仓库": pl.get("warehouse"),
                         "客户": pl.get(
-                            "container_number__order__customer_name__zem_name"
+                            "container_number__orders__customer_name__zem_name"
                         ),
                         "货柜号": pl.get("container_number__container_number"),
                         "仓点": pl.get("destination"),
@@ -343,17 +343,17 @@ class PostportDash(View):
                         "总重lbs": pl.get("total_weight_lbs"),
                         "ETA": (
                             pl.get(
-                                "container_number__order__vessel_id__vessel_eta"
+                                "container_number__orders__vessel_id__vessel_eta"
                             ).replace(tzinfo=None)
-                            if pl.get("container_number__order__vessel_id__vessel_eta")
+                            if pl.get("container_number__orders__vessel_id__vessel_eta")
                             else None
                         ),
                         "提柜时间": retrieval_datetime,
                         "入仓时间": (
                             pl.get(
-                                "container_number__order__offload_id__offload_at"
+                                "container_number__orders__offload_id__offload_at"
                             ).strftime("%Y-%m-%d %H:%M:%S")
-                            if pl.get("container_number__order__offload_id__offload_at")
+                            if pl.get("container_number__orders__offload_id__offload_at")
                             else ""
                         ),
                         "预约批次": pl.get(
@@ -403,19 +403,19 @@ class PostportDash(View):
             Pallet.objects.prefetch_related(
                 "container_number",
                 "container_number__order",
-                "container_number__order__warehouse",
+                "container_number__orders__warehouse",
                 "shipment_batch_number",
-                "container_number__order__offload_id",
-                "container_number__order__customer_name",
-                "container_number__order__retrieval_id",
-                "container_number__order__vessel_id",
+                "container_number__orders__offload_id",
+                "container_number__orders__customer_name",
+                "container_number__orders__retrieval_id",
+                "container_number__orders__vessel_id",
             )
             .filter(plt_criteria)
             .annotate(
                 schedule_status=Case(
                     When(
                         Q(
-                            container_number__order__offload_id__offload_at__lte=datetime.now().date()
+                            container_number__orders__offload_id__offload_at__lte=datetime.now().date()
                             + timedelta(days=-7)
                         ),
                         then=Value("past_due"),
@@ -427,16 +427,16 @@ class PostportDash(View):
             )
             .values(
                 "container_number__container_number",
-                "container_number__order__customer_name__zem_name",
-                "container_number__order__warehouse__name",
+                "container_number__orders__customer_name__zem_name",
+                "container_number__orders__warehouse__name",
                 "destination",
                 "PO_ID",
                 "address",
                 "delivery_method",
-                "container_number__order__offload_id__offload_at",
-                "container_number__order__retrieval_id__target_retrieval_timestamp",
-                "container_number__order__retrieval_id__actual_retrieval_timestamp",
-                "container_number__order__vessel_id__vessel_eta",
+                "container_number__orders__offload_id__offload_at",
+                "container_number__orders__retrieval_id__target_retrieval_timestamp",
+                "container_number__orders__retrieval_id__actual_retrieval_timestamp",
+                "container_number__orders__vessel_id__vessel_eta",
                 "schedule_status",
                 "abnormal_palletization",
                 "po_expired",
@@ -447,7 +447,7 @@ class PostportDash(View):
                 "shipment_batch_number__arrived_at",
                 "shipment_batch_number__pod_link",
                 warehouse=F(
-                    "container_number__order__retrieval_id__retrieval_destination_precise"
+                    "container_number__orders__retrieval_id__retrieval_destination_precise"
                 ),
             )
             .annotate(
@@ -464,7 +464,7 @@ class PostportDash(View):
                 total_n_pallet_act=Count("pallet_id", distinct=True),
                 label=Value("ACT"),
             )
-            .order_by("container_number__order__offload_id__offload_at")
+            .order_by("container_number__orders__offload_id__offload_at")
         )
         # for p in pal_list:
         #     try:
@@ -492,13 +492,13 @@ class PostportDash(View):
                 PackingList.objects.prefetch_related(
                     "container_number",
                     "container_number__order",
-                    "container_number__order__warehouse",
+                    "container_number__orders__warehouse",
                     "shipment_batch_number",
-                    "container_number__order__offload_id",
-                    "container_number__order__customer_name",
+                    "container_number__orders__offload_id",
+                    "container_number__orders__customer_name",
                     "pallet",
-                    "container_number__order__retrieval_id",
-                    "container_number__order__vessel_id",
+                    "container_number__orders__retrieval_id",
+                    "container_number__orders__vessel_id",
                 )
                 .filter(pl_criteria)
                 .annotate(
@@ -520,7 +520,7 @@ class PostportDash(View):
                     schedule_status=Case(
                         When(
                             Q(
-                                container_number__order__offload_id__offload_at__lte=datetime.now().date()
+                                container_number__orders__offload_id__offload_at__lte=datetime.now().date()
                                 + timedelta(days=-7)
                             ),
                             then=Value("past_due"),
@@ -535,22 +535,22 @@ class PostportDash(View):
                 )
                 .values(
                     "container_number__container_number",
-                    "container_number__order__customer_name__zem_name",
-                    "container_number__order__warehouse__name",
+                    "container_number__orders__customer_name__zem_name",
+                    "container_number__orders__warehouse__name",
                     "destination",
                     "PO_ID",
                     "address",
                     "custom_delivery_method",
-                    "container_number__order__offload_id__offload_at",
-                    "container_number__order__retrieval_id__target_retrieval_timestamp",
-                    "container_number__order__retrieval_id__actual_retrieval_timestamp",
-                    "container_number__order__vessel_id__vessel_eta",
+                    "container_number__orders__offload_id__offload_at",
+                    "container_number__orders__retrieval_id__target_retrieval_timestamp",
+                    "container_number__orders__retrieval_id__actual_retrieval_timestamp",
+                    "container_number__orders__vessel_id__vessel_eta",
                     "schedule_status",
                     "shipment_batch_number__shipment_batch_number",
                     "shipment_batch_number__appointment_id",
                     "shipment_batch_number__shipment_appointment",
                     warehouse=F(
-                        "container_number__order__retrieval_id__retrieval_destination_precise"
+                        "container_number__orders__retrieval_id__retrieval_destination_precise"
                     ),
                 )
                 .annotate(

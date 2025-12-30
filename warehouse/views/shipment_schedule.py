@@ -75,11 +75,11 @@ class ScheduleShipment(View):
         destination = request.GET.get("destination")
         packing_list = PackingList.objects.select_related(
             "container_number",
-            "container_number__order__warehouse",
+            "container_number__orders__warehouse",
             "shipment_batch_number",
-            "container_number__order__customer_name",
+            "container_number__orders__customer_name",
         ).filter(
-            container_number__order__warehouse__name=warehouse,
+            container_number__orders__warehouse__name=warehouse,
             destination=destination,
             n_pallet__isnull=False,
             shipment_batch_number__isnull=True,
@@ -96,7 +96,7 @@ class ScheduleShipment(View):
             "cbm",
             "n_pallet",
             "container_number__container_number",
-            customer_name=models.F("container_number__order__customer_name__zem_name"),
+            customer_name=models.F("container_number__orders__customer_name__zem_name"),
         ).order_by("-n_pallet")
         order_packing_list = []
         for pl in packing_list:
@@ -170,8 +170,8 @@ class ScheduleShipment(View):
             packling_list = (
                 PackingList.objects.select_related(
                     "container_number",
-                    "container_number__order__customer_name",
-                    "container_number__order__offload_id",
+                    "container_number__orders__customer_name",
+                    "container_number__orders__offload_id",
                     "pallet",
                 )
                 .filter(id__in=selected)
@@ -184,8 +184,8 @@ class ScheduleShipment(View):
                     "destination",
                     "delivery_method",
                     "container_number__container_number",
-                    "container_number__order__customer_name__zem_name",
-                    "container_number__order__offload_id__offload_at",
+                    "container_number__orders__customer_name__zem_name",
+                    "container_number__orders__offload_id__offload_at",
                 )
                 .annotate(
                     total_pcs=Sum("pallet__pcs", output_field=IntegerField()),
@@ -359,16 +359,16 @@ class ScheduleShipment(View):
             PackingList.objects.select_related(
                 "container_number",
                 "container_number__order",
-                "container_number__order__warehouse",
+                "container_number__orders__warehouse",
                 "shipment_batch_number",
-                "container_number__order__offload_id",
-                "container_number__order__customer_name",
+                "container_number__orders__offload_id",
+                "container_number__orders__customer_name",
                 "pallet",
             )
             .filter(
-                models.Q(container_number__order__warehouse__name=warehouse)
+                models.Q(container_number__orders__warehouse__name=warehouse)
                 & models.Q(
-                    container_number__order__offload_id__total_pallet__isnull=False
+                    container_number__orders__offload_id__total_pallet__isnull=False
                 )
                 & models.Q(shipment_batch_number__isnull=True)
             )
@@ -390,11 +390,11 @@ class ScheduleShipment(View):
             )
             .values(
                 "container_number__container_number",
-                "container_number__order__customer_name__zem_name",
+                "container_number__orders__customer_name__zem_name",
                 "destination",
                 "address",
                 "custom_delivery_method",
-                "container_number__order__offload_id__offload_at",
+                "container_number__orders__offload_id__offload_at",
             )
             .annotate(
                 fba_ids=StringAgg(

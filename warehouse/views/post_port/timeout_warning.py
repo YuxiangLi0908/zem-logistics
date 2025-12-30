@@ -186,18 +186,18 @@ class TimeoutWarning(View):
             Pallet.objects.prefetch_related(
                 "container_number",
                 "container_number__order",
-                "container_number__order__warehouse",
-                "shipment_batch_number" "container_number__order__offload_id",
-                "container_number__order__customer_name",
-                "container_number__order__retrieval_id",
-                "container_number__order__vessel_id",
+                "container_number__orders__warehouse",
+                "shipment_batch_number" "container_number__orders__offload_id",
+                "container_number__orders__customer_name",
+                "container_number__orders__retrieval_id",
+                "container_number__orders__vessel_id",
             )
             .filter(
                 models.Q(
-                    container_number__order__offload_id__offload_at__lte=three_weeks_ago
+                    container_number__orders__offload_id__offload_at__lte=three_weeks_ago
                 )
                 & models.Q(
-                    container_number__order__offload_id__offload_at__gte="2025-02-01"
+                    container_number__orders__offload_id__offload_at__gte="2025-02-01"
                 )
                 & models.Q(shipment_batch_number__shipment_batch_number__isnull=True)
                 & ~Q(delivery_method="暂扣留仓(HOLD)")
@@ -207,7 +207,7 @@ class TimeoutWarning(View):
                 schedule_status=Case(
                     When(
                         Q(
-                            container_number__order__offload_id__offload_at__lte=datetime.now().date()
+                            container_number__orders__offload_id__offload_at__lte=datetime.now().date()
                             + timedelta(days=-7)
                         ),
                         then=Value("past_due"),
@@ -223,24 +223,24 @@ class TimeoutWarning(View):
             )
             .values(
                 "container_number__container_number",
-                "container_number__order__customer_name__zem_name",
+                "container_number__orders__customer_name__zem_name",
                 "destination",
                 "location",
                 "address",
                 "delivery_method",
-                "container_number__order__offload_id__offload_at",
+                "container_number__orders__offload_id__offload_at",
                 "schedule_status",
                 "abnormal_palletization",
                 "po_expired",
-                "container_number__order__vessel_id__vessel_eta",
+                "container_number__orders__vessel_id__vessel_eta",
                 "sequence_number",
                 "PO_ID",
                 warehouse=F(
-                    "container_number__order__retrieval_id__retrieval_destination_precise"
+                    "container_number__orders__retrieval_id__retrieval_destination_precise"
                 ),
             )
             .annotate(
-                eta=F("container_number__order__vessel_id__vessel_eta"),
+                eta=F("container_number__orders__vessel_id__vessel_eta"),
                 custom_delivery_method=F("delivery_method"),
                 fba_ids=F("fba_id"),
                 ref_ids=F("ref_id"),
@@ -259,7 +259,7 @@ class TimeoutWarning(View):
                 n_pcs=StringAgg("str_pcs", delimiter=",", ordering="str_pcs"),
             )
             .order_by(
-                "container_number__order__offload_id__offload_at", "sequence_number"
+                "container_number__orders__offload_id__offload_at", "sequence_number"
             )
         )
         return pallets

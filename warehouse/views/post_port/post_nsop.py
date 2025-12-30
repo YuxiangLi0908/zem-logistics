@@ -973,20 +973,20 @@ class PostNsop(View):
             })
         criteria_p = models.Q(
             (
-                models.Q(container_number__order__order_type="转运")
-                | models.Q(container_number__order__order_type="转运组合")
+                models.Q(container_number__orders__order_type="转运")
+                | models.Q(container_number__orders__order_type="转运组合")
             ),
             shipment_batch_number__isnull=True,
-            container_number__order__created_at__gte="2024-09-01",
+            container_number__orders__created_at__gte="2024-09-01",
         )
         pl_criteria = criteria_p & models.Q(
-            container_number__order__offload_id__offload_at__isnull=True,
-            container_number__order__retrieval_id__retrieval_destination_precise=warehouse,
+            container_number__orders__offload_id__offload_at__isnull=True,
+            container_number__orders__retrieval_id__retrieval_destination_precise=warehouse,
             #destination=destination,
             delivery_type='public',
         )
         plt_criteria = criteria_p & models.Q(
-            container_number__order__offload_id__offload_at__isnull=False,
+            container_number__orders__offload_id__offload_at__isnull=False,
             location__startswith=warehouse,
             #destination=destination,
             delivery_type='public',
@@ -1033,12 +1033,12 @@ class PostNsop(View):
             ),
             location=warehouse,
             destination=destination,
-            container_number__order__offload_id__offload_at__isnull=False,
+            container_number__orders__offload_id__offload_at__isnull=False,
         )
         plt_unshipped = await self._get_packing_list(
             request.user,
             models.Q(
-                container_number__order__offload_id__offload_at__isnull=False,
+                container_number__orders__offload_id__offload_at__isnull=False,
             )& models.Q(pk=0),
             criteria_plt
         )
@@ -1534,7 +1534,7 @@ class PostNsop(View):
             pallet_records = await sync_to_async(list)(
                 Pallet.objects.filter(
                     shipment_batch_number_id__in=shipment_ids,
-                    container_number__order__offload_id__offload_at__isnull=False
+                    container_number__orders__offload_id__offload_at__isnull=False
                 )
             )
             
@@ -1542,7 +1542,7 @@ class PostNsop(View):
             packinglist_records = await sync_to_async(list)(
                 PackingList.objects.filter(
                     shipment_batch_number_id__in=shipment_ids,
-                    container_number__order__offload_id__offload_at__isnull=True
+                    container_number__orders__offload_id__offload_at__isnull=True
                 )
             )
             
@@ -2815,7 +2815,7 @@ class PostNsop(View):
             packinglists = await sync_to_async(list)(
                 PackingList.objects.filter(
                     shipment_batch_number=shipment,
-                    container_number__order__offload_id__offload_at__isnull=True
+                    container_number__orders__offload_id__offload_at__isnull=True
                 )
             )
             for packinglist in packinglists:
@@ -2829,7 +2829,7 @@ class PostNsop(View):
             pallets = await sync_to_async(list)(
                 Pallet.objects.filter(
                     shipment_batch_number=shipment,
-                    container_number__order__offload_id__offload_at__isnull=False
+                    container_number__orders__offload_id__offload_at__isnull=False
                 )
             )
             for pallet in pallets:
@@ -2920,7 +2920,7 @@ class PostNsop(View):
                 packinglists = await sync_to_async(list)(
                     PackingList.objects.filter(
                         shipment_batch_number__shipment_batch_number=shipment_batch_number,
-                        container_number__order__offload_id__offload_at__isnull=True
+                        container_number__orders__offload_id__offload_at__isnull=True
                     ).select_related('container_number')
                     .values('container_number__container_number', 'destination')
                     .annotate(
@@ -2934,7 +2934,7 @@ class PostNsop(View):
                 pallets = await sync_to_async(list)(
                     Pallet.objects.filter(
                         shipment_batch_number__shipment_batch_number=shipment_batch_number,
-                        container_number__order__offload_id__offload_at__isnull=False
+                        container_number__orders__offload_id__offload_at__isnull=False
                     ).select_related('container_number')
                     .values('container_number__container_number', 'destination','is_dropped_pallet')
                     .annotate(
@@ -3319,7 +3319,7 @@ class PostNsop(View):
             packinglists = await sync_to_async(list)(
                 PackingList.objects.select_related("container_number").filter(
                     shipment_batch_number=shipment,
-                    container_number__order__offload_id__offload_at__isnull=False
+                    container_number__orders__offload_id__offload_at__isnull=False
                 )
             )
             
@@ -3327,7 +3327,7 @@ class PostNsop(View):
             pallets = await sync_to_async(list)(
                 Pallet.objects.select_related("container_number").filter(
                     shipment_batch_number=shipment,
-                    container_number__order__offload_id__offload_at__isnull=False
+                    container_number__orders__offload_id__offload_at__isnull=False
                 )
             )
             containers = []
@@ -3456,7 +3456,7 @@ class PostNsop(View):
                 packinglists = await sync_to_async(list)(
                     PackingList.objects.filter(
                         shipment_batch_number__shipment_batch_number=shipment_batch_number,
-                        container_number__order__offload_id__offload_at__isnull=True
+                        container_number__orders__offload_id__offload_at__isnull=True
                     ).select_related('container_number')
                     .values('container_number__container_number', 'destination')
                     .annotate(
@@ -3470,7 +3470,7 @@ class PostNsop(View):
                 pallets = await sync_to_async(list)(
                     Pallet.objects.filter(
                         shipment_batch_number__shipment_batch_number=shipment_batch_number,
-                        container_number__order__offload_id__offload_at__isnull=False
+                        container_number__orders__offload_id__offload_at__isnull=False
                     ).select_related('container_number')
                     .values('container_number__container_number', 'destination','is_dropped_pallet')
                     .annotate(
@@ -3642,11 +3642,11 @@ class PostNsop(View):
             ~models.Q(delivery_method__icontains='自提')
         )
         has_any_timestamp = (
-            models.Q(container_number__order__retrieval_id__target_retrieval_timestamp__isnull=False) |
-            models.Q(container_number__order__retrieval_id__target_retrieval_timestamp_lower__isnull=False) |
+            models.Q(container_number__orders__retrieval_id__target_retrieval_timestamp__isnull=False) |
+            models.Q(container_number__orders__retrieval_id__target_retrieval_timestamp_lower__isnull=False) |
             (
-                models.Q(container_number__order__retrieval_id__actual_retrieval_timestamp__isnull=False) &
-                models.Q(container_number__order__retrieval_id__actual_retrieval_timestamp__gt=datetime(2025, 2, 1))
+                models.Q(container_number__orders__retrieval_id__actual_retrieval_timestamp__isnull=False) &
+                models.Q(container_number__orders__retrieval_id__actual_retrieval_timestamp__gt=datetime(2025, 2, 1))
             )
         )
         unshipment_pos = await self._get_packing_list(
@@ -3654,15 +3654,15 @@ class PostNsop(View):
             has_any_timestamp
             & delivery_method_filter
             & models.Q(
-                container_number__order__offload_id__offload_at__isnull=True,
+                container_number__orders__offload_id__offload_at__isnull=True,
                 shipment_batch_number__shipment_batch_number__isnull=True,
-                container_number__order__retrieval_id__retrieval_destination_precise=warehouse,
+                container_number__orders__retrieval_id__retrieval_destination_precise=warehouse,
                 delivery_type='public',
             ),
             delivery_method_filter
             & models.Q(
                 shipment_batch_number__shipment_batch_number__isnull=True,
-                container_number__order__offload_id__offload_at__gt=datetime(2025, 1, 1),
+                container_number__orders__offload_id__offload_at__gt=datetime(2025, 1, 1),
                 location=warehouse,
                 delivery_type='public',
             ), True
@@ -3720,7 +3720,7 @@ class PostNsop(View):
             cargos = pre_group['cargos']
             
             # 按ETA排序，优先安排早的货物
-            sorted_cargos = sorted(cargos, key=lambda x: x.get('container_number__order__vessel_id__vessel_eta') or '')
+            sorted_cargos = sorted(cargos, key=lambda x: x.get('container_number__orders__vessel_id__vessel_eta') or '')
             
             # 按容量限制创建大组
             primary_groups = []
@@ -3922,21 +3922,21 @@ class PostNsop(View):
         if "LA" in warehouse:
             location_condition = models.Q(location=warehouse)
             retrieval_condition = (
-                models.Q(container_number__order__retrieval_id__retrieval_destination_precise=warehouse) |
-                models.Q(container_number__order__warehouse__name=warehouse)
+                models.Q(container_number__orders__retrieval_id__retrieval_destination_precise=warehouse) |
+                models.Q(container_number__orders__warehouse__name=warehouse)
             )
         else:
             location_condition = models.Q(location__in=["NJ-07001", "SAV-31326"])
             retrieval_condition = (
-                models.Q(container_number__order__retrieval_id__retrieval_destination_precise__in=["NJ-07001", "SAV-31326"]) |
-                models.Q(container_number__order__warehouse__name__in=["NJ-07001", "SAV-31326"])
+                models.Q(container_number__orders__retrieval_id__retrieval_destination_precise__in=["NJ-07001", "SAV-31326"]) |
+                models.Q(container_number__orders__warehouse__name__in=["NJ-07001", "SAV-31326"])
             )
 
         intelligent_pos = await self._get_packing_list(
             user,
             models.Q(
                 shipment_batch_number__shipment_batch_number__isnull=True,
-                container_number__order__offload_id__offload_at__isnull=True,
+                container_number__orders__offload_id__offload_at__isnull=True,
                 destination=destination,
                 delivery_type='public',
                 
@@ -3944,9 +3944,9 @@ class PostNsop(View):
             & ~models.Q(id__in=existing_pl_ids),
             models.Q(
                 shipment_batch_number__shipment_batch_number__isnull=True,
-                container_number__order__offload_id__offload_at__isnull=False,
+                container_number__orders__offload_id__offload_at__isnull=False,
                 destination=destination,
-                container_number__order__offload_id__offload_at__gt=datetime(2025, 1, 1),
+                container_number__orders__offload_id__offload_at__gt=datetime(2025, 1, 1),
                 delivery_type='public',
             ) & location_condition
             & ~models.Q(id__in=existing_plt_ids),
@@ -4133,9 +4133,9 @@ class PostNsop(View):
         target_date = datetime(2025, 10, 10)
 
         pl_criteria = models.Q(
-                container_number__order__warehouse__name=warehouse,
+                container_number__orders__warehouse__name=warehouse,
                 shipment_batch_number__isnull=False,             
-                container_number__order__offload_id__offload_at__isnull=True,
+                container_number__orders__offload_id__offload_at__isnull=True,
                 shipment_batch_number__shipment_appointment__gt=target_date,
                 shipment_batch_number__fleet_number__isnull=True,
             )
@@ -4147,7 +4147,7 @@ class PostNsop(View):
         plt_criteria = models.Q(
                 shipment_batch_number__isnull=False,
                 shipment_batch_number__shipment_appointment__gt=target_date,
-                container_number__order__offload_id__offload_at__isnull=False,
+                container_number__orders__offload_id__offload_at__isnull=False,
                 shipment_batch_number__fleet_number__isnull=True,
                 location=warehouse,
             )
@@ -4339,11 +4339,11 @@ class PostNsop(View):
                     user,
                     models.Q(
                         shipment_batch_number__shipment_batch_number=batch_number,
-                        container_number__order__offload_id__offload_at__isnull=True,
+                        container_number__orders__offload_id__offload_at__isnull=True,
                     ),
                     models.Q(
                         shipment_batch_number__shipment_batch_number=batch_number,
-                        container_number__order__offload_id__offload_at__isnull=False,
+                        container_number__orders__offload_id__offload_at__isnull=False,
                     ),
                 )
                 fleet_group['shipments'][batch_number]['cargos'].extend(raw_data)
@@ -4500,8 +4500,8 @@ class PostNsop(View):
         pl_criteria: models.Q | None = None,
         plt_criteria: models.Q | None = None,
     ) -> list[Any]:
-        pl_criteria &= models.Q(container_number__order__cancel_notification=False)& ~models.Q(container_number__order__order_type='直送')
-        plt_criteria &= models.Q(container_number__order__cancel_notification=False)& ~models.Q(container_number__order__order_type='直送')
+        pl_criteria &= models.Q(container_number__orders__cancel_notification=False)& ~models.Q(container_number__orders__order_type='直送')
+        plt_criteria &= models.Q(container_number__orders__cancel_notification=False)& ~models.Q(container_number__orders__order_type='直送')
         
         data = []
         if plt_criteria:
@@ -4509,13 +4509,13 @@ class PostNsop(View):
                 Pallet.objects.prefetch_related(
                     "container_number",
                     "container_number__order",
-                    "container_number__order__warehouse",
+                    "container_number__orders__warehouse",
                     "shipment_batch_number",
                     "shipment_batch_number__fleet_number",
-                    "container_number__order__offload_id",
-                    "container_number__order__customer_name",
-                    "container_number__order__retrieval_id",
-                    "container_number__order__vessel_id",
+                    "container_number__orders__offload_id",
+                    "container_number__orders__customer_name",
+                    "container_number__orders__retrieval_id",
+                    "container_number__orders__vessel_id",
                 )
                 .filter(plt_criteria)
                 .annotate(
@@ -4529,7 +4529,7 @@ class PostNsop(View):
                         output_field=FloatField()
                     ),
                     offload_at=Func(
-                        F("container_number__order__offload_id__offload_at"),
+                        F("container_number__orders__offload_id__offload_at"),
                         Value("MM-DD"),
                         function="to_char",
                         output_field=CharField(),
@@ -4560,11 +4560,11 @@ class PostNsop(View):
                     "ltl_cost",
                     "ltl_quote",
                     "offload_at",
-                    warehouse=F("container_number__order__retrieval_id__retrieval_destination_precise"),
-                    retrieval_destination_precise=F("container_number__order__retrieval_id__retrieval_destination_precise"),
-                    customer_name=F("container_number__order__customer_name__zem_name"),
-                    vessel_name=F("container_number__order__vessel_id__vessel"),
-                    vessel_eta=F("container_number__order__vessel_id__vessel_eta"),                   
+                    warehouse=F("container_number__orders__retrieval_id__retrieval_destination_precise"),
+                    retrieval_destination_precise=F("container_number__orders__retrieval_id__retrieval_destination_precise"),
+                    customer_name=F("container_number__orders__customer_name__zem_name"),
+                    vessel_name=F("container_number__orders__vessel_id__vessel"),
+                    vessel_eta=F("container_number__orders__vessel_id__vessel_eta"),                   
                 )
                 .annotate(
                     # 分组依据：destination + shipping_mark
@@ -4627,13 +4627,13 @@ class PostNsop(View):
                 PackingList.objects.prefetch_related(
                     "container_number",
                     "container_number__order",
-                    "container_number__order__warehouse",
+                    "container_number__orders__warehouse",
                     "shipment_batch_number",
                     "shipment_batch_number__fleet_number",
-                    "container_number__order__offload_id",
-                    "container_number__order__customer_name",
-                    "container_number__order__retrieval_id",
-                    "container_number__order__vessel_id",
+                    "container_number__orders__offload_id",
+                    "container_number__orders__customer_name",
+                    "container_number__orders__retrieval_id",
+                    "container_number__orders__vessel_id",
                 )
                 .filter(pl_criteria)
                 .annotate(
@@ -4663,11 +4663,11 @@ class PostNsop(View):
                     ),
                     is_pass=Case(
                         When(
-                            container_number__order__retrieval_id__planned_release_time__isnull=False,
+                            container_number__orders__retrieval_id__planned_release_time__isnull=False,
                             then=Value(True)
                         ),
                         When(
-                            container_number__order__retrieval_id__temp_t49_available_for_pickup=True,
+                            container_number__orders__retrieval_id__temp_t49_available_for_pickup=True,
                             then=Value(True)
                         ),
                         default=Value(False),
@@ -4694,35 +4694,35 @@ class PostNsop(View):
                     "ltl_quote",
                     "shipment_batch_number__shipment_batch_number",
                     "shipment_batch_number__fleet_number__fleet_number",
-                    warehouse=F("container_number__order__retrieval_id__retrieval_destination_precise"),
-                    vessel_eta=F("container_number__order__vessel_id__vessel_eta"),
+                    warehouse=F("container_number__orders__retrieval_id__retrieval_destination_precise"),
+                    vessel_eta=F("container_number__orders__vessel_id__vessel_eta"),
                     is_pass=F("is_pass"),
-                    customer_name=F("container_number__order__customer_name__zem_name"),
-                    vessel_name=F("container_number__order__vessel_id__vessel"),
-                    actual_retrieval_time=F("container_number__order__retrieval_id__actual_retrieval_timestamp"),
-                    arm_time=F("container_number__order__retrieval_id__generous_and_wide_target_retrieval_timestamp"),
-                    estimated_time=F("container_number__order__retrieval_id__target_retrieval_timestamp"),
+                    customer_name=F("container_number__orders__customer_name__zem_name"),
+                    vessel_name=F("container_number__orders__vessel_id__vessel"),
+                    actual_retrieval_time=F("container_number__orders__retrieval_id__actual_retrieval_timestamp"),
+                    arm_time=F("container_number__orders__retrieval_id__generous_and_wide_target_retrieval_timestamp"),
+                    estimated_time=F("container_number__orders__retrieval_id__target_retrieval_timestamp"),
                     offload_at=Case(
                         When(
-                            container_number__order__retrieval_id__actual_retrieval_timestamp__isnull=False,
+                            container_number__orders__retrieval_id__actual_retrieval_timestamp__isnull=False,
                             then=Func(
-                                F("container_number__order__retrieval_id__actual_retrieval_timestamp"),
+                                F("container_number__orders__retrieval_id__actual_retrieval_timestamp"),
                                 Value("MM-DD"),
                                 function="to_char",
                                 output_field=CharField(),
                             )
                         ),
                         When(
-                            container_number__order__retrieval_id__target_retrieval_timestamp__isnull=False,
+                            container_number__orders__retrieval_id__target_retrieval_timestamp__isnull=False,
                             then=Func(
-                                F("container_number__order__retrieval_id__target_retrieval_timestamp"),
+                                F("container_number__orders__retrieval_id__target_retrieval_timestamp"),
                                 Value("MM-DD"),
                                 function="to_char",
                                 output_field=CharField(),
                             )
                         ),
                         default=Func(
-                            F("container_number__order__vessel_id__vessel_eta"),
+                            F("container_number__orders__vessel_id__vessel_eta"),
                             Value("MM-DD"),
                             function="to_char",
                             output_field=CharField(),
@@ -4731,11 +4731,11 @@ class PostNsop(View):
                     ),
                     offload_tag=Case(
                         When(
-                            container_number__order__retrieval_id__actual_retrieval_timestamp__isnull=False,
+                            container_number__orders__retrieval_id__actual_retrieval_timestamp__isnull=False,
                             then=Value("实际")
                         ),
                         When(
-                            container_number__order__retrieval_id__target_retrieval_timestamp__isnull=False,
+                            container_number__orders__retrieval_id__target_retrieval_timestamp__isnull=False,
                             then=Value("预计")
                         ),
                         default=Value("ETA")
@@ -5400,14 +5400,14 @@ class PostNsop(View):
         
         pl_criteria = Q(
             shipment_batch_number__shipment_batch_number__isnull=True,
-            container_number__order__offload_id__offload_at__isnull=True,
-            container_number__order__retrieval_id__retrieval_destination_area=warehouse_name,
+            container_number__orders__offload_id__offload_at__isnull=True,
+            container_number__orders__retrieval_id__retrieval_destination_area=warehouse_name,
             delivery_type="other"
         )
         plt_criteria = Q(
             location=warehouse,
             shipment_batch_number__shipment_batch_number__isnull=True,
-            container_number__order__offload_id__offload_at__gt=datetime(2025, 12, 1),
+            container_number__orders__offload_id__offload_at__gt=datetime(2025, 12, 1),
             delivery_type="other"
         )
         # 未放行
@@ -5537,11 +5537,11 @@ class PostNsop(View):
                     user,
                     models.Q(
                         shipment_batch_number__shipment_batch_number=batch_number,
-                        container_number__order__offload_id__offload_at__isnull=True,
+                        container_number__orders__offload_id__offload_at__isnull=True,
                     ),
                     models.Q(
                         shipment_batch_number__shipment_batch_number=batch_number,
-                        container_number__order__offload_id__offload_at__isnull=False,
+                        container_number__orders__offload_id__offload_at__isnull=False,
                     ),
                 )
                 fleet_group['shipments'][batch_number]['cargos'].extend(raw_data)
@@ -5667,9 +5667,9 @@ class PostNsop(View):
         two_weeks_later = nowtime + timezone.timedelta(weeks=2)   
         pl_criteria = (models.Q(
                 shipment_batch_number__shipment_batch_number__isnull=True,
-                container_number__order__offload_id__offload_at__isnull=True,
-                container_number__order__vessel_id__vessel_eta__lte=two_weeks_later, 
-                container_number__order__retrieval_id__retrieval_destination_area=warehouse_name,
+                container_number__orders__offload_id__offload_at__isnull=True,
+                container_number__orders__vessel_id__vessel_eta__lte=two_weeks_later, 
+                container_number__orders__retrieval_id__retrieval_destination_area=warehouse_name,
                 container_number__is_abnormal_state=False,
                 destination__in=FOUR_MAJOR_WAREHOUSES
             )&
@@ -5684,7 +5684,7 @@ class PostNsop(View):
         plt_criteria = (models.Q(
                 location=warehouse,
                 shipment_batch_number__shipment_batch_number__isnull=True,
-                container_number__order__offload_id__offload_at__gt=datetime(2025, 1, 1),
+                container_number__orders__offload_id__offload_at__gt=datetime(2025, 1, 1),
                 destination__in=FOUR_MAJOR_WAREHOUSES
             )&
             ~(
@@ -5776,12 +5776,12 @@ class PostNsop(View):
             request.user,
             models.Q(
                 shipment_batch_number__shipment_batch_number__isnull=True,
-                container_number__order__offload_id__offload_at__isnull=True,
-                container_number__order__vessel_id__vessel_eta__lte=two_weeks_later, 
-                container_number__order__retrieval_id__retrieval_destination_area=warehouse_name,
+                container_number__orders__offload_id__offload_at__isnull=True,
+                container_number__orders__vessel_id__vessel_eta__lte=two_weeks_later, 
+                container_number__orders__retrieval_id__retrieval_destination_area=warehouse_name,
                 delivery_type='public',
                 container_number__is_abnormal_state=False,
-                #container_number__order__warehouse__name=warehouse,
+                #container_number__orders__warehouse__name=warehouse,
             )&
             ~(
                 models.Q(delivery_method__icontains='暂扣') |
@@ -5790,7 +5790,7 @@ class PostNsop(View):
                 models.Q(delivery_method__icontains='FEDEX')
             ),
             models.Q(
-                container_number__order__offload_id__offload_at__isnull=False,
+                container_number__orders__offload_id__offload_at__isnull=False,
             )& models.Q(pk=0),
         )
         
@@ -5862,8 +5862,8 @@ class PostNsop(View):
         plt_criteria: models.Q | None = None,
         name: str | None = None
     ) -> list[Any]:
-        pl_criteria &= models.Q(container_number__order__cancel_notification=False)& ~models.Q(container_number__order__order_type='直送')
-        plt_criteria &= models.Q(container_number__order__cancel_notification=False)& ~models.Q(container_number__order__order_type='直送')
+        pl_criteria &= models.Q(container_number__orders__cancel_notification=False)& ~models.Q(container_number__orders__order_type='直送')
+        plt_criteria &= models.Q(container_number__orders__cancel_notification=False)& ~models.Q(container_number__orders__order_type='直送')
         if await self._validate_user_four_major_whs(user):
             pl_criteria &= models.Q(destination__in=FOUR_MAJOR_WAREHOUSES)
             plt_criteria &= models.Q(destination__in=FOUR_MAJOR_WAREHOUSES)
@@ -5913,13 +5913,13 @@ class PostNsop(View):
                 Pallet.objects.prefetch_related(
                     "container_number",
                     "container_number__order",
-                    "container_number__order__warehouse",
+                    "container_number__orders__warehouse",
                     "shipment_batch_number",
                     "shipment_batch_number__fleet_number",
-                    "container_number__order__offload_id",
-                    "container_number__order__customer_name",
-                    "container_number__order__retrieval_id",
-                    "container_number__order__vessel_id",
+                    "container_number__orders__offload_id",
+                    "container_number__orders__customer_name",
+                    "container_number__orders__retrieval_id",
+                    "container_number__orders__vessel_id",
                 )
                 .filter(plt_criteria)
                 .annotate(
@@ -5927,13 +5927,13 @@ class PostNsop(View):
                     str_container_number=Cast("container_number__container_number", CharField()),                  
                     # 格式化vessel_eta为月日
                     formatted_offload_at=Func(
-                        F('container_number__order__offload_id__offload_at'),
+                        F('container_number__orders__offload_id__offload_at'),
                         Value('MM-DD'),
                         function='to_char',
                         output_field=CharField()
                     ),
                     is_zhunshida=Case(
-                        When(container_number__order__customer_name__zem_name__icontains='准时达', then=Value(True)),
+                        When(container_number__orders__customer_name__zem_name__icontains='准时达', then=Value(True)),
                         default=Value(False),
                         output_field=BooleanField()
                     ),
@@ -5978,9 +5978,9 @@ class PostNsop(View):
                     "is_pass",
                     "is_zhunshida",
                     warehouse=F(
-                        "container_number__order__retrieval_id__retrieval_destination_precise"
+                        "container_number__orders__retrieval_id__retrieval_destination_precise"
                     ),               
-                    retrieval_destination_precise=F("container_number__order__retrieval_id__retrieval_destination_precise"),
+                    retrieval_destination_precise=F("container_number__orders__retrieval_id__retrieval_destination_precise"),
                 )
                 .annotate(
                     custom_delivery_method=F("delivery_method"),
@@ -6006,7 +6006,7 @@ class PostNsop(View):
                     label=Value("ACT"),
                     note_sp=StringAgg("note_sp", delimiter=",", distinct=True),
                 )
-                .order_by("container_number__order__offload_id__offload_at")
+                .order_by("container_number__orders__offload_id__offload_at")
             )
             #去排查是否有转仓的，有转仓的要特殊处理
             pal_list_trans = await self._find_transfer(pal_list)
@@ -6019,38 +6019,38 @@ class PostNsop(View):
                 PackingList.objects.prefetch_related(
                     "container_number",
                     "container_number__order",
-                    "container_number__order__warehouse",
+                    "container_number__orders__warehouse",
                     "shipment_batch_number",
                     "shipment_batch_number__fleet_number",
-                    "container_number__order__offload_id",
-                    "container_number__order__customer_name",
-                    "container_number__order__retrieval_id",
-                    "container_number__order__vessel_id",
+                    "container_number__orders__offload_id",
+                    "container_number__orders__customer_name",
+                    "container_number__orders__retrieval_id",
+                    "container_number__orders__vessel_id",
                 )
                 .filter(pl_criteria)
                 .annotate(
                     #方便后续排序
                     has_actual_retrieval=Case(
-                        When(container_number__order__retrieval_id__actual_retrieval_timestamp__isnull=False, then=Value(1)),
+                        When(container_number__orders__retrieval_id__actual_retrieval_timestamp__isnull=False, then=Value(1)),
                         default=Value(0),
                         output_field=IntegerField()
                     ),
                     has_appointment_retrieval=Case(
-                        When(container_number__order__retrieval_id__generous_and_wide_target_retrieval_timestamp__isnull=False, then=Value(1)),
+                        When(container_number__orders__retrieval_id__generous_and_wide_target_retrieval_timestamp__isnull=False, then=Value(1)),
                         default=Value(0),
                         output_field=IntegerField()
                     ),
                     has_estimated_retrieval=Case(
                         When(
-                            Q(container_number__order__retrieval_id__target_retrieval_timestamp_lower__isnull=False) |
-                            Q(container_number__order__retrieval_id__target_retrieval_timestamp__isnull=False),
+                            Q(container_number__orders__retrieval_id__target_retrieval_timestamp_lower__isnull=False) |
+                            Q(container_number__orders__retrieval_id__target_retrieval_timestamp__isnull=False),
                             then=Value(1)
                         ),
                         default=Value(0),
                         output_field=IntegerField()
                     ),
                     is_zhunshida=Case(
-                        When(container_number__order__customer_name__zem_name__icontains='准时达', then=Value(True)),
+                        When(container_number__orders__customer_name__zem_name__icontains='准时达', then=Value(True)),
                         default=Value(False),
                         output_field=BooleanField()
                     ),
@@ -6072,7 +6072,7 @@ class PostNsop(View):
                     str_container_number=Cast("container_number__container_number", CharField()),    
                     # 格式化vessel_eta为月日
                     formatted_vessel_eta=Func(
-                        F('container_number__order__vessel_id__vessel_eta'),
+                        F('container_number__orders__vessel_id__vessel_eta'),
                         Value('MM-DD'),
                         function='to_char',
                         output_field=CharField()
@@ -6080,28 +6080,28 @@ class PostNsop(View):
                     
                     # 格式化实际提柜时间为月日
                     formatted_actual_retrieval=Func(
-                        F('container_number__order__retrieval_id__actual_retrieval_timestamp'),
+                        F('container_number__orders__retrieval_id__actual_retrieval_timestamp'),
                         Value('MM-DD'),
                         function='to_char',
                         output_field=CharField()
                     ),
                     # 格式化码头预约时间为月日
                     formatted_appointment_retrieval=Func(
-                        F('container_number__order__retrieval_id__generous_and_wide_target_retrieval_timestamp'),
+                        F('container_number__orders__retrieval_id__generous_and_wide_target_retrieval_timestamp'),
                         Value('MM-DD'),
                         function='to_char',
                         output_field=CharField()
                     ),
                     # 格式化预计提柜时间为月日
                     formatted_target_low=Func(
-                        F('container_number__order__retrieval_id__target_retrieval_timestamp_lower'),
+                        F('container_number__orders__retrieval_id__target_retrieval_timestamp_lower'),
                         Value('MM-DD'),
                         function='to_char',
                         output_field=CharField()
                     ),
                     
                     formatted_target=Func(
-                        F('container_number__order__retrieval_id__target_retrieval_timestamp'),
+                        F('container_number__orders__retrieval_id__target_retrieval_timestamp'),
                         Value('MM-DD'),
                         function='to_char',
                         output_field=CharField()
@@ -6110,10 +6110,10 @@ class PostNsop(View):
                     # 创建完整的组合字段，通过前缀区分状态
                     container_with_eta_retrieval=Case(
                         # 有实际提柜时间 - 使用前缀 [实际]
-                        When(container_number__order__retrieval_id__actual_retrieval_timestamp__isnull=False,
+                        When(container_number__orders__retrieval_id__actual_retrieval_timestamp__isnull=False,
                             then=Concat(
                                 # Value(" "),
-                                # "container_number__order__vessel_id__vessel", 
+                                # "container_number__orders__vessel_id__vessel", 
                                 Value("[已提柜]"),
                                 "container_number__container_number",                          
                                 # Value(" ETA:"),
@@ -6123,7 +6123,7 @@ class PostNsop(View):
                                 output_field=CharField()
                             )),
                         # 有码头预约时间 - 使用前缀 [码头预约]
-                        When(container_number__order__retrieval_id__generous_and_wide_target_retrieval_timestamp__isnull=False,
+                        When(container_number__orders__retrieval_id__generous_and_wide_target_retrieval_timestamp__isnull=False,
                             then=Concat(
                                 Value("[码头预约]"),
                                 "container_number__container_number",
@@ -6132,10 +6132,10 @@ class PostNsop(View):
                                 output_field=CharField()
                             )),
                         # 有预计提柜时间范围 - 使用前缀 [预计]
-                        When(container_number__order__retrieval_id__target_retrieval_timestamp_lower__isnull=False,
+                        When(container_number__orders__retrieval_id__target_retrieval_timestamp_lower__isnull=False,
                             then=Concat( 
                                 # Value(" "),
-                                # "container_number__order__vessel_id__vessel", 
+                                # "container_number__orders__vessel_id__vessel", 
                                 Value("[预计]"),
                                 "container_number__container_number",
                                 # Value(" ETA:"),
@@ -6149,7 +6149,7 @@ class PostNsop(View):
                         # 没有提柜计划 - 使用前缀 [未安排]
                         default=Concat(
                             # Value(" "),
-                            # "container_number__order__vessel_id__vessel", 
+                            # "container_number__orders__vessel_id__vessel", 
                             Value("[未安排提柜]"),
                             "container_number__container_number",
                             Value(" ETA:"),
@@ -6166,12 +6166,12 @@ class PostNsop(View):
                     is_pass=Case(
                         # 1. 先看 planned_release_time 是否有值
                         When(
-                            container_number__order__retrieval_id__planned_release_time__isnull=False,
+                            container_number__orders__retrieval_id__planned_release_time__isnull=False,
                             then=Value(True)
                         ),
                         # 2. 如果没有 planned_release_time，看 temp_t49_available_for_pickup 是否为 True
                         When(
-                            container_number__order__retrieval_id__temp_t49_available_for_pickup=True,
+                            container_number__orders__retrieval_id__temp_t49_available_for_pickup=True,
                             then=Value(True)
                         ),
                         # 3. 都不满足则为 False
@@ -6195,16 +6195,16 @@ class PostNsop(View):
                     "has_estimated_retrieval",
                     "is_zhunshida", 
                     warehouse=F(
-                        "container_number__order__retrieval_id__retrieval_destination_precise"
+                        "container_number__orders__retrieval_id__retrieval_destination_precise"
                     ),
-                    vessel_name=F("container_number__order__vessel_id__vessel"),
-                    vessel_voyage=F("container_number__order__vessel_id__voyage"),
-                    vessel_eta=F("container_number__order__vessel_id__vessel_eta"),
+                    vessel_name=F("container_number__orders__vessel_id__vessel"),
+                    vessel_voyage=F("container_number__orders__vessel_id__voyage"),
+                    vessel_eta=F("container_number__orders__vessel_id__vessel_eta"),
                     is_pass=F("is_pass"),
                     # 添加时间字段用于排序
-                    actual_retrieval_time=F("container_number__order__retrieval_id__actual_retrieval_timestamp"),
-                    arm_time=F("container_number__order__retrieval_id__generous_and_wide_target_retrieval_timestamp"),
-                    estimated_time=F("container_number__order__retrieval_id__target_retrieval_timestamp"),                  
+                    actual_retrieval_time=F("container_number__orders__retrieval_id__actual_retrieval_timestamp"),
+                    arm_time=F("container_number__orders__retrieval_id__generous_and_wide_target_retrieval_timestamp"),
+                    estimated_time=F("container_number__orders__retrieval_id__target_retrieval_timestamp"),                  
                 )
                 .annotate(
                     fba_ids=StringAgg(
@@ -6237,11 +6237,11 @@ class PostNsop(View):
                     offload_time = Case(
                         # 有实际提柜时间
                         When(
-                            container_number__order__retrieval_id__actual_retrieval_timestamp__isnull=False,
+                            container_number__orders__retrieval_id__actual_retrieval_timestamp__isnull=False,
                             then=Concat(
                                 Value("实际提柜："),
                                 Func(
-                                    F('container_number__order__retrieval_id__actual_retrieval_timestamp'),
+                                    F('container_number__orders__retrieval_id__actual_retrieval_timestamp'),
                                     Value('YYYY-MM-DD'),
                                     function='to_char'
                                 ),
@@ -6251,18 +6251,18 @@ class PostNsop(View):
 
                         # 同时有上下限 → 范围
                         When(
-                            Q(container_number__order__retrieval_id__target_retrieval_timestamp_lower__isnull=False)
-                            & Q(container_number__order__retrieval_id__target_retrieval_timestamp__isnull=False),
+                            Q(container_number__orders__retrieval_id__target_retrieval_timestamp_lower__isnull=False)
+                            & Q(container_number__orders__retrieval_id__target_retrieval_timestamp__isnull=False),
                             then=Concat(
                                 Value("预计提柜："),
                                 Func(
-                                    F('container_number__order__retrieval_id__target_retrieval_timestamp_lower'),
+                                    F('container_number__orders__retrieval_id__target_retrieval_timestamp_lower'),
                                     Value('YYYY-MM-DD'),
                                     function='to_char'
                                 ),
                                 Value("~"),
                                 Func(
-                                    F('container_number__order__retrieval_id__target_retrieval_timestamp'),
+                                    F('container_number__orders__retrieval_id__target_retrieval_timestamp'),
                                     Value('YYYY-MM-DD'),
                                     function='to_char'
                                 ),
@@ -6272,11 +6272,11 @@ class PostNsop(View):
 
                         # 只有下限
                         When(
-                            container_number__order__retrieval_id__target_retrieval_timestamp_lower__isnull=False,
+                            container_number__orders__retrieval_id__target_retrieval_timestamp_lower__isnull=False,
                             then=Concat(
                                 Value("预计提柜："),
                                 Func(
-                                    F('container_number__order__retrieval_id__target_retrieval_timestamp_lower'),
+                                    F('container_number__orders__retrieval_id__target_retrieval_timestamp_lower'),
                                     Value('YYYY-MM-DD'),
                                     function='to_char'
                                 ),
@@ -6286,11 +6286,11 @@ class PostNsop(View):
 
                         # 只有上限
                         When(
-                            container_number__order__retrieval_id__target_retrieval_timestamp__isnull=False,
+                            container_number__orders__retrieval_id__target_retrieval_timestamp__isnull=False,
                             then=Concat(
                                 Value("预计提柜："),
                                 Func(
-                                    F('container_number__order__retrieval_id__target_retrieval_timestamp'),
+                                    F('container_number__orders__retrieval_id__target_retrieval_timestamp'),
                                     Value('YYYY-MM-DD'),
                                     function='to_char'
                                 ),
@@ -6646,7 +6646,7 @@ class PostNsop(View):
             cargos = pre_group['cargos']
             
             # 按ETA排序，优先安排早的货物
-            sorted_cargos = sorted(cargos, key=lambda x: x.get('container_number__order__vessel_id__vessel_eta') or '')
+            sorted_cargos = sorted(cargos, key=lambda x: x.get('container_number__orders__vessel_id__vessel_eta') or '')
             
             # 按容量限制创建大组
             primary_groups = []

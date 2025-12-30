@@ -298,12 +298,12 @@ class PO(View):
                 & models.Q(vessel_eta__lte=today + timedelta(days=7))
                 & models.Q(vessel_eta__gte=today)
                 & models.Q(ref_id__isnull=False)
-                & models.Q(container_number__order__cancel_notification=False)
+                & models.Q(container_number__orders__cancel_notification=False)
                 & ~models.Q(ref_id="")
             )
             area = request.POST.get("area")
             query &= models.Q(
-                container_number__order__retrieval_id__retrieval_destination_area=area
+                container_number__orders__retrieval_id__retrieval_destination_area=area
             )
 
             # 如果是PO查验--到港前一周的，只展示未查验的
@@ -312,12 +312,12 @@ class PO(View):
                 PoCheckEtaSeven.objects.select_related(
                     "container_number",
                     "container_number__order",
-                    "container_number__order__customer_name",
+                    "container_number__orders__customer_name",
                 )
                 .values(
                     *all_fields,
                     "container_number__container_number",
-                    "container_number__order__customer_name__zem_name",
+                    "container_number__orders__customer_name__zem_name",
                 )
                 .filter(query)
             )
@@ -337,24 +337,24 @@ class PO(View):
                 & models.Q(vessel_eta__lte=today + timedelta(days=7))
                 & models.Q(ref_id__isnull=False)
                 & ~models.Q(ref_id="")
-                & models.Q(container_number__order__cancel_notification=False)
+                & models.Q(container_number__orders__cancel_notification=False)
                 & models.Q(
-                    container_number__order__retrieval_id__target_retrieval_timestamp__gte=today
+                    container_number__orders__retrieval_id__target_retrieval_timestamp__gte=today
                 )
                 & models.Q(
-                    container_number__order__retrieval_id__target_retrieval_timestamp__lte=today
+                    container_number__orders__retrieval_id__target_retrieval_timestamp__lte=today
                     + timedelta(days=2)
                 )
             )
             if request.POST.get("area"):
                 area = request.POST.get("area")
                 query &= models.Q(
-                    container_number__order__retrieval_id__retrieval_destination_area=area
+                    container_number__orders__retrieval_id__retrieval_destination_area=area
                 )
             # 如果是PO查验--提柜前一天的，只展示未查验的
             po_checks = await sync_to_async(list)(
                 PoCheckEtaSeven.objects.prefetch_related(
-                    "container_number__order__retrieval_id"
+                    "container_number__orders__retrieval_id"
                 ).filter(query)
             )
             po_checks_list = await sync_to_async(list)(po_checks)
@@ -378,7 +378,7 @@ class PO(View):
             if request.POST.get("area"):
                 area = request.POST.get("area")
                 query &= models.Q(
-                    container_number__order__retrieval_id__retrieval_destination_area=area
+                    container_number__orders__retrieval_id__retrieval_destination_area=area
                 )
             query &= models.Q(ref_id__isnull=False)
             query &= ~models.Q(ref_id="")
@@ -420,7 +420,7 @@ class PO(View):
             else:
                 area = "NJ"
             criteria &= models.Q(
-                container_number__order__retrieval_id__retrieval_destination_area=area
+                container_number__orders__retrieval_id__retrieval_destination_area=area
             )
             criteria &= models.Q(ref_id__isnull=False)
             criteria &= ~models.Q(ref_id="")
@@ -617,25 +617,25 @@ class PO(View):
         container_list = container_number.split()
         if warehouse:
             criteria = models.Q(
-                container_number__order__warehouse__name=warehouse,
+                container_number__orders__warehouse__name=warehouse,
             ) | models.Q(
-                container_number__order__retrieval_id__retrieval_destination_area=warehouse.split(
+                container_number__orders__retrieval_id__retrieval_destination_area=warehouse.split(
                     "-"
                 )[
                     0
                 ]
             )
         else:
-            criteria = models.Q(container_number__order__order_type="直送")
+            criteria = models.Q(container_number__orders__order_type="直送")
         if container_list:
             criteria &= models.Q(container_number__container_number__in=container_list)
         if start_date:
             criteria &= models.Q(
-                container_number__order__eta__gte=start_date
-            ) | models.Q(container_number__order__vessel_id__vessel_eta__gte=start_date)
+                container_number__orders__eta__gte=start_date
+            ) | models.Q(container_number__orders__vessel_id__vessel_eta__gte=start_date)
         if end_date:
-            criteria &= models.Q(container_number__order__eta__lte=end_date) | models.Q(
-                container_number__order__vessel_id__vessel_eta__lte=end_date
+            criteria &= models.Q(container_number__orders__eta__lte=end_date) | models.Q(
+                container_number__orders__vessel_id__vessel_eta__lte=end_date
             )
         if destination:
             criteria &= models.Q(destination=destination)
@@ -643,7 +643,7 @@ class PO(View):
             PackingList.objects.select_related(
                 "container_number",
                 "container_number__order",
-                "container_number__order__warehouse",
+                "container_number__orders__warehouse",
             )
             .filter(criteria)
             .annotate(

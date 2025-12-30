@@ -89,7 +89,7 @@
                     <td class="td" style="min-width: 40px; text-align: center;">
                         <input type='checkbox' name='is_shipment_schduled' onclick="toggleRowBackground(this)" {% if c.ids in pl_ids_raw %}checked{% elif c.plt_ids in plt_ids_raw %}checked{% endif %} {% if c.abnormal_palletization or c.po_expired or 'HOLD' in c.custom_delivery_method.upper %}disabled{% endif %}>
                     </td>
-                    <td class="td" style="max-width: 120px; word-break: break-all;">{{ c.container_number__order__customer_name__zem_name }}</td>
+                    <td class="td" style="max-width: 120px; word-break: break-all;">{{ c.container_number__orders__customer_name__zem_name }}</td>
                     <td class="td">{{ c.container_number__container_number }}</td>
                     <td class="td" name="po-destination">
                         {{ c.destination }}
@@ -104,9 +104,9 @@
                     <td class="td">{{ c.eta|date:"M-j" }}</td>
                     <td class="td">
                         {% if c.schedule_status == 'past_due' %}
-                        <span class="status-span-red">{{ c.container_number__order__offload_id__offload_at|date:"M-j" }}</span>
+                        <span class="status-span-red">{{ c.container_number__orders__offload_id__offload_at|date:"M-j" }}</span>
                         {% else %}
-                        {{ c.container_number__order__offload_id__offload_at|date:"M-j" }}
+                        {{ c.container_number__orders__offload_id__offload_at|date:"M-j" }}
                         {% endif %}
                     </td>
                     <td class="td" name ="total_cbm">{{ c.total_cbm|floatformat:2 }}</td>

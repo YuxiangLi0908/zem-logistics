@@ -86,7 +86,7 @@ class POD(View):
         shipment_form = ShipmentForm(initial=model_to_dict(shipment))
         packing_list = (
             PackingList.objects.select_related(
-                "container_number", "container_number__order__customer_name", "pallet"
+                "container_number", "container_number__orders__customer_name", "pallet"
             )
             .filter(shipment_batch_number__shipment_batch_number=batch_number)
             .values(
@@ -98,8 +98,8 @@ class POD(View):
                 "destination",
                 "delivery_method",
                 "container_number__container_number",
-                "container_number__order__customer_name__zem_name",
-                "container_number__order__offload_id__offload_at",
+                "container_number__orders__customer_name__zem_name",
+                "container_number__orders__offload_id__offload_at",
             )
             .annotate(
                 total_pcs=Sum("pallet__pcs", output_field=IntegerField()),

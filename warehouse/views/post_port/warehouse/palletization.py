@@ -179,7 +179,7 @@ class Palletization(View):
     ) -> tuple[str, dict[str, Any]]:
         retrieval_precise_subquery = Subquery(
             Retrieval.objects.filter(
-                id=OuterRef("container_number__order__retrieval_id")
+                id=OuterRef("container_number__orders__retrieval_id")
             ).values("retrieval_destination_precise")[:1],
             output_field=CharField(),
         )
@@ -269,7 +269,7 @@ class Palletization(View):
         # 拆柜异常，客服已解决货物
         retrieval_precise_subquery = Subquery(
             Retrieval.objects.filter(
-                id=OuterRef("container_number__order__retrieval_id")
+                id=OuterRef("container_number__orders__retrieval_id")
             ).values("retrieval_destination_precise")[:1],
             output_field=CharField(),
         )
@@ -315,12 +315,12 @@ class Palletization(View):
             "packinglist",
             "packinglist__container_number",
             "packinglist__container_number__order",
-            "packinglist__container_number__order__warehouse",
+            "packinglist__container_number__orders__warehouse",
             "order",
         ).filter(shipment_schduled_at__date=today)
         if warehouse:
             query = query.filter(
-                packinglist__container_number__order__retrieval_id__retrieval_destination_precise=warehouse
+                packinglist__container_number__orders__retrieval_id__retrieval_destination_precise=warehouse
             ).distinct()
         shipment = await sync_to_async(list)(query)
 
@@ -330,11 +330,11 @@ class Palletization(View):
             "shipment__packinglist",
             "shipment__packinglist__container_number",
             "shipment__packinglist__container_number__order",
-            "shipment__packinglist__container_number__order__retrieval_id",
+            "shipment__packinglist__container_number__orders__retrieval_id",
         ).filter(scheduled_at__date=today)
         if warehouse:
             query = query.filter(
-                shipment__packinglist__container_number__order__retrieval_id__retrieval_destination_precise=warehouse
+                shipment__packinglist__container_number__orders__retrieval_id__retrieval_destination_precise=warehouse
             ).distinct()
         fleet = await sync_to_async(list)(query)
 
@@ -1899,12 +1899,12 @@ class Palletization(View):
             PackingList.objects.prefetch_related(
                 "container_number",
                 "container_number__order",
-                "container_number__order__warehouse",
+                "container_number__orders__warehouse",
                 "shipment_batch_number",
             )
             .filter(
                 models.Q(
-                    container_number__order__warehouse__name=warehouse,
+                    container_number__orders__warehouse__name=warehouse,
                     shipment_batch_number__isnull=False,
                 )
             )

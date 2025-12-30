@@ -349,7 +349,7 @@
             <tbody>
                 {% for c in packing_list_selected %}
                 <tr>
-                    <td class="td">{{ c.container_number__order__customer_name__zem_name }}</td>
+                    <td class="td">{{ c.container_number__orders__customer_name__zem_name }}</td>
                     <td class="td">{{ c.container_number__container_number }}</td>
                     <td class="td" name="po-destination">{{ c.destination }}</td>
                     <td class="td" style="max-width: 120px; word-break: break-all;">{{ c.fba_ids }}</td>

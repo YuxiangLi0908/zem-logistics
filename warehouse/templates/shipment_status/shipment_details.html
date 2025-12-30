@@ -49,11 +49,11 @@
         <tbody>
             {% for pl in packing_list %}
             <tr>
-                <td class="td">{{ pl.container_number__order__created_at|date:"Y-m-d" }}</td>
-                <td class="td">{{ pl.container_number__order__customer_name__zem_name }}</td>
-                <td class="td">{{ pl.container_number__order__warehouse__name }}</td>
+                <td class="td">{{ pl.container_number__orders__created_at|date:"Y-m-d" }}</td>
+                <td class="td">{{ pl.container_number__orders__customer_name__zem_name }}</td>
+                <td class="td">{{ pl.container_number__orders__warehouse__name }}</td>
                 <td class="td">{{ pl.container_number__container_number }}</td>
-                <td class="td">{{ pl.container_number__order__offload_id__offload_at|date:"Y-m-d" }}</td>
+                <td class="td">{{ pl.container_number__orders__offload_id__offload_at|date:"Y-m-d" }}</td>
                 <td class="td" style="max-width: 200px;">{% if pl.fba_id %} {{ pl.fba_id }} {% endif %}</td>
                 <td class="td" style="max-width: 200px;">{% if pl.shipping_mark %} {{ pl.shipping_mark }} {% endif %}</td>
                 <td class="td" style="max-width: 200px;">{% if pl.ref_id %} {{ pl.ref_id }} {% endif %}</td>

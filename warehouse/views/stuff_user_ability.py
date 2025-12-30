@@ -97,15 +97,15 @@ class StuffPower(View):
         start_date = request.POST.get("start_date")
         end_date = request.POST.get("end_date")
         pallet = Pallet.objects.select_related("container_number").filter(
-            container_number__order__created_at__gte=start_date,
-            container_number__order__created_at__lte=end_date,
-            container_number__order__offload_id__offload_at__isnull=False,
+            container_number__orders__created_at__gte=start_date,
+            container_number__orders__created_at__lte=end_date,
+            container_number__orders__offload_id__offload_at__isnull=False,
             shipment_batch_number__isnull=False,
             master_shipment_batch_number__isnull=True,
         )
         packinglist = PackingList.objects.select_related("container_number").filter(
-            container_number__order__created_at__gte=start_date,
-            container_number__order__created_at__lte=end_date,
+            container_number__orders__created_at__gte=start_date,
+            container_number__orders__created_at__lte=end_date,
             shipment_batch_number__isnull=False,
             master_shipment_batch_number__isnull=True,
         )

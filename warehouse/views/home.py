@@ -228,8 +228,8 @@ class Home(View):
     
     async def _get_post_port_data(self, pl_criteria, plt_criteria) -> list[dict]:
         #根据界面输入的条件，判断查pl和plt的查询条件
-        pl_criteria &= models.Q(container_number__order__offload_id__offload_at__isnull=True)
-        plt_criteria &= models.Q(container_number__order__offload_id__offload_at__isnull=False)
+        pl_criteria &= models.Q(container_number__orders__offload_id__offload_at__isnull=True)
+        plt_criteria &= models.Q(container_number__orders__offload_id__offload_at__isnull=False)
         
         packing_data = await self._get_packing_list(pl_criteria, plt_criteria)
         
@@ -287,12 +287,12 @@ class Home(View):
             Pallet.objects.prefetch_related(
                 "container_number",
                 "container_number__order",
-                "container_number__order__warehouse",
+                "container_number__orders__warehouse",
                 "shipment_batch_number",
-                "container_number__order__offload_id",
-                "container_number__order__customer_name",
-                "container_number__order__retrieval_id",
-                "container_number__order__vessel_id",
+                "container_number__orders__offload_id",
+                "container_number__orders__customer_name",
+                "container_number__orders__retrieval_id",
+                "container_number__orders__vessel_id",
             )
             .filter(plt_criteria)
             .annotate(
@@ -300,15 +300,15 @@ class Home(View):
             )
             .values(
                 "container_number__container_number",
-                "container_number__order__customer_name__zem_name",
-                "container_number__order__warehouse__name",
+                "container_number__orders__customer_name__zem_name",
+                "container_number__orders__warehouse__name",
                 "destination",
                 "address",
                 "delivery_method",
-                "container_number__order__offload_id__offload_at",
-                "container_number__order__retrieval_id__target_retrieval_timestamp",
-                "container_number__order__retrieval_id__actual_retrieval_timestamp",
-                "container_number__order__vessel_id__vessel_eta",
+                "container_number__orders__offload_id__offload_at",
+                "container_number__orders__retrieval_id__target_retrieval_timestamp",
+                "container_number__orders__retrieval_id__actual_retrieval_timestamp",
+                "container_number__orders__vessel_id__vessel_eta",
                 "abnormal_palletization",
                 "po_expired",
                 "shipment_batch_number__shipment_batch_number",
@@ -318,7 +318,7 @@ class Home(View):
                 "shipment_batch_number__arrived_at",
                 "shipment_batch_number__pod_link",
                 warehouse=F(
-                    "container_number__order__retrieval_id__retrieval_destination_precise"
+                    "container_number__orders__retrieval_id__retrieval_destination_precise"
                 ),
             )
             .annotate(
@@ -335,7 +335,7 @@ class Home(View):
                 total_n_pallet_act=Count("pallet_id", distinct=True),
                 label=Value("ACT"),
             )
-            .order_by("container_number__order__offload_id__offload_at")
+            .order_by("container_number__orders__offload_id__offload_at")
         )
         data += pal_list
         if pl_criteria:
@@ -343,12 +343,12 @@ class Home(View):
                 PackingList.objects.prefetch_related(
                     "container_number",
                     "container_number__order",
-                    "container_number__order__warehouse",
+                    "container_number__orders__warehouse",
                     "shipment_batch_number",
-                    "container_number__order__offload_id",
-                    "container_number__order__customer_name",
-                    "container_number__order__retrieval_id",
-                    "container_number__order__vessel_id",
+                    "container_number__orders__offload_id",
+                    "container_number__orders__customer_name",
+                    "container_number__orders__retrieval_id",
+                    "container_number__orders__vessel_id",
                 )
                 .filter(pl_criteria)
                 .annotate(
@@ -374,20 +374,20 @@ class Home(View):
                 )
                 .values(
                     "container_number__container_number",
-                    "container_number__order__customer_name__zem_name",
-                    "container_number__order__warehouse__name",
+                    "container_number__orders__customer_name__zem_name",
+                    "container_number__orders__warehouse__name",
                     "destination",
                     "address",
                     "custom_delivery_method",
-                    "container_number__order__offload_id__offload_at",
-                    "container_number__order__retrieval_id__target_retrieval_timestamp",
-                    "container_number__order__retrieval_id__actual_retrieval_timestamp",
-                    "container_number__order__vessel_id__vessel_eta",
+                    "container_number__orders__offload_id__offload_at",
+                    "container_number__orders__retrieval_id__target_retrieval_timestamp",
+                    "container_number__orders__retrieval_id__actual_retrieval_timestamp",
+                    "container_number__orders__vessel_id__vessel_eta",
                     "shipment_batch_number__shipment_batch_number",
                     "shipment_batch_number__appointment_id",
                     "shipment_batch_number__shipment_appointment",
                     warehouse=F(
-                        "container_number__order__retrieval_id__retrieval_destination_precise"
+                        "container_number__orders__retrieval_id__retrieval_destination_precise"
                     ),
                 )
                 .annotate(
