@@ -4069,7 +4069,10 @@ class ReceivableAccounting(View):
                 if isinstance(combina_result, dict) and combina_result.get('error_messages'):
                     return combina_result
                 
-                result["combina_groups"] = combina_result['groups']
+                try:
+                    result["combina_groups"] = combina_result['groups']
+                except Exception as e:
+                    raise KeyError(f"Error accessing 'groups' in combina_result: {e}\n{combina_result}")
                 # 合并组合柜数据
                 new_items = combina_result.get("items", [])
                 processed_po_ids = set(combina_result.get("processed_po_ids", []))
@@ -4219,7 +4222,7 @@ class ReceivableAccounting(View):
         if combina_key not in fee_details:
             context = {
                 "error_messages": f"未找到组合柜报价表规则 {combina_key}"
-            }          
+            }
             return (context, [])  # 返回错误，空列表
         
         rules = fee_details.get(combina_key).details
