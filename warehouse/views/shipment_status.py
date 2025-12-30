@@ -60,7 +60,7 @@ class ShipmentStatus(View):
         packing_list = (
             PackingList.objects.select_related(
                 "container_number",
-                "container_number__order",
+                "container_number__orders",
                 "container_number__orders__warehouse",
                 "container_number__orders__customer_name",
                 "shipment_batch_number",

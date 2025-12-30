@@ -956,7 +956,7 @@ class Accounting(View):
             .select_related("container_number")
             .prefetch_related(
                 Prefetch(
-                    "container_number__order",
+                    "container_number__orders",
                     queryset=Order.objects.filter(vessel_id__vessel_eta__range=(start_date, end_date)),
                     to_attr="matched_orders"
                 )
@@ -7105,7 +7105,7 @@ class Accounting(View):
         # 把pallet汇总
         base_query = Pallet.objects.prefetch_related(
             "container_number",
-            "container_number__order",
+            "container_number__orders",
             "container_number__orders__warehouse",
             "container_number__orders__customer_name",
             "invoice_delivery",
@@ -7314,7 +7314,7 @@ class Accounting(View):
         base_query = (
             Pallet.objects.prefetch_related(
                 "container_number",
-                "container_number__order",
+                "container_number__orders",
                 "container_number__orders__warehouse",
                 "container_number__orders__customer_name",
                 "invoice_delivery",

@@ -314,7 +314,7 @@ class Palletization(View):
         query = Shipment.objects.prefetch_related(
             "packinglist",
             "packinglist__container_number",
-            "packinglist__container_number__order",
+            "packinglist__container_number__orders",
             "packinglist__container_number__orders__warehouse",
             "order",
         ).filter(shipment_schduled_at__date=today)
@@ -1898,7 +1898,7 @@ class Palletization(View):
         return await sync_to_async(list)(
             PackingList.objects.prefetch_related(
                 "container_number",
-                "container_number__order",
+                "container_number__orders",
                 "container_number__orders__warehouse",
                 "shipment_batch_number",
             )

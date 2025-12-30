@@ -358,7 +358,7 @@ class ExceptionHandling(View):
         pal_list = await sync_to_async(list)(
             Pallet.objects.prefetch_related(
                 "container_number",
-                "container_number__order",
+                "container_number__orders",
                 "container_number__orders__warehouse",
                 "shipment_batch_number",
                 "container_number__orders__offload_id",
@@ -396,7 +396,7 @@ class ExceptionHandling(View):
         pl_list = await sync_to_async(list)(
             PackingList.objects.prefetch_related(
                 "container_number",
-                "container_number__order",
+                "container_number__orders",
                 "container_number__orders__warehouse",
                 "shipment_batch_number",
                 "container_number__orders__offload_id",

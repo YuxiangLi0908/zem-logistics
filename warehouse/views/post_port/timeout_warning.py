@@ -185,7 +185,7 @@ class TimeoutWarning(View):
         pallets = await sync_to_async(list)(
             Pallet.objects.prefetch_related(
                 "container_number",
-                "container_number__order",
+                "container_number__orders",
                 "container_number__orders__warehouse",
                 "shipment_batch_number" "container_number__orders__offload_id",
                 "container_number__orders__customer_name",
