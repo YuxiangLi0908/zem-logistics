@@ -2464,23 +2464,51 @@ class FleetManagement(View):
         # BOL需要在后面加一个拣货单
         df = pd.DataFrame(arm_pickup[1:], columns=arm_pickup[0])
 
-        # 添加换行函数
-        def wrap_text(text, max_length=11):
-            """将文本按最大长度换行"""
+        # 优化换行函数：支持更小的字体和更合理的换行长度
+        def wrap_text(text, max_length=15, font_size=8):
+            """
+            将文本按最大长度换行，同时适配字体大小
+            :param text: 待处理文本
+            :param max_length: 每行最大字符数
+            :param font_size: 字体大小（用于辅助判断换行）
+            :return: 换行后的文本
+            """
             if not isinstance(text, str):
                 text = str(text)
 
-            if len(text) <= max_length:
+            # 字体越小，可显示的字符数越多，动态调整换行长度
+            adjust_length = max_length - (10 - font_size)
+            adjust_length = max(8, adjust_length)  # 最小8个字符
+
+            if len(text) <= adjust_length:
                 return text
 
-            # 按最大长度分割文本
+            # 按调整后的长度分割文本
             wrapped_lines = []
-            for i in range(0, len(text), max_length):
-                wrapped_lines.append(text[i:i + max_length])
+            for i in range(0, len(text), adjust_length):
+                wrapped_lines.append(text[i:i + adjust_length])
             return '\n'.join(wrapped_lines)
 
-        # 对DataFrame应用换行处理
-        df_wrapped = df.applymap(wrap_text)
+        # 优化备注换行函数
+        def wrap_long_text(text, max_line_length=50):
+            """处理长备注文本的换行"""
+            if not isinstance(text, str) or len(text) <= max_line_length:
+                return text
+
+            lines = []
+            current_line = ""
+            for word in text.split():
+                if len(current_line + word) <= max_line_length:
+                    current_line += word + " "
+                else:
+                    lines.append(current_line.strip())
+                    current_line = word + " "
+            if current_line:
+                lines.append(current_line.strip())
+            return '\n'.join(lines)
+
+        # 对DataFrame应用换行处理（缩小字体适配）
+        df_wrapped = df.applymap(lambda x: wrap_text(x, max_length=15, font_size=8))
 
         files = request.FILES.getlist("files")
         if files:
@@ -2513,12 +2541,12 @@ class FleetManagement(View):
             plt.rcParams["axes.unicode_minus"] = False  # 防止负号乱码
             plt.rcParams['figure.autolayout'] = True  # 自动调整布局
 
-            # ✅ 定义每页最大显示行数
-            MAX_ROWS_PER_PAGE = 30
-
-            # ✅ 分割数据为多个页面
+            # ✅ 限制最多分2页，重新计算每页行数
             total_rows = len(df_wrapped)
-            num_pages = (total_rows + MAX_ROWS_PER_PAGE - 1) // MAX_ROWS_PER_PAGE
+            MAX_PAGES = 2  # 强制最多2页
+            MAX_ROWS_PER_PAGE = (total_rows + MAX_PAGES - 1) // MAX_PAGES  # 均分2页
+
+            num_pages = min(MAX_PAGES, (total_rows + MAX_ROWS_PER_PAGE - 1) // MAX_ROWS_PER_PAGE)
 
             for file in files:
                 # 创建PDF合并器
@@ -2535,11 +2563,11 @@ class FleetManagement(View):
                     end_idx = min((page_num + 1) * MAX_ROWS_PER_PAGE, total_rows)
                     df_page = df_wrapped.iloc[start_idx:end_idx]
 
-                    # ✅ 动态计算图表高度（根据行数调整）
-                    row_height = 0.4  # 每行高度（英寸）
-                    header_height = 0.6  # 表头+标题高度
-                    footer_height = 0.8  # 底部备注高度
-                    fig_height = header_height + (len(df_page) * row_height) + footer_height
+                    # ✅ 动态计算图表高度（A4纵向尺寸29.7cm=11.69英寸）
+                    row_height = 0.35  # 每行高度（英寸），适配更小字体
+                    header_height = 1.2  # 增加标题区域高度，预留足够间距
+                    footer_height = 1.5  # 增加底部备注区域高度
+                    fig_height = min(11.69, header_height + (len(df_page) * row_height) + footer_height)
                     fig_width = 8.3  # A4宽度（英寸）
 
                     # 创建图表，动态调整尺寸
@@ -2552,64 +2580,84 @@ class FleetManagement(View):
                     if num_pages > 1:
                         title_text += f" - Page {page_num + 1}/{num_pages}"
 
+                    # 标题位置上移，预留更多空间
                     ax.text(
-                        0.5, 0.98, title_text,
+                        0.5, 0.95, title_text,
                         fontdict={"size": 12, "weight": "bold"},
                         va="top", ha="center",
                         transform=ax.transAxes
                     )
 
-                    # Pickup Number
+                    # ✅ Pickup Number：增加与表格的间距（从0.95下调到0.88）
                     ax.text(
-                        0.5, 0.95, f"Pickup Number: {pickup_number}",
-                        fontdict={"size": 10},
+                        0.5, 0.88, f"Pickup Number: {pickup_number}",
+                        fontdict={"size": 9},  # 缩小字体
                         va="top", ha="center",
-                        transform=ax.transAxes
+                        transform=ax.transAxes,
+                        wrap=True  # Pickup Number过长时换行
                     )
 
-                    # ✅ 创建表格（不使用固定bbox，让matplotlib自动布局）
+                    # ✅ 创建表格：调整位置，增加与Pickup Number的间距
                     table = ax.table(
                         cellText=df_page.values,
                         colLabels=df_page.columns,
                         loc="center",
                         cellLoc="center",
-                        # ✅ 移除固定的bbox，使用自动布局
+                        # 调整表格位置偏移，增加顶部间距
+                        bbox=[0.02, 0.1, 0.96, 0.75]  # [x0, y0, width, height]
                     )
 
-                    # 设置表格样式
+                    # 设置表格样式：缩小字体，加宽列宽
                     table.auto_set_font_size(False)
-                    table.set_fontsize(10)
+                    table.set_fontsize(8)  # 缩小字体到8号，避免溢出
 
-                    # ✅ 调整单元格尺寸
+                    # ✅ 调整单元格尺寸：大幅加宽列宽
                     for (row, col), cell in table.get_celld().items():
-                        # 设置列宽
-                        if col == 0 or col == 1 or col == 2:
-                            cell.set_width(0.15)
-                        elif col == 3 or col == 4:
+                        # 重新分配列宽，解决文字溢出问题
+                        if col == 0:  # container列
+                            cell.set_width(0.18)
+                        elif col == 1:  # destination列（最宽）
+                            cell.set_width(0.22)
+                        elif col == 2:  # mark列
+                            cell.set_width(0.20)
+                        elif col == 3:  # pallet列
                             cell.set_width(0.08)
-                        else:
+                        elif col == 4:  # pcs列
+                            cell.set_width(0.08)
+                        elif col == 5:  # carrier列
+                            cell.set_width(0.12)
+                        elif col == 6:  # pickup列
                             cell.set_width(0.12)
 
-                        # 设置行高
-                        cell.set_height(0.04)  # 增加行高，适应换行文本
+                        # 设置行高：适配换行后的文本
+                        cell.set_height(0.05)  # 增加行高，确保换行文本显示完整
 
-                        # 启用文本换行
-                        cell.set_text_props(wrap=True)
+                        # 强制启用文本换行
+                        cell.set_text_props(wrap=True, fontsize=8)
 
-                    # ✅ 底部备注（自适应位置）
+                    # ✅ 底部备注：优化换行和位置，增加间距
+                    # 处理备注换行
+                    wrapped_notes = wrap_long_text(notes, max_line_length=60)
+                    wrapped_pickup_num = wrap_long_text(pickup_number, max_line_length=60)
+
+                    # Notes位置
                     ax.text(
-                        0.02, 0.02, f"Notes: {notes}",
-                        fontdict={"size": 10},
-                        va="bottom", ha="left",
+                        0.02, 0.08, f"Notes: {wrapped_notes}",
+                        fontdict={"size": 9},
+                        va="top", ha="left",
                         transform=ax.transAxes,
-                        wrap=True  # 备注文本自动换行
+                        wrap=True,  # 备注文本自动换行
+                        linespacing=1.2  # 行间距
                     )
 
+                    # pickup_number位置：与Notes保持间距
                     ax.text(
-                        0.02, 0.05, f"pickup_number: {pickup_number}",
-                        fontdict={"size": 10},
-                        va="bottom", ha="left",
-                        transform=ax.transAxes
+                        0.02, 0.02, f"pickup_number: {wrapped_pickup_num}",
+                        fontdict={"size": 9},
+                        va="top", ha="left",
+                        transform=ax.transAxes,
+                        wrap=True,  # pickup_number自动换行
+                        linespacing=1.2
                     )
 
                     # 保存当前页表格到buffer
@@ -2620,7 +2668,10 @@ class FleetManagement(View):
                         format="pdf",
                         bbox_inches="tight",
                         dpi=300,  # 提高分辨率
-                        pad_inches=0.2  # 保留少量边距
+                        pad_inches=0.3,  # 增加边距，避免内容被裁切
+                        # 强制A4纸张尺寸
+                        papertype='a4',
+                        orientation='portrait'
                     )
                     buf_table.seek(0)
 
