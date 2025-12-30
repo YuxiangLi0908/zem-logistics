@@ -1278,6 +1278,7 @@ class Palletization(View):
                     i = num // n_label + 1
                     barcode_type = "code128"
                     barcode_class = barcode.get_barcode_class(barcode_type)
+                    destination = destination.replace('\xa0', ' ')
                     barcode_content = f"{pl.get('container_number__container_number')}|{destination}-{i}"
                     my_barcode = barcode_class(
                         barcode_content, writer=ImageWriter()

@@ -1,0 +1,660 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}报价表查询{% endblock %}
+
+{% block content %}
+<style>
+    :root {
+        --primary-color: #1b5e20;
+        --primary-light: #4caf50;
+        --primary-dark: #0d3d14;
+        --border-color: #dee2e6;
+        --success-color: #28a745;
+        --warning-color: #ffc107;
+        --error-color: #dc3545;
+    }
+    
+    .quotation-query-container {
+        max-width: 1400px;
+        margin: 40px auto;
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+        overflow: hidden;
+    }
+    
+    /* 头部 */
+    .query-header {
+        background: linear-gradient(135deg, var(--primary-dark), var(--primary-color));
+        color: white;
+        padding: 25px 30px;
+        text-align: center;
+    }
+    
+    .query-header h1 {
+        margin: 0;
+        font-size: 2rem;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 15px;
+    }
+    
+    .query-header h1 i {
+        font-size: 2.2rem;
+    }
+    
+    /* 搜索组区域 */
+    .search-groups-area {
+        padding: 30px;
+        background: #f8f9fa;
+    }
+    
+    .search-groups-box {
+        background: white;
+        border-radius: 10px;
+        padding: 25px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+    }
+    
+    .search-groups-title {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 25px;
+        padding-bottom: 15px;
+        border-bottom: 2px solid #f0f0f0;
+    }
+    
+    .search-groups-title h2 {
+        margin: 0;
+        color: #333;
+        font-size: 1.3rem;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    
+    /* 搜索组样式 */
+    .search-group-item {
+        display: flex;
+        align-items: center;
+        gap: 20px;
+        padding: 20px;
+        margin-bottom: 15px;
+        background: #f8f9fa;
+        border-radius: 8px;
+        border: 1px solid #e9ecef;
+        position: relative;
+        transition: all 0.3s ease;
+    }
+    
+    .search-group-item:hover {
+        background: #f1f3f4;
+        border-color: #dee2e6;
+    }
+    
+    .group-number {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 36px;
+        height: 36px;
+        background: #6c757d;
+        color: white;
+        border-radius: 50%;
+        font-size: 1rem;
+        font-weight: 600;
+        flex-shrink: 0;
+    }
+    
+    .search-inputs {
+        display: flex;
+        gap: 20px;
+        flex: 1;
+    }
+    
+    .input-container {
+        flex: 1;
+        min-width: 250px;
+    }
+    
+    .input-label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: 500;
+        color: #555;
+        font-size: 0.9rem;
+    }
+    
+    .search-input {
+        width: 100%;
+        padding: 12px 15px;
+        border: 2px solid #dee2e6;
+        border-radius: 6px;
+        font-size: 1rem;
+        transition: all 0.3s ease;
+        background: white;
+    }
+    
+    .search-input:focus {
+        outline: none;
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 3px rgba(27, 94, 32, 0.1);
+    }
+    
+    .remove-btn {
+        position: absolute;
+        top: 15px;
+        right: 15px;
+        width: 32px;
+        height: 32px;
+        border-radius: 6px;
+        background: transparent;
+        border: 1px solid #dc3545;
+        color: #dc3545;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.3s ease;
+    }
+    
+    .remove-btn:hover {
+        background: #dc3545;
+        color: white;
+    }
+    
+    /* 操作按钮 */
+    .action-buttons {
+        display: flex;
+        gap: 15px;
+        margin-top: 10px;
+    }
+    
+    .btn {
+        padding: 12px 25px;
+        border-radius: 6px;
+        font-weight: 500;
+        font-size: 1rem;
+        cursor: pointer;
+        border: none;
+        transition: all 0.3s ease;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .btn-add {
+        background: #6c757d;
+        color: white;
+    }
+    
+    .btn-add:hover {
+        background: #5a6268;
+        transform: translateY(-2px);
+    }
+    
+    .btn-query {
+        background: var(--primary-color);
+        color: white;
+        font-size: 1.1rem;
+        padding: 15px 40px;
+        margin-top: 20px;
+    }
+    
+    .btn-query:hover {
+        background: var(--primary-dark);
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(27, 94, 32, 0.2);
+    }
+    
+    .btn-query:active {
+        transform: translateY(0);
+    }
+    
+    /* 查询按钮区域 */
+    .query-button-container {
+        text-align: center;
+        margin-top: 30px;
+        padding-top: 25px;
+        border-top: 2px solid #f0f0f0;
+    }
+    
+    /* 结果表格区域 */
+    .results-area {
+        padding: 30px;
+        display: none;
+    }
+    
+    .results-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 25px;
+        padding-bottom: 15px;
+        border-bottom: 2px solid #f0f0f0;
+    }
+    
+    .results-header h2 {
+        margin: 0;
+        color: #333;
+        font-size: 1.3rem;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    
+    .results-count {
+        background: var(--primary-color);
+        color: white;
+        padding: 5px 12px;
+        border-radius: 20px;
+        font-size: 0.9rem;
+        font-weight: 500;
+    }
+    
+    .results-table-container {
+        overflow-x: auto;
+        background: white;
+        border-radius: 8px;
+        border: 1px solid #dee2e6;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+    }
+    
+    .results-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.95rem;
+    }
+    
+    .results-table thead {
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    }
+    
+    .results-table th {
+        padding: 18px 15px;
+        text-align: left;
+        font-weight: 600;
+        color: #333;
+        border-bottom: 2px solid #dee2e6;
+        white-space: nowrap;
+        font-size: 0.9rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .results-table td {
+        padding: 16px 15px;
+        border-bottom: 1px solid #eee;
+        vertical-align: middle;
+    }
+    
+    .results-table tr:last-child td {
+        border-bottom: none;
+    }
+    
+    .results-table tr:hover {
+        background-color: #fafafa;
+    }
+    
+    .amount-cell {
+        font-weight: 600;
+        color: var(--primary-color);
+        text-align: right;
+    }
+    
+    .status-cell {
+        text-align: center;
+    }
+    
+    .status-badge {
+        display: inline-block;
+        padding: 6px 12px;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        font-weight: 500;
+    }
+    
+    .status-found {
+        background: #d4edda;
+        color: #155724;
+        border: 1px solid #c3e6cb;
+    }
+    
+    .status-notfound {
+        background: #f8d7da;
+        color: #721c24;
+        border: 1px solid #f5c6cb;
+    }
+    
+    /* 总计行 */
+    .total-row {
+        background-color: #e8f5e9 !important;
+        font-weight: 600;
+    }
+    
+    .total-row td {
+        padding: 18px 15px;
+        border-top: 2px solid #c8e6c9;
+        border-bottom: 2px solid #c8e6c9;
+    }
+    
+    /* 空状态 */
+    .empty-state {
+        text-align: center;
+        padding: 60px 20px;
+        color: #6c757d;
+    }
+    
+    .empty-state i {
+        font-size: 4rem;
+        margin-bottom: 20px;
+        color: #dee2e6;
+    }
+    
+    /* 响应式 */
+    @media (max-width: 768px) {
+        .quotation-query-container {
+            margin: 20px;
+        }
+        
+        .search-inputs {
+            flex-direction: column;
+            gap: 15px;
+        }
+        
+        .input-container {
+            min-width: auto;
+        }
+        
+        .search-group-item {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 15px;
+        }
+        
+        .group-number {
+            align-self: flex-start;
+        }
+        
+        .remove-btn {
+            top: 10px;
+            right: 10px;
+        }
+    }
+</style>
+
+<div class="quotation-query-container">
+    <!-- 头部 -->
+    <div class="query-header">
+        <h1>
+            <i class="fas fa-search-dollar"></i>
+            报价表查询
+        </h1>
+    </div>
+    
+    <!-- 搜索条件区域 -->
+    <div class="search-groups-area">
+        <div class="search-groups-box">
+            <div class="search-groups-title">
+                <h2>
+                    <i class="fas fa-list"></i>
+                    查询条件设置
+                </h2>
+                <button type="button" class="btn btn-add" onclick="addSearchGroup()">
+                    <i class="fas fa-plus"></i>
+                    添加查询条件
+                </button>
+            </div>
+            
+            <form method="post" id="batch-search-form">
+                {% csrf_token %}
+                <input type="hidden" name="step" value="search_quote_container">
+                
+                <div id="search-groups-list">
+                    <!-- 搜索组会动态添加到这里 -->
+                    {% if search_groups and search_groups|length > 0 %}
+                        {% for group in search_groups %}
+                        <div class="search-group-item">
+                            <div class="group-number">{{ forloop.counter }}</div>
+                            <div class="search-inputs">
+                                <div class="input-container">
+                                    <label class="input-label">柜号</label>
+                                    <input type="text" 
+                                           name="container_numbers[]" 
+                                           class="search-input"
+                                           value="{{ group.container_number|default:'' }}"
+                                           placeholder="请输入柜号" 
+                                           required>
+                                </div>
+                                <div class="input-container">
+                                    <label class="input-label">目的地</label>
+                                    <input type="text" 
+                                           name="destinations[]" 
+                                           class="search-input"
+                                           value="{{ group.destination|default:'' }}"
+                                           placeholder="请输入目的地" 
+                                           required>
+                                </div>
+                            </div>
+                            <button type="button" class="remove-btn" onclick="removeSearchGroup(this)">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <!-- 默认显示一组 -->
+                        <div class="search-group-item">
+                            <div class="group-number">1</div>
+                            <div class="search-inputs">
+                                <div class="input-container">
+                                    <label class="input-label">柜号</label>
+                                    <input type="text" 
+                                           name="container_numbers[]" 
+                                           class="search-input"
+                                           placeholder="请输入柜号" 
+                                           required>
+                                </div>
+                                <div class="input-container">
+                                    <label class="input-label">目的地</label>
+                                    <input type="text" 
+                                           name="destinations[]" 
+                                           class="search-input"
+                                           placeholder="请输入目的地" 
+                                           required>
+                                </div>
+                            </div>
+                            <button type="button" class="remove-btn" onclick="removeSearchGroup(this)">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                    {% endif %}
+                </div>
+                
+                <div class="query-button-container">
+                    <button type="submit" class="btn btn-query">
+                        <i class="fas fa-search"></i>
+                        开始查询
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- 查询结果区域 -->
+    {% if search_results and search_results|length > 0 %}
+    <div class="results-area" id="results-area">
+        <div class="results-header">
+            <h2>
+                <i class="fas fa-table"></i>
+                查询结果
+            </h2>
+            <span class="results-count">{{ search_results|length }} 条记录</span>
+        </div>
+        
+        <div class="results-table-container">
+            <table class="results-table">
+                <thead>
+                    <tr>
+                        <th>柜号</th>
+                        <th>目的地</th>
+                        <th>单板价格(USD)</th>
+                        <th>板数</th>
+                        <th>总价(USD)</th>
+                        <th>状态</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for result in search_results %}
+                    <tr>
+                        <td>{{ result.container_number|default:"-" }}</td>
+                        <td>{{ result.destination|default:"-" }}</td>
+                        <td class="amount-cell">
+                            {% if result.unit_price %}
+                                ${{ result.unit_price|floatformat:2 }}
+                            {% else %}
+                                <span style="color: #999;">-</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ result.pallet_count|default:0 }}</td>
+                        <td class="amount-cell">
+                            {% if result.total_price %}
+                                ${{ result.total_price|floatformat:2 }}
+                            {% else %}
+                                <span style="color: #999;">-</span>
+                            {% endif %}
+                        </td>
+                        <td class="status-cell">
+                            <span class="status-badge {% if result.is_found %}status-found{% else %}status-notfound{% endif %}">
+                                {% if result.is_found %}
+                                    <i class="fas fa-check-circle"></i> 已找到
+                                {% else %}
+                                    <i class="fas fa-exclamation-circle"></i> 未找到
+                                {% endif %}
+                            </span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    
+                    <!-- 总计行 -->
+                    {% if has_total %}
+                    <tr class="total-row">
+                        <td colspan="2" style="text-align: right; padding-right: 20px;">总计：</td>
+                        <td></td>
+                        <td>{{ total_pallets|default:0 }}</td>
+                        <td class="amount-cell">${{ total_price|floatformat:2|default:"0.00" }}</td>
+                        <td></td>
+                    </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    let searchGroupCounter = 1;
+    
+    // 初始化：计算已有搜索组的数量
+    const existingGroups = document.querySelectorAll('#search-groups-list .search-group-item');
+    if (existingGroups.length > 0) {
+        searchGroupCounter = existingGroups.length;
+    }
+    
+    // 如果有结果，显示结果区域
+    {% if search_results and search_results|length > 0 %}
+    document.getElementById('results-area').style.display = 'block';
+    {% endif %}
+});
+
+// 添加搜索组
+function addSearchGroup() {
+    searchGroupCounter++;
+    const searchGroupsList = document.getElementById('search-groups-list');
+    
+    const newGroup = document.createElement('div');
+    newGroup.className = 'search-group-item';
+    newGroup.innerHTML = `
+        <div class="group-number">${searchGroupCounter}</div>
+        <div class="search-inputs">
+            <div class="input-container">
+                <label class="input-label">柜号</label>
+                <input type="text" 
+                       name="container_numbers[]" 
+                       class="search-input"
+                       placeholder="请输入柜号" 
+                       required>
+            </div>
+            <div class="input-container">
+                <label class="input-label">目的地</label>
+                <input type="text" 
+                       name="destinations[]" 
+                       class="search-input"
+                       placeholder="请输入目的地" 
+                       required>
+            </div>
+        </div>
+        <button type="button" class="remove-btn" onclick="removeSearchGroup(this)">
+            <i class="fas fa-times"></i>
+        </button>
+    `;
+    
+    searchGroupsList.appendChild(newGroup);
+    updateGroupNumbers();
+}
+
+// 移除搜索组
+function removeSearchGroup(button) {
+    const searchGroupsList = document.getElementById('search-groups-list');
+    const groups = searchGroupsList.querySelectorAll('.search-group-item');
+    
+    if (groups.length > 1) {
+        button.closest('.search-group-item').remove();
+        searchGroupCounter--;
+        updateGroupNumbers();
+    } else {
+        alert('至少需要保留一组查询条件');
+    }
+}
+
+// 更新组编号
+function updateGroupNumbers() {
+    const groups = document.querySelectorAll('#search-groups-list .search-group-item');
+    groups.forEach((group, index) => {
+        group.querySelector('.group-number').textContent = index + 1;
+    });
+}
+
+// 表单提交前验证
+document.getElementById('batch-search-form').addEventListener('submit', function(e) {
+    // 检查是否有重复的柜号+目的地组合
+    const containerInputs = document.querySelectorAll('input[name="container_numbers[]"]');
+    const destinationInputs = document.querySelectorAll('input[name="destinations[]"]');
+    const combinations = new Set();
+    let hasDuplicate = false;
+    
+    for (let i = 0; i < containerInputs.length; i++) {
+        const container = containerInputs[i].value.trim();
+        const destination = destinationInputs[i].value.trim();
+        
+        if (container && destination) {
+            const combination = `${container}-${destination}`;
+            if (combinations.has(combination)) {
+                hasDuplicate = true;
+                alert(`存在重复的查询条件：柜号 ${container}，目的地 ${destination}`);
+                e.preventDefault();
+                break;
+            }
+            combinations.add(combination);
+        }
+    }
+    
+    return !hasDuplicate;
+});
+</script>
+{% endblock %}

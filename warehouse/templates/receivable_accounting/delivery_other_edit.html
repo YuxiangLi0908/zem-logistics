@@ -1325,7 +1325,8 @@ $(document).ready(function() {
 
         let amount = 0;
         if (deliveryType === 'selfpickup') {
-            amount = (rate * pallets) + surcharges;
+            // amount = (rate * pallets) + surcharges;
+            return parseFloat($amountInput.val()) || 0;
         } else if (deliveryType === 'selfdelivery') {
             // 自发派送允许用户输入金额主体，但我们要确保附加费也累加进去
             const userAmount = parseFloat($amountInput.val());

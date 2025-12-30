@@ -80,6 +80,7 @@ class PostNsop(View):
     template_fleet_schedule = "post_port/new_sop/03_fleet_schedule/03_fleet_schedule.html"
     template_unscheduled_pos_all = "post_port/new_sop/01_unscheduled_pos_all/01_unscheduled_main.html"
     template_ltl_pos_all = "post_port/new_sop/05_ltl_pos_all/05_ltl_main.html"
+    template_search_quote = "post_port/new_sop/06_search_quote.html"
     template_history_shipment = "post_port/new_sop/04_history_shipment/04_history_shipment_main.html"
     template_bol = "export_file/bol_base_template.html"
     template_bol_pickup = "export_file/bol_template.html"
@@ -87,7 +88,7 @@ class PostNsop(View):
     template_ltl_label = "export_file/ltl_label.html"
     template_ltl_bol = "export_file/ltl_bol.html"
     area_options = {"NJ": "NJ", "SAV": "SAV", "LA": "LA", "MO": "MO", "TX": "TX", "LA": "LA"}
-    warehouse_options = {"":"", "NJ-07001": "NJ-07001", "SAV-31326": "SAV-31326", "LA-91761": "LA-91761", "LA-91789": "LA-91789", "LA-91766": "LA-91766",}
+    warehouse_options = {"":"", "NJ-07001": "NJ-07001", "SAV-31326": "SAV-31326", "LA-91761": "LA-91761", "LA-91748": "LA-91748", "LA-91766": "LA-91766",}
     load_type_options = {
         "卡板": "卡板",
         "地板": "地板",
@@ -161,6 +162,9 @@ class PostNsop(View):
         elif step == "history_shipment":
             context = {"warehouse_options": self.warehouse_options}
             return render(request, self.template_history_shipment, context)
+        elif step == "search_quote":
+            context = {}
+            return render(request, self.template_search_quote, context) 
         else:
             raise ValueError('输入错误')
 
@@ -386,8 +390,15 @@ class PostNsop(View):
         elif step == "update_pod_status":
             template, context = await self.handle_update_pod_status(request)
             return render(request, template, context) 
+        elif step == "search_quote_container":
+            template, context = await self.search_quote_container(request)
+            return render(request, template, context) 
         else:
             raise ValueError('输入错误',step)
+        
+    async def search_quote_container(self, request: HttpRequest) -> HttpResponse:
+        context = {}
+        return self.template_search_quote, context
     
     async def export_ltl_bol(self, request: HttpRequest) -> HttpResponse:
         fleet_number = request.POST.get("fleet_number")
@@ -417,10 +428,9 @@ class PostNsop(View):
                     address = re.sub("[\u4e00-\u9fff]", " ", address)
                     address = re.sub(r"\uFF0C", ",", address)
                     parts = [p.strip() for p in address.split(";")]
-                    
                     contact = {
                         "company": parts[0] if len(parts) > 0 else "",
-                        "road":    parts[1] if len(parts) > 1 else "",
+                        "Road":    parts[1] if len(parts) > 1 else "",
                         "city":    parts[2] if len(parts) > 2 else "",
                         "name":    parts[3] if len(parts) > 3 else "",
                         "phone":   parts[4] if len(parts) > 4 else "",
@@ -4759,7 +4769,7 @@ class PostNsop(View):
                     note_sp=StringAgg("note_sp", delimiter=",", distinct=True)
                 )
                 .distinct()
-                .order_by("actual_retrieval_time","destination", "shipping_marks")
+                .order_by("actual_retrieval_time")
             )
 
             data += pl_list
@@ -4778,7 +4788,8 @@ class PostNsop(View):
         for cargo in raw_cargos:
             if not cargo["is_pass"]:
                 cargos.append(cargo)
-        return cargos
+        sorted_cargos = sorted(cargos, key=lambda x: (x.get('ltl_verify', False),))
+        return sorted_cargos
     
     async def _ltl_scheduled_self_pickup(self, pl_criteria, plt_criteria) -> Dict[str, Any]:
         """获取已放行客提货物 - Tab 2"""
@@ -4792,11 +4803,14 @@ class PostNsop(View):
             delivery_method__contains="自提"
         )
         
-        cargos = await self._ltl_packing_list(
+        raw_cargos = await self._ltl_packing_list(
             pl_criteria,
             plt_criteria
         )
-        
+        cargos = []
+        for cargo in raw_cargos:
+            if cargo["is_pass"]:
+                cargos.append(cargo)
         return cargos
     
     async def _ltl_self_delivery(self, pl_criteria, plt_criteria) -> Dict[str, Any]:
@@ -4804,11 +4818,14 @@ class PostNsop(View):
         pl_criteria = pl_criteria & ~Q(delivery_method__contains="自提")
         
         plt_criteria = plt_criteria & ~Q(delivery_method__contains="自提")
-        cargos = await self._ltl_packing_list(
+        raw_cargos = await self._ltl_packing_list(
             pl_criteria,
             plt_criteria
         )
-        
+        cargos = []
+        for cargo in raw_cargos:
+            if cargo["is_pass"]:
+                cargos.append(cargo)
         return cargos
     
     async def export_ltl_unscheduled(
@@ -5408,7 +5425,10 @@ class PostNsop(View):
         # #待传POD
         pod_data_raw = await self._fl_pod_get(warehouse, None, 'ltl')
         pod_data = pod_data_raw['fleet']
-
+        pod_data = sorted(
+            pod_data,
+            key=lambda p: p.pod_to_customer is True
+        )
         summary = {
             'release_count': len(release_cargos),
             'selfpick_count': len(selfpick_cargos),

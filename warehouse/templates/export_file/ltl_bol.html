@@ -53,7 +53,9 @@
     <table style="width: 100%;">
         <tr style="border-bottom: 1px solid black;">
             <td style="width: 30%;">
+                {% if carrier != "Allywork" %}
                 <img style="width:200px;" src="{% static 'img/zem_logo_small.jpg' %}">
+                {% endif %}
             </td>
             <td style="width: 40%; text-align:center; padding-top:35px;">
                 <h1><b>BILL OF LADING</b></h1>
@@ -71,6 +73,8 @@
                 ZEM RINCON<br>5450E Francis St Ontario<br>CA,91761,United States<br>Gina &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;6264354246<br>delivery@zemlogistics.com
                 {% elif "LA-91748" == warehouse %}
                 ZEM RINCON<br>19545 San Jose Ave City of Industry<br>CA,91748,United States<br>Ricko &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;626-759-3942<br>delivery@zemlogistics.com
+                {% elif "LA-91766" == warehouse %}
+                1601 W Mission Blvd, Pomona<br>CA 91766<br>Allywork &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;213-510-5188-Ext 803<br>allywork.operation@gmail.com
                 {% else %}
                 <br><br><br><br>
                 {% endif %}

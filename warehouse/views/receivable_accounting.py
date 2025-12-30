@@ -112,8 +112,11 @@ class ReceivableAccounting(View):
     template_invoice_statement = "receivable_accounting/invoice_statement.html"
     template_invoice_items_edit = "receivable_accounting/invoice_items_edit.html"
 
-    template_completed_bills = "receivable_accounting/completed_bills.html"
     template_supplementary_entry = "receivable_accounting/supplementary_entry.html"
+    template_invoice_items_all = "receivable_accounting/invoice_items_all.html"
+
+    template_completed_bills = "receivable_accounting/completed_bills.html"
+
     template_financial_statistics = "receivable_accounting/financial_statistics.html"
     template_quotation_management = "receivable_accounting/quotation_management.html"
     
@@ -185,7 +188,9 @@ class ReceivableAccounting(View):
         elif step == "container_delivery":
             template, context = self.handle_container_delivery_post(request)
             return render(request, template, context)   
-        
+        elif step == "invoice_manual":
+            template, context = self.handle_invoice_item_search(request)
+            return render(request, template, context)
         else:
             raise ValueError(f"unknow request {step}")
 
@@ -243,8 +248,8 @@ class ReceivableAccounting(View):
             # 转运，财务保存
             template, context = self.handle_confirm_save_all(request)
             return render(request, template, context)
-        elif step == "supplement_search":
-            template, context = self.handle_supplement_search(request)
+        elif step == "manual_process_search":
+            template, context = self.handle_manual_process_search(request)
             return render(request, template, context)
         elif step == "confirm_combina_save":
             template, context = self.handle_invoice_confirm_combina_save(request)
@@ -268,7 +273,262 @@ class ReceivableAccounting(View):
         elif step == "invoice_search":
             template, context = self.handle_invoice_search_get(request)
             return render(request, template, context)
-    
+        elif step =="save_manual_invoice_items":
+            template, context = self.handle_save_manual_invoice_items(request)
+            return render(request, template, context)
+        elif step == "generate_manual_excel":
+            template, context = self.handle_generate_manual_excel(request)
+            return render(request, template, context)
+        elif step == "export_invoice":
+            return self.handle_export_invoice_post(request)
+
+    def handle_save_manual_invoice_items(self, request: HttpRequest):
+        """处理保存所有账单记录的操作"""
+        context = {}
+        container_number = request.POST.get("container_number")
+        invoice_number = request.POST.get("invoice_number")
+        items_data = request.POST.get("items_data")
+
+        invoice = Invoicev2.objects.get(invoice_number=invoice_number)
+        container = Container.objects.get(container_number=container_number)
+        items_data_json = request.POST.get("items_data")
+        if not items_data_json:
+            context.update({"error_messages": "没有接收到数据"})
+        else:
+            items_data = json.loads(items_data_json)
+            for item in items_data:
+                item_id = item.get('item_id')
+                item_category = item.get('item_category','')
+                if item_category in ['delivery_public','delivery_other']:
+                    self._save_delivery_items(item, item_id, invoice, container)
+                else:
+                    self._save_other_items(item, item_id, invoice, container)
+        self._update_invoice_total(invoice,container)
+        context = {'success_messages':'保存账单明细成功！'}
+        return self.handle_invoice_item_search(request,context)
+
+    def handle_invoice_item_search(self, request:HttpRequest, context: dict| None = None) -> Dict[str, Any]:
+        '''查询全部的账单详情'''
+        if not context:
+            context = {}
+        container_number = request.GET.get("container_number")
+        invoice_id = request.GET.get("invoice_id")
+        if not container_number:
+            container_number = request.POST.get("container_number")
+            invoice_id = request.POST.get("invoice_id")
+
+        order = Order.objects.select_related(
+            'container_number',
+            'customer_name',
+            'warehouse',
+            'vessel_id',
+            'retrieval_id'
+        ).get(container_number__container_number=container_number)
+
+        if invoice_id and invoice_id != "None":
+            #找到要修改的那份账单
+            invoice = Invoicev2.objects.get(id=invoice_id)
+            invoice_status, created = InvoiceStatusv2.objects.get_or_create(
+                invoice=invoice,
+                invoice_type="receivable",
+                defaults={
+                    "container_number": order.container_number,
+                    "invoice": invoice,
+                }
+            )
+        else:
+            #说明这个柜子没有创建过账单，需要创建
+            invoice, invoice_status = self._create_invoice_and_status(container_number)
+            invoice_id = invoice.id
+
+        items = InvoiceItemv2.objects.filter(
+            invoice_number=invoice,
+            invoice_type="receivable"
+        )
+        other_items = []
+        delivery_items = []
+        for item in items:
+            if item.item_category == "delivery_public" or item.item_category == "delivery_other":
+                delivery_items.append(item)
+            else:
+                other_items.append(item)
+        context.update({
+            'other_items': other_items,
+            'delivery_items': delivery_items,
+            'container_number': container_number,
+            'invoice_number': invoice.invoice_number,
+            'start_date': request.POST.get("start_date"),
+            'end_date': request.POST.get("end_date"),
+            'order_type': order.order_type,
+        })
+        return self.template_invoice_items_all, context
+
+    def handle_manual_process_search(self, request: HttpRequest, context: dict | None = None, ) -> Dict[str, Any]:
+        if not context:
+            context = {}
+        container_number = request.POST.get("container_number")
+        warehouse = request.POST.get("warehouse_filter")
+        customer = request.POST.get("customer")
+        start_date = request.POST.get("start_date")
+        end_date = request.POST.get("end_date")
+
+        if not container_number:
+            current_date = datetime.now().date()
+            start_date = (
+                (current_date + timedelta(days=-90)).strftime("%Y-%m-%d")
+                if not start_date
+                else start_date
+            )
+            end_date = current_date.strftime("%Y-%m-%d") if not end_date else end_date
+            criteria = (
+                    Q(cancel_notification=False)
+                    & (Q(order_type="转运") | Q(order_type="转运组合"))
+                    & Q(vessel_id__vessel_etd__gte=start_date)
+                    & Q(vessel_id__vessel_etd__lte=end_date)
+                    & Q(offload_id__offload_at__isnull=False)
+            )
+            if warehouse:
+                criteria &= Q(retrieval_id__retrieval_destination_precise=warehouse)
+            if customer:
+                criteria &= Q(customer_name__zem_name=customer)
+        else:
+            criteria = (
+                Q(container_number__container_number=container_number)
+            )
+
+            # 获取基础订单数据
+        base_orders = (
+            Order.objects
+            .select_related(
+                "retrieval_id",
+                "offload_id",
+                "container_number",
+                "customer_name",
+            )
+            .annotate(
+                retrieval_time=F("retrieval_id__actual_retrieval_timestamp"),
+                empty_returned_time=F("retrieval_id__empty_returned_at"),
+                offload_time=F("offload_id__offload_at"),
+            )
+            .filter(criteria)
+            .distinct()
+        )
+        rows = []
+
+        for o in base_orders:
+            container = o.container_number
+            if not container:
+                continue
+
+            invoices = (
+                Invoicev2.objects
+                .filter(container_number=container)
+            )
+
+            if not invoices.exists():
+                continue
+
+            # 一次性取 status，避免 N+1
+            status_map = {
+                s.invoice_id: s
+                for s in InvoiceStatusv2.objects.filter(
+                    invoice__in=invoices,
+                    invoice_type="receivable",
+                )
+            }
+            # 状态映射字典
+            status_mapping = {
+                'unstarted': '未录入',
+                'in_progress': '录入中',
+                'pending_review': '待组长审核',
+                'completed': '已完成',
+                'rejected': '已驳回',
+                'tobeconfirmed': '待确认',
+            }
+            for invoice in invoices:
+                invoice_status = status_map.get(invoice.id)
+                if not invoice_status:
+                    continue
+
+                rows.append({
+                    # ===== Order =====
+                    "order_id": o.id,
+                    "order_type": o.order_type,
+                    "created_at": o.created_at,
+                    "offload_time": o.offload_time,
+
+                    "container_id": container.id,
+                    "container_number": container.container_number,
+
+                    "customer_name": o.customer_name.zem_name if o.customer_name else None,
+                    "warehouse": (
+                        o.retrieval_id.retrieval_destination_precise
+                        if o.retrieval_id else None
+                    ),
+
+                    # ===== Invoice =====
+                    "invoice_id": invoice.id,
+                    "invoice_number": invoice.invoice_number,
+                    "invoice_date": invoice.invoice_date,
+                    "invoice_created_at": invoice.created_at,
+
+                    # ===== Status =====
+                    "preport_status": status_mapping.get(invoice_status.preport_status, invoice_status.preport_status),
+                    "warehouse_public_status": status_mapping.get(invoice_status.warehouse_public_status,
+                                                                  invoice_status.warehouse_public_status),
+                    "warehouse_other_status": status_mapping.get(invoice_status.warehouse_other_status,
+                                                                 invoice_status.warehouse_other_status),
+                    "delivery_public_status": status_mapping.get(invoice_status.delivery_public_status,
+                                                                 invoice_status.delivery_public_status),
+                    "delivery_other_status": status_mapping.get(invoice_status.delivery_other_status,
+                                                                invoice_status.delivery_other_status),
+                    "finance_status": status_mapping.get(invoice_status.finance_status, invoice_status.finance_status),
+
+                    # ===== Amounts =====
+                    "receivable_total_amount": invoice.receivable_total_amount,
+                    "receivable_preport_amount": invoice.receivable_preport_amount,
+                    "receivable_wh_public_amount": invoice.receivable_wh_public_amount,
+                    "receivable_wh_other_amount": invoice.receivable_wh_other_amount,
+                    "receivable_delivery_public_amount": invoice.receivable_delivery_public_amount,
+                    "receivable_delivery_other_amount": invoice.receivable_delivery_other_amount,
+                    "receivable_direct_amount": invoice.receivable_direct_amount,
+                })
+
+        context.update({
+            "rows": rows,
+            "order_form": OrderForm(),
+            "warehouse_options": self.warehouse_options,
+            "warehouse_filter": warehouse,
+            "start_date": start_date,
+            "end_date": end_date,
+        })
+
+        return self.template_supplementary_entry, context
+
+    def handle_generate_manual_excel(self,request: HttpRequest) -> tuple[Any, Any]:
+        '''手动编辑账单时生成新的excel'''
+        container_number = request.POST.get("container_number")
+        invoice_number = request.POST.get("invoice_number")
+
+        order = Order.objects.get(container_number__container_number=container_number)
+        invoice = Invoicev2.objects.get(invoice_number=invoice_number)
+
+        ctx = self._parse_invoice_excel_data(order, invoice)
+        ac = Accounting()
+        workbook, invoice_data = ac._generate_invoice_excel(ctx)
+        invoice.invoice_date = invoice_data["invoice_date"]
+        invoice.invoice_link = invoice_data["invoice_link"]
+        invoice.save()
+
+        # 返回成功消息
+        success_message = f"成功生成新的excel!"
+        context = {'success_message': success_message}
+        return self.template_invoice_items_all ,context
+
+    def handle_export_invoice_post(self, request: HttpRequest) -> HttpResponse:
+        resp, file_name, pdf_file, context = export_invoice(request)
+        return resp
+
     def handle_invoice_search_get(
         self,
         request: HttpRequest,
@@ -4302,7 +4562,7 @@ class ReceivableAccounting(View):
             #用转运方式计算费用
             public_key = f"{warehouse}_PUBLIC"
             if public_key not in fee_details:
-                context.update({'error_messages':'未找到亚马逊沃尔玛报价表'})
+                context.update({'error_messages':f'{warehouse}_PUBLIC-group-{group}未找到亚马逊沃尔玛报价表'})
                 return context
             rules = fee_details.get(f"{warehouse}_PUBLIC").details
             niche_warehouse = fee_details.get(f"{warehouse}_PUBLIC").niche_warehouse
@@ -4536,9 +4796,10 @@ class ReceivableAccounting(View):
         # 对每个PO组，从PackingList表中获取准确的CBM和重量数据
         for group in pallet_groups:
             po_id = group.get("PO_ID")
+            shipping_mark = group.get("shipping_mark")
             if po_id:
                 try:
-                    aggregated = PackingList.objects.filter(PO_ID=po_id).aggregate(
+                    aggregated = PackingList.objects.filter(PO_ID=po_id, shipping_mark=shipping_mark).aggregate(
                         total_cbm=Sum('cbm'),
                         total_weight_lbs=Sum('total_weight_lbs')
                     )
