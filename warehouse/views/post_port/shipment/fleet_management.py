@@ -2570,7 +2570,7 @@ class FleetManagement(View):
                     fig_height = min(11.69, header_height + (len(df_page) * row_height) + footer_height)
                     fig_width = 8.3  # A4宽度（英寸）
 
-                    # 创建图表，动态调整尺寸
+                    # 创建图表，使用A4尺寸
                     fig, ax = plt.subplots(figsize=(fig_width, fig_height))
                     ax.axis("tight")
                     ax.axis("off")
@@ -2662,16 +2662,13 @@ class FleetManagement(View):
 
                     # 保存当前页表格到buffer
                     buf_table = io.BytesIO()
-                    # ✅ 使用高质量渲染，避免模糊
+                    # ✅ 修正：移除不支持的papertype和orientation参数
                     fig.savefig(
                         buf_table,
                         format="pdf",
                         bbox_inches="tight",
                         dpi=300,  # 提高分辨率
-                        pad_inches=0.3,  # 增加边距，避免内容被裁切
-                        # 强制A4纸张尺寸
-                        papertype='a4',
-                        orientation='portrait'
+                        pad_inches=0.3  # 增加边距，避免内容被裁切
                     )
                     buf_table.seek(0)
 
