@@ -82,7 +82,7 @@ class ExceptionHandling(View):
     template_restore_sorted_data_get = "exception_handling/restore_sorted_data_get.html"
     template_query_pallet_packinglist = "exception_handling/query_pallet_packinglist.html"
     template_temporary_function = "exception_handling/temporary_function.html"
-    template_receivable_status_migrate = "exception_handling/receivable_status_migrate.html"
+    template_payable_status_migrate = "exception_handling/payable_status_migrate.html"
     shipment_type_options = {
         "": "",
         "FTL": "FTL",
@@ -144,9 +144,9 @@ class ExceptionHandling(View):
                 return HttpResponseForbidden(
                     "You are not authenticated to access this page!"
                 )
-        elif step == "receivable_status_migrate":
+        elif step == "payable_status_migrate":
             if self._validate_super_user(request.user):
-                return await sync_to_async(render)(request, self.template_receivable_status_migrate, {})
+                return await sync_to_async(render)(request, self.template_payable_status_migrate, {})
             else:
                 return HttpResponseForbidden(
                     "You are not authenticated to access this page!"
@@ -2577,7 +2577,7 @@ class ExceptionHandling(View):
         await sync_to_async(
             lambda: InvoiceStatusv2.objects.filter(
                 invoice__invoice_number=search_value, 
-                invoice_type="receivable"
+                invoice_type="payable"
             ).update(finance_status="tobeconfirmed", delivery_public_status="unstarted")
         )()
         # 重新查询
@@ -2805,14 +2805,14 @@ class ExceptionHandling(View):
             else:
                 logg.append("没有找到需要更新的直送订单")
             context = {'logg':logg}
-            return self.template_receivable_status_migrate, context
+            return self.template_payable_status_migrate, context
             
         except Exception as e:
             logg.append(f"更新过程中发生错误: {str(e)}")
             import traceback
             logg.append(traceback.format_exc())
             context = {'logg':logg}
-            return self.template_receivable_status_migrate, context
+            return self.template_payable_status_migrate, context
 
     async def handle_receivale_status_search(self, request):
         old_status = await sync_to_async(list)(
@@ -2989,7 +2989,7 @@ class ExceptionHandling(View):
             'removed_count': len(removed),
             'changed_count': len(changed)
         }
-        return self.template_receivable_status_migrate, context
+        return self.template_payable_status_migrate, context
 
     async def handle_search_wrong_fee(self,request):
         """
@@ -3017,26 +3017,26 @@ class ExceptionHandling(View):
             # 只有当两个账单都存在时才比较
             if old_invoice and new_invoice:
                 # 计算Invoicev2的合并金额
-                new_warehouse_total = (new_invoice.receivable_wh_public_amount or 0) + (new_invoice.receivable_wh_other_amount or 0)
-                new_delivery_total = (new_invoice.receivable_delivery_public_amount or 0) + (new_invoice.receivable_delivery_other_amount or 0)
+                new_warehouse_total = (new_invoice.payable_wh_public_amount or 0) + (new_invoice.payable_wh_other_amount or 0)
+                new_delivery_total = (new_invoice.payable_delivery_public_amount or 0) + (new_invoice.payable_delivery_other_amount or 0)
                 
                 # 定义要比较的字段和对应的值
                 comparisons = [
-                    ('receivable_total_amount', '应收总额', 
-                     old_invoice.receivable_total_amount or 0, 
-                     new_invoice.receivable_total_amount or 0),
-                    ('receivable_preport_amount', '港前金额', 
-                     old_invoice.receivable_preport_amount or 0, 
-                     new_invoice.receivable_preport_amount or 0),
-                    ('receivable_warehouse_amount', '仓库金额', 
-                     old_invoice.receivable_warehouse_amount or 0, 
+                    ('payable_total_amount', '应付总额', 
+                     old_invoice.payable_total_amount or 0, 
+                     new_invoice.payable_total_amount or 0),
+                    ('payable_preport_amount', '港前金额', 
+                     old_invoice.payable_preport_amount or 0, 
+                     new_invoice.payable_preport_amount or 0),
+                    ('payable_warehouse_amount', '仓库金额', 
+                     old_invoice.payable_warehouse_amount or 0, 
                      new_warehouse_total),
-                    ('receivable_delivery_amount', '派送金额', 
-                     old_invoice.receivable_delivery_amount or 0, 
+                    ('payable_delivery_amount', '派送金额', 
+                     old_invoice.payable_delivery_amount or 0, 
                      new_delivery_total),
-                    ('receivable_direct_amount', '直送金额', 
-                     old_invoice.receivable_direct_amount or 0, 
-                     new_invoice.receivable_direct_amount or 0)
+                    ('payable_direct_amount', '直送金额', 
+                     old_invoice.payable_direct_amount or 0, 
+                     new_invoice.payable_direct_amount or 0)
                 ]
                 
                 differences = []
@@ -3078,7 +3078,7 @@ class ExceptionHandling(View):
             'migration_log': migration_log,
         }
         
-        return self.template_receivable_status_migrate, context
+        return self.template_payable_status_migrate, context
 
     async def handle_search_wrong_status(self,request):
         """
@@ -3101,7 +3101,7 @@ class ExceptionHandling(View):
             old_status = await sync_to_async(
                 lambda c: InvoiceStatus.objects.filter(
                     container_number=c,
-                    invoice_type="receivable"
+                    invoice_type="payable"
                 ).first()
             )(container)
                 
@@ -3109,7 +3109,7 @@ class ExceptionHandling(View):
             new_status = await sync_to_async(
                 lambda c: InvoiceStatusv2.objects.filter(
                     container_number=c,
-                    invoice_type="receivable"
+                    invoice_type="payable"
                 ).first()
             )(container)
             
@@ -3200,7 +3200,7 @@ class ExceptionHandling(View):
             'inconsistent_count': inconsistent_count,
             'containers_list': containers_list,
         }
-        return self.template_receivable_status_migrate,context       
+        return self.template_payable_status_migrate,context       
             
 
     async def handle_search_extra_invoice(self,request):
@@ -3246,7 +3246,7 @@ class ExceptionHandling(View):
             'end_index': end_index,
             'migration_log': migration_log,
         }
-        return self.template_receivable_status_migrate,context
+        return self.template_payable_status_migrate,context
     
     async def handle_receivale_status_migrate_delete_old(self,request):
         migration_log = []
@@ -3273,7 +3273,7 @@ class ExceptionHandling(View):
             'migration_log': migration_log,
             'search_index': search_input
         }
-        return self.template_receivable_status_migrate,context
+        return self.template_payable_status_migrate,context
         
     async def handle_receivale_item_migrate(self,request):
         """迁移InvoiceItem"""
@@ -3346,7 +3346,7 @@ class ExceptionHandling(View):
                     new_items.append(InvoiceItemv2(
                         container_number=container,
                         invoice_number=invoicev2,
-                        invoice_type="receivable",
+                        invoice_type="payable",
                         item_category=item_category,
                         description=item.description,
                         qty=item.qty,
@@ -3373,7 +3373,7 @@ class ExceptionHandling(View):
             'success': True,
             'message': f'迁移完成: {total_migrated}条记录'
         }
-        return self.template_receivable_status_migrate,context
+        return self.template_payable_status_migrate,context
 
     def _get_item_category(self, description):
         """根据InvoiceItem确定分类的辅助函数"""
@@ -3427,9 +3427,9 @@ class ExceptionHandling(View):
                     'invoice_number',
                     'invoice_date',
                     'invoice_link',
-                    'receivable_preport_amount',
-                    'receivable_total_amount',
-                    'receivable_direct_amount',
+                    'payable_preport_amount',
+                    'payable_total_amount',
+                    'payable_direct_amount',
                     'payable_total_amount',
                     'payable_preport_amount',
                     'payable_warehouse_amount',
@@ -3524,7 +3524,7 @@ class ExceptionHandling(View):
             'end_index': end_index,
             'old_invoices_text': old_invoices_text,
         }
-        return self.template_receivable_status_migrate, context
+        return self.template_payable_status_migrate, context
 
     
     async def migrate_missed_invoice(self, old_invoice_dict, fixed_date):
@@ -3664,7 +3664,7 @@ class ExceptionHandling(View):
                 public_wh_amount = await sync_to_async(
                     lambda: InvoiceWarehouse.objects.filter(
                         invoice_number__invoice_number=old_invoice_dict['invoice_number'],
-                        invoice_type="receivable",
+                        invoice_type="payable",
                         delivery_type="public"
                     ).aggregate(total_amount=Sum('amount'))['total_amount'] or 0
                 )()
@@ -3672,7 +3672,7 @@ class ExceptionHandling(View):
                 other_wh_amount = await sync_to_async(
                     lambda: InvoiceWarehouse.objects.filter(
                         invoice_number__invoice_number=old_invoice_dict['invoice_number'],
-                        invoice_type="receivable",
+                        invoice_type="payable",
                         delivery_type="other"
                     ).aggregate(total_amount=Sum('amount'))['total_amount'] or 0
                 )()
@@ -3680,7 +3680,7 @@ class ExceptionHandling(View):
                 public_dl_amount = await sync_to_async(
                     lambda: InvoiceDelivery.objects.filter(
                         invoice_number__invoice_number=old_invoice_dict['invoice_number'],
-                        invoice_type="receivable",
+                        invoice_type="payable",
                         delivery_type="public"
                     ).aggregate(total_amount=Sum('total_cost'))['total_amount'] or 0
                 )()
@@ -3688,7 +3688,7 @@ class ExceptionHandling(View):
                 other_dl_amount = await sync_to_async(
                     lambda: InvoiceDelivery.objects.filter(
                         invoice_number__invoice_number=old_invoice_dict['invoice_number'],
-                        invoice_type="receivable",
+                        invoice_type="payable",
                         delivery_type="other"
                     ).aggregate(total_amount=Sum('total_cost'))['total_amount'] or 0
                 )()
@@ -3716,21 +3716,19 @@ class ExceptionHandling(View):
                     container_number=container,
                     statement_id=statement_object,
                     
-                    # 应收金额字段
-                    receivable_total_amount=old_invoice_dict['receivable_total_amount'] or 0,
-                    receivable_preport_amount=old_invoice_dict['receivable_preport_amount'] or 0,
-                    # 根据说明：两个新字段都等于旧表的receivable_warehouse_amount
-                    receivable_wh_public_amount=public_wh_amount,
-                    receivable_wh_other_amount=other_wh_amount,
-                    # 根据说明：两个新字段都等于旧表的receivable_delivery_amount
-                    receivable_delivery_public_amount=public_dl_amount,
-                    receivable_delivery_other_amount=other_dl_amount,
-                    receivable_direct_amount=old_invoice_dict['receivable_direct_amount'] or 0,
-                    receivable_is_locked=False,  # 默认未锁定
-                    
                     # 应付金额字段
                     payable_total_amount=old_invoice_dict['payable_total_amount'] or 0,
                     payable_preport_amount=old_invoice_dict['payable_preport_amount'] or 0,
+                    # 根据说明：两个新字段都等于旧表的payable_warehouse_amount
+                    payable_wh_public_amount=public_wh_amount,
+                    payable_wh_other_amount=other_wh_amount,
+                    # 根据说明：两个新字段都等于旧表的payable_delivery_amount
+                    payable_delivery_public_amount=public_dl_amount,
+                    payable_delivery_other_amount=other_dl_amount,
+                    payable_direct_amount=old_invoice_dict['payable_direct_amount'] or 0,
+                    payable_is_locked=False,  # 默认未锁定
+                    
+                    # 应付金额字段
                     payable_warehouse_amount=old_invoice_dict['payable_warehouse_amount'] or 0,
                     payable_delivery_amount=old_invoice_dict['payable_delivery_amount'] or 0,
                     
@@ -3752,10 +3750,10 @@ class ExceptionHandling(View):
                 try:
                     old_status = await sync_to_async(InvoiceStatus.objects.get)(
                         container_number=container,
-                        invoice_type="receivable"
+                        invoice_type="payable"
                     )
                 except InvoiceStatus.DoesNotExist:
-                    migration_log['actions'].append("没有应收状态表")
+                    migration_log['actions'].append("没有应付状态表")
                     migration_log['old_data'] = {'stage': 'error', 'stage_public': 'error', 'stage_other': 'error'}
                     migration_log['new_data'] = {
                         'preport_status': 'error',
@@ -3777,7 +3775,7 @@ class ExceptionHandling(View):
                 existing_status = await sync_to_async(
                     lambda: InvoiceStatusv2.objects.filter(
                         invoice=new_invoice,
-                        invoice_type="receivable"
+                        invoice_type="payable"
                     ).first()
                 )()
                                 
@@ -3787,7 +3785,7 @@ class ExceptionHandling(View):
                     new_status = InvoiceStatusv2(
                         container_number=container,
                         invoice=new_invoice,  # 关联到新创建的Invoicev2
-                        invoice_type="receivable",
+                        invoice_type="payable",
                         
                         # 状态字段
                         preport_status=old_status.preport_status,
@@ -3915,7 +3913,7 @@ class ExceptionHandling(View):
             invoice_preports = await sync_to_async(list)(
                 InvoicePreport.objects.filter(
                     invoice_number__invoice_number=old_invoice.invoice_number,
-                    invoice_type="receivable",
+                    invoice_type="payable",
                 )
             )
             
@@ -3956,7 +3954,7 @@ class ExceptionHandling(View):
                         invoice_item = InvoiceItemv2(
                             container_number=container_number,
                             invoice_number=new_invoice,
-                            invoice_type="receivable",
+                            invoice_type="payable",
                             item_category="preport",
                             description=description,
                             qty=1,
@@ -3975,7 +3973,7 @@ class ExceptionHandling(View):
                             invoice_item = InvoiceItemv2(
                                 container_number=container_number,
                                 invoice_number=new_invoice,
-                                invoice_type="receivable",
+                                invoice_type="payable",
                                 item_category="preport",
                                 description=str(fee_name),
                                 qty=1,
@@ -3998,7 +3996,7 @@ class ExceptionHandling(View):
             invoice_warehouses = await sync_to_async(list)(
                 InvoiceWarehouse.objects.filter(
                     invoice_number__invoice_number=old_invoice.invoice_number,
-                    invoice_type="receivable",
+                    invoice_type="payable",
                 )
             )
             
@@ -4047,7 +4045,7 @@ class ExceptionHandling(View):
                         invoice_item = InvoiceItemv2(
                             container_number=container_number,
                             invoice_number=new_invoice,
-                            invoice_type="receivable",
+                            invoice_type="payable",
                             item_category=item_category,
                             description=description,
                             qty=1,
@@ -4066,7 +4064,7 @@ class ExceptionHandling(View):
                             invoice_item = InvoiceItemv2(
                                 container_number=container_number,
                                 invoice_number=new_invoice,
-                                invoice_type="receivable",
+                                invoice_type="payable",
                                 item_category=item_category,
                                 description=str(fee_name),
                                 qty=1,
@@ -4089,7 +4087,7 @@ class ExceptionHandling(View):
             invoice_deliveries = await sync_to_async(list)(
                 InvoiceDelivery.objects.filter(
                     invoice_number__invoice_number=old_invoice.invoice_number,
-                    invoice_type="receivable",
+                    invoice_type="payable",
                 )
             )
             
@@ -4104,7 +4102,7 @@ class ExceptionHandling(View):
                 invoice_item = InvoiceItemv2(
                     container_number=container_number,
                     invoice_number=new_invoice,
-                    invoice_type="receivable",
+                    invoice_type="payable",
                     item_category=item_category,
                     delivery_type=delivery.type,  # type对应delivery_type
                     warehouse_code=delivery.destination,  # destination对应warehouse_code
