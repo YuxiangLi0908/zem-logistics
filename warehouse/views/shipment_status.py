@@ -61,18 +61,18 @@ class ShipmentStatus(View):
             PackingList.objects.select_related(
                 "container_number",
                 "container_number__order",
-                "container_number__order__warehouse",
-                "container_number__order__customer_name",
+                "container_number__orders__warehouse",
+                "container_number__orders__customer_name",
                 "shipment_batch_number",
                 "pallet",
             )
             .filter(criteria)
             .values(
-                "container_number__order__created_at",
-                "container_number__order__customer_name__zem_name",
-                "container_number__order__warehouse__name",
+                "container_number__orders__created_at",
+                "container_number__orders__customer_name__zem_name",
+                "container_number__orders__warehouse__name",
                 "container_number__container_number",
-                "container_number__order__offload_id__offload_at",
+                "container_number__orders__offload_id__offload_at",
                 "shipment_batch_number__shipment_batch_number",
                 "shipment_batch_number__appointment_id",
                 "destination",

@@ -3162,14 +3162,14 @@ class ReceivableAccounting(View):
             packinglist_stats = self.get_shipment_group_stats(
                 PackingList.objects.filter(
                     container_number__container_number=order["container_number"],
-                    container_number__order__offload_id__offload_at__isnull=True,
+                    container_number__orders__offload_id__offload_at__isnull=True,
                 ).select_related('shipment_batch_number'),
                 Q(delivery_type=display_mix)
             )
             pallet_stats = self.get_shipment_group_stats(
                 Pallet.objects.filter(
                     container_number__container_number=order['container_number'],
-                    container_number__order__offload_id__offload_at__isnull=False,
+                    container_number__orders__offload_id__offload_at__isnull=False,
                 ).select_related('shipment_batch_number'),
                 Q(delivery_type=display_mix)
             )

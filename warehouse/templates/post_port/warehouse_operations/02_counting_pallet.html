@@ -668,7 +668,7 @@
                         <td class="td current-pallet-count">
                             {{ p.n_pallet|floatformat:0 }}
                         </td>
-                        <td class="td">{{ p.container_number__order__offload_id__offload_at|default_if_none:''|date:"m-d" }}</td>
+                        <td class="td">{{ p.container_number__orders__offload_id__offload_at|default_if_none:''|date:"m-d" }}</td>
                         {% if warehouse == "LA-91761" %}
                         <td class="td">{{ p.slot }}</td>
                         {% endif %}

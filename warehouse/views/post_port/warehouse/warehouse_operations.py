@@ -821,7 +821,7 @@ class WarehouseOperations(View):
             Pallet.objects.prefetch_related(
                 "container_number",
                 "shipment_batch_number",
-                "container_number__order__customer_name",
+                "container_number__orders__customer_name",
             )
             .filter(criteria)
             .annotate(str_id=Cast("id", CharField()))
@@ -838,8 +838,8 @@ class WarehouseOperations(View):
                 "zipcode",
                 "location",
                 "slot",
-                "container_number__order__offload_id__offload_at",
-                customer_name=F("container_number__order__customer_name__zem_name"),
+                "container_number__orders__offload_id__offload_at",
+                customer_name=F("container_number__orders__customer_name__zem_name"),
                 container=F("container_number__container_number"),
                 shipment=F("shipment_batch_number__shipment_batch_number"),
                 appointment_time=F("shipment_batch_number__shipment_appointment"),
@@ -857,7 +857,7 @@ class WarehouseOperations(View):
                 weight=Sum("weight_lbs", output_field=FloatField()),
                 n_pallet=Count("pallet_id", distinct=True),
             )
-            .order_by("-container_number__order__offload_id__offload_at")
+            .order_by("-container_number__orders__offload_id__offload_at")
         )
     
     def get_local_time(self, warehouse):
@@ -927,7 +927,7 @@ class WarehouseOperations(View):
                 lambda: list(
                     PackingList.objects.filter(
                         shipment_batch_number__fleet_number=fleet,
-                        container_number__order__offload_id__offload_at__isnull=True
+                        container_number__orders__offload_id__offload_at__isnull=True
                     ).select_related('container_number').values(
                         'container_number__container_number',
                         'shipping_mark',
@@ -944,7 +944,7 @@ class WarehouseOperations(View):
                 lambda: list(
                     Pallet.objects.filter(
                         shipment_batch_number__fleet_number=fleet,
-                        container_number__order__offload_id__offload_at__isnull=False
+                        container_number__orders__offload_id__offload_at__isnull=False
                     ).select_related('container_number').values(
                         'container_number__container_number',
                         'shipping_mark',

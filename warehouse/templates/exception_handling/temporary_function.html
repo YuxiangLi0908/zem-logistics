@@ -419,8 +419,8 @@
                     <td>{{ item.total_cbm|floatformat:2 }}</td>
                     <td>{{ item.total_n_pallet_act }}</td>
                     <td>{{ item.po_id }}</td>
-                    <td>{{ item.container_number__order__customer_name__zem_name }}</td>
-                    <td>{{ item.container_number__order__offload_id__offload_at|date:"Y-m-d" }}</td>
+                    <td>{{ item.container_number__orders__customer_name__zem_name }}</td>
+                    <td>{{ item.container_number__orders__offload_id__offload_at|date:"Y-m-d" }}</td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -458,8 +458,8 @@
                     <td>{{ item.total_cbm|floatformat:2 }}</td>
                     <td>{{ item.calculated_pallets }}</td>
                     <td>{{ item.po_id }}</td>
-                    <td>{{ item.container_number__order__customer_name__zem_name }}</td>
-                    <td>{{ item.container_number__order__offload_id__offload_at|date:"Y-m-d" }}</td>
+                    <td>{{ item.container_number__orders__customer_name__zem_name }}</td>
+                    <td>{{ item.container_number__orders__offload_id__offload_at|date:"Y-m-d" }}</td>
                 </tr>
                 {% endfor %}
             </tbody>

@@ -76,29 +76,29 @@ class BOL(View):
             area = request.POST.get("area")
             criteria = models.Q(
                 (
-                    models.Q(container_number__order__order_type="转运")
-                    | models.Q(container_number__order__order_type="转运组合")
+                    models.Q(container_number__orders__order_type="转运")
+                    | models.Q(container_number__orders__order_type="转运组合")
                 ),
-                container_number__order__retrieval_id__retrieval_destination_area=area,
-                container_number__order__packing_list_updloaded=True,
+                container_number__orders__retrieval_id__retrieval_destination_area=area,
+                container_number__orders__packing_list_updloaded=True,
                 shipment_batch_number__isnull=True,
-                container_number__order__created_at__gte="2024-09-01",
+                container_number__orders__created_at__gte="2024-09-01",
             ) & (
                 # TODOs: 考虑按照安排提柜时间筛选
                 models.Q(
-                    container_number__order__vessel_id__vessel_eta__lte=datetime.now().date()
+                    container_number__orders__vessel_id__vessel_eta__lte=datetime.now().date()
                     + timedelta(days=7)
                 )
                 | models.Q(
-                    container_number__order__eta__lte=datetime.now().date()
+                    container_number__orders__eta__lte=datetime.now().date()
                     + timedelta(days=7)
                 )
             )
             pl_criteria = criteria & models.Q(
-                container_number__order__offload_id__offload_at__isnull=True
+                container_number__orders__offload_id__offload_at__isnull=True
             )
             plt_criteria = criteria & models.Q(
-                container_number__order__offload_id__offload_at__isnull=False
+                container_number__orders__offload_id__offload_at__isnull=False
             )
             packing_list = await self._get_packing_list(pl_criteria, plt_criteria)
             cbm_act, cbm_est, pallet_act, pallet_est = 0, 0, 0, 0
@@ -133,18 +133,18 @@ class BOL(View):
             Pallet.objects.prefetch_related(
                 "container_number",
                 "container_number__order",
-                "container_number__order__warehouse",
+                "container_number__orders__warehouse",
                 "shipment_batch_number",
-                "container_number__order__offload_id",
-                "container_number__order__customer_name",
-                "container_number__order__retrieval_id",
+                "container_number__orders__offload_id",
+                "container_number__orders__customer_name",
+                "container_number__orders__retrieval_id",
             )
             .filter(plt_criteria)
             .annotate(
                 schedule_status=Case(
                     When(
                         Q(
-                            container_number__order__offload_id__offload_at__lte=datetime.now().date()
+                            container_number__orders__offload_id__offload_at__lte=datetime.now().date()
                             + timedelta(days=-7)
                         ),
                         then=Value("past_due"),
@@ -156,11 +156,11 @@ class BOL(View):
             )
             .values(
                 "container_number__container_number",
-                "container_number__order__customer_name__zem_name",
+                "container_number__orders__customer_name__zem_name",
                 "destination",
                 "address",
                 "delivery_method",
-                "container_number__order__offload_id__offload_at",
+                "container_number__orders__offload_id__offload_at",
                 "schedule_status",
                 "abnormal_palletization",
                 "po_expired",
@@ -168,7 +168,7 @@ class BOL(View):
                 "ref_id",
                 "shipping_mark",
                 warehouse=F(
-                    "container_number__order__retrieval_id__retrieval_destination_precise"
+                    "container_number__orders__retrieval_id__retrieval_destination_precise"
                 ),
             )
             .annotate(
@@ -185,7 +185,7 @@ class BOL(View):
                 total_n_pallet_act=Count("pallet_id", distinct=True),
                 label=Value("ACT"),
             )
-            .order_by("container_number__order__offload_id__offload_at")
+            .order_by("container_number__orders__offload_id__offload_at")
         )
         # for p in pal_list:
         #     try:
@@ -214,12 +214,12 @@ class BOL(View):
                 PackingList.objects.prefetch_related(
                     "container_number",
                     "container_number__order",
-                    "container_number__order__warehouse",
+                    "container_number__orders__warehouse",
                     "shipment_batch_number",
-                    "container_number__order__offload_id",
-                    "container_number__order__customer_name",
+                    "container_number__orders__offload_id",
+                    "container_number__orders__customer_name",
                     "pallet",
-                    "container_number__order__retrieval_id",
+                    "container_number__orders__retrieval_id",
                 )
                 .filter(pl_criteria)
                 .annotate(
@@ -241,7 +241,7 @@ class BOL(View):
                     schedule_status=Case(
                         When(
                             Q(
-                                container_number__order__offload_id__offload_at__lte=datetime.now().date()
+                                container_number__orders__offload_id__offload_at__lte=datetime.now().date()
                                 + timedelta(days=-7)
                             ),
                             then=Value("past_due"),
@@ -256,14 +256,14 @@ class BOL(View):
                 )
                 .values(
                     "container_number__container_number",
-                    "container_number__order__customer_name__zem_name",
+                    "container_number__orders__customer_name__zem_name",
                     "destination",
                     "address",
                     "custom_delivery_method",
-                    "container_number__order__offload_id__offload_at",
+                    "container_number__orders__offload_id__offload_at",
                     "schedule_status",
                     warehouse=F(
-                        "container_number__order__retrieval_id__retrieval_destination_precise"
+                        "container_number__orders__retrieval_id__retrieval_destination_precise"
                     ),
                 )
                 .annotate(
@@ -355,7 +355,7 @@ class BOL(View):
         )
         packling_list = (
             PackingList.objects.select_related(
-                "container_number", "container_number__order__customer_name"
+                "container_number", "container_number__orders__customer_name"
             )
             .filter(shipment_batch_number__shipment_batch_number=batch_number)
             .values(
@@ -367,8 +367,8 @@ class BOL(View):
                 "destination",
                 "delivery_method",
                 "container_number__container_number",
-                "container_number__order__customer_name__zem_name",
-                "container_number__order__offload_id__offload_at",
+                "container_number__orders__customer_name__zem_name",
+                "container_number__orders__offload_id__offload_at",
             )
             .annotate(
                 total_pcs=Sum("pallet__pcs", output_field=IntegerField()),
@@ -388,7 +388,7 @@ class BOL(View):
         end_date = request.POST.get("end_date", None)
         container_number = request.POST.get("container_number", None)
         criteria = models.Q(
-            packinglist__container_number__order__warehouse__name=warehouse
+            packinglist__container_number__orders__warehouse__name=warehouse
         )
         if start_date:
             criteria &= models.Q(shipment_schduled_at__gte=start_date)
@@ -403,7 +403,7 @@ class BOL(View):
                 "packinglist",
                 "packinglist__container_number",
                 "packinglist__container_number__order",
-                "packinglist__container_number__order__warehouse",
+                "packinglist__container_number__orders__warehouse",
                 "order",
                 "fleet_number",
             )

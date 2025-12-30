@@ -441,11 +441,11 @@ class FleetManagement(View):
                 "shipment_batch_number",
                 "shipment_batch_number__fleet_number",
                 "container_number",
-                "container_number__order__offload_id",
+                "container_number__orders__offload_id",
             )
             .filter(
                 shipment_batch_number__fleet_number__fleet_number=selected_fleet_number,
-                container_number__order__offload_id__offload_at__isnull=False,
+                container_number__orders__offload_id__offload_at__isnull=False,
             )
             .annotate(
                 str_id=Cast("id", CharField()),
@@ -476,14 +476,14 @@ class FleetManagement(View):
                 "shipment_batch_number",
                 "shipment_batch_number__fleet_number",
                 "container_number",
-                "container_number__order__offload_id",
+                "container_number__orders__offload_id",
             )
             .annotate(
                 str_id=Cast("id", CharField()),
             )
             .filter(
                 shipment_batch_number__fleet_number__fleet_number=selected_fleet_number,
-                container_number__order__offload_id__offload_at__isnull=True,
+                container_number__orders__offload_id__offload_at__isnull=True,
             )
             .values(
                 "shipment_batch_number__shipment_batch_number",
@@ -594,7 +594,7 @@ class FleetManagement(View):
             ),
             location=warehouse,
             destination__in=destinations,
-            container_number__order__offload_id__offload_at__isnull=False,
+            container_number__orders__offload_id__offload_at__isnull=False,
         )
         plt_unshipped = await self._get_packing_list(
             criteria_plt, selected_fleet_number
@@ -1377,7 +1377,7 @@ class FleetManagement(View):
                 )
                 .filter(
                     shipment_batch_number__fleet_number__fleet_number=fleet_number,
-                    container_number__order__offload_id__offload_at__isnull=True,
+                    container_number__orders__offload_id__offload_at__isnull=True,
                 )
                 .values(
                     "container_number__container_number",
@@ -1412,7 +1412,7 @@ class FleetManagement(View):
                 )
                 .filter(
                     shipment_batch_number__fleet_number__fleet_number=fleet_number,
-                    container_number__order__offload_id__offload_at__isnull=False,
+                    container_number__orders__offload_id__offload_at__isnull=False,
                 )
                 .values(
                     "container_number__container_number",
@@ -1650,7 +1650,7 @@ class FleetManagement(View):
                 )
                 .filter(
                     shipment_batch_number__fleet_number__fleet_number=fleet_number,
-                    container_number__order__offload_id__offload_at__isnull=True,
+                    container_number__orders__offload_id__offload_at__isnull=True,
                 )
                 .values(
                     "container_number__container_number",
@@ -1676,7 +1676,7 @@ class FleetManagement(View):
                 )
                 .filter(
                     shipment_batch_number__fleet_number__fleet_number=fleet_number,
-                    container_number__order__offload_id__offload_at__isnull=False,
+                    container_number__orders__offload_id__offload_at__isnull=False,
                 )
                 .values(
                     "container_number__container_number",
@@ -2700,12 +2700,12 @@ class FleetManagement(View):
                 Pallet.objects.prefetch_related(
                     "container_number",
                     "container_number__order",
-                    "container_number__order__warehouse",
+                    "container_number__orders__warehouse",
                     "shipment_batch_number",
                     "shipment_batch_number__fleet_number",
-                    "container_number__order__offload_id",
-                    "container_number__order__customer_name",
-                    "container_number__order__retrieval_id",
+                    "container_number__orders__offload_id",
+                    "container_number__orders__customer_name",
+                    "container_number__orders__retrieval_id",
                 )
                 .filter(
                     plt_criteria,
@@ -2714,7 +2714,7 @@ class FleetManagement(View):
                     schedule_status=Case(
                         When(
                             Q(
-                                container_number__order__offload_id__offload_at__lte=datetime.now().date()
+                                container_number__orders__offload_id__offload_at__lte=datetime.now().date()
                                 + timedelta(days=-7)
                             ),
                             then=Value("past_due"),
@@ -2730,26 +2730,26 @@ class FleetManagement(View):
                     "shipment_batch_number__appointment_id",
                     "shipment_batch_number__shipment_appointment",
                     "container_number__container_number",
-                    "container_number__order__customer_name__zem_name",
+                    "container_number__orders__customer_name__zem_name",
                     "destination",
                     "PO_ID",
                     "address",
                     "delivery_method",
-                    "container_number__order__offload_id__offload_at",
+                    "container_number__orders__offload_id__offload_at",
                     "schedule_status",
                     "abnormal_palletization",
                     "po_expired",
                     target_retrieval_timestamp=F(
-                        "container_number__order__retrieval_id__target_retrieval_timestamp"
+                        "container_number__orders__retrieval_id__target_retrieval_timestamp"
                     ),
                     target_retrieval_timestamp_lower=F(
-                        "container_number__order__retrieval_id__target_retrieval_timestamp_lower"
+                        "container_number__orders__retrieval_id__target_retrieval_timestamp_lower"
                     ),
                     temp_t49_pickup=F(
-                        "container_number__order__retrieval_id__temp_t49_available_for_pickup"
+                        "container_number__orders__retrieval_id__temp_t49_available_for_pickup"
                     ),
                     warehouse=F(
-                        "container_number__order__retrieval_id__retrieval_destination_precise"
+                        "container_number__orders__retrieval_id__retrieval_destination_precise"
                     ),
                 )
                 .annotate(
@@ -2766,7 +2766,7 @@ class FleetManagement(View):
                     total_n_pallet_act=Count("pallet_id", distinct=True),
                     label=Value("ACT"),
                 )
-                .order_by("container_number__order__offload_id__offload_at")
+                .order_by("container_number__orders__offload_id__offload_at")
             )
             for pal in pal_list:
                 if (

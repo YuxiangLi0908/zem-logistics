@@ -948,7 +948,7 @@ class Accounting(View):
             PackingList.objects.filter(
                 delivery_type="other",
                 delivery_method="客户自提",
-                container_number__order__vessel_id__vessel_eta__range=(start_date, end_date)
+                container_number__orders__vessel_id__vessel_eta__range=(start_date, end_date)
             )
             .exclude(fba_id__icontains="FBA")
             .exclude(destination__icontains="UPS")
@@ -1218,12 +1218,12 @@ class Accounting(View):
         )
         end_date = current_date.strftime("%Y-%m-%d") if not end_date else end_date
         criteria = models.Q(
-            container_number__order__eta__gte=start_date,
-            container_number__order__eta__lte=end_date,
+            container_number__orders__eta__gte=start_date,
+            container_number__orders__eta__lte=end_date,
         )
         criteria |= models.Q(
-            container_number__order__vessel_id__vessel_eta__gte=start_date,
-            container_number__order__vessel_id__vessel_eta__lte=end_date,
+            container_number__orders__vessel_id__vessel_eta__gte=start_date,
+            container_number__orders__vessel_id__vessel_eta__lte=end_date,
         )
         if container_number == "None":
             container_number = None
@@ -2081,14 +2081,14 @@ class Accounting(View):
             packinglist_stats = self.get_shipment_group_stats(
                 PackingList.objects.filter(
                     container_number__container_number=order.container_number,
-                    container_number__order__offload_id__offload_at__isnull=True,
+                    container_number__orders__offload_id__offload_at__isnull=True,
                 ).select_related('shipment_batch_number'),
                 delivery_type_q
             )
             pallet_stats = self.get_shipment_group_stats(
                 Pallet.objects.filter(
                     container_number__container_number=order.container_number,
-                    container_number__order__offload_id__offload_at__isnull=False,
+                    container_number__orders__offload_id__offload_at__isnull=False,
                 ).select_related('shipment_batch_number'),
                 delivery_type_q
             )
@@ -7106,8 +7106,8 @@ class Accounting(View):
         base_query = Pallet.objects.prefetch_related(
             "container_number",
             "container_number__order",
-            "container_number__order__warehouse",
-            "container_number__order__customer_name",
+            "container_number__orders__warehouse",
+            "container_number__orders__customer_name",
             "invoice_delivery",
             Prefetch("invoice_delivery__pallet_delivery", to_attr="delivered_pallets"),
         ).filter(container_number__container_number=container_number)
@@ -7315,8 +7315,8 @@ class Accounting(View):
             Pallet.objects.prefetch_related(
                 "container_number",
                 "container_number__order",
-                "container_number__order__warehouse",
-                "container_number__order__customer_name",
+                "container_number__orders__warehouse",
+                "container_number__orders__customer_name",
                 "invoice_delivery",
                 Prefetch(
                     "invoice_delivery__pallet_delivery", to_attr="delivered_pallets"

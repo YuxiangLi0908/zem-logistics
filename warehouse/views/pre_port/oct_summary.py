@@ -401,23 +401,23 @@ class OctSummaryView(View):
         eta_end_datetime = timezone.make_aware(eta_end_last_second)
 
         filter_conditions = Q(
-            container_number__order__vessel_id__vessel_eta__gte=eta_start_datetime,
-            container_number__order__vessel_id__vessel_eta__lte=eta_end_datetime,
+            container_number__orders__vessel_id__vessel_eta__gte=eta_start_datetime,
+            container_number__orders__vessel_id__vessel_eta__lte=eta_end_datetime,
         )& ~Q(cancel_notification=True)
 
         # 组合条件：直送订单通过港口映射获取仓点，其他订单直接匹配仓点
         filter_conditions &= Q(
             # 直送订单：港口映射到仓点
             Q(
-                container_number__order__order_type="直送",
-                container_number__order__vessel_id__destination_port__in=[
+                container_number__orders__order_type="直送",
+                container_number__orders__vessel_id__destination_port__in=[
                     port for port, wh in PORT_TO_WAREHOUSE_AREA.items() if wh == warehouse
                 ]
             ) |
             # 其他订单：直接匹配仓点
             Q(
-                container_number__order__order_type__in=["转运组合", "转运"],
-                container_number__order__retrieval_id__retrieval_destination_area=warehouse
+                container_number__orders__order_type__in=["转运组合", "转运"],
+                container_number__orders__retrieval_id__retrieval_destination_area=warehouse
             )
         )
 
@@ -550,15 +550,15 @@ class OctSummaryView(View):
         filter_conditions &= Q(
             # 直送订单：港口映射到仓点
             Q(
-                container_number__order__order_type="直送",
-                container_number__order__vessel_id__destination_port__in=[
+                container_number__orders__order_type="直送",
+                container_number__orders__vessel_id__destination_port__in=[
                     port for port, wh in PORT_TO_WAREHOUSE_AREA.items() if wh == warehouse
                 ]
             ) |
             # 其他订单：直接匹配仓点
             Q(
-                container_number__order__order_type__in=["转运组合", "转运"],
-                container_number__order__retrieval_id__retrieval_destination_area=warehouse
+                container_number__orders__order_type__in=["转运组合", "转运"],
+                container_number__orders__retrieval_id__retrieval_destination_area=warehouse
             )
         )
 

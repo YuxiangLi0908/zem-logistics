@@ -918,7 +918,7 @@ class Inventory(View):
             Pallet.objects.prefetch_related(
                 "container_number",
                 "shipment_batch_number",
-                "container_number__order__customer_name",
+                "container_number__orders__customer_name",
             )
             .filter(criteria)
             .annotate(str_id=Cast("id", CharField()))
@@ -937,7 +937,7 @@ class Inventory(View):
                 "PO_ID",
                 "delivery_window_start",
                 "delivery_window_end",
-                customer_name=F("container_number__order__customer_name__zem_name"),
+                customer_name=F("container_number__orders__customer_name__zem_name"),
                 container=F("container_number__container_number"),
                 shipment=F("shipment_batch_number__shipment_batch_number"),
                 appointment_id=F("shipment_batch_number__appointment_id"),
@@ -975,7 +975,7 @@ class Inventory(View):
             Pallet.objects.prefetch_related(
                 "container_number",
                 "shipment_batch_number",
-                "container_number__order__customer_name",
+                "container_number__orders__customer_name",
             )
             .filter(criteria)
             .annotate(str_id=Cast("id", CharField()))
@@ -991,7 +991,7 @@ class Inventory(View):
                 "address",
                 "zipcode",
                 "location",
-                customer_name=F("container_number__order__customer_name__zem_name"),
+                customer_name=F("container_number__orders__customer_name__zem_name"),
                 container=F("container_number__container_number"),
                 shipment=F("shipment_batch_number__shipment_batch_number"),
                 appointment_id=F("shipment_batch_number__appointment_id"),

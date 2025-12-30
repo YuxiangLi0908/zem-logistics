@@ -1512,7 +1512,7 @@
             <tbody>
                 {% for p in post_port_table %}
                 <tr>
-                    <td>{{ p.container_number__order__warehouse__name|default:"-" }}</td>
+                    <td>{{ p.container_number__orders__warehouse__name|default:"-" }}</td>
                     <td>{{ p.container_number__container_number|default:"-" }}</td>
                     <td>
                         <div class="destination-with-pallet">

@@ -242,11 +242,11 @@ class ShippingManagement(View):
         packing_list_selected = await self._get_packing_list(
             models.Q(
                 shipment_batch_number__shipment_batch_number=batch_number,
-                container_number__order__offload_id__offload_at__isnull=True,
+                container_number__orders__offload_id__offload_at__isnull=True,
             ),
             models.Q(
                 shipment_batch_number__shipment_batch_number=batch_number,
-                container_number__order__offload_id__offload_at__isnull=False,
+                container_number__orders__offload_id__offload_at__isnull=False,
             ),
         )
         try:
@@ -318,11 +318,11 @@ class ShippingManagement(View):
         packing_list_selected = await self._get_packing_list(
             models.Q(
                 shipment_batch_number__shipment_batch_number=batch_number,
-                container_number__order__offload_id__offload_at__isnull=True,
+                container_number__orders__offload_id__offload_at__isnull=True,
             ),
             models.Q(
                 shipment_batch_number__shipment_batch_number=batch_number,
-                container_number__order__offload_id__offload_at__isnull=False,
+                container_number__orders__offload_id__offload_at__isnull=False,
             ),
         )
         context["shipment_selected"] = shipment_selected
@@ -407,7 +407,7 @@ class ShippingManagement(View):
                 "packinglist",
                 "packinglist__container_number",
                 "packinglist__container_number__order",
-                "packinglist__container_number__order__warehouse",
+                "packinglist__container_number__orders__warehouse",
                 "order",
                 "pallet",
                 "fleet_number",
@@ -427,35 +427,35 @@ class ShippingManagement(View):
 
         criteria_p = models.Q(
             (
-                models.Q(container_number__order__order_type="转运")
-                | models.Q(container_number__order__order_type="转运组合")
+                models.Q(container_number__orders__order_type="转运")
+                | models.Q(container_number__orders__order_type="转运组合")
             ),
-            container_number__order__packing_list_updloaded=True,
+            container_number__orders__packing_list_updloaded=True,
             shipment_batch_number__isnull=True,
-            container_number__order__created_at__gte="2025-01-01",
-            container_number__order__vessel_id__vessel_eta__gte="2025-01-01",
-            container_number__order__vessel_id__vessel_etd__gte="2025-01-01",
+            container_number__orders__created_at__gte="2025-01-01",
+            container_number__orders__vessel_id__vessel_eta__gte="2025-01-01",
+            container_number__orders__vessel_id__vessel_etd__gte="2025-01-01",
         )
         pl_criteria = criteria_p & models.Q(
-            container_number__order__vessel_id__vessel_eta__gte=start_date,
-            container_number__order__vessel_id__vessel_eta__lte=end_date,
-            container_number__order__offload_id__offload_at__isnull=True,
+            container_number__orders__vessel_id__vessel_eta__gte=start_date,
+            container_number__orders__vessel_id__vessel_eta__lte=end_date,
+            container_number__orders__offload_id__offload_at__isnull=True,
         )
         plt_criteria = criteria_p & models.Q(
-            container_number__order__offload_id__offload_at__isnull=False,
-            container_number__order__vessel_id__vessel_eta__gte=start_date,
-            container_number__order__vessel_id__vessel_eta__lte=end_date,
+            container_number__orders__offload_id__offload_at__isnull=False,
+            container_number__orders__vessel_id__vessel_eta__gte=start_date,
+            container_number__orders__vessel_id__vessel_eta__lte=end_date,
         )
         if area == "NJ/SAV/LA":
             pl_criteria &= models.Q(
-                container_number__order__retrieval_id__retrieval_destination_area__in=[
+                container_number__orders__retrieval_id__retrieval_destination_area__in=[
                     "NJ",
                     "SAV",
                     "LA",
                 ]
             )
             plt_criteria &= models.Q(
-                container_number__order__retrieval_id__retrieval_destination_area__in=[
+                container_number__orders__retrieval_id__retrieval_destination_area__in=[
                     "NJ",
                     "SAV",
                     "LA",
@@ -463,7 +463,7 @@ class ShippingManagement(View):
             )
         else:
             pl_criteria &= models.Q(
-                container_number__order__retrieval_id__retrieval_destination_area=area
+                container_number__orders__retrieval_id__retrieval_destination_area=area
             )
             plt_criteria &= models.Q(location__startswith=area)
 
@@ -1012,13 +1012,13 @@ class ShippingManagement(View):
         if area == "NJ/SAV/LA":
             criteria = (
                 models.Q(
-                    packinglist__container_number__order__retrieval_id__retrieval_destination_area="NJ"
+                    packinglist__container_number__orders__retrieval_id__retrieval_destination_area="NJ"
                 )
                 | models.Q(
-                    packinglist__container_number__order__retrieval_id__retrieval_destination_area="SAV"
+                    packinglist__container_number__orders__retrieval_id__retrieval_destination_area="SAV"
                 )
                 | models.Q(
-                    packinglist__container_number__order__retrieval_id__retrieval_destination_area="LA"
+                    packinglist__container_number__orders__retrieval_id__retrieval_destination_area="LA"
                 )
                 | models.Q(pallet__location__startswith="NJ")
                 | models.Q(pallet__location__startswith="SAV")
@@ -1026,7 +1026,7 @@ class ShippingManagement(View):
             )
         else:
             criteria = models.Q(
-                packinglist__container_number__order__retrieval_id__retrieval_destination_area=area
+                packinglist__container_number__orders__retrieval_id__retrieval_destination_area=area
             ) | models.Q(pallet__location__startswith=area)
         year_2025 = datetime(2025, 4, 1)
         shipment = await sync_to_async(list)(
@@ -1034,7 +1034,7 @@ class ShippingManagement(View):
                 "packinglist",
                 "packinglist__container_number",
                 "packinglist__container_number__order",
-                "packinglist__container_number__order__warehouse",
+                "packinglist__container_number__orders__warehouse",
                 "order",
                 "pallet",
                 "fleet_number",
@@ -1075,33 +1075,33 @@ class ShippingManagement(View):
         )
         criteria_p = models.Q(
             (
-                models.Q(container_number__order__order_type="转运")
-                | models.Q(container_number__order__order_type="转运组合")
+                models.Q(container_number__orders__order_type="转运")
+                | models.Q(container_number__orders__order_type="转运组合")
             ),
-            container_number__order__packing_list_updloaded=True,
+            container_number__orders__packing_list_updloaded=True,
             shipment_batch_number__isnull=True,
-            # container_number__order__created_at__gte="2024-09-01",
+            # container_number__orders__created_at__gte="2024-09-01",
         )
         pl_criteria = criteria_p & models.Q(
-            container_number__order__vessel_id__vessel_eta__gte=start_date,
-            container_number__order__vessel_id__vessel_eta__lte=end_date,
-            container_number__order__offload_id__offload_at__isnull=True,
+            container_number__orders__vessel_id__vessel_eta__gte=start_date,
+            container_number__orders__vessel_id__vessel_eta__lte=end_date,
+            container_number__orders__offload_id__offload_at__isnull=True,
         )
         plt_criteria = criteria_p & models.Q(
-            container_number__order__offload_id__offload_at__isnull=False,
-            container_number__order__vessel_id__vessel_eta__gte=start_date,
-            container_number__order__vessel_id__vessel_eta__lte=end_date,
+            container_number__orders__offload_id__offload_at__isnull=False,
+            container_number__orders__vessel_id__vessel_eta__gte=start_date,
+            container_number__orders__vessel_id__vessel_eta__lte=end_date,
         )
         if area == "NJ/SAV/LA":
             pl_criteria &= models.Q(
-                container_number__order__retrieval_id__retrieval_destination_area__in=[
+                container_number__orders__retrieval_id__retrieval_destination_area__in=[
                     "NJ",
                     "SAV",
                     "LA",
                 ]
             )
             plt_criteria &= models.Q(
-                container_number__order__retrieval_id__retrieval_destination_area__in=[
+                container_number__orders__retrieval_id__retrieval_destination_area__in=[
                     "NJ",
                     "SAV",
                     "LA",
@@ -1109,7 +1109,7 @@ class ShippingManagement(View):
             )
         else:
             pl_criteria &= models.Q(
-                container_number__order__retrieval_id__retrieval_destination_area=area
+                container_number__orders__retrieval_id__retrieval_destination_area=area
             )
             plt_criteria &= models.Q(location__startswith=area)
         packing_list_not_scheduled = await self._get_packing_list(
@@ -1128,7 +1128,7 @@ class ShippingManagement(View):
                 for t in trans:
                     if pl_id in t.get("plt_ids"):
                         pl["eta"] = t.get("ETA")
-                        pl["container_number__order__offload_id__offload_at"] = t.get(
+                        pl["container_number__orders__offload_id__offload_at"] = t.get(
                             "arrival_time"
                         )
         cbm_act, cbm_est, pallet_act, pallet_est = 0, 0, 0, 0
@@ -2447,17 +2447,17 @@ class ShippingManagement(View):
             Pallet.objects.select_related(
                 "container_number",
                 "container_number__order",
-                "container_number__order__retrieval_id",
+                "container_number__orders__retrieval_id",
             )
             .filter(
                 location=warehouse,
-                container_number__order__created_at__gte="2024-09-01",
+                container_number__orders__created_at__gte="2024-09-01",
                 shipment_batch_number__isnull=True,
             )
             .values(
                 "destination",
                 warehouse=F(
-                    "container_number__order__retrieval_id__retrieval_destination_precise"
+                    "container_number__orders__retrieval_id__retrieval_destination_precise"
                 ),
             )
             .annotate(
@@ -2469,26 +2469,26 @@ class ShippingManagement(View):
         packing_list = await sync_to_async(list)(
             PackingList.objects.select_related(
                 "container_number",
-                "container_number__order__retrieval_id",
-                "container_number__order__vessel_id",
+                "container_number__orders__retrieval_id",
+                "container_number__orders__vessel_id",
             )
             .filter(
                 (
                     models.Q(
-                        container_number__order__retrieval_id__retrieval_destination_precise=warehouse
+                        container_number__orders__retrieval_id__retrieval_destination_precise=warehouse
                     )
-                    | models.Q(container_number__order__warehouse__name=warehouse)
+                    | models.Q(container_number__orders__warehouse__name=warehouse)
                 ),
-                container_number__order__created_at__gte="2024-09-01",
-                container_number__order__vessel_id__vessel_eta__gte=start_date,
-                container_number__order__vessel_id__vessel_eta__lte=end_date,
+                container_number__orders__created_at__gte="2024-09-01",
+                container_number__orders__vessel_id__vessel_eta__gte=start_date,
+                container_number__orders__vessel_id__vessel_eta__lte=end_date,
                 shipment_batch_number__isnull=True,
-                container_number__order__offload_id__offload_at__isnull=True,
+                container_number__orders__offload_id__offload_at__isnull=True,
             )
             .values(
                 "destination",
                 warehouse=F(
-                    "container_number__order__retrieval_id__retrieval_destination_precise"
+                    "container_number__orders__retrieval_id__retrieval_destination_precise"
                 ),
             )
             .annotate(
@@ -3129,18 +3129,18 @@ class ShippingManagement(View):
                 Pallet.objects.prefetch_related(
                     "container_number",
                     "container_number__order",
-                    "container_number__order__warehouse",
-                    "shipment_batch_number" "container_number__order__offload_id",
-                    "container_number__order__customer_name",
-                    "container_number__order__retrieval_id",
-                    "container_number__order__vessel_id",
+                    "container_number__orders__warehouse",
+                    "shipment_batch_number" "container_number__orders__offload_id",
+                    "container_number__orders__customer_name",
+                    "container_number__orders__retrieval_id",
+                    "container_number__orders__vessel_id",
                 )
                 .filter(plt_criteria)
                 .annotate(
                     schedule_status=Case(
                         When(
                             Q(
-                                container_number__order__offload_id__offload_at__lte=datetime.now().date()
+                                container_number__orders__offload_id__offload_at__lte=datetime.now().date()
                                 + timedelta(days=-7)
                             ),
                             then=Value("past_due"),
@@ -3156,33 +3156,33 @@ class ShippingManagement(View):
                 )
                 .values(
                     "container_number__container_number",
-                    "container_number__order__customer_name__zem_name",
+                    "container_number__orders__customer_name__zem_name",
                     "destination",
                     "address",
                     "delivery_method",
-                    "container_number__order__offload_id__offload_at",
+                    "container_number__orders__offload_id__offload_at",
                     "schedule_status",
                     "abnormal_palletization",
                     "po_expired",
-                    "container_number__order__vessel_id__vessel_eta",
+                    "container_number__orders__vessel_id__vessel_eta",
                     "sequence_number",
                     "PO_ID",
                     "note",
                     target_retrieval_timestamp=F(
-                        "container_number__order__retrieval_id__target_retrieval_timestamp"
+                        "container_number__orders__retrieval_id__target_retrieval_timestamp"
                     ),
                     target_retrieval_timestamp_lower=F(
-                        "container_number__order__retrieval_id__target_retrieval_timestamp_lower"
+                        "container_number__orders__retrieval_id__target_retrieval_timestamp_lower"
                     ),
                     temp_t49_pickup=F(
-                        "container_number__order__retrieval_id__temp_t49_available_for_pickup"
+                        "container_number__orders__retrieval_id__temp_t49_available_for_pickup"
                     ),
                     warehouse=F(
-                        "container_number__order__retrieval_id__retrieval_destination_precise"
+                        "container_number__orders__retrieval_id__retrieval_destination_precise"
                     ),
                 )
                 .annotate(
-                    eta=F("container_number__order__vessel_id__vessel_eta"),
+                    eta=F("container_number__orders__vessel_id__vessel_eta"),
                     custom_delivery_method=F("delivery_method"),
                     fba_ids=F("fba_id"),
                     ref_ids=F("ref_id"),
@@ -3204,7 +3204,7 @@ class ShippingManagement(View):
                     ),
                     n_pcs=StringAgg("str_pcs", delimiter=",", ordering="str_pcs"),
                 )
-                .order_by("container_number__order__offload_id__offload_at")
+                .order_by("container_number__orders__offload_id__offload_at")
                 .order_by("sequence_number")
             )
             data += pal_list
@@ -3213,12 +3213,12 @@ class ShippingManagement(View):
                 PackingList.objects.prefetch_related(
                     "container_number",
                     "container_number__order",
-                    "container_number__order__warehouse",
-                    "shipment_batch_number" "container_number__order__offload_id",
-                    "container_number__order__customer_name",
+                    "container_number__orders__warehouse",
+                    "shipment_batch_number" "container_number__orders__offload_id",
+                    "container_number__orders__customer_name",
                     "pallet",
-                    "container_number__order__retrieval_id",
-                    "container_number__order__vessel_id",
+                    "container_number__orders__retrieval_id",
+                    "container_number__orders__vessel_id",
                 )
                 .filter(pl_criteria)
                 .annotate(
@@ -3240,7 +3240,7 @@ class ShippingManagement(View):
                     schedule_status=Case(
                         When(
                             Q(
-                                container_number__order__offload_id__offload_at__lte=datetime.now().date()
+                                container_number__orders__offload_id__offload_at__lte=datetime.now().date()
                                 + timedelta(days=-7)
                             ),
                             then=Value("past_due"),
@@ -3255,30 +3255,30 @@ class ShippingManagement(View):
                 )
                 .values(
                     "container_number__container_number",
-                    "container_number__order__customer_name__zem_name",
+                    "container_number__orders__customer_name__zem_name",
                     "destination",
                     "address",
                     "custom_delivery_method",
-                    "container_number__order__offload_id__offload_at",
+                    "container_number__orders__offload_id__offload_at",
                     "schedule_status",
-                    "container_number__order__vessel_id__vessel_eta",
+                    "container_number__orders__vessel_id__vessel_eta",
                     "PO_ID",
                     "note",
                     target_retrieval_timestamp=F(
-                        "container_number__order__retrieval_id__target_retrieval_timestamp"
+                        "container_number__orders__retrieval_id__target_retrieval_timestamp"
                     ),
                     target_retrieval_timestamp_lower=F(
-                        "container_number__order__retrieval_id__target_retrieval_timestamp_lower"
+                        "container_number__orders__retrieval_id__target_retrieval_timestamp_lower"
                     ),
                     warehouse=F(
-                        "container_number__order__retrieval_id__retrieval_destination_precise"
+                        "container_number__orders__retrieval_id__retrieval_destination_precise"
                     ),
                     temp_t49_pickup=F(
-                        "container_number__order__retrieval_id__temp_t49_available_for_pickup"
+                        "container_number__orders__retrieval_id__temp_t49_available_for_pickup"
                     ),
                 )
                 .annotate(
-                    eta=F("container_number__order__vessel_id__vessel_eta"),
+                    eta=F("container_number__orders__vessel_id__vessel_eta"),
                     fba_ids=StringAgg(
                         "str_fba_id",
                         delimiter=",",

@@ -391,7 +391,7 @@
                                             <input type="hidden" name="added_pl_ids", value='{{ c.ids }}'>
                                             <input type="hidden" name="added_plt_ids", value='{{ c.plt_ids }}'>
                                         </td>
-                                        <td class="td" style="max-width: 120px; word-break: break-all;">{{ c.container_number__order__customer_name__zem_name }}</td>
+                                        <td class="td" style="max-width: 120px; word-break: break-all;">{{ c.container_number__orders__customer_name__zem_name }}</td>
                                         <td class="td">{{ c.container_number__container_number }}</td>
                                         <td class="td" name="po-destination">
                                             {{ c.destination }}
@@ -404,9 +404,9 @@
                                         </td>
                                         <td class="td">
                                             {% if c.schedule_status == 'past_due' %}
-                                            <span class="status-span-red">{{ c.container_number__order__offload_id__offload_at|date:"M-j" }}</span>
+                                            <span class="status-span-red">{{ c.container_number__orders__offload_id__offload_at|date:"M-j" }}</span>
                                             {% else %}
-                                            {{ c.container_number__order__offload_id__offload_at|date:"M-j" }}
+                                            {{ c.container_number__orders__offload_id__offload_at|date:"M-j" }}
                                             {% endif %}
                                         </td>
                                         <td class="td">{{ c.total_cbm|floatformat:2 }}</td>
@@ -462,7 +462,7 @@
                                         <input type="hidden" name="removed_pl_ids", value='{{ c.ids }}'>
                                         <input type="hidden" name="removed_plt_ids", value='{{ c.plt_ids }}'>
                                     </td>
-                                    <td class="td">{{ c.container_number__order__customer_name__zem_name }}</td>
+                                    <td class="td">{{ c.container_number__orders__customer_name__zem_name }}</td>
                                     <td class="td">{{ c.container_number__container_number }}</td>
                                     <td class="td" name="po-destination">
                                         {{ c.destination }}

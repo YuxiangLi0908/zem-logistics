@@ -332,9 +332,9 @@ class ExceptionHandling(View):
         # 查询条件：指定时间之前，shipment_batch_number为空
         base_criteria = Q(
             shipment_batch_number__isnull=True,
-            container_number__order__offload_id__offload_at__gte=search_date_lower,
-            container_number__order__offload_id__offload_at__lte=search_date,
-            container_number__order__retrieval_id__retrieval_destination_precise=warehouse
+            container_number__orders__offload_id__offload_at__gte=search_date_lower,
+            container_number__orders__offload_id__offload_at__lte=search_date,
+            container_number__orders__retrieval_id__retrieval_destination_precise=warehouse
         )
         
         # 查询 Pallet 数据
@@ -359,11 +359,11 @@ class ExceptionHandling(View):
             Pallet.objects.prefetch_related(
                 "container_number",
                 "container_number__order",
-                "container_number__order__warehouse",
+                "container_number__orders__warehouse",
                 "shipment_batch_number",
-                "container_number__order__offload_id",
-                "container_number__order__customer_name",
-                "container_number__order__retrieval_id",
+                "container_number__orders__offload_id",
+                "container_number__orders__customer_name",
+                "container_number__orders__retrieval_id",
             )
             .filter(base_criteria)
             .annotate(
@@ -371,10 +371,10 @@ class ExceptionHandling(View):
             )
             .values(
                 "container_number__container_number",
-                "container_number__order__customer_name__zem_name",
+                "container_number__orders__customer_name__zem_name",
                 "destination",
                 "delivery_method",
-                "container_number__order__offload_id__offload_at",
+                "container_number__orders__offload_id__offload_at",
                 "PO_ID",
             )
             .annotate(
@@ -387,7 +387,7 @@ class ExceptionHandling(View):
                 total_weight_lbs=Sum("weight_lbs", output_field=FloatField()),
                 total_pallet=Count("pallet_id", distinct=True),
             )
-            .order_by("container_number__order__offload_id__offload_at")
+            .order_by("container_number__orders__offload_id__offload_at")
         )
         return pal_list
 
@@ -397,11 +397,11 @@ class ExceptionHandling(View):
             PackingList.objects.prefetch_related(
                 "container_number",
                 "container_number__order",
-                "container_number__order__warehouse",
+                "container_number__orders__warehouse",
                 "shipment_batch_number",
-                "container_number__order__offload_id",
-                "container_number__order__customer_name",
-                "container_number__order__retrieval_id",
+                "container_number__orders__offload_id",
+                "container_number__orders__customer_name",
+                "container_number__orders__retrieval_id",
             )
             .filter(base_criteria)
             .annotate(
@@ -417,10 +417,10 @@ class ExceptionHandling(View):
             )
             .values(
                 "container_number__container_number",
-                "container_number__order__customer_name__zem_name",
+                "container_number__orders__customer_name__zem_name",
                 "destination",
                 "delivery_method",
-                "container_number__order__offload_id__offload_at",
+                "container_number__orders__offload_id__offload_at",
                 "PO_ID",
                 "calculated_pallets",
             )
@@ -436,7 +436,7 @@ class ExceptionHandling(View):
                 total_cbm=Sum("cbm", output_field=FloatField()),
                 total_weight_lbs=Sum("total_weight_lbs", output_field=FloatField()),
             )
-            .order_by("container_number__order__offload_id__offload_at")
+            .order_by("container_number__orders__offload_id__offload_at")
         )
         return pl_list
     
@@ -616,11 +616,11 @@ class ExceptionHandling(View):
         default_end = today
         
         # 构建查询条件
-        filters = Q(container_number__order__cancel_notification=False)
+        filters = Q(container_number__orders__cancel_notification=False)
         if query_type == "pallet":
             filters &= Q(location=warehouse)
         else:
-            filters &= Q(container_number__order__retrieval_id__retrieval_destination_area=warehouse)
+            filters &= Q(container_number__orders__retrieval_id__retrieval_destination_area=warehouse)
 
         # 定义日期变量
         start_date = None
@@ -632,16 +632,16 @@ class ExceptionHandling(View):
             default_start = two_months_ago
             start_date = make_aware(datetime.combine(default_start, datetime.min.time()))
             end_date = make_aware(datetime.combine(default_end, datetime.max.time()))
-            filters &= Q(container_number__order__offload_id__offload_at__gte=start_date) 
-            filters &= Q(container_number__order__offload_id__offload_at__lte=end_date)
+            filters &= Q(container_number__orders__offload_id__offload_at__gte=start_date) 
+            filters &= Q(container_number__orders__offload_id__offload_at__lte=end_date)
         else:
             if start_date_str:
                 start_date = make_aware(datetime.strptime(start_date_str, "%Y-%m-%d"))
-                filters &= Q(container_number__order__offload_id__offload_at__gte=start_date) 
+                filters &= Q(container_number__orders__offload_id__offload_at__gte=start_date) 
 
             if end_date_str:
                 end_date = make_aware(datetime.strptime(end_date_str, "%Y-%m-%d"))
-                filters &= Q(container_number__order__offload_id__offload_at__lte=end_date)
+                filters &= Q(container_number__orders__offload_id__offload_at__lte=end_date)
 
             # 月份筛选 - 修改为按照 offload_at 时间筛选
             if month_filter:
@@ -649,7 +649,7 @@ class ExceptionHandling(View):
                 month_start = make_aware(datetime(month_date.year, month_date.month, 1))
                 next_month = month_date.replace(day=28) + timedelta(days=4)
                 month_end = make_aware(datetime(next_month.year, next_month.month, 1) - timedelta(days=1))
-                filters &= Q(container_number__order__offload_id__offload_at__range=(month_start, month_end))
+                filters &= Q(container_number__orders__offload_id__offload_at__range=(month_start, month_end))
 
         if container_number:
             filters &= Q(container_number__container_number__icontains=container_number)

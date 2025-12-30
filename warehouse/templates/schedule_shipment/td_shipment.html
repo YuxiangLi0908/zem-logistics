@@ -57,7 +57,7 @@
                         <input type="hidden" name="is_shipment_schduled", value='off'>
                         <input type="hidden" name="pl_ids", value='{{ c.ids }}'>
                     </td>
-                    <td class="td">{{ c.container_number__order__customer_name__zem_name }}</td>
+                    <td class="td">{{ c.container_number__orders__customer_name__zem_name }}</td>
                     <td class="td">{{ c.container_number__container_number }}</td>
                     <td class="td">{{ c.destination }}</td>
                     <td class="td">{{ c.pcs }}</td>
@@ -69,7 +69,7 @@
                             {{ first_value }}
                         {% endwith %}
                     </td>
-                    <td class="td">{{ c.container_number__order__offload_id__offload_at }}</td>
+                    <td class="td">{{ c.container_number__orders__offload_id__offload_at }}</td>
                 </tr>
                 {% endfor %}
             </tbody>
