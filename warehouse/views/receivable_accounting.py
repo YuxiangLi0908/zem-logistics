@@ -4733,7 +4733,7 @@ class ReceivableAccounting(View):
             }
         }
         
-    def _get_pallet_groups_by_po(self, container_number: str, delivery_type: str, invoice: Invoicev2) -> list:
+    def _get_pallet_groups_by_po(self, container_number: str, delivery_type: str, invoice: Invoicev2) -> tuple[list, list, dict]:
         """获取托盘数据"""
         context = {}
         error_messages = []
@@ -4791,7 +4791,7 @@ class ReceivableAccounting(View):
         if not pallet_groups:
             error_messages.append("未找到板子数据")
             context['error_messages'] = error_messages
-            return [], context
+            return [], [], context
         
         # 对每个PO组，从PackingList表中获取准确的CBM和重量数据
         for group in pallet_groups:
