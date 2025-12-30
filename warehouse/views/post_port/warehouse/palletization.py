@@ -329,7 +329,7 @@ class Palletization(View):
             "shipment",
             "shipment__packinglist",
             "shipment__packinglist__container_number",
-            "shipment__packinglist__container_number__order",
+            "shipment__packinglist__container_number__orders",
             "shipment__packinglist__container_number__orders__retrieval_id",
         ).filter(scheduled_at__date=today)
         if warehouse:
