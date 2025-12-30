@@ -358,7 +358,7 @@ class ScheduleShipment(View):
         return (
             PackingList.objects.select_related(
                 "container_number",
-                "container_number__order",
+                "container_number__orders",
                 "container_number__orders__warehouse",
                 "shipment_batch_number",
                 "container_number__orders__offload_id",

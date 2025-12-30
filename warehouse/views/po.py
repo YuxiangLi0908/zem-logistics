@@ -311,7 +311,7 @@ class PO(View):
             po_checks_list = await sync_to_async(list)(
                 PoCheckEtaSeven.objects.select_related(
                     "container_number",
-                    "container_number__order",
+                    "container_number__orders",
                     "container_number__orders__customer_name",
                 )
                 .values(
@@ -642,7 +642,7 @@ class PO(View):
         packing_list = (
             PackingList.objects.select_related(
                 "container_number",
-                "container_number__order",
+                "container_number__orders",
                 "container_number__orders__warehouse",
             )
             .filter(criteria)

@@ -4508,7 +4508,7 @@ class PostNsop(View):
             pal_list = await sync_to_async(list)(
                 Pallet.objects.prefetch_related(
                     "container_number",
-                    "container_number__order",
+                    "container_number__orders",
                     "container_number__orders__warehouse",
                     "shipment_batch_number",
                     "shipment_batch_number__fleet_number",
@@ -4626,7 +4626,7 @@ class PostNsop(View):
             pl_list = await sync_to_async(list)(
                 PackingList.objects.prefetch_related(
                     "container_number",
-                    "container_number__order",
+                    "container_number__orders",
                     "container_number__orders__warehouse",
                     "shipment_batch_number",
                     "shipment_batch_number__fleet_number",
@@ -5912,7 +5912,7 @@ class PostNsop(View):
             pal_list = await sync_to_async(list)(
                 Pallet.objects.prefetch_related(
                     "container_number",
-                    "container_number__order",
+                    "container_number__orders",
                     "container_number__orders__warehouse",
                     "shipment_batch_number",
                     "shipment_batch_number__fleet_number",
@@ -6018,7 +6018,7 @@ class PostNsop(View):
             pl_list = await sync_to_async(list)(
                 PackingList.objects.prefetch_related(
                     "container_number",
-                    "container_number__order",
+                    "container_number__orders",
                     "container_number__orders__warehouse",
                     "shipment_batch_number",
                     "shipment_batch_number__fleet_number",
