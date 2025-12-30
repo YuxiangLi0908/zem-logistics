@@ -82,7 +82,7 @@ class ExceptionHandling(View):
     template_restore_sorted_data_get = "exception_handling/restore_sorted_data_get.html"
     template_query_pallet_packinglist = "exception_handling/query_pallet_packinglist.html"
     template_temporary_function = "exception_handling/temporary_function.html"
-    template_payable_status_migrate = "exception_handling/payable_status_migrate.html"
+    template_receivable_status_migrate = "exception_handling/receivable_status_migrate.html"
     shipment_type_options = {
         "": "",
         "FTL": "FTL",
@@ -146,7 +146,7 @@ class ExceptionHandling(View):
                 )
         elif step == "payable_status_migrate":
             if self._validate_super_user(request.user):
-                return await sync_to_async(render)(request, self.template_payable_status_migrate, {})
+                return await sync_to_async(render)(request, self.template_receivable_status_migrate, {})
             else:
                 return HttpResponseForbidden(
                     "You are not authenticated to access this page!"
@@ -2805,14 +2805,14 @@ class ExceptionHandling(View):
             else:
                 logg.append("没有找到需要更新的直送订单")
             context = {'logg':logg}
-            return self.template_payable_status_migrate, context
+            return self.template_receivable_status_migrate, context
             
         except Exception as e:
             logg.append(f"更新过程中发生错误: {str(e)}")
             import traceback
             logg.append(traceback.format_exc())
             context = {'logg':logg}
-            return self.template_payable_status_migrate, context
+            return self.template_receivable_status_migrate, context
 
     async def handle_receivale_status_search(self, request):
         old_status = await sync_to_async(list)(
@@ -2989,7 +2989,7 @@ class ExceptionHandling(View):
             'removed_count': len(removed),
             'changed_count': len(changed)
         }
-        return self.template_payable_status_migrate, context
+        return self.template_receivable_status_migrate, context
 
     async def handle_search_wrong_fee(self,request):
         """
@@ -3078,7 +3078,7 @@ class ExceptionHandling(View):
             'migration_log': migration_log,
         }
         
-        return self.template_payable_status_migrate, context
+        return self.template_receivable_status_migrate, context
 
     async def handle_search_wrong_status(self,request):
         """
@@ -3200,7 +3200,7 @@ class ExceptionHandling(View):
             'inconsistent_count': inconsistent_count,
             'containers_list': containers_list,
         }
-        return self.template_payable_status_migrate,context       
+        return self.template_receivable_status_migrate,context       
             
 
     async def handle_search_extra_invoice(self,request):
@@ -3246,7 +3246,7 @@ class ExceptionHandling(View):
             'end_index': end_index,
             'migration_log': migration_log,
         }
-        return self.template_payable_status_migrate,context
+        return self.template_receivable_status_migrate,context
     
     async def handle_receivale_status_migrate_delete_old(self,request):
         migration_log = []
@@ -3273,7 +3273,7 @@ class ExceptionHandling(View):
             'migration_log': migration_log,
             'search_index': search_input
         }
-        return self.template_payable_status_migrate,context
+        return self.template_receivable_status_migrate,context
         
     async def handle_receivale_item_migrate(self,request):
         """迁移InvoiceItem"""
@@ -3373,7 +3373,7 @@ class ExceptionHandling(View):
             'success': True,
             'message': f'迁移完成: {total_migrated}条记录'
         }
-        return self.template_payable_status_migrate,context
+        return self.template_receivable_status_migrate,context
 
     def _get_item_category(self, description):
         """根据InvoiceItem确定分类的辅助函数"""
@@ -3524,7 +3524,7 @@ class ExceptionHandling(View):
             'end_index': end_index,
             'old_invoices_text': old_invoices_text,
         }
-        return self.template_payable_status_migrate, context
+        return self.template_receivable_status_migrate, context
 
     
     async def migrate_missed_invoice(self, old_invoice_dict, fixed_date):
