@@ -2469,14 +2469,14 @@ class FleetManagement(View):
             """将文本按最大长度换行"""
             if not isinstance(text, str):
                 text = str(text)
-            
+
             if len(text) <= max_length:
                 return text
-            
+
             # 按最大长度分割文本
             wrapped_lines = []
             for i in range(0, len(text), max_length):
-                wrapped_lines.append(text[i:i+max_length])
+                wrapped_lines.append(text[i:i + max_length])
             return '\n'.join(wrapped_lines)
 
         # 对DataFrame应用换行处理
@@ -2511,113 +2511,124 @@ class FleetManagement(View):
                 plt.rcParams["font.family"] = "DejaVu Sans"
 
             plt.rcParams["axes.unicode_minus"] = False  # 防止负号乱码
+            plt.rcParams['figure.autolayout'] = True  # 自动调整布局
+
+            # ✅ 定义每页最大显示行数
+            MAX_ROWS_PER_PAGE = 30
+
+            # ✅ 分割数据为多个页面
+            total_rows = len(df_wrapped)
+            num_pages = (total_rows + MAX_ROWS_PER_PAGE - 1) // MAX_ROWS_PER_PAGE
 
             for file in files:
-                # 设置通用字体避免警告
-                # plt.rcParams['font.family'] = ['sans-serif']
-                # plt.rcParams['font.sans-serif'] = ['DejaVu Sans', 'Arial', 'Helvetica']
-                
-                # 保持原来的A4尺寸
-                fig, ax = plt.subplots(figsize=(10.4, 8.5))
-                ax.axis("tight")
-                ax.axis("off")
-                # 稍微减小顶部边距，为标题留出一点空间
-                fig.subplots_adjust(top=1.45)  # 从1.5微调到1.45
-
-                # 在表格上方添加标题
-                ax.text(
-                    0.5,  # 水平居中
-                    0.9,  # 非常靠近顶部，在表格上方
-                    "Pickup List",
-                    fontdict={"size": 12, "weight": "bold"},
-                    va="top",
-                    ha="center",
-                    transform=ax.transAxes,
-                )
-                
-                # 在标题下方添加Pickup Number
-                ax.text(
-                    0.5,  # 水平居中
-                    0.85,  # 紧挨着标题
-                    f"Pickup Number: {pickup_number}",
-                    fontdict={"size": 10},
-                    va="top",
-                    ha="center",
-                    transform=ax.transAxes,
-                )
-
-                # 创建表格 - 保持原来的位置和设置
-                the_table = ax.table(
-                    cellText=df_wrapped.values,
-                    colLabels=df_wrapped.columns,
-                    loc="upper center",
-                    cellLoc="center",
-                    bbox=[0.12, 0.7, 0.8, 0.12]  # [x0, y0, width, height]
-                )
-
-                # 设置表格样式 - 保持原来的设置，只增加行高
-                for pos, cell in the_table.get_celld().items():
-                    cell.set_fontsize(10)  # 保持原来的字体大小
-                    
-                    # 启用文本换行功能
-                    cell.set_text_props(wrap=True)
-                    
-                    # 增加行高以容纳换行文本
-                    if pos[0] != 1:  # 数据行
-                        cell.set_height(0.04)  # 从0.03增加到0.04
-                    else:  # 表头行
-                        cell.set_height(0.025)  # 从0.02增加到0.025
-                        
-                    # 列宽设置保持不变
-                    if pos[1] == 0 or pos[1] == 1 or pos[1] == 2:
-                        cell.set_width(0.15)
-                    elif pos[1] == 3 or pos[1] == 4:
-                        cell.set_width(0.06)
-                    else:
-                        cell.set_width(0.12)
-
-                table_bbox = the_table.get_window_extent(
-                    renderer=ax.figure.canvas.get_renderer()
-                )
-                table_bbox = table_bbox.transformed(
-                    ax.transAxes.inverted()
-                )
-                table_bottom = table_bbox.y0
-
-                # 1. 绘制Notes
-                notes_y = table_bottom - 0.04  # 稍微增加间距
-                ax.text(
-                    0.05,
-                    notes_y,
-                    f"Notes: {notes}",
-                    fontdict={"size": 10},
-                    va="top",
-                    ha="left",
-                    transform=ax.transAxes,
-                )
-
-                # 2. 绘制pickup_number
-                pickup_y = notes_y - 0.03
-                ax.text(
-                    0.05,
-                    pickup_y,
-                    f"pickup_number: {pickup_number}",
-                    fontdict={"size": 10},
-                    va="top",
-                    ha="left",
-                    transform=ax.transAxes,
-                )
-
-                # 保存表格和文本到buffer
-                buf_table = io.BytesIO()
-                fig.savefig(buf_table, format="pdf", bbox_inches="tight")
-                buf_table.seek(0)
-
-                # 合并PDF
+                # 创建PDF合并器
                 merger = PdfMerger()
+
+                # 先添加原始文件
                 temp_pdf_io = io.BytesIO(file.read())
                 merger.append(PdfReader(temp_pdf_io))
-                merger.append(PdfReader(buf_table))
+
+                # ✅ 为每个页面生成表格
+                for page_num in range(num_pages):
+                    # 计算当前页的数据范围
+                    start_idx = page_num * MAX_ROWS_PER_PAGE
+                    end_idx = min((page_num + 1) * MAX_ROWS_PER_PAGE, total_rows)
+                    df_page = df_wrapped.iloc[start_idx:end_idx]
+
+                    # ✅ 动态计算图表高度（根据行数调整）
+                    row_height = 0.4  # 每行高度（英寸）
+                    header_height = 0.6  # 表头+标题高度
+                    footer_height = 0.8  # 底部备注高度
+                    fig_height = header_height + (len(df_page) * row_height) + footer_height
+                    fig_width = 8.3  # A4宽度（英寸）
+
+                    # 创建图表，动态调整尺寸
+                    fig, ax = plt.subplots(figsize=(fig_width, fig_height))
+                    ax.axis("tight")
+                    ax.axis("off")
+
+                    # ✅ 标题（支持多页显示页码）
+                    title_text = "Pickup List"
+                    if num_pages > 1:
+                        title_text += f" - Page {page_num + 1}/{num_pages}"
+
+                    ax.text(
+                        0.5, 0.98, title_text,
+                        fontdict={"size": 12, "weight": "bold"},
+                        va="top", ha="center",
+                        transform=ax.transAxes
+                    )
+
+                    # Pickup Number
+                    ax.text(
+                        0.5, 0.95, f"Pickup Number: {pickup_number}",
+                        fontdict={"size": 10},
+                        va="top", ha="center",
+                        transform=ax.transAxes
+                    )
+
+                    # ✅ 创建表格（不使用固定bbox，让matplotlib自动布局）
+                    table = ax.table(
+                        cellText=df_page.values,
+                        colLabels=df_page.columns,
+                        loc="center",
+                        cellLoc="center",
+                        # ✅ 移除固定的bbox，使用自动布局
+                    )
+
+                    # 设置表格样式
+                    table.auto_set_font_size(False)
+                    table.set_fontsize(10)
+
+                    # ✅ 调整单元格尺寸
+                    for (row, col), cell in table.get_celld().items():
+                        # 设置列宽
+                        if col == 0 or col == 1 or col == 2:
+                            cell.set_width(0.15)
+                        elif col == 3 or col == 4:
+                            cell.set_width(0.08)
+                        else:
+                            cell.set_width(0.12)
+
+                        # 设置行高
+                        cell.set_height(0.04)  # 增加行高，适应换行文本
+
+                        # 启用文本换行
+                        cell.set_text_props(wrap=True)
+
+                    # ✅ 底部备注（自适应位置）
+                    ax.text(
+                        0.02, 0.02, f"Notes: {notes}",
+                        fontdict={"size": 10},
+                        va="bottom", ha="left",
+                        transform=ax.transAxes,
+                        wrap=True  # 备注文本自动换行
+                    )
+
+                    ax.text(
+                        0.02, 0.05, f"pickup_number: {pickup_number}",
+                        fontdict={"size": 10},
+                        va="bottom", ha="left",
+                        transform=ax.transAxes
+                    )
+
+                    # 保存当前页表格到buffer
+                    buf_table = io.BytesIO()
+                    # ✅ 使用高质量渲染，避免模糊
+                    fig.savefig(
+                        buf_table,
+                        format="pdf",
+                        bbox_inches="tight",
+                        dpi=300,  # 提高分辨率
+                        pad_inches=0.2  # 保留少量边距
+                    )
+                    buf_table.seek(0)
+
+                    # 添加当前页表格到PDF
+                    merger.append(PdfReader(buf_table))
+
+                    # 清理图表，释放内存
+                    plt.close(fig)
 
                 # 写入输出文件
                 output_buf = io.BytesIO()
