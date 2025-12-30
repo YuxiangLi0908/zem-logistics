@@ -18,7 +18,7 @@ class Order(models.Model):
     order_id = models.CharField(max_length=255, null=True)
     customer_name = models.ForeignKey(Customer, null=True, on_delete=models.SET_NULL)
     container_number = models.ForeignKey(
-        Container, null=True, on_delete=models.CASCADE, related_name="order"
+        Container, null=True, on_delete=models.CASCADE, related_name="orders"
     )
     warehouse = models.ForeignKey(
         ZemWarehouse,

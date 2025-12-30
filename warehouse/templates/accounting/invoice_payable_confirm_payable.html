@@ -1,0 +1,1494 @@
+{% extends 'base.html' %}
+{% load custom_filters %}
+{% block content %}
+<style>
+    /* 复用第一个页面的核心样式变量 */
+    :root {
+        --primary-color: #1b5e20;
+        --secondary-color: #0d3d14;
+        --success-color: #2e7d32;
+        --warning-color: #ff6f00;
+        --danger-color: #b71c1c;
+        --light-bg: #f8f9fa;
+        --card-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+        --border-radius: 12px;
+    }
+
+    /* 整体容器样式 */
+    .finance-system {
+        max-width: 102%;
+        margin: 20px auto;
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+        overflow: hidden;
+    }
+
+    /* 头部筛选区域 */
+    .finance-header {
+        background: linear-gradient(135deg, #0d3d14, #1b5e20);
+        color: white;
+        padding: 25px 30px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 20px;
+    }
+
+    /* 修复：所有费用列（包括其他/总费用）居中对齐 */
+    .td, .td_fee, .td_fee_other, .td_fee_total {
+        text-align: center !important;
+        vertical-align: middle !important;
+        min-height: 20px !important;
+        line-height: 20px !important;
+        position: relative !important;
+    }
+
+    /* 其他/总费用的合计文字也居中 */
+    .fee-total {
+        display: flex !important;
+        justify-content: center !important;
+        align-items: center !important;
+        width: 100% !important;
+    }
+
+    /* 修复：其他/总费用无内容时也显示$0.00 */
+    .td_fee_other:empty::after,
+    .td_fee_other:not(:has(.total-amount))::after,
+    .td_fee_total:empty::after,
+    .td_fee_total:not(:has(.total-amount))::after {
+        content: "$0.00" !important;
+        display: inline-block !important;
+        color: inherit !important;
+        position: absolute !important;
+        top: 50% !important;
+        left: 50% !important;
+        transform: translate(-50%, -50%) !important;
+    }
+
+    /* 确保金额span覆盖伪元素 */
+    .td_fee_other .total-amount,
+    .td_fee_total .total-amount {
+        position: relative !important;
+        z-index: 1 !important;
+        background: white !important;
+        padding: 0 2px !important;
+    }
+
+    /* 新增：操作按钮容器（表格左下方） */
+    .table-actions {
+        padding: 15px 20px;
+        display: flex;
+        gap: 15px;
+        align-items: center;
+        background: var(--light-bg);
+        border-top: 1px solid #eaecef;
+    }
+
+    /* 新增：回到底部按钮样式 */
+    .to-bottom-btn {
+        position: fixed;
+        bottom: 30px;
+        right: 30px;
+        z-index: 999;
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        background: var(--primary-color);
+        color: white;
+        border: none;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        transition: all 0.3s ease;
+    }
+
+    .to-bottom-btn:hover {
+        background: var(--secondary-color);
+        transform: translateY(-2px);
+    }
+
+    .filter-controls {
+        display: flex;
+        align-items: center;
+        gap: 45px;
+        width: 100%;
+        justify-content: flex-start;
+    }
+
+    .filter-group {
+        display: flex;
+        align-items: flex-end;
+        gap: 10px;
+    }
+
+    .filter-group label {
+        font-weight: 600;
+        font-size: 0.9rem;
+        width: 100%;
+    }
+
+    /* 标签页样式 */
+    .content-tabs {
+        display: flex;
+        margin-bottom: 25px;
+        border-bottom: 2px solid #eaecef;
+        gap: 5px;
+    }
+
+    .content-tab {
+        padding: 15px 30px;
+        cursor: pointer;
+        border-bottom: 3px solid transparent;
+        transition: all 0.3s;
+        font-weight: 500;
+        position: relative;
+        background: var(--light-bg);
+        border-radius: 8px 8px 0 0;
+    }
+
+    .content-tab.active {
+        background: white;
+        color: var(--primary-color);
+        border-bottom: 3px solid var(--primary-color);
+        font-weight: 600;
+    }
+
+    .content-tab .tab-badge {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        background: var(--primary-color);
+        color: white;
+        border-radius: 12px;
+        padding: 2px 8px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+
+    .tab-content {
+        display: none;
+        background: white;
+        border-radius: 0 0 var(--border-radius) var(--border-radius);
+        min-height: 500px;
+    }
+
+    .tab-content.active {
+        display: block;
+    }
+
+    /* 子标签页样式 */
+    .sub-content-tabs {
+        display: flex;
+        margin: 15px 0;
+        border-bottom: 2px solid #eaecef;
+        gap: 5px;
+    }
+
+    .sub-content-tab {
+        padding: 10px 20px;
+        cursor: pointer;
+        border-bottom: 3px solid transparent;
+        transition: all 0.3s;
+        font-weight: 500;
+        position: relative;
+        background: var(--light-bg);
+        border-radius: 8px 8px 0 0;
+        font-size: 0.9rem;
+    }
+
+    .sub-content-tab.active {
+        background: white;
+        color: var(--primary-color);
+        border-bottom: 3px solid var(--primary-color);
+        font-weight: 600;
+    }
+
+    /* 容器区域样式 */
+    .container-section {
+        background: white;
+        border-radius: var(--border-radius);
+        box-shadow: var(--card-shadow);
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        margin-bottom: 25px;
+        border: 1px solid #f0f0f0;
+        position: relative;
+    }
+
+    .section-header {
+        background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+        padding: 20px;
+        border-bottom: 1px solid #dee2e6;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-shrink: 0;
+    }
+
+    .section-header h3 {
+        margin: 0;
+        color: var(--secondary-color);
+        font-size: 1.2rem;
+        font-weight: 600;
+    }
+
+    .section-count {
+        background: var(--primary-color);
+        color: white;
+        border-radius: 20px;
+        padding: 4px 12px;
+        font-size: 0.85rem;
+        font-weight: 600;
+    }
+
+    /* 表格样式 */
+    .table-container {
+        overflow-x: auto;
+        overflow-y: auto;
+        flex: 1;
+        background: #fafbfc;
+        max-height: 600px;
+    }
+
+    .table {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0;
+        font-size: 14px;
+        background: white;
+        table-layout: fixed;
+    }
+
+    .th {
+        background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+        padding: 18px 14px 18px 20px;
+        text-align: center;
+        font-weight: 700;
+        border-bottom: 2px solid #dee2e6;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        color: var(--secondary-color);
+        font-size: 0.95rem;
+        border-right: 1px solid #e9ecef;
+        height: 50px;
+    }
+
+    .th:last-child {
+        border-right: none;
+    }
+
+    .td {
+        padding: 18px 14px 18px 20px;
+        border-bottom: 1px solid #f0f0f0;
+        vertical-align: middle;
+        transition: all 0.2s ease;
+        border-right: 1px solid #f5f5f5;
+        font-size: 14px;
+        height: 60px;
+        line-height: 1.5;
+        text-align: center;
+    }
+
+    .td:last-child {
+        border-right: none;
+    }
+
+    .table tbody tr {
+        transition: all 0.2s ease;
+        height: 60px;
+    }
+
+    .table tbody tr:hover {
+        background: linear-gradient(135deg, #f8f9fa, #f0f4f8);
+        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+        transform: translateY(-1px);
+    }
+
+    /* 搜索行样式 */
+    .search-row .th {
+        background: #e9ecef;
+        position: sticky;
+        top: 50px;
+        z-index: 9;
+        padding: 4px 14px 4px 20px !important;
+        height: 30px;
+    }
+
+    .search-input {
+        width: 100%;
+        padding: 4px 8px;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+        font-size: 12px;
+        box-sizing: border-box;
+        transition: all 0.3s ease;
+        background: white;
+        height: 26px;
+    }
+
+    .search-input:focus {
+        outline: none;
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 2px rgba(27, 94, 32, 0.1);
+    }
+
+    /* 按钮样式 */
+    .btn {
+        padding: 10px 20px;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        font-size: 0.9rem;
+    }
+
+    .btn-sm {
+        padding: 0.375rem 0.75rem;
+        font-size: 0.875rem;
+        border-radius: 6px;
+    }
+
+    .btn-primary {
+        background: #007bff;
+        color: white;
+    }
+
+    .btn-primary:hover {
+        background: #0069d9;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+
+    .btn-success {
+        background: var(--success-color);
+        color: white;
+    }
+
+    .btn-success:hover {
+        background: #219652;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+
+    .btn-danger {
+        background: var(--danger-color);
+        color: white;
+    }
+
+    .btn-danger:hover {
+        background: #d32f2f;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+
+    .btn-info {
+        background: #17a2b8;
+        color: white;
+    }
+
+    .btn-info:hover {
+        background: #138496;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+
+    .btn-warning {
+        background: var(--warning-color);
+        color: white;
+    }
+
+    .btn-warning:hover {
+        background: #e65c00;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+
+    .btn-secondary {
+        background: #6c757d;
+        color: white;
+    }
+
+    .btn-secondary:hover {
+        background: #5a6268;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+
+    /* 表单控件样式 */
+    select, input[type="date"], input[type="text"], textarea {
+        padding: 8px 15px;
+        border: 1px solid #ced4da;
+        border-radius: 6px;
+        background: white;
+        font-size: 0.95rem;
+        min-width: 150px;
+        transition: all 0.3s ease;
+    }
+
+    select:focus, input[type="date"]:focus, input[type="text"]:focus, textarea:focus {
+        outline: none;
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 2px rgba(27, 94, 32, 0.1);
+    }
+
+    textarea {
+        width: 100%;
+        min-height: 100px;
+        resize: vertical;
+    }
+
+    /* 提示框样式 */
+    .alert {
+        padding: 15px;
+        margin: 20px 0;
+        border: 1px solid transparent;
+        border-radius: 8px;
+        font-size: 0.95rem;
+        text-align: center;
+    }
+
+    .alert-info {
+        color: #0c5460;
+        background-color: #d1ecf1;
+        border-color: #bee5eb;
+    }
+
+    /* 模态框样式 */
+    .modal {
+        display: none;
+        position: fixed;
+        z-index: 1000;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0,0,0,0.4);
+    }
+
+    .modal-content {
+        background-color: #fefefe;
+        margin: 10% auto;
+        padding: 30px;
+        border: 1px solid #888;
+        width: 50%;
+        border-radius: 12px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+    }
+
+    .modal-content h5 {
+        margin-top: 0;
+        color: var(--secondary-color);
+        font-size: 1.2rem;
+        font-weight: 600;
+        margin-bottom: 20px;
+    }
+
+    /* 链接样式 */
+    .container-link {
+        color: var(--primary-color);
+        text-decoration: none;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        padding: 3px 6px;
+        border-radius: 4px;
+        font-size: 14px;
+    }
+
+    .container-link:hover {
+        text-decoration: underline;
+        background: rgba(27, 94, 32, 0.1);
+    }
+
+    /* 操作按钮区域 - 隐藏原有按钮 */
+    .action-buttons {
+        display: none !important;
+    }
+
+    /* 导出控件样式 - 重点修改：改为一行显示 */
+    .export-controls {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        padding: 10px 20px;
+        background: var(--light-bg);
+        border-radius: 8px;
+        margin: 15px 0;
+        flex-wrap: nowrap;
+        width: 100%;
+        box-sizing: border-box;
+    }
+
+    .export-controls h6 {
+        margin: 0 !important;
+        white-space: nowrap;
+        font-size: 0.9rem;
+    }
+
+    .export-controls .export-filter-form {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        width: 100%;
+        margin: 0;
+        padding: 0;
+    }
+
+    .export-controls .filter-group {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin: 0;
+        padding: 0;
+    }
+
+    .export-controls .filter-group label {
+        margin: 0;
+        padding: 0;
+        font-size: 0.85rem;
+        white-space: nowrap;
+    }
+
+    .export-controls select,
+    .export-controls input[type="date"] {
+        min-width: 120px;
+        padding: 6px 10px;
+        font-size: 0.85rem;
+        height: 32px;
+    }
+
+    .export-controls .btn {
+        white-space: nowrap;
+        height: 32px;
+        padding: 0 15px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.85rem;
+    }
+
+    /* 费用合计样式 */
+    .fee-total {
+        font-weight: 600;
+        color: var(--danger-color);
+    }
+
+    /* 响应式适配 */
+    @media (max-width: 1400px) {
+        .finance-header {
+            padding: 20px;
+        }
+        .filter-controls {
+            gap: 15px;
+        }
+        /* 响应式时导出控件允许换行 */
+        .export-controls {
+            flex-wrap: wrap;
+        }
+        /* 响应式时固定按钮换行 */
+        .table-actions {
+            flex-wrap: wrap;
+        }
+        .to-bottom-btn {
+            width: 40px;
+            height: 40px;
+            bottom: 20px;
+            right: 20px;
+        }
+    }
+
+    @media (max-width: 768px) {
+        .finance-header {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+        .content-tabs, .sub-content-tabs {
+            flex-wrap: wrap;
+        }
+        .content-tab, .sub-content-tab {
+            flex: 1;
+            min-width: 120px;
+            text-align: center;
+            padding: 12px 15px;
+        }
+        .modal-content {
+            width: 90%;
+        }
+        .btn {
+            width: 100%;
+        }
+        /* 移动端导出控件堆叠显示 */
+        .export-controls {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 10px;
+        }
+        .export-controls .export-filter-form {
+            flex-direction: column;
+            align-items: flex-start;
+            width: 100%;
+        }
+        .export-controls .filter-group {
+            width: 100%;
+        }
+        .export-controls select,
+        .export-controls input[type="date"] {
+            width: 100%;
+            min-width: unset;
+        }
+        .export-controls .btn {
+            width: 100%;
+        }
+    }
+</style>
+
+<div class="finance-system">
+    <!-- 头部筛选区域 -->
+    <div class="finance-header">
+        <div class="finance-logo">
+            <i class="fas fa-file-invoice-dollar"></i>
+            <span>待确认账单管理</span>
+        </div>
+        <form method="post" action="" class="filter-controls">
+            {% csrf_token %}
+            <div class="filter-group">
+                <label><i class="fas fa-user"></i> 客户:</label>
+                {{ order_form.customer_name }}
+            </div>
+            <div class="filter-group">
+                <label>
+                    {% if invoice_type_filter == 'payable' %}
+                    <i class="fas fa-calendar-alt"></i> ETA时间:
+                    {% endif %}
+                </label>
+                <input type="date" name="start_date_confirm" value="{{ start_date_confirm }}">
+                <input type="date" name="end_date_confirm" value="{{ end_date_confirm }}">
+            </div>
+            <div class="filter-group">
+                <label><i class="fas fa-warehouse"></i> 仓点区域:</label>
+                <select name="warehouse_filter">
+                    {% for k, v in warehouse_options.items %}
+                    <option value="{{ v }}" {% if warehouse_filter == v %}selected{% endif %}>{{ k }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="filter-group">
+                <label><i class="fas fa-file-invoice"></i> 账单类型:</label>
+                <select name="invoice_type">
+                    <option value="payable" {% if invoice_type_filter == 'payable' %}selected{% endif %}>应付账单</option>
+                </select>
+            </div>
+            <input type="hidden" name="step" value="invoice_order_confirm_payable">
+            <button type="submit" class="btn btn-primary">
+                <i class="fas fa-search"></i> 查询
+            </button>
+        </form>
+    </div>
+
+    <!-- 主内容区域 -->
+    <div style="padding: 25px;">
+        <!-- 主标签页 -->
+        <div class="content-tabs" id="billTypeTabs">
+            <div class="content-tab active" data-tab="pick">
+                提拆账单
+            </div>
+            <div class="content-tab" data-tab="delivery">
+                派送账单
+            </div>
+        </div>
+
+        <!-- 提拆账单内容 -->
+        <div id="pick-content" class="tab-content active">
+            <div class="container-section">
+                <div class="section-header">
+                    <h3>提拆账单</h3>
+                </div>
+
+                <!-- 子标签页 -->
+                <div class="sub-content-tabs">
+                    <div class="sub-content-tab active" data-subtab="pick-pending">
+                        待确认 <span class="tab-badge">{{finance_pending|length }}</span>
+                    </div>
+                    <div class="sub-content-tab" data-subtab="pick-confirmed">
+                        已确认 <span class="tab-badge">{{finance_confirmed|length }}</span>
+                    </div>
+                </div>
+
+                <!-- 待确认提拆账单 -->
+                <div id="pick-pending" class="tab-content active">
+                    <div class="table-container">
+                        {% if finance_pending %}
+                        <form method="post" id="pick-confirm-form">
+                            {% csrf_token %}
+                            <input type="hidden" name="step" value="payable_save_v1">
+                            <input type="hidden" name="start_date" value="{{ start_date }}">
+                            <input type="hidden" name="end_date" value="{{ end_date }}">
+                            <input type="hidden" name="warehouse_filter"
+                                   value="{{ warehouse_filter }}">
+                            <input type="hidden" name="confirm_phase" value="pickup">
+                            <table class="table" id="pick-pending-table">
+                                <thead>
+                                <tr>
+                                    <th class="th"><input type="checkbox" id="pick-select-all"
+                                                       onclick="toggleSelectAll('pick-select-all', 'pick-orders')"></th>
+                                    <th class="th">客户</th>
+                                    <th class="th">仓点</th>
+                                    <th class="th">供应商</th>
+                                    <th class="th">货柜号</th>
+                                    <th class="th">提柜费</th>
+                                    <th class="th">拆柜费</th>
+                                    <th class="th">入库拆柜费</th>
+                                    <th class="th">直送固定报价</th>
+                                    <th class="th">直送等待费用</th>
+                                    <th class="th">超重费</th>
+                                    <th class="th">滞港费</th>
+                                    <th class="th">滞箱费</th>
+                                    <th class="th">车架费</th>
+                                    <th class="th">其他费用</th>
+                                    <th class="th">总费用</th>
+                                </tr>
+                                <tr class="search-row">
+                                    <th class="th"></th>
+                                    <th class="th"></th>
+                                    <th class="th"><input type="text" class="search-input" placeholder="搜索仓点..."
+                                                       onkeyup="filterTable('pick-pending-table', 2)"></th>
+                                    <th class="th"><input type="text" class="search-input" placeholder="搜索供应商..."
+                                                       onkeyup="filterTable('pick-pending-table', 3)"></th>
+                                    <th class="th"><input type="text" class="search-input" placeholder="搜索货柜号..."
+                                                       onkeyup="filterTable('pick-pending-table', 4)"></th>
+                                    <th class="th"></th>
+                                    <th class="th"></th>
+                                    <th class="th"></th>
+                                    <th class="th"></th>
+                                    <th class="th"></th>
+                                    <th class="th"></th>
+                                    <th class="th"></th>
+                                    <th class="th"></th>
+                                    <th class="th"></th>
+                                    <th class="th"></th>
+                                    <th class="th"></th>
+                                </tr>
+                                </thead>
+                                <tbody>
+                                {% for c in finance_pending %}
+                                    <tr {% if c.is_over_3_days %}style="background-color: #ffebee; color: #c62828;"{% endif %}>
+                                        <td class="td">
+                                            <input type="checkbox" name="containers"
+                                                   value="{{ c.container_number.container_number }}"
+                                                   class="pick-orders">
+                                        </td>
+
+                                        <td class="td">
+                                            {% for order in c.container_number.orders.all %}
+                                                {{ order.customer_name.zem_name|default:"-" }}
+                                            {% endfor %}
+                                        </td>
+
+                                        <td class="td">
+                                            {% for order in c.container_number.orders.all %}
+                                                {{ order.retrieval_id.retrieval_destination_area|default:"-" }}
+                                            {% endfor %}
+                                        </td>
+
+                                        <td class="td">
+                                            {% for order in c.container_number.orders.all %}
+                                                {{ order.retrieval_id.retrieval_carrier|default:"-" }}
+                                            {% endfor %}
+                                        </td>
+
+                                        <td class="td">
+                                            <a href="/accounting/?step=container_payable_pending_review_finance&container_number={{ c.container_number.container_number }}&start_date={{ start_date }}&end_date={{ end_date }}&warehouse_filter={{ warehouse_filter }}"
+                                               class="container-link"
+                                               title="点击查看详情">{{ c.container_number.container_number }}</a>
+                                        </td>
+
+                                        <!-- 1. 提柜费用 -->
+                                    <td class="td_fee">
+                                        <span class="pickup-fee-amount">$0.00</span>
+                                        {% for fee in c.container_number.invoice_itemv2.all %}
+                                            {% if fee.description == "提柜费用" %}
+                                                <span class="pickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
+                                            {% endif %}
+                                        {% endfor %}
+                                    </td>
+
+                                    <!-- 2. 拆柜费用 -->
+                                    <td class="td_fee">
+                                        <span class="pickup-fee-amount">$0.00</span>
+                                        {% for fee in c.container_number.invoice_itemv2.all %}
+                                            {% if fee.description == "拆柜费用" %}
+                                                <span class="pickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
+                                            {% endif %}
+                                        {% endfor %}
+                                    </td>
+
+                                    <!-- 3. 入库拆柜费 -->
+                                    <td class="td_fee">
+                                        <span class="pickup-fee-amount">$0.00</span>
+                                        {% for fee in c.container_number.invoice_itemv2.all %}
+                                            {% if fee.description == "入库拆柜费" %}
+                                                <span class="pickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
+                                            {% endif %}
+                                        {% endfor %}
+                                    </td>
+
+                                    <!-- 4. 直送固定报价 -->
+                                    <td class="td_fee">
+                                        <span class="pickup-fee-amount">$0.00</span>
+                                        {% for fee in c.container_number.invoice_itemv2.all %}
+                                            {% if fee.description == "固定报价" %}
+                                                <span class="pickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
+                                            {% endif %}
+                                        {% endfor %}
+                                    </td>
+
+                                    <!-- 5. 直送等待费用 -->
+                                    <td class="td_fee">
+                                        <span class="pickup-fee-amount">$0.00</span>
+                                        {% for fee in c.container_number.invoice_itemv2.all %}
+                                            {% if fee.description == "等待费用" %}
+                                                <span class="pickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
+                                            {% endif %}
+                                        {% endfor %}
+                                    </td>
+
+                                    <!-- 6. 超重费用 -->
+                                    <td class="td_fee">
+                                        <span class="pickup-fee-amount">$0.00</span>
+                                        {% for fee in c.container_number.invoice_itemv2.all %}
+                                            {% if fee.description == "超重费用" %}
+                                                <span class="pickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
+                                            {% endif %}
+                                        {% endfor %}
+                                    </td>
+
+                                    <!-- 7. 港内滞港费 -->
+                                    <td class="td_fee">
+                                        <span class="pickup-fee-amount">$0.00</span>
+                                        {% for fee in c.container_number.invoice_itemv2.all %}
+                                            {% if fee.description == "港内滞港费" %}
+                                                <span class="pickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
+                                            {% endif %}
+                                        {% endfor %}
+                                    </td>
+
+                                    <!-- 8. 港外滞箱费 -->
+                                    <td class="td_fee">
+                                        <span class="pickup-fee-amount">$0.00</span>
+                                        {% for fee in c.container_number.invoice_itemv2.all %}
+                                            {% if fee.description == "港外滞箱费" %}
+                                                <span class="pickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
+                                            {% endif %}
+                                        {% endfor %}
+                                    </td>
+
+                                    <!-- 9. 车架费用 -->
+                                    <td class="td_fee">
+                                        <span class="pickup-fee-amount">$0.00</span>
+                                        {% for fee in c.container_number.invoice_itemv2.all %}
+                                            {% if fee.description == "车架费用" %}
+                                                <span class="pickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
+                                            {% endif %}
+                                        {% endfor %}
+                                    </td>
+
+                                    <!-- 其他费用 -->
+                                    <td class="td_fee_other"
+                                        data-container-id="{{ c.container_number.id }}"
+                                        data-type="other"
+                                        data-fees="
+                                                {% for fee in c.container_number.invoice_itemv2.all %}{% if '其他费用' in fee.description %}{{ fee.rate|default:0|floatformat:2 }},{% endif %}{% endfor %}">
+                                        <div class="fee-total">
+                                            <strong>合计：<span class="total-amount">$0.00</span></strong>
+                                        </div>
+                                    </td>
+
+                                    <!-- 总费用 -->
+                                    <td class="td_fee_total"
+                                        data-container-id="{{ c.container_number.id }}"
+                                        data-type="total"
+                                        data-fees="
+                                                {% for fee in c.container_number.invoice_itemv2.all %}{{ fee.rate|default:0|floatformat:2 }},{% endfor %}">
+                                        <div class="fee-total">
+                                            <strong>合计：<span class="total-amount">$0.00</span></strong>
+                                        </div>
+                                    </td>
+                                    </tr>
+                                {% endfor %}
+                                </tbody>
+                            </table>
+
+                            <!-- 新增：待确认账单的操作按钮（表格左下方） -->
+                            <div class="table-actions">
+                                <button type="submit" name="save_type" value="confirmed_finance" class="btn btn-success">
+                                    <i class="bi bi-check-lg"></i> 确认账单
+                                </button>
+                                <button type="button" class="btn btn-danger" onclick="showRejectModal('pick')">
+                                    <i class="bi bi-x-lg"></i> 驳回账单
+                                </button>
+                            </div>
+
+                            <!-- 驳回模态框 -->
+                            <div id="pick-rejectModal" class="modal">
+                                <div class="modal-content">
+                                    <h5>驳回原因</h5>
+                                    <textarea id="pick-rejectReason" class="form-control" rows="4"></textarea>
+                                    <div style="margin-top: 20px; display: flex; gap: 15px;">
+                                        <button type="button" class="btn btn-secondary" onclick="hideRejectModal('pick')">
+                                            取消
+                                        </button>
+                                        <button type="submit" name="save_type" value="reject" class="btn btn-danger"
+                                                form="pick-confirm-form" onclick="setRejectReason('pick')">
+                                            确认驳回
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            <input type="hidden" id="pick-rejectReasonInput" name="reject_reason" value="">
+                        </form>
+                        {% else %}
+                        <div class="alert alert-info">暂无待确认的提拆账单</div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- 已确认提拆账单（移除勾选框） -->
+                <div id="pick-confirmed" class="tab-content">
+                    <div class="table-container">
+                        {% if finance_confirmed %}
+                        <!-- 导出控件 -->
+                        <div class="export-controls">
+                            <h6><b>按条件导出：</b></h6>
+                            <form method="post" class="export-filter-form">
+                                {% csrf_token %}
+                                <div class="filter-group">
+                                    <label>ETD时间：</label>
+                                    <input type="date" name="start_date_export" value="{{ start_date_export }}">
+                                    <input type="date" name="end_date_export" value="{{ end_date_export }}">
+                                </div>
+                                <div class="filter-group">
+                                    <label>供应商：</label>
+                                    <select name="export_carrier">
+                                        {% for key,value in pickup_carriers.items %}
+                                        <option value="{{ key }}">{{ value }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <input type="hidden" name="step" value="export_confirmed_by_month_carrier">
+                                <input type="hidden" name="confirm_phase" value="pickup">
+                                <button type="submit" class="btn btn-info btn-sm">
+                                    <i class="fas fa-file-excel"></i> 导出筛选结果
+                                </button>
+                            </form>
+                        </div>
+
+                        <table class="table" id="pick-confirmed-table">
+                            <thead>
+                            <tr>
+                                <!-- 移除已确认账单的勾选框列 -->
+                                <th class="th">客户</th>
+                                <th class="th">仓点</th>
+                                <th class="th">供应商</th>
+                                <th class="th">货柜号</th>
+                                <th class="th">提柜费</th>
+                                <th class="th">拆柜费</th>
+                                <th class="th">入库拆柜费</th>
+                                <th class="th">直送固定报价</th>
+                                <th class="th">直送等待费用</th>
+                                <th class="th">超重费</th>
+                                <th class="th">滞港费</th>
+                                <th class="th">滞箱费</th>
+                                <th class="th">车架费</th>
+                                <th class="th">其他费用</th>
+                                <th class="th">总费用</th>
+                            </tr>
+                            <tr class="search-row">
+                                <!-- 移除搜索行的勾选框列 -->
+                                <th class="th"></th>
+                                <th class="th"><input type="text" class="search-input" placeholder="搜索仓点..."
+                                                   onkeyup="filterTable('pick-confirmed-table', 1)"></th>
+                                <th class="th"><input type="text" class="search-input" placeholder="搜索供应商..."
+                                                   onkeyup="filterTable('pick-confirmed-table', 2)"></th>
+                                <th class="th"><input type="text" class="search-input" placeholder="搜索货柜号..."
+                                                   onkeyup="filterTable('pick-confirmed-table', 3)"></th>
+                                <th class="th"></th>
+                                <th class="th"></th>
+                                <th class="th"></th>
+                                <th class="th"></th>
+                                <th class="th"></th>
+                                <th class="th"></th>
+                                <th class="th"></th>
+                                <th class="th"></th>
+                                <th class="th"></th>
+                                <th class="th"></th>
+                                <th class="th"></th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            {% for c in finance_confirmed %}
+                                <tr>
+                                    <!-- 移除已确认账单的勾选框单元格 -->
+                                    <td class="td">
+                                        {% for order in c.container_number.orders.all %}
+                                            {{ order.customer_name.zem_name|default:"-" }}
+                                        {% endfor %}
+                                    </td>
+
+                                    <td class="td">
+                                        {% for order in c.container_number.orders.all %}
+                                            {{ order.retrieval_id.retrieval_destination_area|default:"-" }}
+                                        {% endfor %}
+                                    </td>
+
+                                    <td class="td">
+                                        {% for order in c.container_number.orders.all %}
+                                            {{ order.retrieval_id.retrieval_carrier|default:"-" }}
+                                        {% endfor %}
+                                    </td>
+
+                                    <td class="td">
+                                        <a href="/accounting/?step=container_payable&container_number={{ c.container_number.container_number }}&start_date={{ start_date }}&end_date={{ end_date }}&warehouse_filter={{ warehouse_filter }}"
+                                           class="container-link"
+                                           title="点击查看详情">{{ c.container_number.container_number }}</a>
+                                    </td>
+                                    <!-- 1. 提柜费用 -->
+                                    <td class="td_fee">
+                                        <span class="pickup-fee-amount">$0.00</span>
+                                        {% for fee in c.container_number.invoice_itemv2.all %}
+                                            {% if fee.description == "提柜费用" %}
+                                                <span class="pickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
+                                            {% endif %}
+                                        {% endfor %}
+                                    </td>
+
+                                    <!-- 2. 拆柜费用 -->
+                                    <td class="td_fee">
+                                        <span class="pickup-fee-amount">$0.00</span>
+                                        {% for fee in c.container_number.invoice_itemv2.all %}
+                                            {% if fee.description == "拆柜费用" %}
+                                                <span class="pickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
+                                            {% endif %}
+                                        {% endfor %}
+                                    </td>
+
+                                    <!-- 3. 入库拆柜费 -->
+                                    <td class="td_fee">
+                                        <span class="pickup-fee-amount">$0.00</span>
+                                        {% for fee in c.container_number.invoice_itemv2.all %}
+                                            {% if fee.description == "入库拆柜费" %}
+                                                <span class="pickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
+                                            {% endif %}
+                                        {% endfor %}
+                                    </td>
+
+                                    <!-- 4. 直送固定报价 -->
+                                    <td class="td_fee">
+                                        <span class="pickup-fee-amount">$0.00</span>
+                                        {% for fee in c.container_number.invoice_itemv2.all %}
+                                            {% if fee.description == "固定报价" %}
+                                                <span class="pickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
+                                            {% endif %}
+                                        {% endfor %}
+                                    </td>
+
+                                    <!-- 5. 直送等待费用 -->
+                                    <td class="td_fee">
+                                        <span class="pickup-fee-amount">$0.00</span>
+                                        {% for fee in c.container_number.invoice_itemv2.all %}
+                                            {% if fee.description == "等待费用" %}
+                                                <span class="pickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
+                                            {% endif %}
+                                        {% endfor %}
+                                    </td>
+
+                                    <!-- 6. 超重费用 -->
+                                    <td class="td_fee">
+                                        <span class="pickup-fee-amount">$0.00</span>
+                                        {% for fee in c.container_number.invoice_itemv2.all %}
+                                            {% if fee.description == "超重费用" %}
+                                                <span class="pickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
+                                            {% endif %}
+                                        {% endfor %}
+                                    </td>
+
+                                    <!-- 7. 港内滞港费 -->
+                                    <td class="td_fee">
+                                        <span class="pickup-fee-amount">$0.00</span>
+                                        {% for fee in c.container_number.invoice_itemv2.all %}
+                                            {% if fee.description == "港内滞港费" %}
+                                                <span class="pickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
+                                            {% endif %}
+                                        {% endfor %}
+                                    </td>
+
+                                    <!-- 8. 港外滞箱费 -->
+                                    <td class="td_fee">
+                                        <span class="pickup-fee-amount">$0.00</span>
+                                        {% for fee in c.container_number.invoice_itemv2.all %}
+                                            {% if fee.description == "港外滞箱费" %}
+                                                <span class="pickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
+                                            {% endif %}
+                                        {% endfor %}
+                                    </td>
+
+                                    <!-- 9. 车架费用 -->
+                                    <td class="td_fee">
+                                        <span class="pickup-fee-amount">$0.00</span>
+                                        {% for fee in c.container_number.invoice_itemv2.all %}
+                                            {% if fee.description == "车架费用" %}
+                                                <span class="pickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
+                                            {% endif %}
+                                        {% endfor %}
+                                    </td>
+
+                                    <!-- 其他费用 -->
+                                    <td class="td_fee_other"
+                                        data-container-id="{{ c.container_number.id }}"
+                                        data-type="other"
+                                        data-fees="
+                                                {% for fee in c.container_number.invoice_itemv2.all %}{% if '其他费用' in fee.description %}{{ fee.rate|default:0|floatformat:2 }},{% endif %}{% endfor %}">
+                                        <div class="fee-total">
+                                            <strong>合计：<span class="total-amount">$0.00</span></strong>
+                                        </div>
+                                    </td>
+
+                                    <!-- 总费用 -->
+                                    <td class="td_fee_total"
+                                        data-container-id="{{ c.container_number.id }}"
+                                        data-type="total"
+                                        data-fees="
+                                                {% for fee in c.container_number.invoice_itemv2.all %}{{ fee.rate|default:0|floatformat:2 }},{% endfor %}">
+                                        <div class="fee-total">
+                                            <strong>合计：<span class="total-amount">$0.00</span></strong>
+                                        </div>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                            </tbody>
+                        </table>
+                        {% else %}
+                        <div class="alert alert-info">暂无已确认的提拆账单</div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 派送账单内容 -->
+        <div id="delivery-content" class="tab-content">
+            <div class="container-section">
+                <div class="section-header">
+                    <h3>派送账单</h3>
+                </div>
+
+                <!-- 子标签页 -->
+                <div class="sub-content-tabs">
+                    <div class="sub-content-tab active" data-subtab="delivery-pending">
+                        待确认 <span class="tab-badge">{{delivery_pending_orders|length }}</span>
+                    </div>
+                </div>
+
+                <!-- 待确认派送账单 -->
+                <div id="delivery-pending" class="tab-content active">
+                    <div class="table-container">
+                        {% if delivery_pending_orders %}
+                        <!-- 导出控件 -->
+                        <div class="export-controls">
+                            <h6><b>导出选项：</b></h6>
+                            <form method="post" class="export-filter-form">
+                                {% csrf_token %}
+                                <div class="filter-group">
+                                    <label>ETD时间：</label>
+                                    <input type="date" name="start_date_export" value="{{ start_date_export }}">
+                                    <input type="date" name="end_date_export" value="{{ end_date_export }}">
+                                </div>
+                                <div class="filter-group">
+                                    <label>供应商：</label>
+                                    <select name="select_carrier">
+                                        {% for key,value in CARRIER_FLEET.items %}
+                                        <option value="{{ key }}">{{ value }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <input type="hidden" name="step" value="export_carrier_payable_delivery">
+                                <input type="hidden" name="confirm_phase" value="delivery">
+                                <button type="submit" class="btn btn-warning btn-sm">
+                                    <i class="fas fa-file-excel"></i> 导出Excel
+                                </button>
+                            </form>
+                        </div>
+
+                        <form method="post" id="delivery-confirm-form">
+                            {% csrf_token %}
+                            <input type="hidden" name="step" value="payable_confirm_phase">
+                            <input type="hidden" name="confirm_phase" value="delivery">
+                            <table class="table">
+                                <thead>
+                                <tr>
+                                    <th class="th" style="vertical-align: middle;">Carrier</th>
+                                    <th class="th" style="vertical-align: middle;">Pickup Number</th>
+                                    <th class="th" style="vertical-align: middle;">ISA</th>
+                                    <th class="th" style="vertical-align: middle;">柜号</th>
+                                    <th class="th" style="vertical-align: middle;">目的地</th>
+                                    <th class="th" style="vertical-align: middle;">板数</th>
+                                    <th class="th" style="vertical-align: middle;">价格</th>
+                                    <th class="th" style="vertical-align: middle;">单板成本</th>
+                                    <th class="th" style="vertical-align: middle;">车次总板数</th>
+                                    <th class="th" style="vertical-align: middle;">车次总成本</th>
+                                </tr>
+                                </thead>
+                                <tbody>
+                                {% for fleet in delivery_pending_orders %}
+                                {% for pickup_number, pickup_data in fleet.fleets.items %}
+                                {% for appointment_id, appointment_data in pickup_data.appointments.items %}
+                                {% for order in appointment_data.orders %}
+                                <tr>
+                                    {% if forloop.parentloop.first and forloop.first %}
+                                    <td class="td" rowspan="{{ pickup_data.total_rows }}" style="vertical-align: middle;">
+                                        {{fleet.carrier|default_if_none:"" }}
+                                    </td>
+                                    <td class="td" rowspan="{{ pickup_data.total_rows }}" style="vertical-align: middle;">
+                                        {{pickup_number|default_if_none:"" }}
+                                    </td>
+                                    {% endif %}
+
+                                    {% if forloop.first %}
+                                    <td class="td" rowspan="{{ appointment_data.rowspan }}" style="vertical-align: middle;">
+                                        {{appointment_id|default_if_none:"" }}
+                                    </td>
+                                    {% endif %}
+
+                                    <td class="td" style="vertical-align: middle;">{{ order.container_num }}</td>
+                                    <td class="td" style="vertical-align: middle;">{{ order.pallet_destination }}</td>
+                                    <td class="td" style="vertical-align: middle;">{{ order.cn_total_pallet }}</td>
+                                    <td class="td" style="vertical-align: middle;">{{ order.cn_total_expense }}</td>
+                                    <td class="td" style="vertical-align: middle;">{{ order.cn_per_expense }}</td>
+                                    {% if forloop.parentloop.first and forloop.first %}
+                                    <td class="td" rowspan="{{ pickup_data.total_rows }}" style="vertical-align: middle;">
+                                        {{pickup_data.ISA_total_pallets }}
+                                    </td>
+                                    <td class="td" rowspan="{{ pickup_data.total_rows }}" style="vertical-align: middle;">
+                                        ${{pickup_data.ISA_total_expense }}
+                                    </td>
+                                    {% endif %}
+                                </tr>
+                                {% endfor %}
+                                {% endfor %}
+                                {% endfor %}
+                                {% endfor %}
+                                </tbody>
+                            </table>
+                            <!-- 派送账单待确认的操作按钮 -->
+                            <div class="table-actions">
+                                <button type="submit" class="btn btn-success">
+                                    <i class="bi bi-check-lg"></i> 确认选中账单
+                                </button>
+                            </div>
+                        </form>
+                        {% else %}
+                        <div class="alert alert-info">暂无待确认的派送账单</div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 新增：直达底部按钮 -->
+<button class="to-bottom-btn" onclick="scrollToBottom()">
+    <i class="fas fa-arrow-down"></i>
+</button>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"></script>
+<!-- 引入字体图标（用于直达底部按钮） -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<script>
+    // 标签页切换
+    document.addEventListener('DOMContentLoaded', function() {
+        // 费用累加计算
+        calculateAllFees();
+
+        // 主标签页切换
+        const mainTabs = document.querySelectorAll('.content-tab');
+        mainTabs.forEach(tab => {
+            tab.addEventListener('click', function() {
+                const tabName = this.getAttribute('data-tab');
+
+                // 移除所有主标签页激活状态
+                mainTabs.forEach(t => t.classList.remove('active'));
+                this.classList.add('active');
+
+                // 隐藏所有主内容
+                document.querySelectorAll('.tab-content').forEach(content => {
+                    content.classList.remove('active');
+                });
+                document.getElementById(tabName + '-content').classList.add('active');
+
+                // 激活第一个子标签页
+                const firstSubTab = document.querySelector('#' + tabName + '-content .sub-content-tab');
+                if (firstSubTab) {
+                    firstSubTab.click();
+                }
+            });
+        });
+
+        // 子标签页切换
+        const subTabs = document.querySelectorAll('.sub-content-tab');
+        subTabs.forEach(tab => {
+            tab.addEventListener('click', function() {
+                const parentTab = this.closest('.tab-content').id.replace('-content', '');
+                const subTabName = this.getAttribute('data-subtab');
+
+                // 移除同级别子标签页激活状态
+                this.closest('.sub-content-tabs').querySelectorAll('.sub-content-tab').forEach(t => {
+                    t.classList.remove('active');
+                });
+                this.classList.add('active');
+
+                // 隐藏同级别子内容
+                document.querySelectorAll('#' + parentTab + '-content .tab-content').forEach(content => {
+                    content.classList.remove('active');
+                });
+                document.getElementById(subTabName).classList.add('active');
+
+                // 切换后重新计算费用
+                setTimeout(calculateAllFees, 100);
+            });
+        });
+
+        // 表单控件样式优化
+        document.querySelectorAll('select, input[type="date"], input[type="text"], textarea').forEach(el => {
+            if (!el.classList.contains('form-control')) {
+                el.classList.add('form-control', 'form-control-sm');
+            }
+        });
+    });
+
+    // 费用累加计算函数
+    function calculateAllFees() {
+        // 计算其他费用和总费用
+        document.querySelectorAll('.td_fee_other, .td_fee_total').forEach(cell => {
+            const feesStr = cell.getAttribute('data-fees') || '';
+            const fees = feesStr
+                .split(',')
+                .filter(fee => fee.trim() !== '' && !isNaN(fee.trim()))
+                .map(fee => Number(fee.trim()));
+
+            const total = fees.reduce((sum, fee) => sum + (isNaN(fee) ? 0 : fee), 0);
+            const totalElement = cell.querySelector('.total-amount');
+            if (totalElement) {
+                totalElement.textContent = `$${total.toFixed(2)}`;
+            }
+        });
+
+        // 处理提柜费等列的重复span
+        document.querySelectorAll('.td_fee').forEach(cell => {
+            const spans = cell.querySelectorAll('.pickup-fee-amount');
+            if (spans.length > 1) {
+                spans.forEach((span, index) => {
+                    span.style.display = index === spans.length - 1 ? 'inline-block' : 'none';
+                });
+            }
+        });
+    }
+
+    // 驳回模态框相关
+    function showRejectModal(type) {
+        const checkboxes = document.querySelectorAll('.' + type + '-orders:checked');
+        if (checkboxes.length === 0) {
+            alert('请至少选择一条记录');
+            return;
+        }
+        document.getElementById(type + '-rejectModal').style.display = 'block';
+    }
+
+    function hideRejectModal(type) {
+        document.getElementById(type + '-rejectModal').style.display = 'none';
+    }
+
+    function setRejectReason(type) {
+        const reason = document.getElementById(type + '-rejectReason').value;
+        if (!reason) {
+            alert('请输入驳回原因');
+            return;
+        }
+        document.getElementById(type + '-rejectReasonInput').value = reason;
+    }
+
+    // 全选/取消全选
+    function toggleSelectAll(selectAllId, checkboxClass) {
+        const selectAll = document.getElementById(selectAllId);
+        const checkboxes = document.getElementsByClassName(checkboxClass);
+
+        for (let checkbox of checkboxes) {
+            checkbox.checked = selectAll.checked;
+        }
+    }
+
+    // 表格过滤
+    function filterTable(tableId, columnIndex) {
+        const table = document.getElementById(tableId);
+        if (!table) return;
+
+        let inputValue = event.target.value.trim();
+        const searchTerms = inputValue.split(/\s+/).filter(term => term.length > 0);
+
+        const tr = table.getElementsByTagName("tr");
+
+        for (let i = 2; i < tr.length; i++) {
+            let found = false;
+            const td = tr[i].getElementsByTagName("td");
+
+            if (td[columnIndex]) {
+                const cellText = td[columnIndex].textContent.toUpperCase();
+                if (searchTerms.length === 0) {
+                    found = true;
+                } else {
+                    found = searchTerms.some(term => cellText.includes(term.toUpperCase()));
+                }
+            }
+
+            tr[i].style.display = found ? "" : "none";
+        }
+
+        calculateAllFees();
+    }
+
+    // 客户下拉框选中状态修复
+    window.addEventListener('load', function () {
+        const customerSelect = document.getElementById('id_customer_name');
+        const selectedCustomerId = "{{ selected_customer_id|default:'' }}";
+
+        if (selectedCustomerId && customerSelect) {
+            customerSelect.value = selectedCustomerId;
+        }
+
+        calculateAllFees();
+    });
+
+    // 点击模态框外部关闭
+    window.onclick = function(event) {
+        const modals = document.querySelectorAll('.modal');
+        modals.forEach(modal => {
+            if (event.target === modal) {
+                modal.style.display = "none";
+            }
+        });
+    }
+
+    // 新增：滚动到页面底部函数
+    function scrollToBottom() {
+        window.scrollTo({
+            top: document.body.scrollHeight,
+            behavior: 'smooth' // 平滑滚动
+        });
+    }
+</script>
+{% endblock %}
