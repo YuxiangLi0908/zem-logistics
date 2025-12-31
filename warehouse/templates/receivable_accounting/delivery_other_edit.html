@@ -1513,5 +1513,17 @@ $(document).ready(function() {
         $('#to-delivery-type').val(deliveryType);
         $('#convert-form').submit();
     }
+
+    // 把Django变量转成JS变量并打印
+    const resultExisting = {{ result_existing|safe|json_script:"result-existing" }};
+    const resultNew = {{ result_new|safe|json_script:"result-new" }};
+    const resultPreviousExisting = {{ result_previous_existing|safe|json_script:"result-previous-existing" }};
+
+    // 控制台打印（按分组展示，更清晰）
+    console.group("===== 后端传入的三个变量 =====");
+    console.log("result_existing:", JSON.parse(document.getElementById('result-existing').textContent));
+    console.log("result_new:", JSON.parse(document.getElementById('result-new').textContent));
+    console.log("result_previous_existing:", JSON.parse(document.getElementById('result-previous-existing').textContent));
+    console.groupEnd();
 </script>
 {% endblock %} 
