@@ -3750,6 +3750,7 @@ class ReceivableAccounting(View):
         )['total_cbm'] or 0.0
         # 构建上下文
         context.update({
+            "existing_items": existing_items,
             "result_existing_all": result_existing,
             "previous_item_dict": previous_item_dict,
             "unbilled_groups":unbilled_groups,

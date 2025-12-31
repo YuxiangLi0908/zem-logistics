@@ -820,6 +820,7 @@
         {{ result_existing|json_script:"result-existing" }}
         {{ result_new|json_script:"result-new" }}
         {{ result_previous_existing|json_script:"result-previous-existing" }}
+        {{ existing_items|json_script:"existing-items" }}
         </div>
         <form method="post" id="delivery-billing-form">
             {% csrf_token %}
@@ -1574,6 +1575,14 @@ $(document).ready(function() {
     } catch (e) {
         console.error("解析unbilled-groups失败:", e);
         console.log("unbilled-groups原始内容:", document.getElementById('unbilled-groups')?.textContent);
+    }
+
+    try {
+        const existingItems = JSON.parse(document.getElementById('existing-items').textContent);
+        console.log("existing-items:", existingItems);
+    } catch (e) {
+        console.error("解析existing-items失败:", e);
+        console.log("existing-items原始内容:", document.getElementById('existing-items')?.textContent);
     }
 
     console.groupEnd();
