@@ -4881,7 +4881,7 @@ class ReceivableAccounting(View):
             invoice,
             item_category: str
     ) -> Dict[str, Any]:
-        """获取已存在的InvoiceItemv2记录，按「PO_ID+shipping_mark」组合键索引"""
+        """获取已存在的InvoiceItemv2记录，按PO_ID索引"""
         items = InvoiceItemv2.objects.filter(
             invoice_number=invoice,
             item_category=item_category,
@@ -4906,12 +4906,11 @@ class ReceivableAccounting(View):
         )
 
         all_items = items_with_po + items_without_po
-        # 关键：按「PO_ID+shipping_mark」组合键建立索引（避免单PO多箱唛误判）
+        # 按PO_ID建立索引
         item_dict = {}
         for item in all_items:
-            if item.PO_ID and item.shipping_mark:  # 确保两个字段都有值
-                key = f"{item.PO_ID}_{item.shipping_mark}"  # 组合键
-                item_dict[key] = item
+            if item.PO_ID:
+                item_dict[item.PO_ID] = item
 
         return item_dict
     
