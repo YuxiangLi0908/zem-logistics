@@ -144,7 +144,7 @@ class ExceptionHandling(View):
                 return HttpResponseForbidden(
                     "You are not authenticated to access this page!"
                 )
-        elif step == "payable_status_migrate":
+        elif step == "receivable_status_migrate":
             if self._validate_super_user(request.user):
                 return await sync_to_async(render)(request, self.template_receivable_status_migrate, {})
             else:
