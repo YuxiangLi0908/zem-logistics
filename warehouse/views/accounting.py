@@ -261,12 +261,15 @@ class Accounting(View):
         elif step == "container_delivery":
             template, context = self.handle_container_invoice_delivery_get(request)
             return render(request, template, context)
+        elif step == "container_confirm_wait":
+            template, context = self.handle_container_invoice_confirm_get_wait(request)
+            return render(request, template, context)
         elif step == "container_confirm":
             template, context = self.handle_container_invoice_confirm_get(request)
             return render(request, template, context)
         elif step == "container_payable":
             template, context = self.handle_container_invoice_payable_get(
-                request, False, False
+                request, False, False, False
             )
             return render(request, template, context)
         # 客服组长待审核，财务待审核
@@ -7056,7 +7059,111 @@ class Accounting(View):
                     new_request.GET = modified_get
                     return self.handle_container_invoice_direct_get(new_request)
         else:
-            return self.handle_container_invoice_payable_get(request, True, False)
+            return self.handle_container_invoice_payable_get(request, True, False, True)
+
+    def handle_container_invoice_confirm_get_wait(
+        self, request: HttpRequest
+    ) -> tuple[Any, Any]:
+        container_number = request.GET.get("container_number")
+        start_date_confirm = request.GET.get("start_date_confirm")
+        end_date_confirm = request.GET.get("end_date_confirm")
+        invoice_type = request.GET.get("invoice_type")
+        invoice = Invoice.objects.get(
+            container_number__container_number=container_number
+        )
+        order = Order.objects.select_related("container_number").get(
+            container_number__container_number=container_number
+        )
+        if invoice_type == "receivable":
+            # 这里要区分一下，如果是组合柜的柜子，跳转就直接跳转到组合柜计算界面
+            if (
+                order.order_type == "转运组合"
+                and order.container_number.account_order_type == "转运组合"
+            ):
+                # 这里表示是组合柜的方式计算，因为如果是报的组合柜但是不符合组合柜要求，那么account_order_type就是转运了
+                setattr(request, "is_from_account_confirmation", True)
+                return self.handle_container_invoice_combina_get(request)
+            else:
+                invoice_preports = InvoicePreport.objects.get(
+                    invoice_number__invoice_number=invoice.invoice_number,
+                    invoice_type=invoice_type,
+                )
+                if order.order_type in ["转运", "转运组合"]:
+                    invoice_warehouses = InvoiceWarehouse.objects.filter(
+                        invoice_number__invoice_number=invoice.invoice_number,
+                        invoice_type=invoice_type,
+                    )
+                    invoice_delivery = InvoiceDelivery.objects.filter(
+                        invoice_number__invoice_number=invoice.invoice_number,
+                        invoice_type=invoice_type,
+                    )
+                    amazon = []
+                    local = []
+                    combine = []
+                    walmart = []
+                    selfdelivery = []
+                    upsdelivery = []
+                    selfpickup = []
+                    for delivery in invoice_delivery:
+                        if delivery.type == "amazon":
+                            amazon.append(delivery)
+                        elif delivery.type == "local":
+                            local.append(delivery)
+                        elif delivery.type == "combine":
+                            combine.append(delivery)
+                        elif delivery.type == "walmart":
+                            walmart.append(delivery)
+                        elif delivery.type == "selfdelivery":
+                            selfdelivery.append(delivery)
+                        elif delivery.type == "upsdelivery":
+                            upsdelivery.append(delivery)
+                        elif delivery.type == "selfpickup":
+                            selfpickup.append(delivery)
+                    container = Container.objects.get(container_number=container_number)
+                    if (
+                        order.order_type == "转运组合"
+                        and container.account_order_type == "转运"
+                    ):
+                        non_combina_reason = container.non_combina_reason
+                    else:
+                        non_combina_reason = None
+                    context = {
+                        "invoice": invoice,
+                        "order_type": order.order_type,
+                        "invoice_preports": invoice_preports,
+                        "invoice_warehouses": invoice_warehouses,
+                        "amazon": amazon,
+                        "local": local,
+                        "combine": combine,
+                        "walmart": walmart,
+                        "selfdelivery": selfdelivery,
+                        "upsdelivery": upsdelivery,
+                        "selfpickup": selfpickup,
+                        "container_number": container_number,
+                        "start_date_confirm": start_date_confirm,
+                        "end_date_confirm": end_date_confirm,
+                        "invoice_type": invoice_type,
+                        "non_combina_reason": non_combina_reason,
+                        "delivery_amount": getattr(
+                            invoice, "receivable_delivery_amount", 0
+                        ),
+                        "total_amount": getattr(invoice, "receivable_total_amount", 0),
+                    }
+                    return self.template_invoice_confirm_edit, context
+                elif order.order_type == "直送":
+                    modified_get = request.GET.copy()
+                    modified_get["start_date_confirm"] = request.GET.get(
+                        "start_date_confirm"
+                    )
+                    modified_get["end_date_confirm"] = request.GET.get(
+                        "end_date_confirm"
+                    )
+                    modified_get["confirm_step"] = True
+                    new_request = request
+                    new_request.GET = modified_get
+                    return self.handle_container_invoice_direct_get(new_request)
+        else:
+            return self.handle_container_invoice_payable_get(request, True, False, False)
 
     def handle_container_invoice_delivery_get(
         self, request: HttpRequest
