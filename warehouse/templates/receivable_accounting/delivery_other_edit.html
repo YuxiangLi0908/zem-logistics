@@ -813,15 +813,7 @@
 
     <!-- 主要内容 -->
     <main class="main-content">
-        <div style="display: none">
-        {{ result_existing_all|json_script:"result-existing-all" }}
-        {{ previous_item_dict|json_script:"previous-item-dict" }}
-        {{ unbilled_groups|json_script:"unbilled-groups" }}
-        {{ result_existing|json_script:"result-existing" }}
-        {{ result_new|json_script:"result-new" }}
-        {{ result_previous_existing|json_script:"result-previous-existing" }}
-        {{ existing_items_all}}
-        </div>
+
         <form method="post" id="delivery-billing-form">
             {% csrf_token %}
             <input type="hidden" name="container_number" value="{{ container_number }}">
@@ -1523,59 +1515,6 @@ $(document).ready(function() {
         $('#convert-form').submit();
     }
 
-    // 控制台打印（按分组展示，更清晰）
-    console.group("===== 后端传入的三个变量 =====");
-
-    // 解析result-existing标签中的JSON数据
-    try {
-        const resultExisting = JSON.parse(document.getElementById('result-existing').textContent);
-        console.log("result_existing:", resultExisting);
-    } catch (e) {
-        console.error("解析result_existing失败:", e);
-        console.log("result_existing原始内容:", document.getElementById('result-existing')?.textContent);
-    }
-
-    // 解析result-new标签中的JSON数据
-    try {
-        const resultNew = JSON.parse(document.getElementById('result-new').textContent);
-        console.log("result_new:", resultNew);
-    } catch (e) {
-        console.error("解析result_new失败:", e);
-        console.log("result_new原始内容:", document.getElementById('result-new')?.textContent);
-    }
-
-    // 解析result-previous-existing标签中的JSON数据
-    try {
-        const resultPreviousExisting = JSON.parse(document.getElementById('result-previous-existing').textContent);
-        console.log("result_previous_existing:", resultPreviousExisting);
-    } catch (e) {
-        console.error("解析result_previous_existing失败:", e);
-        console.log("result_previous_existing原始内容:", document.getElementById('result-previous-existing')?.textContent);
-    }
-
-    try {
-        const resultExistingall = JSON.parse(document.getElementById('result-existing-all').textContent);
-        console.log("result_existing_all:", resultExistingall);
-    } catch (e) {
-        console.error("解析result_existing_all失败:", e);
-        console.log("result_existing_all原始内容:", document.getElementById('result-existing-all')?.textContent);
-    }
-
-    try {
-        const previousItemDict = JSON.parse(document.getElementById('previous-item-dict').textContent);
-        console.log("previous-item-dict:", previousItemDict);
-    } catch (e) {
-        console.error("解析previous-item-dict失败:", e);
-        console.log("previous-item-dict原始内容:", document.getElementById('previous-item-dict')?.textContent);
-    }
-
-    try {
-        const unbilledGroups = JSON.parse(document.getElementById('unbilled-groups').textContent);
-        console.log("unbilled-groups:", unbilledGroups);
-    } catch (e) {
-        console.error("解析unbilled-groups失败:", e);
-        console.log("unbilled-groups原始内容:", document.getElementById('unbilled-groups')?.textContent);
-    }
 
 
 </script>

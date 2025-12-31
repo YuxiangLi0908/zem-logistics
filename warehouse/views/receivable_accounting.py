@@ -3612,7 +3612,6 @@ class ReceivableAccounting(View):
         delivery_type = request.GET.get("delivery_type", "public")
         current_user = request.user
         username = current_user.username
-        result_new = None
         if delivery_type == "public":
             template = self.template_delivery_public_edit
         else:
@@ -3682,11 +3681,7 @@ class ReceivableAccounting(View):
         # 如果所有PO都已录入，直接返回已有数据
         if existing_items:
             result_existing = self._separate_existing_items(existing_items, pallet_groups)
-            unbilled_groups = [
-                g for g in pallet_groups
-                if g.get("PO_ID") and g.get("shipping_mark")  # 确保两个字段非空
-                   and f"{g.get('PO_ID')}_{g.get('shipping_mark')}" not in existing_items  # 组合键判断
-            ]
+            unbilled_groups = [g for g in pallet_groups if g.get("PO_ID") not in existing_items]
         else:
             result_existing = {
                 "normal_items": [],
@@ -3754,13 +3749,6 @@ class ReceivableAccounting(View):
         )['total_cbm'] or 0.0
         # 构建上下文
         context.update({
-            "existing_items_all": existing_items,
-            "result_existing_all": result_existing,
-            "previous_item_dict": previous_item_dict,
-            "unbilled_groups":unbilled_groups,
-            "result_existing":result_existing["normal_items"],
-            "result_new":result_new["normal_items"],
-            "result_previous_existing":result_previous_existing["normal_items"],
             "container_number": container_number,
             "container_type": order.container_number.container_type,
             "delivery_type": delivery_type,
