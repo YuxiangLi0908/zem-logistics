@@ -820,7 +820,7 @@
         {{ result_existing|json_script:"result-existing" }}
         {{ result_new|json_script:"result-new" }}
         {{ result_previous_existing|json_script:"result-previous-existing" }}
-        {{ existing_items|json_script:"existing-items" }}
+        {{ existing_items_all|json_script:"existing-items" }}
         </div>
         <form method="post" id="delivery-billing-form">
             {% csrf_token %}
