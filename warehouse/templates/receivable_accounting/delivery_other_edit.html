@@ -812,7 +812,12 @@
     </header>
 
     <!-- 主要内容 -->
-    <main class="main-content">   
+    <main class="main-content">
+        <div style="display: none">
+        {{ result_existing|json_script:"result-existing" }}
+        {{ result_new|json_script:"result-new" }}
+        {{ result_previous_existing|json_script:"result-previous-existing" }}
+        </div>
         <form method="post" id="delivery-billing-form">
             {% csrf_token %}
             <input type="hidden" name="container_number" value="{{ container_number }}">
@@ -1514,16 +1519,36 @@ $(document).ready(function() {
         $('#convert-form').submit();
     }
 
-    // 把Django变量转成JS变量并打印
-    const resultExisting = {{ result_existing|safe|json_script:"result-existing" }};
-    const resultNew = {{ result_new|safe|json_script:"result-new" }};
-    const resultPreviousExisting = {{ result_previous_existing|safe|json_script:"result-previous-existing" }};
-
     // 控制台打印（按分组展示，更清晰）
     console.group("===== 后端传入的三个变量 =====");
-    console.log("result_existing:", JSON.parse(document.getElementById('result-existing').textContent));
-    console.log("result_new:", JSON.parse(document.getElementById('result-new').textContent));
-    console.log("result_previous_existing:", JSON.parse(document.getElementById('result-previous-existing').textContent));
+
+    // 解析result-existing标签中的JSON数据
+    try {
+        const resultExisting = JSON.parse(document.getElementById('result-existing').textContent);
+        console.log("result_existing:", resultExisting);
+    } catch (e) {
+        console.error("解析result_existing失败:", e);
+        console.log("result_existing原始内容:", document.getElementById('result-existing')?.textContent);
+    }
+
+    // 解析result-new标签中的JSON数据
+    try {
+        const resultNew = JSON.parse(document.getElementById('result-new').textContent);
+        console.log("result_new:", resultNew);
+    } catch (e) {
+        console.error("解析result_new失败:", e);
+        console.log("result_new原始内容:", document.getElementById('result-new')?.textContent);
+    }
+
+    // 解析result-previous-existing标签中的JSON数据
+    try {
+        const resultPreviousExisting = JSON.parse(document.getElementById('result-previous-existing').textContent);
+        console.log("result_previous_existing:", resultPreviousExisting);
+    } catch (e) {
+        console.error("解析result_previous_existing失败:", e);
+        console.log("result_previous_existing原始内容:", document.getElementById('result-previous-existing')?.textContent);
+    }
+
     console.groupEnd();
 </script>
 {% endblock %} 
