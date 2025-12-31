@@ -3611,7 +3611,8 @@ class ReceivableAccounting(View):
         container_number = request.GET.get("container_number")
         delivery_type = request.GET.get("delivery_type", "public")
         current_user = request.user
-        username = current_user.username 
+        username = current_user.username
+        result_new = None
         if delivery_type == "public":
             template = self.template_delivery_public_edit
         else:
@@ -3749,6 +3750,9 @@ class ReceivableAccounting(View):
         )['total_cbm'] or 0.0
         # 构建上下文
         context.update({
+            "result_existing":result_existing["normal_items"],
+            "result_new":result_new["normal_items"],
+            "result_previous_existing":result_previous_existing["normal_items"],
             "container_number": container_number,
             "container_type": order.container_number.container_type,
             "delivery_type": delivery_type,
