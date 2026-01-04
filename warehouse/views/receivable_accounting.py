@@ -3621,6 +3621,8 @@ class ReceivableAccounting(View):
         # 如果所有PO都已录入，直接返回已有数据
         if existing_items:
             result_existing = self._separate_existing_items(existing_items, pallet_groups)
+            if delivery_type =="other":
+                result_existing = self._separate_other_existing_items(invoice, pallet_groups)
             unbilled_groups = [g for g in pallet_groups if g.get("PO_ID") not in existing_items]
         else:
             result_existing = {
@@ -3896,6 +3898,23 @@ class ReceivableAccounting(View):
             "combina_info": combina_info,
             "unbilled_groups":unbilled_groups,
 
+        }
+
+    def _separate_other_existing_items(self, invoice, pallet_groups):
+        '''私仓的派送已录入数据'''
+        combina_items = []
+        normal_items = []
+        combina_groups = []
+        combina_info = {}
+        normal_items = InvoiceItemv2.objects.filter(
+            invoice_number=invoice,
+            item_category="d",
+            invoice_type="receivable"
+        )
+        return {
+            "normal_items": normal_items,
+            "combina_groups": combina_groups,
+            "combina_info": combina_info
         }
 
 
