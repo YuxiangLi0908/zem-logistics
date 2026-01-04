@@ -290,10 +290,14 @@ class ReceivableAccounting(View):
         '''查看是否有，是组合柜类型，但是公仓派送费全按转运计算的柜子'''
         missing_combine_containers = []
         cutoff_date = make_aware(datetime(2025, 12, 1))
-        containers = Container.objects.filter(
-            orders__created_at__gte=cutoff_date
-        ).distinct()
-        containers = Container.objects.all()
+        containers = (
+            Container.objects
+            .filter(
+                orders__created_at__gte=cutoff_date,
+                orders__order_type="转运组合",  
+            )
+            .distinct()
+        )
 
         for container in containers:
             #看看是否有公仓派送费，如果没有就跳过
@@ -306,24 +310,16 @@ class ReceivableAccounting(View):
             if not has_delivery_public:
                 continue
 
+            if has_delivery_public.filter(delivery_type="combine").exists():
+                continue
+
             # 1️⃣ 先判断是否是 combina
             try:
                 is_combina = self._is_combina(container.container_number)
             except Exception:
                 continue
             
-            if not is_combina:
-                continue
-
-            
-            # 2️⃣ 查询是否存在 delivery_type = 'combine' 的 invoice item
-            has_combine_item = InvoiceItemv2.objects.filter(
-                container_number=container,
-                delivery_type="combine",
-            ).exists()
-
-            # 3️⃣ 如果不存在，记录 container_number
-            if not has_combine_item:
+            if is_combina:
                 invoices = Invoicev2.objects.filter(
                     container_number=container
                 ).values_list("invoice_number", flat=True)
