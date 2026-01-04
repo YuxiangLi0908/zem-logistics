@@ -289,7 +289,7 @@ class ReceivableAccounting(View):
     def check_wrong_item_type(self, request: HttpRequest):
         '''查看是否有，是组合柜类型，但是公仓派送费全按转运计算的柜子'''
         missing_combine_containers = []
-        cutoff_date = make_aware(datetime(2025, 12, 1))
+        cutoff_date = make_aware(datetime(2025, 9, 1))
         containers = (
             Container.objects
             .filter(
