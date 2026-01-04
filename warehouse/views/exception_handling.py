@@ -2574,7 +2574,7 @@ class ExceptionHandling(View):
             await sync_to_async(
                 lambda: InvoiceItemv2.objects.filter(
                     invoice_number=invoicev2,
-                    delivery_type__in=["warmart", "amazon"],
+                    delivery_type__in=["walmart", "amazon"],
                 ).delete()
             )()
             messages.success(request, f"成功删除 所有公仓的")
