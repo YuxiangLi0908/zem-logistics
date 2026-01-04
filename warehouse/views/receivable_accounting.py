@@ -2087,6 +2087,8 @@ class ReceivableAccounting(View):
             surcharges = item_data.get("surcharges")
             amount = item_data.get("amount")
             description = item_data.get("description", "")
+            if not destination and delivery_category == "combine":
+                description = "派送费"
             region = item_data.get("combina_region", "")
             cbm = item_data.get("cbm", "")
             cbm_ratio = item_data.get("cbmRatio", 0)
