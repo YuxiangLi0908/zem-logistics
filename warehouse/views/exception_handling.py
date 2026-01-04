@@ -3643,12 +3643,14 @@ class ExceptionHandling(View):
 
             # 检查是否已存在相同invoice_number的Invoicev2
             existing_invoicev2 = await sync_to_async(
-                lambda: Invoicev2.objects.filter(
-                    models.Q(payable_total_amount__isnull=False) |
-                    models.Q(payable_preport_amount__isnull=False) |
-                    models.Q(payable_warehouse_amount__isnull=False) |
-                    models.Q(payable_delivery_amount__isnull=False),
-                    invoice_number=old_invoice_dict['invoice_number']
+                lambda: InvoiceStatusv2.objects.filter(
+                    ~models.Q(preport_status='unstarted') |
+                    ~models.Q(warehouse_public_status='unstarted') |
+                    ~models.Q(warehouse_other_status='unstarted') |
+                    ~models.Q(delivery_public_status='unstarted') |
+                    ~models.Q(delivery_other_status='unstarted'),
+                    invoice=new_invoice,
+                    invoice_type="payable",
                 ).first()
             )()
            
