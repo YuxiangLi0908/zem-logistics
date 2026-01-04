@@ -3561,7 +3561,7 @@ class ExceptionHandling(View):
             
             # 3. 按照container_number_id查询新Invoicev2
             new_invoice_exists = await sync_to_async(
-                lambda: Invoicev2.objects.filter(container_number_id=container_id).exists()  # 使用container_number_id字段
+                lambda: Invoicev2.objects.filter(payable_total_amount__isnull=False, container_number_id=container_id).exists()  # 使用container_number_id字段
             )()
             
             migration_log['actions'].append(f"新Invoicev2存在: {new_invoice_exists}")
