@@ -3596,7 +3596,13 @@ class ExceptionHandling(View):
             
             # 3. 按照container_number_id查询新Invoicev2
             new_invoice_exists = await sync_to_async(
-                lambda: Invoicev2.objects.filter(container_number_id=container_id).exists()  # 使用container_number_id字段
+                lambda: Invoicev2.objects.filter(
+                    models.Q(payable_total_amount__isnull=False) |
+                    models.Q(payable_preport_amount__isnull=False) |
+                    models.Q(payable_warehouse_amount__isnull=False) |
+                    models.Q(payable_delivery_amount__isnull=False),
+                    container_number_id=container_id
+                    ).exists()  # 使用container_number_id字段
             )()
             
             migration_log['actions'].append(f"新Invoicev2存在: {new_invoice_exists}")
@@ -3686,6 +3692,10 @@ class ExceptionHandling(View):
             # 检查是否已存在相同invoice_number的Invoicev2
             existing_invoicev2 = await sync_to_async(
                 lambda: Invoicev2.objects.filter(
+                    models.Q(payable_total_amount__isnull=False) |
+                    models.Q(payable_preport_amount__isnull=False) |
+                    models.Q(payable_warehouse_amount__isnull=False) |
+                    models.Q(payable_delivery_amount__isnull=False),
                     invoice_number=old_invoice_dict['invoice_number']
                 ).first()
             )()
@@ -3809,8 +3819,13 @@ class ExceptionHandling(View):
                 # 检查是否已存在相同invoice和invoice_type的InvoiceStatusv2
                 existing_status = await sync_to_async(
                     lambda: InvoiceStatusv2.objects.filter(
+                        models.Q(preport_status__ne= 'unstarted') |
+                        models.Q(warehouse_public_status__ne= 'unstarted') |
+                        models.Q(warehouse_other_status__ne= 'unstarted') |
+                        models.Q(delivery_public_status__ne= 'unstarted') |
+                        models.Q(delivery_other_status__ne= 'unstarted'),
                         invoice=new_invoice,
-                        invoice_type="payable"
+                        invoice_type="payable",
                     ).first()
                 )()
                                 
