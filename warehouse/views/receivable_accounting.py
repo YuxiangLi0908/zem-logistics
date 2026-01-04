@@ -301,16 +301,16 @@ class ReceivableAccounting(View):
 
         for container in containers:
             #看看是否有公仓派送费，如果没有就跳过
-            has_delivery_public = InvoiceItemv2.objects.filter(
+            qs = InvoiceItemv2.objects.filter(
                 container_number=container,
                 item_category="delivery_public",
-            ).exists()
+            )
 
             # 如果连公仓派送费用都没有，说明还没开始录，直接跳过
-            if not has_delivery_public:
+            if not qs.exists():
                 continue
 
-            if has_delivery_public.filter(delivery_type="combine").exists():
+            if qs.filter(delivery_type="combine").exists():
                 continue
 
             # 1️⃣ 先判断是否是 combina
