@@ -4831,7 +4831,16 @@ class ReceivableAccounting(View):
                             total_cbm=Sum('cbm'),
                             total_weight_lbs=Sum('total_weight_lbs')
                         )
-                        
+                        if aggregated['total_cbm'] is None and '_' in po_id and group.get('shipping_marks'):
+                            # 去掉下划线再查，同时匹配 shipping_marks
+                            po_id_modified = po_id.replace('_', '')
+                            aggregated = PackingList.objects.filter(
+                                PO_ID=po_id_modified,
+                                shipping_marks=group['shipping_marks']
+                            ).aggregate(
+                                total_cbm=Sum('cbm'),
+                                total_weight_lbs=Sum('total_weight_lbs')
+                            )
                         group['total_cbm'] = aggregated['total_cbm'] or 0.0
                         group['total_weight_lbs'] = aggregated['total_weight_lbs'] or 0.0
                         
