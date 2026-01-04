@@ -4823,24 +4823,15 @@ class ReceivableAccounting(View):
         # 对每个PO组，从PackingList表中获取准确的CBM和重量数据
         for group in pallet_groups:
             po_id = group.get("PO_ID")
-            shipping_mark = group.get("shipping_mark")
+            shipping_marks = group.get("shipping_marks")
             if po_id:
                 if delivery_type == "other" and "自提" in group.get("delivery_method"):
                     try:
-                        aggregated = PackingList.objects.filter(PO_ID=po_id,shipping_mark=shipping_mark).aggregate(
+                        aggregated = PackingList.objects.filter(PO_ID=po_id,shipping_mark=shipping_marks).aggregate(
                             total_cbm=Sum('cbm'),
                             total_weight_lbs=Sum('total_weight_lbs')
-                        )
-                        if aggregated['total_cbm'] is None and '_' in po_id and group.get('shipping_marks'):
-                            # 去掉下划线再查，同时匹配 shipping_marks
-                            po_id_modified = po_id.replace('_', '')
-                            aggregated = PackingList.objects.filter(
-                                PO_ID=po_id_modified,
-                                shipping_marks=group['shipping_marks']
-                            ).aggregate(
-                                total_cbm=Sum('cbm'),
-                                total_weight_lbs=Sum('total_weight_lbs')
-                            )
+                        )                      
+                        
                         group['total_cbm'] = aggregated['total_cbm'] or 0.0
                         group['total_weight_lbs'] = aggregated['total_weight_lbs'] or 0.0
                         
@@ -4850,12 +4841,22 @@ class ReceivableAccounting(View):
                         group['total_weight_lbs'] = 0.0
                         error_messages.append(f"获取PO_ID {po_id} (目的地: {destination}) 的PackingList数据时出错: {str(e)}")
                 else:
+                    
                     try:
                         aggregated = PackingList.objects.filter(PO_ID=po_id).aggregate(
                             total_cbm=Sum('cbm'),
                             total_weight_lbs=Sum('total_weight_lbs')
                         )
-                        
+                        if aggregated['total_cbm'] is None and '_' in po_id and group.get('shipping_marks'):
+                            # 去掉下划线再查，同时匹配 shipping_marks
+                            po_id_modified = po_id.split('_', 1)[0]
+                            aggregated = PackingList.objects.filter(
+                                PO_ID=po_id_modified,
+                                shipping_mark=shipping_marks
+                            ).aggregate(
+                                total_cbm=Sum('cbm'),
+                                total_weight_lbs=Sum('total_weight_lbs')
+                            )
                         group['total_cbm'] = aggregated['total_cbm'] or 0.0
                         group['total_weight_lbs'] = aggregated['total_weight_lbs'] or 0.0
                         
