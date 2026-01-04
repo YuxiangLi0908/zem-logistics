@@ -3543,11 +3543,11 @@ class ExceptionHandling(View):
             # 3. 按照container_number_id查询新Invoicev2
             new_invoice_exists = await sync_to_async(
                 lambda: InvoiceStatusv2.objects.filter(
-                    models.Q(preport_status__ne='unstarted') |
-                    models.Q(warehouse_public_status__ne='unstarted') |
-                    models.Q(warehouse_other_status__ne='unstarted') |
-                    models.Q(delivery_public_status__ne='unstarted') |
-                    models.Q(delivery_other_status__ne='unstarted'),
+                    ~models.Q(preport_status='unstarted') |
+                    ~models.Q(warehouse_public_status='unstarted') |
+                    ~models.Q(warehouse_other_status='unstarted') |
+                    ~models.Q(delivery_public_status='unstarted') |
+                    ~models.Q(delivery_other_status='unstarted'),
                     preport_status__isnull=False,
                     warehouse_public_status__isnull=False,
                     warehouse_other_status__isnull=False,
@@ -3771,11 +3771,11 @@ class ExceptionHandling(View):
                 # 检查是否已存在相同invoice和invoice_type的InvoiceStatusv2
                 existing_status = await sync_to_async(
                     lambda: InvoiceStatusv2.objects.filter(
-                        models.Q(preport_status__ne= 'unstarted') |
-                        models.Q(warehouse_public_status__ne= 'unstarted') |
-                        models.Q(warehouse_other_status__ne= 'unstarted') |
-                        models.Q(delivery_public_status__ne= 'unstarted') |
-                        models.Q(delivery_other_status__ne= 'unstarted'),
+                        ~models.Q(preport_status='unstarted') |
+                        ~models.Q(warehouse_public_status='unstarted') |
+                        ~models.Q(warehouse_other_status='unstarted') |
+                        ~models.Q(delivery_public_status='unstarted') |
+                        ~models.Q(delivery_other_status='unstarted'),
                         invoice=new_invoice,
                         invoice_type="payable",
                     ).first()
