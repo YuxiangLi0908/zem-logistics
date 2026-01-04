@@ -3034,9 +3034,9 @@ class ExceptionHandling(View):
                     ('payable_delivery_amount', '派送金额', 
                      old_invoice.payable_delivery_amount or 0, 
                      new_delivery_total),
-                    ('payable_direct_amount', '直送金额', 
-                     old_invoice.payable_direct_amount or 0, 
-                     new_invoice.payable_direct_amount or 0)
+                    # ('payable_direct_amount', '直送金额',
+                    #  old_invoice.payable_direct_amount or 0,
+                    #  new_invoice.payable_direct_amount or 0)
                 ]
                 
                 differences = []
@@ -3429,7 +3429,7 @@ class ExceptionHandling(View):
                     'invoice_link',
                     'payable_preport_amount',
                     'payable_total_amount',
-                    'payable_direct_amount',
+                    # 'payable_direct_amount',
                     'payable_total_amount',
                     'payable_preport_amount',
                     'payable_warehouse_amount',
@@ -3725,7 +3725,7 @@ class ExceptionHandling(View):
                     # 根据说明：两个新字段都等于旧表的payable_delivery_amount
                     payable_delivery_public_amount=public_dl_amount,
                     payable_delivery_other_amount=other_dl_amount,
-                    payable_direct_amount=old_invoice_dict['payable_direct_amount'] or 0,
+                    # payable_direct_amount=old_invoice_dict['payable_direct_amount'] or 0,
                     payable_is_locked=False,  # 默认未锁定
                     
                     # 应付金额字段
