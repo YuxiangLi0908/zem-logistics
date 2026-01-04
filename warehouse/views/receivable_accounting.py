@@ -6696,7 +6696,7 @@ class ReceivableAccounting(View):
                 },
                 "start_date": request.GET.get("start_date"),
                 "end_date": request.GET.get("end_date"),
-                
+                "is_combina": is_combina,            
             }
         )
         return context
