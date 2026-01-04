@@ -287,6 +287,7 @@ class ReceivableAccounting(View):
             return render(request, template, context)
 
     def check_wrong_item_type(self, request: HttpRequest):
+        '''查看是否有，是组合柜类型，但是公仓派送费全按转运计算的柜子'''
         missing_combine_containers = []
         cutoff_date = make_aware(datetime(2025, 10, 1))
         containers = Container.objects.filter(
@@ -295,6 +296,16 @@ class ReceivableAccounting(View):
         containers = Container.objects.all()
 
         for container in containers:
+            #看看是否有公仓派送费，如果没有就跳过
+            has_delivery_public = InvoiceItemv2.objects.filter(
+                container_number=container,
+                item_category="delivery_public",
+            ).exists()
+
+            # 如果连公仓派送费用都没有，说明还没开始录，直接跳过
+            if not has_delivery_public:
+                continue
+
             # 1️⃣ 先判断是否是 combina
             try:
                 is_combina = self._is_combina(container.container_number)
@@ -304,6 +315,7 @@ class ReceivableAccounting(View):
             if not is_combina:
                 continue
 
+            
             # 2️⃣ 查询是否存在 delivery_type = 'combine' 的 invoice item
             has_combine_item = InvoiceItemv2.objects.filter(
                 container_number=container,
@@ -312,7 +324,13 @@ class ReceivableAccounting(View):
 
             # 3️⃣ 如果不存在，记录 container_number
             if not has_combine_item:
-                missing_combine_containers.append(container.container_number)
+                invoices = Invoicev2.objects.filter(
+                    container_number=container
+                ).values_list("invoice_number", flat=True)
+                for invoice_number in invoices:
+                    missing_combine_containers.append(
+                        f"{container.container_number}-{invoice_number}"
+                    )
         context = {"missing_combine_containers":missing_combine_containers}
         return self.template_confirm_entry,context
 
