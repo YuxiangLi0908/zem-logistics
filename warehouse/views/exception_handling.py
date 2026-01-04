@@ -3017,8 +3017,8 @@ class ExceptionHandling(View):
             # 只有当两个账单都存在时才比较
             if old_invoice and new_invoice:
                 # 计算Invoicev2的合并金额
-                new_warehouse_total = (new_invoice.payable_wh_public_amount or 0) + (new_invoice.payable_wh_other_amount or 0)
-                new_delivery_total = (new_invoice.payable_delivery_public_amount or 0) + (new_invoice.payable_delivery_other_amount or 0)
+                # new_warehouse_total = (new_invoice.payable_wh_public_amount or 0) + (new_invoice.payable_wh_other_amount or 0)
+                # new_delivery_total = (new_invoice.payable_delivery_public_amount or 0) + (new_invoice.payable_delivery_other_amount or 0)
                 
                 # 定义要比较的字段和对应的值
                 comparisons = [
@@ -3029,11 +3029,11 @@ class ExceptionHandling(View):
                      old_invoice.payable_preport_amount or 0, 
                      new_invoice.payable_preport_amount or 0),
                     ('payable_warehouse_amount', '仓库金额', 
-                     old_invoice.payable_warehouse_amount or 0, 
-                     new_warehouse_total),
+                     old_invoice.payable_warehouse_amount or 0,
+                     ),
                     ('payable_delivery_amount', '派送金额', 
                      old_invoice.payable_delivery_amount or 0, 
-                     new_delivery_total),
+                     ),
                     # ('payable_direct_amount', '直送金额',
                     #  old_invoice.payable_direct_amount or 0,
                     #  new_invoice.payable_direct_amount or 0)
@@ -3720,11 +3720,11 @@ class ExceptionHandling(View):
                     payable_total_amount=old_invoice_dict['payable_total_amount'] or 0,
                     payable_preport_amount=old_invoice_dict['payable_preport_amount'] or 0,
                     # 根据说明：两个新字段都等于旧表的payable_warehouse_amount
-                    payable_wh_public_amount=public_wh_amount,
-                    payable_wh_other_amount=other_wh_amount,
+                    # payable_wh_public_amount=public_wh_amount,
+                    # payable_wh_other_amount=other_wh_amount,
                     # 根据说明：两个新字段都等于旧表的payable_delivery_amount
-                    payable_delivery_public_amount=public_dl_amount,
-                    payable_delivery_other_amount=other_dl_amount,
+                    # payable_delivery_public_amount=public_dl_amount,
+                    # payable_delivery_other_amount=other_dl_amount,
                     # payable_direct_amount=old_invoice_dict['payable_direct_amount'] or 0,
                     payable_is_locked=False,  # 默认未锁定
                     
