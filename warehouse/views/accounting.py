@@ -9607,7 +9607,7 @@ class Accounting(View):
 
         order_type = order.order_type
         non_combina_reason = None
-
+        iscombina = False
         if order_type != "转运组合":
             iscombina = False
         else:
@@ -9617,10 +9617,6 @@ class Accounting(View):
                 non_combina_reason = container.non_combina_reason
             elif container.manually_order_type == "转运组合":
                 iscombina = True
-            else:
-                combina_context, iscombina, non_combina_reason = self._is_combina(container_number)
-                if combina_context.get("error_messages"):
-                    return self.template_invoice_payable_edit_v1, combina_context
 
         act_pick_time = order.retrieval_id.actual_retrieval_timestamp
         fee_detail = self._get_feetail(act_pick_time, "PAYABLE")
