@@ -4200,7 +4200,7 @@ class ReceivableAccounting(View):
                 
                 # 处理第一部分：按"-"分割取后面的部分
                 if "-" in first_part:
-                    if first_part.startswith("UPS-"):
+                    if first_part.upper().startswith("UPS-"):
                         first_result = first_part
                     else:
                         first_result = first_part.split("-", 1)[1]
@@ -4209,7 +4209,7 @@ class ReceivableAccounting(View):
                 
                 # 处理第二部分：按"-"分割取后面的部分
                 if "-" in second_part:
-                    if second_part.startswith("UPS-"):
+                    if second_part.upper().startswith("UPS-"):
                         second_result = second_part
                     else:
                         second_result = second_part.split("-", 1)[1]
@@ -4223,7 +4223,7 @@ class ReceivableAccounting(View):
         # 如果不包含"改"或"送"或者没有找到
         # 只处理第二部分（假设第一部分为空）
         if "-" in destination_origin:
-            if destination_origin.startswith("UPS-"):
+            if destination_origin.upper().startswith("UPS-"):
                 second_result = destination_origin
             else:
                 second_result = destination_origin.split("-", 1)[1]
@@ -5655,7 +5655,7 @@ class ReceivableAccounting(View):
             # 如果是沃尔玛的，只保留后面的名字，因为报价表里就是这么保留的
             clean_dest = destination.replace("沃尔玛", "").strip()
 
-            if clean_dest.startswith("UPS-"):
+            if clean_dest.upper().startswith("UPS-"):
                 dest = clean_dest
             else:
                 dest = clean_dest.split("-")[-1].strip()
