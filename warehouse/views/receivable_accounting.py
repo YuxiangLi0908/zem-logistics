@@ -2087,6 +2087,8 @@ class ReceivableAccounting(View):
             surcharges = item_data.get("surcharges")
             amount = item_data.get("amount")
             description = item_data.get("description", "")
+            if not destination and delivery_category == "combine":
+                description = "派送费"
             region = item_data.get("combina_region", "")
             cbm = item_data.get("cbm", "")
             cbm_ratio = item_data.get("cbmRatio", 0)
@@ -4007,7 +4009,7 @@ class ReceivableAccounting(View):
         if combina_items:
             total_base_fee = sum(item.get("amount", 0) for item in combina_items)
             total_cbm = sum(item.get("total_cbm", 0) for item in combina_items)
-            total_cbm_ratio = round(sum(item.get("cbm_ratio", 0) for item in combina_items),4)
+            total_cbm_ratio = round(sum((item.get("cbm_ratio") or 0) for item in combina_items), 4)
             total_weight = sum(item.get("total_weight_lbs", 0) for item in combina_items)
             total_pallets = sum(item.get("total_pallets", 0) for item in combina_items)
             combina_info = {
@@ -4069,7 +4071,7 @@ class ReceivableAccounting(View):
                 if isinstance(combina_result, dict) and combina_result.get('error_messages'):
                     return combina_result
                 
-                result["combina_groups"] = combina_result['groups']
+                result["combina_groups"] = combina_result.get("groups", [])
                 # 合并组合柜数据
                 new_items = combina_result.get("items", [])
                 processed_po_ids = set(combina_result.get("processed_po_ids", []))
@@ -4083,10 +4085,9 @@ class ReceivableAccounting(View):
                             combina_items_by_region[region] = []
                         combina_items_by_region[region].append(item)
                 
-                result["combina_info"] = combina_result.get("info", {})           
+                result["combina_info"] = combina_result.get("info", {})
                 # 从待处理的pallet_groups中移除已处理的组合柜记录
                 pallet_groups = [g for g in pallet_groups if g.get("PO_ID") not in processed_po_ids]
-        print('pallet_groups',pallet_groups)
 
         # 处理未录入的PO
         if pallet_groups:
@@ -4198,7 +4199,6 @@ class ReceivableAccounting(View):
         if destination and '-' in destination:
             parts = destination.split('-')
             if len(parts) > 1:
-                print('parts[1]parts[1]parts[1]parts[1]',parts[1])
                 return parts[1]
         return destination
     
@@ -4219,7 +4219,7 @@ class ReceivableAccounting(View):
         if combina_key not in fee_details:
             context = {
                 "error_messages": f"未找到组合柜报价表规则 {combina_key}"
-            }          
+            }
             return (context, [])  # 返回错误，空列表
         
         rules = fee_details.get(combina_key).details
@@ -4237,6 +4237,7 @@ class ReceivableAccounting(View):
 
             #改前和改后的
             destination_origin, destination = self._process_destination(destination_str)
+            
             is_combina_origin = False
             if has_previous_items and destination_origin:
                 #判断改之前是不是组合柜，如果是组合->非组合，要补收一份组合柜，非组合->组合，正常按组合收，            
@@ -4257,7 +4258,6 @@ class ReceivableAccounting(View):
                         break
                 if is_combina_region:
                     break
-
             if destination.upper() == "UPS":
                 is_combina_region = False
             cbm = group.get("total_cbm")
@@ -4271,11 +4271,10 @@ class ReceivableAccounting(View):
                 # 如果是组合->非组合，要补收一份组合柜
                 need_Additional_des.append(destination_str)
                 combina_pallet_groups.append(group)
-        
         # 如果没有组合区域，直接返回原数据和空列表，都按转运算
         if not combina_pallet_groups:
             return {"items": [], "info": {}}
-        
+
         # 3. 计算组合柜每目的地 CBM（保留两位小数）
         combina_destinations_cbm = {}  # 记录每个目的地的CBM
         total_combina_pallets = 0
@@ -4346,7 +4345,6 @@ class ReceivableAccounting(View):
                 )
                 group_cbm_ratios[max_key] = round(group_cbm_ratios[max_key] + diff, 4)
 
-        print('group_cbm_ratios',group_cbm_ratios)
         # 5. 计算组合柜总费用
         combina_regions_data = {}  # 记录每个区域的费用数据
         destination_region_map = {}
@@ -4798,20 +4796,36 @@ class ReceivableAccounting(View):
             po_id = group.get("PO_ID")
             shipping_mark = group.get("shipping_mark")
             if po_id:
-                try:
-                    aggregated = PackingList.objects.filter(PO_ID=po_id, shipping_mark=shipping_mark).aggregate(
-                        total_cbm=Sum('cbm'),
-                        total_weight_lbs=Sum('total_weight_lbs')
-                    )
-                    
-                    group['total_cbm'] = aggregated['total_cbm'] or 0.0
-                    group['total_weight_lbs'] = aggregated['total_weight_lbs'] or 0.0
-                    
-                except Exception as e:
-                    # 如果查询出错，设置默认值
-                    group['total_cbm'] = 0.0
-                    group['total_weight_lbs'] = 0.0
-                    error_messages.append(f"获取PO_ID {po_id} (目的地: {destination}) 的PackingList数据时出错: {str(e)}")
+                if delivery_type == "other" and "自提" in group.get("delivery_method"):
+                    try:
+                        aggregated = PackingList.objects.filter(PO_ID=po_id,shipping_mark=shipping_mark).aggregate(
+                            total_cbm=Sum('cbm'),
+                            total_weight_lbs=Sum('total_weight_lbs')
+                        )
+                        
+                        group['total_cbm'] = aggregated['total_cbm'] or 0.0
+                        group['total_weight_lbs'] = aggregated['total_weight_lbs'] or 0.0
+                        
+                    except Exception as e:
+                        # 如果查询出错，设置默认值
+                        group['total_cbm'] = 0.0
+                        group['total_weight_lbs'] = 0.0
+                        error_messages.append(f"获取PO_ID {po_id} (目的地: {destination}) 的PackingList数据时出错: {str(e)}")
+                else:
+                    try:
+                        aggregated = PackingList.objects.filter(PO_ID=po_id).aggregate(
+                            total_cbm=Sum('cbm'),
+                            total_weight_lbs=Sum('total_weight_lbs')
+                        )
+                        
+                        group['total_cbm'] = aggregated['total_cbm'] or 0.0
+                        group['total_weight_lbs'] = aggregated['total_weight_lbs'] or 0.0
+                        
+                    except Exception as e:
+                        # 如果查询出错，设置默认值
+                        group['total_cbm'] = 0.0
+                        group['total_weight_lbs'] = 0.0
+                        error_messages.append(f"获取PO_ID {po_id} (目的地: {destination}) 的PackingList数据时出错: {str(e)}")
                     
             else:
                 # 没有PO_ID的情况
@@ -6201,6 +6215,19 @@ class ReceivableAccounting(View):
             .values("destination")
             .annotate(total_cbm=Sum("cbm"))
         )
+        pl_cbm_by_destination = (
+            PackingList.objects
+            .filter(container_number__container_number=container_number)
+            .values("destination")
+            .annotate(total_cbm=Sum("cbm"))
+        )
+        cbm_map = {
+            item["destination"]: item["total_cbm"] or 0
+            for item in pl_cbm_by_destination
+        }
+
+        for item in plts_by_destination:
+            item["total_cbm"] = cbm_map.get(item["destination"], 0)
         # 这里之前是
         total_cbm_sum = sum(item["total_cbm"] for item in plts_by_destination)
         # 区分组合柜区域和非组合柜区域
@@ -6320,12 +6347,26 @@ class ReceivableAccounting(View):
             Pallet.objects.filter(container_number__container_number=container_number)
             .values("destination")
             .annotate(
-                total_cbm=Sum("cbm"),
                 price=Value(None, output_field=models.FloatField()),
                 is_fixed_price=Value(False, output_field=BooleanField()),
                 total_pallet=Count("id", output_field=FloatField()),
             )
         )  # 形如{'destination': 'A', 'total_cbm': 10.5，'price':31.5,'is_fixed_price':True},
+        #重新去预报里查找cbm和重量
+        pl_cbm_by_destination = (
+            PackingList.objects
+            .filter(container_number__container_number=container_number)
+            .values("destination")
+            .annotate(total_cbm=Sum("cbm"))
+        )
+        cbm_map = {
+            item["destination"]: item["total_cbm"]
+            for item in pl_cbm_by_destination
+        }
+
+        for item in plts_by_destination:
+            item["total_cbm"] = cbm_map.get(item["destination"], 0)
+        
         plts_by_destination = self._calculate_delivery_fee_cost(
             fee_details, warehouse, plts_by_destination, destinations, over_count
         )
@@ -6366,13 +6407,35 @@ class ReceivableAccounting(View):
                     )
                     .values("destination")
                     .annotate(
-                        total_cbm=Sum("cbm"),
                         total_pallet=Count("id", output_field=FloatField()),
-                        total_weight=Sum("weight_lbs"),
                         price=Value(None, output_field=models.FloatField()),
                         is_fixed_price=Value(False, output_field=BooleanField()),
                     )
                 )
+                pl_stats_by_destination = (
+                    PackingList.objects
+                    .filter(
+                        container_number__container_number=container_number,
+                        destination__in=matched_regions["non_combina_dests"].keys(),
+                    )
+                    .values("destination")
+                    .annotate(
+                        total_cbm=Sum("cbm"),
+                        total_weight=Sum("total_weight_lbs"),
+                    )
+                )
+                pl_stat_map = {
+                    item["destination"]: {
+                        "total_cbm": item["total_cbm"] or 0,
+                        "total_weight": item["total_weight"] or 0,
+                    }
+                    for item in pl_stats_by_destination
+                }
+
+                for item in plts_by_destination_overregion:
+                    stats = pl_stat_map.get(item["destination"], {})
+                    item["total_cbm"] = stats.get("total_cbm", 0)
+                    item["total_weight"] = stats.get("total_weight", 0)
 
                 plts_by_destination_overregion = self._calculate_delivery_fee_cost(
                     fee_details,
