@@ -4197,7 +4197,6 @@ class ReceivableAccounting(View):
         if destination and '-' in destination:
             parts = destination.split('-')
             if len(parts) > 1:
-                print('parts[1]parts[1]parts[1]parts[1]',parts[1])
                 return parts[1]
         return destination
     
@@ -4236,6 +4235,7 @@ class ReceivableAccounting(View):
 
             #改前和改后的
             destination_origin, destination = self._process_destination(destination_str)
+            
             is_combina_origin = False
             if has_previous_items and destination_origin:
                 #判断改之前是不是组合柜，如果是组合->非组合，要补收一份组合柜，非组合->组合，正常按组合收，            
@@ -4256,7 +4256,6 @@ class ReceivableAccounting(View):
                         break
                 if is_combina_region:
                     break
-
             if destination.upper() == "UPS":
                 is_combina_region = False
             cbm = group.get("total_cbm")
@@ -4270,7 +4269,6 @@ class ReceivableAccounting(View):
                 # 如果是组合->非组合，要补收一份组合柜
                 need_Additional_des.append(destination_str)
                 combina_pallet_groups.append(group)
-        
         # 如果没有组合区域，直接返回原数据和空列表，都按转运算
         if not combina_pallet_groups:
             return {"items": [], "info": {}}
@@ -4345,7 +4343,6 @@ class ReceivableAccounting(View):
                 )
                 group_cbm_ratios[max_key] = round(group_cbm_ratios[max_key] + diff, 4)
 
-        print('group_cbm_ratios',group_cbm_ratios)
         # 5. 计算组合柜总费用
         combina_regions_data = {}  # 记录每个区域的费用数据
         destination_region_map = {}
@@ -4797,20 +4794,36 @@ class ReceivableAccounting(View):
             po_id = group.get("PO_ID")
             shipping_mark = group.get("shipping_mark")
             if po_id:
-                try:
-                    aggregated = PackingList.objects.filter(PO_ID=po_id, shipping_mark=shipping_mark).aggregate(
-                        total_cbm=Sum('cbm'),
-                        total_weight_lbs=Sum('total_weight_lbs')
-                    )
-                    
-                    group['total_cbm'] = aggregated['total_cbm'] or 0.0
-                    group['total_weight_lbs'] = aggregated['total_weight_lbs'] or 0.0
-                    
-                except Exception as e:
-                    # 如果查询出错，设置默认值
-                    group['total_cbm'] = 0.0
-                    group['total_weight_lbs'] = 0.0
-                    error_messages.append(f"获取PO_ID {po_id} (目的地: {destination}) 的PackingList数据时出错: {str(e)}")
+                if delivery_type == "other" and "自提" in group.get("delivery_method"):
+                    try:
+                        aggregated = PackingList.objects.filter(PO_ID=po_id,shipping_mark=shipping_mark).aggregate(
+                            total_cbm=Sum('cbm'),
+                            total_weight_lbs=Sum('total_weight_lbs')
+                        )
+                        
+                        group['total_cbm'] = aggregated['total_cbm'] or 0.0
+                        group['total_weight_lbs'] = aggregated['total_weight_lbs'] or 0.0
+                        
+                    except Exception as e:
+                        # 如果查询出错，设置默认值
+                        group['total_cbm'] = 0.0
+                        group['total_weight_lbs'] = 0.0
+                        error_messages.append(f"获取PO_ID {po_id} (目的地: {destination}) 的PackingList数据时出错: {str(e)}")
+                else:
+                    try:
+                        aggregated = PackingList.objects.filter(PO_ID=po_id).aggregate(
+                            total_cbm=Sum('cbm'),
+                            total_weight_lbs=Sum('total_weight_lbs')
+                        )
+                        
+                        group['total_cbm'] = aggregated['total_cbm'] or 0.0
+                        group['total_weight_lbs'] = aggregated['total_weight_lbs'] or 0.0
+                        
+                    except Exception as e:
+                        # 如果查询出错，设置默认值
+                        group['total_cbm'] = 0.0
+                        group['total_weight_lbs'] = 0.0
+                        error_messages.append(f"获取PO_ID {po_id} (目的地: {destination}) 的PackingList数据时出错: {str(e)}")
                     
             else:
                 # 没有PO_ID的情况
