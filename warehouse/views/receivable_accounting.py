@@ -4200,13 +4200,19 @@ class ReceivableAccounting(View):
                 
                 # 处理第一部分：按"-"分割取后面的部分
                 if "-" in first_part:
-                    first_result = first_part.split("-", 1)[1]
+                    if first_part.startswith("UPS-"):
+                        first_result = first_part
+                    else:
+                        first_result = first_part.split("-", 1)[1]
                 else:
                     first_result = first_part
                 
                 # 处理第二部分：按"-"分割取后面的部分
                 if "-" in second_part:
-                    second_result = second_part.split("-", 1)[1]
+                    if second_part.startswith("UPS-"):
+                        second_result = second_part
+                    else:
+                        second_result = second_part.split("-", 1)[1]
                 else:
                     second_result = second_part
                 
@@ -4217,7 +4223,11 @@ class ReceivableAccounting(View):
         # 如果不包含"改"或"送"或者没有找到
         # 只处理第二部分（假设第一部分为空）
         if "-" in destination_origin:
-            second_result = destination_origin.split("-", 1)[1]
+            if destination_origin.startswith("UPS-"):
+                second_result = destination_origin
+            else:
+                second_result = destination_origin.split("-", 1)[1]
+            
         else:
             second_result = destination_origin
         
@@ -5643,7 +5653,13 @@ class ReceivableAccounting(View):
             if ('UPS' in destination) or ('FEDEX' in destination):
                 continue
             # 如果是沃尔玛的，只保留后面的名字，因为报价表里就是这么保留的
-            dest = destination.replace("沃尔玛", "").split("-")[-1].strip()
+            clean_dest = destination.replace("沃尔玛", "").strip()
+
+            if clean_dest.startswith("UPS-"):
+                dest = clean_dest
+            else:
+                dest = clean_dest.split("-")[-1].strip()
+
             cbm = plts["total_cbm"]
             dest_matches = []
             matched = False
