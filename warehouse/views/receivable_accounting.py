@@ -3902,14 +3902,22 @@ class ReceivableAccounting(View):
 
     def _separate_other_existing_items(self, invoice, pallet_groups):
         '''私仓的派送已录入数据'''
-        combina_items = []
         normal_items = []
         combina_groups = []
         combina_info = {}
-        normal_items = InvoiceItemv2.objects.filter(
-            invoice_number=invoice,
-            item_category="d",
-            invoice_type="receivable"
+        normal_items = (
+            InvoiceItemv2.objects
+            .filter(
+                invoice_number=invoice,
+                item_category="delivery_other",
+                invoice_type="receivable",
+            )
+            .annotate(destination=F("warehouse_code"))
+            .annotate(total_cbm=F("cbm"))
+            .annotate(total_weight=F("weight"))          
+            .annotate(total_pallets=F("qty"))
+            .annotate(delivery_category=F("delivery_type"))
+            .annotate(is_existing=Value(True, output_field=BooleanField()))
         )
         return {
             "normal_items": normal_items,
