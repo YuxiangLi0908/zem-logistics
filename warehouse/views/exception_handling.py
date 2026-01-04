@@ -3030,9 +3030,11 @@ class ExceptionHandling(View):
                      new_invoice.payable_preport_amount or 0),
                     ('payable_warehouse_amount', '仓库金额', 
                      old_invoice.payable_warehouse_amount or 0,
+                     new_invoice.payable_warehouse_amount or 0
                      ),
                     ('payable_delivery_amount', '派送金额', 
-                     old_invoice.payable_delivery_amount or 0, 
+                     old_invoice.payable_delivery_amount or 0,
+                     new_invoice.payable_delivery_amount or 0
                      ),
                     # ('payable_direct_amount', '直送金额',
                     #  old_invoice.payable_direct_amount or 0,
