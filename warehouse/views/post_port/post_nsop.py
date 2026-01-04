@@ -60,6 +60,7 @@ from warehouse.models.fleet import Fleet
 from warehouse.models.order import Order
 from warehouse.models.po_check_eta import PoCheckEtaSeven
 from warehouse.models.shipment import Shipment
+from warehouse.models.container import Container
 from django.contrib import messages
 from warehouse.models.transfer_location import TransferLocation
 from warehouse.views.post_port.shipment.fleet_management import FleetManagement
@@ -397,8 +398,203 @@ class PostNsop(View):
             raise ValueError('输入错误',step)
         
     async def search_quote_container(self, request: HttpRequest) -> HttpResponse:
+        '''计算单板价格'''
+        if not context:
+            context = {}
+        
+        # 获取表单数据
+        container_numbers = request.POST.getlist("container_numbers[]")
+        destinations = request.POST.getlist("destinations[]")
+        
+        # 将柜号和目的地配对
+        query_pairs = []
+        for i in range(min(len(container_numbers), len(destinations))):
+            container_number = container_numbers[i].strip()
+            destination = destinations[i].strip()
+            if container_number and destination:  # 只添加非空的组合
+                query_pairs.append({
+                    'container_number': container_number,
+                    'destination': destination,
+                    'index': i  # 保持原始顺序
+                })
+        
+        search_results = []
+        total_pallets = 0
+        total_price = 0
+        found_count = 0
+        
+        # 保存当前搜索条件（用于重新加载页面时显示）
+        search_groups = []
+        
+        # 对每一对柜号+目的地进行查询
+        for pair in query_pairs:
+            container_number = pair['container_number']
+            destination = pair['destination']
+            
+            # 保存搜索条件
+            search_groups.append({
+                'container_number': container_number,
+                'destination': destination
+            })
+            
+            try:
+                # 调用单独的函数处理一对查询条件
+                result = self._get_quotation_for_pair(
+                    container_number=container_number,
+                    destination=destination
+                )
+                
+                # 确保结果包含所有必要字段
+                if result['is_found']:
+                    total_pallets += result.get('pallet_count', 0)
+                    total_price += result.get('total_price', 0)
+                    found_count += 1
+                
+                search_results.append(result)
+                
+            except Exception as e:
+                # 出错时返回错误结果
+                search_results.append({
+                    'container_number': container_number,
+                    'destination': destination,
+                    'unit_price': None,
+                    'pallet_count': 0,
+                    'total_price': 0,
+                    'is_found': False,
+                    'error': str(e)
+                })
+        
+        # 按原始索引排序（如果需要保持表单顺序）
+        search_results.sort(key=lambda x: query_pairs[
+            next((i for i, p in enumerate(query_pairs) 
+                if p['container_number'] == x['container_number'] 
+                and p['destination'] == x['destination']), 0)
+        ]['index'] if x['container_number'] in [p['container_number'] for p in query_pairs] else 0)
+        
+        # 更新context
+        context.update({
+            'search_results': search_results,
+            'search_groups': search_groups,
+            'total_pallets': total_pallets,
+            'total_price': round(total_price, 2),
+            'found_count': found_count,
+            'not_found_count': len(search_results) - found_count,
+            'has_total': total_pallets > 0 and total_price > 0,
+        })
+        
+        # 返回模板
+        return self.template_quotation_query, context
+    
+    async def _get_quotation_for_pair(self, container_number: str, destination: str) -> dict:
+        """处理单对柜号+目的地的查询"""
+        
+        # 初始化结果
+        result = {
+            'container_number': container_number,
+            'destination': destination,
+            'unit_price': None,
+            'pallet_count': 0,
+            'total_price': 0,
+            'is_found': False,
+            'container_type': None,
+            'cbm_total': 0
+        }
+        container = Container.objects.filter(
+            container_number__iexact=container_number
+        ).first()
+        
+        if not container:
+            return result
+        pallets = Pallet.objects.filter(
+            container_number__container_number=container_number,
+            destination=destination,
+        )
+        await self._process_public_unbilled()
+
+    def _process_public_unbilled(
+        self,
+        group: Dict,
+        container,
+        order,
+        destination,
+        location,
+        fee_details,
+    ) -> Dict[str, Any]:
+        """处理公仓未录入的PO"""
         context = {}
-        return self.template_search_quote, context
+        delivery_method = group.get("delivery_method", "")
+        warehouse = order.retrieval_id.retrieval_destination_area
+
+        # 获取结果，如果为空则设置为0.0
+        total_cbm = group.get("total_cbm")
+        total_weight_lbs = group.get("total_weight_lbs")
+        need_manual_input = False
+        # 1. 确定派送类型
+        if delivery_method and any(courier in delivery_method.upper() 
+                                 for courier in ["UPS", "FEDEX", "DHL", "DPD", "TNT"]):
+            delivery_category = "upsdelivery"
+            rate = 0
+            amount = 0
+            total_pallets = group.get("total_pallets")     
+            need_manual_input = True      
+        else:      
+            if "准时达" in order.customer_name.zem_name:
+                #准时达根据板子实际仓库找报价表，其他用户是根据建单
+                warehouse = location.split('-')[0]
+
+            #用转运方式计算费用
+            public_key = f"{warehouse}_PUBLIC"
+            if public_key not in fee_details:
+                context.update({'error_messages':'未找到亚马逊沃尔玛报价表'})
+                return context
+            rules = fee_details.get(f"{warehouse}_PUBLIC").details
+            niche_warehouse = fee_details.get(f"{warehouse}_PUBLIC").niche_warehouse
+            if destination in niche_warehouse:
+                is_niche_warehouse = True
+            else:
+                is_niche_warehouse = False
+            #LA和其他的存储格式有点区别
+            details = (
+                {"LA_AMAZON": rules}
+                if "LA" in warehouse and "LA_AMAZON" not in rules
+                else rules
+            )
+            delivery_category = None
+            rate_found = False
+            for category, zones in details.items():
+                for zone, locations in zones.items():
+                    if destination in locations:
+                        if "AMAZON" in category:
+                            delivery_category = "amazon"
+                            rate = zone
+                            rate_found = True
+                        elif "WALMART" in category:
+                            delivery_category = "walmart"
+                            rate = zone
+                            rate_found = True
+                if rate_found:
+                    break
+            if not rate_found:
+                need_manual_input = True
+                rate = 0
+                amount = 0
+                total_pallets = group.get("total_pallets")   
+            else:            
+                total_pallets = self._calculate_total_pallet(
+                    total_cbm, True, is_niche_warehouse
+                )               
+                rate = float(rate) if rate else 0.0
+                total_pallets = float(total_pallets) if total_pallets else 0.0
+                amount = rate * total_pallets
+
+        # 返回数据（不创建InvoiceItemv2记录）
+        return {
+            "id": None,
+            "destination": destination,
+            "rate": rate,
+            "total_pallet": len(pallets),
+            "amount": amount, 
+        }
     
     async def export_ltl_bol(self, request: HttpRequest) -> HttpResponse:
         fleet_number = request.POST.get("fleet_number")
