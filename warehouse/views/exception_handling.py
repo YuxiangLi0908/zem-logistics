@@ -3496,60 +3496,6 @@ class ExceptionHandling(View):
                         'actions': task_result.get('actions'),
                     }
             migration_log.append(error_log)
-            #task = self.migrate_single_invoice(old_invoice, FIXED_CREATED_DATE)
-                
-            
-            # 等待所有任务完成
-            #batch_results = await asyncio.gather(*tasks, return_exceptions=True)
-            # batch_results = await asyncio.gather(*tasks)
-            # # 收集结果
-            # for result in batch_results:
-            #     if isinstance(result, Exception):
-            #         error_log = {
-            #             'container_number': 'N/A',
-            #             'old_invoice_id': 'N/A',
-            #             'old_invoice_number': 'N/A',
-            #             'actions': [f"迁移失败: {str(result)}"],
-            #             'old_data': {
-            #                 'stage': 'error',
-            #                 'stage_public': 'error',
-            #                 'stage_other': 'error'
-            #             },
-            #             'new_data': {
-            #                 'preport_status': 'error',
-            #                 'warehouse_public_status': 'error',
-            #                 'warehouse_other_status': 'error',
-            #                 'delivery_public_status': 'error',
-            #                 'delivery_other_status': 'error',
-            #                 'finance_status': 'error'
-            #             }
-            #         }
-            #         migration_log.append(error_log)
-            #     elif result:  # 正常结果
-            #         migration_log.append(result)
-            #     else:
-            #         # 处理返回None的情况
-            #         error_log = {
-            #             'container_number': 'N/A',
-            #             'old_invoice_id': 'N/A',
-            #             'old_invoice_number': 'N/A',
-            #             'actions': ["未知异常：返回None"],
-            #             'old_data': {
-            #                 'stage': 'error',
-            #                 'stage_public': 'error',
-            #                 'stage_other': 'error'
-            #             },
-            #             'new_data': {
-            #                 'preport_status': 'error',
-            #                 'warehouse_public_status': 'error',
-            #                 'warehouse_other_status': 'error',
-            #                 'delivery_public_status': 'error',
-            #                 'delivery_other_status': 'error',
-            #                 'finance_status': 'error'
-            #             }
-            #         }
-            #         migration_log.append(error_log)
-        
         context = {
             'migration_log': migration_log,
             'total_migrated': len(migration_log),
@@ -3596,13 +3542,19 @@ class ExceptionHandling(View):
             
             # 3. 按照container_number_id查询新Invoicev2
             new_invoice_exists = await sync_to_async(
-                lambda: Invoicev2.objects.filter(
-                    models.Q(payable_total_amount__isnull=False) |
-                    models.Q(payable_preport_amount__isnull=False) |
-                    models.Q(payable_warehouse_amount__isnull=False) |
-                    models.Q(payable_delivery_amount__isnull=False),
+                lambda: InvoiceStatusv2.objects.filter(
+                    models.Q(preport_status__ne='unstarted') |
+                    models.Q(warehouse_public_status__ne='unstarted') |
+                    models.Q(warehouse_other_status__ne='unstarted') |
+                    models.Q(delivery_public_status__ne='unstarted') |
+                    models.Q(delivery_other_status__ne='unstarted'),
+                    preport_status__isnull=False,
+                    warehouse_public_status__isnull=False,
+                    warehouse_other_status__isnull=False,
+                    delivery_public_status__isnull=False,
+                    delivery_other_status__isnull=False,
                     container_number_id=container_id
-                    ).exists()  # 使用container_number_id字段
+                ).exists()
             )()
             
             migration_log['actions'].append(f"新Invoicev2存在: {new_invoice_exists}")
