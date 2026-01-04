@@ -309,13 +309,8 @@ class ReceivableAccounting(View):
             # 如果连公仓派送费用都没有，说明还没开始录，直接跳过
             if not has_delivery_public:
                 continue
-            
-            # 2️⃣ 查询是否存在 delivery_type = 'combine' 的 invoice item
-            has_combine_item = InvoiceItemv2.objects.filter(
-                container_number=container,
-                delivery_type="combine",
-            ).exists()
-            if has_combine_item:
+
+            if has_delivery_public.filter(delivery_type="combine").exists():
                 continue
 
             # 1️⃣ 先判断是否是 combina
