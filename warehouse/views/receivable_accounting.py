@@ -4864,7 +4864,6 @@ class ReceivableAccounting(View):
                 error_messages.append(f"缺少PO_ID，目的地是 {destination}")
         
         if other_pallet_groups:
-            item_category = "delivery_other" if delivery_type == "public" else "delivery_public"
             container = Container.objects.get(container_number=container_number)
             # 1. 获取所有需要检查的 PO_ID
             po_ids = [group["PO_ID"] for group in other_pallet_groups]
@@ -4875,10 +4874,9 @@ class ReceivableAccounting(View):
                 container_number=container,  
                 invoice_number=invoice,
                 invoice_type="receivable",
-                item_category=item_category,
                 PO_ID__in=po_ids
             ).values(
-                'id',  # 添加 id 字段
+                'id', 
                 'PO_ID'
             )
             po_to_item_id = {item['PO_ID']: item['id'] for item in invoice_items}
