@@ -4,6 +4,7 @@ import math
 import re
 import json
 from collections import defaultdict
+from django.utils.timezone import make_aware
 from datetime import date, datetime, timedelta, time as datetime_time
 
 
@@ -281,6 +282,39 @@ class ReceivableAccounting(View):
             return render(request, template, context)
         elif step == "export_invoice":
             return self.handle_export_invoice_post(request)
+        elif step == "check_wrong_item_type":
+            template, context = self.check_wrong_item_type(request)
+            return render(request, template, context)
+
+    def check_wrong_item_type(self, request: HttpRequest):
+        missing_combine_containers = []
+        cutoff_date = make_aware(datetime(2025, 10, 1))
+        containers = Container.objects.filter(
+            orders__created_at__gte=cutoff_date
+        ).distinct()
+        containers = Container.objects.all()
+
+        for container in containers:
+            # 1️⃣ 先判断是否是 combina
+            try:
+                is_combina = self._is_combina(container.container_number)
+            except Exception:
+                continue
+            
+            if not is_combina:
+                continue
+
+            # 2️⃣ 查询是否存在 delivery_type = 'combine' 的 invoice item
+            has_combine_item = InvoiceItemv2.objects.filter(
+                container_number=container,
+                delivery_type="combine",
+            ).exists()
+
+            # 3️⃣ 如果不存在，记录 container_number
+            if not has_combine_item:
+                missing_combine_containers.append(container.container_number)
+        context = {"missing_combine_containers":missing_combine_containers}
+        return self.template_confirm_entry,context
 
     def handle_save_manual_invoice_items(self, request: HttpRequest):
         """处理保存所有账单记录的操作"""
@@ -5456,8 +5490,10 @@ class ReceivableAccounting(View):
     
     def _is_combina(self, container_number: str) -> Any:
         context = {}
-        
-        container = Container.objects.get(container_number=container_number)
+        try:
+            container = Container.objects.get(container_number=container_number)
+        except Container.MultipleObjectsReturned:
+            return False
         order = Order.objects.select_related(
             "retrieval_id", "container_number", "vessel_id"
         ).get(container_number__container_number=container_number)
