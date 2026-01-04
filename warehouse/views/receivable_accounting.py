@@ -6213,6 +6213,19 @@ class ReceivableAccounting(View):
             .values("destination")
             .annotate(total_cbm=Sum("cbm"))
         )
+        pl_cbm_by_destination = (
+            PackingList.objects
+            .filter(container_number__container_number=container_number)
+            .values("destination")
+            .annotate(total_cbm=Sum("cbm"))
+        )
+        cbm_map = {
+            item["destination"]: item["total_cbm"] or 0
+            for item in pl_cbm_by_destination
+        }
+
+        for item in plts_by_destination:
+            item["total_cbm"] = cbm_map.get(item["destination"], 0)
         # 这里之前是
         total_cbm_sum = sum(item["total_cbm"] for item in plts_by_destination)
         # 区分组合柜区域和非组合柜区域
@@ -6332,12 +6345,26 @@ class ReceivableAccounting(View):
             Pallet.objects.filter(container_number__container_number=container_number)
             .values("destination")
             .annotate(
-                total_cbm=Sum("cbm"),
                 price=Value(None, output_field=models.FloatField()),
                 is_fixed_price=Value(False, output_field=BooleanField()),
                 total_pallet=Count("id", output_field=FloatField()),
             )
         )  # 形如{'destination': 'A', 'total_cbm': 10.5，'price':31.5,'is_fixed_price':True},
+        #重新去预报里查找cbm和重量
+        pl_cbm_by_destination = (
+            PackingList.objects
+            .filter(container_number__container_number=container_number)
+            .values("destination")
+            .annotate(total_cbm=Sum("cbm"))
+        )
+        cbm_map = {
+            item["destination"]: item["total_cbm"]
+            for item in pl_cbm_by_destination
+        }
+
+        for item in plts_by_destination:
+            item["total_cbm"] = cbm_map.get(item["destination"], 0)
+        
         plts_by_destination = self._calculate_delivery_fee_cost(
             fee_details, warehouse, plts_by_destination, destinations, over_count
         )
@@ -6378,13 +6405,35 @@ class ReceivableAccounting(View):
                     )
                     .values("destination")
                     .annotate(
-                        total_cbm=Sum("cbm"),
                         total_pallet=Count("id", output_field=FloatField()),
-                        total_weight=Sum("weight_lbs"),
                         price=Value(None, output_field=models.FloatField()),
                         is_fixed_price=Value(False, output_field=BooleanField()),
                     )
                 )
+                pl_stats_by_destination = (
+                    PackingList.objects
+                    .filter(
+                        container_number__container_number=container_number,
+                        destination__in=matched_regions["non_combina_dests"].keys(),
+                    )
+                    .values("destination")
+                    .annotate(
+                        total_cbm=Sum("cbm"),
+                        total_weight=Sum("total_weight_lbs"),
+                    )
+                )
+                pl_stat_map = {
+                    item["destination"]: {
+                        "total_cbm": item["total_cbm"] or 0,
+                        "total_weight": item["total_weight"] or 0,
+                    }
+                    for item in pl_stats_by_destination
+                }
+
+                for item in plts_by_destination_overregion:
+                    stats = pl_stat_map.get(item["destination"], {})
+                    item["total_cbm"] = stats.get("total_cbm", 0)
+                    item["total_weight"] = stats.get("total_weight", 0)
 
                 plts_by_destination_overregion = self._calculate_delivery_fee_cost(
                     fee_details,
