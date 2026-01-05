@@ -2711,8 +2711,8 @@ class Accounting(View):
         )
 
         order_subquery = Order.objects.filter(
+            criteria,
             container_number_id=OuterRef("container_number_id"),  # 关联InvoiceStatusv2的集装箱ID
-            **criteria,  # 应用所有Order的过滤条件（时间/仓库/客户等）
         ).select_related("retrieval_id", "vessel_id", "customer_name")
 
         # 查找提拆的待确认和已确认
@@ -6696,8 +6696,8 @@ class Accounting(View):
         )
 
         order_subquery = Order.objects.filter(
+            criteria,
             container_number_id=OuterRef("container_number_id"),  # 关联InvoiceStatusv2的集装箱ID
-            **criteria,  # 应用所有Order的过滤条件（时间/仓库/客户等）
         ).select_related("retrieval_id", "vessel_id", "customer_name")
 
         # 待录入的订单：用 Exists 避免重复，distinct 兜底
