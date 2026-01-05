@@ -6901,6 +6901,12 @@ class Accounting(View):
                 models.Q(delivery_other_status="completed"),
                 models.Q(invoice_type="payable")|models.Q(invoice_type="payable_direct")
             ))
+            for status_obj in previous_order:
+                if status_obj.container_number:
+                    # 取预加载的首个 Order（满足 criteria）
+                    status_obj.first_order = status_obj.container_number.orders.first()
+                else:
+                    status_obj.first_order = None
             # previous_order = self.process_orders_display_status_v2(previous_order)
         groups = [group.name for group in request.user.groups.all()]
         if request.user.is_staff:
