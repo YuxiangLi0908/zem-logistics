@@ -6,6 +6,10 @@ import pandas as pd
 import json
 import uuid
 import pytz
+import os
+import platform
+import matplotlib.pyplot as plt
+import matplotlib.font_manager as fm
 import re
 import base64
 import io
@@ -385,6 +389,8 @@ class PostNsop(View):
             return await self.export_ltl_label(request)
         elif step == "export_ltl_bol":
             return await self.export_ltl_bol(request)
+        elif step == "upload_self_pickup_file":
+            return await self.handle_bol_upload_post(request)
         elif step == "save_shipping_tracking":
             template, context = await self.handle_save_shipping_tracking(request)
             return render(request, template, context) 
@@ -595,6 +601,303 @@ class PostNsop(View):
             "total_pallet": len(pallets),
             "amount": amount, 
         }
+    
+    async def handle_bol_upload_post(self, request: HttpRequest) -> HttpResponse:
+        '''客户自提的BOL文件下载'''
+        fleet_number = request.POST.get("fleet_number")
+        customerInfo = request.POST.get("arm_pickup_data")
+        notes = ""
+        pickup_number = ""
+
+        # 如果在界面输入了，就用界面添加后的值
+        if customerInfo and customerInfo != "[]":
+            customer_info = json.loads(customerInfo)
+            arm_pickup = [
+                [
+                    "container",
+                    "destination",
+                    "mark",
+                    "pallet",
+                    "pcs",
+                    "carrier",
+                    "pickup",
+                ]
+            ]
+            for row in customer_info:
+                # 把提货时间修改格式
+                pickup_time = row.get('appointment_datetime', '').strip()
+                s_time = pickup_time.split("T")[0]
+                dt = datetime.strptime(s_time, "%Y-%m-%d")
+                new_string = dt.strftime("%m-%d")
+
+                destination_raw = row.get('zipcode', '').strip()
+                destination = re.sub(r"[\u4e00-\u9fff]", " ", destination_raw)
+                arm_pickup.append(
+                    [
+                        row.get('container_number', '').strip(),
+                        destination,
+                        row.get('shipping_mark', '').strip(),
+                        row.get('total_pallet', '').strip(),
+                        row.get('total_pcs', '').strip(),
+                        row.get('carrier', '').strip(),
+                        s_time,
+                    ]
+                )
+
+        else:  # 没有就从数据库查
+            arm_pickup = await sync_to_async(list)(
+                Pallet.objects.select_related(
+                    "container_number__container_number",
+                    "shipment_batch_number__fleet_number",
+                )
+                .filter(shipment_batch_number__fleet_number__fleet_number=fleet_number)
+                .values(
+                    "container_number__container_number",
+                    "destination",
+                    "shipping_mark",
+                    "shipment_batch_number__fleet_number__fleet_type",
+                    "shipment_batch_number__fleet_number__carrier",
+                    "shipment_batch_number__fleet_number__appointment_datetime",
+                    "shipment_batch_number__fleet_number__pickup_number",  # 提取pickup_number
+                    "shipment_batch_number__note",
+                )
+                .annotate(
+                    total_pcs=Count("pcs", distinct=True),
+                    total_pallet=Count("pallet_id", distinct=True),
+                )
+            )
+            if arm_pickup:
+                new_list = []
+                for p in arm_pickup:
+                    # 保存pickup_number（从数据库提取）
+                    pickup_number = p["shipment_batch_number__fleet_number__pickup_number"] or ""
+                    p_time = p["shipment_batch_number__fleet_number__appointment_datetime"]
+
+                    # 提取年、月、日
+                    year = p_time.year
+                    month = p_time.month
+                    day = p_time.day
+                    p_time = f"{year}-{month}-{day}"
+                    destination = re.sub(r"[\u4e00-\u9fff]", " ", p["destination"])
+                    new_list.append(
+                        [
+                            p["container_number__container_number"],
+                            destination,
+                            p["shipping_mark"],
+                            p["total_pallet"],
+                            p["total_pcs"],
+                            p["shipment_batch_number__fleet_number__carrier"],
+                            p_time,
+                        ]
+                    )
+                    notes += p["shipment_batch_number__note"] or ""  # 拼接备注
+                arm_pickup = [
+                                 [
+                                     "container",
+                                     "destination",
+                                     "mark",
+                                     "pallet",
+                                     "pcs",
+                                     "carrier",
+                                     "pickup",
+                                 ]
+                             ] + new_list
+            else:
+                raise ValueError("柜子未拆柜，请核实")
+            s_time = arm_pickup[1][-1]
+            dt = datetime.strptime(s_time, "%Y-%m-%d")
+            new_string = dt.strftime("%m-%d")
+
+        # BOL需要在后面加一个拣货单
+        df = pd.DataFrame(arm_pickup[1:], columns=arm_pickup[0])
+
+        # 添加换行函数
+        def wrap_text(text, max_length=11):
+            """将文本按最大长度换行"""
+            if not isinstance(text, str):
+                text = str(text)
+
+            if len(text) <= max_length:
+                return text
+
+            # 按最大长度分割文本
+            wrapped_lines = []
+            for i in range(0, len(text), max_length):
+                wrapped_lines.append(text[i:i + max_length])
+            return '\n'.join(wrapped_lines)
+
+        # 对DataFrame应用换行处理
+        df_wrapped = df.applymap(wrap_text)
+
+        files = request.FILES.getlist("files")
+        if files:
+            system_name = platform.system()
+            zh_font_path = None
+
+            # ✅ 按系统类型设置默认路径
+            if system_name == "Windows":
+                zh_font_path = "C:/Windows/Fonts/msyh.ttc"  # 微软雅黑
+            else:  # Linux
+                # Linux 通常用 Noto 或思源黑体字体
+                possible_fonts = [
+                    "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc",
+                    "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+                    "/usr/share/fonts/truetype/arphic/uming.ttc",  # 备用
+                    "/usr/share/fonts/truetype/wqy/wqy-microhei.ttc",  # 文泉驿微米黑
+                ]
+                for path in possible_fonts:
+                    if os.path.exists(path):
+                        zh_font_path = path
+                        break
+
+            # ✅ 检查字体文件是否存在，否则退回默认英文字体
+            if zh_font_path and os.path.exists(zh_font_path):
+                zh_font = fm.FontProperties(fname=zh_font_path)
+                plt.rcParams["font.family"] = zh_font.get_name()
+            else:
+                plt.rcParams["font.family"] = "DejaVu Sans"
+
+            plt.rcParams["axes.unicode_minus"] = False  # 防止负号乱码
+
+            for file in files:
+                # 设置通用字体避免警告
+                # plt.rcParams['font.family'] = ['sans-serif']
+                # plt.rcParams['font.sans-serif'] = ['DejaVu Sans', 'Arial', 'Helvetica']
+
+                # 保持原来的A4尺寸
+                fig, ax = plt.subplots(figsize=(10.4, 8.5))
+                #ax.axis("tight")
+                ax.axis("off")
+                # 稍微减小顶部边距，为标题留出一点空间
+                fig.subplots_adjust(top=1.45)  # 从1.5微调到1.45
+
+                # 在表格上方添加标题
+                ax.text(
+                    0.5,
+                    0.93,
+                    "Pickup List",
+                    fontsize=14,
+                    fontweight="bold",
+                    ha="center",
+                    va="top",
+                    transform=ax.transAxes,
+                )
+
+                # 在标题下方添加Pickup Number
+                ax.text(
+                    0.5,
+                    0.89,
+                    f"Pickup Number: {pickup_number}",
+                    fontsize=11,
+                    ha="center",
+                    va="top",
+                    transform=ax.transAxes,
+                )
+                def get_line_count(text):
+                    return str(text).count("\n") + 1
+
+                row_line_counts = [
+                    max(get_line_count(cell) for cell in row)
+                    for row in df_wrapped.values
+                ]
+                max_line_count = max(row_line_counts) if row_line_counts else 1
+                EXTRA_PADDING = 0.003 * max_line_count
+                BASE_ROW_HEIGHT = 0.028
+                HEADER_HEIGHT = 0.05
+                
+                # 数据行总高度
+                data_height = sum(
+                    BASE_ROW_HEIGHT * line_count + EXTRA_PADDING
+                    for line_count in row_line_counts
+                )
+
+                # 表头高度
+                total_table_height = HEADER_HEIGHT + data_height
+                # 创建表格 - 保持原来的位置和设置
+                TABLE_TOP_Y = 0.85  # 表格顶部固定在标题下方
+                table_y = TABLE_TOP_Y - total_table_height
+
+                the_table = ax.table(
+                    cellText=df_wrapped.values,
+                    colLabels=df_wrapped.columns,
+                    cellLoc="center",
+                    bbox=[0.1, table_y, 0.8, total_table_height],
+                )
+
+                
+
+                # 设置表格样式 - 保持原来的设置，只增加行高
+                for (row, col), cell in the_table.get_celld().items():
+                    cell.set_fontsize(10)
+                    cell.set_text_props(wrap=True)
+
+                    if row == 0:
+                        cell.set_height(HEADER_HEIGHT)
+                    else:
+                        line_count = row_line_counts[row - 1]
+                        cell.set_height(
+                            BASE_ROW_HEIGHT * line_count + EXTRA_PADDING
+                        )
+
+                    # 列宽保持你原来的逻辑
+                    if col in (0, 1, 2):
+                        cell.set_width(0.15)
+                    elif col in (3, 4):
+                        cell.set_width(0.06)
+                    else:
+                        cell.set_width(0.12)
+                
+                # ========= 8️⃣ 计算表格底部位置 =========
+                renderer = fig.canvas.get_renderer()
+                table_bbox = the_table.get_window_extent(renderer=renderer)
+                table_bbox = table_bbox.transformed(ax.transAxes.inverted())
+                table_bottom = table_bbox.y0
+                
+                # ========= 9️⃣ Notes =========
+                notes_y = table_y - 0.04
+                ax.text(
+                    0.05,
+                    notes_y,
+                    f"Notes: {notes}",
+                    fontsize=10,
+                    ha="left",
+                    va="top",
+                    transform=ax.transAxes,
+                )
+
+                pickup_y = notes_y - 0.03
+                ax.text(
+                    0.05,
+                    pickup_y,
+                    f"pickup_number: {pickup_number}",
+                    fontsize=10,
+                    ha="left",
+                    va="top",
+                    transform=ax.transAxes,
+                )
+
+                # ========= 🔟 保存表格 PDF =========
+                buf_table = io.BytesIO()
+                fig.savefig(buf_table, format="pdf", bbox_inches="tight")
+                plt.close(fig)
+                buf_table.seek(0)
+
+                # ========= 1️⃣1️⃣ 合并原 PDF =========
+                merger = PdfMerger()
+                merger.append(PdfReader(io.BytesIO(file.read())))
+                merger.append(PdfReader(buf_table))
+
+                output_buf = io.BytesIO()
+                merger.write(output_buf)
+                output_buf.seek(0)
+
+                file_name = file.name
+
+        response = HttpResponse(output_buf.getvalue(), content_type="application/pdf")
+        response["Content-Disposition"] = (
+            f'attachment; filename="{new_string}-{file_name}.pdf"'
+        )
+        return response
     
     async def export_ltl_bol(self, request: HttpRequest) -> HttpResponse:
         fleet_number = request.POST.get("fleet_number")
