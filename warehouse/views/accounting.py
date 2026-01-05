@@ -6894,20 +6894,14 @@ class Accounting(View):
                     queryset=InvoiceItemv2.objects.all()
                 )
             ).filter(
-                ~models.Q(preport_status="rejected")|
-                ~models.Q(warehouse_public_status="rejected")|
-                ~models.Q(warehouse_other_status="rejected")|
-                ~models.Q(delivery_public_status="rejected")|
-                ~models.Q(delivery_other_status="rejected"),
                 models.Q(preport_status__in=["pending_review", "completed"])|
                 models.Q(warehouse_public_status="completed")|
                 models.Q(warehouse_other_status="completed")|
                 models.Q(delivery_public_status="completed")|
                 models.Q(delivery_other_status="completed"),
-                (models.Q(invoice_type="payable")|models.Q(invoice_type="payable_direct")),
-                id__isnull=False,
+                models.Q(invoice_type="payable")|models.Q(invoice_type="payable_direct")
             ))
-            previous_order = self.process_orders_display_status_v2(previous_order)
+            # previous_order = self.process_orders_display_status_v2(previous_order)
         groups = [group.name for group in request.user.groups.all()]
         if request.user.is_staff:
             groups.append("staff")
