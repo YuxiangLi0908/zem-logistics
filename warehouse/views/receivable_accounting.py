@@ -1173,7 +1173,7 @@ class ReceivableAccounting(View):
                     return self.template_supplementary_entry, context
         #创建一份新的账单
         status = request.POST.get("status")
-        invoice, invoice_status = self._create_invoice_and_status(container_number)
+        invoice, invoice_status = self._create_new_invoice_and_status(container_number)
         self._update_invoice_status(invoice_status, status)
 
         context = {'success_messages': f'{container_number}补开成功，编号为{invoice.invoice_number}！'}
@@ -1184,6 +1184,33 @@ class ReceivableAccounting(View):
             context = self.handle_warehouse_entry_post(request, context)
             return self.template_warehouse_entry, context
         return self.template_supplementary_entry, context
+    
+    def _create_new_invoice_and_status(self, container_number: str) -> tuple[Invoicev2, InvoiceStatusv2]:
+        """创建账单和状态记录"""
+        order = Order.objects.select_related(
+            "customer_name", "container_number"
+        ).get(container_number__container_number=container_number)
+        # 创建 Invoicev2
+        current_date = datetime.now().date()
+        order_id = str(order.id)
+        customer_id = order.customer_name.id
+
+        # 先检查是否已经存在对应柜号的发票       
+        invoice = Invoicev2.objects.create(
+            container_number=order.container_number,
+            invoice_number=f"{current_date.strftime('%Y-%m-%d').replace('-', '')}C{customer_id}{order_id}",
+            created_at=current_date,
+        )
+        
+        # 创建 InvoiceStatusv2
+        invoice_status = InvoiceStatusv2.objects.create(
+            container_number=order.container_number,
+            invoice=invoice,
+            invoice_type="receivable"
+        )
+        invoice.save()
+        invoice_status.save()
+        return invoice, invoice_status
     
     def _update_invoice_status(self, invoice_status, status_field):
         # 定义有效的状态字段
@@ -2254,7 +2281,8 @@ class ReceivableAccounting(View):
             "cbm": request.POST.get("cbm"),
             "cbm_ratio": 1,
             "weight": request.POST.get("weight"),
-            "registered_user": username
+            "registered_user": username,
+            "shipping_marks": request.POST.get("shipping_marks"),
         }]
         
         context = self.batch_save_delivery_item(container, invoice, item_data, item_category, context)
@@ -3717,6 +3745,7 @@ class ReceivableAccounting(View):
         pallet_groups, other_pallet_groups, ctx = self._get_pallet_groups_by_po(container_number, delivery_type, invoice)
         if ctx.get('error_messages'):
             return template, ctx
+        
         #如果是公仓的，还有激活费，所以要把pallet_groups赋值出来再作为激活费的表格
         activation_table = None
 
@@ -3732,10 +3761,24 @@ class ReceivableAccounting(View):
         existing_items = self._get_existing_invoice_items(invoice, "delivery_" + delivery_type)
         # 如果所有PO都已录入，直接返回已有数据
         if existing_items:
-            result_existing = self._separate_existing_items(existing_items, pallet_groups)
             if delivery_type =="other":
                 result_existing = self._separate_other_existing_items(invoice, pallet_groups)
-            unbilled_groups = [g for g in pallet_groups if g.get("PO_ID") not in existing_items]
+                existing_keys = set(existing_items.keys())
+                # 筛选未计费的分组
+                unbilled_groups = []
+                for g in pallet_groups:
+                    po_id = g.get("PO_ID")
+                    shipping_mark = g.get("shipping_marks", "")
+                    
+                    # 构建与_get_existing_invoice_items中相同的组合键
+                    dict_key = f"{po_id}-{shipping_mark}"
+                    
+                    # 判断这个组合键是否在existing_items中
+                    if dict_key not in existing_keys:
+                        unbilled_groups.append(g)
+            else:
+                result_existing = self._separate_existing_items(existing_items, pallet_groups)        
+                unbilled_groups = [g for g in pallet_groups if g.get("PO_ID") not in existing_items]
         else:
             result_existing = {
                 "normal_items": [],
@@ -3754,8 +3797,6 @@ class ReceivableAccounting(View):
                 "combina_groups": [],
                 "combina_info": {}
             }
-
-
         if unbilled_groups:
             has_previous_items = bool(previous_item_dict)  # 判断是否有过账单
             # 有未录入的PO，需要进一步处理
@@ -4014,10 +4055,9 @@ class ReceivableAccounting(View):
 
     def _separate_other_existing_items(self, invoice, pallet_groups):
         '''私仓的派送已录入数据'''
-        normal_items = []
         combina_groups = []
         combina_info = {}
-        normal_items = (
+        normal_items_list = list(
             InvoiceItemv2.objects
             .filter(
                 invoice_number=invoice,
@@ -4032,7 +4072,7 @@ class ReceivableAccounting(View):
             .annotate(is_existing=Value(True, output_field=BooleanField()))
         )
         return {
-            "normal_items": normal_items,
+            "normal_items": normal_items_list,
             "combina_groups": combina_groups,
             "combina_info": combina_info
         }
@@ -4638,7 +4678,12 @@ class ReceivableAccounting(View):
             rate = 0
             amount = 0
             total_pallets = group.get("total_pallets")     
-            need_manual_input = True      
+            need_manual_input = True   
+        elif "暂扣" in delivery_method:
+            delivery_category = "hold"
+            rate = 0
+            amount = 0
+            need_manual_input = False   
         else:      
             if "准时达" in order.customer_name.zem_name:
                 #准时达根据板子实际仓库找报价表，其他用户是根据建单
@@ -4883,7 +4928,7 @@ class ReceivableAccounting(View):
             po_id = group.get("PO_ID")
             shipping_marks = group.get("shipping_marks")
             if po_id:
-                if delivery_type == "other" and "自提" in group.get("delivery_method"):
+                if delivery_type == "other":
                     try:
                         aggregated = PackingList.objects.filter(PO_ID=po_id,shipping_mark=shipping_marks).aggregate(
                             total_cbm=Sum('cbm'),
@@ -5019,7 +5064,15 @@ class ReceivableAccounting(View):
         item_dict = {}
         for item in all_items:
             if item.PO_ID:
-                item_dict[item.PO_ID] = item
+                if item_category == "delivery_other":
+                    # 对于delivery_other，使用"PO_ID-shipping_marks"作为键
+                    shipping_mark = item.shipping_marks or ""  # 处理None值
+                    dict_key = f"{item.PO_ID}-{shipping_mark}"
+                else:
+                    # 其他类别，只使用PO_ID作为键
+                    dict_key = item.PO_ID
+                
+                item_dict[dict_key] = item
 
         return item_dict
     
