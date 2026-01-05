@@ -3408,8 +3408,9 @@ class ReceivableAccounting(View):
                 'amount': item.amount or 0,
                 'note': item.note or ''
             })
+
         # 如果是第一次录入且没有费用记录，添加提拆费作为默认
-        if not existing_items.exists() and invoice_status.preport_status == 'unstarted' and pickup_fee > 0:
+        if not existing_items.exists() and invoice_status.preport_status == 'unstarted':          
             for fee_name in standard_fee_items:              
                 if fee_name == '提拆/打托缠膜':
                     # 提拆费特殊处理
@@ -3447,7 +3448,7 @@ class ReceivableAccounting(View):
             fee_type='COMBINA_STIPULATE'
         )
         rules_text = self._parse_combina_rules(COMBINA_STIPULATE.details, order.retrieval_id.retrieval_destination_area)
-    
+        print('fee_data',fee_data)
         context.update({
             "warehouse": warehouse,
             "warehouse_filter": request.GET.get("warehouse_filter"),
