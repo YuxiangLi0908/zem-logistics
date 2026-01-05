@@ -1736,7 +1736,8 @@ class Accounting(View):
 
         processed_orders = []
         for order in orders:
-            status_obj = InvoiceStatusv2.objects.filter(container_number=order.container_number.id).get()
+            status_obj = InvoiceStatusv2.objects.filter(models.Q(invoice_type='payable')|models.Q(invoice_type='payable_direct'),
+                                                        container_number=order.container_number.id).get()
             if status_obj:
                 # 港前提拆,仓库,派送状态
                 raw_preport_status = status_obj.preport_status
