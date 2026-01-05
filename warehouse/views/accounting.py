@@ -2709,6 +2709,12 @@ class Accounting(View):
             models.Q(vessel_id__vessel_etd__gte=start_date_confirm),
             models.Q(vessel_id__vessel_etd__lte=end_date_confirm),
         )
+
+        order_subquery = Order.objects.filter(
+            container_number_id=OuterRef("container_number_id"),  # 关联InvoiceStatusv2的集装箱ID
+            **criteria,  # 应用所有Order的过滤条件（时间/仓库/客户等）
+        ).select_related("retrieval_id", "vessel_id", "customer_name")
+
         # 查找提拆的待确认和已确认
         # 提拆的待确认
         finance_pending = (
@@ -2719,11 +2725,7 @@ class Accounting(View):
                 # 预加载 Order（一对多反向关联）
                 Prefetch(
                     "container_number__orders",
-                    queryset=Order.objects.select_related(
-                        "retrieval_id",
-                        "vessel_id",
-                        "customer_name"
-                    ).filter(criteria)  # Order 自身的筛选条件
+                    queryset=order_subquery  # Order 自身的筛选条件
                 ),
                 # 预加载 InvoiceItemv2（费用项，一对多反向关联）
                 Prefetch(
@@ -2739,6 +2741,7 @@ class Accounting(View):
                 )
             )
             .filter(
+                Exists(order_subquery),
                 models.Q(invoice_type="payable") | models.Q(invoice_type="payable_direct"),
                 finance_status="tobeconfirmed",
             )
@@ -2755,11 +2758,7 @@ class Accounting(View):
                 # 预加载 Order（一对多反向关联）
                 Prefetch(
                     "container_number__orders",
-                    queryset=Order.objects.select_related(
-                        "retrieval_id",
-                        "vessel_id",
-                        "customer_name"
-                    ).filter(criteria)  # Order 自身的筛选条件
+                    queryset=order_subquery  # Order 自身的筛选条件
                 ),
                 # 预加载 InvoiceItemv2（费用项，一对多反向关联）
                 Prefetch(
@@ -2775,6 +2774,7 @@ class Accounting(View):
                 )
             )
             .filter(
+                Exists(order_subquery),
                 models.Q(invoice_type="payable") | models.Q(invoice_type="payable_direct"),
                 finance_status="completed",
             )
