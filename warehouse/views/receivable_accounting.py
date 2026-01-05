@@ -3343,8 +3343,10 @@ class ReceivableAccounting(View):
                 combina_context, iscombina,non_combina_reason = self._is_combina(container_number)
                 if combina_context.get("error_messages"):
                     return self.template_preport_edit, combina_context
-            
-        fee_detail, fee_error = self._get_fee_details_from_quotation(quotation, "preport")
+        if order_type == "直送":
+            fee_detail, fee_error = self._get_fee_details_from_quotation(quotation, "direct")
+        else:
+            fee_detail, fee_error = self._get_fee_details_from_quotation(quotation, "preport")
         if fee_error:
             context.update({"error_messages": fee_error})
             return self.template_preport_edit, context
@@ -3361,26 +3363,61 @@ class ReceivableAccounting(View):
                 # context.update({"error_messages": f"在报价表中找不到{warehouse}仓库{pick_subkey}柜型的提拆费"})
                 # return self.template_preport_edit, context
         # 构建费用提示信息
-        FS = {
-            "提拆/打托缠膜": f"{pickup_fee}",
-            "托架费": f"{fee_detail.details.get('托架费', 'N/A')}",
-            "托架提取费": f"{fee_detail.details.get('托架提取费', 'N/A')}",
-            "预提费": f"{fee_detail.details.get('预提费', 'N/A')}",
-            "货柜放置费": f"{fee_detail.details.get('货柜放置费', 'N/A')}",
-            "操作处理费": f"{fee_detail.details.get('操作处理费', 'N/A')}",
-            "码头": fee_detail.details.get("码头", "N/A"),
-            "港口拥堵费": f"{fee_detail.details.get('港口拥堵费', 'N/A')}",
-            "吊柜费": f"{fee_detail.details.get('火车站吊柜费', 'N/A')}",
-            "空跑费": f"{fee_detail.details.get('空跑费', 'N/A')}",
-            "查验费": f"{fee_detail.details.get('查验费', 'N/A')}",
-            "危险品": f"{fee_detail.details.get('危险品', 'N/A')}",
-            "超重费": f"{fee_detail.details.get('超重费', 'N/A')}",
-            "加急费": f"{fee_detail.details.get('加急费', 'N/A')}",
-            "其他服务": f"{fee_detail.details.get('其他服务', 'N/A')}",
-            "港内滞期费": f"{fee_detail.details.get('港内滞期费', 'N/A')}",
-            "港外滞期费": f"{fee_detail.details.get('港外滞期费', 'N/A')}",
-            "二次提货": f"{fee_detail.details.get('二次提货', 'N/A')}",
-        }
+        if order_type == "直送":
+            destination = order.retrieval_id.retrieval_destination_area
+            new_destination = destination.replace(" ", "") if destination else ""
+            second_delivery = fee_detail.details.get("二次派送")
+            second_pickup = None
+            if second_delivery:
+                for fee, location in second_delivery.items():
+                    if new_destination in location:
+                        second_pickup = fee
+            FS = {
+                "查验柜运费": f"{fee_detail.details.get('查验柜运费', 'N/A')}",  # 查验费
+                "二次派送": second_pickup,  # 二次派送
+                "滞港费": f"{fee_detail.details.get('滞港费', 'N/A')}",  # 滞港费
+                "滞箱费": f"{fee_detail.details.get('滞箱费', 'N/A')}",  # 滞箱费
+                "港口拥堵费": f"{fee_detail.details.get('港口拥堵费', 'N/A')}",  # 港口拥堵费
+                "车架费": f"{fee_detail.details.get('车架费', 'N/A')}",  # 车架费
+                "预提费": f"{fee_detail.details.get('预提费', 'N/A')}",  # 预提费
+                "货柜储存费": f"{fee_detail.details.get('货柜储存费', 'N/A')}",  # 货柜储存费
+                "车架分离费": f"{fee_detail.details.get('车架分离费', 'N/A')}",  # 车架分离费
+                "超重费": f"{fee_detail.details.get('超重费', 'N/A')}",  # 超重费
+            }
+            # 标准费用项目列表
+            standard_fee_items = [
+                "查验柜运费", "二次派送", "滞港费", "滞箱费", 
+                "港口拥堵费", "车架费", "预提费", 
+                "货柜储存费", "车架分离费", "超重费"
+            ]
+        else:
+            FS = {
+                "提拆/打托缠膜": f"{pickup_fee}",
+                "托架费": f"{fee_detail.details.get('托架费', 'N/A')}",
+                "托架提取费": f"{fee_detail.details.get('托架提取费', 'N/A')}",
+                "预提费": f"{fee_detail.details.get('预提费', 'N/A')}",
+                "货柜放置费": f"{fee_detail.details.get('货柜放置费', 'N/A')}",
+                "操作处理费": f"{fee_detail.details.get('操作处理费', 'N/A')}",
+                "码头": fee_detail.details.get("码头", "N/A"),
+                "港口拥堵费": f"{fee_detail.details.get('港口拥堵费', 'N/A')}",
+                "吊柜费": f"{fee_detail.details.get('火车站吊柜费', 'N/A')}",
+                "空跑费": f"{fee_detail.details.get('空跑费', 'N/A')}",
+                "查验费": f"{fee_detail.details.get('查验费', 'N/A')}",
+                "危险品": f"{fee_detail.details.get('危险品', 'N/A')}",
+                "超重费": f"{fee_detail.details.get('超重费', 'N/A')}",
+                "加急费": f"{fee_detail.details.get('加急费', 'N/A')}",
+                "其他服务": f"{fee_detail.details.get('其他服务', 'N/A')}",
+                "港内滞期费": f"{fee_detail.details.get('港内滞期费', 'N/A')}",
+                "港外滞期费": f"{fee_detail.details.get('港外滞期费', 'N/A')}",
+                "二次提货": f"{fee_detail.details.get('二次提货', 'N/A')}",
+            }
+            # 标准费用项目列表
+            standard_fee_items = [
+                "提拆/打托缠膜", "托架费", "托架提取费", "预提费", "货柜放置费", 
+                "操作处理费", "码头", "港口拥堵费", "吊柜费", "空跑费", 
+                "查验费", "危险品", "超重费", "加急费", "其他服务", 
+                "港内滞期费", "港外滞期费", "二次提货"
+            ]
         # 获取现有的费用项目
         existing_items = InvoiceItemv2.objects.filter(
             invoice_number=invoice,
@@ -3389,13 +3426,7 @@ class ReceivableAccounting(View):
         # 获取已存在的费用描述列表，用于前端过滤
         existing_descriptions = [item.description for item in existing_items]
 
-        # 标准费用项目列表
-        standard_fee_items = [
-            "提拆/打托缠膜", "托架费", "托架提取费", "预提费", "货柜放置费", 
-            "操作处理费", "码头", "港口拥堵费", "吊柜费", "空跑费", 
-            "查验费", "危险品", "超重费", "加急费", "其他服务", 
-            "港内滞期费", "港外滞期费", "二次提货"
-        ]
+        
         # 构建费用数据
         fee_data = []
         for item in existing_items:
@@ -3411,8 +3442,8 @@ class ReceivableAccounting(View):
 
         # 如果是第一次录入且没有费用记录，添加提拆费作为默认
         if not existing_items.exists() and invoice_status.preport_status == 'unstarted':          
-            for fee_name in standard_fee_items:              
-                if fee_name == '提拆/打托缠膜':
+            for fee_name in standard_fee_items:    
+                if order_type != "直送" and fee_name == '提拆/打托缠膜':
                     # 提拆费特殊处理
                     pickup_qty = 0 if iscombina else 1
                     pickup_amount = pickup_fee * pickup_qty
@@ -3425,8 +3456,8 @@ class ReceivableAccounting(View):
                         'amount': pickup_amount,
                         'note': '',
                     })
-                else:
-                    ref_price = FS.get(fee_name, 0)
+                else:                  
+                    ref_price = FS.get(fee_name, 0)                   
                     numeric_price = self._extract_number(ref_price)
                     # 其他费用默认显示，但数量和金额为0
                     fee_data.append({
@@ -3448,7 +3479,6 @@ class ReceivableAccounting(View):
             fee_type='COMBINA_STIPULATE'
         )
         rules_text = self._parse_combina_rules(COMBINA_STIPULATE.details, order.retrieval_id.retrieval_destination_area)
-        print('fee_data',fee_data)
         context.update({
             "warehouse": warehouse,
             "warehouse_filter": request.GET.get("warehouse_filter"),
