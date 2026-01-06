@@ -6751,7 +6751,7 @@ class Accounting(View):
 
             # 批量查询：已有「应付类型」InvoiceStatusv2 的集装箱ID
             existing_status_container_ids = InvoiceStatusv2.objects.filter(
-                models.Q(invoice_type="payable") or models.Q(invoice_type="payable_direct"),
+                models.Q(invoice_type="payable") | models.Q(invoice_type="payable_direct"),
                 container_number__in=container_numbers,
             ).values_list("container_number_id", flat=True)
 
@@ -6803,7 +6803,7 @@ class Accounting(View):
                 .exclude(  # 排除已有应付状态的订单
                     Exists(
                         InvoiceStatusv2.objects.filter(
-                            models.Q(invoice_type="payable") or models.Q(invoice_type="payable_direct"),
+                            models.Q(invoice_type="payable") | models.Q(invoice_type="payable_direct"),
                             container_number=OuterRef("container_number"),
                         )
                     )
