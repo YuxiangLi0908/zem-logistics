@@ -3366,6 +3366,14 @@ class ReceivableAccounting(View):
         if order_type == "直送":
             destination = order.retrieval_id.retrieval_destination_area
             new_destination = destination.replace(" ", "") if destination else ""
+
+            # 提拆、打托缠膜费用
+            pickup_fee = 0
+            pickup = fee_detail.details["pickup"]
+            for fee, location in pickup.items():
+                if warehouse in location:
+                    pickup_fee = fee
+            #二次派送
             second_delivery = fee_detail.details.get("二次派送")
             second_pickup = None
             if second_delivery:
@@ -3373,6 +3381,7 @@ class ReceivableAccounting(View):
                     if new_destination in location:
                         second_pickup = fee
             FS = {
+                "提+派送": pickup_fee,
                 "查验柜运费": f"{fee_detail.details.get('查验柜运费', 'N/A')}",  # 查验费
                 "二次派送": second_pickup,  # 二次派送
                 "滞港费": f"{fee_detail.details.get('滞港费', 'N/A')}",  # 滞港费
@@ -3381,14 +3390,15 @@ class ReceivableAccounting(View):
                 "车架费": f"{fee_detail.details.get('车架费', 'N/A')}",  # 车架费
                 "预提费": f"{fee_detail.details.get('预提费', 'N/A')}",  # 预提费
                 "货柜储存费": f"{fee_detail.details.get('货柜储存费', 'N/A')}",  # 货柜储存费
+                "等待费": f"{fee_detail.details.get('等待费', 'N/A')}",  # 等待费
                 "车架分离费": f"{fee_detail.details.get('车架分离费', 'N/A')}",  # 车架分离费
                 "超重费": f"{fee_detail.details.get('超重费', 'N/A')}",  # 超重费
             }
             # 标准费用项目列表
             standard_fee_items = [
-                "查验柜运费", "二次派送", "滞港费", "滞箱费", 
-                "港口拥堵费", "车架费", "预提费", 
-                "货柜储存费", "车架分离费", "超重费"
+                "提+派送","查验柜运费", "二次派送", "滞港费",  
+                "滞箱费", "港口拥堵费", "车架费", "预提费", 
+                "货柜储存费", "等待费", "车架分离费", "超重费"
             ]
         else:
             FS = {
