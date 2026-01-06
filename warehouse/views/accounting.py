@@ -6686,18 +6686,6 @@ class Accounting(View):
         if preport_carrier:
             criteria &= models.Q(retrieval_id__retrieval_carrier=preport_carrier)
 
-        # 子查询：判断集装箱是否已有符合条件的 InvoiceStatusv2 记录
-        has_valid_invoice_status = InvoiceStatusv2.objects.filter(
-            Q(container_number=OuterRef("container_number"))
-            & (Q(invoice_type="payable")|Q(invoice_type="payable_direct"))
-            & (
-                    Q(preport_status__in=["unstarted", "in_progress", "rejected"])
-                    & Q(warehouse_public_status__in=["unstarted", "in_progress", "rejected"])
-                    & Q(warehouse_other_status__in=["unstarted", "in_progress", "rejected"])
-                    & Q(delivery_public_status__in=["unstarted", "in_progress", "rejected"])
-                    & Q(delivery_other_status__in=["unstarted", "in_progress", "rejected"])
-            )
-        )
         order_exists_subquery = Order.objects.filter(
             criteria,
             container_number_id=OuterRef("container_number_id"),  # OuterRef仅用于子查询
@@ -6723,7 +6711,12 @@ class Accounting(View):
                 )
             ).filter(
                 Exists(order_exists_subquery),
-                Exists(has_valid_invoice_status)
+                Q(invoice_type="payable") | Q(invoice_type="payable_direct"),
+                Q(preport_status__in=["unstarted", "in_progress", "rejected"])
+                & Q(warehouse_public_status__in=["unstarted", "in_progress", "rejected"])
+                & Q(warehouse_other_status__in=["unstarted", "in_progress", "rejected"])
+                & Q(delivery_public_status__in=["unstarted", "in_progress", "rejected"])
+                & Q(delivery_other_status__in=["unstarted", "in_progress", "rejected"]),
             )  # 只保留已有有效状态的订单
             .annotate(
                 reject_priority=Case(
