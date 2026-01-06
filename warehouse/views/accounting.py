@@ -9677,6 +9677,7 @@ class Accounting(View):
         # 计算车架费
         context["chassis_fee"] = 0
         actual_day = None
+        chassis_fee = None
         cutoff_date = timezone.datetime(2025, 9, 1, tzinfo=timezone.utc)
         if act_pick_time and act_pick_time < cutoff_date:
             data = self._calculate_chassis_fee(context, fee_detail[warehouse][warehouse_precise][preport_carrier], order)
@@ -9889,7 +9890,11 @@ class Accounting(View):
                 fees["chassis_fee"] = (delta - 5) * pickup_details.get("chassis")
                 fees["actual_day"] = int(delta - 5)
             else:
-                fees["actual_day"] = 0
+                fees["actual_day"] = None
+                fees["chassis_fee"] = None
+        else:
+            fees["actual_day"] = None
+            fees["chassis_fee"] = None
         return fees
 
 
