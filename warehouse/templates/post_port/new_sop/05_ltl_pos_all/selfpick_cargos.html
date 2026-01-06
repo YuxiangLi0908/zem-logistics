@@ -60,6 +60,7 @@
     .pallet-size-container {
         position: relative;
     }
+    
     .editable-textarea {
         width: 100%;
         border: 1px solid #dee2e6;
@@ -315,8 +316,8 @@
 
     /* 托盘尺寸列 */
     .pallet-size-col {
-        min-width: 120px;
-        max-width: 150px;
+        min-width: 160px;
+        max-width: 300px;
     }
 
     /* 地址列样式 */
@@ -345,6 +346,7 @@
         padding: 4px 8px;
         font-size: 0.8rem;
     }
+
     .pallet-size-input {
         width: 100%;
         border: 1px solid #dee2e6;
@@ -357,6 +359,7 @@
         font-family: inherit;
         line-height: 1.4;
     }
+
     .carrier-input, .address-input, .bol-input {
         width: 100%;
         padding: 4px 8px;
@@ -394,6 +397,11 @@
     .date-col {
         min-width: 100px;
         max-width: 120px;
+    }
+    textarea {
+        resize: vertical; /* 允许用户调整 */
+        min-height: 40px; /* 最小高度 */
+        max-height: none; /* 取消最大高度限制 */
     }
 </style>
 
@@ -590,7 +598,7 @@
                             <div style="position: relative;">
                                 <textarea class="pallet-size-input"
                                     data-id="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
-                                    placeholder="输入托盘尺寸，如：32*35*60*3板"
+                                    placeholder="输入托盘尺寸，如：32*35*60*3板 x件 xkg"
                                     oninput="autoResizeTextarea(this)"
                                     rows="1">{{ cargo.pallet_size_formatted }}</textarea>
                                 <span class="help-tooltip" title="尺寸分配规则：
@@ -677,8 +685,17 @@
         // 已放行客提页面JavaScript
         document.addEventListener('DOMContentLoaded', function() {
             initializeSelfpickPage();
-            // 初始化所有textarea的高度
-            document.querySelectorAll('.pallet-size-input, .address-input, .bol-input').forEach(autoResizeTextarea);
+           
+            // 初始化所有textarea
+            document.querySelectorAll('textarea').forEach(textarea => {
+                // 初始调整
+                autoResizeTextarea(textarea);
+                
+                // 监听输入
+                textarea.addEventListener('input', function() {
+                    autoResizeTextarea(this);
+                });
+            });
         });
 
         // 全局变量
@@ -702,17 +719,23 @@
                 });
             });
             
-            // 初始化保存状态
-            initializeSaveState();
         }
 
         // 自动调整textarea高度
         function autoResizeTextarea(textarea) {
-            // 重置高度以计算准确的高度
-            textarea.style.height = 'auto';
-            // 设置最小高度为32px，然后根据内容增加
-            const newHeight = Math.max(32, textarea.scrollHeight);
-            textarea.style.height = newHeight + 'px';
+            // 强制清空一切限制
+            textarea.style.setProperty('height', 'auto', 'important');
+            textarea.style.setProperty('max-height', 'none', 'important');
+            textarea.style.setProperty('overflow', 'hidden', 'important');
+
+            // 给一个安全冗余，防止浏览器少算一行
+            const safety = 2;
+
+            textarea.style.setProperty(
+                'height',
+                (textarea.scrollHeight + safety) + 'px',
+                'important'
+            );
         }
 
         // 保存跟进状态
@@ -735,39 +758,6 @@
             fleet_pendingChanges[id].follow_status = value;
             
             showSaveNotification(`跟进状态已保存到本地`);
-        }
-        // 初始化保存状态
-        function initializeSaveState() {
-            // 从localStorage恢复保存状态
-            document.querySelectorAll('.carrier-input, .address-input, .bol-input, .pickup-date-input, .pallet-size-input, .follow-col').forEach(input => {
-                const id = input.getAttribute('data-id');
-                let type = '';
-                if (input.classList.contains('carrier-input')) {
-                    type = 'carrier';
-                } else if (input.classList.contains('address-input')) {
-                    type = 'address';
-                } else if (input.classList.contains('bol-input')) {
-                    type = 'bol_number';
-                } else if (input.classList.contains('pickup-date-input')) {
-                    type = 'pickup_date';
-                } else if (input.classList.contains('pallet-size-input')) {
-                    type = 'pallet_size';
-                } else if (input.classList.contains('follow-input')) { 
-                    type = 'follow_status';
-                }
-                
-                const key = `${id}_${type}`;
-                const savedValue = localStorage.getItem(key);
-                
-                if (savedValue !== null && savedValue !== input.value) {
-                    input.value = savedValue;
-                    
-                    // 如果是textarea，调整高度
-                    if (input.tagName === 'TEXTAREA') {
-                        setTimeout(() => autoResizeTextarea(input), 10);
-                    }
-                }
-            });
         }
 
         // 保存承运公司

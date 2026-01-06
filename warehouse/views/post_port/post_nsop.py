@@ -5114,12 +5114,47 @@ class PostNsop(View):
                         'height': float(p['height']) if p['height'] is not None else 0,
                         'cbm': float(p['cbm']) if p['cbm'] is not None else 0,
                         'pcs': float(p['pcs']) if p['pcs'] is not None else 0,
-                        'weight_lbs': float(p['weight_lbs']) if p['weight_lbs'] is not None else 0,
+                        'weight_lbs': float(p['weight_lbs']) / 2.20462 if p['weight_lbs'] is not None else 0,
                     }
                     for p in pallets
                 ]
                 
                 cargo['pallet_items_json'] = json.dumps(cargo['pallet_items'])
+
+                # ==============================
+                # 构建 pallet_size_formatted
+                # ==============================
+                pallet_map = OrderedDict()
+
+                for p in cargo['pallet_items']:
+                    length = p['length']
+                    width = p['width']
+                    height = p['height']
+                    pcs = int(p['pcs'])
+                    weight_kg = round(p['weight_lbs'] * 0.453592, 2)
+
+                    # 跳过无效托盘
+                    if not (length and width and height):
+                        continue
+
+                    size_key = f"{length}*{width}*{height}"
+
+                    if size_key not in pallet_map:
+                        pallet_map[size_key] = {
+                            'count': 1,          # 板数
+                            'pcs': pcs,
+                            'weight_kg': weight_kg
+                        }
+                    else:
+                        pallet_map[size_key]['count'] += 1
+
+
+                pallet_lines = []
+                for size, info in pallet_map.items():
+                    line = f"{size}*{info['count']}板  {info['pcs']}件  {info['weight_kg']}kg"
+                    pallet_lines.append(line)
+
+                cargo['pallet_size_formatted'] = "\n".join(pallet_lines)
                 processed_pal_list.append(cargo)
 
             data += processed_pal_list
@@ -5773,6 +5808,13 @@ class PostNsop(View):
         size_assignments = []
         total_specified = 0
         
+        valid_lines = [line for line in lines if line.strip()]
+        has_piece_kg_line = any(('件' in line and 'kg' in line) for line in valid_lines)
+        if has_piece_kg_line:
+            for idx, line in enumerate(valid_lines, start=1):
+                if not ('件' in line and 'kg' in line):
+                    raise ValueError(f"第 {idx} 行缺少 件 或 kg")
+                
         for line in lines:
             if not line:
                 continue
