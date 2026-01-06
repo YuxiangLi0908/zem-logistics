@@ -313,10 +313,14 @@
         color: #212529;
     }
 
+    .fleet-carrier-col {
+        min-width: 150px;
+        max-width: 200px;
+    }
     /* BOL号和PRO号列宽度 */
     .fleet-bol-col, .fleet-pro-col {
-        min-width: 100px;
-        max-width: 120px;
+        min-width: 120px;
+        max-width: 150px;
     }
 
     .fleet-pallet-size-col {
@@ -340,6 +344,7 @@
     .fleet-address-col, .fleet-note-col {
         min-width: 300px;
         max-width: 360px;
+        min-height: 150px;
     }
 
     /* 可编辑单元格的悬停效果 */
@@ -448,6 +453,9 @@
             <strong>柜子已放行</strong>、
             <strong>派送方式为非自提</strong>
         </div>
+        <span style="display: inline-block; color: white; background-color: #3498db; padding: 2px 10px; border-radius: 12px; font-size: 0.85em; margin-left: 8px; border: 2px solid #2980b9; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">
+            <span id="selfdel_filteredCount">{{ selfdel_cargos|length }}</span>
+        </span>
     </div>
 
     <!-- 数据表格 -->
@@ -472,7 +480,7 @@
                     <th class="fleet-pallet-size-col">托盘尺寸</th>
                     <th class="fleet-cost-col">成本</th>
                     <th class="fleet-quote-col">报价</th>
-                    <th>承运公司</th>
+                    <th class="fleet-carrier-col">承运公司</th>
                     <th class="fleet-bol-col">BOL号</th>
                     <th class="fleet-pro-col">PRO号</th>
                     <th class="fleet-action-col">操作</th>
@@ -654,7 +662,7 @@
                     <td class="fleet-cost-col">
                         <input type="number" class="fleet-cost-input" 
                             data-id="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
-                            value="{{ cargo.ltl_cost|default:0 }}"
+                            value="{% if cargo.ltl_cost %}{{ cargo.ltl_cost }}{% endif %}"
                             placeholder="0.00"
                             step="0.01"
                             min="0"
@@ -663,13 +671,13 @@
                     <td class="fleet-quote-col">
                         <input type="number" class="fleet-quote-input" 
                             data-id="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
-                            value="{{ cargo.ltl_quote|default:0 }}"
+                            value="{% if cargo.ltl_quote %}{{ cargo.ltl_quote }}{% endif %}"
                             placeholder="0.00"
                             step="0.01"
                             min="0"
                             onchange="fleet_saveQuote(this)">
                     </td>
-                    <td>
+                    <td class="fleet-carrier-col">
                         <input type="text" class="fleet-carrier-input" 
                             data-id="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
                             value="{{ cargo.fleet_carrier_company|default:'' }}"
@@ -737,7 +745,7 @@
         document.addEventListener('DOMContentLoaded', function() {
             fleet_initializeFleetPage();
             // 初始化所有textarea的高度
-            document.querySelectorAll('.fleet-pallet-size-input, .fleet-address-input, .fleet-bol-input, .fleet-pro-input, .fleet-note-input').forEach(fleet_autoResizeTextarea);
+            document.querySelectorAll('.fleet-pallet-size-input, .fleet-address-input, .fleet-bol-input, .fleet-pro-input, .fleet-note-input, .fleet-follow-input').forEach(fleet_autoResizeTextarea);
         });
 
         // 全局变量 - 使用fleet_前缀
@@ -1179,13 +1187,14 @@
             }
             
             // 更新计数
+            fleet_updateFilteredCount(allRows.length);
             fleet_updateSelectedCount();
         }
 
         // 组合筛选函数
         function fleet_applyCombinedFilter() {
             const rows = document.querySelectorAll('#fleet_cargoTable .fleet-data-row');
-            
+            let visibleCount = 0;
             rows.forEach(row => {
                 if (row.classList.contains('fleet-filter-row')) return;
                 
@@ -1226,6 +1235,7 @@
                 
                 if (match) {
                     row.style.display = '';
+                    visibleCount++;
                 } else {
                     row.style.display = 'none';
                     
@@ -1235,8 +1245,15 @@
                     }
                 }
             });
-            
+            fleet_updateFilteredCount(visibleCount);
             fleet_updateSelectedCount();
+        }
+        // 更新筛选后数量的函数
+        function fleet_updateFilteredCount(count) {
+            const filteredCountEl = document.getElementById('selfdel_filteredCount');
+            if (filteredCountEl) {
+                filteredCountEl.textContent = count;
+            }
         }
 
         // 更新选中数量
@@ -1327,7 +1344,6 @@
         window.fleet_saveNote = fleet_saveNote;
         window.fleet_saveCost = fleet_saveCost;
         window.fleet_saveQuote = fleet_saveQuote;
-        window.fleet_savePalletSize = fleet_savePalletSize;
         window.fleet_saveBolNumber = fleet_saveBolNumber;
         window.fleet_saveProNumber = fleet_saveProNumber;
         window.fleet_saveRowData = fleet_saveRowData;

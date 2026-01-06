@@ -131,8 +131,8 @@
     /* 表格样式 */
     .table-container {
         overflow-x: auto;
-        overflow-y: auto;
-        max-height: 600px;
+        overflow-y: visible;
+        max-height: none;
         border-radius: 8px;
         box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
         margin-bottom: 20px;
@@ -399,9 +399,10 @@
         max-width: 120px;
     }
     textarea {
-        resize: vertical; /* 允许用户调整 */
         min-height: 40px; /* 最小高度 */
         max-height: none; /* 取消最大高度限制 */
+        overflow: hidden !important; 
+        
     }
 </style>
 
@@ -438,6 +439,9 @@
             <strong>柜子已放行</strong>、
             <strong>派送方式为自提</strong>
         </div>
+        <span style="display: inline-block; color: white; background-color: #3498db; padding: 2px 10px; border-radius: 12px; font-size: 0.85em; margin-left: 8px; border: 2px solid #2980b9; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">
+            <span id="selfpick_filteredCount">{{ selfpick_cargos|length }}</span>
+        </span>
     </div>
 
     <!-- 数据表格 -->
@@ -556,7 +560,7 @@
                             placeholder="输入跟进状态"
                             oninput="autoResizeTextarea(this)"      
                             onchange="saveFollowStatus(this)"                   
-                            rows="1">{{ cargo.ltl_follow_status|default:'' }}</textarea>
+                            >{{ cargo.ltl_follow_status|default:'' }}</textarea>
                     </td>
                     <td class="customer-col">{{ cargo.customer_name|default:"-" }}</td>                   
                     <td class="date-col">
@@ -600,7 +604,7 @@
                                     data-id="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
                                     placeholder="输入托盘尺寸，如：32*35*60*3板 x件 xkg"
                                     oninput="autoResizeTextarea(this)"
-                                    rows="1">{{ cargo.pallet_size_formatted }}</textarea>
+                                    >{{ cargo.pallet_size_formatted }}</textarea>
                                 <span class="help-tooltip" title="尺寸分配规则：
                     1. 单行格式：长*宽*高（所有托盘按此尺寸）
                     2. 多行格式：长*宽*高*数量板（换行分隔）
@@ -620,7 +624,7 @@
                             placeholder="输入BOL号"
                             oninput="autoResizeTextarea(this)"
                             onchange="saveBolNumber(this)"
-                            rows="1">{% if cargo.data_source == 'PALLET' %}{{ cargo.plt_ltl_bol_num|default:'' }}{% else %}{{ cargo.pl_ltl_bol_num|default:'' }}{% endif %}</textarea>
+                            >{% if cargo.data_source == 'PALLET' %}{{ cargo.plt_ltl_bol_num|default:'' }}{% else %}{{ cargo.pl_ltl_bol_num|default:'' }}{% endif %}</textarea>
                     </td>
                     <td>
                         <input type="text" class="carrier-input" 
@@ -635,7 +639,7 @@
                             placeholder="输入详细地址"
                             oninput="autoResizeTextarea(this)"
                             onchange="saveAddress(this)"
-                            rows="1">{{ cargo.address|default:'' }}</textarea>
+                            >{{ cargo.address|default:'' }}</textarea>
                     </td>
                     <td>
                         <input type="date" class="pickup-date-input" 
@@ -687,14 +691,8 @@
             initializeSelfpickPage();
            
             // 初始化所有textarea
-            document.querySelectorAll('textarea').forEach(textarea => {
-                // 初始调整
-                autoResizeTextarea(textarea);
-                
-                // 监听输入
-                textarea.addEventListener('input', function() {
-                    autoResizeTextarea(this);
-                });
+            document.querySelectorAll('textarea').forEach(t => {
+                autoResizeTextarea(t);
             });
         });
 
@@ -723,19 +721,9 @@
 
         // 自动调整textarea高度
         function autoResizeTextarea(textarea) {
-            // 强制清空一切限制
-            textarea.style.setProperty('height', 'auto', 'important');
-            textarea.style.setProperty('max-height', 'none', 'important');
-            textarea.style.setProperty('overflow', 'hidden', 'important');
-
-            // 给一个安全冗余，防止浏览器少算一行
-            const safety = 2;
-
-            textarea.style.setProperty(
-                'height',
-                (textarea.scrollHeight + safety) + 'px',
-                'important'
-            );
+            textarea.style.height = 'auto';
+            textarea.style.overflow = 'hidden';   // 双保险
+            textarea.style.height = textarea.scrollHeight + 'px';
         }
 
         // 保存跟进状态
@@ -1140,13 +1128,15 @@
             }
             
             // 更新计数（这会重置统计数据显示为0）
+            selfpick_updateFilteredCount(allRows.length);
             updateSelfPickSelectedCount();
         }
 
         // 组合筛选函数
         function selfpick_applyCombinedFilter() {
             const rows = document.querySelectorAll('#selfpick_cargoTable .data-row');
-            
+            let visibleCount = 0;
+
             rows.forEach(row => {
                 if (row.classList.contains('filter-row')) return;
                 
@@ -1192,6 +1182,7 @@
                 
                 if (match) {
                     row.style.display = '';
+                    visibleCount++;
                 } else {
                     row.style.display = 'none';
                     
@@ -1202,10 +1193,18 @@
                     }
                 }
             });
-            
+
+            selfpick_updateFilteredCount(visibleCount);
             updateSelfPickSelectedCount();
         }
 
+        // 更新筛选后数量的函数
+        function selfpick_updateFilteredCount(count) {
+            const filteredCountEl = document.getElementById('selfpick_filteredCount');
+            if (filteredCountEl) {
+                filteredCountEl.textContent = count;
+            }
+        }
         // 更新选中数量
         function updateSelfPickSelectedCount() {
             const selectedSelfPickCountEl = document.getElementById('selfpick_selectedSelfPickCount');
@@ -1295,7 +1294,6 @@
         window.updateSelfPickSelectedCount = updateSelfPickSelectedCount;
         window.saveCarrier = saveCarrier;
         window.saveAddress = saveAddress;
-        window.savePalletSize = savePalletSize;
         window.saveBolNumber = saveBolNumber;
         window.savePickupDate = savePickupDate;
         window.saveRowData = saveRowData;

@@ -224,8 +224,8 @@
             <strong>柜子非直送</strong>、
             <strong>柜子未放行</strong>
         </div>
-        <span style="display: inline-block; color: #495057; background-color: #f8f9fa; padding: 1px 8px; border-radius: 10px; font-size: 0.85em; margin-left: 8px; border: 1px solid #dee2e6;">
-            {{ summary.release_count }}
+        <span style="display: inline-block; color: white; background-color: #3498db; padding: 2px 10px; border-radius: 12px; font-size: 0.85em; margin-left: 8px; border: 2px solid #2980b9; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">
+            <span id="unscheduled_filteredCount">{{ release_cargos|length }}</span>
         </span>
     </div>
 
@@ -546,17 +546,15 @@
             }
             
             // 6. 更新计数
+            updateFilteredCount(allRows.length);
             updateSelectedCount();
         }
 
 
         // 组合筛选函数
         function applyCombinedFilter() {
-            console.log('applyCombinedFilter called - 筛选条件:', columnFilters);
-            console.log('筛选条件数量:', Object.keys(columnFilters).length);
 
             const rows = document.querySelectorAll('#unscheduled_cargoTable .data-row');
-            console.log('总数据行数:', rows.length);
             let visibleCount = 0;
             let hiddenCount = 0;
             
@@ -580,7 +578,7 @@
                         cellValue = cell.textContent.toLowerCase().trim();
                         
                         // 特殊处理核实状态列
-                        if (idx === 10) { // 核实状态是第10列（0-based，排除复选框）
+                        if (idx === 11) { // 核实状态是第10列（0-based，排除复选框）
                             const isVerified = row.dataset.isVerify === '1';
                             cellValue = isVerified ? '已核实' : '未核实';
                         }
@@ -608,8 +606,15 @@
                 }
             });
             
-            console.log('筛选结果 - 显示:', visibleCount, '隐藏:', hiddenCount);
+            updateFilteredCount(visibleCount);
             updateSelectedCount();
+        }
+        // 更新筛选后数量的函数
+        function updateFilteredCount(count) {
+            const filteredCountEl = document.getElementById('unscheduled_filteredCount');
+            if (filteredCountEl) {
+                filteredCountEl.textContent = count;
+            }
         }
         // 更新选中数量
         function updateSelectedCount() {
