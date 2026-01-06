@@ -20,7 +20,7 @@
         font-size: 0.85rem;
         box-sizing: border-box;
     }
-    .fleet-mark-col {
+    .mark-col {
         min-width: 140px;
         max-width: 160px;
         word-wrap: break-word;
@@ -60,7 +60,23 @@
     .pallet-size-container {
         position: relative;
     }
-
+    .editable-textarea {
+        width: 100%;
+        border: 1px solid #dee2e6;
+        border-radius: 4px;
+        padding: 6px 8px;
+        font-size: 0.85rem;
+        resize: vertical;
+        min-height: 60px;
+        box-sizing: border-box;
+        font-family: inherit;
+    }
+    
+    .editable-textarea:focus {
+        outline: none;
+        border-color: #80bdff;
+        box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+    }
     .help-tooltip {
         position: absolute;
         top: 2px;
@@ -174,6 +190,11 @@
         box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
     }
 
+    .follow-col {
+        min-width: 200px;
+        max-width: 300px;
+    }
+
     .data-table tr:nth-child(even):not(.filter-row) {
         background-color: #f9fafb;
     }
@@ -186,7 +207,14 @@
         width: 20px;
         text-align: center;
     }
-
+    .customer-col {
+        min-width: 120px;
+        max-width: 200px;
+        word-wrap: break-word;
+        word-break: break-word;
+        white-space: normal;
+        line-height: 1.5;
+    }
     /* 操作按钮样式 */
     .action-btn {
         padding: 6px 12px;
@@ -364,8 +392,8 @@
     
     /* 日期列样式 */
     .date-col {
-        min-width: 80px;
-        max-width: 100px;
+        min-width: 100px;
+        max-width: 120px;
     }
 </style>
 
@@ -412,11 +440,12 @@
                     <th class="checkbox-cell">
                         <input type="checkbox" id="selfpick_selectAllCargos">
                     </th>
-                    <th>客户</th>
+                    <th>跟进状态</th>
+                    <th class="customer-col">客户</th>
                     <th class="date-col">拆柜日期</th>
                     <th>柜号</th>
                     <th>目的地</th>
-                    <th class="fleet-mark-col">唛头</th>
+                    <th class="mark-col">唛头</th>
                     <th>CBM</th>
                     <th>件数</th>
                     <th class="pallet-col">板数</th>
@@ -433,46 +462,49 @@
                 <tr class="filter-row">
                     <td class="checkbox-cell"></td>
                     <td>
-                        <input type="text" class="filter-input" placeholder="筛选客户..." data-column="0" onkeyup="applySelfPickColumnFilter(this)">
+                        <input type="text" class="filter-input" placeholder="筛选跟进状态..." data-column="0" onkeyup="fleet_applyColumnFilter(this)">
                     </td>
                     <td>
-                        <input type="text" class="filter-input" placeholder="筛选拆柜日期..." data-column="1" onkeyup="applySelfPickColumnFilter(this)">
+                        <input type="text" class="filter-input" placeholder="筛选客户..." data-column="1" onkeyup="applySelfPickColumnFilter(this)">
                     </td>
                     <td>
-                        <input type="text" class="filter-input" placeholder="筛选柜号..." data-column="2" onkeyup="applySelfPickColumnFilter(this)">
+                        <input type="text" class="filter-input" placeholder="筛选拆柜日期..." data-column="2" onkeyup="applySelfPickColumnFilter(this)">
                     </td>
                     <td>
-                        <input type="text" class="filter-input" placeholder="筛选目的地..." data-column="3" onkeyup="applySelfPickColumnFilter(this)">
-                    </td>
-                    <td class="fleet-mark-col">
-                        <input type="text" class="filter-input" placeholder="筛选唛头..." data-column="4" onkeyup="applySelfPickColumnFilter(this)">
+                        <input type="text" class="filter-input" placeholder="筛选柜号..." data-column="3" onkeyup="applySelfPickColumnFilter(this)">
                     </td>
                     <td>
-                        <input type="text" class="filter-input" placeholder="筛选CBM..." data-column="5" onkeyup="applySelfPickColumnFilter(this)">
+                        <input type="text" class="filter-input" placeholder="筛选目的地..." data-column="4" onkeyup="applySelfPickColumnFilter(this)">
+                    </td>
+                    <td class="mark-col">
+                        <input type="text" class="filter-input" placeholder="筛选唛头..." data-column="5" onkeyup="applySelfPickColumnFilter(this)">
                     </td>
                     <td>
-                        <input type="text" class="filter-input" placeholder="筛选件数..." data-column="6" onkeyup="applySelfPickColumnFilter(this)">
+                        <input type="text" class="filter-input" placeholder="筛选CBM..." data-column="6" onkeyup="applySelfPickColumnFilter(this)">
                     </td>
                     <td>
-                        <input type="text" class="filter-input" placeholder="筛选板数..." data-column="7" onkeyup="applySelfPickColumnFilter(this)">
+                        <input type="text" class="filter-input" placeholder="筛选件数..." data-column="7" onkeyup="applySelfPickColumnFilter(this)">
+                    </td>
+                    <td>
+                        <input type="text" class="filter-input" placeholder="筛选板数..." data-column="8" onkeyup="applySelfPickColumnFilter(this)">
                     </td>
                     <td>
                         {% comment %}
                         托盘尺寸筛选只对PALLET数据有效
                         {% endcomment %}
-                        <input type="text" class="filter-input" placeholder="筛选托盘尺寸..." data-column="8" onkeyup="applySelfPickColumnFilter(this)">
+                        <input type="text" class="filter-input" placeholder="筛选托盘尺寸..." data-column="9" onkeyup="applySelfPickColumnFilter(this)">
                     </td>
                     <td>
-                        <input type="text" class="filter-input" placeholder="筛选BOL号..." data-column="9" onkeyup="applySelfPickColumnFilter(this)">
+                        <input type="text" class="filter-input" placeholder="筛选BOL号..." data-column="10" onkeyup="applySelfPickColumnFilter(this)">
                     </td>                  
                     <td>
-                        <input type="text" class="filter-input" placeholder="筛选承运公司..." data-column="10" onkeyup="applySelfPickColumnFilter(this)">
+                        <input type="text" class="filter-input" placeholder="筛选承运公司..." data-column="11" onkeyup="applySelfPickColumnFilter(this)">
                     </td>
                     <td>
-                        <input type="text" class="filter-input" placeholder="筛选地址..." data-column="11" onkeyup="applySelfPickColumnFilter(this)">
+                        <input type="text" class="filter-input" placeholder="筛选地址..." data-column="12" onkeyup="applySelfPickColumnFilter(this)">
                     </td>
                     <td>
-                        <input type="text" class="filter-input" placeholder="筛选提货日期..." data-column="12" onkeyup="applySelfPickColumnFilter(this)">
+                        <input type="text" class="filter-input" placeholder="筛选提货日期..." data-column="13" onkeyup="applySelfPickColumnFilter(this)">
                     </td>
                     <td class="action-col">
                         <!-- 操作列不需要筛选 -->
@@ -484,6 +516,7 @@
                 <tr class="data-row" 
                     data-cargo-id="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
                     data-customer="{{ cargo.customer_name|default:'' }}"
+                    data-follow-status="{{ cargo.ltl_follow_status|default:'' }}"
                     data-offload-date="{{ cargo.offload_at|date:'Y-m-d'|default:'' }}"
                     data-container-number="{{ cargo.container_numbers|default:'' }}"
                     data-destination="{{ cargo.destination|default:'' }}"
@@ -509,13 +542,36 @@
                             value="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
                             onchange="updateSelfPickSelectedCount()">
                     </td>
-                    <td>{{ cargo.customer_name|default:"-" }}</td>
-                    <td>{{ cargo.offload_at|date:"m-d"|default:"-" }}</td>
+                    <td class="follow-col">
+                        <textarea class="editable-textarea follow-input"
+                            data-id="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
+                            placeholder="输入跟进状态"
+                            oninput="autoResizeTextarea(this)"      
+                            onchange="saveFollowStatus(this)"                   
+                            rows="1">{{ cargo.ltl_follow_status|default:'' }}</textarea>
+                    </td>
+                    <td class="customer-col">{{ cargo.customer_name|default:"-" }}</td>                   
+                    <td class="date-col">
+                        {% if cargo.offload_at %}
+                            <span class="fleet-month-day">
+                                {{ cargo.offload_at }}
+                                {% if cargo.offload_tag == "实际" %}
+                                    <span style="color:#e53935">{{ cargo.offload_tag }}</span>
+                                {% elif cargo.offload_tag == "预计" %}
+                                    <span style="color:#fb8c00">{{ cargo.offload_tag }}</span>
+                                {% else %}
+                                    <span style="color:#757575">{{ cargo.offload_tag }}</span>
+                                {% endif %}
+                            </span>
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
                     <td class="container-col" title="{{ cargo.container_numbers|default:'' }}">
                         {{ cargo.container_numbers|default:"-" }}
                     </td>
                     <td>{{ cargo.destination|default:"-" }}</td>
-                    <td class="fleet-mark-col">{{ cargo.shipping_marks|default:"-" }}</td>
+                    <td class="mark-col">{{ cargo.shipping_marks|default:"-" }}</td>
                     <td>{{ cargo.total_cbm|floatformat:3|default:"0.000" }}</td>
                     <td>{{ cargo.total_pcs|default:0 }}</td>
                     <td class="pallet-col">
@@ -536,7 +592,6 @@
                                     data-id="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
                                     placeholder="输入托盘尺寸，如：32*35*60*3板"
                                     oninput="autoResizeTextarea(this)"
-                                    onchange="savePalletSize(this)"
                                     rows="1">{{ cargo.pallet_size_formatted }}</textarea>
                                 <span class="help-tooltip" title="尺寸分配规则：
                     1. 单行格式：长*宽*高（所有托盘按此尺寸）
@@ -611,6 +666,7 @@
     <input type="hidden" name="bol_number" id="bolNumberInput">
     <input type="hidden" name="pickup_date" id="pickupTimeInput">
     <input type="hidden" name="pallet_size" id="palletSizeInput">
+    <input type="hidden" name="follow_status" id="followStatusInput">
     <input type="hidden" name="warehouse" value="{{ warehouse }}">
     <input type="hidden" name="active_tab" value="scheduled">
 </form>
@@ -659,10 +715,31 @@
             textarea.style.height = newHeight + 'px';
         }
 
+        // 保存跟进状态
+        function saveFollowStatus(textarea) {
+            const id = textarea.getAttribute('data-id');
+            const value = textarea.value.trim();
+            const key = `${id}_fleet_follow_status`;
+            
+            autoResizeTextarea(textarea);
+            
+            if (value) {
+                localStorage.setItem(key, value);
+            } else {
+                localStorage.removeItem(key);
+            }
+            
+            if (!fleet_pendingChanges[id]) {
+                fleet_pendingChanges[id] = {};
+            }
+            fleet_pendingChanges[id].follow_status = value;
+            
+            showSaveNotification(`跟进状态已保存到本地`);
+        }
         // 初始化保存状态
         function initializeSaveState() {
             // 从localStorage恢复保存状态
-            document.querySelectorAll('.carrier-input, .address-input, .bol-input, .pickup-date-input, .pallet-size-input').forEach(input => {
+            document.querySelectorAll('.carrier-input, .address-input, .bol-input, .pickup-date-input, .pallet-size-input, .follow-col').forEach(input => {
                 const id = input.getAttribute('data-id');
                 let type = '';
                 if (input.classList.contains('carrier-input')) {
@@ -675,6 +752,8 @@
                     type = 'pickup_date';
                 } else if (input.classList.contains('pallet-size-input')) {
                     type = 'pallet_size';
+                } else if (input.classList.contains('follow-input')) { 
+                    type = 'follow_status';
                 }
                 
                 const key = `${id}_${type}`;
@@ -738,30 +817,7 @@
             showSaveNotification(`地址已保存到本地`);
         }
 
-        // 保存托盘尺寸
-        function savePalletSize(textarea) {
-            const id = textarea.getAttribute('data-id');
-            const value = textarea.value.trim();
-            const key = `${id}_pallet_size`;
-            
-            // 自动调整高度
-            autoResizeTextarea(textarea);
-            
-            // 保存到localStorage
-            if (value) {
-                localStorage.setItem(key, value);
-            } else {
-                localStorage.removeItem(key);
-            }
-            
-            // 添加到待处理更改
-            if (!pendingChanges[id]) {
-                pendingChanges[id] = {};
-            }
-            pendingChanges[id].pallet_size = value;
-            
-            showSaveNotification(`托盘尺寸已保存到本地`);
-        }
+        
 
         // 保存BOL号
         function saveBolNumber(textarea) {
@@ -815,19 +871,32 @@
         function saveRowData(button) {
             const row = button.closest('tr');
             const id = row.querySelector('.self-cargo-checkbox').value;
+            const cargo = {
+                id: row.dataset.cargoId || '',
+                customer: row.dataset.customer || '',
+                containerNumber: row.dataset.containerNumber || '',
+                shippingMark: row.dataset.shippingMark || '',
+                cbm: parseFloat(row.dataset.cbm || 0),
+                weight_lbs: parseFloat(row.dataset.weightLbs || 0),
+                pallet_items: []
+            };
             
             // 获取当前行的数据
+            const followStatusInput = row.querySelector('.follow-input');
             const carrierInput = row.querySelector('.carrier-input');
             const addressInput = row.querySelector('.address-input');
             const bolInput = row.querySelector('.bol-input');
             const pickupDateInput = row.querySelector('.pickup-date-input');
             const palletSizeInput = row.querySelector('.pallet-size-input');
             
+            const followStatusValue = followStatusInput ? followStatusInput.value.trim() : '';
             const carrierValue = carrierInput ? carrierInput.value.trim() : '';
             const addressValue = addressInput ? addressInput.value.trim() : '';
             const bolValue = bolInput ? bolInput.value.trim() : '';
             const pickupDateValue = pickupDateInput ? pickupDateInput.value.trim() : '';
+            const palletSizeValue = palletSizeInput ? palletSizeInput.value.trim() : '';
             
+            /* const tbody = document.querySelector('#selfpick_cargoTable tbody');
             // 只有PALLET数据才有托盘尺寸输入框
             if (cargo.id.startsWith('plt_')) {
                 const originalPltIds = cargo.id.replace('plt_', '');
@@ -868,25 +937,27 @@
                     `;
                     tbody.appendChild(tr);
                 });
-            }
+            } */
             
             // 设置表单数据
             const cargoIdInput = document.getElementById('cargoIdInput');
             const carrierInputField = document.getElementById('carrierInput');
             const addressInputField = document.getElementById('addressInput');
             const bolNumberInputField = document.getElementById('bolNumberInput');
-            const pickupDateInputField = document.getElementById('pickupTimeInput'); 
+            const pickupTimeInputField = document.getElementById('pickupTimeInput'); 
             const palletSizeInputField = document.getElementById('palletSizeInput');
+            const followStatusInputField = document.getElementById('followStatusInput');
             const saveForm = document.getElementById('saveForm');
             
             if (cargoIdInput && carrierInputField && addressInputField && 
-                bolNumberInputField && pickupTimeInputField && palletSizeInputField && saveForm) {
+                bolNumberInputField && pickupTimeInputField && followStatusInputField && palletSizeInputField && saveForm) {
                 cargoIdInput.value = id;
                 carrierInputField.value = carrierValue;
                 addressInputField.value = addressValue;
                 bolNumberInputField.value = bolValue;
-                pickupTimeInputField.value = pickupTimeValue;
+                pickupTimeInputField.value = pickupDateValue;
                 palletSizeInputField.value = palletSizeValue;
+                followStatusInputField.value = followStatusValue;
                 saveForm.submit();
             } else {
                 console.error('保存表单元素未找到');

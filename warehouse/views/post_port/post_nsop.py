@@ -177,6 +177,7 @@ class PostNsop(View):
         if not await self._user_authenticate(request):
             return redirect("login")
         step = request.POST.get("step")
+        print('step',step)
         if step == "appointment_management_warehouse":
             template, context = await self.handle_appointment_management_post(request)
             return render(request, template, context)
@@ -5059,6 +5060,7 @@ class PostNsop(View):
                     "ltl_cost",
                     "ltl_quote",
                     "offload_at",
+                    "ltl_follow_status",
                     warehouse=F("container_number__orders__retrieval_id__retrieval_destination_precise"),
                     retrieval_destination_precise=F("container_number__orders__retrieval_id__retrieval_destination_precise"),
                     customer_name=F("container_number__orders__customer_name__zem_name"),
@@ -5100,7 +5102,7 @@ class PostNsop(View):
 
                 pallets = await sync_to_async(list)(
                     Pallet.objects.filter(id__in=plt_ids)
-                    .values('id', 'length', 'width', 'height', 'cbm', 'weight_lbs')
+                    .values('id', 'length', 'width', 'height', 'cbm', 'pcs', 'weight_lbs')
                     .order_by('id')
                 )
                 # 强制序列化
@@ -5111,6 +5113,7 @@ class PostNsop(View):
                         'width': float(p['width']) if p['width'] is not None else 0,
                         'height': float(p['height']) if p['height'] is not None else 0,
                         'cbm': float(p['cbm']) if p['cbm'] is not None else 0,
+                        'pcs': float(p['pcs']) if p['pcs'] is not None else 0,
                         'weight_lbs': float(p['weight_lbs']) if p['weight_lbs'] is not None else 0,
                     }
                     for p in pallets
@@ -5191,6 +5194,7 @@ class PostNsop(View):
                     "est_pickup_time",
                     "ltl_cost",
                     "ltl_quote",
+                    "ltl_follow_status",
                     "shipment_batch_number__shipment_batch_number",
                     "shipment_batch_number__fleet_number__fleet_number",
                     warehouse=F("container_number__orders__retrieval_id__retrieval_destination_precise"),
@@ -5530,7 +5534,7 @@ class PostNsop(View):
     async def handle_save_selfdel_cargo(
         self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
-        
+
         cargo_id = request.POST.get('cargo_id')
         # 地址列
         address = request.POST.get('address', '').strip()
@@ -5545,7 +5549,7 @@ class PostNsop(View):
         # PRO号
         pro_number = request.POST.get('pro_number', '').strip()
         follow_status = request.POST.get('follow_status', '').strip()
-        
+
         # 判断前端是否传递了成本和报价参数
         has_ltl_cost_param = 'ltl_cost' in request.POST
         has_ltl_quote_param = 'ltl_quote' in request.POST
@@ -5625,6 +5629,7 @@ class PostNsop(View):
         
         # 批量更新通用字段
         if update_data:
+            print('update_data',update_data)
             try:
                 await sync_to_async(model.objects.filter(id__in=ids).update)(**update_data)
             except Exception as e:
@@ -5655,7 +5660,7 @@ class PostNsop(View):
         bol_number = request.POST.get('bol_number', '').strip()
         pickup_date_str = request.POST.get('pickup_date', '').strip()
         pallet_size = request.POST.get('pallet_size', '').strip()
-        
+        follow_status = request.POST.get('follow_status', '').strip()
         est_pickup_time = None
         if pickup_date_str:
             try:
@@ -5696,6 +5701,8 @@ class PostNsop(View):
             update_data[bol_field_name] = bol_number
         if est_pickup_time:
             update_data['est_pickup_time'] = est_pickup_time
+        if follow_status:
+            update_data['ltl_follow_status'] = follow_status
         
         # 批量更新通用字段
         if update_data:
@@ -5717,7 +5724,7 @@ class PostNsop(View):
     async def _save_pallet_sizes(self, plt_ids: List[str], pallet_size: str) -> Tuple[bool, str]:
         """
         单独保存托盘尺寸
-        格式：长*宽*高*数量板（换行分隔不同尺寸）
+        格式：长*宽*高*数量板 件数件 重量kg（换行分隔不同尺寸）
         示例：32*35*60*3板\n30*30*50*2板
         """
         # 1. 获取所有托盘
@@ -5732,44 +5739,60 @@ class PostNsop(View):
         #如果就给了一组尺寸，查到的板子都按这个赋值
         if len(lines) == 1:
             line = lines[0]
-            # 检查是否包含"板"字
-            if '板' not in line:
-                # 格式：长*宽*高
+            # 格式：长*宽*高 x件 xkg
+            if '件' in line and 'kg' in line:
+                pcs = line.split(' ')[1].replace('件', '')
+                weight = line.split(' ')[2].replace('kg', '')
+                parts = line.split(' ')[0].replace('板', '').split('*')
+            else:
                 parts = line.split('*')
-                if len(parts) == 3:
-                    try:
-                        length = float(parts[0]) if parts[0] else None
-                        width = float(parts[1]) if parts[1] else None
-                        height = float(parts[2]) if parts[2] else None
-                        
-                        # 所有pallet都按这个尺寸赋值
-                        for pallet in pallets:
-                            pallet.length = length
-                            pallet.width = width
-                            pallet.height = height
-                            await sync_to_async(pallet.save)()
-                        
-                        return True, ""
-                    except ValueError:
-                        return False, f"数值错误：'{line}'中的长宽高必须是数字"
-        # 解析尺寸数据
+                pcs = None
+                weight = None
+            if len(parts) == 3:
+                try:
+                    length = float(parts[0]) if parts[0] else None
+                    width = float(parts[1]) if parts[1] else None
+                    height = float(parts[2]) if parts[2] else None
+                    
+                    # 所有pallet都按这个尺寸赋值
+                    for pallet in pallets:
+                        pallet.length = length
+                        pallet.width = width
+                        pallet.height = height
+                        if pcs:
+                            pallet.pcs = pcs
+                        if weight:
+                            pallet.weight_lbs = float(weight) * 2.20462
+                        await sync_to_async(pallet.save)()
+                    
+                    return True, ""
+                except ValueError:
+                    return False, f"数值错误：'{line}'中的长宽高必须是数字"
+        
+        # 给了多组尺寸，解析尺寸数据
         size_assignments = []
         total_specified = 0
         
         for line in lines:
             if not line:
                 continue
-                
-            # 移除板字并分割
-            line_clean = line.replace('板', '')
-            parts = line_clean.split('*')
+            
+            if '件' in line and 'kg' in line:
+                pcs = line.split(' ')[1].replace('件', '')
+                weight = line.split(' ')[2].replace('kg', '')
+                parts = line.split(' ')[0].replace('板', '').split('*')
+            else:
+                line_clean = line.replace('板', '')
+                parts = line_clean.split('*')
+                pcs = None
+                weight = None
             
             if len(parts) == 3:
                 # 格式：长*宽*高（默认1板）
                 length, width, height = parts
                 count = 1
             elif len(parts) == 4:
-                # 格式：长*宽*高*数量
+                # 格式：长*宽*高*板数
                 length, width, height, count_str = parts
                 count = int(count_str) if count_str.isdigit() else 1
             else:
@@ -5780,14 +5803,18 @@ class PostNsop(View):
                 length_val = float(length) if length else None
                 width_val = float(width) if width else None
                 height_val = float(height) if height else None
+                pcs_val = float(pcs) if pcs else None
+                weight_val = float(weight) if weight else None
             except ValueError:
-                return False, f"托盘尺寸数值错误：'{line}'中的长宽高必须是数字"
+                return False, f"托盘尺寸数值错误：'{line}'中的长宽高必须是数字,{length_val},{width_val},{height_val},{pcs_val},{weight_val}"
             
             size_assignments.append({
                 'length': length_val,
                 'width': width_val,
                 'height': height_val,
-                'count': count
+                'count': count,
+                'pcs': pcs_val,
+                'weight': weight_val,
             })
             total_specified += count
         
@@ -5806,6 +5833,10 @@ class PostNsop(View):
                 pallet.length = size_info['length']
                 pallet.width = size_info['width']
                 pallet.height = size_info['height']
+                if pcs:
+                    pallet.pcs = size_info['pcs']
+                if weight:
+                    pallet.weight_lbs = size_info['weight'] * 2.20462
                 await sync_to_async(pallet.save)()
                 idx += 1
         

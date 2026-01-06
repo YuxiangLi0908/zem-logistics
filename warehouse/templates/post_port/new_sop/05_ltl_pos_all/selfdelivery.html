@@ -21,8 +21,8 @@
         line-height: 1.5;
     }
     .fleet-follow-col {
-        min-width: 100px;
-        max-width: 150px;
+        min-width: 200px;
+        max-width: 300px;
     }
     
     .fleet-follow-input {
@@ -43,6 +43,14 @@
         border-color: #80bdff;
         box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
     }
+    .fleet-customer-col {
+        min-width: 120px;
+        max-width: 200px;
+        word-wrap: break-word;
+        word-break: break-word;
+        white-space: normal;
+        line-height: 1.5;
+    }
     /* 调整所有列的行高 */
     .fleet-data-table td {
         padding: 12px 12px;  /* 增加垂直padding */
@@ -52,19 +60,6 @@
         line-height: 1.6;  /* 增加行高 */
     }
     
-    /* 调整textarea的行高和高度 */
-    .fleet-editable-textarea {
-        width: 100%;
-        border: 1px solid #dee2e6;
-        border-radius: 4px;
-        padding: 8px 8px;  /* 增加padding */
-        font-size: 0.85rem;
-        resize: vertical;
-        min-height: 40px;  /* 增加最小高度 */
-        box-sizing: border-box;
-        font-family: inherit;
-        line-height: 1.5;  /* 增加行高 */
-    }
     .fleet-bol-input, .fleet-pickup-time-input, .fleet-carrier-input, 
     .fleet-address-input, .fleet-pallet-size-input, .fleet-note-input,
     .fleet-cost-input, .fleet-quote-input, .fleet-pro-input {
@@ -387,16 +382,14 @@
     
     /* 日期列样式 */
     .fleet-date-col {
-        min-width: 60px;
-        max-width: 80px;
+        min-width: 100px;
+        max-width: 120px;
     }
     
-    /* 数字输入框样式 */
     .fleet-cost-input, .fleet-quote-input {
         text-align: right;
     }
     
-    /* 可编辑文本区域样式 */
     .fleet-editable-textarea {
         width: 100%;
         border: 1px solid #dee2e6;
@@ -466,7 +459,7 @@
                         <input type="checkbox" id="fleet_selectAllCargos">
                     </th>
                     <th>跟进状态</th>
-                    <th>客户</th>
+                    <th class="fleet-customer-col">客户</th>
                     <th class="fleet-date-col">拆柜日期</th>
                     <th>柜号</th>
                     <th>目的地</th>
@@ -587,7 +580,7 @@
                             onchange="fleet_saveFollowStatus(this)"
                             rows="1">{{ cargo.ltl_follow_status|default:'' }}</textarea>
                     </td>
-                    <td>{{ cargo.customer_name|default:"-" }}</td>
+                    <td class="fleet-customer-col">{{ cargo.customer_name|default:"-" }}</td>
                     <td class="fleet-date-col">
                         {% if cargo.offload_at %}
                             <span class="fleet-month-day">
@@ -645,7 +638,6 @@
                                     data-id="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
                                     placeholder="输入托盘尺寸，如：32*35*60*3板"
                                     oninput="fleet_autoResizeTextarea(this)"
-                                    onchange="fleet_savePalletSize(this)"
                                     rows="1">{{ cargo.pallet_size_formatted }}</textarea>
                                 <span class="fleet-help-tooltip" title="尺寸分配规则：
                     1. 单行格式：长*宽*高（所有托盘按此尺寸）
@@ -800,7 +792,7 @@
                     type = 'fleet_cost';
                 } else if (input.classList.contains('fleet-quote-input')) {
                     type = 'fleet_quote';
-                } else if (input.classList.contains('fleet-follow-input')) { // 新增
+                } else if (input.classList.contains('fleet-follow-input')) {
                     type = 'fleet_follow_status';
                 }
                 
@@ -939,28 +931,6 @@
             fleet_pendingChanges[id].quote = value;
             
             fleet_showSaveNotification(`报价已保存到本地`);
-        }
-
-        // 保存托盘尺寸
-        function fleet_savePalletSize(textarea) {
-            const id = textarea.getAttribute('data-id');
-            const value = textarea.value.trim();
-            const key = `${id}_fleet_pallet_size`;
-            
-            fleet_autoResizeTextarea(textarea);
-            
-            if (value) {
-                localStorage.setItem(key, value);
-            } else {
-                localStorage.removeItem(key);
-            }
-            
-            if (!fleet_pendingChanges[id]) {
-                fleet_pendingChanges[id] = {};
-            }
-            fleet_pendingChanges[id].pallet_size = value;
-            
-            fleet_showSaveNotification(`托盘尺寸已保存到本地`);
         }
 
         // 保存BOL号
