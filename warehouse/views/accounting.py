@@ -2710,9 +2710,13 @@ class Accounting(View):
             models.Q(vessel_id__vessel_etd__lte=end_date_confirm),
         )
 
-        order_subquery = Order.objects.filter(
+        order_exists_subquery = Order.objects.filter(
             criteria,
-            container_number_id=OuterRef("container_number_id"),  # 关联InvoiceStatusv2的集装箱ID
+            container_number_id=OuterRef("container_number_id"),  # OuterRef仅用于子查询
+        )
+        # 2.2 预加载用（不含OuterRef，用于Prefetch）
+        order_prefetch_queryset = Order.objects.filter(
+            criteria
         ).select_related("retrieval_id", "vessel_id", "customer_name")
 
         # 查找提拆的待确认和已确认
@@ -2725,7 +2729,7 @@ class Accounting(View):
                 # 预加载 Order（一对多反向关联）
                 Prefetch(
                     "container_number__orders",
-                    queryset=order_subquery  # Order 自身的筛选条件
+                    queryset=order_prefetch_queryset  # Order 自身的筛选条件
                 ),
                 # 预加载 InvoiceItemv2（费用项，一对多反向关联）
                 Prefetch(
@@ -2741,7 +2745,7 @@ class Accounting(View):
                 )
             )
             .filter(
-                Exists(order_subquery),
+                Exists(order_exists_subquery),
                 models.Q(invoice_type="payable") | models.Q(invoice_type="payable_direct"),
                 finance_status="tobeconfirmed",
             )
@@ -2758,7 +2762,7 @@ class Accounting(View):
                 # 预加载 Order（一对多反向关联）
                 Prefetch(
                     "container_number__orders",
-                    queryset=order_subquery  # Order 自身的筛选条件
+                    queryset=order_prefetch_queryset  # Order 自身的筛选条件
                 ),
                 # 预加载 InvoiceItemv2（费用项，一对多反向关联）
                 Prefetch(
@@ -2774,7 +2778,7 @@ class Accounting(View):
                 )
             )
             .filter(
-                Exists(order_subquery),
+                Exists(order_exists_subquery),
                 models.Q(invoice_type="payable") | models.Q(invoice_type="payable_direct"),
                 finance_status="completed",
             )
@@ -6436,7 +6440,7 @@ class Accounting(View):
 
         return orders, pre_order_pending
 
-    def get_orders_v1(self, order_subquery):
+    def get_orders_v1(self, order_exists_subquery, order_prefetch_queryset):
         """审核应付看到的--待审核账单 已审核账单"""
         # 待审核账单
         order_pending = (
@@ -6447,7 +6451,7 @@ class Accounting(View):
                 # 预加载 Order（一对多反向关联）
                 Prefetch(
                     "container_number__orders",
-                    queryset=order_subquery  # Order 自身的筛选条件
+                    queryset=order_prefetch_queryset  # Order 自身的筛选条件
                 ),
                 # 预加载 InvoiceItemv2（费用项，一对多反向关联）
                 Prefetch(
@@ -6456,7 +6460,7 @@ class Accounting(View):
                 )
             )
             .filter(
-                Exists(order_subquery),
+                Exists(order_exists_subquery),
                 invoice_type="payable",
                 preport_status="pending_review",
             )
@@ -6483,14 +6487,14 @@ class Accounting(View):
         ).prefetch_related(
             Prefetch(
                 "container_number__orders",
-                queryset=order_subquery
+                queryset=order_prefetch_queryset
             ),
             Prefetch(
                 "container_number__invoice_itemv2",
                 queryset=InvoiceItemv2.objects.all()
             )
         ).filter(
-            Exists(order_subquery),
+            Exists(order_exists_subquery),
             models.Q(preport_status="completed"),
             models.Q(invoice_type="payable") | models.Q(invoice_type="payable_direct"),
             id__isnull=False,
@@ -6694,10 +6698,13 @@ class Accounting(View):
                     & Q(delivery_other_status__in=["unstarted", "in_progress", "rejected"])
             )
         )
-
-        order_subquery = Order.objects.filter(
+        order_exists_subquery = Order.objects.filter(
             criteria,
-            container_number_id=OuterRef("container_number_id"),  # 关联InvoiceStatusv2的集装箱ID
+            container_number_id=OuterRef("container_number_id"),  # OuterRef仅用于子查询
+        )
+        # 2.2 预加载用（不含OuterRef，用于Prefetch）
+        order_prefetch_queryset = Order.objects.filter(
+            criteria
         ).select_related("retrieval_id", "vessel_id", "customer_name")
 
         # 待录入的订单：用 Exists 避免重复，distinct 兜底
@@ -6708,14 +6715,14 @@ class Accounting(View):
             ).prefetch_related(
                 Prefetch(
                 "container_number__orders",
-                    queryset=order_subquery,
+                    queryset=order_prefetch_queryset,
                 ),
                 Prefetch(
                     "container_number__invoice_itemv2",
                     queryset=InvoiceItemv2.objects.all()
                 )
             ).filter(
-                Exists(order_subquery),
+                Exists(order_exists_subquery),
                 Exists(has_valid_invoice_status)
             )  # 只保留已有有效状态的订单
             .annotate(
@@ -6871,7 +6878,7 @@ class Accounting(View):
         if is_payable_check:  # 审核应付看到的
             #将应付的费用直接加到审核的列表上
             # 待审核账单 已审核账单
-            order_pending, pre_order_pending =self.get_orders_v1(order_subquery)
+            order_pending, pre_order_pending =self.get_orders_v1(order_exists_subquery, order_prefetch_queryset)
 
         if not is_payable_check or request.user.is_staff:
             # 查找客服已录入账单
@@ -6882,7 +6889,7 @@ class Accounting(View):
                     # 预加载符合条件的Order（原有逻辑不变）
                     Prefetch(
                         "container_number__orders",
-                        queryset=order_subquery,  # 复用子查询的过滤条件，避免重复
+                        queryset=order_prefetch_queryset,  # 复用子查询的过滤条件，避免重复
                     ),
                     Prefetch(
                         "container_number__invoice_itemv2",
@@ -6891,7 +6898,7 @@ class Accounting(View):
                 )
                 # 核心新增：通过Exists确保只有有符合条件Order的集装箱才会被查询
                 .filter(
-                    Exists(order_subquery),  # 关键！过滤掉无符合条件Order的集装箱
+                    Exists(order_exists_subquery),  # 关键！过滤掉无符合条件Order的集装箱
                     # 原有状态/发票类型过滤不变
                     models.Q(preport_status__in=["pending_review", "completed"]) |
                     models.Q(warehouse_public_status="completed") |
