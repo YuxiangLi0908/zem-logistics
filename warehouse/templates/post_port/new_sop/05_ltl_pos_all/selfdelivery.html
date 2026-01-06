@@ -636,16 +636,16 @@
                             <div style="position: relative;">
                                 <textarea class="fleet-pallet-size-input"
                                     data-id="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
-                                    placeholder="输入托盘尺寸，如：32*35*60*3板"
+                                    placeholder="输入托盘尺寸，如：32*35*60*3板 x件 xkg"
                                     oninput="fleet_autoResizeTextarea(this)"
                                     rows="1">{{ cargo.pallet_size_formatted }}</textarea>
                                 <span class="fleet-help-tooltip" title="尺寸分配规则：
-                    1. 单行格式：长*宽*高（所有托盘按此尺寸）
-                    2. 多行格式：长*宽*高*数量板（换行分隔）
-                    3. 板数总和必须等于托盘总数
+                    1. 单行格式：长*宽*高 x件 xkg（所有托盘按此尺寸）
+                    2. 多行格式：长*宽*高*数量板 x件 xkg（换行分隔）
+                    3. 板数总和必须等于托盘总数,要么都写件数和重量，要么都不写
                     示例：
-                    32*35*60*3板
-                    30*30*50*2板">❓</span>
+                    32*35*60*3板 23件 320kg
+                    30*30*50*2板 23件 320kg">❓</span>
                             </div>
                         {% else %}
                             <span style="color: #999; font-style: italic;">-</span>
@@ -760,8 +760,6 @@
                 });
             });
             
-            // 初始化保存状态
-            fleet_initializeSaveState();
         }
 
         // 自动调整textarea高度
@@ -769,44 +767,6 @@
             textarea.style.height = 'auto';
             const newHeight = Math.max(32, textarea.scrollHeight);
             textarea.style.height = newHeight + 'px';
-        }
-
-        // 初始化保存状态
-        function fleet_initializeSaveState() {
-            document.querySelectorAll('.fleet-carrier-input, .fleet-address-input, .fleet-bol-input, .fleet-pro-input, .fleet-pallet-size-input, .fleet-note-input, .fleet-cost-input, .fleet-quote-input').forEach(input => {
-                const id = input.getAttribute('data-id');
-                let type = '';
-                if (input.classList.contains('fleet-carrier-input')) {
-                    type = 'fleet_carrier';
-                } else if (input.classList.contains('fleet-address-input')) {
-                    type = 'fleet_address';
-                } else if (input.classList.contains('fleet-bol-input')) {
-                    type = 'fleet_bol_number';
-                } else if (input.classList.contains('fleet-pro-input')) {
-                    type = 'fleet_pro_number';
-                } else if (input.classList.contains('fleet-pallet-size-input')) {
-                    type = 'fleet_pallet_size';
-                } else if (input.classList.contains('fleet-note-input')) {
-                    type = 'fleet_note';
-                } else if (input.classList.contains('fleet-cost-input')) {
-                    type = 'fleet_cost';
-                } else if (input.classList.contains('fleet-quote-input')) {
-                    type = 'fleet_quote';
-                } else if (input.classList.contains('fleet-follow-input')) {
-                    type = 'fleet_follow_status';
-                }
-                
-                const key = `${id}_${type}`;
-                const savedValue = localStorage.getItem(key);
-                
-                if (savedValue !== null && savedValue !== input.value) {
-                    input.value = savedValue;
-                    
-                    if (input.tagName === 'TEXTAREA') {
-                        setTimeout(() => fleet_autoResizeTextarea(input), 10);
-                    }
-                }
-            });
         }
 
         // 保存承运公司
