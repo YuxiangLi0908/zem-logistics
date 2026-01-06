@@ -401,6 +401,9 @@ class PostNsop(View):
         elif step == "search_quote_container":
             template, context = await self.search_quote_container(request)
             return render(request, template, context) 
+        elif step == "save_releaseCommand":
+            template, context = await self.handle_save_releaseCommand(request)
+            return render(request, template, context) 
         else:
             raise ValueError('输入错误',step)
         
@@ -5061,6 +5064,10 @@ class PostNsop(View):
                     "ltl_quote",
                     "offload_at",
                     "ltl_follow_status",
+                    "ltl_release_command",
+                    "ltl_cost_note",
+                    "ltl_quote_note",
+                    "ltl_contact_method",
                     warehouse=F("container_number__orders__retrieval_id__retrieval_destination_precise"),
                     retrieval_destination_precise=F("container_number__orders__retrieval_id__retrieval_destination_precise"),
                     customer_name=F("container_number__orders__customer_name__zem_name"),
@@ -5230,6 +5237,10 @@ class PostNsop(View):
                     "ltl_cost",
                     "ltl_quote",
                     "ltl_follow_status",
+                    "ltl_release_command",
+                    "ltl_cost_note",
+                    "ltl_quote_note",
+                    "ltl_contact_method",
                     "shipment_batch_number__shipment_batch_number",
                     "shipment_batch_number__fleet_number__fleet_number",
                     warehouse=F("container_number__orders__retrieval_id__retrieval_destination_precise"),
@@ -5566,10 +5577,38 @@ class PostNsop(View):
         
         return response
 
+    async def handle_save_releaseCommand(
+        self, request: HttpRequest
+    ) -> tuple[str, dict[str, Any]]:
+        cargo_id = request.POST.get('cargo_id')
+        release_command = request.POST.get('release_command')
+        if cargo_id.startswith('plt_'):
+            # PALLET数据
+            ids = cargo_id.replace('plt_', '').split(',')
+            model = Pallet
+            
+        else:
+            # PACKINGLIST数据
+            ids = cargo_id.split(',')
+            model = PackingList
+        update_data = {}
+        
+        # 只有前端传递了这些参数才更新
+        if release_command or release_command == '':
+            update_data['ltl_release_command'] = release_command
+
+        if update_data:
+            try:
+                await sync_to_async(model.objects.filter(id__in=ids).update)(**update_data)
+            except Exception as e:
+                context = {'error_messages': f'保存失败: {str(e)}'}
+                return await self.handle_ltl_unscheduled_pos_post(request, context)
+
+        return await self.handle_ltl_unscheduled_pos_post(request)
+    
     async def handle_save_selfdel_cargo(
         self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
-
         cargo_id = request.POST.get('cargo_id')
         # 地址列
         address = request.POST.get('address', '').strip()
@@ -5584,6 +5623,10 @@ class PostNsop(View):
         # PRO号
         pro_number = request.POST.get('pro_number', '').strip()
         follow_status = request.POST.get('follow_status', '').strip()
+        #成本/报价备注
+        ltl_cost_note = request.POST.get('ltl_cost_note', '').strip()
+        ltl_quote_note = request.POST.get('ltl_quote_note', '').strip()
+        contact_method = request.POST.get('contact_method', '').strip()
 
         # 判断前端是否传递了成本和报价参数
         has_ltl_cost_param = 'ltl_cost' in request.POST
@@ -5662,9 +5705,17 @@ class PostNsop(View):
         if has_ltl_quote_param:
             update_data[quote_field_name] = ltl_quote
         
+        if ltl_cost_note:
+            update_data["ltl_cost_note"] = ltl_cost_note
+
+        if ltl_quote_note:
+            update_data["ltl_quote_note"] = ltl_quote_note
+
+        if contact_method:
+            update_data["ltl_release_command"] = contact_method
+        
         # 批量更新通用字段
         if update_data:
-            print('update_data',update_data)
             try:
                 await sync_to_async(model.objects.filter(id__in=ids).update)(**update_data)
             except Exception as e:
