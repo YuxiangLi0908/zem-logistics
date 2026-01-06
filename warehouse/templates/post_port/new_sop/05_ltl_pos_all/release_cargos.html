@@ -48,6 +48,7 @@
         padding: 10px 12px;
         border-bottom: 1px solid #eaecef;
         font-size: 0.85rem;
+        vertical-align: top;
     }
 
     /* 筛选行样式 */
@@ -193,6 +194,46 @@
         gap: 5px;
         justify-content: center;
     }
+    .command-col {
+        min-width:120px;
+    }
+    .release-command-input {
+        width: 100%;
+        resize: none;
+        overflow: hidden !important;
+        height: auto !important;
+        min-height: 24px;
+        box-sizing: border-box;
+        line-height: 1.4;
+    }
+    .command-input-wrapper {
+        position: relative;
+        display: flex;
+        align-items: flex-start;
+    }
+
+    .command-input-wrapper textarea {
+        padding-right: 28px; /* 给右侧按钮留空间 */
+    }
+
+    .command-save-btn {
+        position: absolute;
+        right: 6px;
+        top: 6px;
+        border: none;
+        background: transparent;
+        cursor: pointer;
+        font-size: 15px;
+        color: #4a90e2;
+        opacity: 0.4;
+        transition: all 0.2s ease;
+    }
+
+    .command-input-wrapper:hover .command-save-btn,
+    .command-save-btn:hover {
+        opacity: 1;
+        transform: scale(1.1);
+    }
 </style>
 <div id="unscheduled-page">
     <!-- 批量操作区域 -->
@@ -243,6 +284,7 @@
                     <th class="fleet-mark-col">唛头</th>
                     <th class="address-col">详细地址</th>
                     <th class="note-col">备注</th>
+                    <th class="command-col">指令</th>
                     <th>CBM</th>
                     <th>件数</th>
                     <th>重量(lbs)</th>
@@ -274,19 +316,22 @@
                         <input type="text" class="filter-input" placeholder="筛选备注..." data-column="5" onkeyup="applyColumnFilter(this)">
                     </td>
                     <td>
-                        <input type="text" class="filter-input" placeholder="筛选CBM..." data-column="6" onkeyup="applyColumnFilter(this)">
+                        <input type="text" class="filter-input" placeholder="筛选备注..." data-column="6" onkeyup="applyColumnFilter(this)">
                     </td>
                     <td>
-                        <input type="text" class="filter-input" placeholder="筛选件数..." data-column="7" onkeyup="applyColumnFilter(this)">
+                        <input type="text" class="filter-input" placeholder="筛选CBM..." data-column="7" onkeyup="applyColumnFilter(this)">
                     </td>
                     <td>
-                        <input type="text" class="filter-input" placeholder="筛选重量..." data-column="8" onkeyup="applyColumnFilter(this)">
+                        <input type="text" class="filter-input" placeholder="筛选件数..." data-column="8" onkeyup="applyColumnFilter(this)">
                     </td>
                     <td>
                         <input type="text" class="filter-input" placeholder="筛选重量..." data-column="9" onkeyup="applyColumnFilter(this)">
                     </td>
                     <td>
-                        <select class="filter-select" data-column="10" onchange="applyColumnFilter(this)">
+                        <input type="text" class="filter-input" placeholder="筛选重量..." data-column="10" onkeyup="applyColumnFilter(this)">
+                    </td>
+                    <td>
+                        <select class="filter-select" data-column="11" onchange="applyColumnFilter(this)">
                             <option value="">全部状态</option>
                             <option value="已核实">已核实</option>
                             <option value="未核实">未核实</option>
@@ -305,6 +350,7 @@
                     data-destination="{{ cargo.destination|default:'' }}" 
                     data-shipping-mark="{{ cargo.shipping_marks|default:'' }}"
                     data-container-number="{{ cargo.container_numbers|default:'' }}"
+                    data-release-command="{{ cargo.ltl_release_command|default:'' }}"
                     data-cbm="{{ cargo.total_cbm|default:0 }}"
                     data-weight-lbs="{{ cargo.total_weight_lbs|default:0 }}"
                     data-weight-kg="{{ cargo.total_weight_kg|default:0 }}"
@@ -326,6 +372,23 @@
                     </td>
                     <td class="note-col" title="{{ cargo.note|default:'' }}">
                         {{ cargo.note|default_if_none:"-" }}
+                    </td>
+                    <td class="command-col">
+                        <div class="command-input-wrapper">
+                            <textarea class="editable-textarea release-command-input"
+                                data-id="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
+                                placeholder="输入未放行指令..."
+                                oninput="autoResizeTextarea(this)"
+                                rows="1">{{ cargo.ltl_release_command|default:'' }}</textarea>
+
+                            <button
+                                type="button"
+                                class="command-save-btn"
+                                title="保存指令"
+                                onclick="submitSingleReleaseCommand(this)">
+                                💾
+                            </button>
+                        </div>
                     </td>
                     <td>
                         <span class="status-badge status-expired">{{ cargo.total_cbm|floatformat:3 }}</span>
@@ -398,6 +461,16 @@
     <input type="hidden" name="plt_ids" id="pltIdsInput">
     <input type="hidden" name="warehouse" value="{{ warehouse }}">
     <input type="hidden" name="active_tab" value="cargo">
+</form>
+
+<form id="releaseCommandForm" method="post">
+    {% csrf_token %}
+    <input type="hidden" name="release_commands" id="releaseCommandsInput">
+    <input type="hidden" name="step" value="save_releaseCommand">
+    <input type="hidden" name="warehouse" value="{{ warehouse }}">
+    <input type="hidden" name="active_tab" value="cargo">
+    <input type="hidden" name="cargo_id" id="cargoIdInput">
+    <input type="hidden" name="release_command" id="releaseCommandInput">
 </form>
 
 <script>
@@ -578,7 +651,7 @@
                         cellValue = cell.textContent.toLowerCase().trim();
                         
                         // 特殊处理核实状态列
-                        if (idx === 11) { // 核实状态是第10列（0-based，排除复选框）
+                        if (idx === 12) { // 核实状态是第10列（0-based，排除复选框）
                             const isVerified = row.dataset.isVerify === '1';
                             cellValue = isVerified ? '已核实' : '未核实';
                         }
@@ -699,6 +772,14 @@
                 selectAllCheckbox.indeterminate = true;
             }
         }
+        function autoResizeTextarea(textarea) {
+            // 先清空高度
+            textarea.style.height = 'auto';
+            // 再设置为内容高度
+            textarea.style.height = textarea.scrollHeight + 'px';
+        }
+
+        
 
         // 将函数暴露到全局作用域，以便HTML中的onclick能调用
         window.unscheduled_toggleSelectAll = unscheduled_toggleSelectAll;
@@ -707,4 +788,21 @@
         window.applyColumnFilter = applyColumnFilter;
         window.updateSelectedCount = updateSelectedCount;
     })(); // 立即执行
+
+    function submitSingleReleaseCommand(btn) {
+        const wrapper = btn.closest('.command-input-wrapper');
+        const textarea = wrapper.querySelector('.release-command-input');
+
+        const cargoId = textarea.dataset.id;
+        
+        const value = textarea.value.trim();
+
+        if (!cargoId) return;
+
+        document.getElementById('cargoIdInput').value = cargoId;
+        document.getElementById('releaseCommandInput').value = value;
+
+        document.getElementById('releaseCommandForm').submit();
+        
+    }
 </script>

@@ -328,6 +328,30 @@
         max-width: 180px;
     }
 
+    .fleet-contact-method-col {
+        min-width: 120px;
+        max-width: 160px;
+    }
+    .fleet-cost-note-col, .fleet-quote-note-col {
+        min-width: 100px;
+        max-width: 150px;
+    }
+
+    .fleet-contact-method-input {
+        width: 100%;
+        padding: 6px 8px;
+        border: 1px solid #dee2e6;
+        border-radius: 4px;
+        font-size: 0.85rem;
+        box-sizing: border-box;
+        font-family: inherit;
+    }
+
+    .fleet-contact-method-input:focus {
+        outline: none;
+        border-color: #80bdff;
+        box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+    }
     .fleet-pallet-size-input {
         width: 100%;
         border: 1px solid #dee2e6;
@@ -473,13 +497,16 @@
                     <th>目的地</th>
                     <th class="fleet-mark-col">唛头</th>
                     <th class="fleet-address-col">地址</th>
+                    <th class="fleet-contact-method-col">类型</th> 
                     <th class="fleet-note-col">备注</th>
                     <th>CBM</th>
                     <th>件数</th>
                     <th class="fleet-pallet-col">板数</th>
                     <th class="fleet-pallet-size-col">托盘尺寸</th>
                     <th class="fleet-cost-col">成本</th>
+                    <th class="fleet-cost-note-col">成本备注</th>
                     <th class="fleet-quote-col">报价</th>
+                    <th class="fleet-quote-note-col">报价备注</th>
                     <th class="fleet-carrier-col">承运公司</th>
                     <th class="fleet-bol-col">BOL号</th>
                     <th class="fleet-pro-col">PRO号</th>
@@ -512,34 +539,43 @@
                         <input type="text" class="fleet-filter-input" placeholder="筛选地址..." data-column="6" onkeyup="fleet_applyColumnFilter(this)">
                     </td>
                     <td>
-                        <input type="text" class="fleet-filter-input" placeholder="筛选备注..." data-column="7" onkeyup="fleet_applyColumnFilter(this)">
+                        <input type="text" class="fleet-filter-input" placeholder="筛选类型..." data-column="7" onkeyup="fleet_applyColumnFilter(this)">
                     </td>
                     <td>
-                        <input type="text" class="fleet-filter-input" placeholder="筛选CBM..." data-column="8" onkeyup="fleet_applyColumnFilter(this)">
+                        <input type="text" class="fleet-filter-input" placeholder="筛选备注..." data-column="8" onkeyup="fleet_applyColumnFilter(this)">
                     </td>
                     <td>
-                        <input type="text" class="fleet-filter-input" placeholder="筛选件数..." data-column="9" onkeyup="fleet_applyColumnFilter(this)">
+                        <input type="text" class="fleet-filter-input" placeholder="筛选CBM..." data-column="9" onkeyup="fleet_applyColumnFilter(this)">
                     </td>
                     <td>
-                        <input type="text" class="fleet-filter-input" placeholder="筛选板数..." data-column="10" onkeyup="fleet_applyColumnFilter(this)">
+                        <input type="text" class="fleet-filter-input" placeholder="筛选件数..." data-column="10" onkeyup="fleet_applyColumnFilter(this)">
                     </td>
                     <td>
-                        <input type="text" class="fleet-filter-input" placeholder="筛选托盘尺寸..." data-column="11" onkeyup="fleet_applyColumnFilter(this)">
+                        <input type="text" class="fleet-filter-input" placeholder="筛选板数..." data-column="11" onkeyup="fleet_applyColumnFilter(this)">
                     </td>
                     <td>
-                        <input type="text" class="fleet-filter-input" placeholder="筛选成本..." data-column="12" onkeyup="fleet_applyColumnFilter(this)">
+                        <input type="text" class="fleet-filter-input" placeholder="筛选托盘尺寸..." data-column="12" onkeyup="fleet_applyColumnFilter(this)">
                     </td>
                     <td>
-                        <input type="text" class="fleet-filter-input" placeholder="筛选报价..." data-column="13" onkeyup="fleet_applyColumnFilter(this)">
+                        <input type="text" class="fleet-filter-input" placeholder="筛选成本..." data-column="13" onkeyup="fleet_applyColumnFilter(this)">
                     </td>
                     <td>
-                        <input type="text" class="fleet-filter-input" placeholder="筛选承运公司..." data-column="14" onkeyup="fleet_applyColumnFilter(this)">
+                        <input type="text" class="fleet-filter-input" placeholder="筛选成本备注..." data-column="14" onkeyup="fleet_applyColumnFilter(this)">
                     </td>
                     <td>
-                        <input type="text" class="fleet-filter-input" placeholder="筛选BOL号..." data-column="15" onkeyup="fleet_applyColumnFilter(this)">
+                        <input type="text" class="fleet-filter-input" placeholder="筛选报价..." data-column="15" onkeyup="fleet_applyColumnFilter(this)">
                     </td>
                     <td>
-                        <input type="text" class="fleet-filter-input" placeholder="筛选PRO号..." data-column="16" onkeyup="fleet_applyColumnFilter(this)">
+                        <input type="text" class="fleet-filter-input" placeholder="筛选报价备注..." data-column="16" onkeyup="fleet_applyColumnFilter(this)">
+                    </td>
+                    <td>
+                        <input type="text" class="fleet-filter-input" placeholder="筛选承运公司..." data-column="17" onkeyup="fleet_applyColumnFilter(this)">
+                    </td>
+                    <td>
+                        <input type="text" class="fleet-filter-input" placeholder="筛选BOL号..." data-column="18" onkeyup="fleet_applyColumnFilter(this)">
+                    </td>
+                    <td>
+                        <input type="text" class="fleet-filter-input" placeholder="筛选PRO号..." data-column="19" onkeyup="fleet_applyColumnFilter(this)">
                     </td>
                     <td class="fleet-action-col">
                         <!-- 操作列不需要筛选 -->
@@ -618,12 +654,16 @@
                             onchange="fleet_saveAddress(this)"
                             rows="1">{{ cargo.address|default:'' }}</textarea>
                     </td>
+                    <td class="fleet-contact-method-col">
+                        <input type="text" class="fleet-contact-method-input"
+                            data-id="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
+                            value="{{ cargo.ltl_release_command|default:'' }}"
+                            placeholder="输入类型">
                     <td class="fleet-note-col">
                         <textarea class="fleet-editable-textarea fleet-note-input"
                             data-id="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
                             placeholder="输入备注"
                             oninput="fleet_autoResizeTextarea(this)"
-                            onchange="fleet_saveNote(this)"
                             rows="1">{{ cargo.fleet_note|default:'' }}</textarea>
                     </td>
                     <td>{{ cargo.total_cbm|floatformat:3|default:"0.000" }}</td>
@@ -668,6 +708,14 @@
                             min="0"
                             onchange="fleet_saveCost(this)">
                     </td>
+                    <td class="fleet-cost-note-col">
+                        <textarea class="fleet-editable-textarea fleet-cost-note-input"
+                            data-id="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
+                            placeholder="输入成本备注"
+                            oninput="fleet_autoResizeTextarea(this)"
+                            onchange="fleet_saveCostNote(this)"
+                            rows="1">{{ cargo.ltl_cost_note|default:'' }}</textarea>
+                    </td>
                     <td class="fleet-quote-col">
                         <input type="number" class="fleet-quote-input" 
                             data-id="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
@@ -676,6 +724,14 @@
                             step="0.01"
                             min="0"
                             onchange="fleet_saveQuote(this)">
+                    </td>
+                    <td class="fleet-quote-note-col">
+                        <textarea class="fleet-editable-textarea fleet-quote-note-input"
+                            data-id="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
+                            placeholder="输入报价备注"
+                            oninput="fleet_autoResizeTextarea(this)"
+                            onchange="fleet_saveQuoteNote(this)"
+                            rows="1">{{ cargo.ltl_quote_note|default:'' }}</textarea>
                     </td>
                     <td class="fleet-carrier-col">
                         <input type="text" class="fleet-carrier-input" 
@@ -728,8 +784,11 @@
     <input type="hidden" name="carrier_company" id="fleet_carrierInput">
     <input type="hidden" name="address" id="fleet_addressInput">
     <input type="hidden" name="note" id="fleet_noteInput">
+    <input type="hidden" name="contact_method" id="fleet_contactMethodInput"> 
     <input type="hidden" name="ltl_cost" id="fleet_costInput">
+    <input type="hidden" name="ltl_cost_note" id="fleet_costNoteInput">
     <input type="hidden" name="ltl_quote" id="fleet_quoteInput">
+    <input type="hidden" name="ltl_quote_note" id="fleet_quoteNoteInput">
     <input type="hidden" name="bol_number" id="fleet_bolNumberInput">
     <input type="hidden" name="pro_number" id="fleet_proNumberInput">
     <input type="hidden" name="pallet_size" id="fleet_palletSizeInput">
@@ -745,7 +804,7 @@
         document.addEventListener('DOMContentLoaded', function() {
             fleet_initializeFleetPage();
             // 初始化所有textarea的高度
-            document.querySelectorAll('.fleet-pallet-size-input, .fleet-address-input, .fleet-bol-input, .fleet-pro-input, .fleet-note-input, .fleet-follow-input').forEach(fleet_autoResizeTextarea);
+            document.querySelectorAll('.fleet-pallet-size-input, .fleet-address-input, .fleet-bol-input, .fleet-pro-input, .fleet-note-input, .fleet-follow-input, .fleet-cost-note-input, .fleet-quote-note-input').forEach(fleet_autoResizeTextarea);
         });
 
         // 全局变量 - 使用fleet_前缀
@@ -954,8 +1013,11 @@
             const carrierInput = row.querySelector('.fleet-carrier-input');
             const addressInput = row.querySelector('.fleet-address-input');
             const noteInput = row.querySelector('.fleet-note-input');
+            const contactMethodInput = row.querySelector('.fleet-contact-method-input');
             const costInput = row.querySelector('.fleet-cost-input');
+            const costNoteInput = row.querySelector('.fleet-cost-note-input');
             const quoteInput = row.querySelector('.fleet-quote-input');
+            const quoteNoteInput = row.querySelector('.fleet-quote-note-input');
             const bolInput = row.querySelector('.fleet-bol-input');
             const proInput = row.querySelector('.fleet-pro-input');
             const palletSizeInput = row.querySelector('.fleet-pallet-size-input');
@@ -964,8 +1026,11 @@
             const carrierValue = carrierInput ? carrierInput.value.trim() : '';
             const addressValue = addressInput ? addressInput.value.trim() : '';
             const noteValue = noteInput ? noteInput.value.trim() : '';
+            const contactMethodValue = contactMethodInput ? contactMethodInput.value.trim() : '';
             const costValue = costInput ? costInput.value.trim() : '';
+            const costNoteValue = costNoteInput ? costNoteInput.value.trim() : '';
             const quoteValue = quoteInput ? quoteInput.value.trim() : '';
+            const quoteNoteValue = quoteNoteInput ? quoteNoteInput.value.trim() : '';
             const bolValue = bolInput ? bolInput.value.trim() : '';
             const proValue = proInput ? proInput.value.trim() : '';
             const palletSizeValue = palletSizeInput ? palletSizeInput.value.trim() : '';
@@ -976,8 +1041,11 @@
             const carrierInputField = document.getElementById('fleet_carrierInput');
             const addressInputField = document.getElementById('fleet_addressInput');
             const noteInputField = document.getElementById('fleet_noteInput');
+            const contactMethodInputField = document.getElementById('fleet_contactMethodInput');
             const costInputField = document.getElementById('fleet_costInput');
+            const costNoteInputField = document.getElementById('fleet_costNoteInput');
             const quoteInputField = document.getElementById('fleet_quoteInput');
+            const quoteNoteInputField = document.getElementById('fleet_quoteNoteInput');
             const bolNumberInputField = document.getElementById('fleet_bolNumberInput');
             const proNumberInputField = document.getElementById('fleet_proNumberInput');
             const palletSizeInputField = document.getElementById('fleet_palletSizeInput');
@@ -985,14 +1053,18 @@
             const saveForm = document.getElementById('fleet_saveForm');
             
             if (cargoIdInput && carrierInputField && addressInputField && noteInputField && 
-                costInputField && quoteInputField && bolNumberInputField && proNumberInputField && 
+                contactMethodInputField && costInputField && costNoteInputField && quoteInputField && 
+                quoteNoteInputField && bolNumberInputField && proNumberInputField && 
                 palletSizeInputField && followInputField && saveForm) {
                 cargoIdInput.value = id;
                 carrierInputField.value = carrierValue;
                 addressInputField.value = addressValue;
                 noteInputField.value = noteValue;
+                contactMethodInputField.value = contactMethodValue;
                 costInputField.value = costValue;
+                costNoteInputField.value = costNoteValue;
                 quoteInputField.value = quoteValue;
+                quoteNoteInputField.value = quoteNoteValue;
                 bolNumberInputField.value = bolValue;
                 proNumberInputField.value = proValue;
                 palletSizeInputField.value = palletSizeValue;

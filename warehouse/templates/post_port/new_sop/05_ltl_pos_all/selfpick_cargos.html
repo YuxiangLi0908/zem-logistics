@@ -606,12 +606,12 @@
                                     oninput="autoResizeTextarea(this)"
                                     >{{ cargo.pallet_size_formatted }}</textarea>
                                 <span class="help-tooltip" title="尺寸分配规则：
-                    1. 单行格式：长*宽*高（所有托盘按此尺寸）
-                    2. 多行格式：长*宽*高*数量板（换行分隔）
+                    1. 单行格式：长*宽*高 x件 xkg（所有托盘按此尺寸）
+                    2. 多行格式：长*宽*高*数量板 x件 xkg（换行分隔）
                     3. 板数总和必须等于托盘总数
                     示例：
-                    32*35*60*3板
-                    30*30*50*2板">❓</span>
+                    32*35*60*3板 23件 320kg
+                    30*30*50*2板 23件 320kg">❓</span>
                             </div>
                         {% else %}
                             <!-- PackingList 数据没有托盘尺寸字段 -->
