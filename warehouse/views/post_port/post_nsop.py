@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta, time
 from typing import Any, Dict, List, Tuple
 from django.db.models import Prefetch, F
-from collections import OrderedDict
+from collections import OrderedDict, defaultdict
 import pandas as pd
 import json
 import uuid
@@ -65,6 +65,11 @@ from warehouse.models.order import Order
 from warehouse.models.po_check_eta import PoCheckEtaSeven
 from warehouse.models.shipment import Shipment
 from warehouse.models.container import Container
+from warehouse.models.invoicev2 import (
+    Invoicev2,
+    InvoiceItemv2,
+    InvoiceStatusv2,
+)
 from django.contrib import messages
 from warehouse.models.transfer_location import TransferLocation
 from warehouse.views.post_port.shipment.fleet_management import FleetManagement
@@ -5517,21 +5522,227 @@ class PostNsop(View):
                 context = {'error_messages': f'保存失败: {str(e)}'}
                 return await self.handle_ltl_unscheduled_pos_post(request, context)
         
-        # 特殊处理：如果是PALLET数据且有托盘尺寸，保存托盘尺寸
-        success_message = '保存成功！'
         if cargo_id.startswith('plt_') and pallet_size:
             success, message = await self._save_pallet_sizes(ids, pallet_size)
             if not success:
                 context = {'error_messages': message}
-                success_message = None
+                return await self.handle_ltl_unscheduled_pos_post(request, context)
+
+        username = request.user.username
+        if ltl_quote:
+            # 录到派送账单
+            status_message = await self._delivery_account_entry(ids, ltl_quote, ltl_quote_note, username)
+
+        # 特殊处理：如果是PALLET数据且有托盘尺寸，保存托盘尺寸
+        success_message = '保存成功！'
+        if status_message:
+            success_message = mark_safe(f"{success_message}<br>{status_message}")
         
         # 构建返回上下文
         if success_message:
             context = {'success_messages': success_message}
         else:
             context = {}
+
         return await self.handle_ltl_unscheduled_pos_post(request, context)
 
+    async def _delivery_account_entry(self, ids, ltl_quote, ltl_quote_note, username):
+        pallets = await sync_to_async(list)(
+            Pallet.objects.filter(id__in=ids)
+            .select_related('container_number')
+        )
+
+        # 按 PO_ID-shipping_marks-container_number 分组
+        pallet_index = defaultdict(list)
+        for pallet in pallets:
+            po_id = getattr(pallet, "PO_ID", None) or "无PO_ID"
+            if not po_id:
+                raise ValueError('id为{pallet.id}的pallet没有PO_ID')
+            shipping_mark = getattr(pallet, "shipping_mark")
+            if not shipping_mark:
+                raise ValueError('id为{pallet.id}的pallet没有唛头')
+            container_num = pallet.container_number
+            index_key = f"{po_id}-{shipping_mark}-{container_num.id}"
+            pallet_index[index_key].append(pallet)
+
+        # 遍历每组
+        for index_key, group_pallets in pallet_index.items():
+            first_pallet = group_pallets[0]
+            po_id = getattr(first_pallet, "PO_ID")
+            shipping_mark = getattr(first_pallet, "shipping_mark")
+            container = first_pallet.container_number
+            qty = len(group_pallets)
+            total_cbm = sum(getattr(p, "cbm", 0) or 0 for p in group_pallets)
+            total_weight = sum(getattr(p, "weight_lbs", 0) or 0 for p in group_pallets)
+
+            # 检查 InvoiceItemv2 是否已有记录
+            existing_item = await sync_to_async(
+                lambda: InvoiceItemv2.objects.filter(
+                    PO_ID=po_id,
+                    shipping_marks=shipping_mark,
+                    container_number=container
+                ).first()
+            )()
+
+            if existing_item:
+                # 更新原记录
+                existing_item.qty = qty
+                existing_item.rate = ltl_quote
+                existing_item.cbm = total_cbm
+                existing_item.weight = total_weight
+                existing_item.amount = ltl_quote
+                existing_item.note = ltl_quote_note
+                existing_item.warehouse_code = getattr(first_pallet, "destination", "")
+                await sync_to_async(existing_item.save)()
+            else:
+                # 查 invoice_number
+                invoice_record = await sync_to_async(
+                    lambda: Invoicev2.objects.filter(container_number=container).first()
+                )()
+
+                if not invoice_record:
+                    # 调用自定义方法创建 invoice
+                    invoice_record, invoice_status = await self._create_invoice_and_status(container)
+
+                # 创建新记录
+                item = InvoiceItemv2(
+                    container_number=container,
+                    invoice_number=invoice_record,
+                    invoice_type="receivable",
+                    item_category="delivery_other",
+                    description="派送费",
+                    warehouse_code=getattr(first_pallet, "destination", ""),
+                    shipping_marks=shipping_mark,
+                    rate=ltl_quote,
+                    amount=ltl_quote,
+                    qty=qty,
+                    cbm=total_cbm,
+                    weight=total_weight,
+                    delivery_type="selfdelivery",
+                    PO_ID=po_id,
+                    note=ltl_quote_note,
+                    registered_user=username 
+                )
+                await sync_to_async(item.save)()
+
+        # 看下这个柜子私仓派送是不是都录完了，录完了就改状态
+        container = pallets[0].container_number
+        status_message = await self._try_complete_delivery_other_status(container)
+        return status_message
+    
+    async def _try_complete_delivery_other_status(self, container):
+        """
+        判断该 container 下所有应录入的 delivery_other 是否已完成
+        完成则更新 InvoiceStatusv2.delivery_other_status = completed
+        """
+
+        # 1️⃣ 查该 container 下应计派送费的 pallet
+        delivery_pallets = await sync_to_async(list)(
+            Pallet.objects.filter(
+                container_number=container,
+                delivery_type="other"
+            ).exclude(
+                delivery_method__icontains="暂扣"
+            )
+        )
+
+        if not delivery_pallets:
+            return
+
+        # 2️⃣ 构造“应存在”的索引集合
+        expected_keys = set()
+        for pallet in delivery_pallets:
+            expected_keys.add(
+                (
+                    pallet.PO_ID,
+                    pallet.shipping_mark,
+                    container.id
+                )
+            )
+
+        # 3️⃣ 查实际已存在的 InvoiceItemv2
+        existing_keys = set(
+            await sync_to_async(list)(
+                InvoiceItemv2.objects.filter(
+                    container_number=container,
+                    item_category="delivery_other",
+                    invoice_type="receivable"
+                ).values_list(
+                    "PO_ID",
+                    "shipping_marks",
+                    "container_number_id"
+                )
+            )
+        )
+        # 4️⃣ 全部已录 → 更新状态
+        if expected_keys.issubset(existing_keys):
+            invoice_status = await sync_to_async(
+                lambda: InvoiceStatusv2.objects.filter(
+                    container_number=container,
+                    invoice_type="receivable"
+                ).first()
+            )()
+
+            if invoice_status and invoice_status.delivery_other_status != "completed":
+                invoice_status.delivery_other_status = "completed"
+                await sync_to_async(invoice_status.save)()
+            return f"该柜子所有私仓派送账单已录完"
+        return None
+
+    async def _create_invoice_and_status(
+        self,
+        container: Container
+    ) -> tuple[Invoicev2, InvoiceStatusv2]:
+        """异步创建账单和状态记录"""
+
+        # 1️⃣ 查 Order（同步 ORM → async 包装）
+        order = await sync_to_async(
+            lambda: Order.objects.select_related(
+                "customer_name", "container_number"
+            ).get(container_number=container)
+        )()
+
+        current_date = datetime.now().date()
+        order_id = str(order.id)
+        customer_id = order.customer_name.id
+
+        # 2️⃣ 查是否已有 Invoice
+        existing_invoice = await sync_to_async(
+            lambda: Invoicev2.objects.filter(
+                container_number=container
+            ).first()
+        )()
+
+        if existing_invoice:
+            # 3️⃣ 查是否已有 Status
+            existing_status = await sync_to_async(
+                lambda: InvoiceStatusv2.objects.filter(
+                    invoice=existing_invoice,
+                    invoice_type="receivable"
+                ).first()
+            )()
+
+            if existing_status:
+                return existing_invoice, existing_status
+
+        # 4️⃣ 创建 Invoice
+        invoice = await sync_to_async(Invoicev2.objects.create)(
+            container_number=container,
+            invoice_number=(
+                f"{current_date.strftime('%Y%m%d')}C{customer_id}{order_id}"
+            ),
+            created_at=current_date,
+        )
+
+        # 5️⃣ 创建 InvoiceStatus
+        invoice_status = await sync_to_async(InvoiceStatusv2.objects.create)(
+            container_number=container,
+            invoice=invoice,
+            invoice_type="receivable",
+        )
+
+        return invoice, invoice_status
+    
     async def handle_save_selfpick_cargo(
         self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
