@@ -5933,7 +5933,7 @@ class PostNsop(View):
             
             # 将客户名用逗号拼接，并添加到shipment对象上
             shipment.customer = ", ".join(customer_names) if customer_names else "无客户信息"
-            shipment.details = "\n".join(details_set) if details_set else None
+            shipment.details = "<br>".join(details_set) if details_set else None
         
         return shipments
     
