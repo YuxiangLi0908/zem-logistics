@@ -139,6 +139,7 @@
         <tr>
             <th style="width:160px;">出库批次</th>
             <th style="width:150px;">预约批次</th>
+            <th style="width:260px;">详情</th>
             <th>客户名</th>
             <th>预约发车日期</th>
             <th>实际发车日期</th>
@@ -151,19 +152,20 @@
         <tr class="search-row">
             <td><input type="text" class="header-search" placeholder="搜索出库批次" data-column="0"></td>
             <td><input type="text" class="header-search" placeholder="搜索预约批次" data-column="1"></td>
-            <td><input type="text" class="header-search" placeholder="搜索客户名" data-column="2"></td>
-            <td><input type="text" class="header-search" placeholder="搜索预约发车日期" data-column="3"></td>
-            <td><input type="text" class="header-search" placeholder="搜索实际发车日期" data-column="4"></td>
-            <td><input type="text" class="header-search" placeholder="搜索板数" data-column="5"></td>
-            <td><input type="text" class="header-search" placeholder="搜索件数" data-column="6"></td>
+            <td><input type="text" class="header-search" placeholder="搜索详情" data-column="2"></td>
+            <td><input type="text" class="header-search" placeholder="搜索客户名" data-column="3"></td>
+            <td><input type="text" class="header-search" placeholder="搜索预约发车日期" data-column="4"></td>
+            <td><input type="text" class="header-search" placeholder="搜索实际发车日期" data-column="5"></td>
+            <td><input type="text" class="header-search" placeholder="搜索板数" data-column="6"></td>
+            <td><input type="text" class="header-search" placeholder="搜索件数" data-column="7"></td>
             <td>
-                <select class="search-select" data-column="7" onchange="filterPodTable(this)">
+                <select class="search-select" data-column="8" onchange="filterPodTable(this)">
                     <option value="">全部</option>
                     <option value="是">是</option>
                     <option value="否">否</option>
                 </select>
             </td>
-            <td><input type="text" class="header-search" placeholder="搜索备注" data-column="8"></td>
+            <td><input type="text" class="header-search" placeholder="搜索备注" data-column="9"></td>
             <td></td>
         </tr>
     </thead>
@@ -175,6 +177,9 @@
                 <span style="color: #7f8c8d; font-size: 0.8em;">{{ f.fleet_number.pickup_number|default_if_none:'' }}</span>
             </td>
             <td>{{ f.shipment_batch_number }}</td>
+            <td style="max-width: 260px; word-break: break-all; white-space: normal; overflow-wrap: break-word;">
+                {{ f.details|default_if_none:'-'|safe }}
+            </td>
             <td>{{ f.customer }}</td>
             <td>{{ f.fleet_number.appointment_datetime|date:"M-j" }}</td>
             <td>
@@ -255,7 +260,7 @@
                 let txtValue = '';
                 
                 // 特殊处理POD送达状态列（第7列）
-                if (columnIndex === 7) {
+                if (columnIndex === 8) {
                     const select = cell.querySelector('.status-select');
                     if (select) {
                         const selectedOption = select.options[select.selectedIndex];

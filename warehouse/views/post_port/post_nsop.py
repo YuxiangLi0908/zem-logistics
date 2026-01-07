@@ -85,7 +85,6 @@ class PostNsop(View):
     template_fleet_schedule = "post_port/new_sop/03_fleet_schedule/03_fleet_schedule.html"
     template_unscheduled_pos_all = "post_port/new_sop/01_unscheduled_pos_all/01_unscheduled_main.html"
     template_ltl_pos_all = "post_port/new_sop/05_ltl_pos_all/05_ltl_main.html"
-    template_search_quote = "post_port/new_sop/06_search_quote.html"
     template_history_shipment = "post_port/new_sop/04_history_shipment/04_history_shipment_main.html"
     template_bol = "export_file/bol_base_template.html"
     template_bol_pickup = "export_file/bol_template.html"
@@ -167,9 +166,6 @@ class PostNsop(View):
         elif step == "history_shipment":
             context = {"warehouse_options": self.warehouse_options}
             return render(request, self.template_history_shipment, context)
-        elif step == "search_quote":
-            context = {}
-            return render(request, self.template_search_quote, context) 
         else:
             raise ValueError('输入错误')
 
@@ -398,213 +394,12 @@ class PostNsop(View):
         elif step == "update_pod_status":
             template, context = await self.handle_update_pod_status(request)
             return render(request, template, context) 
-        elif step == "search_quote_container":
-            template, context = await self.search_quote_container(request)
-            return render(request, template, context) 
         elif step == "save_releaseCommand":
             template, context = await self.handle_save_releaseCommand(request)
             return render(request, template, context) 
         else:
             raise ValueError('输入错误',step)
-        
-    async def search_quote_container(self, request: HttpRequest) -> HttpResponse:
-        '''计算单板价格'''
-        if not context:
-            context = {}
-        
-        # 获取表单数据
-        container_numbers = request.POST.getlist("container_numbers[]")
-        destinations = request.POST.getlist("destinations[]")
-        
-        # 将柜号和目的地配对
-        query_pairs = []
-        for i in range(min(len(container_numbers), len(destinations))):
-            container_number = container_numbers[i].strip()
-            destination = destinations[i].strip()
-            if container_number and destination:  # 只添加非空的组合
-                query_pairs.append({
-                    'container_number': container_number,
-                    'destination': destination,
-                    'index': i  # 保持原始顺序
-                })
-        
-        search_results = []
-        total_pallets = 0
-        total_price = 0
-        found_count = 0
-        
-        # 保存当前搜索条件（用于重新加载页面时显示）
-        search_groups = []
-        
-        # 对每一对柜号+目的地进行查询
-        for pair in query_pairs:
-            container_number = pair['container_number']
-            destination = pair['destination']
-            
-            # 保存搜索条件
-            search_groups.append({
-                'container_number': container_number,
-                'destination': destination
-            })
-            
-            try:
-                # 调用单独的函数处理一对查询条件
-                result = self._get_quotation_for_pair(
-                    container_number=container_number,
-                    destination=destination
-                )
-                
-                # 确保结果包含所有必要字段
-                if result['is_found']:
-                    total_pallets += result.get('pallet_count', 0)
-                    total_price += result.get('total_price', 0)
-                    found_count += 1
-                
-                search_results.append(result)
-                
-            except Exception as e:
-                # 出错时返回错误结果
-                search_results.append({
-                    'container_number': container_number,
-                    'destination': destination,
-                    'unit_price': None,
-                    'pallet_count': 0,
-                    'total_price': 0,
-                    'is_found': False,
-                    'error': str(e)
-                })
-        
-        # 按原始索引排序（如果需要保持表单顺序）
-        search_results.sort(key=lambda x: query_pairs[
-            next((i for i, p in enumerate(query_pairs) 
-                if p['container_number'] == x['container_number'] 
-                and p['destination'] == x['destination']), 0)
-        ]['index'] if x['container_number'] in [p['container_number'] for p in query_pairs] else 0)
-        
-        # 更新context
-        context.update({
-            'search_results': search_results,
-            'search_groups': search_groups,
-            'total_pallets': total_pallets,
-            'total_price': round(total_price, 2),
-            'found_count': found_count,
-            'not_found_count': len(search_results) - found_count,
-            'has_total': total_pallets > 0 and total_price > 0,
-        })
-        
-        # 返回模板
-        return self.template_quotation_query, context
     
-    async def _get_quotation_for_pair(self, container_number: str, destination: str) -> dict:
-        """处理单对柜号+目的地的查询"""
-        
-        # 初始化结果
-        result = {
-            'container_number': container_number,
-            'destination': destination,
-            'unit_price': None,
-            'pallet_count': 0,
-            'total_price': 0,
-            'is_found': False,
-            'container_type': None,
-            'cbm_total': 0
-        }
-        container = Container.objects.filter(
-            container_number__iexact=container_number
-        ).first()
-        
-        if not container:
-            return result
-        pallets = Pallet.objects.filter(
-            container_number__container_number=container_number,
-            destination=destination,
-        )
-        await self._process_public_unbilled()
-
-    def _process_public_unbilled(
-        self,
-        group: Dict,
-        container,
-        order,
-        destination,
-        location,
-        fee_details,
-    ) -> Dict[str, Any]:
-        """处理公仓未录入的PO"""
-        context = {}
-        delivery_method = group.get("delivery_method", "")
-        warehouse = order.retrieval_id.retrieval_destination_area
-
-        # 获取结果，如果为空则设置为0.0
-        total_cbm = group.get("total_cbm")
-        total_weight_lbs = group.get("total_weight_lbs")
-        need_manual_input = False
-        # 1. 确定派送类型
-        if delivery_method and any(courier in delivery_method.upper() 
-                                 for courier in ["UPS", "FEDEX", "DHL", "DPD", "TNT"]):
-            delivery_category = "upsdelivery"
-            rate = 0
-            amount = 0
-            total_pallets = group.get("total_pallets")     
-            need_manual_input = True      
-        else:      
-            if "准时达" in order.customer_name.zem_name:
-                #准时达根据板子实际仓库找报价表，其他用户是根据建单
-                warehouse = location.split('-')[0]
-
-            #用转运方式计算费用
-            public_key = f"{warehouse}_PUBLIC"
-            if public_key not in fee_details:
-                context.update({'error_messages':'未找到亚马逊沃尔玛报价表'})
-                return context
-            rules = fee_details.get(f"{warehouse}_PUBLIC").details
-            niche_warehouse = fee_details.get(f"{warehouse}_PUBLIC").niche_warehouse
-            if destination in niche_warehouse:
-                is_niche_warehouse = True
-            else:
-                is_niche_warehouse = False
-            #LA和其他的存储格式有点区别
-            details = (
-                {"LA_AMAZON": rules}
-                if "LA" in warehouse and "LA_AMAZON" not in rules
-                else rules
-            )
-            delivery_category = None
-            rate_found = False
-            for category, zones in details.items():
-                for zone, locations in zones.items():
-                    if destination in locations:
-                        if "AMAZON" in category:
-                            delivery_category = "amazon"
-                            rate = zone
-                            rate_found = True
-                        elif "WALMART" in category:
-                            delivery_category = "walmart"
-                            rate = zone
-                            rate_found = True
-                if rate_found:
-                    break
-            if not rate_found:
-                need_manual_input = True
-                rate = 0
-                amount = 0
-                total_pallets = group.get("total_pallets")   
-            else:            
-                total_pallets = self._calculate_total_pallet(
-                    total_cbm, True, is_niche_warehouse
-                )               
-                rate = float(rate) if rate else 0.0
-                total_pallets = float(total_pallets) if total_pallets else 0.0
-                amount = rate * total_pallets
-
-        # 返回数据（不创建InvoiceItemv2记录）
-        return {
-            "id": None,
-            "destination": destination,
-            "rate": rate,
-            "total_pallet": len(pallets),
-            "amount": amount, 
-        }
     
     async def handle_bol_upload_post(self, request: HttpRequest) -> HttpResponse:
         '''客户自提的BOL文件下载'''
@@ -6110,7 +5905,7 @@ class PostNsop(View):
             )
              
             customer_names = set()
-            
+            details_set = set()
             for pallet in pallets:
                 if pallet.container_number:
                     # 获取与该container关联的所有order
@@ -6122,9 +5917,23 @@ class PostNsop(View):
                     for order in orders:
                         if order.customer_name:
                             customer_names.add(order.customer_name.zem_name)
+                # 拼接 details 信息
+                container_num = pallet.container_number.container_number if pallet.container_number else "无柜号"
+                destination = getattr(pallet, "destination", "") or ""
+                shipping_mark = getattr(pallet, "shipping_mark", "") or ""
+                detail_str = (
+                    f"<span style='color:blue;'>{container_num}</span>"
+                    f"<span style='color:red;'>-</span>"
+                    f"<span style='color:green;'>{destination}</span>"
+                    f"<span style='color:red;'>-</span>"
+                    f"<span style='color:orange;'>{shipping_mark}</span>"
+                )
+                details_set.add(detail_str)
+
             
             # 将客户名用逗号拼接，并添加到shipment对象上
             shipment.customer = ", ".join(customer_names) if customer_names else "无客户信息"
+            shipment.details = "\n".join(details_set) if details_set else None
         
         return shipments
     
