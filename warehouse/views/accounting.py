@@ -9634,14 +9634,14 @@ class Accounting(View):
                 except KeyError:
                     pickup_fee = 0
                     context.update({"error_messages": f"在报价表中找不到{warehouse}仓库{pick_subkey}柜型的提拆费"})
-                    return context
+                    return self.template_invoice_payable_edit_v1, context
             else:
                 try:
                     pickup_fee = fee_detail[warehouse][warehouse_precise][preport_carrier]["basic_45"]
                 except KeyError:
                     pickup_fee = 0
                     context.update({"error_messages": f"在报价表中找不到{warehouse}仓库{pick_subkey}柜型的提拆费"})
-                    return context
+                    return self.template_invoice_payable_edit_v1, context
 
         basic_fee = "N/A"
         if fee_detail[warehouse][warehouse_precise][preport_carrier].get('basic_40'):
