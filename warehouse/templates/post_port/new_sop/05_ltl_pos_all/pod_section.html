@@ -139,7 +139,7 @@
         <tr>
             <th style="width:160px;">出库批次</th>
             <th style="width:150px;">预约批次</th>
-            <th style="width:260px;">详情</th>
+            <th style="width:300px;">详情</th>
             <th>客户名</th>
             <th>预约发车日期</th>
             <th>实际发车日期</th>
@@ -177,7 +177,7 @@
                 <span style="color: #7f8c8d; font-size: 0.8em;">{{ f.fleet_number.pickup_number|default_if_none:'' }}</span>
             </td>
             <td>{{ f.shipment_batch_number }}</td>
-            <td style="max-width: 260px; word-break: break-all; white-space: normal; overflow-wrap: break-word;">
+            <td style="max-width: 300px; word-break: break-all; white-space: normal; overflow-wrap: break-word;">
                 {{ f.details|default_if_none:'-'|safe }}
             </td>
             <td>{{ f.customer }}</td>
