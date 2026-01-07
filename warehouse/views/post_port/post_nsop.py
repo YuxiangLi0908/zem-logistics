@@ -6046,8 +6046,8 @@ class PostNsop(View):
         delivery_data_raw = await self._fl_delivery_get(warehouse, None, 'ltl')
         delivery_data = delivery_data_raw['shipments']
         # #待传POD
-        pod_data_raw = await self._fl_pod_get(warehouse, None, 'ltl')
-        pod_data = pod_data_raw['fleet']
+        pod_data = await self._ltl_pod_get(warehouse)
+
         pod_data = sorted(
             pod_data,
             key=lambda p: p.pod_to_customer is True
@@ -6083,6 +6083,50 @@ class PostNsop(View):
         if active_tab:
             context.update({'active_tab':active_tab})
         return self.template_ltl_pos_all, context
+    
+    async def _ltl_pod_get(
+        self, warehouse:str,
+    ) -> dict[str, Any]: 
+
+        criteria = models.Q(
+            models.Q(models.Q(pod_link__isnull=True) | models.Q(pod_link="")),
+            shipped_at__isnull=False,
+            arrived_at__isnull=False,
+            shipment_schduled_at__gte="2024-12-01",
+            origin=warehouse,
+        )
+        criteria = criteria & models.Q(shipment_type__in=['LTL', '客户自提'])
+
+        shipments = await sync_to_async(list)(
+            Shipment.objects.select_related("fleet_number")
+            .filter(criteria)
+            .order_by("shipped_at")
+        )
+        for shipment in shipments:
+            # 获取与该shipment关联的所有pallet
+            pallets = await sync_to_async(list)(
+                Pallet.objects.filter(shipment_batch_number=shipment)
+                .select_related('container_number')
+            )
+             
+            customer_names = set()
+            
+            for pallet in pallets:
+                if pallet.container_number:
+                    # 获取与该container关联的所有order
+                    orders = await sync_to_async(list)(
+                        Order.objects.filter(container_number=pallet.container_number)
+                        .select_related('customer_name')
+                    )
+                    
+                    for order in orders:
+                        if order.customer_name:
+                            customer_names.add(order.customer_name.zem_name)
+            
+            # 将客户名用逗号拼接，并添加到shipment对象上
+            shipment.customer = ", ".join(customer_names) if customer_names else "无客户信息"
+        
+        return shipments
     
     async def _ltl_ready_to_ship_data(self, warehouse: str, user:User) -> list:
         """获取待出库数据 - 按fleet_number分组"""
@@ -6280,11 +6324,6 @@ class PostNsop(View):
         warehouse = 'LA-91761'
         if not context:
             context = {}
-        if warehouse:
-            warehouse_name = warehouse.split('-')[0]
-        else:
-            context.update({'error_messages':"没选仓库！"})
-            return self.template_unscheduled_pos_all, context
         
         nowtime = timezone.now()
         two_weeks_later = nowtime + timezone.timedelta(weeks=2)   
@@ -6292,7 +6331,7 @@ class PostNsop(View):
                 shipment_batch_number__shipment_batch_number__isnull=True,
                 container_number__orders__offload_id__offload_at__isnull=True,
                 container_number__orders__vessel_id__vessel_eta__lte=two_weeks_later, 
-                container_number__orders__retrieval_id__retrieval_destination_area=warehouse_name,
+                container_number__orders__retrieval_id__retrieval_destination_precise=warehouse,
                 container_number__is_abnormal_state=False,
                 destination__in=FOUR_MAJOR_WAREHOUSES
             )&
