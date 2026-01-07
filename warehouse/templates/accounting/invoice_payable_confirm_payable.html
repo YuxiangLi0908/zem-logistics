@@ -812,8 +812,10 @@
                                     <td class="td_fee">
                                         <span class="pickup-fee-amount">$0.00</span>
                                         {% for fee in c.container_number.invoice_itemv2.all %}
-                                            {% if fee.description == "提柜费用" and 'receivable' not in fee.invoice_type %}
+                                            {% if fee.description == "提柜费用" %}
+                                                {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
                                                 <span class="pickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
+                                                {% endif %}
                                             {% endif %}
                                         {% endfor %}
                                     </td>
@@ -822,8 +824,10 @@
                                     <td class="td_fee">
                                         <span class="pickup-fee-amount">$0.00</span>
                                         {% for fee in c.container_number.invoice_itemv2.all %}
-                                            {% if fee.description == "拆柜费用" and 'receivable' not in fee.invoice_type %}
+                                            {% if fee.description == "拆柜费用" %}
+                                                {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
                                                 <span class="pickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
+                                                {% endif %}
                                             {% endif %}
                                         {% endfor %}
                                     </td>
@@ -832,8 +836,10 @@
                                     <td class="td_fee">
                                         <span class="pickup-fee-amount">$0.00</span>
                                         {% for fee in c.container_number.invoice_itemv2.all %}
-                                            {% if fee.description == "入库拆柜费" and 'receivable' not in fee.invoice_type %}
+                                            {% if fee.description == "入库拆柜费" %}
+                                                {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
                                                 <span class="pickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
+                                                {% endif %}
                                             {% endif %}
                                         {% endfor %}
                                     </td>
@@ -842,8 +848,10 @@
                                     <td class="td_fee">
                                         <span class="pickup-fee-amount">$0.00</span>
                                         {% for fee in c.container_number.invoice_itemv2.all %}
-                                            {% if fee.description == "固定报价" and 'receivable' not in fee.invoice_type %}
+                                            {% if fee.description == "固定报价" %}
+                                                {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
                                                 <span class="pickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
+                                                {% endif %}
                                             {% endif %}
                                         {% endfor %}
                                     </td>
@@ -852,8 +860,10 @@
                                     <td class="td_fee">
                                         <span class="pickup-fee-amount">$0.00</span>
                                         {% for fee in c.container_number.invoice_itemv2.all %}
-                                            {% if fee.description == "等待费用" and 'receivable' not in fee.invoice_type %}
+                                            {% if fee.description == "等待费用" %}
+                                                {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
                                                 <span class="pickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
+                                                {% endif %}
                                             {% endif %}
                                         {% endfor %}
                                     </td>
@@ -862,8 +872,10 @@
                                     <td class="td_fee">
                                         <span class="pickup-fee-amount">$0.00</span>
                                         {% for fee in c.container_number.invoice_itemv2.all %}
-                                            {% if fee.description == "超重费用" and 'receivable' not in fee.invoice_type %}
+                                            {% if fee.description == "超重费用" %}
+                                                {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
                                                 <span class="pickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
+                                                {% endif %}
                                             {% endif %}
                                         {% endfor %}
                                     </td>
@@ -872,8 +884,10 @@
                                     <td class="td_fee">
                                         <span class="pickup-fee-amount">$0.00</span>
                                         {% for fee in c.container_number.invoice_itemv2.all %}
-                                            {% if fee.description == "港内滞港费" and 'receivable' not in fee.invoice_type %}
+                                            {% if fee.description == "港内滞港费" %}
+                                                {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
                                                 <span class="pickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
+                                                {% endif %}
                                             {% endif %}
                                         {% endfor %}
                                     </td>
@@ -882,8 +896,10 @@
                                     <td class="td_fee">
                                         <span class="pickup-fee-amount">$0.00</span>
                                         {% for fee in c.container_number.invoice_itemv2.all %}
-                                            {% if fee.description == "港外滞箱费" and 'receivable' not in fee.invoice_type %}
+                                            {% if fee.description == "港外滞箱费" %}
+                                                {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
                                                 <span class="pickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
+                                                {% endif %}
                                             {% endif %}
                                         {% endfor %}
                                     </td>
@@ -892,8 +908,10 @@
                                     <td class="td_fee">
                                         <span class="pickup-fee-amount">$0.00</span>
                                         {% for fee in c.container_number.invoice_itemv2.all %}
-                                            {% if fee.description == "车架费用" and 'receivable' not in fee.invoice_type %}
+                                            {% if fee.description == "车架费用" %}
+                                                {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
                                                 <span class="pickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
+                                                {% endif %}
                                             {% endif %}
                                         {% endfor %}
                                     </td>
@@ -904,8 +922,10 @@
                                         data-type="other"
                                         data-fees="
                                                 {% for fee in c.container_number.invoice_itemv2.all %}
-                                                    {% if '其他费用' in fee.description and 'receivable' not in fee.invoice_type %}
-                                                        {{ fee.rate|default:0|floatformat:2 }},
+                                                    {% if '其他费用' in fee.description %}
+                                                        {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
+                                                            {{ fee.rate|default:0|floatformat:2 }},
+                                                        {% endif %}
                                                     {% endif %}
                                                 {% endfor %}">
                                         <div class="fee-total">
@@ -919,8 +939,8 @@
                                         data-type="total"
                                         data-fees="
                                                 {% for fee in c.container_number.invoice_itemv2.all %}
-                                                    {% if 'receivable' not in fee.invoice_type %}
-                                                        {{ fee.rate|default:0|floatformat:2 }},
+                                                    {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
+                                                    {{ fee.rate|default:0|floatformat:2 }},
                                                     {% endif %}
                                                 {% endfor %}">
                                         <div class="fee-total">
@@ -1079,8 +1099,10 @@
                                     <td class="td_fee">
                                         <span class="pickup-fee-amount">$0.00</span>
                                         {% for fee in c.container_number.invoice_itemv2.all %}
-                                            {% if fee.description == "拆柜费用" %}
+                                            {% if fee.description == "提柜费用" %}
+                                                {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
                                                 <span class="pickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
+                                                {% endif %}    
                                             {% endif %}
                                         {% endfor %}
                                     </td>
@@ -1090,7 +1112,9 @@
                                         <span class="pickup-fee-amount">$0.00</span>
                                         {% for fee in c.container_number.invoice_itemv2.all %}
                                             {% if fee.description == "入库拆柜费" %}
+                                                {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
                                                 <span class="pickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
+                                                {% endif %}
                                             {% endif %}
                                         {% endfor %}
                                     </td>
@@ -1100,7 +1124,9 @@
                                         <span class="pickup-fee-amount">$0.00</span>
                                         {% for fee in c.container_number.invoice_itemv2.all %}
                                             {% if fee.description == "固定报价" %}
+                                                {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
                                                 <span class="pickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
+                                                {% endif %}
                                             {% endif %}
                                         {% endfor %}
                                     </td>
@@ -1110,7 +1136,9 @@
                                         <span class="pickup-fee-amount">$0.00</span>
                                         {% for fee in c.container_number.invoice_itemv2.all %}
                                             {% if fee.description == "等待费用" %}
+                                                {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
                                                 <span class="pickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
+                                                {% endif %}
                                             {% endif %}
                                         {% endfor %}
                                     </td>
@@ -1120,7 +1148,9 @@
                                         <span class="pickup-fee-amount">$0.00</span>
                                         {% for fee in c.container_number.invoice_itemv2.all %}
                                             {% if fee.description == "超重费用" %}
+                                                {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
                                                 <span class="pickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
+                                                {% endif %}
                                             {% endif %}
                                         {% endfor %}
                                     </td>
@@ -1130,7 +1160,9 @@
                                         <span class="pickup-fee-amount">$0.00</span>
                                         {% for fee in c.container_number.invoice_itemv2.all %}
                                             {% if fee.description == "港内滞港费" %}
+                                                {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
                                                 <span class="pickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
+                                                {% endif %}
                                             {% endif %}
                                         {% endfor %}
                                     </td>
@@ -1140,7 +1172,9 @@
                                         <span class="pickup-fee-amount">$0.00</span>
                                         {% for fee in c.container_number.invoice_itemv2.all %}
                                             {% if fee.description == "港外滞箱费" %}
+                                                {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
                                                 <span class="pickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
+                                                {% endif %}
                                             {% endif %}
                                         {% endfor %}
                                     </td>
@@ -1150,7 +1184,9 @@
                                         <span class="pickup-fee-amount">$0.00</span>
                                         {% for fee in c.container_number.invoice_itemv2.all %}
                                             {% if fee.description == "车架费用" %}
+                                                {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
                                                 <span class="pickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
+                                                {% endif %}
                                             {% endif %}
                                         {% endfor %}
                                     </td>
@@ -1160,7 +1196,13 @@
                                         data-container-id="{{ c.container_number.id }}"
                                         data-type="other"
                                         data-fees="
-                                                {% for fee in c.container_number.invoice_itemv2.all %}{% if '其他费用' in fee.description %}{{ fee.rate|default:0|floatformat:2 }},{% endif %}{% endfor %}">
+                                                {% for fee in c.container_number.invoice_itemv2.all %}
+                                                    {% if '其他费用' in fee.description %}
+                                                        {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
+                                                        {{ fee.rate|default:0|floatformat:2 }},
+                                                        {% endif %}
+                                                    {% endif %}
+                                                {% endfor %}">
                                         <div class="fee-total">
                                             <strong>合计：<span class="total-amount">$0.00</span></strong>
                                         </div>
@@ -1171,7 +1213,11 @@
                                         data-container-id="{{ c.container_number.id }}"
                                         data-type="total"
                                         data-fees="
-                                                {% for fee in c.container_number.invoice_itemv2.all %}{{ fee.rate|default:0|floatformat:2 }},{% endfor %}">
+                                                {% for fee in c.container_number.invoice_itemv2.all %}
+                                                {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
+                                                    {{ fee.rate|default:0|floatformat:2 }},
+                                                {% endif %}
+                                                {% endfor %}">
                                         <div class="fee-total">
                                             <strong>合计：<span class="total-amount">$0.00</span></strong>
                                         </div>
