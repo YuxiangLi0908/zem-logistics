@@ -333,8 +333,8 @@
         max-width: 160px;
     }
     .fleet-cost-note-col, .fleet-quote-note-col {
-        min-width: 100px;
-        max-width: 150px;
+        min-width: 150px;
+        max-width: 200px;
     }
 
     .fleet-contact-method-input {
@@ -391,8 +391,8 @@
 
     /* 成本、报价列样式 */
     .fleet-cost-col, .fleet-quote-col {
-        min-width: 80px;
-        max-width: 100px;
+        min-width: 100px;
+        max-width: 120px;
         text-align: center;
     }
 
@@ -722,21 +722,36 @@
                             rows="1">{{ cargo.ltl_cost_note|default:'' }}</textarea>
                     </td>
                     <td class="fleet-quote-col">
-                        <input type="number" class="fleet-quote-input" 
-                            data-id="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
-                            value="{% if cargo.ltl_quote %}{{ cargo.ltl_quote }}{% endif %}"
-                            placeholder="0.00"
-                            step="0.01"
-                            min="0"
-                            onchange="fleet_saveQuote(this)">
+                        {% if cargo.data_source == "PALLET" and not cargo.delivery_method|default:""|contains:"暂扣" %}
+                            <input type="number" class="fleet-quote-input" 
+                                data-id="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
+                                value="{% if cargo.ltl_quote %}{{ cargo.ltl_quote }}{% endif %}"
+                                placeholder="0.00"
+                                step="0.01"
+                                min="0"
+                                onchange="fleet_saveQuote(this)">
+                        {% else %}
+                            <span style="color: #999; font-style: italic;">-</span>
+                        {% endif %}
                     </td>
                     <td class="fleet-quote-note-col">
-                        <textarea class="fleet-editable-textarea fleet-quote-note-input"
-                            data-id="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
-                            placeholder="输入报价备注"
-                            oninput="fleet_autoResizeTextarea(this)"
-                            onchange="fleet_saveQuoteNote(this)"
-                            rows="1">{{ cargo.ltl_quote_note|default:'' }}</textarea>
+                        {% if cargo.data_source == "PALLET" and not cargo.delivery_method|default:""|contains:"暂扣" %}
+                            <textarea class="fleet-editable-textarea fleet-quote-note-input"
+                                data-id="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
+                                placeholder="输入报价备注"
+                                oninput="fleet_autoResizeTextarea(this)"
+                                onchange="fleet_saveQuoteNote(this)"
+                                rows="1">{{ cargo.ltl_quote_note|default:'' }}</textarea>
+
+                        {% elif cargo.delivery_method|default:""|contains:"暂扣" %}
+                            <span style="color: #999; font-style: italic;">暂扣不可编辑</span>
+
+                        {% elif cargo.data_source != "PALLET" %}
+                            <span style="color: #999; font-style: italic;">未打板不可录</span>
+
+                        {% else %}
+                            <span style="color: #999; font-style: italic;">-</span>
+                        {% endif %}
                     </td>
                     <td class="fleet-carrier-col">
                         <input type="text" class="fleet-carrier-input" 

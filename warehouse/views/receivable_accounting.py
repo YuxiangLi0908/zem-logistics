@@ -4107,11 +4107,12 @@ class ReceivableAccounting(View):
             )
             .annotate(destination=F("warehouse_code"))
             .annotate(total_cbm=F("cbm"))
-            .annotate(total_weight=F("weight"))          
+            .annotate(total_weight_lbs=F("weight"))          
             .annotate(total_pallets=F("qty"))
             .annotate(delivery_category=F("delivery_type"))
             .annotate(is_existing=Value(True, output_field=BooleanField()))
         )
+
         return {
             "normal_items": normal_items_list,
             "combina_groups": combina_groups,
