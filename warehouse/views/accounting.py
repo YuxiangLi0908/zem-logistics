@@ -4403,7 +4403,8 @@ class Accounting(View):
             self.handle_invoice_payable_save_post_v1_item(request, data, save_type, container_number)
     def handle_invoice_payable_save_post_v1_item(self, request: HttpRequest, data, save_type, container_number) -> tuple[Any, Any]:
         invoice_status = InvoiceStatusv2.objects.get(
-            container_number__container_number=container_number
+            models.Q(invoice_type='payable') | models.Q(invoice_type='payable_direct'),
+            container_number__container_number=container_number,
         )
         if save_type == "return":  # 返回不需要保存数据
             return self.handle_invoice_payable_get_v1(
