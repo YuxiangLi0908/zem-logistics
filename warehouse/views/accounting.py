@@ -9186,7 +9186,7 @@ class Accounting(View):
         )
 
     def handle_container_invoice_payable_get_v1(
-        self, request: HttpRequest, account_confirm: str, is_confirm, is_save_invoice
+        self, request: HttpRequest, account_confirm, is_confirm, is_save_invoice
     ) -> tuple[Any, Any]:
         container_number = request.GET.get("container_number")
         order = Order.objects.select_related(
