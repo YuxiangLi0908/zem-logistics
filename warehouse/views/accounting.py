@@ -9627,8 +9627,8 @@ class Accounting(View):
         match = re.match(r"\d+", container_type)
         pickup_fee = 0
         if match:
-            pick_subkey = match.group()
-            if match == 40:
+            pick_subkey = int(match.group())
+            if pick_subkey == 40:
                 try:
                     pickup_fee = fee_detail[warehouse][warehouse_precise][preport_carrier]["basic_40"]
                 except KeyError:

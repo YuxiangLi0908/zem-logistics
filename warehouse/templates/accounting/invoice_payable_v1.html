@@ -816,7 +816,7 @@
                                             <!-- 1. 提柜费用 -->
                                             <td class="td_fee">
                                                 {% for fee in c.container_number.invoice_itemv2.all %}
-                                                    {% if fee.description == "提柜费用" %}
+                                                    {% if fee.description == "提柜费用" and 'receivable' not in fee.invoice_type%}
                                                         <span class="pickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
                                                     {% endif %}
                                                 {% endfor %}
@@ -825,7 +825,7 @@
                                             <!-- 2. 拆柜费用 -->
                                             <td class="td_fee">
                                                 {% for fee in c.container_number.invoice_itemv2.all %}
-                                                    {% if fee.description == "拆柜费用" %}
+                                                    {% if fee.description == "拆柜费用" and 'receivable' not in fee.invoice_type%}
                                                         <span class="pickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
                                                     {% endif %}
                                                 {% endfor %}
@@ -834,7 +834,7 @@
                                             <!-- 3. 入库拆柜费 -->
                                             <td class="td_fee">
                                                 {% for fee in c.container_number.invoice_itemv2.all %}
-                                                    {% if fee.description == "入库拆柜费" %}
+                                                    {% if fee.description == "入库拆柜费" and 'receivable' not in fee.invoice_type%}
                                                         <span class="pickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
                                                     {% endif %}
                                                 {% endfor %}
@@ -843,7 +843,7 @@
                                             <!-- 3. 超重费用 -->
                                             <td class="td_fee">
                                                 {% for fee in c.container_number.invoice_itemv2.all %}
-                                                    {% if fee.description == "超重费用" %}
+                                                    {% if fee.description == "超重费用" and 'receivable' not in fee.invoice_type %}
                                                         <span class="pickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
                                                     {% endif %}
                                                 {% endfor %}
@@ -852,7 +852,7 @@
                                             <!-- 4. 港内滞港费 -->
                                             <td class="td_fee">
                                                 {% for fee in c.container_number.invoice_itemv2.all %}
-                                                    {% if fee.description == "港内滞港费" %}
+                                                    {% if fee.description == "港内滞港费" and 'receivable' not in fee.invoice_type %}
                                                         <span class="pickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
                                                     {% endif %}
                                                 {% endfor %}
@@ -861,7 +861,7 @@
                                             <!-- 5. 港外滞箱费 -->
                                             <td class="td_fee">
                                                 {% for fee in c.container_number.invoice_itemv2.all %}
-                                                    {% if fee.description == "港外滞箱费" %}
+                                                    {% if fee.description == "港外滞箱费" and 'receivable' not in fee.invoice_type %}
                                                         <span class="pickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
                                                     {% endif %}
                                                 {% endfor %}
@@ -870,7 +870,7 @@
                                             <!-- 6. 车架费用 -->
                                             <td class="td_fee">
                                                 {% for fee in c.container_number.invoice_itemv2.all %}
-                                                    {% if fee.description == "车架费用" %}
+                                                    {% if fee.description == "车架费用" and 'receivable' not in fee.invoice_type %}
                                                         <span class="pickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
                                                     {% endif %}
                                                 {% endfor %}
@@ -880,9 +880,12 @@
                                             <td class="td_fee"
                                                 data-container-id="{{ c.container_number.id }}"
                                                 data-type="other"
-                                                    {% comment %} 核心修复：一行写完，无换行/空格，确保格式正确 {% endcomment %}
                                                 data-fees="
-                                                        {% for fee in c.container_number.invoice_itemv2.all %}{% if '其他费用' in fee.description %}{{ fee.rate|default:0|floatformat:2 }},{% endif %}{% endfor %}">
+                                                {% for fee in c.container_number.invoice_itemv2.all %}
+                                                    {% if '其他费用' in fee.description and 'receivable' not in fee.invoice_type %}
+                                                        {{ fee.rate|default:0|floatformat:2 }},
+                                                    {% endif %}
+                                                {% endfor %}">
                                                 <div class="fee-total">
                                                     <strong>合计：<span class="total-amount">$0.00</span></strong>
                                                 </div>
@@ -892,9 +895,12 @@
                                             <td class="td_fee"
                                                 data-container-id="{{ c.container_number.id }}"
                                                 data-type="total"
-                                                    {% comment %} 核心修复：一行写完，无换行/空格 {% endcomment %}
                                                 data-fees="
-                                                        {% for fee in c.container_number.invoice_itemv2.all %}{{ fee.rate|default:0|floatformat:2 }},{% endfor %}">
+                                                        {% for fee in c.container_number.invoice_itemv2.all %}
+                                                            {% if 'receivable' not in fee.invoice_type %}
+                                                                {{ fee.rate|default:0|floatformat:2 }},
+                                                            {% endif %}
+                                                        {% endfor %}">
                                                 <div class="fee-total">
                                                     <strong>合计：<span class="total-amount">$0.00</span></strong>
                                                 </div>
