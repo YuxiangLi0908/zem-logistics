@@ -4362,6 +4362,7 @@ class Accounting(View):
             container_numbers = data.getlist("containers")
             for container_number in container_numbers:
                 invoice_status = InvoiceStatusv2.objects.get(
+                    models.Q(invoice_type='payable') | models.Q(invoice_type='payable_direct'),
                     container_number__container_number=container_number
                 )
                 if invoice_status.preport_status != "unstarted":
@@ -4391,6 +4392,7 @@ class Accounting(View):
             container_numbers = data.getlist("containers")
             for container_number in container_numbers:
                 invoice_status = InvoiceStatusv2.objects.get(
+                    models.Q(invoice_type='payable') | models.Q(invoice_type='payable_direct'),
                     container_number__container_number=container_number
                 )
                 invoice_status.finance_status = "completed"
