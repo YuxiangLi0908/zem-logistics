@@ -409,7 +409,7 @@
 <div id="selfpick-page">
     <!-- 批量操作区域 -->
     <div class="batch-actions">
-        <span class="selected-count">已选择 <span id="selfpick_selectedSelfPickCount">0</span> 组货物</span>
+        <span class="selected-count">已选择 <span id="selfpick_selectedSelfPickCount">0</span> 条</span>
 
         <div id="selfpick_selectedStats" class="selected-stats">
             <span style="font-weight: 600; color: #2e7d32;">
@@ -425,6 +425,9 @@
         
         <button class="action-btn btn-primary" onclick="scheduleShipment()">
             <i class="fas fa-calendar-check"></i> 预约出库
+        </button>
+        <button class="action-btn btn-warning" onclick="copySelectedRows()" title="复制选中行的柜号、目的地、唛头">
+            <i class="fas fa-copy"></i> 复制选中行
         </button>
         <button class="action-btn btn-secondary" onclick="clearSelfPickAllFilters()">
             <i class="fas fa-times"></i> 清空筛选
@@ -716,7 +719,26 @@
                     updateSelfPickSelectedCount();
                 });
             });
-            
+
+            // 添加键盘快捷键支持 (Ctrl+C 或 Cmd+C)
+            document.addEventListener('keydown', function(e) {
+                // 检查是否按下了 Ctrl+C 或 Cmd+C
+                if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
+                    // 检查是否有选中的行
+                    const selectedCheckboxes = Array.from(document.querySelectorAll('.self-cargo-checkbox:checked'))
+                        .filter(checkbox => {
+                            const row = checkbox.closest('tr');
+                            return row.style.display !== 'none' && !row.classList.contains('filter-row');
+                        });
+                    
+                    if (selectedCheckboxes.length > 0) {
+                        // 阻止默认的复制行为
+                        e.preventDefault();
+                        // 调用我们的复制函数
+                        copySelectedRows();
+                    }
+                }
+            });
         }
 
         // 自动调整textarea高度
@@ -746,6 +768,206 @@
             fleet_pendingChanges[id].follow_status = value;
             
             showSaveNotification(`跟进状态已保存到本地`);
+        }
+
+        // 新增：复制选中行数据到剪贴板
+        function copySelectedRows() {
+            const selectedCheckboxes = Array.from(document.querySelectorAll('.self-cargo-checkbox:checked'))
+                .filter(checkbox => {
+                    const row = checkbox.closest('tr');
+                    return row.style.display !== 'none' && !row.classList.contains('filter-row');
+                });
+
+            if (selectedCheckboxes.length === 0) {
+                alert('请先选择要复制的行');
+                return;
+            }
+
+            // 收集选中的柜号、目的地、唛头数据
+            const rowsData = [];
+            
+            selectedCheckboxes.forEach(checkbox => {
+                const row = checkbox.closest('tr');
+                
+                // 获取柜号（从第5个td开始，索引从0开始）
+                const containerTd = row.cells[4]; // 柜号列
+                const destinationTd = row.cells[5]; // 目的地列
+                const shippingMarkTd = row.cells[6]; // 唛头列
+                const palletSizeTd = row.cells[10];
+                
+                // 提取文本内容（移除可能存在的HTML标签）
+                const containerNumber = containerTd ? containerTd.textContent.trim() : '';
+                const destination = destinationTd ? destinationTd.textContent.trim() : '';
+                const shippingMark = shippingMarkTd ? shippingMarkTd.textContent.trim() : '';
+                let palletSize = '';
+
+                if (palletSizeTd) {
+                    // 先尝试从textarea获取
+                    const palletSizeInput = palletSizeTd.querySelector('.pallet-size-input');
+                    if (palletSizeInput && palletSizeInput.value.trim()) {
+                        // 从textarea获取用户输入的值
+                        palletSize = palletSizeInput.value.trim();
+                    } else {
+                        // 如果没有输入框或值为空，检查是否显示"-"
+                        const displaySpan = palletSizeTd.querySelector('span[style*="color: #999"]');
+                        if (displaySpan) {
+                            // 这是PackingList数据显示的"-"
+                            palletSize = '';
+                        } else {
+                            // 否则获取单元格文本
+                            palletSize = palletSizeTd.textContent.trim();
+                        }
+                    }
+                }
+                if (palletSize === '-' || palletSize.includes('font-style: italic')) {
+                    palletSize = '';
+                }
+                console.log('托盘尺寸',palletSizeTd,palletSize);
+
+                // 添加到数据数组
+                rowsData.push([containerNumber, destination, shippingMark, palletSize]);
+            });
+
+            // 将数据转换为制表符分隔的字符串（兼容Excel粘贴）
+            const csvData = rowsData.map(row => row.join('\t')).join('\n');
+            
+            // 复制到剪贴板
+            navigator.clipboard.writeText(csvData)
+                .then(() => {
+                    // 显示成功提示
+                    showCopyNotification(`已复制 ${selectedCheckboxes.length} 行数据到剪贴板<br>（柜号、目的地、唛头、托盘尺寸)`);
+                })
+                .catch(err => {
+                    console.error('复制失败:', err);
+                    
+                    // 降级方案：使用传统方法复制
+                    try {
+                        const textarea = document.createElement('textarea');
+                        textarea.value = csvData;
+                        textarea.style.position = 'fixed';
+                        textarea.style.opacity = '0';
+                        document.body.appendChild(textarea);
+                        textarea.select();
+                        
+                        const successful = document.execCommand('copy');
+                        document.body.removeChild(textarea);
+                        
+                        if (successful) {
+                            showCopyNotification(`已复制 ${selectedCheckboxes.length} 行数据到剪贴板<br>（柜号、目的地、唛头、托盘尺寸)`);
+                        } else {
+                            alert('复制失败，请手动选择并复制数据');
+                        }
+                    } catch (fallbackErr) {
+                        console.error('降级复制失败:', fallbackErr);
+                        alert('复制失败，请检查浏览器权限或手动复制');
+                    }
+                });
+        }
+
+        // 显示复制成功的通知
+        function showCopyNotification(message) {
+            // 先移除可能存在的旧通知
+            const oldNotifications = document.querySelectorAll('.selfpick-copy-notification');
+            oldNotifications.forEach(notification => notification.remove());
+            
+            // 创建通知元素
+            const notification = document.createElement('div');
+            notification.className = 'selfpick-copy-notification';
+            
+            // 极简清新样式
+            notification.style.cssText = `
+                position: fixed !important;
+                top: 50% !important;
+                left: 50% !important;
+                transform: translate(-50%, -50%) !important;
+                background: white !important;
+                color: #2c3e50 !important;
+                padding: 18px 25px !important;
+                border-radius: 10px !important;
+                box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08),
+                            0 0 0 1px #e9ecef !important;
+                z-index: 99999 !important;
+                animation: selfpickMinimalFade 0.25s ease !important;
+                font-size: 14px !important;
+                font-weight: 500 !important;
+                text-align: center !important;
+                max-width: 280px !important;
+                backdrop-filter: blur(5px) !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                gap: 10px !important;
+                border: 1px solid #e0e6ed !important;
+                line-height: 1.5 !important;
+            `;
+            
+            notification.innerHTML = `
+                <span style="color: #4a90e2; font-size: 18px;">
+                    <i class="fas fa-check"></i>
+                </span>
+                <span>${message}</span>
+            `;
+            
+            // 添加到body
+            document.body.appendChild(notification);
+            
+            // 添加动画样式
+            if (!document.querySelector('#selfpick-minimal-styles')) {
+                const style = document.createElement('style');
+                style.id = 'selfpick-minimal-styles';
+                style.textContent = `
+                    @keyframes selfpickMinimalFade {
+                        0% { 
+                            opacity: 0;
+                            transform: translate(-50%, -50%) translateY(10px);
+                        }
+                        100% { 
+                            opacity: 1;
+                            transform: translate(-50%, -50%) translateY(0);
+                        }
+                    }
+                    
+                    .selfpick-copy-notification:hover {
+                        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1) !important;
+                        transform: translate(-50%, -50%) translateY(-1px) !important;
+                    }
+                `;
+                document.head.appendChild(style);
+            }
+            
+            // 悬停效果
+            notification.addEventListener('mouseenter', function() {
+                this.style.boxShadow = '0 6px 20px rgba(0, 0, 0, 0.1) !important';
+                this.style.transform = 'translate(-50%, -50%) translateY(-1px) !important';
+            });
+            
+            notification.addEventListener('mouseleave', function() {
+                this.style.boxShadow = '0 4px 15px rgba(0, 0, 0, 0.08) !important';
+                this.style.transform = 'translate(-50%, -50%) translateY(0) !important';
+            });
+            
+            // 点击关闭
+            notification.addEventListener('click', function() {
+                this.style.opacity = '0';
+                this.style.transform = 'translate(-50%, -50%) translateY(-5px)';
+                setTimeout(() => {
+                    if (this.parentNode) {
+                        this.parentNode.removeChild(this);
+                    }
+                }, 200);
+            });
+            
+            // 2秒后自动淡出
+            setTimeout(() => {
+                notification.style.opacity = '0';
+                notification.style.transform = 'translate(-50%, -50%) translateY(-5px)';
+                notification.style.transition = 'all 0.3s ease !important';
+                setTimeout(() => {
+                    if (notification.parentNode) {
+                        notification.parentNode.removeChild(notification);
+                    }
+                }, 300);
+            }, 2000);
         }
 
         // 保存承运公司
@@ -1298,5 +1520,7 @@
         window.savePickupDate = savePickupDate;
         window.saveRowData = saveRowData;
         window.autoResizeTextarea = autoResizeTextarea;
+        window.copySelectedRows = copySelectedRows;
+        window.showCopyNotification = showCopyNotification;
     })(); // 立即执行
 </script>

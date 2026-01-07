@@ -464,6 +464,11 @@
         <button class="fleet-action-btn fleet-btn-primary" onclick="fleet_scheduleShipment()">
             <i class="fas fa-calendar-check"></i> 预约出库
         </button>
+        <button class="fleet-action-btn fleet-btn-warning fleet-copy-btn-hint" 
+                onclick="fleet_copySelectedRows()" 
+                title="复制选中行的柜号、目的地、唛头">
+            <i class="fas fa-copy"></i> 复制选中行
+        </button>
         <button class="fleet-action-btn fleet-btn-secondary" onclick="fleet_clearAllFilters()">
             <i class="fas fa-times"></i> 清空筛选
         </button>
@@ -826,7 +831,28 @@
                     fleet_updateSelectedCount();
                 });
             });
-            
+
+            // 初始化复制快捷键
+            fleet_initCopyShortcut();
+            // 添加复制按钮提示样式
+            if (!document.querySelector('#fleet-copy-btn-styles')) {
+                const style = document.createElement('style');
+                style.id = 'fleet-copy-btn-styles';
+                style.textContent = `
+                    /* 复制按钮的提示 */
+                    .fleet-copy-btn-hint {
+                        position: relative;
+                    }
+                    
+                    .fleet-copy-btn-hint::after {
+                        content: '';
+                        font-size: 0.8em;
+                        opacity: 0.7;
+                        font-style: italic;
+                    }
+                `;
+                document.head.appendChild(style);
+            }
         }
 
         // 自动调整textarea高度
@@ -1003,7 +1029,7 @@
             
             fleet_showSaveNotification(`PRO号已保存到本地`);
         }
-
+        
         // 保存行数据到服务器
         function fleet_saveRowData(button) {
             const row = button.closest('tr');
@@ -1075,54 +1101,274 @@
             }
         }
 
-        // 显示保存通知
-        function fleet_showSaveNotification(message) {
+        // 新增：复制选中行数据到剪贴板（针对自发页面）
+        function fleet_copySelectedRows() {
+            const selectedCheckboxes = Array.from(document.querySelectorAll('.fleet-cargo-checkbox:checked'))
+                .filter(checkbox => {
+                    const row = checkbox.closest('tr');
+                    return row.style.display !== 'none' && !row.classList.contains('fleet-filter-row');
+                });
+
+            if (selectedCheckboxes.length === 0) {
+                fleet_showCopyNotification('请先选择要复制的行', 'warning');
+                return;
+            }
+
+            // 收集选中的柜号、目的地、唛头数据
+            const rowsData = [];
+            
+            selectedCheckboxes.forEach(checkbox => {
+                const row = checkbox.closest('tr');
+                
+                // 获取柜号、目的地、唛头列
+                const containerTd = row.cells[4]; // 柜号列（第5列）
+                const destinationTd = row.cells[5]; // 目的地列（第6列）
+                const shippingMarkTd = row.cells[6]; // 唛头列（第7列）
+                
+                
+                // 提取文本内容
+                const containerNumber = containerTd ? containerTd.textContent.trim() : '';
+                const destination = destinationTd ? destinationTd.textContent.trim() : '';
+                const shippingMark = shippingMarkTd ? shippingMarkTd.textContent.trim() : '';
+                
+                // 添加到数据数组
+                rowsData.push([containerNumber, destination, shippingMark]);
+            });
+
+            // 将数据转换为制表符分隔的字符串（兼容Excel粘贴）
+            const csvData = rowsData.map(row => row.join('\t')).join('\n');
+            
+            // 复制到剪贴板
+            navigator.clipboard.writeText(csvData)
+                .then(() => {
+                    // 显示成功提示
+                    fleet_showCopyNotification(`已复制 ${selectedCheckboxes.length} 行数据到剪贴板<br>（柜号、目的地、唛头)`, 'success');
+                })
+                .catch(err => {
+                    console.error('复制失败:', err);
+                    
+                    // 降级方案：使用传统方法复制
+                    try {
+                        const textarea = document.createElement('textarea');
+                        textarea.value = csvData;
+                        textarea.style.position = 'fixed';
+                        textarea.style.opacity = '0';
+                        document.body.appendChild(textarea);
+                        textarea.select();
+                        
+                        const successful = document.execCommand('copy');
+                        document.body.removeChild(textarea);
+                        
+                        if (successful) {
+                            fleet_showCopyNotification(`已复制 ${selectedCheckboxes.length} 行数据到剪贴板<br>（柜号、目的地、唛头、托盘尺寸）`, 'success');
+                        } else {
+                            fleet_showCopyNotification('复制失败，请手动选择并复制数据', 'error');
+                        }
+                    } catch (fallbackErr) {
+                        console.error('降级复制失败:', fallbackErr);
+                        fleet_showCopyNotification('复制失败，请检查浏览器权限或手动复制', 'error');
+                    }
+                });
+        }
+
+        // 新增：显示复制通知（针对自发页面）
+        function fleet_showCopyNotification(message, type = 'success') {
+            // 移除已有的通知
+            const existingNotification = document.querySelector('.fleet-copy-notification');
+            if (existingNotification) {
+                existingNotification.remove();
+            }
+            
+            // 根据类型设置颜色
+            let bgColor, icon, textColor;
+            switch(type) {
+                case 'success':
+                    bgColor = '#ffffff'; // 白色背景
+                    textColor = '#2c3e50'; // 深灰色文字
+                    icon = '<i class="fas fa-check"></i>';
+                    break;
+                case 'warning':
+                    bgColor = '#fff8e1'; // 淡黄色背景
+                    textColor = '#ff9800'; // 橙色文字
+                    icon = '<i class="fas fa-exclamation-triangle"></i>';
+                    break;
+                case 'error':
+                    bgColor = '#ffebee'; // 淡红色背景
+                    textColor = '#f44336'; // 红色文字
+                    icon = '<i class="fas fa-times-circle"></i>';
+                    break;
+                default:
+                    bgColor = '#ffffff';
+                    textColor = '#2c3e50';
+                    icon = '<i class="fas fa-info-circle"></i>';
+            }
+            
+            // 创建通知元素
             const notification = document.createElement('div');
+            notification.className = 'fleet-copy-notification';
             notification.style.cssText = `
-                position: fixed;
-                top: 20px;
-                right: 20px;
-                background: #34a853;
-                color: white;
-                padding: 12px 20px;
-                border-radius: 4px;
-                box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-                z-index: 1000;
-                animation: fleet_slideIn 0.3s ease-out;
-                font-size: 0.9rem;
+                position: fixed !important;
+                top: 50% !important;
+                left: 50% !important;
+                transform: translate(-50%, -50%) !important;
+                background: ${bgColor} !important;
+                color: ${textColor} !important;
+                padding: 18px 25px !important;
+                border-radius: 10px !important;
+                box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08),
+                            0 0 0 1px #e9ecef !important;
+                z-index: 99999 !important;
+                animation: fleetMinimalFade 0.25s ease !important;
+                font-size: 14px !important;
+                font-weight: 500 !important;
+                text-align: center !important;
+                max-width: 280px !important;
+                backdrop-filter: blur(5px) !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                gap: 10px !important;
+                border: 1px solid #e0e6ed !important;
+                line-height: 1.5 !important;
             `;
             
             notification.innerHTML = `
-                <i class="fas fa-check-circle" style="margin-right: 8px;"></i>
-                ${message}
+                <span style="color: #34a853; font-size: 18px;">
+                    ${icon}
+                </span>
+                <span>${message}</span>
             `;
             
             document.body.appendChild(notification);
             
-            setTimeout(() => {
-                notification.style.animation = 'fleet_slideOut 0.3s ease-out';
-                setTimeout(() => {
-                    document.body.removeChild(notification);
-                }, 300);
-            }, 3000);
-            
-            if (!document.querySelector('#fleet-save-notification-styles')) {
+            // 添加动画样式（如果不存在）
+            if (!document.querySelector('#fleet-copy-notification-styles')) {
                 const style = document.createElement('style');
-                style.id = 'fleet-save-notification-styles';
+                style.id = 'fleet-copy-notification-styles';
                 style.textContent = `
-                    @keyframes fleet_slideIn {
-                        from { transform: translateX(100%); opacity: 0; }
-                        to { transform: translateX(0); opacity: 1; }
+                    @keyframes fleetMinimalFade {
+                        0% { 
+                            opacity: 0;
+                            transform: translate(-50%, -50%) translateY(10px);
+                        }
+                        100% { 
+                            opacity: 1;
+                            transform: translate(-50%, -50%) translateY(0);
+                        }
                     }
-                    @keyframes fleet_slideOut {
-                        from { transform: translateX(0); opacity: 1; }
-                        to { transform: translateX(100%); opacity: 0; }
+                    
+                    .fleet-copy-notification:hover {
+                        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1) !important;
+                        transform: translate(-50%, -50%) translateY(-1px) !important;
+                    }
+                `;
+                document.head.appendChild(style);
+            }
+            
+            // 悬停效果
+            notification.addEventListener('mouseenter', function() {
+                this.style.boxShadow = '0 6px 20px rgba(0, 0, 0, 0.1) !important';
+                this.style.transform = 'translate(-50%, -50%) translateY(-1px) !important';
+            });
+            
+            notification.addEventListener('mouseleave', function() {
+                this.style.boxShadow = '0 4px 15px rgba(0, 0, 0, 0.08) !important';
+                this.style.transform = 'translate(-50%, -50%) translateY(0) !important';
+            });
+            
+            // 点击关闭
+            notification.addEventListener('click', function() {
+                this.style.opacity = '0';
+                this.style.transform = 'translate(-50%, -50%) translateY(-5px)';
+                setTimeout(() => {
+                    if (this.parentNode) {
+                        this.parentNode.removeChild(this);
+                    }
+                }, 200);
+            });
+            
+            // 2秒后自动淡出
+            setTimeout(() => {
+                notification.style.opacity = '0';
+                notification.style.transform = 'translate(-50%, -50%) translateY(-5px)';
+                notification.style.transition = 'all 0.3s ease !important';
+                setTimeout(() => {
+                    if (notification.parentNode) {
+                        notification.parentNode.removeChild(notification);
+                    }
+                }, 300);
+            }, 2000);
+        }
+        
+        // 新增：键盘快捷键监听（针对自发页面）
+        function fleet_initCopyShortcut() {
+            document.addEventListener('keydown', function(e) {
+                // 检查是否按下了 Ctrl+Shift+C（避免与第一个页面的Ctrl+C冲突）
+                if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'C') {
+                    // 检查是否在自发页面
+                    const fleetPage = document.getElementById('fleet-page');
+                    if (!fleetPage) return;
+                    
+                    // 检查是否有选中的行
+                    const selectedCheckboxes = Array.from(document.querySelectorAll('.fleet-cargo-checkbox:checked'))
+                        .filter(checkbox => {
+                            const row = checkbox.closest('tr');
+                            return row.style.display !== 'none' && !row.classList.contains('fleet-filter-row');
+                        });
+                    
+                    if (selectedCheckboxes.length > 0) {
+                        // 阻止默认的复制行为
+                        e.preventDefault();
+                        // 调用我们的复制函数
+                        fleet_copySelectedRows();
+                    } else {
+                        // 如果用户按了快捷键但没有选中行，给一个提示
+                        e.preventDefault();
+                        fleet_showCopyNotification('请先勾选要复制的行', 'warning');
+                    }
+                }
+            });
+        }
+        // 在初始化函数中调用快捷键初始化
+        function fleet_initializeFleetPage() {
+            fleet_updateSelectedCount();
+            
+            // 全选/取消全选
+            const selectAllCheckbox = document.getElementById('fleet_selectAllCargos');
+            if (selectAllCheckbox) {
+                selectAllCheckbox.addEventListener('change', fleet_toggleSelectAll);
+            }
+
+            // 单个选择框变化
+            document.querySelectorAll('.fleet-cargo-checkbox').forEach(checkbox => {
+                checkbox.addEventListener('change', function() {
+                    fleet_updateSelectedCount();
+                });
+            });
+            
+            // 初始化复制快捷键
+            fleet_initCopyShortcut();
+            
+            // 添加复制按钮提示样式
+            if (!document.querySelector('#fleet-copy-btn-styles')) {
+                const style = document.createElement('style');
+                style.id = 'fleet-copy-btn-styles';
+                style.textContent = `
+                    /* 复制按钮的提示 */
+                    .fleet-copy-btn-hint {
+                        position: relative;
+                    }
+                    
+                    .fleet-copy-btn-hint::after {
+                        content: '';
+                        font-size: 0.8em;
+                        opacity: 0.7;
+                        font-style: italic;
                     }
                 `;
                 document.head.appendChild(style);
             }
         }
-
         // 预约出库功能
         function fleet_scheduleShipment() {
             const selectedCheckboxes = Array.from(document.querySelectorAll('.fleet-cargo-checkbox:checked'))
@@ -1420,5 +1666,8 @@
         window.fleet_saveProNumber = fleet_saveProNumber;
         window.fleet_saveRowData = fleet_saveRowData;
         window.fleet_autoResizeTextarea = fleet_autoResizeTextarea;
+        window.fleet_copySelectedRows = fleet_copySelectedRows;
+        window.fleet_showCopyNotification = fleet_showCopyNotification;
+        window.fleet_initCopyShortcut = fleet_initCopyShortcut;
     })();
 </script>
