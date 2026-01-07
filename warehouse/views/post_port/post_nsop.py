@@ -5034,12 +5034,8 @@ class PostNsop(View):
                     "pl_ltl_pro_num",
                     "PickupAddr",
                     "est_pickup_time",
-                    "ltl_cost",
-                    "ltl_quote",
                     "ltl_follow_status",
                     "ltl_release_command",
-                    "ltl_cost_note",
-                    "ltl_quote_note",
                     "ltl_contact_method",
                     "shipment_batch_number__shipment_batch_number",
                     "shipment_batch_number__fleet_number__fleet_number",
@@ -5743,6 +5739,89 @@ class PostNsop(View):
 
         return invoice, invoice_status
     
+    async def _delivery_account_selfpick_entry(self, ids, ltl_quote, del_qty, username):
+        '''自提的出库费录入'''
+        pallets = await sync_to_async(list)(
+            Pallet.objects.filter(id__in=ids)
+            .select_related('container_number')
+        )
+
+        # 按 PO_ID-shipping_marks-container_number 分组
+        pallet_index = defaultdict(list)
+        for pallet in pallets:
+            po_id = getattr(pallet, "PO_ID", None) or "无PO_ID"
+            if not po_id:
+                raise ValueError('id为{pallet.id}的pallet没有PO_ID')
+            shipping_mark = getattr(pallet, "shipping_mark")
+            if not shipping_mark:
+                raise ValueError('id为{pallet.id}的pallet没有唛头')
+            container_num = pallet.container_number
+            index_key = f"{po_id}-{shipping_mark}-{container_num.id}"
+            pallet_index[index_key].append(pallet)
+
+        # 遍历每组
+        for index_key, group_pallets in pallet_index.items():
+            first_pallet = group_pallets[0]
+            po_id = getattr(first_pallet, "PO_ID")
+            shipping_mark = getattr(first_pallet, "shipping_mark")
+            container = first_pallet.container_number
+            total_cbm = sum(getattr(p, "cbm", 0) or 0 for p in group_pallets)
+            total_weight = sum(getattr(p, "weight_lbs", 0) or 0 for p in group_pallets)
+
+            # 检查 InvoiceItemv2 是否已有记录
+            existing_item = await sync_to_async(
+                lambda: InvoiceItemv2.objects.filter(
+                    PO_ID=po_id,
+                    shipping_marks=shipping_mark,
+                    container_number=container
+                ).first()
+            )()
+
+            if existing_item:
+                # 更新原记录
+                existing_item.qty = del_qty
+                existing_item.rate = ltl_quote
+                existing_item.cbm = total_cbm
+                existing_item.weight = total_weight
+                existing_item.amount = ltl_quote
+                existing_item.description = '出库费'
+                existing_item.warehouse_code = getattr(first_pallet, "destination", "")
+                await sync_to_async(existing_item.save)()
+            else:
+                # 查 invoice_number
+                invoice_record = await sync_to_async(
+                    lambda: Invoicev2.objects.filter(container_number=container).first()
+                )()
+
+                if not invoice_record:
+                    # 调用自定义方法创建 invoice
+                    invoice_record, invoice_status = await self._create_invoice_and_status(container)
+
+                # 创建新记录
+                item = InvoiceItemv2(
+                    container_number=container,
+                    invoice_number=invoice_record,
+                    invoice_type="receivable",
+                    item_category="delivery_other",
+                    description="出库费",
+                    warehouse_code=getattr(first_pallet, "destination", ""),
+                    shipping_marks=shipping_mark,
+                    rate=ltl_quote,
+                    amount=ltl_quote,
+                    qty=del_qty,
+                    cbm=total_cbm,
+                    weight=total_weight,
+                    delivery_type="selfdelivery",
+                    PO_ID=po_id,
+                    registered_user=username 
+                )
+                await sync_to_async(item.save)()
+
+        # 看下这个柜子私仓派送是不是都录完了，录完了就改状态
+        container = pallets[0].container_number
+        status_message = await self._try_complete_delivery_other_status(container)
+        return status_message
+    
     async def handle_save_selfpick_cargo(
         self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
@@ -5753,6 +5832,9 @@ class PostNsop(View):
         pickup_date_str = request.POST.get('pickup_date', '').strip()
         pallet_size = request.POST.get('pallet_size', '').strip()
         follow_status = request.POST.get('follow_status', '').strip()
+        del_qty = request.POST.get('del_qty', '').strip()
+        ltl_quote  = request.POST.get('ltl_quote', '').strip()
+
         est_pickup_time = None
         if pickup_date_str:
             try:
@@ -5770,12 +5852,14 @@ class PostNsop(View):
                 except ValueError:
                     est_pickup_time = None
         
+        is_pallet = False
         # 1. 直接保存承运公司和地址
         if cargo_id.startswith('plt_'):
             # PALLET数据
             ids = cargo_id.replace('plt_', '').split(',')
             model = Pallet
             bol_field_name = 'plt_ltl_bol_num'
+            is_pallet = True
         else:
             # PACKINGLIST数据
             ids = cargo_id.split(',')
@@ -5795,18 +5879,30 @@ class PostNsop(View):
             update_data['est_pickup_time'] = est_pickup_time
         if follow_status:
             update_data['ltl_follow_status'] = follow_status
+        if del_qty and is_pallet:
+            update_data['del_qty'] = del_qty
+        if ltl_quote and is_pallet:
+            update_data['ltl_quote'] = ltl_quote
         
         # 批量更新通用字段
         if update_data:
             await sync_to_async(model.objects.filter(id__in=ids).update)(**update_data)
         
-        # 特殊处理：如果是PALLET数据且有托盘尺寸，保存托盘尺寸
-        success_message = '保存成功！'
         if cargo_id.startswith('plt_') and pallet_size:
             success, message = await self._save_pallet_sizes(ids, pallet_size)
             if not success:
                 context = {'error_messages': message}
-                success_message = None
+                return await self.handle_ltl_unscheduled_pos_post(request, context)
+        
+        if ltl_quote:
+            # 录到派送账单
+            username = request.user.username
+            status_message = await self._delivery_account_selfpick_entry(ids, ltl_quote, del_qty, username)
+
+        # 特殊处理：如果是PALLET数据且有托盘尺寸，保存托盘尺寸
+        success_message = '保存成功！'
+        if status_message:
+            success_message = mark_safe(f"{success_message}<br>{status_message}")
                 
         # 构建返回上下文
         if success_message:

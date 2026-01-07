@@ -745,10 +745,8 @@
 
                         {% elif cargo.delivery_method|default:""|contains:"暂扣" %}
                             <span style="color: #999; font-style: italic;">暂扣不可编辑</span>
-
                         {% elif cargo.data_source != "PALLET" %}
                             <span style="color: #999; font-style: italic;">未打板不可录</span>
-
                         {% else %}
                             <span style="color: #999; font-style: italic;">-</span>
                         {% endif %}
