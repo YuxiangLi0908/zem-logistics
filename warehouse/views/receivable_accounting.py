@@ -3987,7 +3987,7 @@ class ReceivableAccounting(View):
         result["tiered_pricing"] = "\n".join(tier_lines)
         return result
     
-    def _find_pallet_group_by_po_id(pallet_groups, target_po_id):
+    def _find_pallet_group_by_po_id(self, pallet_groups, target_po_id):
         """查找匹配的 pallet_group，对每组PO_ID逐步去除下划线后缀进行匹配"""
         for group in pallet_groups:
             if group.get("PO_ID") == target_po_id:
