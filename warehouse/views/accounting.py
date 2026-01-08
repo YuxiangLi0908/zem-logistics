@@ -9202,14 +9202,20 @@ class Accounting(View):
         order_id = str(order.id)
         customer_id = order.customer_name.id
 
-        invoice, created = Invoicev2.objects.get_or_create(
-            container_number=order.container_number,
-        )
-        # 账单不存在
-        if created:
-            invoice.invoice_number=f"{current_date.strftime('%Y-%m-%d').replace('-', '')}C{customer_id}{order_id}"
-            invoice.created_at = current_date,
-            invoice.save()
+        # 步骤1：先查询该集装箱的第一条Invoicev2记录（按ID升序，即创建最早的）
+        invoice = Invoicev2.objects.filter(
+            container_number=order.container_number
+        ).order_by('id').first()  # order_by('id')确保取第一条，可替换为created_at等
+
+        # 步骤2：无记录则创建（保留原get_or_create的创建逻辑）
+        if not invoice:
+            invoice, created = Invoicev2.objects.get_or_create(
+                container_number=order.container_number,
+                defaults={  # 创建时直接赋值，避免二次save
+                    'invoice_number': f"{current_date.strftime('%Y-%m-%d').replace('-', '')}C{customer_id}{order_id}",
+                    'created_at': current_date
+                }
+            )
 
         invoice_status, created = InvoiceStatusv2.objects.get_or_create(
             container_number=order.container_number,
