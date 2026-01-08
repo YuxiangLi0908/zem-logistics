@@ -6738,58 +6738,58 @@ class Accounting(View):
 
         # 核心逻辑1：有符合条件的订单 → 为无 InvoiceStatusv2 的集装箱创建记录（确保 invoice 非空）
         create_status_list = []
-        # if orders:
-        #     # 提取所有订单的集装箱（去重）
-        #     container_numbers = list({
-        #         order.container_number for order in orders
-        #         if order.container_number  # 排除无集装箱的异常订单
-        #     })
-        #
-        #     # 批量查询：已有「应付类型」InvoiceStatusv2 的集装箱ID
-        #     # existing_status_container_ids = InvoiceStatusv2.objects.filter(
-        #     #     models.Q(invoice_type="payable") | models.Q(invoice_type="payable_direct"),
-        #     #     container_number__in=container_numbers,
-        #     # ).values_list("container_number_id", flat=True)
-        #
-        #     # 批量查询：已有 Invoicev2 的集装箱（key=集装箱ID，value=Invoicev2实例）
-        #     existing_invoices = {
-        #         inv.container_number_id: inv
-        #         for inv in Invoicev2.objects.filter(container_number__in=container_numbers)
-        #     }
+        if orders:
+            # 提取所有订单的集装箱（去重）
+            container_numbers = list({
+                order.container_number for order in orders
+                if order.container_number  # 排除无集装箱的异常订单
+            })
+
+            # 批量查询：已有「应付类型」InvoiceStatusv2 的集装箱ID
+            existing_status_container_ids = InvoiceStatusv2.objects.filter(
+                models.Q(invoice_type="payable") | models.Q(invoice_type="payable_direct"),
+                container_number__in=container_numbers,
+            ).values_list("container_number_id", flat=True)
+
+            # 批量查询：已有 Invoicev2 的集装箱（key=集装箱ID，value=Invoicev2实例）
+            existing_invoices = {
+                inv.container_number_id: inv
+                for inv in Invoicev2.objects.filter(container_number__in=container_numbers)
+            }
 
             # 为「无状态且无发票」的集装箱，先创建 Invoicev2，再创建 InvoiceStatusv2
-            # for order in orders:
-            #     if order.container_number.id not in existing_status_container_ids:
-            #         # 步骤1：若集装箱无 Invoicev2，先创建
-            #         if order.container_number.id not in existing_invoices:
-            #             invoice = Invoicev2.objects.create(
-            #                 container_number=order.container_number,
-            #                 invoice_number=f"{current_date.strftime('%Y-%m-%d').replace('-', '')}C{order.customer_name.id}{order.id}",
-            #                 created_at=current_date,
-            #             )
-            #             existing_invoices[order.container_number.id] = invoice  # 加入缓存，避免重复创建
-            #             # 步骤2：关联 invoice 创建 InvoiceStatusv2
-            #             if order.container_number.orders.get().order_type == "直送":
-            #                 create_status_list.append(
-            #                     InvoiceStatusv2(
-            #                         container_number=order.container_number,
-            #                         invoice_type="payable_direct",
-            #                         invoice=existing_invoices[order.container_number.id],  # 确保 invoice 非空
-            #                     )
-            #                 )
-            #             else:
-            #                 create_status_list.append(
-            #                     InvoiceStatusv2(
-            #                         container_number=order.container_number,
-            #                         invoice_type="payable",
-            #                         invoice=existing_invoices[order.container_number.id],  # 确保 invoice 非空
-            #                     )
-            #                 )
+            for order in orders:
+                if order.container_number.id not in existing_status_container_ids:
+                    # 步骤1：若集装箱无 Invoicev2，先创建
+                    if order.container_number.id not in existing_invoices:
+                        invoice = Invoicev2.objects.create(
+                            container_number=order.container_number,
+                            invoice_number=f"{current_date.strftime('%Y-%m-%d').replace('-', '')}C{order.customer_name.id}{order.id}",
+                            created_at=current_date,
+                        )
+                        existing_invoices[order.container_number.id] = invoice  # 加入缓存，避免重复创建
+                        # 步骤2：关联 invoice 创建 InvoiceStatusv2
+                        if order.container_number.orders.get().order_type == "直送":
+                            create_status_list.append(
+                                InvoiceStatusv2(
+                                    container_number=order.container_number,
+                                    invoice_type="payable_direct",
+                                    invoice=existing_invoices[order.container_number.id],  # 确保 invoice 非空
+                                )
+                            )
+                        else:
+                            create_status_list.append(
+                                InvoiceStatusv2(
+                                    container_number=order.container_number,
+                                    invoice_type="payable",
+                                    invoice=existing_invoices[order.container_number.id],  # 确保 invoice 非空
+                                )
+                            )
 
             # 批量创建 InvoiceStatusv2
-            # if create_status_list:
-            #     InvoiceStatusv2.objects.bulk_create(create_status_list)
-            #     print(f"批量创建 {len(create_status_list)} 条应付账单状态记录")
+            if create_status_list:
+                InvoiceStatusv2.objects.bulk_create(create_status_list)
+                print(f"批量创建 {len(create_status_list)} 条应付账单状态记录")
 
         # 核心逻辑2：无符合条件的订单 → 为「满足筛选条件但无状态」的集装箱创建记录（确保 invoice 非空）
         if not orders:
