@@ -136,7 +136,11 @@
                                     </div>
                                 </div>
                                 <div class="nested-dropdown">
-                                    <a href="{% url 'post_nsop' %}?step=LTL_pallets" target="_blank">私仓组</a>
+                                    <a>私仓组</a>
+                                    <div class="nested-dropdown-content">
+                                        <a href="{% url 'post_nsop' %}?step=LTL_pallets" target="_blank">库存排约</a>
+                                        <a href="{% url 'post_nsop' %}?step=LTL_history_po" target="_blank">历史数据</a>
+                                    </div>
                                 </div>
                             </div>                        
                         </div>
