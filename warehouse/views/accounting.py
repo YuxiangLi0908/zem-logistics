@@ -9698,6 +9698,7 @@ class Accounting(View):
         # 获取现有的费用项目
         existing_items = InvoiceItemv2.objects.filter(
             invoice_number=invoice,
+            invoice_type='payable'
         )
         # 获取已存在的费用描述列表，用于前端过滤
         existing_descriptions = [item.description for item in existing_items]
