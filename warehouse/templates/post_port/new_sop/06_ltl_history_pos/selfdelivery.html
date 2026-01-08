@@ -153,6 +153,7 @@
         border-radius: 8px;
         box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
         margin-bottom: 20px;
+        z-index: 100;
     }
 
     .fleet-data-table {
@@ -163,12 +164,13 @@
     .fleet-data-table th {
         position: sticky;
         top: 0;
-        background: #34a853;
+        background: #2c3e50;
         color: white;
         padding: 12px;
         text-align: left;
         font-weight: 600;
         font-size: 0.9rem;
+        z-index: 300 !important;
     }
 
     .fleet-data-table td {
@@ -489,7 +491,7 @@
 
     <!-- 数据表格 -->
     <div class="fleet-table-container">
-        <table class="data-table" id="fleet_cargoTable">
+        <table class="fleet-data-table" id="fleet_cargoTable">
             <thead>
                 <tr>
                     <th class="fleet-checkbox-cell">

@@ -165,6 +165,99 @@
         animation: gradient 3s ease infinite;
         font-weight: bold;
     }
+    .table-filter {
+        margin-bottom: 15px;
+        padding: 12px 15px;
+        background: linear-gradient(135deg, #f5f7fa 0%, #e4e8f0 100%);
+        border-radius: 8px;
+        border: 1px solid #d1d9e6;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+
+    .filter-input-group {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        align-items: center;
+    }
+
+    .filter-input {
+        flex: 0 1 200px; /* 固定宽度 */
+        min-width: 160px;
+        max-width: 200px;
+        padding: 8px 12px;
+        border: 1px solid #c8d0e7;
+        border-radius: 6px;
+        font-size: 13px;
+        background: white;
+        transition: all 0.3s;
+        box-shadow: inset 0 1px 2px rgba(0,0,0,0.07);
+    }
+
+    .filter-input:focus {
+        outline: none;
+        border-color: #3498db;
+        box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.15);
+    }
+
+    .filter-btn {
+        padding: 8px 16px;
+        background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+        color: white;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-weight: 600;
+        font-size: 13px;
+        transition: all 0.3s;
+        box-shadow: 0 2px 4px rgba(52, 152, 219, 0.2);
+        display: flex;
+        align-items: center;
+        gap: 5px;
+    }
+
+    .filter-btn:hover {
+        background: linear-gradient(135deg, #2980b9 0%, #2471a3 100%);
+        transform: translateY(-1px);
+        box-shadow: 0 3px 6px rgba(52, 152, 219, 0.25);
+    }
+
+    .filter-btn-clear {
+        background: linear-gradient(135deg, #95a5a6 0%, #7f8c8d 100%);
+        box-shadow: 0 2px 4px rgba(149, 165, 166, 0.2);
+    }
+
+    .filter-btn-clear:hover {
+        background: linear-gradient(135deg, #7f8c8d 0%, #707b7c 100%);
+        box-shadow: 0 3px 6px rgba(149, 165, 166, 0.25);
+    }
+
+    .filter-hint {
+        margin-top: 8px;
+        font-size: 12px;
+        color: #5d6d7e;
+        font-style: italic;
+    }
+
+    /* 高亮搜索匹配的文本 */
+    .highlight {
+        background-color: #ffeaa7;
+        padding: 1px 4px;
+        border-radius: 3px;
+        font-weight: 600;
+        color: #2d3436;
+    }
+
+    /* 过滤结果提示 */
+    .filter-result {
+        margin-left: 10px;
+        padding: 4px 8px;
+        background: #e8f4fc;
+        border-radius: 4px;
+        font-size: 12px;
+        color: #2980b9;
+        font-weight: 600;
+    }
     @keyframes gradient {
         0% { background-position: 0% 50%; }
         50% { background-position: 100% 50%; }
@@ -257,44 +350,68 @@
 {% endif %}
 
 {% if records_list %}
-<!-- 显示所有记录的表格 -->
-<div style="overflow-x: auto; max-height: 600px;">
-    <table class="data-table">
-        <thead>
-            <tr>
-                <th style="width: 50px;">#</th>
-                {% for field in records_list.0.keys %}
-                <th>{{ field }}</th>
+    <div class="table-filter">
+    <div class="filter-input-group">
+        <input type="text" id="filter-input-1" class="filter-input" 
+               placeholder="搜索关键词1" title="输入第一个搜索关键词">
+        <input type="text" id="filter-input-2" class="filter-input" 
+               placeholder="搜索关键词2" title="输入第二个搜索关键词">
+        <button type="button" id="filter-btn" class="filter-btn">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+            </svg>
+            过滤
+        </button>
+        <button type="button" id="clear-filter-btn" class="filter-btn filter-btn-clear">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M6 18L18 6M6 6l12 12"></path>
+            </svg>
+                清除
+            </button>
+            <span id="filter-result" class="filter-result"></span>
+        </div>
+        <div class="filter-hint">
+            📌 双条件搜索：两个搜索框是"与"关系，行必须同时包含两个关键词才会显示（不区分大小写）
+        </div>
+    </div>
+    <!-- 显示所有记录的表格 -->
+    <div style="overflow-x: auto; max-height: 600px;">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th style="width: 50px;">#</th>
+                    {% for field in records_list.0.keys %}
+                    <th>{{ field }}</th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for record in records_list %}
+                <tr>
+                    <td style="text-align: center; font-weight: bold;">{{ forloop.counter }}</td>
+                    {% for field, value in record.items %}
+                    <td class="field-value">
+                        {% if value == None %}
+                            <span style="color: #95a5a6; font-style: italic;">null</span>
+                        {% elif value == True %}
+                            <span style="color: #27ae60;">True</span>
+                        {% elif value == False %}
+                            <span style="color: #e74c3c;">False</span>
+                        {% else %}
+                            {{ value|default:""|truncatechars:50 }}
+                        {% endif %}
+                    </td>
+                    {% endfor %}
+                </tr>
                 {% endfor %}
-            </tr>
-        </thead>
-        <tbody>
-            {% for record in records_list %}
-            <tr>
-                <td style="text-align: center; font-weight: bold;">{{ forloop.counter }}</td>
-                {% for field, value in record.items %}
-                <td class="field-value">
-                    {% if value == None %}
-                        <span style="color: #95a5a6; font-style: italic;">null</span>
-                    {% elif value == True %}
-                        <span style="color: #27ae60;">True</span>
-                    {% elif value == False %}
-                        <span style="color: #e74c3c;">False</span>
-                    {% else %}
-                        {{ value|default:""|truncatechars:50 }}
-                    {% endif %}
-                </td>
-                {% endfor %}
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-</div>
+            </tbody>
+        </table>
+    </div>
 
-{% elif search_value and not records_list %}
-<div class="no-results">
-    未找到相关数据
-</div>
+    {% elif search_value and not records_list %}
+    <div class="no-results">
+        未找到相关数据
+    </div>
 {% endif %}
 
 <script>
@@ -454,5 +571,155 @@
         // 这里可以通过AJAX加载其他记录，或者在前端存储所有记录数据
         alert(`切换到记录 ${parseInt(recordIndex) + 1}，需要后端支持加载特定记录`);
     }
+    document.addEventListener('DOMContentLoaded', function() {
+        const filterInput1 = document.getElementById('filter-input-1');
+        const filterInput2 = document.getElementById('filter-input-2');
+        const filterBtn = document.getElementById('filter-btn');
+        const clearFilterBtn = document.getElementById('clear-filter-btn');
+        
+        if (filterBtn) {
+            filterBtn.addEventListener('click', filterTable);
+            clearFilterBtn.addEventListener('click', clearFilter);
+            
+            // 添加回车键支持
+            filterInput1.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') filterTable();
+            });
+            
+            filterInput2.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') filterTable();
+            });
+        }
+        
+        function filterTable() {
+            const value1 = filterInput1.value.trim().toLowerCase();
+            const value2 = filterInput2.value.trim().toLowerCase();
+            
+            // 如果两个都为空，显示所有行
+            if (!value1 && !value2) {
+                clearFilter();
+                return;
+            }
+            
+            const tableRows = document.querySelectorAll('.data-table tbody tr');
+            let visibleCount = 0;
+            
+            tableRows.forEach(row => {
+                const rowText = row.textContent.toLowerCase();
+                let shouldShow = true;
+                
+                // 检查是否同时包含两个搜索值（与关系）
+                if (value1 && !rowText.includes(value1)) {
+                    shouldShow = false;
+                }
+                if (value2 && !rowText.includes(value2)) {
+                    shouldShow = false;
+                }
+                
+                // 显示或隐藏行
+                row.style.display = shouldShow ? '' : 'none';
+                if (shouldShow) {
+                    visibleCount++;
+                    
+                    // 高亮显示匹配的文本
+                    if (value1 || value2) {
+                        highlightRow(row, value1, value2);
+                    }
+                }
+            });
+            
+            // 更新结果计数
+            updateVisibleCount(visibleCount);
+        }
+        
+        function highlightRow(row, value1, value2) {
+            const cells = row.querySelectorAll('td');
+            cells.forEach(cell => {
+                let html = cell.innerHTML;
+                let originalHtml = cell.getAttribute('data-original') || html;
+                cell.setAttribute('data-original', originalHtml);
+                
+                // 恢复原始内容
+                html = originalHtml;
+                
+                // 高亮第一个搜索值
+                if (value1) {
+                    const regex1 = new RegExp(`(${escapeRegExp(value1)})`, 'gi');
+                    html = html.replace(regex1, '<span class="highlight">$1</span>');
+                }
+                
+                // 高亮第二个搜索值（如果有）
+                if (value2) {
+                    const regex2 = new RegExp(`(${escapeRegExp(value2)})`, 'gi');
+                    html = html.replace(regex2, '<span class="highlight">$1</span>');
+                }
+                
+                cell.innerHTML = html;
+            });
+        }
+        
+        function clearHighlight() {
+            const cells = document.querySelectorAll('.data-table td[data-original]');
+            cells.forEach(cell => {
+                cell.innerHTML = cell.getAttribute('data-original');
+            });
+        }
+        
+        function clearFilter() {
+            filterInput1.value = '';
+            filterInput2.value = '';
+            
+            // 显示所有行
+            const tableRows = document.querySelectorAll('.data-table tbody tr');
+            tableRows.forEach(row => {
+                row.style.display = '';
+            });
+            
+            // 清除高亮
+            clearHighlight();
+            
+            // 清空过滤结果提示
+            document.getElementById('filter-result').textContent = '';
+            
+            // 恢复原始计数
+            const recordCount = {{ record_count|default:0 }};
+            updateVisibleCount(recordCount);
+        }
+        function updateVisibleCount(count) {
+            const filterResult = document.getElementById('filter-result');
+            const recordCount = {{ record_count|default:0 }};
+            
+            if (count === recordCount || count === tableRows.length) {
+                filterResult.textContent = '';
+            } else {
+                filterResult.textContent = `显示 ${count} / ${recordCount} 条`;
+            }
+            
+            // 同时更新搜索信息中的计数
+            const searchInfo = document.querySelector('.search-info');
+            if (searchInfo) {
+                const originalText = searchInfo.textContent;
+                if (count === recordCount) {
+                    // 恢复原始文本
+                    const match = originalText.match(/查询结果: (\d+) 条记录/);
+                    if (match) {
+                        searchInfo.textContent = originalText.replace(
+                            /查询结果: (\d+) 条记录.*/,
+                            `查询结果: ${match[1]} 条记录`
+                        );
+                    }
+                } else {
+                    searchInfo.textContent = originalText.replace(
+                        /查询结果: (\d+) 条记录.*/,
+                        `查询结果: ${recordCount} 条记录 (过滤后: ${count} 条)`
+                    );
+                }
+            }
+        }
+        
+        function escapeRegExp(string) {
+            return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        }
+    });
 </script>
 {% endblock %}
