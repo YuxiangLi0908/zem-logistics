@@ -452,8 +452,9 @@
         });
     }
 
-    const activeTab = "{{ active_tab|default:'' }}";
+    const activeTab = "{{ active_tab|default:'scheduled' }}";
     function setActiveTabFromParams() {     
+
         if (activeTab) {
             // 去掉默认 active
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
