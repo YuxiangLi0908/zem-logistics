@@ -192,6 +192,22 @@ class InvoiceItemv2(models.Model):
     note = models.CharField(max_length=2000, null=True, blank=True) #备注
     registered_user = models.CharField(max_length=2000, null=True, blank=True) #记录谁录的费用
     history = HistoricalRecords()
+    carrier = models.CharField(max_length=255, null=True, blank=True, verbose_name="供应商")
+    write_off_time = models.DateTimeField(
+        verbose_name="核销时间",
+        null=True,
+        blank=True,
+        default=None,
+    )
+
+    write_off_amount = models.DecimalField(
+        verbose_name="核销金额",
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        default=None,
+    )
 
     def __str__(self) -> str:
         return f"{self.container_number} - {self.invoice_number} - {self.item_category} - {self.description} - {self.warehouse_code}"
