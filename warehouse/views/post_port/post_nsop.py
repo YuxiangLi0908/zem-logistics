@@ -90,6 +90,7 @@ class PostNsop(View):
     template_fleet_schedule = "post_port/new_sop/03_fleet_schedule/03_fleet_schedule.html"
     template_unscheduled_pos_all = "post_port/new_sop/01_unscheduled_pos_all/01_unscheduled_main.html"
     template_ltl_pos_all = "post_port/new_sop/05_ltl_pos_all/05_ltl_main.html"
+    template_ltl_history_pos = "post_port/new_sop/06_ltl_history_pos/06_ltl_main.html"
     template_history_shipment = "post_port/new_sop/04_history_shipment/04_history_shipment_main.html"
     template_bol = "export_file/bol_base_template.html"
     template_bol_pickup = "export_file/bol_template.html"
@@ -168,6 +169,11 @@ class PostNsop(View):
                 "warehouse_options": self.warehouse_options
             }
             return render(request, self.template_ltl_pos_all, context)
+        elif step == "LTL_history_po":
+            context = {
+                "warehouse_options": self.warehouse_options
+            }
+            return render(request, self.template_ltl_history_pos, context)
         elif step == "history_shipment":
             context = {"warehouse_options": self.warehouse_options}
             return render(request, self.template_history_shipment, context)
@@ -187,6 +193,9 @@ class PostNsop(View):
             return render(request, template, context)
         elif step == "ltl_warehouse":
             template, context = await self.handle_ltl_unscheduled_pos_post(request)
+            return render(request, template, context)
+        elif step == "ltl_history_warehouse":
+            template, context = await self.handle_ltl_history_pos_post(request)
             return render(request, template, context)
         elif step == "td_shipment_warehouse":
             template, context = await self.handle_td_shipment_post(request)
@@ -5525,6 +5534,7 @@ class PostNsop(View):
                 return await self.handle_ltl_unscheduled_pos_post(request, context)
 
         username = request.user.username
+        status_message = None
         if ltl_quote:
             # 录到派送账单
             status_message = await self._delivery_account_entry(ids, ltl_quote, ltl_quote_note, username)
@@ -5825,6 +5835,7 @@ class PostNsop(View):
     async def handle_save_selfpick_cargo(
         self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
+        print(request.POST)
         cargo_id = request.POST.get('cargo_id')
         carrier_company = request.POST.get('carrier_company', '').strip()
         address = request.POST.get('address', '').strip()
@@ -5894,6 +5905,7 @@ class PostNsop(View):
                 context = {'error_messages': message}
                 return await self.handle_ltl_unscheduled_pos_post(request, context)
         
+        status_message = None
         if ltl_quote:
             # 录到派送账单
             username = request.user.username
@@ -6109,7 +6121,70 @@ class PostNsop(View):
                 )
         return await self.handle_ltl_unscheduled_pos_post(request)
         
+    async def handle_ltl_history_pos_post(
+        self, request: HttpRequest, context: dict| None = None,
+    ) -> tuple[str, dict[str, Any]]:
+        '''LTL组的港后全流程'''
+        warehouse = request.POST.get("warehouse")
+        start_date = request.POST.get("start_date")
+        end_date = request.POST.get("end_date")
+        if not context:
+            context = {}
+        if warehouse:
+            warehouse_name = warehouse.split('-')[0]
+        else:
+            context.update({'error_messages':"没选仓库！"})
+            return self.template_unscheduled_pos_all, context
+        
+        # 未给定时间时，自动查询过去三个月的
+        current_date = datetime.now().date()
+        start_date = (
+            (current_date + timedelta(days=-90)).strftime("%Y-%m-%d")
+            if not start_date
+            else start_date
+        )
+        end_date = current_date.strftime("%Y-%m-%d") if not end_date else end_date
+        
+        pl_criteria = Q(
+            id__isnull=True, 
+        )
+        plt_criteria = Q(
+            location=warehouse,
+            shipment_batch_number__shipment_batch_number__isnull=True,
+            container_number__orders__offload_id__offload_at__gte=start_date,
+            container_number__orders__offload_id__offload_at__lte=end_date, 
+            delivery_type="other"
+        )
 
+        # 已放行-客提
+        selfpick_cargos = await self._ltl_scheduled_self_pickup(pl_criteria, plt_criteria)
+        # 已放行-自发
+        selfdel_cargos = await self._ltl_self_delivery(pl_criteria, plt_criteria)
+
+        summary = {
+            'selfpick_count': len(selfpick_cargos),
+            'selfdel_count': len(selfdel_cargos),
+        }
+        if not context:
+            context = {}
+        context.update({
+            'warehouse': warehouse,
+            'warehouse_options': self.warehouse_options,
+            'account_options': self.arm_account_options,
+            'load_type_options': LOAD_TYPE_OPTIONS,
+            "selfpick_cargos": selfpick_cargos,
+            "selfdel_cargos": selfdel_cargos,
+            "summary": summary,
+            'shipment_type_options': self.shipment_type_options,
+            "carrier_options": self.carrier_options,
+            "abnormal_fleet_options": self.abnormal_fleet_options,
+            "warehouse_name": warehouse_name,
+        })
+        active_tab = request.POST.get('active_tab')
+        if active_tab:
+            context.update({'active_tab':active_tab})
+        return self.template_ltl_history_pos, context
+    
     async def handle_ltl_unscheduled_pos_post(
         self, request: HttpRequest, context: dict| None = None,
     ) -> tuple[str, dict[str, Any]]:

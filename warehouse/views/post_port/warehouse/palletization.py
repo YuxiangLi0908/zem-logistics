@@ -975,12 +975,88 @@ class Palletization(View):
         await sync_to_async(co.save, thread_sensitive=True)()
 
         #批量将LTL的参数从pl转到plt
-        await self.ltl_parameter_transfer(container)
+        await self._ltl_parameter_transfer(container)
         
         mutable_post = request.POST.copy()
         mutable_post["name"] = order_selected.warehouse.name
         request.POST = mutable_post
         return await self.handle_warehouse_post(request)
+
+    async def _ltl_parameter_transfer(self, container):
+        '''将LTL的相关参数从packinglist转移到pallet'''
+        pls = await sync_to_async(list)(
+            PackingList.objects.filter(
+                container_number=container
+            )
+        )
+        plts = await sync_to_async(list)(
+            Pallet.objects.filter(
+                container_number=container
+            )
+        )
+
+        # 创建映射字典：以(PO_ID, shipping_mark)为键，存储对应的LTL参数
+        pl_mapping = {}
+        for pl in pls:
+            key = (pl.PO_ID, pl.shipping_mark)
+            if key not in pl_mapping:
+                pl_mapping[key] = {
+                    'carrier_company': pl.carrier_company,
+                    'plt_ltl_bol_num': pl.pl_ltl_bol_num,
+                    'plt_ltl_pro_num': pl.pl_ltl_pro_num,
+                    'PickupAddr': pl.PickupAddr,
+                    'est_pickup_time': pl.est_pickup_time,
+                    'ltl_follow_status': pl.ltl_follow_status,
+                    'ltl_release_command': pl.ltl_release_command,
+                    'ltl_contact_method': pl.ltl_contact_method,
+                }
+        
+        # 字段映射关系：PackingList字段 -> Pallet字段
+        field_mapping = {
+            'carrier_company': 'carrier_company',
+            'plt_ltl_bol_num': 'plt_ltl_bol_num',
+            'plt_ltl_pro_num': 'plt_ltl_pro_num',
+            'PickupAddr': 'PickupAddr',
+            'est_pickup_time': 'est_pickup_time',
+            'ltl_follow_status': 'ltl_follow_status',
+            'ltl_release_command': 'ltl_release_command',
+            'ltl_contact_method': 'ltl_contact_method',
+        }
+        # 更新pallet数据
+        updated_pallets = []
+        for plt in plts:
+            key = (plt.PO_ID, plt.shipping_mark)
+            if key in pl_mapping:
+                params = pl_mapping[key]
+                update_needed = False
+                
+                for pl_field, plt_field in field_mapping.items():
+                    value = params[pl_field]
+                    current_value = getattr(plt, plt_field)
+                    
+                    # 检查是否需要更新
+                    if isinstance(value, bool):
+                        # 布尔值直接比较
+                        if current_value != value:
+                            setattr(plt, plt_field, value)
+                            update_needed = True
+                    else:
+                        # 字符串/日期等类型：如果pallet为空且packinglist有值，则更新
+                        if not current_value and value:
+                            setattr(plt, plt_field, value)
+                            update_needed = True
+                
+                if update_needed:
+                    updated_pallets.append(plt)
+        
+        # 批量保存更新
+        if updated_pallets:
+            await sync_to_async(Pallet.objects.bulk_update)(
+                updated_pallets,
+                fields=list(field_mapping.values())
+            )
+        
+        return len(updated_pallets)
 
     def is_public_destination(self, destination):
         dest_clean = str(destination).strip()
