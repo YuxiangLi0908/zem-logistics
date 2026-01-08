@@ -597,7 +597,7 @@
                                     </div>
                                 </div>
 
-                                <!-- 入库费/拆柜费 -->
+                                <!-- 拆柜费 -->
                             {% elif fee.description == "拆柜费用" %}
                                 {% if not arrive_fee %}
                                     {% if pallet_details or palletization_carrier or palletization_fee %}
@@ -664,7 +664,7 @@
                                     {% endif %}
                                 {% endif %}
 
-                                <!-- 入库拆柜费 -->
+                                <!-- 入库费 -->
                             {% elif fee.description == "入库拆柜费" %}
                                 {% if arrive_fee %}
                                     <div class="fee-row">
@@ -692,14 +692,14 @@
                                                         {% endif %} oninput="calculateTotal()">
                                             {% else %}
                                                 <span class="amount-display">
-                                        {% if fee.rate %}
-                                            {{ fee.rate }}
-                                        {% elif FS and fee.description in FS %}
-                                            {{ FS|get_item:fee.description }}
-                                        {% else %}
-                                            -
-                                        {% endif %}
-                                    </span>
+                                                {% if fee.rate %}
+                                                    {{ fee.rate }}
+                                                {% elif FS and fee.description in FS %}
+                                                    {{ FS|get_item:fee.description }}
+                                                {% else %}
+                                                    -
+                                                {% endif %}
+                                                </span>
                                             {% endif %}
                                         </div>
                                         <div class="fee-cell">
