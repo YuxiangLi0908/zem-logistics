@@ -6185,6 +6185,8 @@ class PostNsop(View):
             "carrier_options": self.carrier_options,
             "abnormal_fleet_options": self.abnormal_fleet_options,
             "warehouse_name": warehouse_name,
+            "start_date": start_date,
+            "end_date": end_date,
         })
         active_tab = request.POST.get('active_tab')
         if active_tab:
