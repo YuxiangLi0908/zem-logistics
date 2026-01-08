@@ -380,13 +380,10 @@
                     <option value="{{ v }}" {% if k == warehouse %}selected{% endif %}>{{ k }}</option>
                     {% endfor %}
                 </select>
-                <b>开始时间:</b>
-                <input type="datetime-local" name="start_date" style="padding: 5px; border-radius: 4px; border: 1px solid #ced4da;"
-                    value="{{ start_date|default:'' }}">
-
-                <b>结束时间:</b>
-                <input type="datetime-local" name="end_date" style="padding: 5px; border-radius: 4px; border: 1px solid #ced4da;"
-                    value="{{ end_date|default:'' }}">
+                <b>拆柜时间:</b>
+                <input type="date" name="start_date" value="{{ start_date }}" style="padding: 5px; border-radius: 4px; border: 1px solid #ced4da;">
+                <span style="color: white; margin: 0 5px;">至</span>
+                <input type="date" name="end_date" value="{{ end_date }}" style="padding: 5px; border-radius: 4px; border: 1px solid #ced4da;">
                 
                 <input type="hidden" name="step" value="ltl_history_warehouse">
                 <button id="confirmWarehouse">
