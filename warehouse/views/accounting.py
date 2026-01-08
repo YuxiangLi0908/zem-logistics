@@ -6796,15 +6796,18 @@ class Accounting(View):
             # 步骤1：查询「满足业务条件 + 无应付状态 + 有集装箱」的订单
             orders_without_status = (
                 Order.objects.filter(criteria)
-                .exclude(  # 排除已有应付状态的订单
+                .exclude(  # 修复：用集装箱ID关联InvoiceStatusv2
                     Exists(
                         InvoiceStatusv2.objects.filter(
                             models.Q(invoice_type="payable") | models.Q(invoice_type="payable_direct"),
-                            container_number=OuterRef("container_number"),
+                            # 核心修复：container_number_id 对应 ContainerNumber 的ID
+                            # OuterRef("container_number_id") 是 Order 表中 container_number 外键的ID字段
+                            container_number_id=OuterRef("container_number_id"),
                         )
                     )
                 )
-                .select_related("container_number")
+                .select_related("container_number")  # 预加载集装箱，不影响筛选，但提升性能
+                .filter(container_number__isnull=False)  # 新增：过滤无集装箱的订单（避免空值）
                 .distinct()
             )
 
