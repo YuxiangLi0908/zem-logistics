@@ -5550,6 +5550,9 @@ class PostNsop(View):
         else:
             context = {}
 
+        page = request.POST.get('page')
+        if page == "history":
+            return await self.handle_ltl_history_pos_post(request, context)
         return await self.handle_ltl_unscheduled_pos_post(request, context)
 
     async def _delivery_account_entry(self, ids, ltl_quote, ltl_quote_note, username):
@@ -5835,7 +5838,6 @@ class PostNsop(View):
     async def handle_save_selfpick_cargo(
         self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
-        print(request.POST)
         cargo_id = request.POST.get('cargo_id')
         carrier_company = request.POST.get('carrier_company', '').strip()
         address = request.POST.get('address', '').strip()
@@ -5919,6 +5921,10 @@ class PostNsop(View):
         # 构建返回上下文
         if success_message:
             context = {'success_messages': success_message}
+        
+        page = request.POST.get('page')
+        if page == "history":
+            return await self.handle_ltl_history_pos_post(request, context)
         return await self.handle_ltl_unscheduled_pos_post(request, context)
 
     async def _save_pallet_sizes(self, plt_ids: List[str], pallet_size: str) -> Tuple[bool, str]:
