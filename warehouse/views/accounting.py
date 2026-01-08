@@ -6757,7 +6757,7 @@ class Accounting(View):
                 for inv in Invoicev2.objects.filter(container_number__in=container_numbers)
             }
 
-            为「无状态且无发票」的集装箱，先创建 Invoicev2，再创建 InvoiceStatusv2
+            # 为「无状态且无发票」的集装箱，先创建 Invoicev2，再创建 InvoiceStatusv2
             for order in orders:
                 if order.container_number.id not in existing_status_container_ids:
                     # 步骤1：若集装箱无 Invoicev2，先创建
@@ -6786,7 +6786,7 @@ class Accounting(View):
                                 )
                             )
 
-            批量创建 InvoiceStatusv2
+            # 批量创建 InvoiceStatusv2
             if create_status_list:
                 InvoiceStatusv2.objects.bulk_create(create_status_list)
                 print(f"批量创建 {len(create_status_list)} 条应付账单状态记录")
