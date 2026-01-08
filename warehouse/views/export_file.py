@@ -34,7 +34,7 @@ from django.db.models import (
     Value,
     When,
 )
-from django.db.models.functions import Cast, Concat
+from django.db.models.functions import Cast, Concat, Round
 from django.forms import model_to_dict
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render
@@ -430,7 +430,7 @@ async def export_palletization_list(request: HttpRequest) -> HttpResponse:
                 ),
                 ids=StringAgg("str_id", delimiter=",", distinct=True),
                 pcs=Sum("pcs", output_field=IntegerField()),
-                cbm=Sum("cbm", output_field=FloatField()),
+                cbm=Round(Sum("cbm"), 2, output_field=FloatField()),
                 n_pallet=Count("pallet__pallet_id", distinct=True),
                 weight_lbs=Sum("total_weight_lbs", output_field=FloatField()),
                 plt_ids=StringAgg(
@@ -457,7 +457,7 @@ async def export_palletization_list(request: HttpRequest) -> HttpResponse:
             )
             .annotate(
                 pcs=Sum("pcs", output_field=IntegerField()),
-                cbm=Sum("cbm", output_field=FloatField()),
+                cbm=Round(Sum("cbm"), 2, output_field=FloatField()),
                 n_pallet=Count("pallet_id", distinct=True),
             )
             .order_by("-cbm")
@@ -513,7 +513,7 @@ async def export_palletization_list(request: HttpRequest) -> HttpResponse:
                 ),
                 ids=StringAgg("str_id", delimiter=",", distinct=True),
                 pcs=Sum("pcs", output_field=IntegerField()),
-                cbm=Sum("cbm", output_field=FloatField()),
+                cbm=Round(Sum("cbm"), 2, output_field=FloatField()),
                 n_pallet=Count("pallet__pallet_id", distinct=True),
                 weight_lbs=Sum("total_weight_lbs", output_field=FloatField()),
                 plt_ids=StringAgg(
