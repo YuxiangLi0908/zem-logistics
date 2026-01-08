@@ -227,6 +227,7 @@
     <thead>
         <tr>
             <th>ID</th>
+            <th>origin</th>
             <th>预约批次号</th>
             <th>预约号</th>
             <th>预约类型</th>
@@ -253,6 +254,7 @@
         {% for shipment in shipments %}
         <tr>
             <td>{{ shipment.id }}</td>
+            <td>{{ shipment.origin }}</td>
             <td>
                 {{ shipment.shipment_batch_number|default:"-" }}
                 <form method="post" style="display: inline-block; margin: 2px;">

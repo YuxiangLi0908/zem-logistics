@@ -1,0 +1,786 @@
+<!-- 绑定预约模态框 -->
+<style>
+    .modal {
+        display: none;
+        position: fixed;
+        z-index: 1000;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0,0,0,0.5);
+        backdrop-filter: blur(2px);
+    }
+
+    .modal-content {
+        background-color: #fefefe;
+        margin: auto;
+        padding: 0;
+        border: none;
+        border-radius: 12px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        max-height: 85vh;
+        overflow-y: auto;
+        animation: modalSlideIn 0.3s ease-out;
+    }
+
+    @keyframes modalSlideIn {
+        from {
+            opacity: 0;
+            transform: translate(-50%, -60%);
+        }
+        to {
+            opacity: 1;
+            transform: translate(-50%, -50%);
+        }
+    }
+
+    .modal-header {
+        background: linear-gradient(135deg, var(--secondary-color), #4a6491);
+        color: white;
+        padding: 20px 25px;
+        border-radius: 12px 12px 0 0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .modal-header h3 {
+        margin: 0;
+        font-size: 1.3rem;
+        font-weight: 600;
+    }
+
+    .modal-header .close {
+        color: white;
+        font-size: 28px;
+        font-weight: bold;
+        cursor: pointer;
+        opacity: 0.8;
+        transition: opacity 0.3s;
+    }
+
+    .modal-header .close:hover {
+        opacity: 1;
+    }
+
+    .modal-body {
+        padding: 25px;
+    }
+
+    .modal-form-section {
+        margin-bottom: 20px;
+    }
+
+    .modal-form-section h4 {
+        color: var(--secondary-color);
+        margin-bottom: 15px;
+        font-size: 1.1rem;
+        border-bottom: 2px solid var(--light-color);
+        padding-bottom: 8px;
+    }
+
+    .modal-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 15px 0;
+        font-size: 0.9rem;
+    }
+
+    .modal-table th {
+        background-color: #f8f9fa;
+        padding: 12px 8px;
+        text-align: left;
+        font-weight: 600;
+        color: var(--secondary-color);
+        border-bottom: 2px solid #e9ecef;
+    }
+
+    .modal-table td {
+        padding: 10px 8px;
+        border-bottom: 1px solid #f1f3f4;
+        vertical-align: top; /* 确保提示文本对齐 */
+    }
+
+    .modal-table tr:hover {
+        background-color: #f8f9fa;
+    }
+
+    .modal-actions {
+        display: flex;
+        justify-content: center;
+        gap: 15px;
+        margin-top: 25px;
+        padding-top: 20px;
+        border-top: 1px solid #e9ecef;
+    }
+
+    .modal-btn {
+        padding: 12px 25px;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-weight: 600;
+        font-size: 0.95rem;
+        transition: all 0.3s ease;
+        min-width: 120px;
+    }
+
+    .modal-btn-success {
+        background: var(--success-color);
+        color: white;
+    }
+
+    .modal-btn-success:hover {
+        background: #27ae60;
+        transform: translateY(-1px);
+    }
+
+    .modal-btn-danger {
+        background: var(--danger-color);
+        color: white;
+    }
+
+    .modal-btn-danger:hover {
+        background: #c0392b;
+        transform: translateY(-1px);
+    }
+
+    .modal-btn-primary {
+        background: var(--primary-color);
+        color: white;
+    }
+
+    .modal-btn-primary:hover {
+        background: #2980b9;
+        transform: translateY(-1px);
+    }
+
+    .form-select, .form-input {
+        width: 100%;
+        padding: 8px 12px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 0.9rem;
+    }
+
+    .form-select:focus, .form-input:focus {
+        outline: none;
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+    }
+    
+    #shipment-account-select,
+    #pickup_number {
+        min-width: 200px;
+        width: 100%;
+    }
+
+    /* 提示文本样式 */
+    .field-hint {
+        font-size: 11px;
+        color: #7f8c8d;
+        margin-top: 4px;
+        font-style: italic;
+        line-height: 1.3;
+    }
+
+    /* 调整表格列宽 */
+    .modal-table th:nth-child(2), /* 预约账号列 */
+    .modal-table td:nth-child(2) {
+        min-width: 180px;
+    }
+
+    .modal-table th:nth-child(3), /* Pickup Number列 */
+    .modal-table td:nth-child(3) {
+        min-width: 200px;
+    }
+    
+    /* 托盘尺寸列样式 */
+    .pallet-size-cell {
+        max-width: 150px;
+        min-width: 120px;
+        white-space: pre-line; /* 保留换行 */
+        line-height: 1.4;
+    }
+    
+    /* 多选框列 */
+    .checkbox-col {
+        width: 50px;
+        text-align: center;
+    }
+    
+    /* 滚动容器 */
+    .cargo-selection-container {
+        max-height: 300px;
+        overflow-y: auto;
+        border: 1px solid #e9ecef;
+        border-radius: 4px;
+        margin-bottom: 15px;
+    }
+</style>
+
+<div id="bindShipmentModal" class="modal">
+    <div class="modal-content" style="width: 100%; max-width: 1200px; max-height: 700px;">
+        <div class="modal-header">
+            <h3><i class="fas fa-link"></i> 预约出库</h3>
+            <span class="close">&times;</span>
+        </div>
+        <div class="modal-body" style="padding: 20px;">
+            <form id="bindShipmentForm" method="post">
+                {% csrf_token %}
+                <input type="hidden" name="step" value="ltl_bind_group_shipment">
+                <input type="hidden" name="suggestion_id" id="modalSuggestionId">
+                <!-- PackingList IDs -->
+                <input type="hidden" name="cargo_ids" id="modalCargoIds">
+                <!-- Pallet IDs -->
+                <input type="hidden" name="plt_ids" id="modalPltIds">
+                <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                <input type="hidden" name="st_type" value="{{ st_type }}">
+                <input type="hidden" name="active_tab" id="modalActiveTab" value="">
+                <input type="hidden" name="operation_type" id="operationType" value="bind">
+
+                <!-- 预约信息表格 -->
+                <div class="modal-form-section">
+                    <h4 style="margin-top: 20px;"><i class="fas fa-truck"></i> 预约信息</h4>
+                    <table class="modal-table">
+                        <thead>
+                            <tr>
+                                <th>目的地</th>
+                                <th>地址</th>
+                                <th>承运公司</th>
+                                <th>提货时间</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>
+                                    <input type="text" name="destination" id="ftl-destination" class="form-input" required>
+                                    <div class="field-hint">自动从选中记录合并</div>
+                                </td>
+                                <td>
+                                    <input type="text" name="address" id="address_detail" class="form-input">
+                                    <div class="field-hint">自动从选中记录合并</div>
+                                </td>
+                                <td>
+                                    <input type="text" name="carrier" id="carrier" class="form-input">
+                                    <div class="field-hint">手动填写</div>
+                                </td>
+                                <td>
+                                    <input type="datetime-local" id="pickup-time-input" name="shipment_appointment" class="form-input" required>
+                                    <div class="field-hint">自动从选中记录获取，如不同则需手动填写</div>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th>BOL号</th>
+                                <th>PRO号</th>
+                                <th>是否需要打印Label</th>
+                                <th>预约类型</th>
+                            </tr>
+                            <tr>
+                                <td>
+                                    <input type="text" name="arm_bol" id="arm_bol" class="form-input">
+                                    <div class="field-hint">自动从选中记录合并</div>
+                                </td>
+                                <td>
+                                    <input type="text" name="arm_pro" id="arm_pro" class="form-input">
+                                    <div class="field-hint">自动从选中记录合并</div>
+                                </td>
+                                <td>
+                                    <select name="is_print_label" id="is-print-label" class="form-select">
+                                        <option value="false">否</option>
+                                        <option value="true">是</option>
+                                    </select>
+                                </td>
+                                <td>
+                                    <select name="shipment_type" id="shipment-type-select" class="form-select">
+                                        <option value="LTL">LTL</option>
+                                        <option value="SELF_PICKUP">客户自提</option>
+                                    </select>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- 货物选择区域 -->
+                <div id="cargoSelectionArea" class="modal-form-section">
+                    <h4><i class="fas fa-box"></i> 选择要绑定/预约的货物</h4>
+                    <div class="cargo-selection-container">
+                        <table class="modal-table">
+                            <thead>
+                                <tr>
+                                    <th class="checkbox-col">
+                                        <input type="checkbox" id="modal-selectAllCargos">
+                                    </th>
+                                    <th>客户</th>
+                                    <th>柜号</th>
+                                    <th>唛头</th>
+                                    <th>托盘尺寸</th>
+                                    <th>板数</th>
+                                    <th>CBM</th>
+                                    <th>重量(lbs)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="cargoSelectionBody">
+                                <!-- JS 动态生成 -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="modal-actions">
+                    <button type="submit" class="modal-btn modal-btn-success">
+                        <i class="fas fa-check"></i> 确认预约出库
+                    </button>
+                    <button type="button" class="modal-btn modal-btn-danger" onclick="closeBindModal()">
+                        <i class="fas fa-times"></i> 取消
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    // 全局变量，用于存储弹框的回调函数
+    let shipmentModalCallbacks = {
+        onOpen: null,
+        onSubmit: null,
+        onClose: null
+    };
+
+    // 初始化弹框
+    function initShipmentModal() {
+        console.log('初始化预约出库弹框');
+        
+        // 绑定关闭按钮事件
+        const closeBtn = document.querySelector('#bindShipmentModal .close');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', closeBindModal);
+        }
+        
+        // 点击模态框外部关闭
+        window.addEventListener('click', function (event) {
+            const modal = document.getElementById('bindShipmentModal');
+            if (event.target === modal) {
+                closeBindModal();
+            }
+        });
+        
+        // 表单提交处理
+        const bindShipmentForm = document.getElementById('bindShipmentForm');
+        if (bindShipmentForm) {
+            bindShipmentForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                console.log('表单提交...');
+                
+                // 验证必填字段
+                if (!validateShipmentForm()) {
+                    return;
+                }
+                
+                const selected = Array.from(document.querySelectorAll('.cargo-checkbox:checked'));
+                if (selected.length === 0) {
+                    alert('请至少选择一个货物！');
+                    return;
+                }
+                
+                // 更新隐藏字段
+                updateHiddenIds();
+                
+                if (confirm('确定要提交预约出库申请吗？')) {
+                    const btn = this.querySelector('button[type="submit"]');
+                    if (btn) {
+                        const originalText = btn.innerHTML;
+                        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 处理中...';
+                        btn.disabled = true;
+                        
+                        // 恢复按钮状态（如果提交失败）
+                        setTimeout(() => {
+                            btn.innerHTML = originalText;
+                            btn.disabled = false;
+                        }, 5000);
+                    }
+                    
+                    // 如果有自定义提交回调，则调用回调函数
+                    if (shipmentModalCallbacks.onSubmit && typeof shipmentModalCallbacks.onSubmit === 'function') {
+                        shipmentModalCallbacks.onSubmit(this);
+                    } else {
+                        // 默认提交表单
+                        this.submit();
+                    }
+                }
+            });
+        }
+    }
+
+    // 验证预约表单
+    function validateShipmentForm() {
+        const destinationInput = document.getElementById('ftl-destination');
+        const addressInput = document.getElementById('address_detail');
+        const pickupTimeInput = document.getElementById('pickup-time-input');
+        
+        // 验证目的地
+        if (!destinationInput || !destinationInput.value.trim()) {
+            alert('请填写目的地！');
+            if (destinationInput) destinationInput.focus();
+            return false;
+        }
+        
+        // 验证地址
+        if (!addressInput || !addressInput.value.trim()) {
+            alert('请填写地址！');
+            if (addressInput) addressInput.focus();
+            return false;
+        }
+        
+        // 验证提货时间
+        if (!pickupTimeInput || !pickupTimeInput.value.trim()) {
+            alert('请填写提货时间！');
+            if (pickupTimeInput) pickupTimeInput.focus();
+            return false;
+        }
+        
+        // 验证预约类型
+        const shipmentTypeSelect = document.getElementById('shipment-type-select');
+        if (!shipmentTypeSelect || !shipmentTypeSelect.value) {
+            alert('请选择预约类型！');
+            if (shipmentTypeSelect) shipmentTypeSelect.focus();
+            return false;
+        }
+        
+        return true;
+    }
+
+    // 打开预约模态框
+    function openScheduleDialog(selectedCargos, options = {}) {
+        console.log('打开预约弹框，选中的货物:', selectedCargos, '选项:', options);
+        
+        // 清空之前的数据
+        const tbody = document.getElementById('cargoSelectionBody');
+        if (!tbody) {
+            console.error('找不到 cargoSelectionBody 元素');
+            return;
+        }
+        tbody.innerHTML = '';
+        
+        // 重置标题和按钮
+        const modalHeader = document.querySelector('#bindShipmentModal .modal-header h3');
+        const submitButton = document.querySelector('#bindShipmentModal .modal-btn-success');
+        const cargoSelectionTitle = document.querySelector('#cargoSelectionArea h4');
+        
+        if (modalHeader) modalHeader.innerHTML = '<i class="fas fa-truck-loading"></i> 预约出库';
+        if (submitButton) submitButton.innerHTML = '<i class="fas fa-check"></i> 确认预约出库';
+        if (cargoSelectionTitle) cargoSelectionTitle.innerHTML = '<i class="fas fa-box"></i> 选择的货物';
+        
+        // 设置隐藏字段
+        const operationTypeInput = document.getElementById('operationType');
+        if (operationTypeInput) operationTypeInput.value = 'bind';
+        
+        // 设置active_tab，默认使用传入的options.active_tab，否则使用默认值
+        const activeTabInput = document.getElementById('modalActiveTab');
+        if (activeTabInput) {
+            activeTabInput.value = options.active_tab || 'cargo';
+        }
+        
+        // 清空预约信息表格
+        const destinationInput = document.getElementById('ftl-destination');
+        const addressInput = document.getElementById('address_detail');
+        const carrierInput = document.getElementById('carrier');
+        const pickupTimeInput = document.getElementById('pickup-time-input');
+        const armBolInput = document.getElementById('arm_bol');
+        const armProInput = document.getElementById('arm_pro');
+        
+        if (destinationInput) destinationInput.value = '';
+        if (addressInput) addressInput.value = '';
+        if (carrierInput) carrierInput.value = '';
+        if (pickupTimeInput) pickupTimeInput.value = '';
+        if (armBolInput) armBolInput.value = '';
+        if (armProInput) armProInput.value = '';
+        
+        // 生成货物表格，按pallet展开
+        let allPltIds = [];
+        let allCargoIds = [];
+        
+        // 用于收集选中记录的信息，用于自动填充预约信息
+        const destinations = new Set();
+        const addresses = new Set();
+        const bols = new Set();
+        const pros = new Set();
+        const pickupTimes = new Set();
+        
+        selectedCargos.forEach(cargo => {
+            // 收集信息用于自动填充
+            if (cargo.destination && cargo.destination.trim() !== '') {
+                destinations.add(cargo.destination);
+            }
+            if (cargo.address && cargo.address.trim() !== '') {
+                addresses.add(cargo.address);
+            }
+            if (cargo.bol && cargo.bol.trim() !== '') {
+                bols.add(cargo.bol);
+            }
+            
+            // 从原始数据行获取PRO号
+            const originalRow = document.querySelector(`tr[data-cargo-id="${cargo.id}"]`);
+            if (originalRow) {
+                const proInput = originalRow.querySelector('.pro-input');
+                if (proInput && proInput.value.trim() !== '') {
+                    pros.add(proInput.value.trim());
+                }
+            }
+            
+            // 获取pickupTime
+            if (cargo.pickupTime && cargo.pickupTime.trim() !== '') {
+                pickupTimes.add(cargo.pickupTime);
+            }
+            if (cargo.id.startsWith('plt_')) {
+                console.log('cargo.pallet_items:', cargo.pallet_items);
+            }
+            if (cargo.id.startsWith('plt_')) {
+                const pltIdArray = cargo.id
+                    .replace('plt_', '')
+                    .split(',')
+                    .map(id => id.trim());
+
+                const palletMap = {};
+                if (Array.isArray(cargo.pallet_items)) {
+                    cargo.pallet_items.forEach(p => {
+                        // 支持 id 或 pallet_id
+                        const idKey = p.id ?? p.pallet_id; 
+                        if (idKey != null) {
+                            palletMap[String(idKey).trim()] = p;
+                        }
+                    });
+                }
+
+                pltIdArray.forEach(pltId => {
+                    const pallet = palletMap[pltId] || {};
+                    const length = pallet.length ?? pallet.l ?? null;
+                    const width  = pallet.width  ?? pallet.w ?? null;
+                    const height = pallet.height ?? pallet.h ?? null;
+
+                    const sizeText = (length && width && height)
+                        ? `${length}*${width}*${height}`
+                        : '-';
+
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td class="checkbox-col">
+                            <input type="checkbox"
+                                class="cargo-checkbox"
+                                data-cargo-type="pallet"
+                                data-cargo-id="${pltId}"
+                                data-original-id="${cargo.id}"
+                                checked>
+                        </td>
+                        <td>${cargo.customer || '-'}</td>
+                        <td>${cargo.containerNumber || '-'}</td>
+                        <td>${cargo.shippingMark || '-'}</td>
+                        <td class="pallet-size-cell">${sizeText}</td>
+                        <td>1</td>
+                        <td>${(pallet.cbm ?? (cargo.cbm / pltIdArray.length)).toFixed(3)}</td>
+                        <td>${(pallet.weight_lbs ?? (cargo.weight_lbs / pltIdArray.length)).toFixed(2)}</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            } else {
+                // 这是PACKINGLIST数据
+                const cargoIdArray = cargo.id.split(',');
+                const palletCount = cargo.pallets || 1;
+                
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td class="checkbox-col">
+                        <input type="checkbox" class="cargo-checkbox" 
+                            data-cargo-type="packinglist" 
+                            data-cargo-id="${cargo.id}" 
+                            checked>
+                    </td>
+                    <td>${cargo.customer || '-'}</td>
+                    <td>${cargo.containerNumber || '-'}</td>
+                    <td>${cargo.shippingMark || '-'}</td>
+                    <td class="pallet-size-cell">-</td>
+                    <td>${palletCount}</td>
+                    <td>${cargo.cbm.toFixed(3)}</td>
+                    <td>${cargo.weight_lbs.toFixed(2)}</td>
+                `;
+                tbody.appendChild(tr);
+                
+                allCargoIds = allCargoIds.concat(cargoIdArray);
+            }
+        });
+        
+        // 自动填充预约信息
+        if (destinations.size > 0 && destinationInput) {
+            destinationInput.value = Array.from(destinations).join('-');
+        }
+        
+        if (addresses.size > 0 && addressInput) {
+            addressInput.value = Array.from(addresses).join('-');
+        }
+        
+        if (bols.size > 0 && armBolInput) {
+            armBolInput.value = Array.from(bols).join('-');
+        }
+        
+        if (pros.size > 0 && armProInput) {
+            armProInput.value = Array.from(pros).join('-');
+        }
+        
+        // 提货时间
+        if (pickupTimes.size === 1 && pickupTimeInput) {
+            const pickupTime = Array.from(pickupTimes)[0];
+            if (pickupTime) {
+                try {
+                    const date = new Date(pickupTime);
+                    if (!isNaN(date.getTime())) {
+                        const year = date.getFullYear();
+                        const month = String(date.getMonth() + 1).padStart(2, '0');
+                        const day = String(date.getDate()).padStart(2, '0');
+                        const hours = String(date.getHours()).padStart(2, '0');
+                        const minutes = String(date.getMinutes()).padStart(2, '0');
+                        
+                        const formattedTime = `${year}-${month}-${day}T${hours}:${minutes}`;
+                        pickupTimeInput.value = formattedTime;
+                    }
+                } catch (e) {
+                    console.error('时间解析错误:', e);
+                }
+            }
+        }
+        
+        // 初始化全选功能
+        initializeCargoSelection();
+        
+        // 显示模态框
+        const modal = document.getElementById('bindShipmentModal');
+        if (modal) {
+            modal.style.display = 'block';
+            
+            // 触发打开回调
+            if (shipmentModalCallbacks.onOpen && typeof shipmentModalCallbacks.onOpen === 'function') {
+                shipmentModalCallbacks.onOpen(selectedCargos, options);
+            }
+        }
+    }
+
+    // 初始化货物选择功能
+    function initializeCargoSelection() {
+        const modal = document.getElementById('bindShipmentModal');
+        if (!modal) return;
+
+        const selectAll = modal.querySelector('#modal-selectAllCargos');
+        const checkboxes = modal.querySelectorAll('.cargo-checkbox');
+
+        if (!selectAll || checkboxes.length === 0) return;
+
+        // 初始状态：全部已选
+        selectAll.checked = true;
+        selectAll.indeterminate = false;
+
+        // 全选 / 取消全选
+        selectAll.onclick = function () {
+            checkboxes.forEach(cb => cb.checked = this.checked);
+            updateHiddenIds();
+        };
+
+        // 单个变化
+        checkboxes.forEach(cb => {
+            cb.addEventListener('change', () => {
+                const allChecked = Array.from(checkboxes).every(c => c.checked);
+                const someChecked = Array.from(checkboxes).some(c => c.checked);
+
+                selectAll.checked = allChecked;
+                selectAll.indeterminate = !allChecked && someChecked;
+
+                updateHiddenIds();
+            });
+        });
+
+        updateHiddenIds();
+    }
+
+    // 更新隐藏字段
+    function updateHiddenIds() {
+        const selected = Array.from(document.querySelectorAll('.cargo-checkbox:checked'));
+        
+        const packinglistIds = [];
+        const palletIds = [];
+        
+        selected.forEach(checkbox => {
+            const cargoType = checkbox.dataset.cargoType;
+            const cargoId = checkbox.dataset.cargoId;
+            
+            if (cargoType === 'packinglist') {
+                const ids = cargoId.split(',').filter(id => id.trim() !== '');
+                packinglistIds.push(...ids);
+            } else if (cargoType === 'pallet') {
+                palletIds.push(cargoId);
+            }
+        });
+        
+        const cargoIdsInput = document.getElementById('modalCargoIds');
+        const pltIdsInput = document.getElementById('modalPltIds');
+        
+        if (cargoIdsInput) cargoIdsInput.value = packinglistIds.join(',');
+        if (pltIdsInput) pltIdsInput.value = palletIds.join(',');
+    }
+
+    // 关闭模态框
+    function closeBindModal() {
+        const tbody = document.getElementById('cargoSelectionBody');
+        if (tbody) {
+            tbody.innerHTML = '';
+        }
+        
+        // 重置隐藏字段
+        const cargoIdsInput = document.getElementById('modalCargoIds');
+        const pltIdsInput = document.getElementById('modalPltIds');
+        
+        if (cargoIdsInput) cargoIdsInput.value = '';
+        if (pltIdsInput) pltIdsInput.value = '';
+        
+        // 隐藏模态框
+        const modal = document.getElementById('bindShipmentModal');
+        if (modal) {
+            modal.style.display = 'none';
+        }
+        
+        // 触发关闭回调
+        if (shipmentModalCallbacks.onClose && typeof shipmentModalCallbacks.onClose === 'function') {
+            shipmentModalCallbacks.onClose();
+        }
+    }
+
+    // 设置弹框回调函数
+    function setShipmentModalCallbacks(callbacks) {
+        if (callbacks.onOpen) shipmentModalCallbacks.onOpen = callbacks.onOpen;
+        if (callbacks.onSubmit) shipmentModalCallbacks.onSubmit = callbacks.onSubmit;
+        if (callbacks.onClose) shipmentModalCallbacks.onClose = callbacks.onClose;
+    }
+
+    // 公共API - 暴露给外部页面使用
+    window.ShipmentModal = {
+        open: openScheduleDialog,
+        close: closeBindModal,
+        init: initShipmentModal,
+        setCallbacks: setShipmentModalCallbacks
+    };
+
+    // 页面加载完成后初始化弹框
+    document.addEventListener('DOMContentLoaded', function() {
+        if (window.ShipmentModal && window.ShipmentModal.init) {
+            window.ShipmentModal.init();
+        } else {
+            initShipmentModal();
+        }
+    });
+
+</script>

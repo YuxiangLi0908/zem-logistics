@@ -1276,7 +1276,7 @@ $(document).ready(function() {
             $select.prop('disabled', true);
             if ($saveBtn.length) $saveBtn.prop('disabled', true);
         } else if (deliveryType === 'selfdelivery') {
-            $rateInput.prop('disabled', true).val('');
+            $rateInput.prop('disabled', false); 
             $amountInput.prop('readonly', false).prop('disabled', false);
             $palletsInput.prop('disabled', false);
             $surchargeInput.prop('disabled', false);

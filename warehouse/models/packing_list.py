@@ -93,9 +93,9 @@ class PackingList(models.Model):
     pl_ltl_pro_num = models.CharField(max_length=200, null=True, blank=True, verbose_name="ltl-pro")
     PickupAddr = models.CharField(max_length=200, null=True, blank=True, verbose_name="客提详细地址")
     est_pickup_time = models.DateField(null=True, blank=True, verbose_name="自提预计提货时间")
-    ltl_cost = models.FloatField(null=True, blank=True, verbose_name="ltl的成本")
-    ltl_quote = models.FloatField(null=True, blank=True, verbose_name="ltl的报价")
-    ltl_follow_status = models.CharField(max_length=200, null=True, blank=True, verbose_name="ltl跟进状态")
+    ltl_follow_status = models.CharField(max_length=400, null=True, blank=True, verbose_name="ltl跟进状态")
+    ltl_release_command = models.CharField(max_length=400, null=True, blank=True, verbose_name="ltl未放行时客户指令")
+    ltl_contact_method = models.CharField(max_length=400, null=True, blank=True, verbose_name="ltl预约送货联系方式")
     history = HistoricalRecords()
 
     class Meta:

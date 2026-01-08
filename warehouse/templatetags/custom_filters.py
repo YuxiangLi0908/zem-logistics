@@ -181,3 +181,14 @@ def multiply(value, arg):
         return float(value) * float(arg)
     except (ValueError, TypeError):
         return ''
+
+@register.filter
+def contains(value, arg):
+    """
+    用法：
+    {{ some_string|contains:"xxx" }}
+    返回 True / False
+    """
+    if value is None:
+        return False
+    return str(arg) in str(value)

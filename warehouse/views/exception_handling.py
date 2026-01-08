@@ -227,6 +227,9 @@ class ExceptionHandling(View):
         elif step == "delete_all_invoice_items":
             template, context = await self.handle_delete_all_invoice_items(request)
             return await sync_to_async(render)(request, template, context) 
+        elif step == "delete_all_invoice_items_public":
+            template, context = await self.delete_all_invoice_items_public(request)
+            return await sync_to_async(render)(request, template, context) 
         elif step == "delete_invoice_item":
             template, context = await self.handle_delete_invoice_item(request)
             return await sync_to_async(render)(request, template, context)
@@ -2561,6 +2564,36 @@ class ExceptionHandling(View):
             messages.error(request, f"查询过程中发生错误: {str(e)}")
             return self.template_delivery_invoice, {"search_performed": True}
 
+    async def delete_all_invoice_items_public(self, request: HttpRequest):
+        """删除全部公仓派送"""
+        search_type = request.POST.get("search_type")
+        search_value = request.POST.get("search_value", "").strip()
+        invoicev2 = await sync_to_async(lambda: Invoicev2.objects.filter(invoice_number=search_value).first())()
+        try:
+            # 删除 InvoiceDelivery
+            await sync_to_async(
+                lambda: InvoiceItemv2.objects.filter(
+                    invoice_number=invoicev2,
+                    delivery_type__in=["walmart", "amazon"],
+                ).delete()
+            )()
+            messages.success(request, f"成功删除 所有公仓的")
+        except Exception as e:
+            messages.error(request, f"删除过程中发生错误: {str(e)}")
+        await sync_to_async(
+            lambda: InvoiceStatusv2.objects.filter(
+                invoice__invoice_number=search_value, 
+                invoice_type="receivable"
+            ).update(finance_status="tobeconfirmed", delivery_public_status="unstarted")
+        )()
+        # 重新查询
+        request.POST = request.POST.copy()
+        request.POST["step"] = "search_invoice_delivery"
+        request.POST["search_type"] = search_type
+        request.POST["search_value"] = search_value
+        return await self.handle_search_invoice_delivery(request)
+    
+
     async def handle_delete_all_invoice_items(self, request: HttpRequest):
         """删除单条 InvoiceDelivery"""
         search_type = request.POST.get("search_type")
@@ -2577,7 +2610,7 @@ class ExceptionHandling(View):
         await sync_to_async(
             lambda: InvoiceStatusv2.objects.filter(
                 invoice__invoice_number=search_value, 
-                invoice_type="payable"
+                invoice_type="receivable"
             ).update(finance_status="tobeconfirmed", delivery_public_status="unstarted")
         )()
         # 重新查询

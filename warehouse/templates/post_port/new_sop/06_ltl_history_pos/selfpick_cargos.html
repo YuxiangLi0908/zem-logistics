@@ -740,6 +740,7 @@
     <input type="hidden" name="ltl_quote" id="ltlQuoteInput">
     <input type="hidden" name="warehouse" value="{{ warehouse }}">
     <input type="hidden" name="active_tab" value="scheduled">
+    <input type="hidden" name="page" value="history">
 </form>
 
 <script>
@@ -1091,7 +1092,8 @@
             const delQtyInputField = document.getElementById('delQtyInput');
             const ltlQuoteInputField = document.getElementById('ltlQuoteInput');
             const saveForm = document.getElementById('saveForm');
-
+            console.log('cargoIdInput',cargoIdInput);
+            console.log('赋的值',id);
             if (cargoIdInput && carrierInputField && addressInputField && 
                 bolNumberInputField && pickupTimeInputField && followStatusInputField 
                 && palletSizeInputField && delQtyInputField && ltlQuoteInputField && saveForm) {
