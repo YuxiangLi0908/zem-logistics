@@ -626,7 +626,6 @@
                             data-id="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
                             placeholder="输入跟进状态"
                             oninput="fleet_autoResizeTextarea(this)"
-                            onchange="fleet_saveFollowStatus(this)"
                             rows="1">{{ cargo.ltl_follow_status|default:'' }}</textarea>
                     </td>
                     <td class="fleet-customer-col">{{ cargo.customer_name|default:"-" }}</td>
@@ -656,7 +655,6 @@
                             data-id="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
                             placeholder="输入地址"
                             oninput="fleet_autoResizeTextarea(this)"
-                            onchange="fleet_saveAddress(this)"
                             rows="1">{{ cargo.address|default:'' }}</textarea>
                     </td>
                     <td class="fleet-contact-method-col">
@@ -710,15 +708,13 @@
                             value="{% if cargo.ltl_cost %}{{ cargo.ltl_cost }}{% endif %}"
                             placeholder="0.00"
                             step="0.01"
-                            min="0"
-                            onchange="fleet_saveCost(this)">
+                            min="0">
                     </td>
                     <td class="fleet-cost-note-col">
                         <textarea class="fleet-editable-textarea fleet-cost-note-input"
                             data-id="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
                             placeholder="输入成本备注"
                             oninput="fleet_autoResizeTextarea(this)"
-                            onchange="fleet_saveCostNote(this)"
                             rows="1">{{ cargo.ltl_cost_note|default:'' }}</textarea>
                     </td>
                     <td class="fleet-quote-col">
@@ -728,8 +724,7 @@
                                 value="{% if cargo.ltl_quote %}{{ cargo.ltl_quote }}{% endif %}"
                                 placeholder="0.00"
                                 step="0.01"
-                                min="0"
-                                onchange="fleet_saveQuote(this)">
+                                min="0">
                         {% else %}
                             <span style="color: #999; font-style: italic;">-</span>
                         {% endif %}
@@ -740,7 +735,6 @@
                                 data-id="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
                                 placeholder="输入报价备注"
                                 oninput="fleet_autoResizeTextarea(this)"
-                                onchange="fleet_saveQuoteNote(this)"
                                 rows="1">{{ cargo.ltl_quote_note|default:'' }}</textarea>
 
                         {% elif cargo.delivery_method|default:""|contains:"暂扣" %}
@@ -755,15 +749,13 @@
                         <input type="text" class="fleet-carrier-input" 
                             data-id="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
                             value="{{ cargo.fleet_carrier_company|default:'' }}"
-                            placeholder="输入承运公司"
-                            onchange="fleet_saveCarrier(this)">
+                            placeholder="输入承运公司">
                     </td>
                     <td class="fleet-bol-col">
                         <textarea class="fleet-bol-input" 
                             data-id="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
                             placeholder="输入BOL号"
                             oninput="fleet_autoResizeTextarea(this)"
-                            onchange="fleet_saveBolNumber(this)"
                             rows="1">{{ cargo.fleet_ltl_bol_num|default:'' }}</textarea>
                     </td>
                     <td class="fleet-pro-col">
@@ -771,7 +763,6 @@
                             data-id="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
                             placeholder="输入PRO号"
                             oninput="fleet_autoResizeTextarea(this)"
-                            onchange="fleet_saveProNumber(this)"
                             rows="1">{{ cargo.fleet_ltl_pro_num|default:'' }}</textarea>
                     </td>
                     <td class="fleet-action-col">
@@ -827,7 +818,6 @@
 
         // 全局变量 - 使用fleet_前缀
         let fleet_columnFilters = {};
-        let fleet_pendingChanges = {};
 
         function fleet_initializeFleetPage() {
             fleet_updateSelectedCount();
@@ -873,174 +863,6 @@
             textarea.style.height = 'auto';
             const newHeight = Math.max(32, textarea.scrollHeight);
             textarea.style.height = newHeight + 'px';
-        }
-
-        // 保存承运公司
-        function fleet_saveCarrier(input) {
-            const id = input.getAttribute('data-id');
-            const value = input.value.trim();
-            const key = `${id}_fleet_carrier`;
-            
-            if (value) {
-                localStorage.setItem(key, value);
-            } else {
-                localStorage.removeItem(key);
-            }
-            
-            if (!fleet_pendingChanges[id]) {
-                fleet_pendingChanges[id] = {};
-            }
-            fleet_pendingChanges[id].carrier_company = value;
-            
-            fleet_showSaveNotification(`承运公司已保存到本地`);
-        }
-        // 保存跟进状态
-        function fleet_saveFollowStatus(textarea) {
-            const id = textarea.getAttribute('data-id');
-            const value = textarea.value.trim();
-            const key = `${id}_fleet_follow_status`;
-            
-            fleet_autoResizeTextarea(textarea);
-            
-            if (value) {
-                localStorage.setItem(key, value);
-            } else {
-                localStorage.removeItem(key);
-            }
-            
-            if (!fleet_pendingChanges[id]) {
-                fleet_pendingChanges[id] = {};
-            }
-            fleet_pendingChanges[id].follow_status = value;
-            
-            fleet_showSaveNotification(`跟进状态已保存到本地`);
-        }
-        // 保存地址
-        function fleet_saveAddress(textarea) {
-            const id = textarea.getAttribute('data-id');
-            const value = textarea.value.trim();
-            const key = `${id}_fleet_address`;
-            
-            fleet_autoResizeTextarea(textarea);
-            
-            if (value) {
-                localStorage.setItem(key, value);
-            } else {
-                localStorage.removeItem(key);
-            }
-            
-            if (!fleet_pendingChanges[id]) {
-                fleet_pendingChanges[id] = {};
-            }
-            fleet_pendingChanges[id].address = value;
-            
-            fleet_showSaveNotification(`地址已保存到本地`);
-        }
-
-        // 保存备注
-        function fleet_saveNote(textarea) {
-            const id = textarea.getAttribute('data-id');
-            const value = textarea.value.trim();
-            const key = `${id}_fleet_note`;
-            
-            fleet_autoResizeTextarea(textarea);
-            
-            if (value) {
-                localStorage.setItem(key, value);
-            } else {
-                localStorage.removeItem(key);
-            }
-            
-            if (!fleet_pendingChanges[id]) {
-                fleet_pendingChanges[id] = {};
-            }
-            fleet_pendingChanges[id].note = value;
-            
-            fleet_showSaveNotification(`备注已保存到本地`);
-        }
-
-        // 保存成本
-        function fleet_saveCost(input) {
-            const id = input.getAttribute('data-id');
-            const value = input.value.trim();
-            const key = `${id}_fleet_cost`;
-            
-            if (value) {
-                localStorage.setItem(key, value);
-            } else {
-                localStorage.removeItem(key);
-            }
-            
-            if (!fleet_pendingChanges[id]) {
-                fleet_pendingChanges[id] = {};
-            }
-            fleet_pendingChanges[id].cost = value;
-            
-            fleet_showSaveNotification(`成本已保存到本地`);
-        }
-
-        // 保存报价
-        function fleet_saveQuote(input) {
-            const id = input.getAttribute('data-id');
-            const value = input.value.trim();
-            const key = `${id}_fleet_quote`;
-            
-            if (value) {
-                localStorage.setItem(key, value);
-            } else {
-                localStorage.removeItem(key);
-            }
-            
-            if (!fleet_pendingChanges[id]) {
-                fleet_pendingChanges[id] = {};
-            }
-            fleet_pendingChanges[id].quote = value;
-            
-            fleet_showSaveNotification(`报价已保存到本地`);
-        }
-
-        // 保存BOL号
-        function fleet_saveBolNumber(textarea) {
-            const id = textarea.getAttribute('data-id');
-            const value = textarea.value.trim();
-            const key = `${id}_fleet_bol_number`;
-            
-            fleet_autoResizeTextarea(textarea);
-            
-            if (value) {
-                localStorage.setItem(key, value);
-            } else {
-                localStorage.removeItem(key);
-            }
-            
-            if (!fleet_pendingChanges[id]) {
-                fleet_pendingChanges[id] = {};
-            }
-            fleet_pendingChanges[id].bol_number = value;
-            
-            fleet_showSaveNotification(`BOL号已保存到本地`);
-        }
-
-        // 保存PRO号
-        function fleet_saveProNumber(textarea) {
-            const id = textarea.getAttribute('data-id');
-            const value = textarea.value.trim();
-            const key = `${id}_fleet_pro_number`;
-            
-            fleet_autoResizeTextarea(textarea);
-            
-            if (value) {
-                localStorage.setItem(key, value);
-            } else {
-                localStorage.removeItem(key);
-            }
-            
-            if (!fleet_pendingChanges[id]) {
-                fleet_pendingChanges[id] = {};
-            }
-            fleet_pendingChanges[id].pro_number = value;
-            
-            fleet_showSaveNotification(`PRO号已保存到本地`);
         }
         
         // 保存行数据到服务器
@@ -1670,13 +1492,6 @@
         window.fleet_clearAllFilters = fleet_clearAllFilters;
         window.fleet_applyColumnFilter = fleet_applyColumnFilter;
         window.fleet_updateSelectedCount = fleet_updateSelectedCount;
-        window.fleet_saveCarrier = fleet_saveCarrier;
-        window.fleet_saveAddress = fleet_saveAddress;
-        window.fleet_saveNote = fleet_saveNote;
-        window.fleet_saveCost = fleet_saveCost;
-        window.fleet_saveQuote = fleet_saveQuote;
-        window.fleet_saveBolNumber = fleet_saveBolNumber;
-        window.fleet_saveProNumber = fleet_saveProNumber;
         window.fleet_saveRowData = fleet_saveRowData;
         window.fleet_autoResizeTextarea = fleet_autoResizeTextarea;
         window.fleet_copySelectedRows = fleet_copySelectedRows;

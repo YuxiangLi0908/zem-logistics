@@ -974,6 +974,9 @@ class Palletization(View):
         co.delivery_type = new_type
         await sync_to_async(co.save, thread_sensitive=True)()
 
+        #批量将LTL的参数从pl转到plt
+        await self.ltl_parameter_transfer(container)
+        
         mutable_post = request.POST.copy()
         mutable_post["name"] = order_selected.warehouse.name
         request.POST = mutable_post

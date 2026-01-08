@@ -4429,9 +4429,6 @@ class ReceivableAccounting(View):
                     break
             if destination.upper() == "UPS":
                 is_combina_region = False
-            cbm = group.get("total_cbm")
-            if float(cbm or 0) == 0:
-                is_combina_region = False
             
             if is_combina_region:
                 combina_pallet_groups.append(group)
@@ -4977,14 +4974,14 @@ class ReceivableAccounting(View):
                             total_weight_lbs=Sum('total_weight_lbs')
                         )                      
                         
-                        group['total_cbm'] = aggregated['total_cbm'] or 0.0
-                        group['total_weight_lbs'] = aggregated['total_weight_lbs'] or 0.0
+                        if aggregated['total_cbm'] is not None:
+                            group['total_cbm'] = aggregated['total_cbm']
+                        if aggregated['total_weight_lbs'] is not None:
+                            group['total_weight_lbs'] = aggregated['total_weight_lbs']
                         
                     except Exception as e:
-                        # 如果查询出错，设置默认值
-                        group['total_cbm'] = 0.0
-                        group['total_weight_lbs'] = 0.0
-                        error_messages.append(f"获取PO_ID {po_id} (目的地: {destination}) 的PackingList数据时出错: {str(e)}")
+                        # 如果查询出错，不修改值
+                        continue
                 else:
                     
                     try:
@@ -5002,21 +4999,18 @@ class ReceivableAccounting(View):
                                 total_cbm=Sum('cbm'),
                                 total_weight_lbs=Sum('total_weight_lbs')
                             )
-                        group['total_cbm'] = aggregated['total_cbm'] or 0.0
-                        group['total_weight_lbs'] = aggregated['total_weight_lbs'] or 0.0
+                        if aggregated['total_cbm'] is not None:
+                            group['total_cbm'] = aggregated['total_cbm']
+                        if aggregated['total_weight_lbs'] is not None:
+                            group['total_weight_lbs'] = aggregated['total_weight_lbs']
                         
                     except Exception as e:
-                        # 如果查询出错，设置默认值
-                        group['total_cbm'] = 0.0
-                        group['total_weight_lbs'] = 0.0
-                        error_messages.append(f"获取PO_ID {po_id} (目的地: {destination}) 的PackingList数据时出错: {str(e)}")
+                        # 如果查询出错，不修改值
+                        continue
                     
             else:
                 # 没有PO_ID的情况
-                group['total_cbm'] = 0.0
-                group['total_weight_lbs'] = 0.0
-                destination = group.get("destination")
-                error_messages.append(f"缺少PO_ID，目的地是 {destination}")
+                raise ValueError('pallet缺少PO_ID')
         
         if other_pallet_groups:
             container = Container.objects.get(container_number=container_number)

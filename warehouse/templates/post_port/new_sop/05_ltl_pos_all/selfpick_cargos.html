@@ -494,7 +494,7 @@
                 <tr class="filter-row">
                     <td class="checkbox-cell"></td>
                     <td>
-                        <input type="text" class="filter-input" placeholder="筛选跟进状态..." data-column="0" onkeyup="fleet_applyColumnFilter(this)">
+                        <input type="text" class="filter-input" placeholder="筛选跟进状态..." data-column="0" onkeyup="applySelfPickColumnFilter(this)">
                     </td>
                     <td>
                         <input type="text" class="filter-input" placeholder="筛选客户..." data-column="1" onkeyup="applySelfPickColumnFilter(this)">
@@ -584,8 +584,7 @@
                         <textarea class="editable-textarea follow-input"
                             data-id="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
                             placeholder="输入跟进状态"
-                            oninput="autoResizeTextarea(this)"      
-                            onchange="saveFollowStatus(this)"                   
+                            oninput="autoResizeTextarea(this)"                  
                             >{{ cargo.ltl_follow_status|default:'' }}</textarea>
                     </td>
                     <td class="customer-col">{{ cargo.customer_name|default:"-" }}</td>                   
@@ -681,30 +680,26 @@
                             data-id="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
                             placeholder="输入BOL号"
                             oninput="autoResizeTextarea(this)"
-                            onchange="saveBolNumber(this)"
                             >{% if cargo.data_source == 'PALLET' %}{{ cargo.plt_ltl_bol_num|default:'' }}{% else %}{{ cargo.pl_ltl_bol_num|default:'' }}{% endif %}</textarea>
                     </td>
                     <td>
                         <input type="text" class="carrier-input" 
                             data-id="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
                             value="{{ cargo.carrier_company|default:'' }}"
-                            placeholder="输入承运公司"
-                            onchange="saveCarrier(this)">
+                            placeholder="输入承运公司">
                     </td>
                     <td class="address-col">
                         <textarea class="address-input"
                             data-id="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
                             placeholder="输入详细地址"
                             oninput="autoResizeTextarea(this)"
-                            onchange="saveAddress(this)"
                             >{{ cargo.address|default:'' }}</textarea>
                     </td>
                     <td>
                         <input type="date" class="pickup-date-input" 
                             data-id="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
                             value="{% if cargo.est_pickup_time %}{{ cargo.est_pickup_time|date:'Y-m-d' }}{% endif %}" 
-                            placeholder="选择预计提货日期"
-                            onchange="savePickupDate(this)">
+                            placeholder="选择预计提货日期">
                     </td>
                     <td class="action-col">
                         <div class="action-buttons">
@@ -803,28 +798,6 @@
             textarea.style.height = 'auto';
             textarea.style.overflow = 'hidden';   // 双保险
             textarea.style.height = textarea.scrollHeight + 'px';
-        }
-
-        // 保存跟进状态
-        function saveFollowStatus(textarea) {
-            const id = textarea.getAttribute('data-id');
-            const value = textarea.value.trim();
-            const key = `${id}_fleet_follow_status`;
-            
-            autoResizeTextarea(textarea);
-            
-            if (value) {
-                localStorage.setItem(key, value);
-            } else {
-                localStorage.removeItem(key);
-            }
-            
-            if (!fleet_pendingChanges[id]) {
-                fleet_pendingChanges[id] = {};
-            }
-            fleet_pendingChanges[id].follow_status = value;
-            
-            showSaveNotification(`跟进状态已保存到本地`);
         }
 
         // 新增：复制选中行数据到剪贴板
@@ -1026,103 +999,6 @@
                 }, 300);
             }, 2000);
         }
-
-        // 保存承运公司
-        function saveCarrier(input) {
-            const id = input.getAttribute('data-id');
-            const value = input.value.trim();
-            const key = `${id}_carrier`;
-            
-            // 保存到localStorage
-            if (value) {
-                localStorage.setItem(key, value);
-            } else {
-                localStorage.removeItem(key);
-            }
-            
-            // 添加到待处理更改
-            if (!pendingChanges[id]) {
-                pendingChanges[id] = {};
-            }
-            pendingChanges[id].carrier_company = value;
-            
-            showSaveNotification(`承运公司已保存到本地`);
-        }
-
-        // 保存地址
-        function saveAddress(textarea) {
-            const id = textarea.getAttribute('data-id');
-            const value = textarea.value.trim();
-            const key = `${id}_address`;
-            
-            // 自动调整高度
-            autoResizeTextarea(textarea);
-            
-            // 保存到localStorage
-            if (value) {
-                localStorage.setItem(key, value);
-            } else {
-                localStorage.removeItem(key);
-            }
-            
-            // 添加到待处理更改
-            if (!pendingChanges[id]) {
-                pendingChanges[id] = {};
-            }
-            pendingChanges[id].address = value;
-            
-            showSaveNotification(`地址已保存到本地`);
-        }
-
-        
-
-        // 保存BOL号
-        function saveBolNumber(textarea) {
-            const id = textarea.getAttribute('data-id');
-            const value = textarea.value.trim();
-            const key = `${id}_bol_number`;
-            
-            // 自动调整高度
-            autoResizeTextarea(textarea);
-            
-            // 保存到localStorage
-            if (value) {
-                localStorage.setItem(key, value);
-            } else {
-                localStorage.removeItem(key);
-            }
-            
-            // 添加到待处理更改
-            if (!pendingChanges[id]) {
-                pendingChanges[id] = {};
-            }
-            pendingChanges[id].bol_number = value;
-            
-            showSaveNotification(`BOL号已保存到本地`);
-        }
-
-        // 保存预计提货时间
-        function savePickupDate(input) {
-            const id = input.getAttribute('data-id');
-            const value = input.value.trim();
-            const key = `${id}_pickup_date`; // 修改key名称
-            
-            // 保存到localStorage
-            if (value) {
-                localStorage.setItem(key, value);
-            } else {
-                localStorage.removeItem(key);
-            }
-            
-            // 添加到待处理更改
-            if (!pendingChanges[id]) {
-                pendingChanges[id] = {};
-            }
-            pendingChanges[id].pickup_date = value; // 修改字段名
-            
-            showSaveNotification(`预计提货日期已保存到本地`);
-        }
-
 
         // 保存行数据到服务器
         function saveRowData(button) {
@@ -1580,10 +1456,6 @@
         window.clearSelfPickAllFilters = clearSelfPickAllFilters;
         window.applySelfPickColumnFilter = applySelfPickColumnFilter;
         window.updateSelfPickSelectedCount = updateSelfPickSelectedCount;
-        window.saveCarrier = saveCarrier;
-        window.saveAddress = saveAddress;
-        window.saveBolNumber = saveBolNumber;
-        window.savePickupDate = savePickupDate;
         window.saveRowData = saveRowData;
         window.autoResizeTextarea = autoResizeTextarea;
         window.copySelectedRows = copySelectedRows;
