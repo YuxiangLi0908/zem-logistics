@@ -9623,8 +9623,9 @@ class Accounting(View):
                 overweight = overweight.replace("\n", ";")
 
         # 入库费
-        arrive_fee = fee_detail[warehouse][warehouse_precise][preport_carrier].get('arrive_warehouse').replace("/","")
-
+        arrive_fee = fee_detail[warehouse][warehouse_precise][preport_carrier].get('arrive_warehouse')
+        if arrive_fee == "/":
+            arrive_fee = arrive_fee.replace("/", "")
         # 获取拆柜供应商选项
         # 1. 初始化包含默认空选项的字典（键值可根据你的需求调整，比如 ""/"请选择"）
         pallet_details = {"": ""}  # 第一个默认键值对为空
