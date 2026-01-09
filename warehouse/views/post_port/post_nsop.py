@@ -2094,7 +2094,19 @@ class PostNsop(View):
                 rules = fee_details.get(combina_key).details
                 
                 container_type_temp = 0 if "40" in container.container_type else 1
-                temp_table = await self._process_combina_quote(po, rules, container_type_temp, warehouse, quotations.get("filename"))
+                total_container_cbm = await sync_to_async(
+                    lambda: PackingList.objects
+                        .filter(container_number=container)
+                        .aggregate(
+                            total_cbm_sum=Round(
+                                Sum('cbm'), 
+                                2, 
+                                output_field=FloatField()
+                            )
+                        )['total_cbm_sum'] or 0.0
+                )()
+                cbm = float(po['total_cbm'])
+                temp_table = await self._process_combina_quote(po, cbm, float(total_container_cbm), rules, container_type_temp, warehouse, quotations.get("filename"))
                 if temp_table:
                     non_combina_table = False
                     quotation_table_data.append(temp_table)
@@ -2178,7 +2190,7 @@ class PostNsop(View):
             context = {'quotation_table_data':quotation_table_data}
         return await self.handle_td_shipment_post(request, context)
     
-    async def _process_combina_quote(self, po, rules, container_type_temp, warehouse, filename):
+    async def _process_combina_quote(self, po, cbm, total_cbm, rules, container_type_temp, warehouse, filename):
         """按组合柜方式查找仓点报价 """
 
         #改前和改后的
@@ -2205,10 +2217,10 @@ class PostNsop(View):
             return ({
                 'container_number': po['container_number__container_number'],
                 'destination': po['destination'],                         
-                'cbm': po['total_cbm'],
+                'cbm': cbm,
                 'total_pallets': po['total_pallets'], 
                 'rate': price, 
-                'amount': price,
+                'amount': round(price * cbm / total_cbm,2),
                 'type': "组合柜",
                 'region': region,
                 'warehouse': warehouse, 
