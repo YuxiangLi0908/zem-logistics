@@ -5805,6 +5805,14 @@ class PostNsop(View):
             )()
 
             if existing_item:
+                receivable_statuses = await sync_to_async(
+                    lambda: InvoiceStatusv2.objects.filter(
+                        invoice=existing_item.invoice_number,
+                        invoice_type="receivable"
+                    ).first()
+                )()
+                if receivable_statuses and receivable_statuses.finance_status == "completed":
+                    return '账单已被财务确认不可修改出库费！'
                 # 更新原记录
                 existing_item.qty = qty
                 existing_item.rate = ltl_quote
@@ -5963,7 +5971,7 @@ class PostNsop(View):
 
         return invoice, invoice_status
     
-    async def _delivery_account_selfpick_entry(self, ids, ltl_quote, del_qty, username):
+    async def _delivery_account_selfpick_entry(self, ids, ltl_quote, ltl_quote_note, del_qty, username):
         '''自提的出库费录入'''
         pallets = await sync_to_async(list)(
             Pallet.objects.filter(id__in=ids)
@@ -6001,7 +6009,15 @@ class PostNsop(View):
                 ).first()
             )()
 
-            if existing_item:
+            if existing_item:              
+                receivable_statuses = await sync_to_async(
+                    lambda: InvoiceStatusv2.objects.filter(
+                        invoice=existing_item.invoice_number,
+                        invoice_type="receivable"
+                    ).first()
+                )()
+                if receivable_statuses and receivable_statuses.finance_status == "completed":
+                    return '账单已被财务确认不可修改出库费！'
                 # 更新原记录
                 existing_item.qty = del_qty
                 existing_item.rate = ltl_quote
@@ -6009,6 +6025,7 @@ class PostNsop(View):
                 existing_item.weight = total_weight
                 existing_item.amount = ltl_quote
                 existing_item.description = '出库费'
+                existing_item.note = ltl_quote_note
                 existing_item.warehouse_code = getattr(first_pallet, "destination", "")
                 await sync_to_async(existing_item.save)()
             else:
@@ -6032,6 +6049,7 @@ class PostNsop(View):
                     shipping_marks=shipping_mark,
                     rate=ltl_quote,
                     amount=ltl_quote,
+                    note=ltl_quote_note,
                     qty=del_qty,
                     cbm=total_cbm,
                     weight=total_weight,
@@ -6058,6 +6076,7 @@ class PostNsop(View):
         follow_status = request.POST.get('follow_status', '').strip()
         del_qty = request.POST.get('del_qty', '').strip()
         ltl_quote  = request.POST.get('ltl_quote', '').strip()
+        ltl_quote_note  = request.POST.get('ltl_quote_note', '').strip()
 
         est_pickup_time = None
         if pickup_date_str:
@@ -6107,6 +6126,8 @@ class PostNsop(View):
             update_data['del_qty'] = del_qty
         if ltl_quote and is_pallet:
             update_data['ltl_quote'] = ltl_quote
+        if ltl_quote_note and is_pallet:
+            update_data['ltl_quote_note'] = ltl_quote_note
         
         # 批量更新通用字段
         if update_data:
@@ -6122,7 +6143,9 @@ class PostNsop(View):
         if ltl_quote:
             # 录到派送账单
             username = request.user.username
-            status_message = await self._delivery_account_selfpick_entry(ids, ltl_quote, del_qty, username)
+            if not del_qty:
+                del_qty = len(ids)
+            status_message = await self._delivery_account_selfpick_entry(ids, ltl_quote, ltl_quote_note, del_qty, username)
 
         # 特殊处理：如果是PALLET数据且有托盘尺寸，保存托盘尺寸
         success_message = '保存成功！'
@@ -6158,9 +6181,15 @@ class PostNsop(View):
             line = lines[0]
             # 格式：长*宽*高 x件 xkg
             if '件' in line and 'kg' in line:
-                pcs = line.split(' ')[1].replace('件', '')
-                weight = line.split(' ')[2].replace('kg', '')
-                parts = line.split(' ')[0].replace('板', '').split('*')
+                parts = line.split()
+                clean_parts = [part for part in parts if part != '']
+                for part in clean_parts:
+                    if '件' in part:
+                        pcs = part.replace('件', '')
+                    if 'kg' in part:
+                        weight = part.replace('kg', '')
+                    else:
+                        parts = line.split(' ')[0].replace('板', '').split('*')
             else:
                 parts = line.split('*')
                 pcs = None
@@ -6202,9 +6231,15 @@ class PostNsop(View):
                 continue
             
             if '件' in line and 'kg' in line:
-                pcs = line.split(' ')[1].replace('件', '')
-                weight = line.split(' ')[2].replace('kg', '')
-                parts = line.split(' ')[0].replace('板', '').split('*')
+                parts = line.split()
+                clean_parts = [part for part in parts if part != '']
+                for part in clean_parts:
+                    if '件' in part:
+                        pcs = part.replace('件', '')
+                    if 'kg' in part:
+                        weight = part.replace('kg', '')
+                    else:
+                        parts = line.split(' ')[0].replace('板', '').split('*')
             else:
                 line_clean = line.replace('板', '')
                 parts = line_clean.split('*')

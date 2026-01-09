@@ -3795,11 +3795,12 @@ class ReceivableAccounting(View):
         if delivery_type == "public":
             activation_table = pallet_groups
             is_combina = self._determine_is_combina(order)
-        
+
         # 获取本次账单已录入的激活费项
         activation_fee_groups = self._get_existing_activation_items(invoice, order.container_number)
         # 获取本次账单已录入的派送费项
         existing_items = self._get_existing_invoice_items(invoice, "delivery_" + delivery_type)
+
         # 如果所有PO都已录入，直接返回已有数据
         if existing_items:
             if delivery_type =="other":
@@ -3863,19 +3864,20 @@ class ReceivableAccounting(View):
             
         else:
             final_result = result_existing
+
         # 报价表相关
         quotation, quotation_error = self._get_quotation_for_order(order, 'receivable')
         if quotation_error:
             context.update({"error_messages": quotation_error})
-            return context
+            return template, context
         try:
             COMBINA_STIPULATE = FeeDetail.objects.get(
                 quotation_id=quotation.id,
                 fee_type='COMBINA_STIPULATE'
             )
         except Exception as e:
-            context.update({"error_messages": '缺少组合柜信息'})
-            return context
+            context.update({"error_messages": f'{quotation.filename}-{quotation.version}-缺少组合柜信息'})
+            return template, context
         rules_text = self._parse_combina_rules(COMBINA_STIPULATE.details, order.retrieval_id.retrieval_destination_area)
 
         total_container_cbm = PackingList.objects.filter(
@@ -3919,10 +3921,7 @@ class ReceivableAccounting(View):
             "receivable_is_locked": invoice.receivable_is_locked,
         })
         
-        if delivery_type == "public":
-            return template, context
-        else:
-            return template, context
+        return template, context
     
     def _parse_combina_rules(self, rules_data: dict, warehouse_code: str):
         result = {

@@ -313,7 +313,12 @@
         max-width: 120px;
     }
 
-    .qty-input, .outbound-fee-input {
+    .quote-note-col {
+        min-width: 150px;
+        max-width: 200px;
+    }
+
+    .qty-input, .outbound-fee-input, .outbound-fee-note-input {
         width: 100%;
         padding: 6px 8px;
         border: 1px solid #dee2e6;
@@ -486,6 +491,7 @@
                     <th class="pallet-size-col">托盘尺寸</th>
                     <th class="quote-col">出库数量</th> 
                     <th class="quote-col">出库费</th> 
+                    <th class="quote-note-col">出库费备注</th> 
                     <th class="bol-col">BOL号</th>                   
                     <th>承运公司</th>
                     <th class="address-col">地址</th>
@@ -537,16 +543,19 @@
                         <input type="text" class="filter-input" placeholder="筛选出库费..." data-column="11" onkeyup="applySelfPickColumnFilter(this)">
                     </td> 
                     <td>
-                        <input type="text" class="filter-input" placeholder="筛选BOL号..." data-column="12" onkeyup="applySelfPickColumnFilter(this)">
+                        <input type="text" class="filter-input" placeholder="筛选出库费备注..." data-column="12" onkeyup="applySelfPickColumnFilter(this)">
+                    </td> 
+                    <td>
+                        <input type="text" class="filter-input" placeholder="筛选BOL号..." data-column="13" onkeyup="applySelfPickColumnFilter(this)">
                     </td>                  
                     <td>
-                        <input type="text" class="filter-input" placeholder="筛选承运公司..." data-column="13" onkeyup="applySelfPickColumnFilter(this)">
+                        <input type="text" class="filter-input" placeholder="筛选承运公司..." data-column="14" onkeyup="applySelfPickColumnFilter(this)">
                     </td>
                     <td>
-                        <input type="text" class="filter-input" placeholder="筛选地址..." data-column="14" onkeyup="applySelfPickColumnFilter(this)">
+                        <input type="text" class="filter-input" placeholder="筛选地址..." data-column="15" onkeyup="applySelfPickColumnFilter(this)">
                     </td>
                     <td>
-                        <input type="text" class="filter-input" placeholder="筛选提货日期..." data-column="15" onkeyup="applySelfPickColumnFilter(this)">
+                        <input type="text" class="filter-input" placeholder="筛选提货日期..." data-column="16" onkeyup="applySelfPickColumnFilter(this)">
                     </td>
                     <td class="action-col">
                         <!-- 操作列不需要筛选 -->
@@ -679,6 +688,21 @@
                             <span style="color: #999; font-style: italic;">-</span>
                         {% endif %}
                     </td>
+                    <td class="quote-note-col">
+                        {% if cargo.data_source == "PALLET" and not cargo.delivery_method|default:""|contains:"暂扣" %}
+                            <input type="text" class="outbound-fee-note-input" 
+                                data-id="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
+                                value="{{ cargo.ltl_quote_note|default:'' }}"
+                                placeholder="出库费备注"
+                                maxlength="200">
+                        {% elif cargo.delivery_method|default:""|contains:"暂扣" %}
+                            <span style="color: #999; font-style: italic;">暂扣不可编辑</span>
+                        {% elif cargo.data_source != "PALLET" %}
+                            <span style="color: #999; font-style: italic;">未打板不可录</span>
+                        {% else %}
+                            <span style="color: #999; font-style: italic;">-</span>
+                        {% endif %}
+                    </td>
                     <td class="bol-col">
                         <textarea class="bol-input" 
                             data-id="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
@@ -738,6 +762,7 @@
     <input type="hidden" name="follow_status" id="followStatusInput">
     <input type="hidden" name="del_qty" id="delQtyInput">
     <input type="hidden" name="ltl_quote" id="ltlQuoteInput">
+    <input type="hidden" name="ltl_quote_note" id="ltlQuoteNoteInput">
     <input type="hidden" name="warehouse" value="{{ warehouse }}">
     <input type="hidden" name="active_tab" value="scheduled">
 </form>
@@ -1027,6 +1052,7 @@
             const palletSizeInput = row.querySelector('.pallet-size-input');
             const delQtyInput = row.querySelector('.qty-input');
             const ltlQuoteInput = row.querySelector('.outbound-fee-input');
+            const ltlQuoteNoteInput = row.querySelector('.outbound-fee-note-input');
 
             const followStatusValue = followStatusInput ? followStatusInput.value.trim() : '';
             const carrierValue = carrierInput ? carrierInput.value.trim() : '';
@@ -1036,6 +1062,7 @@
             const palletSizeValue = palletSizeInput ? palletSizeInput.value.trim() : '';
             const delQtyValue = delQtyInput ? delQtyInput.value.trim() : '';
             const ltlQuoteValue = ltlQuoteInput ? ltlQuoteInput.value.trim() : '';
+            const ltlQuoteNoteValue = ltlQuoteNoteInput ? ltlQuoteNoteInput.value.trim() : '';
             
             /* const tbody = document.querySelector('#selfpick_cargoTable tbody');
             // 只有PALLET数据才有托盘尺寸输入框
@@ -1090,11 +1117,13 @@
             const followStatusInputField = document.getElementById('followStatusInput');
             const delQtyInputField = document.getElementById('delQtyInput');
             const ltlQuoteInputField = document.getElementById('ltlQuoteInput');
+            const ltlQuoteNoteInputField = document.getElementById('ltlQuoteNoteInput');
             const saveForm = document.getElementById('saveForm');
 
             if (cargoIdInput && carrierInputField && addressInputField && 
                 bolNumberInputField && pickupTimeInputField && followStatusInputField 
-                && palletSizeInputField && delQtyInputField && ltlQuoteInputField && saveForm) {
+                && palletSizeInputField && delQtyInputField && ltlQuoteInputField 
+                && ltlQuoteNoteInputField && saveForm) {
                 cargoIdInput.value = id;
                 carrierInputField.value = carrierValue;
                 addressInputField.value = addressValue;
@@ -1104,6 +1133,7 @@
                 followStatusInputField.value = followStatusValue;
                 delQtyInputField.value = delQtyValue;
                 ltlQuoteInputField.value = ltlQuoteValue;
+                ltlQuoteNoteInputField.value = ltlQuoteNoteValue; 
                 saveForm.submit();
             } else {
                 console.error('保存表单元素未找到');
