@@ -6703,7 +6703,7 @@ class Accounting(View):
         # 只处理第一条Invoicev2记录（保留.first()，但调整后续逻辑）
         target_invoices = Invoicev2.objects.select_related("container_number").prefetch_related(
             Prefetch("container_number__orders", queryset=order_prefetch_queryset)
-        ).filter(Exists(order_exists_subquery), container_number__isnull=False).all()
+        ).filter(Exists(order_exists_subquery)).all()
 
         if target_invoices:
             for target_invoice in target_invoices:
