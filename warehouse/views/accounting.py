@@ -6700,7 +6700,7 @@ class Accounting(View):
         ).select_related("retrieval_id", "vessel_id", "customer_name")
 
 
-        # 只处理第一条Invoicev2记录（保留.first()，但调整后续逻辑）
+        # 只处理第一条Invoicev2记录
         target_invoices = Invoicev2.objects.select_related("container_number").prefetch_related(
             Prefetch("container_number__orders", queryset=order_prefetch_queryset)
         ).filter(Exists(order_exists_subquery)).all()
