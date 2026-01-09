@@ -5082,6 +5082,7 @@ class PostNsop(View):
                     "est_pickup_time",
                     "ltl_cost",
                     "ltl_quote",
+                    "ltl_unit_quote",
                     "offload_at",
                     "ltl_follow_status",
                     "ltl_release_command",
