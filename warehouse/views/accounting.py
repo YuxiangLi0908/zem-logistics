@@ -9636,7 +9636,8 @@ class Accounting(View):
                 'rate': item.rate or 0,
                 'surcharges': item.surcharges or 0,
                 'amount': item.amount or 0,
-                'note': item.note or ''
+                'note': item.note or '',
+                "carrier": item.carrier or '',
             })
         # 如果是第一次录入且没有费用记录，添加提拆费作为默认
         if not existing_items.exists() and invoice_status.preport_status == 'unstarted' and pickup_fee > 0:
