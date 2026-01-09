@@ -1,0 +1,205 @@
+<!-- 报价表弹框页面 -->
+ {% load custom_filters %}
+<style>
+    .quotation-row-with-rate {
+        background-color: #f8fff8 !important;
+        border-left: 3px solid #28a745 !important;
+    }
+
+    .quotation-row-without-rate {
+        background-color: #fff8f8 !important;
+        border-left: 3px solid #dc3545 !important;
+    }
+
+    .quotation-rate-value {
+        font-weight: bold;
+        color: #28a745;
+    }
+
+    .quotation-amount-value {
+        font-weight: bold;
+        color: #007bff;
+    }
+
+    .quotation-niche-yes {
+        color: #dc3545;
+        font-weight: bold;
+    }
+
+    .quotation-niche-no {
+        color: #28a745;
+        font-weight: bold;
+    }
+
+    .quotation-type-amazon {
+        background-color: #ff9900;
+        color: white;
+        padding: 2px 6px;
+        border-radius: 3px;
+        font-size: 0.8rem;
+        font-weight: bold;
+    }
+
+    .quotation-type-walmart {
+        background-color: #0071ce;
+        color: white;
+        padding: 2px 6px;
+        border-radius: 3px;
+        font-size: 0.8rem;
+        font-weight: bold;
+    }
+
+    .quotation-type-none {
+        background-color: #6c757d;
+        color: white;
+        padding: 2px 6px;
+        border-radius: 3px;
+        font-size: 0.8rem;
+        font-weight: bold;
+    }
+
+    #quotationSummary {
+        display: flex;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 15px;
+    }
+
+    .summary-item {
+        text-align: center;
+        min-width: 120px;
+    }
+
+    .summary-label {
+        font-size: 0.85rem;
+        color: #6c757d;
+        margin-bottom: 3px;
+    }
+
+    .summary-value {
+        font-size: 1.2rem;
+        font-weight: bold;
+        color: #343a40;
+    }
+
+    .summary-total-amount {
+        color: #dc3545;
+        font-size: 1.3rem;
+    }
+</style>
+
+<!-- 报价查询结果弹框 -->
+<div id="quotationModal" class="modal" style="display: none;">
+    <div class="modal-content" style="width: 90%; max-width: 1200px;">
+        <div class="modal-header">
+            <h3><i class="fas fa-search-dollar"></i> 报价查询结果</h3>
+            <span class="close" onclick="closeQuotationModal()">&times;</span>
+        </div>
+        <div class="modal-body">
+            <!-- 报价表格 -->
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>仓点</th>
+                        <th>CBM</th>
+                        <th>报价($/板)</th>                     
+                        <th>板数</th>
+                        <th>总价($)</th>
+                        <th>仓库</th>
+                        <th>是否冷门仓</th>
+                        <th>报价类型</th>
+                        <th>报价表</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in quotation_table_data %}
+                    <tr>
+                        <td>{{ item.destination|default:"-" }}</td>
+                        <td>{{ item.cbm|floatformat:2 }}</td>
+                        <td>
+                            {% if item.rate %}
+                                ${{ item.rate|floatformat:2 }}
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>                       
+                        <td>{{ item.total_pallets|floatformat:2 }}</td>
+                        <td>
+                            {% if item.amount %}
+                                ${{ item.amount|floatformat:2 }}
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                        <td>{{ item.warehouse|default:"-" }}</td>
+                        <td>
+                            {% if item.is_niche_warehouse == True %}
+                                是
+                            {% elif item.is_niche_warehouse == False %}
+                                否
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if item.type == 'amazon' %}
+                                <span style="background-color: #ff9900; color: white; padding: 2px 6px; border-radius: 3px;">Amazon</span>
+                            {% elif item.type == 'walmart' %}
+                                <span style="background-color: #0071ce; color: white; padding: 2px 6px; border-radius: 3px;">Walmart</span>
+                            {% else %}
+                                <span style="background-color: #6c757d; color: white; padding: 2px 6px; border-radius: 3px;">无报价</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ item.quotation_name|default:"-" }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    {% if quotation_table_data %}
+                    <tr style="background-color: #f8f9fa; font-weight: bold;">
+                        <td style="text-align: right;">总计：</td>                   
+                        <td>
+                            {{ quotation_table_data|sum_numeric:"cbm"|floatformat:2 }}
+                        </td>
+                        <td></td>
+                        <td>
+                            {{ quotation_table_data|sum_numeric:"total_pallets"|floatformat:2 }}
+                        </td>
+                        <td style="color: #dc3545; font-size: 1.1em;">${{ quote_total|floatformat:2 }}</td>
+                        <td colspan="4"></td>
+                    </tr>
+                    {% endif %}
+                </tfoot>
+            </table>
+        </div>
+        <div class="modal-actions">
+            <button type="button" class="modal-btn modal-btn-primary" onclick="closeQuotationModal()">
+                <i class="fas fa-times"></i> 关闭
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // 显示报价弹框（如果有数据）
+    {% if quotation_table_data %}
+    document.addEventListener('DOMContentLoaded', function() {
+        // 页面加载完成后显示弹框
+        setTimeout(function() {
+            document.getElementById('quotationModal').style.display = 'block';
+        }, 300);
+    });
+    {% endif %}
+
+    // 关闭报价弹框
+    function closeQuotationModal() {
+        document.getElementById('quotationModal').style.display = 'none';
+    }
+
+    // 点击外部关闭弹框
+    document.getElementById('quotationModal').addEventListener('click', function(event) {
+        if (event.target === this) {
+            closeQuotationModal();
+        }
+    });
+</script>

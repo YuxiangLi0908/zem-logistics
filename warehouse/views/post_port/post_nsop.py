@@ -60,10 +60,12 @@ from django.contrib.auth.models import User
 from warehouse.forms.warehouse_form import ZemWarehouseForm
 from warehouse.models.packing_list import PackingList
 from warehouse.models.pallet import Pallet
+from warehouse.models.quotation_master import QuotationMaster
 from warehouse.models.fleet import Fleet
 from warehouse.models.order import Order
 from warehouse.models.po_check_eta import PoCheckEtaSeven
 from warehouse.models.shipment import Shipment
+from warehouse.models.fee_detail import FeeDetail
 from warehouse.models.container import Container
 from warehouse.models.invoicev2 import (
     Invoicev2,
@@ -410,6 +412,9 @@ class PostNsop(View):
             return render(request, template, context) 
         elif step == "save_releaseCommand":
             template, context = await self.handle_save_releaseCommand(request)
+            return render(request, template, context) 
+        elif step == "query_quotation":
+            template, context = await self.handle_query_quotation(request)
             return render(request, template, context) 
         else:
             raise ValueError('输入错误',step)
@@ -1987,6 +1992,212 @@ class PostNsop(View):
                 'error': f"预约失败: {str(e)}"
             }
     
+    async def handle_query_quotation(
+        self, request: HttpRequest
+    ) -> tuple[str, dict[str, Any]]:
+        '''查询多个仓点的报价'''
+        print(request.POST)
+        cargo_ids = request.POST.get("cargo_ids", "")
+        plt_ids = request.POST.get("plt_ids", "")
+        cargo_id_list = [int(i) for i in cargo_ids.split(",") if i]
+        plt_id_list = [int(i) for i in plt_ids.split(",") if i]
+        if not cargo_ids and not plt_ids:
+            context.update({'error_messages': "未提供ID，无法查询报价"})
+            return await self.handle_td_shipment_post(request, context)
+        
+        pls = await sync_to_async(
+            lambda: list(
+                PackingList.objects
+                .filter(id__in=cargo_id_list)
+                .select_related('container_number')
+                .values('PO_ID','container_number__container_number','destination')
+                .annotate(
+                    total_cbm=Round(Sum('cbm'), 2, output_field=FloatField()),
+                    total_pallets=Ceil(
+                        Round(Sum('cbm'), 2, output_field=FloatField()) / 1.8
+                    ),
+                    source=Value('packinglist')
+                )
+                .order_by('PO_ID')
+            )
+        )()
+        plts = await sync_to_async(
+            lambda: list(
+                Pallet.objects
+                .filter(id__in=plt_id_list)
+                .select_related('container_number')
+                .values('PO_ID','container_number__container_number','destination','location')
+                .annotate(
+                    total_cbm=Round(Sum('cbm'), 2, output_field=FloatField()),
+                    total_pallets=Count('id'), 
+                    source=Value('pallet')
+                )
+                .order_by('PO_ID')
+            )
+        )()
+        print('整理后的id',plt_id_list)
+        print('查询后的结果',plts)
+        combined_list = pls + plts
+        quotation_table_data = []
+        quote_total = 0.0
+        # 查找报价
+        if combined_list:
+            for po in combined_list:
+                print('遍历了')
+                container_number = po['container_number__container_number']
+                destination = po['destination']
+                order = await sync_to_async(
+                    lambda cn=container_number: Order.objects.select_related(
+                        'retrieval_id',  # 预加载retrieval_id
+                        'vessel_id',
+                        'customer_name'   # 预加载customer_name
+                    ).filter(
+                        container_number__container_number=cn
+                    ).first()
+                )()
+                if po['source'] == 'packinglist':
+                    warehouse = order.retrieval_id.retrieval_destination_area
+                else:
+                    warehouse = po['location'].split('-')[0]
+                    if not warehouse:
+                        context = {"error_messages": f'{container_number}的板子缺少实际仓库位置！'}
+                        return await self.handle_td_shipment_post(request, context)
+
+                customer_name = order.customer_name.zem_name if order.customer_name else None
+                #查找报价表
+                quotations = await self._get_fee_details(order, warehouse, customer_name)
+                if isinstance(quotations, dict) and quotations.get("error_messages"):
+                    context = {"error_messages": quotations["error_messages"]}
+                    return await self.handle_td_shipment_post(request, context)
+                
+                fee_details = quotations['fees']
+                public_key = f"{warehouse}_PUBLIC"
+                if public_key not in fee_details:
+                    context = {"error_messages": f'{warehouse}_PUBLIC-{container_number}未找到亚马逊沃尔玛报价表！'}
+                    return await self.handle_td_shipment_post(request, context)
+                
+                rules = fee_details.get(f"{warehouse}_PUBLIC").details
+                niche_warehouse = fee_details.get(f"{warehouse}_PUBLIC").niche_warehouse
+                if destination in niche_warehouse:
+                    is_niche_warehouse = True
+                else:
+                    is_niche_warehouse = False
+
+                #LA和其他的存储格式有点区别
+                details = (
+                    {"LA_AMAZON": rules}
+                    if "LA" in warehouse and "LA_AMAZON" not in rules
+                    else rules
+                )
+                delivery_category = None
+                rate_found = False
+                for category, zones in details.items():
+                    for zone, locations in zones.items():
+                        if destination in locations:
+                            if "AMAZON" in category:
+                                delivery_category = "amazon"
+                                rate = zone
+                                rate_found = True
+                            elif "WALMART" in category:
+                                delivery_category = "walmart"
+                                rate = zone
+                                rate_found = True
+                    if rate_found:
+                        break
+                
+                if rate_found:
+                    # 找到报价
+                    rate = float(rate) if rate else 0.0
+                    quotation_table_data.append({
+                        'destination': destination,                         
+                        'cbm': po['total_cbm'],
+                        'total_pallets': po['total_pallets'], 
+                        'rate': rate, 
+                        'amount': rate * po['total_pallets'],
+                        'type': delivery_category,
+                        'warehouse': warehouse, 
+                        'is_niche_warehouse': is_niche_warehouse,  
+                        'quotation_name': quotations['filename'],  
+                    })
+                    quote_total += rate * po['total_pallets']
+                else:            
+                    quotation_table_data.append({
+                        'destination': destination,                         
+                        'cbm': po['total_cbm'],
+                        'total_pallets': po['total_pallets'], 
+                        'rate': None, 
+                        'amount': None,
+                        'warehouse': warehouse, 
+                        'is_niche_warehouse': None,  
+                        'quotation_name': quotations.get("filename"),  
+                    })
+        print('quotation_table_data',quotation_table_data)
+        context = {'quotation_table_data': quotation_table_data, 'quote_total': quote_total}
+        return await self.handle_td_shipment_post(request, context)
+    
+    async def _get_fee_details(self, order: Order, warehouse, customer_name) -> dict:
+        context = {}
+        quotation, quotation_error = await self._get_quotation_for_order(order, customer_name, 'receivable')
+        if quotation_error:
+            context.update({"error_messages": quotation_error})
+            return context
+        id = quotation.id
+
+        fee_types = {
+            "NJ": ["NJ_LOCAL", "NJ_PUBLIC", "NJ_COMBINA"],
+            "SAV": ["SAV_PUBLIC", "SAV_COMBINA"],
+            "LA": ["LA_PUBLIC", "LA_COMBINA"],
+        }.get(warehouse, [])
+
+        fees_list = await sync_to_async(
+            lambda qid=id, ft=fee_types: list(
+                FeeDetail.objects.filter(
+                    quotation_id=qid, 
+                    fee_type__in=ft
+                )
+            )
+        )()
+        fees_dict = {fee.fee_type: fee for fee in fees_list}
+        return {
+            "quotation": quotation,
+            "fees": fees_dict,
+            "filename": quotation.filename,
+        }
+    
+    async def _get_quotation_for_order(self, order: Order, customer_name, quote_type: str = 'receivable') :
+        """获取订单对应的报价表"""
+        vessel_etd = order.vessel_id.vessel_etd
+        
+        # 先查找用户专属报价表
+        quotation = await sync_to_async(
+            lambda: QuotationMaster.objects.filter(
+                effective_date__lte=vessel_etd,
+                is_user_exclusive=True,
+                exclusive_user=customer_name,
+                quote_type=quote_type,
+            )
+            .order_by("-effective_date")
+            .first()
+        )()
+        
+        if not quotation:
+            # 查找通用报价表
+            quotation = await sync_to_async(
+                lambda: QuotationMaster.objects.filter(
+                    effective_date__lte=vessel_etd,
+                    is_user_exclusive=False,
+                    quote_type=quote_type,
+                )
+                .order_by("-effective_date")
+                .first()
+            )()
+        
+        if quotation:
+            return quotation, None
+        else:
+            error_msg = f"找不到生效日期在{vessel_etd}之前的{quote_type}报价表"
+            return None, error_msg
+        
     async def handle_edit_note_sp_post(
         self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
