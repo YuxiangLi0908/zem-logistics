@@ -100,12 +100,14 @@
             <table class="data-table">
                 <thead>
                     <tr>
+                        <th>仓库</th>
+                        <th>柜号</th>
                         <th>仓点</th>
                         <th>CBM</th>
-                        <th>报价($/板)</th>                     
                         <th>板数</th>
+                        <th>报价($/板)</th>                                          
                         <th>总价($)</th>
-                        <th>仓库</th>
+                        <th>区域</th>
                         <th>是否冷门仓</th>
                         <th>报价类型</th>
                         <th>报价表</th>
@@ -114,8 +116,11 @@
                 <tbody>
                     {% for item in quotation_table_data %}
                     <tr>
+                        <td>{{ item.warehouse|default:"-" }}</td>
+                        <td>{{ item.container_number|default:"-" }}</td>
                         <td>{{ item.destination|default:"-" }}</td>
                         <td>{{ item.cbm|floatformat:2 }}</td>
+                        <td>{{ item.total_pallets|floatformat:2 }}</td>
                         <td>
                             {% if item.rate %}
                                 ${{ item.rate|floatformat:2 }}
@@ -123,7 +128,7 @@
                                 -
                             {% endif %}
                         </td>                       
-                        <td>{{ item.total_pallets|floatformat:2 }}</td>
+                        
                         <td>
                             {% if item.amount %}
                                 ${{ item.amount|floatformat:2 }}
@@ -131,7 +136,7 @@
                                 -
                             {% endif %}
                         </td>
-                        <td>{{ item.warehouse|default:"-" }}</td>
+                        <td>{{ item.region|default:"" }}</td>
                         <td>
                             {% if item.is_niche_warehouse == True %}
                                 是
@@ -147,7 +152,7 @@
                             {% elif item.type == 'walmart' %}
                                 <span style="background-color: #0071ce; color: white; padding: 2px 6px; border-radius: 3px;">Walmart</span>
                             {% else %}
-                                <span style="background-color: #6c757d; color: white; padding: 2px 6px; border-radius: 3px;">无报价</span>
+                                <span style="background-color: #6c757d; color: white; padding: 2px 6px; border-radius: 3px;">{{item.type}}</span>
                             {% endif %}
                         </td>
                         <td>{{ item.quotation_name|default:"-" }}</td>
@@ -157,16 +162,14 @@
                 <tfoot>
                     {% if quotation_table_data %}
                     <tr style="background-color: #f8f9fa; font-weight: bold;">
-                        <td style="text-align: right;">总计：</td>                   
+                        <td colspan="3" style="text-align: right;">总计：</td>                   
                         <td>
                             {{ quotation_table_data|sum_numeric:"cbm"|floatformat:2 }}
-                        </td>
-                        <td></td>
+                        </td>        
                         <td>
                             {{ quotation_table_data|sum_numeric:"total_pallets"|floatformat:2 }}
                         </td>
-                        <td style="color: #dc3545; font-size: 1.1em;">${{ quote_total|floatformat:2 }}</td>
-                        <td colspan="4"></td>
+                        <td colspan="6"></td>
                     </tr>
                     {% endif %}
                 </tfoot>
