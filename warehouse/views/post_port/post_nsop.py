@@ -5972,7 +5972,7 @@ class PostNsop(View):
 
         return invoice, invoice_status
     
-    async def _delivery_account_selfpick_entry(self, ids, ltl_quote, ltl_quote_note, del_qty, username):
+    async def _delivery_account_selfpick_entry(self, ids, ltl_quote, ltl_quote_note, ltl_unit_quote, del_qty, username):
         '''自提的出库费录入'''
         pallets = await sync_to_async(list)(
             Pallet.objects.filter(id__in=ids)
@@ -6021,7 +6021,7 @@ class PostNsop(View):
                     return '账单已被财务确认不可修改出库费！'
                 # 更新原记录
                 existing_item.qty = del_qty
-                existing_item.rate = ltl_quote
+                existing_item.rate = ltl_unit_quote
                 existing_item.cbm = total_cbm
                 existing_item.weight = total_weight
                 existing_item.amount = ltl_quote
@@ -6048,7 +6048,7 @@ class PostNsop(View):
                     description="出库费",
                     warehouse_code=getattr(first_pallet, "destination", ""),
                     shipping_marks=shipping_mark,
-                    rate=ltl_quote,
+                    rate=ltl_unit_quote,
                     amount=ltl_quote,
                     note=ltl_quote_note,
                     qty=del_qty,
@@ -6076,6 +6076,7 @@ class PostNsop(View):
         pallet_size = request.POST.get('pallet_size', '').strip()
         follow_status = request.POST.get('follow_status', '').strip()
         del_qty = request.POST.get('del_qty', '').strip()
+        ltl_unit_quote = request.POST.get('ltl_unit_quote', '').strip()
         ltl_quote  = request.POST.get('ltl_quote', '').strip()
         ltl_quote_note  = request.POST.get('ltl_quote_note', '').strip()
 
@@ -6129,6 +6130,8 @@ class PostNsop(View):
             update_data['ltl_quote'] = ltl_quote
         if ltl_quote_note and is_pallet:
             update_data['ltl_quote_note'] = ltl_quote_note
+        if ltl_unit_quote and is_pallet:
+            update_data['ltl_unit_quote'] = ltl_unit_quote
         
         # 批量更新通用字段
         if update_data:
@@ -6146,7 +6149,9 @@ class PostNsop(View):
             username = request.user.username
             if not del_qty:
                 del_qty = len(ids)
-            status_message = await self._delivery_account_selfpick_entry(ids, ltl_quote, ltl_quote_note, del_qty, username)
+            if not ltl_unit_quote:
+                ltl_unit_quote = ltl_quote
+            status_message = await self._delivery_account_selfpick_entry(ids, ltl_quote, ltl_quote_note, ltl_unit_quote, del_qty, username)
 
         # 特殊处理：如果是PALLET数据且有托盘尺寸，保存托盘尺寸
         success_message = '保存成功！'
