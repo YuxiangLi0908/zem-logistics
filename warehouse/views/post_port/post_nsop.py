@@ -76,6 +76,7 @@ from django.contrib import messages
 from warehouse.models.transfer_location import TransferLocation
 from warehouse.views.post_port.shipment.fleet_management import FleetManagement
 from warehouse.views.post_port.shipment.shipping_management import ShippingManagement
+from warehouse.views.receivable_accounting import ReceivableAccounting
 from warehouse.views.po import PO
 from warehouse.views.export_file import link_callback
 from warehouse.utils.constants import (
@@ -1996,7 +1997,6 @@ class PostNsop(View):
         self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
         '''查询多个仓点的报价'''
-        print(request.POST)
         cargo_ids = request.POST.get("cargo_ids", "")
         plt_ids = request.POST.get("plt_ids", "")
         cargo_id_list = [int(i) for i in cargo_ids.split(",") if i]
@@ -2035,42 +2035,75 @@ class PostNsop(View):
                 .order_by('PO_ID')
             )
         )()
-        print('整理后的id',plt_id_list)
-        print('查询后的结果',plts)
+
         combined_list = pls + plts
         quotation_table_data = []
         quote_total = 0.0
         # 查找报价
-        if combined_list:
-            for po in combined_list:
-                print('遍历了')
-                container_number = po['container_number__container_number']
-                destination = po['destination']
-                order = await sync_to_async(
-                    lambda cn=container_number: Order.objects.select_related(
-                        'retrieval_id',  # 预加载retrieval_id
-                        'vessel_id',
-                        'customer_name'   # 预加载customer_name
-                    ).filter(
-                        container_number__container_number=cn
-                    ).first()
-                )()
-                if po['source'] == 'packinglist':
-                    warehouse = order.retrieval_id.retrieval_destination_area
-                else:
-                    warehouse = po['location'].split('-')[0]
-                    if not warehouse:
-                        context = {"error_messages": f'{container_number}的板子缺少实际仓库位置！'}
-                        return await self.handle_td_shipment_post(request, context)
+        if not combined_list:
+            context = {"error_messages": f'{combined_list}是空的'}
+            return await self.handle_td_shipment_post(request, context)
+        for po in combined_list:
+            container_number = po['container_number__container_number']
+            destination = po['destination']
+            order = await sync_to_async(
+                lambda cn=container_number: Order.objects.select_related(
+                    'retrieval_id',  # 预加载retrieval_id
+                    'vessel_id',
+                    'customer_name'   # 预加载customer_name
+                ).filter(
+                    container_number__container_number=cn
+                ).first()
+            )()
+            if po['source'] == 'packinglist':
+                warehouse = order.retrieval_id.retrieval_destination_area
+            else:
+                warehouse = po['location'].split('-')[0]
+                if not warehouse:
+                    context = {"error_messages": f'{container_number}的板子缺少实际仓库位置！'}
+                    return await self.handle_td_shipment_post(request, context)
 
-                customer_name = order.customer_name.zem_name if order.customer_name else None
-                #查找报价表
-                quotations = await self._get_fee_details(order, warehouse, customer_name)
-                if isinstance(quotations, dict) and quotations.get("error_messages"):
-                    context = {"error_messages": quotations["error_messages"]}
+            customer_name = order.customer_name.zem_name if order.customer_name else None
+            #查找报价表
+            quotations = await self._get_fee_details(order, warehouse, customer_name)
+            if isinstance(quotations, dict) and quotations.get("error_messages"):
+                context = {"error_messages": quotations["error_messages"]}
+                return await self.handle_td_shipment_post(request, context)
+            fee_details = quotations['fees']
+            
+            is_combina = False
+            if order.order_type == "转运组合":
+                container = await sync_to_async(
+                    lambda: Container.objects.get(container_number=container_number)
+                )()
+                if container.manually_order_type == "转运组合":
+                    is_combina = True
+                elif container.manually_order_type == "转运":
+                    is_combina = False
+                else:
+                    is_combina = self._is_combina(container, order, warehouse)
+            
+            non_combina_table = True
+            if is_combina:
+                #组合柜计算
+                combina_key = f"{warehouse}_COMBINA"
+                if combina_key not in fee_details:
+                    context = {"error_messages": f'{warehouse}_COMBINA-{container_number}未找到组合柜报价表！'}
                     return await self.handle_td_shipment_post(request, context)
                 
-                fee_details = quotations['fees']
+                rules = fee_details.get(combina_key).details
+                
+                container_type_temp = 0 if "40" in container.container_type else 1
+                temp_table = await self._process_combina_quote(po, rules, container_type_temp, warehouse, quotations.get("filename"))
+                if temp_table:
+                    non_combina_table = False
+                    quotation_table_data.append(temp_table)
+                
+                rules = fee_details.get(combina_key).details
+            
+            if non_combina_table:
+                # 不管符不符合转运，没按组合柜计到费，就按转运方式计算
+                
                 public_key = f"{warehouse}_PUBLIC"
                 if public_key not in fee_details:
                     context = {"error_messages": f'{warehouse}_PUBLIC-{container_number}未找到亚马逊沃尔玛报价表！'}
@@ -2109,12 +2142,14 @@ class PostNsop(View):
                     # 找到报价
                     rate = float(rate) if rate else 0.0
                     quotation_table_data.append({
+                        'container_number': po['container_number__container_number'],
                         'destination': destination,                         
                         'cbm': po['total_cbm'],
                         'total_pallets': po['total_pallets'], 
                         'rate': rate, 
                         'amount': rate * po['total_pallets'],
                         'type': delivery_category,
+                        'region': None,
                         'warehouse': warehouse, 
                         'is_niche_warehouse': is_niche_warehouse,  
                         'quotation_name': quotations['filename'],  
@@ -2122,18 +2157,259 @@ class PostNsop(View):
                     quote_total += rate * po['total_pallets']
                 else:            
                     quotation_table_data.append({
+                        'container_number': po['container_number__container_number'],
                         'destination': destination,                         
                         'cbm': po['total_cbm'],
                         'total_pallets': po['total_pallets'], 
                         'rate': None, 
                         'amount': None,
+                        'type': delivery_category,
+                        'region': None,
                         'warehouse': warehouse, 
                         'is_niche_warehouse': None,  
                         'quotation_name': quotations.get("filename"),  
                     })
-        print('quotation_table_data',quotation_table_data)
-        context = {'quotation_table_data': quotation_table_data, 'quote_total': quote_total}
+            
+            context = {'quotation_table_data':quotation_table_data}
         return await self.handle_td_shipment_post(request, context)
+    
+    async def _process_combina_quote(self, po, rules, container_type_temp, warehouse, filename):
+        """按组合柜方式查找仓点报价 """
+
+        #改前和改后的
+        destination_origin, destination = self._process_destination(po['destination'])
+        
+        # 检查是否属于组合区域
+        price = 0
+        is_combina_region = False
+        region = None
+        for region, region_data in rules.items():
+            for item in region_data:
+                if destination in item["location"]:
+                    is_combina_region = True
+                    price = item["prices"][container_type_temp]
+                    region = region
+                    break
+            if is_combina_region:
+                break
+        if destination.upper() == "UPS":
+            is_combina_region = False
+        
+        if is_combina_region:
+            '''按组合柜计费'''
+            return ({
+                'container_number': po['container_number__container_number'],
+                'destination': po['destination'],                         
+                'cbm': po['total_cbm'],
+                'total_pallets': po['total_pallets'], 
+                'rate': price, 
+                'amount': price,
+                'type': "组合柜",
+                'region': region,
+                'warehouse': warehouse, 
+                'is_niche_warehouse': None,  
+                'quotation_name': filename,  
+            })
+        else:
+            return None
+        
+    def _process_destination(self, destination_origin):
+        """处理目的地字符串"""
+        destination_origin = str(destination_origin)
+
+        # 匹配模式：按"改"或"送"分割，分割符放在第一组的末尾
+        if "改" in destination_origin or "送" in destination_origin:
+            # 找到第一个"改"或"送"的位置
+            first_change_pos = min(
+                (destination_origin.find(char) for char in ["改", "送"] 
+                if destination_origin.find(char) != -1),
+                default=-1
+            )
+            
+            if first_change_pos != -1:
+                # 第一部分：到第一个"改"或"送"（包含分隔符）
+                first_part = destination_origin[:first_change_pos + 1]
+                # 第二部分：剩下的部分
+                second_part = destination_origin[first_change_pos + 1:]
+                
+                # 处理第一部分：按"-"分割取后面的部分
+                if "-" in first_part:
+                    if first_part.upper().startswith("UPS-"):
+                        first_result = first_part
+                    else:
+                        first_result = first_part.split("-", 1)[1]
+                else:
+                    first_result = first_part
+                
+                # 处理第二部分：按"-"分割取后面的部分
+                if "-" in second_part:
+                    if second_part.upper().startswith("UPS-"):
+                        second_result = second_part
+                    else:
+                        second_result = second_part.split("-", 1)[1]
+                else:
+                    second_result = second_part
+                
+                return first_result, second_result
+            else:
+                raise ValueError(first_change_pos)
+        
+        # 如果不包含"改"或"送"或者没有找到
+        # 只处理第二部分（假设第一部分为空）
+        if "-" in destination_origin:
+            if destination_origin.upper().startswith("UPS-"):
+                second_result = destination_origin
+            else:
+                second_result = destination_origin.split("-", 1)[1]
+            
+        else:
+            second_result = destination_origin
+        
+        return None, second_result
+    
+    async def _is_combina(self, container: Container, order: Order, warehouse) -> Any:
+        context = {}
+        
+        customer_name = order.customer_name.zem_name
+        vessel_etd = order.vessel_id.vessel_etd
+
+        container_type = container.container_type
+        #  基础数据统计
+        plts = await sync_to_async(
+            lambda: Pallet.objects.filter(
+                container_number=container
+            ).aggregate(
+                unique_destinations=Count("destination", distinct=True),
+                total_weight=Sum("weight_lbs"),
+                total_cbm=Sum("cbm"),
+                total_pallets=Count("id"),
+            )
+        )()
+        plts["total_cbm"] = round(plts["total_cbm"], 2)
+        plts["total_weight"] = round(plts["total_weight"], 2)
+        # 获取匹配的报价表
+        matching_quotation = await sync_to_async(
+            lambda: QuotationMaster.objects.filter(
+                effective_date__lte=vessel_etd,
+                is_user_exclusive=True,
+                exclusive_user=customer_name,
+                quote_type='receivable',
+            )
+            .order_by("-effective_date")
+            .first()
+        )()
+        if not matching_quotation:
+            matching_quotation = await sync_to_async(
+                lambda: QuotationMaster.objects.filter(
+                    effective_date__lte=vessel_etd,
+                    is_user_exclusive=False,
+                    quote_type='receivable',
+                )
+                .order_by("-effective_date")
+                .first()
+            )()
+        if not matching_quotation:
+            context.update({"error_messages": f"找不到{container.container_number}可用的报价表！"})
+            return context, None, None
+        # 获取组合柜规则
+        try:
+            stipulate_fee_detail = await sync_to_async(
+                lambda: FeeDetail.objects.get(
+                    quotation_id=matching_quotation.id, 
+                    fee_type="COMBINA_STIPULATE"
+                )
+            )()
+            stipulate = stipulate_fee_detail.details
+        except FeeDetail.DoesNotExist:
+            context.update({
+                "error_messages": f"报价表《{matching_quotation.filename}》-{matching_quotation.id}中找不到<报价表规则>分表，请截此图给技术员！"
+            })
+            return context, None, None
+        
+        combina_fee_detail = await sync_to_async(
+            lambda: FeeDetail.objects.get(
+                quotation_id=matching_quotation.id, 
+                fee_type=f"{warehouse}_COMBINA"
+            )
+        )()
+        combina_fee = combina_fee_detail.details
+        if isinstance(combina_fee, str):
+            combina_fee = json.loads(combina_fee)
+
+        # 看是否超出组合柜限定仓点,NJ/SAV是14个
+        warehouse_specific_key = f'{warehouse}_max_mixed'
+        if warehouse_specific_key in stipulate.get("global_rules", {}):
+            combina_threshold = stipulate["global_rules"][warehouse_specific_key]["default"]
+        else:
+            combina_threshold = stipulate["global_rules"]["max_mixed"]["default"]
+
+        warehouse_specific_key1 = f'{warehouse}_bulk_threshold'
+        if warehouse_specific_key1 in stipulate.get("global_rules", {}):
+            uncombina_threshold = stipulate["global_rules"][warehouse_specific_key1]["default"]
+        else:
+            uncombina_threshold = stipulate["global_rules"]["bulk_threshold"]["default"]
+
+        if plts["unique_destinations"] > uncombina_threshold:
+            container.account_order_type = "转运"
+            container.non_combina_reason = (
+                f"总仓点超过{uncombina_threshold}个"
+            )
+            container.save()
+            return context, False, f"总仓点超过{uncombina_threshold}个" # 不是组合柜
+
+        # 按区域统计
+        destinations = (
+            Pallet.objects.filter(container_number=container)
+            .values_list("destination", flat=True)
+            .distinct()
+        )
+        plts_by_destination = (
+            Pallet.objects.filter(container_number=container)
+            .values("destination")
+            .annotate(total_cbm=Sum("cbm"))
+        )
+        total_cbm_sum = sum(item["total_cbm"] for item in plts_by_destination)
+        # 区分组合柜区域和非组合柜区域
+        container_type_temp = 0 if "40" in container_type else 1
+        matched_regions = self.find_matching_regions(
+            plts_by_destination, combina_fee, container_type_temp, total_cbm_sum, combina_threshold
+        )
+        # 判断是否混区，False表示满足混区条件
+        is_mix = self.is_mixed_region(
+            matched_regions["matching_regions"], warehouse, vessel_etd
+        )
+        if is_mix:
+            container.account_order_type = "转运"
+            container.non_combina_reason = "混区不符合标准"
+            container.save()
+            return context, False, "混区不符合标准"
+        
+        filtered_non_destinations = [key for key in matched_regions["non_combina_dests"].keys() if "UPS" not in key]
+        # 非组合柜区域
+        non_combina_region_count = len(filtered_non_destinations)
+        # 组合柜区域
+        combina_region_count = len(matched_regions["combina_dests"])
+
+        filtered_destinations = self._filter_ups_destinations(destinations)
+        if combina_region_count + non_combina_region_count != len(filtered_destinations):
+            raise ValueError(
+                f"计算组合柜和非组合柜区域有误\n"
+                f"组合柜目的地：{matched_regions['combina_dests']}，数量：{combina_region_count}\n"
+                f"非组合柜目的地：{filtered_non_destinations}，数量：{non_combina_region_count}\n"
+                f"目的地集合：{filtered_destinations}\n"
+                f"目的地总数：{len(filtered_destinations)}"
+            )
+        sum_region_count = non_combina_region_count + combina_region_count
+        if sum_region_count > uncombina_threshold:
+            # 当非组合柜的区域数量超出时，不能按转运组合
+            container.account_order_type = "转运"
+            container.non_combina_reason = f"总区数量为{sum_region_count},要求是{uncombina_threshold}"
+            container.save()
+            return context, False,f"总区数量为{sum_region_count},要求是{uncombina_threshold}"
+        container.non_combina_reason = None
+        container.account_order_type = "转运组合"
+        container.save()
+        return context, True, None
     
     async def _get_fee_details(self, order: Order, warehouse, customer_name) -> dict:
         context = {}
