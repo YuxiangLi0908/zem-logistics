@@ -2170,6 +2170,11 @@ class PostNsop(View):
                         'quotation_name': quotations.get("filename"),  
                     })
             
+            # 按照type排序
+            quotation_table_data = sorted(
+                quotation_table_data, 
+                key=lambda x: x['type'] or ''
+            )
             context = {'quotation_table_data':quotation_table_data}
         return await self.handle_td_shipment_post(request, context)
     
@@ -2410,6 +2415,210 @@ class PostNsop(View):
         container.account_order_type = "转运组合"
         container.save()
         return context, True, None
+    
+    def find_matching_regions(
+        self,
+        plts_by_destination: dict,
+        combina_fee: dict,
+        container_type,
+        total_cbm_sum: FloatField,
+        combina_threshold: int,
+    ) -> dict:
+        matching_regions = defaultdict(float)  # 各区的cbm总和
+        des_match_quote = {}  # 各仓点的匹配详情
+        destination_matches = set()  # 组合柜的仓点
+        non_combina_dests = {}  # 非组合柜的仓点
+        price_display = defaultdict(
+            lambda: {"price": 0.0, "location": set()}
+        )  # 各区的价格和仓点
+        dest_cbm_list = []  # 临时存储初筛组合柜内的cbm和匹配信息
+
+        region_counter = {}
+        region_price_map = {}
+        for plts in plts_by_destination:
+            destination = plts["destination"]
+            if ('UPS' in destination) or ('FEDEX' in destination):
+                continue
+            # 如果是沃尔玛的，只保留后面的名字，因为报价表里就是这么保留的
+            clean_dest = destination.replace("沃尔玛", "").strip()
+
+            if clean_dest.upper().startswith("UPS-"):
+                dest = clean_dest
+            else:
+                dest = clean_dest.split("-")[-1].strip()
+
+            cbm = plts["total_cbm"]
+            dest_matches = []
+            matched = False
+            # 遍历所有区域和location
+            for region, fee_data_list in combina_fee.items():           
+                for fee_data in fee_data_list:
+                    prices_obj = fee_data["prices"]
+                    price = self._extract_price(prices_obj, container_type)
+                    
+                    # 如果匹配到组合柜仓点，就登记到组合柜集合中
+                    if dest in fee_data["location"]:
+                        # 初始化
+                        if region not in region_price_map:
+                            region_price_map[region] = [price]
+                            region_counter[region] = 0
+                            actual_region = region
+                        else:
+                            # 如果该 region 下已有相同价格 → 不加编号
+                            found = None
+                            for r_key, r_val in price_display.items():
+                                if r_key.startswith(region) and r_val["price"] == price:
+                                    found = r_key
+                                    break
+                            if found:
+                                actual_region = found
+                            else:                                
+                                # 新价格 → 需要编号
+                                region_counter[region] += 1
+                                actual_region = f"{region}{region_counter[region]}"
+                                region_price_map[region].append(price)
+
+                        temp_cbm = matching_regions.get(actual_region, 0) + cbm
+                        matching_regions[actual_region] = temp_cbm
+                        dest_matches.append(
+                            {
+                                "region": actual_region,
+                                "location": dest,
+                                "prices": fee_data["prices"],
+                                "cbm": cbm,
+                            }
+                        )
+                        if actual_region not in price_display:
+                            price_display[actual_region] = {
+                                "price": price,
+                                "location": set([dest]),
+                            }
+                        else:
+                            # 不要覆盖，更新集合
+                            price_display[actual_region]["location"].add(dest)
+                        matched = True
+            
+            if not matched:
+                # 非组合柜仓点
+                non_combina_dests[dest] = {"cbm": cbm}
+            # 记录匹配结果
+            if dest_matches:
+                des_match_quote[dest] = dest_matches
+                # 将组合柜内的记录下来，后续方便按照cbm排序
+                dest_cbm_list.append(
+                    {"dest": dest, "cbm": cbm, "matches": dest_matches}
+                )
+                destination_matches.add(dest)
+        if len(destination_matches) > combina_threshold:
+            # 按cbm降序排序，将cbm大的归到非组合
+            sorted_dests = sorted(dest_cbm_list, key=lambda x: x["cbm"], reverse=True)
+            # 重新将排序后的前12个加入里面
+            destination_matches = set()
+            matching_regions = defaultdict(float)
+            price_display = defaultdict(lambda: {"price": 0.0, "location": set()})
+            for item in sorted_dests[:combina_threshold]:
+                dest = item["dest"]
+                destination_matches.add(dest)
+
+                # 重新计算各区域的CBM总和
+                for match in item["matches"]:
+                    region = match["region"]
+                    matching_regions[region] += item["cbm"]
+                    price_display[region]["price"] = self._extract_price(match["prices"], container_type)
+                    
+                    price_display[region]["location"].add(dest)
+
+            # 其余仓点转为非组合柜
+            for item in sorted_dests[combina_threshold:]:
+                non_combina_dests[item["dest"]] = {"cbm": item["cbm"]}
+                # 将cbm大的从组合柜集合中删除
+                des_match_quote.pop(item["dest"], None)
+
+        # 下面开始计算组合柜和非组合柜各仓点占总体积的比例
+        total_ratio = 0.0
+        ratio_info = []
+
+        # 处理组合柜仓点的cbm_ratio
+        for dest, matches in des_match_quote.items():
+            cbm = matches[0]["cbm"]  # 同一个dest的cbm在所有matches中相同
+            ratio = round(cbm / total_cbm_sum, 4)
+            total_ratio += ratio
+            ratio_info.append((dest, ratio, cbm, True))  # 最后一个参数表示是否是组合柜
+            for match in matches:
+                match["cbm_ratio"] = ratio
+
+        # 处理非组合柜仓点的cbm_ratio
+        for dest, data in non_combina_dests.items():
+            cbm = data["cbm"]
+            ratio = round(cbm / total_cbm_sum, 4)
+            total_ratio += ratio
+            ratio_info.append((dest, ratio, cbm, False))
+            data["cbm_ratio"] = ratio
+
+        # 处理四舍五入导致的误差
+        if abs(total_ratio - 1.0) > 0.0001:  # 考虑浮点数精度
+            # 找到CBM最大的仓点
+            ratio_info.sort(key=lambda x: x[2], reverse=True)
+            largest_dest, largest_ratio, largest_cbm, is_combi = ratio_info[0]
+
+            # 调整最大的仓点的ratio
+            diff = 1.0 - total_ratio
+            if is_combi:
+                for match in des_match_quote[largest_dest]:
+                    match["cbm_ratio"] = round(match["cbm_ratio"] + diff, 4)
+            else:
+                non_combina_dests[largest_dest]["cbm_ratio"] = round(
+                    non_combina_dests[largest_dest]["cbm_ratio"] + diff, 4
+                )
+        return {
+            "des_match_quote": des_match_quote,
+            "matching_regions": matching_regions,
+            "combina_dests": destination_matches,
+            "non_combina_dests": non_combina_dests,
+            "price_display": price_display,
+        }
+    
+    def _extract_price(self, prices_obj, container_type):
+        """
+        安全地从 prices_obj 中提取数值 price：
+        - 如果 prices_obj 是 dict，按键取（container_type 可为字符串或整型）。
+        - 如果是 list/tuple，且 container_type 是 int，则尝试取 prices_obj[container_type]。
+        若越界或该项不是数值，则回退到列表中第一个数值项。
+        - 如果是单值（int/float），直接返回。
+        - 其它情况返回 None。
+        """
+        # 优先处理 dict
+        if isinstance(prices_obj, dict):
+            # 允许 container_type 是 str 或 int（int 转为索引的情况不常见）
+            val = prices_obj.get(container_type)
+            if isinstance(val, (int, float)):
+                return val
+            # 如果取到的不是数字，尝试找 dict 的第一个数字值作为回退
+            for v in prices_obj.values():
+                if isinstance(v, (int, float)):
+                    return v
+            return None
+
+        # list/tuple 按 index 选
+        if isinstance(prices_obj, (list, tuple)):
+            # 当 container_type 是整数索引时，优先使用该索引
+            if isinstance(container_type, int):
+                try:
+                    candidate = prices_obj[container_type]
+                    if isinstance(candidate, (int, float)):
+                        return candidate
+                except Exception:
+                    pass
+            # 回退：选第一个数字项
+            first_num = next((x for x in prices_obj if isinstance(x, (int, float))), None)
+            return first_num
+
+        # 直接是数字
+        if isinstance(prices_obj, (int, float)):
+            return prices_obj
+
+        # 其他（字符串等），不能作为 price
+        return None
     
     def _filter_ups_destinations(self, destinations):
         """过滤掉包含UPS的目的地，支持列表和QuerySet"""

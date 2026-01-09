@@ -1,6 +1,9 @@
 <!-- 报价表弹框页面 -->
  {% load custom_filters %}
 <style>
+    #quotationModal .modal-content {
+        margin-top: 80px; 
+    }
     .quotation-row-with-rate {
         background-color: #f8fff8 !important;
         border-left: 3px solid #28a745 !important;
@@ -107,7 +110,7 @@
                         <th>板数</th>
                         <th>报价($/板)</th>                                          
                         <th>总价($)</th>
-                        <th>区域</th>
+                        <th style="min-width:100px;max-width:150px;">区域</th>
                         <th>是否冷门仓</th>
                         <th>报价类型</th>
                         <th>报价表</th>
