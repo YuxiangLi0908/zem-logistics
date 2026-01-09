@@ -85,6 +85,20 @@ def sum_attr(values_list, attr_path):
     return total
 
 @register.filter
+def sum_numeric(values_list, attr_name):
+    """计算字典列表中指定数值字段的总和"""
+    total = 0
+    for item in values_list:
+        if isinstance(item, dict) and attr_name in item:
+            value = item[attr_name]
+            if value is not None:
+                try:
+                    total += float(value)
+                except (ValueError, TypeError):
+                    pass
+    return total
+
+@register.filter
 def sum_amount(items):
     """计算额外费用的总金额"""
     try:
