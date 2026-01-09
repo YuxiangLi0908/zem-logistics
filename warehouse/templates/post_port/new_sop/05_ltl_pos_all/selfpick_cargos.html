@@ -318,7 +318,7 @@
         max-width: 200px;
     }
 
-    .qty-input, .outbound-fee-input, .outbound-fee-note-input {
+    .qty-input, .outbound-fee-input, .unit-quote-input, .outbound-fee-note-input {
         width: 100%;
         padding: 6px 8px;
         border: 1px solid #dee2e6;
@@ -490,6 +490,7 @@
                     <th class="pallet-col">板数</th>
                     <th class="pallet-size-col">托盘尺寸</th>
                     <th class="quote-col">出库数量</th> 
+                    <th class="quote-col">单板费</th> 
                     <th class="quote-col">出库费</th> 
                     <th class="quote-note-col">出库费备注</th> 
                     <th class="bol-col">BOL号</th>                   
@@ -540,22 +541,25 @@
                         <input type="text" class="filter-input" placeholder="筛选出库数量..." data-column="10" onkeyup="applySelfPickColumnFilter(this)">
                     </td> 
                     <td>
-                        <input type="text" class="filter-input" placeholder="筛选出库费..." data-column="11" onkeyup="applySelfPickColumnFilter(this)">
+                        <input type="text" class="filter-input" placeholder="筛选单板费..." data-column="11" onkeyup="applySelfPickColumnFilter(this)">
                     </td> 
                     <td>
-                        <input type="text" class="filter-input" placeholder="筛选出库费备注..." data-column="12" onkeyup="applySelfPickColumnFilter(this)">
+                        <input type="text" class="filter-input" placeholder="筛选出库费..." data-column="12" onkeyup="applySelfPickColumnFilter(this)">
                     </td> 
                     <td>
-                        <input type="text" class="filter-input" placeholder="筛选BOL号..." data-column="13" onkeyup="applySelfPickColumnFilter(this)">
+                        <input type="text" class="filter-input" placeholder="筛选出库费备注..." data-column="13" onkeyup="applySelfPickColumnFilter(this)">
+                    </td> 
+                    <td>
+                        <input type="text" class="filter-input" placeholder="筛选BOL号..." data-column="14" onkeyup="applySelfPickColumnFilter(this)">
                     </td>                  
                     <td>
-                        <input type="text" class="filter-input" placeholder="筛选承运公司..." data-column="14" onkeyup="applySelfPickColumnFilter(this)">
+                        <input type="text" class="filter-input" placeholder="筛选承运公司..." data-column="15" onkeyup="applySelfPickColumnFilter(this)">
                     </td>
                     <td>
-                        <input type="text" class="filter-input" placeholder="筛选地址..." data-column="15" onkeyup="applySelfPickColumnFilter(this)">
+                        <input type="text" class="filter-input" placeholder="筛选地址..." data-column="16" onkeyup="applySelfPickColumnFilter(this)">
                     </td>
                     <td>
-                        <input type="text" class="filter-input" placeholder="筛选提货日期..." data-column="16" onkeyup="applySelfPickColumnFilter(this)">
+                        <input type="text" class="filter-input" placeholder="筛选提货日期..." data-column="17" onkeyup="applySelfPickColumnFilter(this)">
                     </td>
                     <td class="action-col">
                         <!-- 操作列不需要筛选 -->
@@ -674,6 +678,22 @@
                     </td>
                     <td class="quote-col">
                         {% if cargo.data_source == "PALLET" and not cargo.delivery_method|default:""|contains:"暂扣" %}
+                            <input type="number" class="unit-quote-input" 
+                                data-id="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
+                                value="{% if cargo.ltl_unit_quote %}{{ cargo.ltl_unit_quote }}{% endif %}"
+                                placeholder="0.00"
+                                step="0.01"
+                                min="0">
+                        {% elif cargo.delivery_method|default:""|contains:"暂扣" %}
+                            <span style="color: #999; font-style: italic;">暂扣不可编辑</span>
+                        {% elif cargo.data_source != "PALLET" %}
+                            <span style="color: #999; font-style: italic;">未打板不可录</span>
+                        {% else %}
+                            <span style="color: #999; font-style: italic;">-</span>
+                        {% endif %}
+                    </td>
+                    <td class="quote-col">
+                        {% if cargo.data_source == "PALLET" and not cargo.delivery_method|default:""|contains:"暂扣" %}
                             <input type="number" class="outbound-fee-input" 
                                 data-id="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
                                 value="{% if cargo.ltl_quote %}{{ cargo.ltl_quote }}{% endif %}"
@@ -761,6 +781,7 @@
     <input type="hidden" name="pallet_size" id="palletSizeInput">
     <input type="hidden" name="follow_status" id="followStatusInput">
     <input type="hidden" name="del_qty" id="delQtyInput">
+    <input type="hidden" name="ltl_unit_quote" id="unitQuoteInput">
     <input type="hidden" name="ltl_quote" id="ltlQuoteInput">
     <input type="hidden" name="ltl_quote_note" id="ltlQuoteNoteInput">
     <input type="hidden" name="warehouse" value="{{ warehouse }}">
@@ -1051,6 +1072,7 @@
             const pickupDateInput = row.querySelector('.pickup-date-input');
             const palletSizeInput = row.querySelector('.pallet-size-input');
             const delQtyInput = row.querySelector('.qty-input');
+            const unitQuoteInput = row.querySelector('.unit-quote-input');
             const ltlQuoteInput = row.querySelector('.outbound-fee-input');
             const ltlQuoteNoteInput = row.querySelector('.outbound-fee-note-input');
 
@@ -1061,6 +1083,7 @@
             const pickupDateValue = pickupDateInput ? pickupDateInput.value.trim() : '';
             const palletSizeValue = palletSizeInput ? palletSizeInput.value.trim() : '';
             const delQtyValue = delQtyInput ? delQtyInput.value.trim() : '';
+            const unitQuoteValue = unitQuoteInput ? unitQuoteInput.value.trim() : '';
             const ltlQuoteValue = ltlQuoteInput ? ltlQuoteInput.value.trim() : '';
             const ltlQuoteNoteValue = ltlQuoteNoteInput ? ltlQuoteNoteInput.value.trim() : '';
             
@@ -1116,6 +1139,7 @@
             const palletSizeInputField = document.getElementById('palletSizeInput');
             const followStatusInputField = document.getElementById('followStatusInput');
             const delQtyInputField = document.getElementById('delQtyInput');
+            const unitQuoteInputField = document.getElementById('unitQuoteInput');
             const ltlQuoteInputField = document.getElementById('ltlQuoteInput');
             const ltlQuoteNoteInputField = document.getElementById('ltlQuoteNoteInput');
             const saveForm = document.getElementById('saveForm');
@@ -1123,7 +1147,7 @@
             if (cargoIdInput && carrierInputField && addressInputField && 
                 bolNumberInputField && pickupTimeInputField && followStatusInputField 
                 && palletSizeInputField && delQtyInputField && ltlQuoteInputField 
-                && ltlQuoteNoteInputField && saveForm) {
+                && ltlQuoteNoteInputField && unitQuoteInputField && saveForm) {
                 cargoIdInput.value = id;
                 carrierInputField.value = carrierValue;
                 addressInputField.value = addressValue;
@@ -1132,6 +1156,7 @@
                 palletSizeInputField.value = palletSizeValue;
                 followStatusInputField.value = followStatusValue;
                 delQtyInputField.value = delQtyValue;
+                unitQuoteInputField.value = unitQuoteValue;
                 ltlQuoteInputField.value = ltlQuoteValue;
                 ltlQuoteNoteInputField.value = ltlQuoteNoteValue; 
                 saveForm.submit();
