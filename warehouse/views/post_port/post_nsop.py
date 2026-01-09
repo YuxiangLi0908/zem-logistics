@@ -2358,16 +2358,16 @@ class PostNsop(View):
             return context, False, f"总仓点超过{uncombina_threshold}个" # 不是组合柜
 
         # 按区域统计
-        destinations = (
-            Pallet.objects.filter(container_number=container)
-            .values_list("destination", flat=True)
-            .distinct()
-        )
-        plts_by_destination = (
-            Pallet.objects.filter(container_number=container)
-            .values("destination")
-            .annotate(total_cbm=Sum("cbm"))
-        )
+        destinations = await sync_to_async(
+            lambda: list(Pallet.objects.filter(container_number=container)
+                        .values_list("destination", flat=True)
+                        .distinct())
+        )()
+        plts_by_destination = await sync_to_async(
+            lambda: list(Pallet.objects.filter(container_number=container)
+                        .values("destination")
+                        .annotate(total_cbm=Sum("cbm")))
+        )()
         total_cbm_sum = sum(item["total_cbm"] for item in plts_by_destination)
         # 区分组合柜区域和非组合柜区域
         container_type_temp = 0 if "40" in container_type else 1
@@ -2410,6 +2410,36 @@ class PostNsop(View):
         container.account_order_type = "转运组合"
         container.save()
         return context, True, None
+    
+    def _filter_ups_destinations(self, destinations):
+        """过滤掉包含UPS的目的地，支持列表和QuerySet"""
+        if hasattr(destinations, '__iter__') and not isinstance(destinations, (str, dict)):
+            destinations_list = list(destinations)
+        else:
+            destinations_list = destinations
+        filtered_destinations = [
+            dest.strip() for dest in destinations_list 
+            if dest is not None 
+            and 'UPS' not in str(dest).upper() 
+            and 'FEDEX' not in str(dest).upper()
+        ]
+        return list(dict.fromkeys(filtered_destinations))
+    
+    def is_mixed_region(self, matched_regions, warehouse, vessel_etd) -> bool:
+        regions = list(matched_regions.keys())
+        # LA仓库的特殊规则：CDEF区不能混
+        if warehouse == "LA":
+            if vessel_etd.month > 7 or (
+                vessel_etd.month == 7 and vessel_etd.day >= 15
+            ):  # 715之后没有混区限制
+                return False
+            if len(regions) <= 1:  # 只有一个区，就没有混区的情况
+                return False
+            if set(regions) == {"A区", "B区"}:  # 如果只有A区和B区，也满足混区规则
+                return False
+            return True
+        # 其他仓库无限制
+        return False
     
     async def _get_fee_details(self, order: Order, warehouse, customer_name) -> dict:
         context = {}
