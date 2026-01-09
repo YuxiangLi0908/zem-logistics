@@ -4524,6 +4524,7 @@ class Accounting(View):
                 )
                 invoice_item.description = "等待费用"
                 invoice_item.rate = data.get("chassis_fee")
+                invoice_item.note = data.get("chassis_comment")
                 invoice_item.save()
         # 拆柜费用
         if data.get("palletization_fee"):
@@ -9563,7 +9564,7 @@ class Accounting(View):
         overweight = 0
         if float(order.container_number.weight_lbs) > 42000:
             overweight = fee_detail[warehouse][warehouse_precise][preport_carrier].get('overweight')
-            if overweight:
+            if isinstance(overweight, str):
                 overweight = overweight.replace("\n", ";")
 
         # 入库费
