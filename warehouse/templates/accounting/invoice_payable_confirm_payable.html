@@ -807,7 +807,9 @@
 
                                         <td class="td">
                                             {% for fee in c.container_number.invoice_itemv2.all %}
-                                                {{ fee.carrier|default:"-" }}
+                                                {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
+                                                    {{ fee.carrier|default:"-" }}
+                                                {% endif %}
                                             {% endfor %}
                                         </td>
 
@@ -1094,7 +1096,9 @@
 
                                     <td class="td">
                                         {% for fee in c.container_number.invoice_itemv2.all %}
-                                            {{ fee.carrier|default:"-" }}
+                                            {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
+                                                {{ fee.carrier|default:"-" }}
+                                            {% endif %}
                                         {% endfor %}
                                     </td>
 
