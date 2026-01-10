@@ -779,7 +779,7 @@
                                         {% endif %}
                                     </div>
                                     <div class="fee-cell">
-                                        {% if not is_save_invoice and actual_day and preport_carrier != '东海岸' %}
+                                        {% if not is_save_invoice and actual_day %}
                                             <input type="number" step="0.01" class="input-field fee-amount-input"
                                                    name="chassis_fee" value="{{ chassis_fee|default:0 }}"
                                                    oninput="calculateTotal()">
