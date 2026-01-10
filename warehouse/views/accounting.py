@@ -6692,40 +6692,40 @@ class Accounting(View):
 
         order_exists_subquery = Order.objects.filter(
             criteria,
-            container_number_id=OuterRef("container_number_id"),  # OuterRef仅用于子查询
+            container_number_id=OuterRef("container_number_id"),
         )
-        # 2.2 预加载用（不含OuterRef，用于Prefetch）
         order_prefetch_queryset = Order.objects.filter(
             criteria
         ).select_related("retrieval_id", "vessel_id", "customer_name")
 
-
-        # 只处理第一条Invoicev2记录
         target_invoices = Invoicev2.objects.select_related("container_number").prefetch_related(
             Prefetch("container_number__orders", queryset=order_prefetch_queryset)
         ).filter(Exists(order_exists_subquery)).all()
 
         if target_invoices:
             for target_invoice in target_invoices:
-                # 检查该柜号是否有应付状态
-                has_status = InvoiceStatusv2.objects.filter(
-                    models.Q(invoice_type="payable") | models.Q(invoice_type="payable_direct"),
-                    container_number_id=target_invoice.container_number.id
-                ).exists()
+                # 修复1：精准判断柜号是否为直送（覆盖所有Order）
+                container_orders = target_invoice.container_number.orders.all()
+                is_direct = container_orders.filter(order_type="直送").exists()
+                invoice_type = "payable_direct" if is_direct else "payable"
 
-                if not has_status:
-                    # 只创建这一条记录
-                    order_type = target_invoice.container_number.orders.first().order_type if target_invoice.container_number.orders.exists() else ""
-                    invoice_type = "payable_direct" if order_type == "直送" else "payable"
+                # 修复2+3：加锁+精准判断该Invoicev2是否已创建状态
+                with transaction.atomic():
+                    has_status = InvoiceStatusv2.objects.select_for_update().filter(
+                        container_number_id=target_invoice.container_number.id,
+                        invoice_id=target_invoice.id,  # 关联具体Invoicev2
+                        invoice_type__in=["payable", "payable_direct"]
+                    ).exists()
 
-                    InvoiceStatusv2.objects.create(
-                        container_number=target_invoice.container_number,
-                        invoice_type=invoice_type,
-                        invoice=target_invoice
-                    )
-                    print("成功创建1条InvoiceStatusv2记录")
-                else:
-                    print("该柜号已存在应付状态，无需创建")
+                    if not has_status:
+                        InvoiceStatusv2.objects.create(
+                            container_number=target_invoice.container_number,
+                            invoice_type=invoice_type,
+                            invoice=target_invoice
+                        )
+                        print(f"成功创建1条InvoiceStatusv2记录（Invoicev2 ID：{target_invoice.id}，类型：{invoice_type}）")
+                    else:
+                        print(f"该Invoicev2（ID：{target_invoice.id}）已存在应付状态，无需创建")
 
         # 待录入的订单：用 Exists 避免重复，distinct 兜底
         orders = (
