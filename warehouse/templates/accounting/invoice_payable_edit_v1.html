@@ -901,7 +901,7 @@
                             {% if "提柜其他费用" in fee.description %}
                                 <div class="fee-group">
                                     <input type="text" class="input-field" name="pickup_fee_name[]"
-                                           value="{{ fee.description }}" placeholder="费用名称">
+                                           value="{{ fee.split_desc }}" placeholder="费用名称">
                                     <input type="number" step="0.01" class="input-field fee-amount-input"
                                            name="pickup_fee_amount[]" value="{{ fee.rate|floatformat:2 }}"
                                            placeholder="金额" oninput="calculateTotal()">
@@ -936,7 +936,7 @@
                             {% if "拆柜其他费用" in fee.description %}
                                 <div class="fee-group">
                                     <input type="text" class="input-field" name="pallet_fee_name[]"
-                                           value="{{ fee.description }}" placeholder="费用名称">
+                                           value="{{ fee.split_desc }}" placeholder="费用名称">
                                     <input type="number" step="0.01" class="input-field fee-amount-input"
                                            name="pallet_fee_amount[]" value="{{ fee.rate|floatformat:2 }}"
                                            placeholder="金额" oninput="calculateTotal()">
