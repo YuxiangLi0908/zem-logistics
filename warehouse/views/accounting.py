@@ -6698,22 +6698,28 @@ class Accounting(View):
             criteria
         ).select_related("retrieval_id", "vessel_id", "customer_name")
 
-        target_invoices = Invoicev2.objects.select_related("container_number").prefetch_related(
+        # ========== 核心修改：按柜号去重，只取每个柜号的第一条Invoicev2 ==========
+        # 1. 先筛选出符合条件的所有Invoicev2
+        all_target_invoices = Invoicev2.objects.select_related("container_number").prefetch_related(
             Prefetch("container_number__orders", queryset=order_prefetch_queryset)
-        ).filter(Exists(order_exists_subquery)).all()
+        ).filter(Exists(order_exists_subquery))
 
+        # 2. 按container_number_id去重，只保留每个柜号的第一条Invoicev2
+        # 注意：order_by("container_number_id", "id") 确保按ID升序取第一条（可替换为创建时间等）
+        target_invoices = all_target_invoices.order_by("container_number_id", "id").distinct("container_number_id")
+
+        # ========== 仅处理每个柜号的第一条Invoicev2 ==========
         if target_invoices:
             for target_invoice in target_invoices:
-                # 修复1：精准判断柜号是否为直送（覆盖所有Order）
+                # 精准判断柜号是否为直送（覆盖所有Order）
                 container_orders = target_invoice.container_number.orders.all()
                 is_direct = container_orders.filter(order_type="直送").exists()
                 invoice_type = "payable_direct" if is_direct else "payable"
 
-                # 修复2+3：加锁+精准判断该Invoicev2是否已创建状态
+                # 加锁+精准判断该柜号是否已创建状态（无需关联invoice_id，因为只处理第一条）
                 with transaction.atomic():
                     has_status = InvoiceStatusv2.objects.select_for_update().filter(
                         container_number_id=target_invoice.container_number.id,
-                        invoice_id=target_invoice.id,  # 关联具体Invoicev2
                         invoice_type__in=["payable", "payable_direct"]
                     ).exists()
 
@@ -6723,9 +6729,10 @@ class Accounting(View):
                             invoice_type=invoice_type,
                             invoice=target_invoice
                         )
-                        print(f"成功创建1条InvoiceStatusv2记录（Invoicev2 ID：{target_invoice.id}，类型：{invoice_type}）")
+                        print(
+                            f"成功为柜号[{target_invoice.container_number.id}]的第一条Invoicev2[{target_invoice.id}]创建{invoice_type}状态")
                     else:
-                        print(f"该Invoicev2（ID：{target_invoice.id}）已存在应付状态，无需创建")
+                        print(f"柜号[{target_invoice.container_number.id}]已存在应付状态，无需创建")
 
         # 待录入的订单：用 Exists 避免重复，distinct 兜底
         orders = (
