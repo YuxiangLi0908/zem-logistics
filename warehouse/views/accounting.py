@@ -9620,13 +9620,30 @@ class Accounting(View):
             "港内滞港费": f"{fee_detail[warehouse][warehouse_precise][preport_carrier].get('demurrage')}",
             "港外滞箱费": f"{fee_detail[warehouse][warehouse_precise][preport_carrier].get('per_diem')}",
         }
+
+        # 新增：费用名称分割函数（提取-后面的名称）
+        def split_fee_name(description):
+            """
+            分割费用描述，提取-后面的名称；若无-则返回原名称
+            :param description: 原始费用描述（如"提柜其他费用-车架费用"）
+            :return: 分割后的名称（如"车架费用"）
+            """
+            if '-' in description:
+                # 按-分割，取最后一段（处理多个-的情况，如"提柜-其他-超重费用"）
+                split_parts = description.split('-')
+                # 去除空格并返回最后一段
+                return split_parts[-1].strip()
+            # 无-则返回原名称（去空格）
+            return description.strip()
+
+        # ========== 原有代码修改部分 ==========
         # 获取现有的费用项目
         existing_items = InvoiceItemv2.objects.filter(
             invoice_number=invoice,
             invoice_type='payable'
         )
-        # 获取已存在的费用描述列表，用于前端过滤
-        existing_descriptions = [item.description for item in existing_items]
+        # 获取已存在的费用描述列表（先分割再存储）
+        existing_descriptions = [split_fee_name(item.description) for item in existing_items]
 
         # 标准费用项目列表
         standard_fee_items = [
@@ -9636,9 +9653,12 @@ class Accounting(View):
         # 构建费用数据
         fee_data = []
         for item in existing_items:
+            # 分割原始描述，提取-后的名称
+            split_desc = split_fee_name(item.description)
             fee_data.append({
                 'id': item.id,
-                'description': item.description,
+                'description': split_desc,  # 前端显示分割后的名称
+                'original_description': item.description,  # 可选：保留原始描述用于后续保存
                 'qty': item.qty or 1,
                 'rate': item.rate or 0,
                 'surcharges': item.surcharges or 0,
@@ -9646,6 +9666,7 @@ class Accounting(View):
                 'note': item.note or '',
                 "carrier": item.carrier or '',
             })
+
         # 如果是第一次录入且没有费用记录，添加提拆费作为默认
         if not existing_items.exists() and invoice_status.preport_status == 'unstarted' and pickup_fee > 0:
             for fee_name in standard_fee_items:
