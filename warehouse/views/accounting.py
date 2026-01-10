@@ -9657,8 +9657,8 @@ class Accounting(View):
             split_desc = split_fee_name(item.description)
             fee_data.append({
                 'id': item.id,
-                'description': split_desc,  # 前端显示分割后的名称
-                'original_description': item.description,  # 可选：保留原始描述用于后续保存
+                'split_desc': split_desc,  # 前端显示分割后的名称
+                'description': item.description,  # 可选：保留原始描述用于后续保存
                 'qty': item.qty or 1,
                 'rate': item.rate or 0,
                 'surcharges': item.surcharges or 0,
