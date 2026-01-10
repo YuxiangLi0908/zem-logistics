@@ -4460,9 +4460,9 @@ class Accounting(View):
         pt_amount = 0
         wh_amount = 0
         # 存到invoice表里
-        invoice = Invoicev2.objects.get(
+        invoice = Invoicev2.objects.filter(
             container_number__container_number=container_number
-        )
+        ).order_by('id').first()
         container = Container.objects.get(
             container_number=container_number
         )
