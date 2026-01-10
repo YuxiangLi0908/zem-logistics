@@ -783,6 +783,8 @@
                                             <input type="number" step="0.01" class="input-field fee-amount-input"
                                                    name="chassis_fee" value="{{ chassis_fee|default:0 }}"
                                                    oninput="calculateTotal()">
+                                        {% elif not is_save_invoice and not actual_day %}
+                                            <span class="amount-display amount-zero">0.00</span>
                                         {% else %}
                                             {% if fee.rate %}
                                                 <span class="amount-display">{{ fee.rate }}</span>
