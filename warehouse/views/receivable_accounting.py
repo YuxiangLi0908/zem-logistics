@@ -4710,18 +4710,18 @@ class ReceivableAccounting(View):
         total_weight_lbs = group.get("total_weight_lbs")
         need_manual_input = False
         # 1. 确定派送类型
+        total_pallets = group.get("total_pallets")  
         if delivery_method and any(courier in delivery_method.upper() 
                                  for courier in ["UPS", "FEDEX", "DHL", "DPD", "TNT"]):
             delivery_category = "upsdelivery"
             rate = 0
-            amount = 0
-            total_pallets = group.get("total_pallets")     
+            amount = 0 
             need_manual_input = True   
         elif "暂扣" in delivery_method:
             delivery_category = "hold"
             rate = 0
             amount = 0
-            need_manual_input = False   
+            need_manual_input = False             
         else:      
             if "准时达" in order.customer_name.zem_name:
                 #准时达根据板子实际仓库找报价表，其他用户是根据建单
