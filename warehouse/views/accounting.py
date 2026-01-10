@@ -6729,10 +6729,7 @@ class Accounting(View):
                             invoice_type=invoice_type,
                             invoice=target_invoice
                         )
-                        print(
-                            f"成功为柜号[{target_invoice.container_number.id}]的第一条Invoicev2[{target_invoice.id}]创建{invoice_type}状态")
-                    else:
-                        print(f"柜号[{target_invoice.container_number.id}]已存在应付状态，无需创建")
+
 
         # 待录入的订单：用 Exists 避免重复，distinct 兜底
         orders = (
