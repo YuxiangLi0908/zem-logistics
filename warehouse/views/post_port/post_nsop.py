@@ -417,9 +417,11 @@ class PostNsop(View):
         elif step == "query_quotation":
             template, context = await self.handle_query_quotation(request)
             return render(request, template, context) 
+        elif step == "po_invalid_save":
+            template, context = await self.handle_po_invalid_save(request)
+            return render(request, template, context) 
         else:
             raise ValueError('输入错误',step)
-    
     
     async def handle_bol_upload_post(self, request: HttpRequest) -> HttpResponse:
         '''客户自提的BOL文件下载'''
@@ -7408,10 +7410,12 @@ class PostNsop(View):
         warehouse = request.POST.get("warehouse")
         if warehouse:
             warehouse_name = warehouse.split('-')[0]
+        else:
+            raise ValueError('未选择仓库！')
         
         nowtime = timezone.now()
         two_weeks_later = nowtime + timezone.timedelta(weeks=2)
-        #所有没约且两周内到港的货物
+        # 1、PO管理——所有没约且两周内到港的货物
         unshipment_pos = await self._get_packing_list(
             request.user,
             models.Q(
@@ -7434,23 +7438,24 @@ class PostNsop(View):
             )& models.Q(pk=0),
         )
         
-        #未使用的约和异常的约
+        # 2、预约管理——未使用的约和异常的约
         shipments = await self.get_shipments_by_warehouse(warehouse,request)
         
         summary = await self.calculate_summary(unshipment_pos, shipments, warehouse)
 
-        #智能匹配内容
-        st_type = request.POST.get('st_type')
-        max_cbm, max_pallet = await self.get_capacity_limits(st_type)
-        matching_suggestions = await self.get_matching_suggestions(unshipment_pos, shipments,max_cbm,max_pallet)
-        primary_group_keys = set()
-        for suggestion in matching_suggestions:
-            group_key = f"{suggestion['primary_group']['destination']}_{suggestion['primary_group']['delivery_method']}"
-            primary_group_keys.add(group_key)
-
-
-        auto_matches = await self.get_auto_matches(unshipment_pos, shipments)
+        # 3、智能匹配内容——暂不使用
+        # st_type = request.POST.get('st_type')
+        # max_cbm, max_pallet = await self.get_capacity_limits(st_type)
+        # matching_suggestions = await self.get_matching_suggestions(unshipment_pos, shipments,max_cbm,max_pallet)
+        # primary_group_keys = set()
+        # for suggestion in matching_suggestions:
+        #     group_key = f"{suggestion['primary_group']['destination']}_{suggestion['primary_group']['delivery_method']}"
+        #     primary_group_keys.add(group_key)
+        # auto_matches = await self.get_auto_matches(unshipment_pos, shipments)
         
+        # 4、失效的PO管理
+        invalid_pos = await self._invalid_po_check(warehouse)
+
         vessel_names = []
         vessel_dict = OrderedDict()
         destination_list = []
@@ -7482,12 +7487,14 @@ class PostNsop(View):
             'summary': summary,
             'cargo_count': len(unshipment_pos),
             'appointment_count': len(shipments),
-            'matching_count': len(primary_group_keys),
-            'matching_suggestions': matching_suggestions,
-            'auto_matches': auto_matches,
-            'st_type': st_type,
-            'max_cbm': max_cbm,
-            'max_pallet': max_pallet,
+            'invalid_po_count': len(invalid_pos),
+            #'matching_count': len(primary_group_keys),
+            #'matching_suggestions': matching_suggestions,
+            #'auto_matches': auto_matches,
+            #'st_type': st_type,
+            #'max_cbm': max_cbm,
+            #'max_pallet': max_pallet,
+            "invalid_pos": invalid_pos,
             "vessel_names": vessel_names,
             "vessel_dict": vessel_dict,
             "destination_list": destination_list,
@@ -7495,6 +7502,85 @@ class PostNsop(View):
             'load_type_options': LOAD_TYPE_OPTIONS,
         })
         return self.template_main_dash, context
+    
+    async def handle_po_invalid_save(self, request):
+        '''PO校验保存'''
+        json_data = request.POST.get('updated_data_json')
+        print(request.POST)
+        if json_data:
+            items_to_update = json.loads(json_data)
+            
+            # 使用列表来批量更新或循环更新
+            # 如果数据量不大，循环更新最简单安全
+            count = 0
+            for item in items_to_update:
+                po_id = item.get('id')
+                # 查找对应的对象 (确保是PoCheckEtaSeven模型)
+                po_obj = await sync_to_async(
+                    lambda pid=po_id: PoCheckEtaSeven.objects.filter(id=pid).first()
+                )()
+                
+                if po_obj:
+                    po_obj.fba_id = item.get('fba_id')
+                    po_obj.ref_id = item.get('ref_id')
+                    po_obj.handling_method = item.get('handling_method')
+                    
+                    # 处理 Boolean 字段
+                    new_notify_status = item.get('is_notified')
+                    po_obj.is_notified = new_notify_status
+                    
+                    # 如果状态变为已通知且之前没有时间，记录时间 (可选逻辑)
+                    if new_notify_status and not po_obj.notified_time:
+                        po_obj.notified_time = datetime.now()
+                    elif not new_notify_status:
+                        po_obj.notified_time = None
+                        
+                    po_obj.is_active = item.get('is_active')
+                    
+                    await sync_to_async(po_obj.save)()
+                    count += 1
+            context = {"success_messages": f'成功更新 {count} 条 PO 记录!'}
+        
+        return await self.handle_appointment_management_post(request,context)
+
+    async def _invalid_po_check(
+        self, warehouse
+    ) -> dict[str, dict]:
+        '''查询失效的po'''
+        warehouse = warehouse.split('-')[0]
+        # 如果提柜前一天状态为失效，或者提柜前一天没有查，到港前一周查了是失效
+        # --- 1. 构建查询条件 (保持不变) ---
+        query1 = models.Q(last_retrieval_checktime__isnull=False) & models.Q(
+            last_retrieval_status=False
+        )
+        query2 = (
+            models.Q(last_retrieval_checktime__isnull=True)
+            & models.Q(last_eta_checktime__isnull=False)
+            & models.Q(last_eta_status=False)
+        )
+        query = query1 | query2
+        query &= models.Q(
+            container_number__orders__retrieval_id__retrieval_destination_area=warehouse
+        )
+        query &= models.Q(ref_id__isnull=False)
+        query &= ~models.Q(ref_id="")
+
+        # --- 2. 定义同步查询函数 (关键修改) ---
+        def get_po_data():
+            # 使用 select_related 预加载外键字段
+            # 请确认 'customer_name' 和 'container_number' 是你的外键字段名
+            # 如果还有其他外键在模板中显示（如 destination 也是外键），也需要加进去
+            qs = PoCheckEtaSeven.objects.filter(query).select_related(
+                'customer_name', 
+                'container_number'
+            ).distinct() 
+            return list(qs)
+        # --- 3. 异步调用 ---
+        po_checks_list = await sync_to_async(get_po_data)()
+        # 排序
+        po_checks_list.sort(key=lambda po: po.is_notified)
+
+        return po_checks_list
     
     async def _get_packing_list(
         self,user,

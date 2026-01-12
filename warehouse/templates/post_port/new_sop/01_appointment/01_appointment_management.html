@@ -291,8 +291,13 @@
             <div class="tab" data-tab="appointments">
                 预约管理 <span class="badge">{{ appointment_count }}</span>
             </div>
+            <!--
             <div class="tab" data-tab="matching">
                 智能匹配 <span class="badge">{{ matching_count }}</span>
+            </div>
+            -->
+            <div class="tab" data-tab="invalid-po">
+                PO失效校验 <span class="badge" id="invalid-badge">{{ invalid_po_count }}</span>
             </div>
         </div>
 
@@ -309,6 +314,11 @@
         <!-- 智能匹配标签页 -->
         <div class="content-section" id="matching-section">
             {% include 'post_port/new_sop/01_appointment/intelligent_matching.html' %}
+        </div>
+        
+        <!-- PO失效标签页 -->
+        <div class="content-section" id="invalid-po-section">
+            {% include 'post_port/new_sop/01_appointment/invalid_po_check.html' %}
         </div>
     </div>
 </div>
