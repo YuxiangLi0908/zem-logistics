@@ -6875,7 +6875,6 @@ class PostNsop(View):
             )
         succes_len = len(target_ids)
         context = {'success_messages': f'成功更新{succes_len}条POD回传状态！'}
-        print(context)
         return await self.handle_ltl_unscheduled_pos_post(request,context)
     
     async def handle_save_shipping_tracking(
