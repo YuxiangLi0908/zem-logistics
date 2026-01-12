@@ -4539,6 +4539,7 @@ class Accounting(View):
                 ).get()
                 invoice_item.rate = data.get("palletization_fee")
                 invoice_item.note = data.get("palletization_fee_note")
+                invoice_item.carrier = data.get("palletization_carrier")
                 invoice_item.save()
                 wh_amount += float(data.get("palletization_fee"))
             except InvoiceItemv2.DoesNotExist:
@@ -4548,6 +4549,7 @@ class Accounting(View):
                 invoice_item.description = "拆柜费用"
                 invoice_item.rate = data.get("palletization_fee")
                 invoice_item.note = data.get("palletization_fee_note")
+                invoice_item.carrier = data.get("palletization_carrier")
                 invoice_item.save()
                 wh_amount += float(data.get("palletization_fee"))
         # 入库拆柜费
