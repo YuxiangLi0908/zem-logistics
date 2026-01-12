@@ -9127,14 +9127,30 @@ class Accounting(View):
                 }
             )
 
-        invoice_status, created = InvoiceStatusv2.objects.get_or_create(
+        # 1. 先筛选（修正拼写后的正确筛选）
+        invoice_status = InvoiceStatusv2.objects.filter(
             models.Q(invoice_type="payable") | models.Q(invoice_type="payable_direct"),
             container_number=order.container_number,
             invoice=invoice,
         )
-        # 账单不存在
-        if created:
-            invoice_status.save()
+
+        # 2. 处理筛选结果（核心：替代get_or_create）
+        if invoice_status.exists():
+            # 有记录：取第一条（按ID升序，避免多记录），并清理重复
+            if invoice_status.count() > 1:
+                invoice_status = invoice_status.order_by('id').first()
+                # 可选：删除重复记录，杜绝后续报错
+                invoice_status.exclude(id=invoice_status.id).delete()
+            else:
+                invoice_status = invoice_status.first()
+        else:
+            # 无记录：创建新记录（指定唯一类型，避免重复）
+            is_direct = order.container_number.orders.filter(order_type="直送").exists()
+            invoice_status = InvoiceStatusv2.objects.create(
+                container_number=order.container_number,
+                invoice=invoice,
+                invoice_type="payable_direct" if is_direct else "payable"
+            )
 
         # 确定是否可编辑
         payable_check = self._validate_user_invoice_payable_check(request.user)
