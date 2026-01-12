@@ -1151,12 +1151,21 @@ class ReceivableAccounting(View):
     def handle_supplement_order_post(
         self, request: HttpRequest
     ) -> tuple[Any, Any]:
+        '''补开账单'''   
         container_number = request.POST.get("container_number")
+        container_number = container_number.strip()
+
+        status = request.POST.get("status")
         
         invoices = Invoicev2.objects.filter(container_number__container_number=container_number)
         if not invoices.exists():
             context = {'error_messages': f'{container_number}当前一份账单都没有录入，不可重开！'}
-            return self.template_supplementary_entry, context
+            if "delivery" in status:
+                context = self.handle_delivery_entry_post(request, context)
+                return self.template_delivery_entry, context
+            elif "warehouse" in status:
+                context = self.handle_warehouse_entry_post(request, context)
+                return self.template_warehouse_entry, context
         else:
             for invoice in invoices:
                 # 查询这个账单对应的状态
@@ -1168,12 +1177,21 @@ class ReceivableAccounting(View):
                     finance_status = status_obj.finance_status
                     if finance_status != "completed":
                         context = {'error_messages': f'{container_number}还存在未开完的账单，不可重开！'}
-                        return self.template_supplementary_entry, context
+                        if "delivery" in status:
+                            context = self.handle_delivery_entry_post(request, context)
+                            return self.template_delivery_entry, context
+                        elif "warehouse" in status:
+                            context = self.handle_warehouse_entry_post(request, context)
+                            return self.template_warehouse_entry, context
                 except InvoiceStatusv2.DoesNotExist:
                     context = {'error_messages': f'{container_number}还存在未开完的账单，不可重开！'}
-                    return self.template_supplementary_entry, context
+                    if "delivery" in status:
+                        context = self.handle_delivery_entry_post(request, context)
+                        return self.template_delivery_entry, context
+                    elif "warehouse" in status:
+                        context = self.handle_warehouse_entry_post(request, context)
+                        return self.template_warehouse_entry, context
         #创建一份新的账单
-        status = request.POST.get("status")
         invoice, invoice_status = self._create_new_invoice_and_status(container_number)
         self._update_invoice_status(invoice_status, status)
 
@@ -1184,7 +1202,6 @@ class ReceivableAccounting(View):
         elif "warehouse" in status:
             context = self.handle_warehouse_entry_post(request, context)
             return self.template_warehouse_entry, context
-        return self.template_supplementary_entry, context
     
     def _create_new_invoice_and_status(self, container_number: str) -> tuple[Invoicev2, InvoiceStatusv2]:
         """创建账单和状态记录"""
@@ -2477,7 +2494,7 @@ class ReceivableAccounting(View):
         })
         return context
 
-    def handle_warehouse_entry_post(self, request:HttpRequest, context: dict| None = None,) -> Dict[str, Any]:
+    def old_handle_warehouse_entry_post(self, request:HttpRequest, context: dict| None = None,) -> Dict[str, Any]:
         warehouse = request.POST.get("warehouse_filter")
         customer = request.POST.get("customer")
         start_date = request.POST.get("start_date")
@@ -2637,6 +2654,242 @@ class ReceivableAccounting(View):
         ))
         # 判断用户权限，决定默认标签页
         groups = [group.name for group in request.user.groups.all()]
+        if not context:
+            context = {}
+
+        # 根据权限，决定打开的标签页
+        if 'warehouse_other' in groups:
+            default_tab = 'self'
+        else:
+            default_tab = 'public'
+
+        context.update({
+            'start_date': start_date,
+            'end_date': end_date,
+            'wh_public_to_record_orders': wh_public_to_record_orders,
+            'wh_public_recorded_orders': wh_public_recorded_orders,
+            'wh_self_to_record_orders': wh_self_to_record_orders,
+            'wh_self_recorded_orders': wh_self_recorded_orders,
+            "order_form": OrderForm(),
+            "warehouse_options": self.warehouse_options,
+            "warehouse_filter": warehouse,
+            "default_tab": default_tab, 
+        })
+        return context
+    
+    def handle_warehouse_entry_post(self, request:HttpRequest, context: dict| None = None,) -> Dict[str, Any]:
+        warehouse = request.POST.get("warehouse_filter")
+        customer = request.POST.get("customer")
+        start_date = request.POST.get("start_date")
+        end_date = request.POST.get("end_date")
+
+        # --- 1. 日期处理 ---
+        current_date = datetime.now().date()
+        start_date = (
+            (current_date + timedelta(days=-90)).strftime("%Y-%m-%d")
+            if not start_date
+            else start_date
+        )
+        end_date = current_date.strftime("%Y-%m-%d") if not end_date else end_date
+
+        # --- 2. 构建查询条件 ---
+        criteria = (
+            Q(cancel_notification=False)
+            & (Q(order_type="转运") | Q(order_type="转运组合"))
+            & Q(vessel_id__vessel_etd__gte=start_date)
+            & Q(vessel_id__vessel_etd__lte=end_date)
+            & Q(offload_id__offload_at__isnull=False)
+        )
+
+        if warehouse and warehouse != 'None':
+            if "LA" in warehouse:
+                criteria &= Q(retrieval_id__retrieval_destination_precise__contains='LA')
+            else:
+                criteria &= Q(retrieval_id__retrieval_destination_precise=warehouse)
+        if customer:
+            criteria &= Q(customer_name__zem_name=customer)
+
+        # --- 3. 获取基础订单数据 ---
+        base_orders = (
+            Order.objects
+            .select_related(
+                'retrieval_id', 
+                'offload_id', 
+                'container_number',
+                'customer_name'
+            )
+            .annotate(
+                retrieval_time=F("retrieval_id__actual_retrieval_timestamp"),
+                empty_returned_time=F("retrieval_id__empty_returned_at"),
+                offload_time=F("offload_id__offload_at"),
+            )
+            .filter(criteria)
+            .distinct()
+        )
+
+        orders_list = list(base_orders)
+        # 提取 Container IDs
+        container_ids = set()
+        for order in orders_list:
+            if order.container_number_id:
+                container_ids.add(order.container_number_id)
+        container_ids = list(container_ids)
+
+        # --- 4. 批量获取 Invoice 和 InvoiceStatus ---
+        status_prefetch = Prefetch(
+            'invoicestatusv2_set',
+            queryset=InvoiceStatusv2.objects.filter(invoice_type="receivable"),
+            to_attr='receivable_status_list'
+        )
+
+        all_invoices = Invoicev2.objects.filter(
+            container_number_id__in=container_ids
+        ).prefetch_related(status_prefetch)
+
+         # --- 5. [安全机制] 批量创建缺失的 InvoiceStatus ---
+        missing_statuses = []
+        invoices_needing_update = []
+
+        for inv in all_invoices:
+            # 如果预查询列表为空，说明缺数据
+            if not (hasattr(inv, 'receivable_status_list') and inv.receivable_status_list):
+                new_status = InvoiceStatusv2(
+                    invoice=inv,
+                    container_number_id=inv.container_number_id, # 使用ID赋值更轻量
+                    invoice_type="receivable",
+                    # 默认状态
+                    warehouse_public_status="unstarted",
+                    warehouse_other_status="unstarted",
+                    preport_status="unstarted",
+                    delivery_public_status="unstarted",
+                    delivery_other_status="unstarted",
+                    finance_status="unstarted"
+                )
+                missing_statuses.append(new_status)
+                invoices_needing_update.append(inv)
+
+        if missing_statuses:
+            InvoiceStatusv2.objects.bulk_create(missing_statuses)
+            # 手动回填内存，避免重新查询
+            for i, inv in enumerate(invoices_needing_update):
+                inv.receivable_status_list = [missing_statuses[i]]
+        
+        # --- 6. 内存分组 & 统计预计算 ---
+        container_invoice_map = defaultdict(list)
+        for inv in all_invoices:
+            container_invoice_map[inv.container_number_id].append(inv)
+
+        # 调用复用的统计方法
+        shipment_stats_map = self._bulk_calculate_shipment_stats(container_ids)
+
+        # --- 7. 主循环 ---
+        wh_public_to_record_orders = [] #公仓待录入
+        wh_public_recorded_orders = []  #公仓已录入
+        wh_self_to_record_orders = []  #私仓待录入
+        wh_self_recorded_orders = []  #私仓已录入
+        
+        for order in orders_list:
+            container = order.container_number
+            if not container:
+                continue
+            
+            c_id = container.id
+            container_delivery_type = container.delivery_type if container.delivery_type else 'mixed'
+        
+            should_process_public = container_delivery_type in ['public', 'mixed']
+            should_process_self = container_delivery_type in ['other', 'mixed']
+            
+            if container_delivery_type not in ['public', 'other', 'mixed']:
+                should_process_public = True
+                should_process_self = True
+
+            container_invoices = container_invoice_map.get(c_id, [])
+
+            # 定义构建函数
+            def build_order_data(inv=None, status_obj=None):
+                created_at = None
+                # 只有多账单才去拿时间，且只拿 created_at，不碰 history 以免 N+1
+                if inv and len(container_invoices) > 1:
+                    created_at = inv.created_at 
+                
+                return {
+                    'order': order,
+                    'container_number': order.container_number,
+                    'invoice_number': inv.invoice_number if inv else None,
+                    'invoice_id': inv.id if inv else None,
+                    'invoice_created_at': created_at,
+                    # 注意：这里取的是 warehouse 相关的状态
+                    'public_status': status_obj.warehouse_public_status if status_obj else None,
+                    'self_status': status_obj.warehouse_other_status if status_obj else None,
+                    'finance_status': status_obj.finance_status if status_obj else None,
+                    'has_invoice': bool(inv),
+                    'offload_time': order.offload_time,
+                    # 放入统计数据供后续计算
+                    'stats_raw': shipment_stats_map.get(c_id, {})
+                }
+
+            if not container_invoices:
+                # === 场景 A: 无账单 ===
+                base_data = build_order_data(None, None)
+                
+                if should_process_public:
+                    wh_public_to_record_orders.append(base_data) # 公仓不需要统计比例，无需 inject
+                if should_process_self:
+                    item = base_data.copy()
+                    self._inject_stats_and_ratio(item, 'other') # 私仓需要统计比例
+                    wh_self_to_record_orders.append(item)
+            else:
+                # === 场景 B: 有账单 ===
+                for invoice in container_invoices:
+                    status_obj = None
+                    if hasattr(invoice, 'receivable_status_list') and invoice.receivable_status_list:
+                        status_obj = invoice.receivable_status_list[0]
+                    
+                    base_data = build_order_data(invoice, status_obj)
+                    
+                    # --- 公仓分组 ---
+                    if should_process_public:
+                        # 公仓这里为了保持逻辑独立，copy一份
+                        p_item = base_data.copy()
+                        p_status = p_item['public_status']
+                        
+                        if p_status in ["unstarted", "in_progress", None]:
+                            wh_public_to_record_orders.append(p_item)
+                        elif p_status in ["completed", "rejected", "confirmed"]:
+                            wh_public_recorded_orders.append(p_item)
+
+                    # --- 私仓分组 ---
+                    if should_process_self:
+                        s_item = base_data.copy()
+                        # 注入统计数据 (因为私仓排序要用)
+                        self._inject_stats_and_ratio(s_item, 'other')
+                        s_status = s_item['self_status']
+                        
+                        if s_status in ["unstarted", "in_progress", None]:
+                            wh_self_to_record_orders.append(s_item)
+                        elif s_status in ["completed", "rejected", "confirmed"]:
+                            wh_self_recorded_orders.append(s_item)
+
+        # 私仓待录入：按出库比例排序
+        wh_self_to_record_orders.sort(key=lambda x: x.get('completion_ratio', 0), reverse=True)
+        # 私仓已录入：驳回优先
+        wh_self_recorded_orders.sort(key=lambda x: x.get('self_status') == 'rejected', reverse=True)
+
+        # 公仓待录入：按入库(offload)时间排序
+        # 处理时区问题：如果有时区则去掉，None则排到最后
+        def get_naive_offload_time(item):
+            t = item.get('offload_time')
+            if not t:
+                return datetime.max # None 排最后
+            # 如果是 timezone aware，转 naive
+            if hasattr(t, 'tzinfo') and t.tzinfo:
+                return t.replace(tzinfo=None)
+            return t
+
+        wh_public_to_record_orders.sort(key=get_naive_offload_time)
+
+        # --- 9. 权限与上下文 ---
+        groups = [group.name for group in request.user.groups.all()] if request.user else []
         if not context:
             context = {}
 
