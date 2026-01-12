@@ -4035,12 +4035,21 @@ class ReceivableAccounting(View):
         # 1. 批量查询 Pallet
         # 注意：这里去掉了 offload_at 的复杂过滤，因为逻辑上我们已经在 Base Order 里筛选了 Offloaded 的订单
         # 如果必须严格遵循原来的逻辑（Pallet 算，PackingList 不算），可以在这里加条件
-        pallets = Pallet.objects.filter(
-            container_number_id__in=container_ids
-        ).values('container_number_id', 'delivery_type', 'PO_ID','shipment_batch_number')
+        pallets = (
+            Pallet.objects
+            .filter(container_number_id__in=container_ids)
+            .values(
+                'container_number_id',
+                'delivery_type',
+                'PO_ID',
+                'shipment_batch_number',
+            )
+            .distinct()
+        )
 
         for p in pallets:
             c_id = p['container_number_id']
+                     
             d_type = p['delivery_type'] if p['delivery_type'] in ['public', 'other'] else 'public' # 默认归类
             
             stats_map[c_id][d_type]['total'] += 1
@@ -4054,7 +4063,6 @@ class ReceivableAccounting(View):
                     stats_map[c_id][d_type]['unshipped'] += 1
             else:
                 stats_map[c_id][d_type]['unshipped'] += 1
-                
         return stats_map
 
     def _inject_stats_and_ratio(self, order_item, display_type):
