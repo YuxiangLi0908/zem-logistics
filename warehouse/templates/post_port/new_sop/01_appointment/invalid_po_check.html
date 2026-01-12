@@ -1,0 +1,387 @@
+{% load static %}
+<style>
+    /* 局部样式，继承主页面变量 */
+    .invalid-po-container {
+        background: white;
+        border-radius: 8px;
+        padding: 15px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .po-toolbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
+        padding-bottom: 10px;
+        border-bottom: 1px solid #eee;
+    }
+
+    .po-title {
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: var(--secondary-color);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .table-responsive {
+        overflow: auto;
+        max-height: 70vh; /* 固定高度，内部滚动 */
+        border: 1px solid #eee;
+        border-radius: 4px;
+    }
+
+    .custom-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.85rem;
+    }
+
+    /* 表头样式 */
+    .custom-table thead th {
+        background-color: var(--secondary-color);
+        color: white;
+        padding: 10px;
+        text-align: left;
+        font-weight: 600;
+        white-space: nowrap;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+    }
+
+    /* 搜索行样式 */
+    .filter-row th {
+        background-color: #e9ecef !important;
+        padding: 5px !important;
+        position: sticky;
+        top: 40px; /* 根据第一行表头高度调整 */
+        z-index: 9;
+    }
+
+    .filter-input {
+        width: 100%;
+        padding: 4px 8px;
+        border: 1px solid #ced4da;
+        border-radius: 3px;
+        font-size: 0.8rem;
+    }
+
+    .custom-table tbody tr {
+        border-bottom: 1px solid #eee;
+        transition: background-color 0.2s;
+    }
+
+    .custom-table tbody tr:hover {
+        background-color: var(--day1-color);
+    }
+
+    .custom-table td {
+        padding: 8px 10px;
+        vertical-align: middle;
+    }
+
+    /* 输入框样式 */
+    .edit-input {
+        border: 1px solid #ddd;
+        border-radius: 3px;
+        padding: 4px;
+        width: 100%;
+        font-size: 0.85rem;
+    }
+    .edit-input:focus {
+        border-color: var(--primary-color);
+        outline: none;
+    }
+
+    /* 状态标签 */
+    .status-badge {
+        font-size: 0.75rem;
+        padding: 2px 6px;
+        border-radius: 4px;
+    }
+    .status-badge.notified { background: #d4edda; color: #155724; }
+    .status-badge.pending { background: #f8d7da; color: #721c24; }
+
+    /* 操作按钮 */
+    .btn-icon {
+        background: none;
+        border: none;
+        color: var(--primary-color);
+        cursor: pointer;
+        font-size: 1rem;
+        padding: 5px;
+        transition: color 0.2s;
+    }
+    .btn-icon:hover { color: #2980b9; transform: scale(1.1); }
+
+    .btn-primary-custom {
+        background-color: var(--primary-color);
+        color: white;
+        border: none;
+        padding: 8px 20px;
+        border-radius: 5px;
+        cursor: pointer;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+    }
+    .btn-primary-custom:disabled {
+        background-color: #bdc3c7;
+        cursor: not-allowed;
+    }
+</style>
+
+<div class="invalid-po-container">
+    <form id="poSaveForm" method="post" onsubmit="showLoadingBar()">
+        {% csrf_token %}
+        <!-- 隐藏域：用于存放核心数据 -->
+        <input type="hidden" name="step" value="po_invalid_save">
+        <input type="hidden" name="warehouse" value="{{ warehouse }}"> <!-- 保持当前仓库上下文 -->
+        <input type="hidden" name="updated_data_json" id="updatedDataJson">
+
+        <div class="po-toolbar">
+            <div class="po-title">
+                <i class="fas fa-exclamation-circle text-danger"></i>
+                失效PO列表
+                <span id="notify-counter" style="font-size: 0.8rem; color: #e74c3c; margin-left: 10px;"></span>
+            </div>
+            <div>
+                <button type="button" class="btn-primary-custom" onclick="submitBatch()">
+                    <i class="fas fa-save"></i> 保存勾选行
+                </button>
+            </div>
+        </div>
+
+        <div class="table-responsive">
+            <table class="custom-table" id="invalidPoTable">
+                <thead>
+                    <!-- 第一行：标题 -->
+                    <tr>
+                        <th style="width: 40px; text-align: center;">
+                            <input type="checkbox" id="selectAll" onclick="toggleAllRows(this)">
+                        </th>
+                        <th>客户</th>
+                        <th>柜号</th>
+                        <th>目的地</th>
+                        <th>通知状态</th>
+                        <th>激活</th>
+                        <th>唛头</th>
+                        <th style="width: 100px;">FBA ID</th>
+                        <th style="width: 100px;">REF ID</th>
+                        <th>操作指令</th>
+                        <th style="width: 60px; text-align: center;">操作</th>
+                    </tr>
+                    <!-- 第二行：搜索过滤 -->
+                    <tr class="filter-row">
+                        <th></th>
+                        <th><input type="text" class="filter-input" onkeyup="filterTable(1)" placeholder="搜客户..."></th>
+                        <th><input type="text" class="filter-input" onkeyup="filterTable(2)" placeholder="搜柜号..."></th>
+                        <th><input type="text" class="filter-input" onkeyup="filterTable(3)" placeholder="搜目的地..."></th>
+                        <th><input type="text" class="filter-input" onkeyup="filterTable(4)" placeholder="搜状态..."></th>
+                        <th></th>
+                        <th><input type="text" class="filter-input" onkeyup="filterTable(6)" placeholder="搜唛头..."></th>
+                        <th></th>
+                        <th></th>
+                        <th></th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- 注意：这里假设后台传来的变量名是 po_checks (list) -->
+                    {% for po in invalid_pos %}
+                    <tr data-poid="{{ po.id }}" class="data-row">
+                        <td style="text-align: center;">
+                            <input type="checkbox" name="row_selector" value="{{ po.id }}">
+                        </td>
+                        <td>{{ po.customer_name }}</td>
+                        <td>{{ po.container_number }}</td>
+                        <td>{{ po.destination }}</td>
+                        
+                        <!-- 通知状态 -->
+                        <td>
+                            <div style="display: flex; align-items: center; gap: 5px;">
+                                <input type="checkbox" class="data-notified" {% if po.is_notified %}checked{% endif %}>
+                                <span class="status-badge {% if po.is_notified %}notified{% else %}pending{% endif %}">
+                                    {% if po.is_notified %}
+                                        已通知 {{ po.notified_time|date:"m-d" }}
+                                    {% else %}
+                                        未通知
+                                    {% endif %}
+                                </span>
+                            </div>
+                        </td>
+
+                        <!-- 激活状态 -->
+                        <td style="text-align: center;">
+                            <input type="checkbox" class="data-active" {% if po.is_active %}checked{% endif %}>
+                        </td>
+
+                        <td>{{ po.shipping_mark }}</td>
+
+                        <!-- 可编辑字段 -->
+                        <td>
+                            <input type="text" class="edit-input data-fba" value="{{ po.fba_id|default_if_none:'' }}">
+                        </td>
+                        <td>
+                            <input type="text" class="edit-input data-ref" value="{{ po.ref_id|default_if_none:'' }}">
+                        </td>
+                        <td>
+                            <input type="text" class="edit-input data-handling" value="{{ po.handling_method|default_if_none:'' }}" placeholder="输入指令...">
+                        </td>
+
+                        <!-- 单行保存按钮 -->
+                        <td style="text-align: center;">
+                            <button type="button" class="btn-icon" onclick="submitSingleRow(this)" title="保存此行">
+                                <i class="fas fa-save"></i>
+                            </button>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="11" style="text-align: center; padding: 20px;">
+                            无失效PO记录
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </form>
+</div>
+
+<script>
+    // 初始化：计算未通知数量
+    document.addEventListener('DOMContentLoaded', function() {
+        updateCounter();
+    });
+
+    function updateCounter() {
+        const pending = document.querySelectorAll('.status-badge.pending').length;
+        if (pending > 0) {
+            document.getElementById('notify-counter').innerText = `(${pending} 条待通知)`;
+        } else {
+            document.getElementById('notify-counter').innerText = '';
+        }
+    }
+
+    // 全选功能
+    function toggleAllRows(source) {
+        const checkboxes = document.querySelectorAll('input[name="row_selector"]');
+        const rows = document.querySelectorAll('.data-row');
+        
+        checkboxes.forEach((cb, index) => {
+            // 只选择当前可见的行（即搜索过滤后的行）
+            if (rows[index].style.display !== 'none') {
+                cb.checked = source.checked;
+                toggleRowHighlight(cb);
+            }
+        });
+    }
+
+    // 行高亮
+    document.querySelectorAll('input[name="row_selector"]').forEach(cb => {
+        cb.addEventListener('change', function() {
+            toggleRowHighlight(this);
+        });
+    });
+
+    function toggleRowHighlight(checkbox) {
+        const tr = checkbox.closest('tr');
+        if (checkbox.checked) {
+            tr.style.backgroundColor = '#e3f2fd'; // var(--day1-color)
+        } else {
+            tr.style.backgroundColor = '';
+        }
+    }
+
+    // 收集单行数据
+    function getRowData(tr) {
+        return {
+            id: tr.getAttribute('data-poid'),
+            fba_id: tr.querySelector('.data-fba').value.trim(),
+            ref_id: tr.querySelector('.data-ref').value.trim(),
+            is_notified: tr.querySelector('.data-notified').checked,
+            is_active: tr.querySelector('.data-active').checked,
+            handling_method: tr.querySelector('.data-handling').value.trim()
+        };
+    }
+
+    // 1. 单行保存
+    function submitSingleRow(btn) {
+        const tr = btn.closest('tr');
+        const data = getRowData(tr);
+        
+        // 放入 JSON 数组（虽然只有一条）
+        document.getElementById('updatedDataJson').value = JSON.stringify([data]);
+        
+        // 提交表单
+        // 可以在这里添加 loading 动画
+        document.getElementById('poSaveForm').submit();
+    }
+
+    // 2. 批量保存
+    function submitBatch() {
+        const checkedBoxes = document.querySelectorAll('input[name="row_selector"]:checked');
+        
+        if (checkedBoxes.length === 0) {
+            alert('请先勾选需要保存的行');
+            return;
+        }
+
+        const dataList = [];
+        checkedBoxes.forEach(cb => {
+            const tr = cb.closest('tr');
+            dataList.push(getRowData(tr));
+        });
+
+        if (confirm(`确定要更新选中的 ${dataList.length} 条记录吗？`)) {
+            document.getElementById('updatedDataJson').value = JSON.stringify(dataList);
+            document.getElementById('poSaveForm').submit();
+        }
+    }
+
+    // 3. 表格过滤 (支持多列同时筛选的简单实现)
+    function filterTable(colIndex) {
+        const table = document.getElementById("invalidPoTable");
+        const tr = table.getElementsByTagName("tr");
+        
+        // 获取所有输入框的值
+        const inputs = document.querySelectorAll('.filter-input');
+        const filters = Array.from(inputs).map(input => input.value.toUpperCase());
+        
+        // 映射 filter-input 的顺序到表格列索引
+        // 输入框顺序: 0:客户(col 1), 1:柜号(col 2), 2:目的地(col 3), 3:状态(col 4), 4:唛头(col 6)
+        const mapFilterToCol = {0: 1, 1: 2, 2: 3, 3: 4, 4: 6};
+
+        for (let i = 0; i < tr.length; i++) {
+            // 跳过表头和搜索行 (data-row 类用于识别数据行)
+            if (!tr[i].classList.contains('data-row')) continue;
+
+            let showRow = true;
+
+            // 检查所有过滤器
+            filters.forEach((filterText, idx) => {
+                if (filterText) {
+                    const colIdx = mapFilterToCol[idx];
+                    const td = tr[i].getElementsByTagName("td")[colIdx];
+                    if (td) {
+                        const txtValue = td.textContent || td.innerText;
+                        // 简单的包含匹配
+                        if (txtValue.toUpperCase().indexOf(filterText) === -1) {
+                            showRow = false;
+                        }
+                    }
+                }
+            });
+
+            tr[i].style.display = showRow ? "" : "none";
+        }
+    }
+</script>
