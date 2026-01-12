@@ -6716,10 +6716,6 @@ class Accounting(View):
                 is_direct = container_orders.filter(order_type="直送").exists()
                 invoice_type = "payable_direct" if is_direct else "payable"
 
-                # 调试打印：排查订单类型误判
-                print(
-                    f"柜号[{target_invoice.container_number.id}] - 直送订单数：{container_orders.filter(order_type='直送').count()} - 判定类型：{invoice_type}")
-
                 # 加锁+精准判断“柜号+当前类型”是否已有状态
                 with transaction.atomic():
                     # 锁柜号，避免并发
