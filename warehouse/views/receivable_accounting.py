@@ -28,7 +28,8 @@ from django.db.models import (
     Sum,
     Value,
     When,
-    Q
+    Q,
+    Prefetch,
 )
 from decimal import Decimal, InvalidOperation
 from django.utils.safestring import mark_safe
@@ -2983,7 +2984,7 @@ class ReceivableAccounting(View):
         })
         return self.template_confirm_entry, context
     
-    def handle_delivery_entry_post(self, request:HttpRequest, context: dict| None = None,) -> Dict[str, Any]:
+    def old_handle_delivery_entry_post(self, request:HttpRequest, context: dict| None = None,) -> Dict[str, Any]:
         warehouse = request.POST.get("warehouse_filter")
         customer = request.POST.get("customer")
         start_date = request.POST.get("start_date")
@@ -3191,6 +3192,321 @@ class ReceivableAccounting(View):
             "default_tab": default_tab, 
         })
         return context
+    
+    def handle_delivery_entry_post(self, request:HttpRequest, context: dict| None = None,) -> Dict[str, Any]:
+        warehouse = request.POST.get("warehouse_filter")
+        customer = request.POST.get("customer")
+        start_date = request.POST.get("start_date")
+        end_date = request.POST.get("end_date")
+
+        # --- 1. 日期处理优化 ---
+        current_date = datetime.now().date()
+        start_date = (
+            (current_date + timedelta(days=-90)).strftime("%Y-%m-%d")
+            if not start_date
+            else start_date
+        )
+        end_date = current_date.strftime("%Y-%m-%d") if not end_date else end_date
+
+        # --- 2. 构建基础查询条件 ---
+        criteria = (
+            Q(cancel_notification=False)
+            & (Q(order_type="转运") | Q(order_type="转运组合"))
+            & Q(vessel_id__vessel_etd__gte=start_date)
+            & Q(vessel_id__vessel_etd__lte=end_date)
+            & Q(offload_id__offload_at__isnull=False)
+        )
+
+        if warehouse and warehouse != 'None':
+            if "LA" in warehouse:
+                criteria &= Q(retrieval_id__retrieval_destination_precise__contains='LA')
+            else:
+                criteria &= Q(retrieval_id__retrieval_destination_precise=warehouse)
+        if customer:
+            criteria &= Q(customer_name__zem_name=customer)
+
+        # --- 3. 获取基础订单数据 ---
+        base_orders = (
+            Order.objects
+            .select_related(
+                'retrieval_id', 
+                'offload_id', 
+                'container_number',
+                'customer_name'
+            )
+            .annotate(
+                retrieval_time=F("retrieval_id__actual_retrieval_timestamp"),
+                empty_returned_time=F("retrieval_id__empty_returned_at"),
+                offload_time=F("offload_id__offload_at"),
+            )
+            .filter(criteria)
+            .distinct()
+        )
+
+        # 转换为列表，避免后续多次触发 DB 查询
+        orders_list = list(base_orders)
+
+        # 提取所有涉及的 Container ID，用于后续批量查询
+        containers = set()
+        container_ids = []
+        for order in orders_list:
+            if order.container_number:
+                containers.add(order.container_number)
+                container_ids.append(order.container_number_id)
+        
+        container_ids = list(set(container_ids)) # 去重
+
+        # --- 4. 批量获取 Hold (暂扣) 状态 ---
+        hold_map = defaultdict(lambda: {"public": False, "other": False})
+        if container_ids:
+            hold_pallets = Pallet.objects.filter(
+                container_number_id__in=container_ids,
+                delivery_method__contains="暂扣留仓",
+                delivery_type__in=["public", "other"],
+            ).values("container_number_id", "delivery_type")
+            
+            for p in hold_pallets:
+                hold_map[p["container_number_id"]][p["delivery_type"]] = True
+
+        # --- 5. 批量获取 Invoice 和 InvoiceStatus (关键优化) ---
+        status_prefetch = Prefetch(
+            'invoicestatusv2_set', 
+            queryset=InvoiceStatusv2.objects.filter(invoice_type="receivable"),
+            to_attr='receivable_status_list'
+        )
+        
+        all_invoices = Invoicev2.objects.filter(
+            container_number_id__in=container_ids
+        ).prefetch_related(status_prefetch) # 执行预查询
+        
+        # 将 Invoice 按 Container ID 分组
+        container_invoice_map = defaultdict(list)
+        for inv in all_invoices:
+            container_invoice_map[inv.container_number_id].append(inv)
+
+        # --- 6. 批量预计算出库统计 ---
+        shipment_stats_map = self._bulk_calculate_shipment_stats(container_ids)
+
+        # --- 7. 数据组装 (纯内存操作) ---
+        dl_public_to_record_orders = [] #公仓待录入
+        dl_public_recorded_orders = []  #公仓已录入
+        dl_self_to_record_orders = []  #私仓待录入
+        dl_self_recorded_orders = []  #私仓已录入
+
+        for order in orders_list:
+            container = order.container_number
+            
+            if not container:
+                continue
+            
+            c_id = container.id
+            container_delivery_type = container.delivery_type if container.delivery_type else 'mixed' 
+            # 判断是否应该处理公仓或私仓 
+            should_process_public = container_delivery_type in ['public', 'mixed']
+            should_process_self = container_delivery_type in ['other', 'mixed']
+            # 如果没有柜子类型信息，默认都处理
+            if container_delivery_type not in ['public', 'other', 'mixed']:
+                should_process_public = True
+                should_process_self = True
+
+            is_hold_public = should_process_public and hold_map[c_id]["public"]
+            is_hold_other = should_process_self and hold_map[c_id]["other"]
+
+            # 查询这个柜子的所有应收账单
+            container_invoices = container_invoice_map.get(c_id, [])
+
+            # 提取公共数据构建逻辑
+            def build_order_data(inv=None, status_obj=None, is_hold=False):
+                created_at = None
+                if inv and len(container_invoices) > 1:
+                    # 只有多个账单时才需要时间区分，避免额外 getattr 开销
+                    created_at = inv.created_at # 假设 created_at 存在，不做 history 复杂查询以保性能
+                
+                return {
+                    'order': order,
+                    'container_number': container,
+                    'invoice_number': inv.invoice_number if inv else None,
+                    'invoice_id': inv.id if inv else None,
+                    'invoice_created_at': created_at,
+                    'public_status': status_obj.delivery_public_status if status_obj else None,
+                    'self_status': status_obj.delivery_other_status if status_obj else None,
+                    'finance_status': status_obj.finance_status if status_obj else None,
+                    'has_invoice': bool(inv),
+                    'offload_time': order.offload_time,
+                    'is_hold': is_hold,
+                    'delivery_public_reason': status_obj.delivery_public_reason if status_obj else None,
+                    'delivery_other_reason': status_obj.delivery_other_reason if status_obj else None,
+                    # 从批量计算的 map 中获取统计信息
+                    'stats': shipment_stats_map.get(c_id, {}) 
+                }
+            
+            if not container_invoices:
+                # 无账单逻辑
+                base_data = build_order_data(None, None, False) # is_hold 会在下面覆盖
+                
+                if should_process_public:
+                    item = base_data.copy()
+                    item['is_hold'] = is_hold_public
+                    self._inject_stats_and_ratio(item, 'public') # 注入并计算比例
+                    dl_public_to_record_orders.append(item)
+                    
+                if should_process_self:
+                    item = base_data.copy()
+                    item['is_hold'] = is_hold_other
+                    self._inject_stats_and_ratio(item, 'other')
+                    dl_self_to_record_orders.append(item)
+            else:
+                # 有账单逻辑
+                for invoice in container_invoices:
+                    # 因为做了 prefetch_related，这里访问 receivable_statuses 不会查库
+                    # 且 filter(invoice_type='receivable') 已经在 prefetch 中做了，这里取第一个即可
+                    # 注意：invoice_statusesv2 是 OneToMany 还是一对一？模型里是 ForeignKey，所以是 list
+                    status_obj = None
+                    if hasattr(invoice, 'receivable_status_list') and invoice.receivable_status_list:
+                        status_obj = invoice.receivable_status_list[0]
+                    
+                    base_data = build_order_data(invoice, status_obj, False)
+
+                    # 公仓分派
+                    if should_process_public:
+                        item = base_data.copy()
+                        item['is_hold'] = is_hold_public
+                        self._inject_stats_and_ratio(item, 'public')
+                        p_status = item['public_status']
+                        if p_status in ["unstarted", "in_progress", None]:
+                            dl_public_to_record_orders.append(item)
+                        elif p_status in ["completed", "rejected"]:
+                            dl_public_recorded_orders.append(item)
+
+                    # 私仓分派
+                    if should_process_self:
+                        item = base_data.copy()
+                        item['is_hold'] = is_hold_other
+                        self._inject_stats_and_ratio(item, 'other')
+                        s_status = item['self_status']
+                        if s_status in ["unstarted", "in_progress", None]:
+                            dl_self_to_record_orders.append(item)
+                        elif s_status in ["completed", "rejected"]:
+                            dl_self_recorded_orders.append(item)
+        
+         # --- 8. 排序 ---
+        dl_public_to_record_orders.sort(key=lambda x: x.get('completion_ratio', 0), reverse=True)
+        dl_self_to_record_orders.sort(key=lambda x: x.get('completion_ratio', 0), reverse=True)
+
+        #已录入的，驳回优先显示
+        dl_public_recorded_orders.sort(key=lambda x: x.get('public_status') != 'rejected')
+        dl_self_recorded_orders.sort(key=lambda x: x.get('self_status') != 'rejected')
+        
+        # 判断用户权限，决定默认标签页
+        groups = [group.name for group in request.user.groups.all()] if request.user else []
+        if not context:
+            context = {}
+
+        # 根据权限，决定打开的标签页
+        default_tab = 'self' if 'warehouse_other' in groups else 'public'
+
+        context.update({
+            'start_date': start_date,
+            'end_date': end_date,
+            'dl_public_to_record_orders': dl_public_to_record_orders,
+            'dl_public_recorded_orders': dl_public_recorded_orders,
+            'dl_self_to_record_orders': dl_self_to_record_orders,
+            'dl_self_recorded_orders': dl_self_recorded_orders,
+            "order_form": OrderForm(),
+            "warehouse_options": self.warehouse_options,
+            "warehouse_filter": warehouse,
+            "default_tab": default_tab, 
+        })
+        return context
+    
+    def _bulk_calculate_shipment_stats(self, container_ids):
+        """
+        一次性查询所有 Container 的 Pallet 和 PackingList 数据，并在内存中聚合
+        """
+        if not container_ids:
+            return {}
+
+        stats_map = defaultdict(lambda: {
+            "public": {"total": 0, "shipped": 0, "unshipped": 0},
+            "other": {"total": 0, "shipped": 0, "unshipped": 0},
+            "mixed": {"total": 0, "shipped": 0, "unshipped": 0} # 虽然 mixed 不常用作过滤，但以防万一
+        })
+
+        # 1. 批量查询 Pallet
+        # 注意：这里去掉了 offload_at 的复杂过滤，因为逻辑上我们已经在 Base Order 里筛选了 Offloaded 的订单
+        # 如果必须严格遵循原来的逻辑（Pallet 算，PackingList 不算），可以在这里加条件
+        pallets = Pallet.objects.filter(
+            container_number_id__in=container_ids
+        ).values('container_number_id', 'delivery_type', 'shipment_batch_number')
+
+        for p in pallets:
+            c_id = p['container_number_id']
+            d_type = p['delivery_type'] if p['delivery_type'] in ['public', 'other'] else 'public' # 默认归类
+            
+            stats_map[c_id][d_type]['total'] += 1
+            if p['shipment_batch_number']:
+                stats_map[c_id][d_type]['shipped'] += 1
+            else:
+                stats_map[c_id][d_type]['unshipped'] += 1
+
+        # 2. 批量查询 PackingList
+        # 你的原代码里 PackingList 过滤条件是 container__orders__offload_id__offload_at__isnull=True
+        # 但 base_orders 筛选的是 ...isnull=False。这意味着如果 Order 已卸柜，PackingList 原逻辑返回空？
+        # 如果你的意图是统计所有 PackingList，则用下面的代码：
+        packing_lists = PackingList.objects.filter(
+            container_number_id__in=container_ids
+        ).values('container_number_id', 'delivery_type', 'shipment_batch_number')
+
+        for pl in packing_lists:
+            c_id = pl['container_number_id']
+            d_type = pl['delivery_type'] if pl['delivery_type'] in ['public', 'other'] else 'public'
+            
+            stats_map[c_id][d_type]['total'] += 1
+            if pl['shipment_batch_number']:
+                stats_map[c_id][d_type]['shipped'] += 1
+            else:
+                stats_map[c_id][d_type]['unshipped'] += 1
+                
+        return stats_map
+
+    def _inject_stats_and_ratio(self, order_item, display_type):
+        """
+        从 order_item 临时存储的 'stats_raw' 中提取特定类型（public或other）的统计数据，
+        计算完成比例，并注入到 order_item 字典中供模板使用。
+        
+        :param order_item: 包含订单信息和 stats_raw 的字典
+        :param display_type: 'public' 或 'other'，指示当前需要显示哪种类型的进度
+        """
+        # 1. 获取预先计算好的原始统计数据，如果不存在则给空字典
+        raw_stats = order_item.get('stats_raw', {})
+        
+        # 2. 根据 display_type ('public' 或 'other') 获取具体的计数值
+        # 如果找不到对应类型的统计，默认全为 0
+        default_stats = {"total": 0, "shipped": 0, "unshipped": 0}
+        type_stats = raw_stats.get(display_type, default_stats)
+        
+        total = type_stats['total']
+        shipped = type_stats['shipped']
+        unshipped = type_stats['unshipped']
+        
+        # 3. 将统计结果注入到 order_item 中 (保持原有命名习惯)
+        order_item['total_shipment_groups'] = total
+        order_item['shipped_shipment_groups'] = shipped
+        order_item['unshipped_shipment_groups'] = unshipped
+        
+        # 4. 计算完成比例 (用于前端进度条或排序)
+        # 避免除以零错误
+        if total > 0:
+            order_item['completion_ratio'] = shipped / total
+        else:
+            order_item['completion_ratio'] = 0.0
+        
+        # 5. 清理临时数据 stats_raw，保持传递给前端的数据整洁
+        # 注意：这里使用 copy() 或者直接修改都可以，因为每行数据是独立的字典
+        if 'stats_raw' in order_item:
+            del order_item['stats_raw']
+            
+        return order_item
     
     def get_shipment_group_stats(self, queryset, delivery_type_q):
         """
