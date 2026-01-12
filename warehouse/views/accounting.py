@@ -6716,16 +6716,24 @@ class Accounting(View):
                 is_direct = container_orders.filter(order_type="直送").exists()
                 invoice_type = "payable_direct" if is_direct else "payable"
 
-                # 加锁+精准判断该柜号是否已创建状态（无需关联invoice_id，因为只处理第一条）
+                # 调试打印：排查订单类型误判
+                print(
+                    f"柜号[{target_invoice.container_number.id}] - 直送订单数：{container_orders.filter(order_type='直送').count()} - 判定类型：{invoice_type}")
+
+                # 加锁+精准判断“柜号+当前类型”是否已有状态
                 with transaction.atomic():
-                    has_status = InvoiceStatusv2.objects.select_for_update().filter(
-                        container_number_id=target_invoice.container_number.id,
-                        invoice_type__in=["payable", "payable_direct"]
+                    # 锁柜号，避免并发
+                    container = Container.objects.select_for_update().get(id=target_invoice.container_number.id)
+
+                    # 只判断当前invoice_type是否存在
+                    has_status = InvoiceStatusv2.objects.filter(
+                        container_number_id=container.id,
+                        invoice_type=invoice_type
                     ).exists()
 
                     if not has_status:
                         InvoiceStatusv2.objects.create(
-                            container_number=target_invoice.container_number,
+                            container_number=container,
                             invoice_type=invoice_type,
                             invoice=target_invoice
                         )
