@@ -6683,7 +6683,7 @@ class Accounting(View):
             retrieval_id__actual_retrieval_timestamp__gte=start_date,
             retrieval_id__actual_retrieval_timestamp__lte=end_date,
         )
-                & models.Q(retrieval_id__empty_returned_at_isnull=False)
+                & models.Q(retrieval_id__empty_returned_at__isnull=False)
         )
 
         # 可选筛选条件：仓库
