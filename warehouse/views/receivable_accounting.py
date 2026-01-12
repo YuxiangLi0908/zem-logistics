@@ -4030,7 +4030,6 @@ class ReceivableAccounting(View):
         stats_map = defaultdict(lambda: {
             "public": {"total": 0, "shipped": 0, "unshipped": 0},
             "other": {"total": 0, "shipped": 0, "unshipped": 0},
-            "mixed": {"total": 0, "shipped": 0, "unshipped": 0} # 虽然 mixed 不常用作过滤，但以防万一
         })
 
         # 1. 批量查询 Pallet
@@ -4038,33 +4037,21 @@ class ReceivableAccounting(View):
         # 如果必须严格遵循原来的逻辑（Pallet 算，PackingList 不算），可以在这里加条件
         pallets = Pallet.objects.filter(
             container_number_id__in=container_ids
-        ).values('container_number_id', 'delivery_type', 'shipment_batch_number')
+        ).values('container_number_id', 'delivery_type', 'PO_ID','shipment_batch_number')
 
         for p in pallets:
             c_id = p['container_number_id']
             d_type = p['delivery_type'] if p['delivery_type'] in ['public', 'other'] else 'public' # 默认归类
             
             stats_map[c_id][d_type]['total'] += 1
-            if p['shipment_batch_number']:
-                stats_map[c_id][d_type]['shipped'] += 1
-            else:
-                stats_map[c_id][d_type]['unshipped'] += 1
 
-        # 2. 批量查询 PackingList
-        # 你的原代码里 PackingList 过滤条件是 container__orders__offload_id__offload_at__isnull=True
-        # 但 base_orders 筛选的是 ...isnull=False。这意味着如果 Order 已卸柜，PackingList 原逻辑返回空？
-        # 如果你的意图是统计所有 PackingList，则用下面的代码：
-        packing_lists = PackingList.objects.filter(
-            container_number_id__in=container_ids
-        ).values('container_number_id', 'delivery_type', 'shipment_batch_number')
-
-        for pl in packing_lists:
-            c_id = pl['container_number_id']
-            d_type = pl['delivery_type'] if pl['delivery_type'] in ['public', 'other'] else 'public'
             
-            stats_map[c_id][d_type]['total'] += 1
-            if pl['shipment_batch_number']:
-                stats_map[c_id][d_type]['shipped'] += 1
+            if p['shipment_batch_number']:
+                shipment = Shipment.objects.get(id=p['shipment_batch_number'])
+                if shipment.shipped_at:
+                    stats_map[c_id][d_type]['shipped'] += 1
+                else:
+                    stats_map[c_id][d_type]['unshipped'] += 1
             else:
                 stats_map[c_id][d_type]['unshipped'] += 1
                 
