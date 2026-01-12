@@ -6849,19 +6849,34 @@ class PostNsop(View):
         self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
         """LTL对po更改核实状态"""
-        shipment_batch_number = request.POST.get('shipment_batch_number')
         pod_to_customer_str = request.POST.get("pod_to_customer")
-        if pod_to_customer_str == "True":
-            pod_to_customer_str = True
-        else:
-            pod_to_customer_str = False
-
-        if shipment_batch_number:
-            shipment = await sync_to_async(Shipment.objects.get)(shipment_batch_number=shipment_batch_number)
-            shipment.pod_to_customer = pod_to_customer_str
-            await sync_to_async(shipment.save)()
+        new_status = True if pod_to_customer_str == "True" else False
         
-        return await self.handle_ltl_unscheduled_pos_post(request)
+        target_ids = []
+        # 单行修改
+        single_id = request.POST.get('shipment_batch_number')
+        if single_id:
+            target_ids.append(single_id)
+        # 多行修改
+        batch_ids_json = request.POST.get('batch_ids_json')
+        if batch_ids_json:
+            try:
+                ids_list = json.loads(batch_ids_json)
+                if isinstance(ids_list, list):
+                    target_ids.extend(ids_list)
+            except json.JSONDecodeError:
+                pass
+        
+        target_ids = list(set(target_ids))
+
+        if target_ids:
+            await sync_to_async(Shipment.objects.filter(shipment_batch_number__in=target_ids).update)(
+                pod_to_customer=new_status
+            )
+        succes_len = len(target_ids)
+        context = {'success_messages': f'成功更新{succes_len}条POD回传状态！'}
+        print(context)
+        return await self.handle_ltl_unscheduled_pos_post(request,context)
     
     async def handle_save_shipping_tracking(
         self, request: HttpRequest

@@ -132,11 +132,78 @@
         border-color: #4a90e2;
         box-shadow: 0 0 0 2px rgba(74, 144, 226, 0.2);
     }
+    .table-container {
+        overflow-x: auto;
+        overflow-y: auto;
+        max-height: 600px;
+        border-radius: 8px;
+        box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
+        margin-bottom: 20px;
+    }
+
+    .data-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    /* 新增：操作栏样式 */
+    .batch-toolbar {
+        background-color: #f8f9fa;
+        padding: 10px 15px;
+        border: 1px solid #eaecef;
+        border-bottom: none;
+        border-radius: 8px 8px 0 0;
+        display: flex;
+        gap: 20px;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+
+    .batch-group {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding-right: 20px;
+        border-right: 1px solid #ddd;
+    }
+    
+    .batch-group:last-child {
+        border-right: none;
+    }
+
+    .batch-label {
+        font-weight: 600;
+        font-size: 0.9rem;
+        color: var(--secondary-color);
+    }
 </style>
+
+<!-- 1. 新增：批量操作工具栏 -->
+<div class="batch-toolbar">
+    <div class="batch-label"><i class="fas fa-tasks"></i> 批量操作:</div>
+    <!-- 批量修改状态表单 -->
+    <form method="post" action="" class="batch-group" onsubmit="return handleBatchSubmit(this)">
+        {% csrf_token %}
+        <input type="hidden" name="step" value="update_pod_status">
+        <input type="hidden" name="warehouse" value="{{ warehouse }}">
+        <input type="hidden" name="active_tab" value="pod">
+        <!-- 这个隐藏域将由JS填充选中的ID -->
+        <input type="hidden" name="batch_ids_json" class="batch-ids-input">
+        
+        <select name="pod_to_customer" class="status-select" style="width: 100px;">
+            <option value="True">设为: 是</option>
+            <option value="False">设为: 否</option>
+        </select>
+        <button type="submit" class="table-btn btn-success-small">批量更新状态</button>
+    </form>
+</div>
 
 <table class="data-table">
     <thead>
         <tr>
+            <th style="width: 40px; text-align: center;">
+                <input type="checkbox" id="selectAll" onchange="toggleAllCheckboxes(this)">
+            </th>
             <th style="width:160px;">出库批次</th>
             <th style="width:150px;">预约批次</th>
             <th style="width:300px;">详情</th>
@@ -150,6 +217,7 @@
             <th>POD上传</th>
         </tr>
         <tr class="search-row">
+            <td></td> 
             <td><input type="text" class="header-search" placeholder="搜索出库批次" data-column="0"></td>
             <td><input type="text" class="header-search" placeholder="搜索预约批次" data-column="1"></td>
             <td><input type="text" class="header-search" placeholder="搜索详情" data-column="2"></td>
@@ -172,6 +240,9 @@
     <tbody>
         {% for f in pod_data %}
         <tr>
+            <td style="text-align: center;">
+                <input type="checkbox" name="row_selector" value="{{ f.shipment_batch_number }}">
+            </td>
             <td style="max-width: 120px; word-break: break-all;">
                 {{ f.fleet_number.fleet_number }}<br>
                 <span style="color: #7f8c8d; font-size: 0.8em;">{{ f.fleet_number.pickup_number|default_if_none:'' }}</span>
@@ -230,6 +301,37 @@
 </table>
 
 <script>
+    function toggleAllCheckboxes(source) {
+        const checkboxes = document.getElementsByName('row_selector');
+        // 只选择当前可见的行（配合搜索功能）
+        for (let i = 0; i < checkboxes.length; i++) {
+            const row = checkboxes[i].closest('tr');
+            if (row.style.display !== 'none') {
+                checkboxes[i].checked = source.checked;
+            }
+        }
+    }
+    function handleBatchSubmit(form) {
+        const checkboxes = document.querySelectorAll('input[name="row_selector"]:checked');
+        if (checkboxes.length === 0) {
+            alert("请至少选择一行数据！");
+            return false;
+        }
+
+        // 收集所有选中的 shipment_batch_number
+        const ids = [];
+        checkboxes.forEach(cb => {
+            ids.push(cb.value);
+        });
+
+        // 将ID数组转换为JSON字符串存入隐藏域
+        // 注意：我们在后端会解析这个 JSON 或者改用 getlist 获取
+        // 为了方便，这里我们用 JSON 字符串传递，或者直接动态创建 hidden input
+        // 简单做法：存 JSON
+        form.querySelector('.batch-ids-input').value = JSON.stringify(ids);
+
+        return true; 
+    }
     function initializePodSection() {
         // 为搜索框添加事件监听
         const searchInputs = document.querySelectorAll('#pod-section .header-search');
