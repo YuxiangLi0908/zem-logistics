@@ -1689,6 +1689,7 @@ class PostNsop(View):
     async def handle_multi_group_booking(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
         """处理多组预约出库"""
         booking_data_str = request.POST.get('booking_data')
+        warehouse = request.POST.get('warehouse')
         context = {}
         
         if not booking_data_str:
@@ -1733,6 +1734,8 @@ class PostNsop(View):
             shipment_appointment = group_data.get('shipment_appointment', '')
             load_type = group_data.get('load_type', '')
             origin = group_data.get('origin', '')
+            if not origin:
+                origin = warehouse
             note = group_data.get('note', '')
             suggestion_id = group_data.get('suggestion_id')
             pickup_time = group_data.get('pickup_time')
@@ -1770,6 +1773,8 @@ class PostNsop(View):
                 detail = f"(批次号：{group['batch_number']},预约号:{group['appointment_id']}) - {group['error']}"
                 failed_details.append(detail)
             failed_msg += "; ".join(failed_details)
+            if not success_msg:
+                success_msg = None
             messages.append(mark_safe(success_msg + "<br>"))
         
         # 存储成功创建的shipment IDs，方便后续约车使用
