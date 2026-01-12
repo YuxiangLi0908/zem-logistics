@@ -727,8 +727,8 @@
                         <form method="post" id="pick-confirm-form">
                             {% csrf_token %}
                             <input type="hidden" name="step" value="payable_save_v1">
-                            <input type="hidden" name="start_date" value="{{ start_date }}">
-                            <input type="hidden" name="end_date" value="{{ end_date }}">
+                            <input type="hidden" name="start_date_confirm" value="{{ start_date_confirm }}">
+                            <input type="hidden" name="end_date_confirm" value="{{ end_date_confirm }}">
                             <input type="hidden" name="warehouse_filter"
                                    value="{{ warehouse_filter }}">
                             <input type="hidden" name="confirm_phase" value="pickup">
@@ -1049,6 +1049,7 @@
                                 <th class="th">车架费</th>
                                 <th class="th">其他费用</th>
                                 <th class="th">总费用</th>
+                                <th class="th">操作</th>
                             </tr>
                             <tr class="search-row">
                                 <!-- 移除搜索行的勾选框列 -->

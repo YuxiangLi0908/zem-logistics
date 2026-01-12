@@ -4357,6 +4357,8 @@ class Accounting(View):
         """
         data = request.POST.copy()
         save_type = data.get("save_type")
+        start_date_confirm = request.POST.get("start_date_confirm")
+        end_date_confirm = request.POST.get("end_date_confirm")
         # 财务驳回
         if save_type == "reject":
             container_numbers = data.getlist("containers")
@@ -4386,7 +4388,7 @@ class Accounting(View):
                     invoice_status.finance_status = "unstarted"
                     invoice_status.delivery_other_reason = data.get("reject_reason")
                 invoice_status.save()
-            return self.handle_invoice_confirm_get_v1(request)
+            return self.handle_invoice_confirm_get_v1(request, start_date_confirm, end_date_confirm)
         # 财务审核通过
         elif save_type == "confirmed_finance":
             container_numbers = data.getlist("containers")
@@ -4399,7 +4401,7 @@ class Accounting(View):
                 current_time = timezone.now()
                 invoice_status.payable_date = current_time
                 invoice_status.save()
-            return self.handle_invoice_confirm_get_v1(request)
+            return self.handle_invoice_confirm_get_v1(request, start_date_confirm, end_date_confirm)
         else:
             container_number = data.get("container_number")
             return self.handle_invoice_payable_save_post_v1_item(request, data, save_type, container_number)
@@ -9126,8 +9128,8 @@ class Accounting(View):
             )
 
         invoice_status, created = InvoiceStatusv2.objects.get_or_create(
+            models.Q(invoice_type="payable") | models.Q(invoice_type="payable_direct"),
             container_number=order.container_number,
-            invoice_type="payable",
             invoice=invoice,
         )
         # 账单不存在
