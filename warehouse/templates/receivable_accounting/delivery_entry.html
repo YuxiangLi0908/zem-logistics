@@ -437,10 +437,10 @@
     <div class="finance-main">
         <div class="content-tabs">
             <div class="content-tab" data-tab="public" id="tab-entry">
-                公仓待录入 <span class="tab-badge">{{ wh_public_to_record_orders|length }}</span>
+                公仓待录入 <span class="tab-badge">{{ dl_public_to_record_orders|length }}</span>
             </div>
             <div class="content-tab" data-tab="self" id="tab-review">
-                私仓待录入 <span class="tab-badge">{{ wh_self_to_record_orders|length }}</span>
+                私仓待录入 <span class="tab-badge">{{ dl_self_to_record_orders|length }}</span>
             </div>
         </div>
 
@@ -452,7 +452,7 @@
                     <div class="section-header">
                         <h3>公仓待录入
                             <span style="display: inline-block; color: #495057; background-color: #f8f9fa; padding: 1px 8px; border-radius: 10px; font-size: 0.85em; margin-left: 8px; border: 1px solid #dee2e6;">
-                                {{ wh_public_to_record_orders|length }}
+                                {{ dl_public_to_record_orders|length }}
                             </span>
                         </h3>
                         
@@ -512,8 +512,8 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                {% if wh_public_to_record_orders %}
-                                    {% for item in wh_public_to_record_orders %}
+                                {% if dl_public_to_record_orders %}
+                                    {% for item in dl_public_to_record_orders %}
                                     <tr data-customer="{{ item.order.customer_name.zem_name|lower }}" 
                                         data-container="{{ item.order.container_number.container_number|lower }}" 
                                         data-warehouse="{{ item.order.retrieval_id.retrieval_destination_precise|default:''|lower }}"
@@ -580,7 +580,7 @@
                     <div class="section-header">
                         <h3>公仓已录入</h3>
                         <span style="display: inline-block; color: #495057; background-color: #f8f9fa; padding: 1px 8px; border-radius: 10px; font-size: 0.85em; margin-left: 8px; border: 1px solid #dee2e6;">
-                            {{ wh_public_recorded_orders|length }}
+                            {{ dl_public_recorded_orders|length }}
                         </span>
                     </div>
                     <div class="table-container">
@@ -624,8 +624,8 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                {% if wh_public_recorded_orders %}
-                                    {% for item in wh_public_recorded_orders %}
+                                {% if dl_public_recorded_orders %}
+                                    {% for item in dl_public_recorded_orders %}
                                     <tr data-customer="{{ item.order.customer_name.zem_name|lower }}" 
                                         data-container="{{ item.order.container_number.container_number|lower }}" 
                                         data-warehouse="{{ item.order.retrieval_id.retrieval_destination_precise|default:''|lower }}"
@@ -693,7 +693,7 @@
                         <h3>
                             私仓待录入
                             <span style="display: inline-block; color: #495057; background-color: #f8f9fa; padding: 1px 8px; border-radius: 10px; font-size: 0.85em; margin-left: 8px; border: 1px solid #dee2e6;">
-                                {{ wh_public_recorded_orders|length }}
+                                {{ dl_public_recorded_orders|length }}
                             </span>
                         </h3>
                         
@@ -750,8 +750,8 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                {% if wh_self_to_record_orders %}
-                                    {% for item in wh_self_to_record_orders %}
+                                {% if dl_self_to_record_orders %}
+                                    {% for item in dl_self_to_record_orders %}
                                     <tr data-customer="{{ item.order.customer_name.zem_name|lower }}" 
                                         data-container="{{ item.order.container_number.container_number|lower }}" 
                                         data-warehouse="{{ item.order.retrieval_id.retrieval_destination_precise|default:''|lower }}"
@@ -807,7 +807,7 @@
                     <div class="section-header">
                         <h3>私仓已录入订单</h3>
                         <span style="display: inline-block; color: #495057; background-color: #f8f9fa; padding: 1px 8px; border-radius: 10px; font-size: 0.85em; margin-left: 8px; border: 1px solid #dee2e6;">
-                            {{ wh_public_recorded_orders|length }}
+                            {{ dl_public_recorded_orders|length }}
                         </span>
                     </div>
                     <div class="table-container">
@@ -851,8 +851,8 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                {% if wh_self_recorded_orders %}
-                                    {% for item in wh_self_recorded_orders %}
+                                {% if dl_self_recorded_orders %}
+                                    {% for item in dl_self_recorded_orders %}
                                     <tr data-customer="{{ item.order.customer_name.zem_name|lower }}" 
                                         data-container="{{ item.order.container_number.container_number|lower }}" 
                                         data-warehouse="{{ item.order.retrieval_id.retrieval_destination_precise|default:''|lower }}"
