@@ -6709,7 +6709,6 @@ class Accounting(View):
         target_invoices = all_target_invoices.order_by("container_number_id", "id").distinct("container_number_id")
 
         # ========== 仅处理每个柜号的第一条Invoicev2 ==========
-        # ========== 仅处理每个柜号的第一条Invoicev2 ==========
         if target_invoices:
             for target_invoice in target_invoices:
                 # 精准判断柜号是否为直送（覆盖所有Order）
