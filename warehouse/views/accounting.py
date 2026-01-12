@@ -2677,7 +2677,7 @@ class Accounting(View):
         """财务待确认-已确认"""
         current_date = datetime.now().date()
         start_date_confirm = (
-            (current_date + timedelta(days=-90)).strftime("%Y-%m-%d")
+            (current_date + timedelta(days=-60)).strftime("%Y-%m-%d")
             if not start_date_confirm
             else start_date_confirm
         )
@@ -6659,7 +6659,7 @@ class Accounting(View):
         # 库内操作费：日期处理
         current_date = datetime.now().date()
         start_date = (
-            (current_date + timedelta(days=-90)).strftime("%Y-%m-%d")
+            (current_date + timedelta(days=-60)).strftime("%Y-%m-%d")
             if not start_date
             else start_date
         )
