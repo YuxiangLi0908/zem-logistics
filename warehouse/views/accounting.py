@@ -2916,6 +2916,12 @@ class Accounting(View):
             "GM": "GM",
             "BEST": "BEST",
         }
+        unload_carriers = {
+            "BBR": "BBR",
+            "KNO": "KNO",
+            "JOHN": "JOHN",
+            "unload": "UNLOAD",
+        }
         warehouse_carriers = {
             "BBR": "BBR",
             "KNO": "KNO",
@@ -2925,6 +2931,7 @@ class Accounting(View):
             "finance_pending": finance_pending,
             "finance_confirmed": finance_confirmed,
             "pickup_carriers": pickup_carriers,
+            "unload_carriers": unload_carriers,
             "warehouse_carriers": warehouse_carriers,
             "delivery_pending_orders": delivery_pending_orders,
             "delivery_confirmed_orders": None,
@@ -6676,7 +6683,7 @@ class Accounting(View):
             retrieval_id__actual_retrieval_timestamp__gte=start_date,
             retrieval_id__actual_retrieval_timestamp__lte=end_date,
         )
-                & models.Q(retrieval_id__empty_returned=True)
+                & models.Q(retrieval_id__empty_returned_at_isnull=False)
         )
 
         # 可选筛选条件：仓库
