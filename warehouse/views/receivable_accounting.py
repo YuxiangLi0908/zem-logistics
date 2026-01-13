@@ -1677,7 +1677,6 @@ class ReceivableAccounting(View):
             request.GET = new_get
             setattr(request, "is_from_account_confirmation", True)
             ctx = self.handle_container_invoice_combina_get(request)
-            
             return self.template_invoice_combina_edit, ctx
         else:
             items = InvoiceItemv2.objects.filter(
@@ -1728,6 +1727,7 @@ class ReceivableAccounting(View):
                 "total_amount": total_amount,
                 "start_date": request.GET.get("start_date"),
                 "end_date": request.GET.get("end_date"),
+                "is_combina": is_combina,
             }
             return self.template_confirm_transfer_edit, context
 
