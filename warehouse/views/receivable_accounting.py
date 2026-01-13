@@ -287,11 +287,12 @@ class ReceivableAccounting(View):
             raise ValueError(f"unknow request {step}")
 
     def handle_save_manual_invoice_items(self, request: HttpRequest):
-        """处理保存所有账单记录的操作"""
+        """手动保存所有账单记录"""
         context = {}
         container_number = request.POST.get("container_number")
         invoice_number = request.POST.get("invoice_number")
         items_data = request.POST.get("items_data")
+        print(request.POST)
 
         invoice = Invoicev2.objects.get(invoice_number=invoice_number)
         container = Container.objects.get(container_number=container_number)
@@ -310,6 +311,121 @@ class ReceivableAccounting(View):
         self._update_invoice_total(invoice,container)
         context = {'success_messages':'保存账单明细成功！'}
         return self.handle_invoice_item_search(request,context)
+
+    def _save_delivery_items(self, item_data, item_id, invoice, container):
+        """保存派送费用项"""
+        delivery_data = {
+            'invoice_number': invoice,
+            'invoice_type': "receivable",
+            'container_number': container,
+            'item_category': item_data.get('item_category'),
+            'delivery_type': item_data.get('delivery_type'),
+            'description': item_data.get('description', ''),
+            'warehouse_code': item_data.get('destination', ''),  
+            'cbm': float(item_data.get('cbm', 0)),
+            'weight': float(item_data.get('weight', 0)),
+            'rate': float(item_data.get('rate', 0)),
+            'surcharges': float(item_data.get('surcharges', 0)),
+            'amount': float(item_data.get('amount', 0)),
+            'note': item_data.get('note', ''),
+        }
+        if item_data.get('delivery_type') == "combine":
+            delivery_data['cbm_ratio'] = item_data.get('cbm_ratio')
+        else:
+            delivery_data['qty'] = item_data.get('qty')
+        if item_data.get('po_id'):
+            delivery_data['PO_ID'] = item_data.get('po_id')
+        
+        if item_id:
+            # 更新现有记录
+            InvoiceItemv2.objects.filter(id=item_id).update(**delivery_data)
+        else:
+            # 创建新记录
+            InvoiceItemv2.objects.create(**delivery_data)
+
+    def _save_other_items(self, item_data, item_id, invoice, container):
+        """保存其他费用项"""
+        other_data = {
+            'invoice_number': invoice,
+            'container_number': container,
+            'invoice_type': "receivable",
+            'item_category': item_data.get('item_category'),
+            'description': item_data.get('description', '派送费'),
+            'qty': float(item_data.get('qty', 0)),
+            'rate': float(item_data.get('rate', 0)),
+            'surcharges': float(item_data.get('surcharges', 0)),
+            'amount': float(item_data.get('amount', 0)),
+            'note': item_data.get('note', ''),
+        }
+        
+        if item_id:
+            InvoiceItemv2.objects.filter(id=item_id).update(**other_data)
+        else:
+            InvoiceItemv2.objects.create(**other_data)
+            
+
+    def _update_invoice_total(self, invoice, container):
+        """更新发票总金额"""
+        # 计算所有费用项的总金额
+        total_amount = 0
+        
+        # 计算其他费用
+        receivable_preport_amount = InvoiceItemv2.objects.filter(
+            invoice_number=invoice,
+            container_number=container,
+            invoice_type="receivable",
+            item_category="preport",
+        ).aggregate(total=models.Sum('amount'))['total'] or 0
+        total_amount += float(receivable_preport_amount)
+
+        receivable_wh_public_amount = InvoiceItemv2.objects.filter(
+            invoice_number=invoice,
+            container_number=container,
+            invoice_type="receivable",
+            item_category="warehouse_public",
+        ).aggregate(total=models.Sum('amount'))['total'] or 0
+        total_amount += float(receivable_wh_public_amount)
+
+        receivable_wh_other_amount = InvoiceItemv2.objects.filter(
+            invoice_number=invoice,
+            container_number=container,
+            invoice_type="receivable",
+            item_category="warehouse_other",
+        ).aggregate(total=models.Sum('amount'))['total'] or 0
+        total_amount += float(receivable_wh_other_amount)
+
+        receivable_delivery_public_amount = InvoiceItemv2.objects.filter(
+            invoice_number=invoice,
+            container_number=container,
+            invoice_type="receivable",
+            item_category="delivery_public",
+        ).aggregate(total=models.Sum('amount'))['total'] or 0
+        total_amount += float(receivable_delivery_public_amount)
+
+        receivable_delivery_other_amount = InvoiceItemv2.objects.filter(
+            invoice_number=invoice,
+            container_number=container,
+            invoice_type="receivable",
+            item_category="delivery_other",
+        ).aggregate(total=models.Sum('amount'))['total'] or 0
+        total_amount += float(receivable_delivery_other_amount)
+
+        activation_items_total = InvoiceItemv2.objects.filter(
+            invoice_number=invoice,
+            container_number=container,
+            invoice_type="receivable",
+            item_category="activation_fee",
+        ).aggregate(total=models.Sum('amount'))['total'] or 0
+        total_amount += float(activation_items_total)
+        
+        # 更新发票
+        invoice.receivable_total_amount = total_amount
+        invoice.receivable_preport_amount = receivable_preport_amount
+        invoice.receivable_wh_public_amount = receivable_wh_public_amount
+        invoice.receivable_wh_other_amount = receivable_wh_other_amount
+        invoice.receivable_delivery_public_amount = receivable_delivery_public_amount + activation_items_total
+        invoice.receivable_delivery_other_amount = receivable_delivery_other_amount
+        invoice.save()
 
     def handle_invoice_item_search(self, request:HttpRequest, context: dict| None = None) -> Dict[str, Any]:
         '''查询全部的账单详情'''

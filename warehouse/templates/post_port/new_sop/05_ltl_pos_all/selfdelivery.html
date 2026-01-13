@@ -705,19 +705,23 @@
                         {% endif %}
                     </td>
                     <td class="fleet-cost-col">
-                        <input type="number" class="fleet-cost-input" 
-                            data-id="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
-                            value="{% if cargo.ltl_cost %}{{ cargo.ltl_cost }}{% endif %}"
-                            placeholder="0.00"
-                            step="0.01"
-                            min="0">
+                        {% if cargo.data_source == "PALLET" and not cargo.delivery_method|default:""|contains:"暂扣" %}
+                            <input type="number" class="fleet-cost-input" 
+                                data-id="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
+                                value="{% if cargo.ltl_cost %}{{ cargo.ltl_cost }}{% endif %}"
+                                placeholder="0.00"
+                                step="0.01"
+                                min="0">
+                        {% endif %}
                     </td>
                     <td class="fleet-cost-note-col">
-                        <textarea class="fleet-editable-textarea fleet-cost-note-input"
-                            data-id="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
-                            placeholder="输入成本备注"
-                            oninput="fleet_autoResizeTextarea(this)"
-                            rows="1">{{ cargo.ltl_cost_note|default:'' }}</textarea>
+                        {% if cargo.data_source == "PALLET" and not cargo.delivery_method|default:""|contains:"暂扣" %}
+                            <textarea class="fleet-editable-textarea fleet-cost-note-input"
+                                data-id="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
+                                placeholder="输入成本备注"
+                                oninput="fleet_autoResizeTextarea(this)"
+                                rows="1">{{ cargo.ltl_cost_note|default:'' }}</textarea>
+                        {% endif %}
                     </td>
                     <td class="fleet-quote-col">
                         {% if cargo.data_source == "PALLET" and not cargo.delivery_method|default:""|contains:"暂扣" %}
