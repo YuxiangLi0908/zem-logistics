@@ -590,7 +590,7 @@
         <div class="header-main">
             <div class="header-title">
                 <div>
-                    <h1>发票详情</h1>
+                    <h1>账单详情</h1>
                     <div class="header-subtitle">发票号: {{ invoice_number }} | 柜号: {{ container_number }} | 总金额: {{ total_stats.total_amount|floatformat:2 }}</div>
                 </div>
             </div>
@@ -710,7 +710,7 @@
                                         组合柜
                                     </span>
                                 </td>
-                                <td class="number-cell">{{ item.pallets|default:"0" }}</td>
+                                <td class="number-cell">{{ item.cbm_ratio|default:"0" }}</td>
                                 <td class="number-cell amount-cell amount-positive">
                                     ${{ item.amount|floatformat:2|default:"0.00" }}
                                 </td>
