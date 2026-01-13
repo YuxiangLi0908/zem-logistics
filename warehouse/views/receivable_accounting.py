@@ -4053,7 +4053,7 @@ class ReceivableAccounting(View):
                     'delivery_public_reason': status_obj.delivery_public_reason if status_obj else None,
                     'delivery_other_reason': status_obj.delivery_other_reason if status_obj else None,
                     # 从批量计算的 map 中获取统计信息
-                    'stats': shipment_stats_map.get(c_id, {}) 
+                    'stats_raw': shipment_stats_map.get(c_id, {}) 
                 }
             
             if not container_invoices:
