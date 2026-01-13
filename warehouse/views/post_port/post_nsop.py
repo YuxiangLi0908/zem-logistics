@@ -6180,32 +6180,24 @@ class PostNsop(View):
         contact_method = request.POST.get('contact_method', '').strip()
 
         # 判断前端是否传递了成本和报价参数
-        has_ltl_cost_param = 'ltl_cost' in request.POST
-        has_ltl_quote_param = 'ltl_quote' in request.POST
+        ltl_cost_raw = request.POST.get('ltl_cost', '').strip()
+        has_ltl_cost_param = bool(ltl_cost_raw)
+
+
+        ltl_quote_raw = request.POST.get('ltl_quote', '').strip()
+        has_ltl_quote_param = bool(ltl_quote_raw)
         
         # 处理成本字段：只有前端传了这个参数时才处理
         ltl_cost = None
         if has_ltl_cost_param:
-            ltl_cost_raw = request.POST.get('ltl_cost', '').strip()
-            if ltl_cost_raw:  # 如果不是空字符串
-                try:
-                    ltl_cost = float(ltl_cost_raw)
-                except (ValueError, TypeError):
-                    ltl_cost = None
-            else:  # 如果是空字符串，设置为None
-                ltl_cost = None
+            print('有参数')
+            ltl_cost = float(ltl_cost_raw)
+                
                 
         # 处理报价字段：只有前端传了这个参数时才处理
         ltl_quote = None
         if has_ltl_quote_param:
-            ltl_quote_raw = request.POST.get('ltl_quote', '').strip()
-            if ltl_quote_raw:  # 如果不是空字符串
-                try:
-                    ltl_quote = float(ltl_quote_raw)
-                except (ValueError, TypeError):
-                    ltl_quote = None
-            else:  # 如果是空字符串，设置为None
-                ltl_quote = None
+            ltl_quote = float(ltl_quote_raw)
         
         cost_field_name = 'ltl_cost'
         quote_field_name = 'ltl_quote'
@@ -6267,11 +6259,7 @@ class PostNsop(View):
         
         # 批量更新通用字段
         if update_data:
-            try:
-                await sync_to_async(model.objects.filter(id__in=ids).update)(**update_data)
-            except Exception as e:
-                context = {'error_messages': f'保存失败: {str(e)}'}
-                return await self.handle_ltl_unscheduled_pos_post(request, context)
+            await sync_to_async(model.objects.filter(id__in=ids).update)(**update_data)
         
         if cargo_id.startswith('plt_') and pallet_size:
             success, message = await self._save_pallet_sizes(ids, pallet_size)
