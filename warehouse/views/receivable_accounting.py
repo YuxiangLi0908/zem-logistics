@@ -1665,10 +1665,18 @@ class ReceivableAccounting(View):
         if order.order_type == "直送":
             is_combina = False
         else:
-            # 这里要区分一下，如果是组合柜的柜子，跳转就直接跳转到组合柜计算界面
-            ctx, is_combina, non_combina_reason = self._is_combina(order.container_number.container_number)
-            if ctx.get('error_messages'):
-                return self.template_invoice_combina_edit, ctx
+            # 看下是不是补开的账单，如果是补开的按转运方式展示记录就醒了，不用组合柜形式展示了
+            other_invoices = Invoicev2.objects.filter(
+                container_number=order.container_number 
+            ).exclude(id=invoice_id)
+            
+            if other_invoices.exists(): 
+                is_combina = False
+            else:
+                # 这里要区分一下，如果是组合柜的柜子，跳转就直接跳转到组合柜计算界面
+                ctx, is_combina, non_combina_reason = self._is_combina(order.container_number.container_number)
+                if ctx.get('error_messages'):
+                    return self.template_invoice_combina_edit, ctx
         
         if is_combina:       
             # 这里表示是组合柜的方式计算
@@ -4859,7 +4867,7 @@ class ReceivableAccounting(View):
         # 再去除过去账单录过的派送费
         if previous_item_dict:
             result_previous_existing = self._set_free_charge_des(invoice, previous_item_dict, unbilled_groups, username)
-            unbilled_groups = result_existing['unbilled_groups']
+            unbilled_groups = result_previous_existing['unbilled_groups']
         else:
             result_previous_existing = {
                 "normal_items": [],
