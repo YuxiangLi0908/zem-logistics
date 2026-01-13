@@ -5689,9 +5689,9 @@ class PostNsop(View):
                 pallet_map = OrderedDict()
 
                 for p in cargo['pallet_items']:
-                    length = p['length']
-                    width = p['width']
-                    height = p['height']
+                    length = int(p['length'])
+                    width = int(p['width'])
+                    height = int(p['height'])
                     pcs = int(p['pcs'])
                     weight_kg = round(p['weight_lbs'] * 0.453592, 2)
 
