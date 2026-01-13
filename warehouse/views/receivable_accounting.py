@@ -2130,7 +2130,7 @@ class ReceivableAccounting(View):
         else:
             status_obj.delivery_other_status = "completed"
             if container_delivery_type == "other":
-                status_obj.delivery_other_status = "completed"
+                status_obj.delivery_public_status = "completed"
         status_obj.save()
         #计算派送总费用
         self._calculate_delivery_total_amount(delivery_type,invoice,container_number)
