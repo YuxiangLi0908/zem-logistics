@@ -74,7 +74,7 @@
             <tr style="position: sticky; top: 28px;">
                 <th class="th"></th>
                 <th class="th" style="padding: 12px; border: 1px solid #ddd;text-align: center;">
-                    <input type="text" id="containerSearchInput" placeholder="搜索柜号..." oninput="filterTable(this, 1)" size="16" style="font-size: 14px;">
+                    <input type="text" id="containerSearchInput" placeholder="输入多个柜号（空格或换行分隔）..." oninput="filterTableByMultipleContainers(this)" size="20" style="font-size: 14px;">
                 </th>
                 <th class="th" style="padding: 12px; border: 1px solid #ddd;text-align: center;">
                     <input type="text" id="invoiceSearchInput" placeholder="搜索发票号..." oninput="filterTable(this, 2)" size="16" style="font-size: 14px;">
@@ -155,6 +155,48 @@
     </table>
 </div>
 <script>
+    // 修改柜号搜索函数，支持多个柜号搜索
+    function filterTableByMultipleContainers(filterInput) {
+        var searchText = filterInput.value.toUpperCase();
+        var table = filterInput.closest('table');
+        var tbody = table.getElementsByTagName("tbody")[0];
+        var tr = tbody.getElementsByTagName("tr");
+        
+        // 分割搜索条件：支持空格、逗号、分号、换行符作为分隔符
+        var searchTerms = searchText.split(/[\s,;\n]+/).filter(term => term.trim() !== '');
+        
+        // 如果没有搜索条件，显示所有行
+        if (searchTerms.length === 0) {
+            for (var i = 0; i < tr.length; i++) {
+                tr[i].style.display = "";
+            }
+            return;
+        }
+        
+        for (var i = 0; i < tr.length; i++) {
+            var containerTd = tr[i].getElementsByTagName("td")[1]; // 柜号在第2列（索引1）
+            if (containerTd) {
+                var containerText = containerTd.textContent || containerTd.innerText;
+                containerText = containerText.toUpperCase().trim();
+                
+                var shouldShow = false;
+                
+                // 检查柜号是否匹配任何一个搜索条件
+                for (var j = 0; j < searchTerms.length; j++) {
+                    if (containerText.indexOf(searchTerms[j]) > -1) {
+                        shouldShow = true;
+                        break;
+                    }
+                }
+                
+                if (shouldShow) {
+                    tr[i].style.display = "";
+                } else {
+                    tr[i].style.display = "none";
+                }
+            }
+        }
+    };
     function filterTable(filterInput, col_idx) {
         var containerInput, containerFilter, table, tbody, tr, containerTd, i, containerTxtValue;
         containerFilter = filterInput.value.toUpperCase();
