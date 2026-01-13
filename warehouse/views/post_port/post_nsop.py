@@ -6190,7 +6190,6 @@ class PostNsop(View):
         # 处理成本字段：只有前端传了这个参数时才处理
         ltl_cost = None
         if has_ltl_cost_param:
-            print('有参数')
             ltl_cost = float(ltl_cost_raw)
                 
                 

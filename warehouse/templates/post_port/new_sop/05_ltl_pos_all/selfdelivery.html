@@ -669,7 +669,7 @@
                             data-id="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
                             placeholder="输入备注"
                             oninput="fleet_autoResizeTextarea(this)"
-                            rows="1">{{ cargo.fleet_note|default:'' }}</textarea>
+                            rows="1">{{ cargo.note|default:'' }}</textarea>
                     </td>
                     <td>{{ cargo.total_cbm|floatformat:3|default:"0.000" }}</td>
                     <td>{{ cargo.total_pcs|default:0 }}</td>

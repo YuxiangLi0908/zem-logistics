@@ -6328,9 +6328,11 @@ class ReceivableAccounting(View):
             # 根据柜子类型自动更新另一边的状态
             if delivery_type == "public" and container_delivery_type == "public":
                 invoice_status.warehouse_other_status = "completed"
+                invoice_status.delivery_other_status = "completed"
 
             elif delivery_type == "other" and container_delivery_type == "other":
                 invoice_status.warehouse_public_status = "completed"
+                invoice_status.delivery_public_status = "completed"
 
                 
             invoice_status.save()
