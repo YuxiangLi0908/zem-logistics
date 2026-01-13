@@ -668,6 +668,7 @@
                                         <th>ID</th>
                                         <th>费用名称</th>
                                         <th>目的地</th>
+                                        <th>CBM</th>
                                         <th>板数</th>
                                         <th>单价(USD)</th>
                                         <th>附加费(USD)</th>
@@ -697,6 +698,13 @@
                                                        value="{{ it.warehouse_code|default:'' }}" 
                                                        class="input-control"
                                                        placeholder="目的地">
+                                            </td>
+                                            <td class="cell-cbm">
+                                                <input type="number" 
+                                                       name="cbm" 
+                                                       value="{{ it.cbm|default:'' }}" 
+                                                       class="input-control"
+                                                       placeholder="cbm">
                                             </td>
                                             <td class="cell-stats">
                                                 <input type="number" 
