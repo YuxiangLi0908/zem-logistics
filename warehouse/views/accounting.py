@@ -455,6 +455,11 @@ class Accounting(View):
             return self.handle_export_carrier_payable_phase(request)
         elif step == "export_confirmed_by_month_carrier":
             return self.export_confirmed_by_month_carrier(request)
+        elif step == "export_confirmed_by_month_carrier_v1":
+            return self.export_confirmed_by_month_carrier_v1(request)
+        elif step == "export_confirmed_by_month_carrier_v1_search":
+            template, context = self.export_confirmed_by_month_carrier_v1_search(request)
+            return render(request, template, context)
         elif step == "export_carrier_payable_delivery":
             return self.export_carrier_payable_delivery(request)
         elif step == "check_unreferenced_delivery":
@@ -3987,6 +3992,317 @@ class Accounting(View):
         response['Content-Disposition'] = f'attachment; filename="{filename}"'
         df.to_excel(response, index=False, engine='openpyxl')
         return response
+
+
+    def export_confirmed_by_month_carrier_v1(self, request):
+        """
+        提拆账单导出：基于前端传递的集装箱ID，直接查询Container表，关联费用/客户信息导出
+        修复：移除无效的invoicestatusv2_set预加载，优化查询逻辑
+        """
+        try:
+            # 1. 获取前端传递的核心参数
+            # 勾选的集装箱ID（JSON字符串）
+            selected_container_ids_str = request.POST.get("selected_container_ids", "[]")
+            try:
+                selected_container_ids = json.loads(selected_container_ids_str)
+            except json.JSONDecodeError:
+                selected_container_ids = []
+
+            # 2. 参数校验
+            if not selected_container_ids:
+                raise ValueError("请至少勾选一个集装箱！")
+
+            # 3. 核心逻辑：直接查询Container表（按勾选的ID筛选）
+            # 修复：移除无效的invoicestatusv2_set预加载，只保留有效关联
+            containers = Container.objects.filter(
+                container_number__in=selected_container_ids  # 按集装箱号筛选
+            ).prefetch_related(
+                # 预加载关联的订单信息
+                Prefetch(
+                    "orders",
+                    queryset=Order.objects.select_related(
+                        "retrieval_id",
+                        "vessel_id",
+                        "customer_name"
+                    ).filter(
+                        # 可选：过滤有效订单
+                        cancel_notification=False
+                    )
+                ),
+                # 预加载关联的费用项（只筛选应付费用）
+                Prefetch(
+                    "invoice_itemv2",
+                    queryset=InvoiceItemv2.objects.filter(
+                        invoice_type__in=["payable", "payable_direct"],  # 只筛选应付费用
+                        rate__isnull=False  # 过滤空费用
+                    )
+                )
+            )
+
+            # 4. 构建Excel导出数据
+            excel_data = []
+            for container in containers:
+                # 4.1 基础信息
+                container_number = container.container_number
+
+                # 4.2 客户信息（取第一个订单的客户）
+                customer_name = "-"
+                order_first = container.orders.first()
+                if order_first and hasattr(order_first, 'customer_name') and order_first.customer_name:
+                    customer_name = order_first.customer_name.zem_name or "-"
+
+                # 4.3 仓点信息
+                warehouse = "-"
+                if order_first and hasattr(order_first, 'retrieval_id') and order_first.retrieval_id:
+                    warehouse = order_first.retrieval_id.retrieval_destination_area or "-"
+
+                # 4.4 供应商信息
+                pickup_carrier = "-"  # 提柜供应商
+                unload_carrier = "-"  # 卸柜供应商
+
+                if order_first and hasattr(order_first, 'retrieval_id') and order_first.retrieval_id:
+                    pickup_carrier = order_first.retrieval_id.retrieval_carrier or "-"
+
+                # 卸柜供应商（从拆柜费用中取）
+                unload_fee_items = container.invoice_itemv2.filter(description__contains="拆柜费用")
+                if unload_fee_items.exists():
+                    unload_carrier = unload_fee_items.first().carrier or "-"
+
+                # 4.5 各费用项计算（直接从Container的invoice_itemv2中统计）
+                # 提柜费
+                pickup_fee = container.invoice_itemv2.filter(description="提柜费用").aggregate(
+                    total=Sum("rate", default=0)
+                )["total"] or 0
+
+                # 超重费
+                over_weight_fee = container.invoice_itemv2.filter(description="超重费用").aggregate(
+                    total=Sum("rate", default=0)
+                )["total"] or 0
+
+                # 车架费
+                chassis_fee = container.invoice_itemv2.filter(description="车架费用").aggregate(
+                    total=Sum("rate", default=0)
+                )["total"] or 0
+
+                # 滞港费
+                demurrage_fee = container.invoice_itemv2.filter(description="港内滞港费").aggregate(
+                    total=Sum("rate", default=0)
+                )["total"] or 0
+
+                # 滞箱费
+                per_diem_fee = container.invoice_itemv2.filter(description="港外滞箱费").aggregate(
+                    total=Sum("rate", default=0)
+                )["total"] or 0
+
+                # 其他费用
+                other_fee = container.invoice_itemv2.filter(description__contains="其他费用").aggregate(
+                    total=Sum("rate", default=0)
+                )["total"] or 0
+
+                # 拆柜费
+                unload_fee = container.invoice_itemv2.filter(description="拆柜费用").aggregate(
+                    total=Sum("rate", default=0)
+                )["total"] or 0
+
+                # 总费用
+                total_fee = container.invoice_itemv2.aggregate(
+                    total=Sum("rate", default=0)
+                )["total"] or 0
+
+                # 4.6 组装一行数据（与表格列对应）
+                excel_data.append([
+                    customer_name,  # 客户
+                    warehouse,  # 仓点
+                    pickup_carrier,  # 提柜供应商
+                    unload_carrier,  # 卸柜供应商
+                    container_number,  # 货柜号
+                    f"${pickup_fee:.2f}",  # 提柜费
+                    f"${unload_fee:.2f}",  # 拆柜费
+                    f"${over_weight_fee:.2f}",  # 超重费
+                    f"${demurrage_fee:.2f}",  # 滞港费
+                    f"${per_diem_fee:.2f}",  # 滞箱费
+                    f"${chassis_fee:.2f}",  # 车架费
+                    f"${other_fee:.2f}",  # 其他费用
+                    f"${total_fee:.2f}"  # 总费用
+                ])
+
+            # 5. 生成Excel文件
+            df = pd.DataFrame(
+                excel_data,
+                columns=[
+                    "客户", "仓点", "提柜供应商", "卸柜供应商", "货柜号",
+                    "提柜费", "拆柜费", "超重费", "滞港费", "滞箱费",
+                    "车架费", "其他费用", "总费用"
+                ]
+            )
+
+            # 6. 构建响应返回Excel
+            response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+            # 修复：文件名处理中文编码问题
+            filename = f"提拆账单_勾选导出_{len(selected_container_ids)}个集装箱.xlsx"
+            response['Content-Disposition'] = f'attachment; filename="{filename}"'.encode('utf-8')
+            df.to_excel(response, index=False, engine='openpyxl')
+
+            return response
+
+        except Exception as e:
+            # 异常处理：返回友好提示，同时打印详细错误日志
+            import traceback
+            traceback.print_exc()  # 打印详细错误到控制台，便于调试
+            return HttpResponse(f"导出失败：{str(e)}", status=400)
+
+    def export_confirmed_by_month_carrier_v1_search(self, request):
+        """提拆已确认账单-导出的查询按钮"""
+        current_date = datetime.now().date()
+        params = request.POST
+        start_date_confirm = params.get("start_date_confirm")
+        end_date_confirm = params.get("end_date_confirm")
+        warehouse = params.get("warehouse_filter")
+        pickup_carrier = params.get("pickup_carrier", "").strip()
+        unload_carrier = params.get("unload_carrier", "").strip()
+        supplier_type = params.get("supplier_type", "pickup_carrier").strip()
+        selected_customer_id = params.get("customer_name", "").strip()
+
+        # 如果有客户ID，查询对应的客户对象
+        if selected_customer_id:
+            order_form = OrderForm(
+                initial={
+                    "customer_name": selected_customer_id  # 关键：让表单默认选中该客户
+                }
+            )
+            customer = Customer.objects.get(id=selected_customer_id).zem_name
+        else:
+            customer = None
+        # 日期默认值处理
+        start_date_confirm = (
+            (current_date + timedelta(days=-60)).strftime("%Y-%m-%d")
+            if not start_date_confirm
+            else start_date_confirm
+        )
+        end_date_confirm = (
+            current_date.strftime("%Y-%m-%d")
+            if not end_date_confirm
+            else end_date_confirm
+        )
+
+        # 基础筛选条件
+        criteria = Q()
+        if warehouse:
+            if warehouse == "直送":
+                criteria &= Q(order_type="直送")
+            else:
+                criteria &= Q(retrieval_id__retrieval_destination_precise=warehouse)
+
+        # 客户筛选：仅当 customer 非空时生效
+        if customer:
+            criteria &= Q(customer_name__zem_name__icontains=customer)
+
+        # 日期和基础状态筛选
+        criteria &= Q(
+            cancel_notification=False,
+            vessel_id__vessel_etd__gte=start_date_confirm,
+            vessel_id__vessel_etd__lte=end_date_confirm,
+        )
+
+        # 供应商类型筛选 - 严格区分
+        if supplier_type == "pickup_carrier":
+            # 提柜供应商：只筛选提柜供应商，不处理卸柜供应商
+            if pickup_carrier:
+                criteria &= Q(retrieval_id__retrieval_carrier=pickup_carrier)
+            # 卸柜供应商条件置空
+            criteria_v1 = Q()
+        else:  # unload_carrier
+            # 卸柜供应商：只筛选卸柜供应商
+            criteria_v1 = Q(
+                carrier=unload_carrier,
+                description="拆柜费用",
+                invoice_type__in=["payable", "payable_direct"]
+            ) if unload_carrier else Q()
+
+        # 子查询构建
+        order_exists_subquery = Order.objects.filter(
+            criteria,
+            container_number_id=OuterRef("container_number_id"),
+        )
+
+        order_prefetch_queryset = Order.objects.filter(
+            criteria
+        ).select_related("retrieval_id", "vessel_id", "customer_name")
+
+        itemv2_exists_subquery = InvoiceItemv2.objects.filter(
+            criteria_v1,
+            container_number_id=OuterRef("container_number_id"),
+        )
+
+        # 主查询 - 修复筛选条件整合方式
+        finance_confirmed = (
+            InvoiceStatusv2.objects.select_related(
+                "container_number",
+                "invoice",
+            ).prefetch_related(
+                Prefetch(
+                    "container_number__orders",
+                    queryset=order_prefetch_queryset
+                ),
+                Prefetch(
+                    "container_number__invoice_itemv2",
+                    queryset=InvoiceItemv2.objects.all()
+                )
+            )
+            .annotate(
+                total_fee=Sum(
+                    "container_number__invoice_itemv2__rate",
+                    default=0
+                )
+            )
+            .filter(
+                Exists(order_exists_subquery),
+                Q(invoice_type="payable") | Q(invoice_type="payable_direct"),
+                finance_status="completed",
+            )
+        )
+
+        # 仅在选择卸柜供应商时添加卸柜筛选条件
+        if supplier_type == "unload_carrier" and unload_carrier:
+            finance_confirmed = finance_confirmed.filter(Exists(itemv2_exists_subquery))
+
+        finance_confirmed = list(finance_confirmed.iterator(chunk_size=200))
+
+        pickup_carriers = {
+            "": "",
+            "Kars": "Kars",
+            "东海岸": "东海岸",
+            "ARM": "ARM",
+            "GM": "GM",
+            "BEST": "BEST",
+        }
+        unload_carriers = {
+            "": "",
+            "BBR": "BBR",
+            "KNO": "KNO",
+            "JOHN": "JOHN",
+            "unload": "UNLOAD",
+        }
+
+        # ========== 修复3：传递选中的客户ID到模板，保留下拉框选中状态 ==========
+        context = {
+            "finance_confirmed": finance_confirmed,
+            "pickup_carrier": pickup_carrier,
+            "unload_carrier": unload_carrier,
+            "supplier_type": supplier_type,
+            "customer": customer,  # 客户对象
+            "selected_customer_id": selected_customer_id,  # 客户ID（关键：用于前端选中）
+            "warehouse_options": self.warehouse_options,
+            "order_form": order_form,  # 正确初始化的表单
+            "start_date_confirm": start_date_confirm,
+            "end_date_confirm": end_date_confirm,
+            "invoice_type_filter": "payable",
+            "warehouse_filter": warehouse,
+            "pickup_carriers": pickup_carriers,
+            "unload_carriers": unload_carriers,
+        }
+        return self.template_invoice_payable_confirm_payable, context
+
 
     def export_carrier_payable_delivery(self, request):
         confirm_phase = request.POST.get('confirm_phase')

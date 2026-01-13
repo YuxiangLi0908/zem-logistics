@@ -563,15 +563,43 @@
         height: 32px;
     }
 
+    /* ========== 重点修改：查询和导出按钮样式 ========== */
     .export-controls .btn {
         white-space: nowrap;
-        height: 32px;
-        padding: 0 15px;
+        height: 38px;
+        padding: 0 20px;
         display: flex;
         align-items: center;
         justify-content: center;
         font-size: 0.85rem;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
+
+    /* 查询按钮样式强化 */
+    .query-btn {
+        background: var(--primary-color) !important;
+        color: white !important;
+        font-weight: 600 !important;
+    }
+    .query-btn:hover {
+        background: var(--secondary-color) !important;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.15) !important;
+    }
+
+    /* 导出勾选按钮样式强化 */
+    .export-selected-btn {
+        background: #28a745 !important;
+        color: white !important;
+        font-weight: 600 !important;
+    }
+    .export-selected-btn:hover {
+        background: #218838 !important;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.15) !important;
+    }
+    /* ========== 按钮样式修改结束 ========== */
 
     /* 费用合计样式 */
     .fee-total {
@@ -646,6 +674,24 @@
             width: 100%;
         }
     }
+    /* 勾选列样式 */
+    .export-checkbox-col {
+        width: 50px !important;
+        min-width: 50px !important;
+        text-align: center !important;
+    }
+    .export-select-all-container {
+        padding: 10px 20px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        background: var(--light-bg);
+        border-bottom: 1px solid #eaecef;
+    }
+    .export-selected-count {
+        color: var(--primary-color);
+        font-weight: 600;
+    }
 </style>
 
 <div class="finance-system">
@@ -659,12 +705,26 @@
             {% csrf_token %}
             <div class="filter-group">
                 <label><i class="fas fa-user"></i> 客户:</label>
+                <!-- 修复：直接渲染表单控件，删除错误的if判断 -->
                 {{ order_form.customer_name }}
+                <script>
+                    document.addEventListener('DOMContentLoaded', function () {
+                        const customerSelect = document.getElementById('id_customer_name');
+                        const selectedCustomerId = "{{ selected_customer_id|default:'' }}";
+                        if (selectedCustomerId && customerSelect) {
+                            // 确保选项存在再赋值，避免报错
+                            const option = customerSelect.querySelector(`option[value="${selectedCustomerId}"]`);
+                            if (option) {
+                                customerSelect.value = selectedCustomerId;
+                            }
+                        }
+                    });
+                </script>
             </div>
             <div class="filter-group">
                 <label>
                     {% if invoice_type_filter == 'payable' %}
-                    <i class="fas fa-calendar-alt"></i> ETA时间:
+                        <i class="fas fa-calendar-alt"></i> ETD时间:
                     {% endif %}
                 </label>
                 <input type="date" name="start_date_confirm" value="{{ start_date_confirm }}">
@@ -674,14 +734,15 @@
                 <label><i class="fas fa-warehouse"></i> 仓点区域:</label>
                 <select name="warehouse_filter">
                     {% for k, v in warehouse_options.items %}
-                    <option value="{{ v }}" {% if warehouse_filter == v %}selected{% endif %}>{{ k }}</option>
+                        <option value="{{ v }}" {% if warehouse_filter == v %}selected{% endif %}>{{ k }}</option>
                     {% endfor %}
                 </select>
             </div>
             <div class="filter-group">
                 <label><i class="fas fa-file-invoice"></i> 账单类型:</label>
                 <select name="invoice_type">
-                    <option value="payable" {% if invoice_type_filter == 'payable' %}selected{% endif %}>应付账单</option>
+                    <option value="payable" {% if invoice_type_filter == 'payable' %}selected{% endif %}>应付账单
+                    </option>
                 </select>
             </div>
             <input type="hidden" name="step" value="invoice_order_confirm_payable">
@@ -729,8 +790,7 @@
                             <input type="hidden" name="step" value="payable_save_v1">
                             <input type="hidden" name="start_date_confirm" value="{{ start_date_confirm }}">
                             <input type="hidden" name="end_date_confirm" value="{{ end_date_confirm }}">
-                            <input type="hidden" name="warehouse_filter"
-                                   value="{{ warehouse_filter }}">
+                            <input type="hidden" name="warehouse_filter" value="{{ warehouse_filter }}">
                             <input type="hidden" name="confirm_phase" value="pickup">
                             <table class="table" id="pick-pending-table">
                                 <thead>
@@ -1003,36 +1063,74 @@
                 <div id="pick-confirmed" class="tab-content">
                     <div class="table-container">
                         {% if finance_confirmed %}
-                        <!-- 导出控件 -->
-                        <div class="export-controls">
-                            <h6><b>按条件导出：</b></h6>
-                            <form method="post" class="export-filter-form">
-                                {% csrf_token %}
-                                <div class="filter-group">
-                                    <label>ETD时间：</label>
-                                    <input type="date" name="start_date_export" value="{{ start_date_export }}">
-                                    <input type="date" name="end_date_export" value="{{ end_date_export }}">
-                                </div>
-                                <div class="filter-group">
-                                    <label>供应商：</label>
-                                    <select name="export_carrier">
-                                        {% for key,value in pickup_carriers.items %}
-                                        <option value="{{ key }}">{{ value }}</option>
-                                        {% endfor %}
-                                    </select>
-                                </div>
-                                <input type="hidden" name="step" value="export_confirmed_by_month_carrier">
-                                <input type="hidden" name="confirm_phase" value="pickup">
-                                <button type="submit" class="btn btn-info btn-sm">
-                                    <i class="fas fa-file-excel"></i> 导出筛选结果
-                                </button>
-                            </form>
-                        </div>
+                            <!-- 导出按钮区域修改 -->
+                            <div class="export-controls">
+                                <h6><b>按条件筛选：</b></h6>
+                                <!-- 查询表单 -->
+                                <form method="post" class="export-filter-form" id="pick-query-form">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="step"
+                                           value="export_confirmed_by_month_carrier_v1_search">
+                                    <input type="hidden" name="start_date_confirm" value="{{ start_date_confirm }}">
+                                    <input type="hidden" name="end_date_confirm" value="{{ end_date_confirm }}">
+                                    <input type="hidden" name="warehouse_filter" value="{{ warehouse_filter }}">
+                                    <input type="hidden" name="customer_name"
+                                           value="{{ selected_customer_id|default:'' }}">
+                                    <div class="filter-group">
+                                        <label>供应商类型：</label>
+                                        <select id="supplier_type" name="supplier_type" onchange="switchCarrierList()">
+                                            <option value="pickup_carrier"
+                                                    {% if supplier_type == "pickup_carrier" %}selected{% endif %}>提柜供应商
+                                            </option>
+                                            <option value="unload_carrier"
+                                                    {% if supplier_type == "unload_carrier" %}selected{% endif %}>卸柜供应商
+                                            </option>
+                                        </select>
+                                    </div>
+                                    <div class="filter-group">
+                                        <label>供应商：</label>
+                                        <select id="pickup_carrier_list" name="pickup_carrier"
+                                                style="display: inline-block;">
+                                            {% for key,value in pickup_carriers.items %}
+                                                <option value="{{ key }}"
+                                                        {% if pickup_carrier == key %}selected{% endif %}>{{ value }}</option>
+                                            {% endfor %}
+                                        </select>
+                                        <select id="unload_carrier_list" name="unload_carrier" style="display: none;">
+                                            {% for key,value in unload_carriers.items %}
+                                                <option value="{{ key }}"
+                                                        {% if unload_carrier == key %}selected{% endif %}>{{ value }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                    <button type="submit" class="btn query-btn btn-sm">
+                                        <i class="fas fa-search"></i> 查询
+                                    </button>
+                                </form>
+
+                                <!-- 导出表单 - 核心修改：添加隐藏字段存储勾选的集装箱ID -->
+                                <form method="post" id="export-selected-form"
+                                      onsubmit="return collectSelectedContainers()">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="step" value="export_confirmed_by_month_carrier_v1">
+                                    <!-- 隐藏字段：存储勾选的集装箱ID（JSON格式） -->
+                                    <input type="hidden" name="selected_container_ids" id="selected_container_ids"
+                                           value="">
+                                    <!-- 传递筛选条件 -->
+                                    <input type="hidden" name="supplier_type" id="export_supplier_type"
+                                           value="{{ supplier_type|default:'pickup_carrier' }}">
+                                    <input type="hidden" name="export_carrier" id="export_carrier" value="">
+
+                                    <button type="submit" class="btn export-selected-btn btn-sm">
+                                        <i class="fas fa-file-excel"></i> 导出勾选记录
+                                    </button>
+                                </form>
+                            </div>
 
                         <table class="table" id="pick-confirmed-table">
                             <thead>
                             <tr>
-                                <!-- 移除已确认账单的勾选框列 -->
+                                <th class="th export-checkbox-col">选择</th>
                                 <th class="th">客户</th>
                                 <th class="th">仓点</th>
                                 <th class="th">供应商</th>
@@ -1051,16 +1149,16 @@
                                 <th class="th">总费用</th>
                             </tr>
                             <tr class="search-row">
-                                <!-- 移除搜索行的勾选框列 -->
+                                <th class="th export-checkbox-col"></th>
                                 <th class="th"></th>
                                 <th class="th"><input type="text" class="search-input" placeholder="搜索仓点..."
-                                                   onkeyup="filterTable('pick-confirmed-table', 1)"></th>
-                                <th class="th"><input type="text" class="search-input" placeholder="搜索供应商..."
                                                    onkeyup="filterTable('pick-confirmed-table', 2)"></th>
                                 <th class="th"><input type="text" class="search-input" placeholder="搜索供应商..."
                                                    onkeyup="filterTable('pick-confirmed-table', 3)"></th>
-                                <th class="th"><input type="text" class="search-input" placeholder="搜索货柜号..."
+                                <th class="th"><input type="text" class="search-input" placeholder="搜索供应商..."
                                                    onkeyup="filterTable('pick-confirmed-table', 4)"></th>
+                                <th class="th"><input type="text" class="search-input" placeholder="搜索货柜号..."
+                                                   onkeyup="filterTable('pick-confirmed-table', 5)"></th>
                                 <th class="th"></th>
                                 <th class="th"></th>
                                 <th class="th"></th>
@@ -1076,8 +1174,14 @@
                             </thead>
                             <tbody>
                             {% for c in finance_confirmed %}
-                                <tr>
-                                    <!-- 移除已确认账单的勾选框单元格 -->
+                                <tr class="export-record-row"
+                                    data-etd-date="{{ c.etd_date|default:'' }}"
+                                    data-carrier="{{ c.container_number.orders.first.retrieval_id.retrieval_carrier|default:'' }}"
+                                    data-unload-carrier="{% for fee in c.container_number.invoice_itemv2.all %}{% if '拆柜费用' in fee.description and 'payable' in fee.invoice_type %}{{ fee.carrier|default:'' }}{% endif %}{% endfor %}">
+                                    <td class="td export-checkbox-col">
+                                        <input type="checkbox" class="export-record-checkbox"
+                                               value="{{ c.container_number.container_number }}">
+                                    </td>
                                     <td class="td">
                                         {% for order in c.container_number.orders.all %}
                                             {{ order.customer_name.zem_name|default:"-" }}
@@ -1125,10 +1229,10 @@
                                     <td class="td_fee">
                                         <span class="pickup-fee-amount">$0.00</span>
                                         {% for fee in c.container_number.invoice_itemv2.all %}
-                                            {% if fee.description == "提柜费用" %}
+                                            {% if fee.description == "拆柜费用" %}
                                                 {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
                                                 <span class="pickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
-                                                {% endif %}    
+                                                {% endif %}
                                             {% endif %}
                                         {% endfor %}
                                     </td>
@@ -1381,6 +1485,7 @@
     </div>
 </div>
 
+
 <!-- 新增：直达底部按钮 -->
 <button class="to-bottom-btn" onclick="scrollToBottom()">
     <i class="fas fa-arrow-down"></i>
@@ -1390,27 +1495,36 @@
 <!-- 引入字体图标（用于直达底部按钮） -->
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <script>
-    // 标签页切换
+    // 页面初始化总入口（只执行一次）
     document.addEventListener('DOMContentLoaded', function() {
-        // 费用累加计算
+        // 初始化费用计算
         calculateAllFees();
+
+        // 新增：页面加载时初始化供应商列表显示（根据后端传的 supplier_type）
+        const supplierType = "{{ supplier_type|default:'pickup_carrier' }}";
+        const pickupList = document.getElementById("pickup_carrier_list");
+        const unloadList = document.getElementById("unload_carrier_list");
+        if (supplierType === "pickup_carrier") {
+            pickupList.style.display = "inline-block";
+            unloadList.style.display = "none";
+        } else {
+            pickupList.style.display = "none";
+            unloadList.style.display = "inline-block";
+        }
 
         // 主标签页切换
         const mainTabs = document.querySelectorAll('.content-tab');
         mainTabs.forEach(tab => {
             tab.addEventListener('click', function() {
                 const tabName = this.getAttribute('data-tab');
-
                 // 移除所有主标签页激活状态
                 mainTabs.forEach(t => t.classList.remove('active'));
                 this.classList.add('active');
-
                 // 隐藏所有主内容
                 document.querySelectorAll('.tab-content').forEach(content => {
                     content.classList.remove('active');
                 });
                 document.getElementById(tabName + '-content').classList.add('active');
-
                 // 激活第一个子标签页
                 const firstSubTab = document.querySelector('#' + tabName + '-content .sub-content-tab');
                 if (firstSubTab) {
@@ -1425,19 +1539,16 @@
             tab.addEventListener('click', function() {
                 const parentTab = this.closest('.tab-content').id.replace('-content', '');
                 const subTabName = this.getAttribute('data-subtab');
-
                 // 移除同级别子标签页激活状态
                 this.closest('.sub-content-tabs').querySelectorAll('.sub-content-tab').forEach(t => {
                     t.classList.remove('active');
                 });
                 this.classList.add('active');
-
                 // 隐藏同级别子内容
                 document.querySelectorAll('#' + parentTab + '-content .tab-content').forEach(content => {
                     content.classList.remove('active');
                 });
                 document.getElementById(subTabName).classList.add('active');
-
                 // 切换后重新计算费用
                 setTimeout(calculateAllFees, 100);
             });
@@ -1449,11 +1560,15 @@
                 el.classList.add('form-control', 'form-control-sm');
             }
         });
+
+        // 初始化表格（支持多表格，可根据实际表格ID扩展）
+        initTable("pick-confirmed-table");
+        // 如果有其他表格，继续添加：initTable("unload-confirmed-table");
     });
 
-    // 费用累加计算函数
-    function calculateAllFees() {
-        // 计算其他费用和总费用
+    // 费用累加计算函数（兼容无参/有参调用，统一货币单位为$）
+    function calculateAllFees(tableId) {
+        // 1. 原有逻辑：计算单元格内的费用总和（无参时全局计算）
         document.querySelectorAll('.td_fee_other, .td_fee_total').forEach(cell => {
             const feesStr = cell.getAttribute('data-fees') || '';
             const fees = feesStr
@@ -1468,7 +1583,7 @@
             }
         });
 
-        // 处理提柜费等列的重复span
+        // 2. 处理提柜费等列的重复span
         document.querySelectorAll('.td_fee').forEach(cell => {
             const spans = cell.querySelectorAll('.pickup-fee-amount');
             if (spans.length > 1) {
@@ -1477,6 +1592,30 @@
                 });
             }
         });
+
+        // 3. 新增逻辑：按表格ID计算显示行的总费用（有参时仅计算指定表格）
+        if (tableId) {
+            const table = document.getElementById(tableId);
+            if (!table) return;
+
+            let totalFee = 0;
+            const tr = table.getElementsByTagName("tr");
+            // 遍历显示的数据行（跳过表头和搜索行）
+            for (let i = 2; i < tr.length; i++) {
+                if (tr[i].style.display !== "none") {
+                    const tdList = tr[i].getElementsByTagName("td");
+                    // 费用列索引可根据实际调整，这里默认7（第8列）
+                    const feeText = tdList[7]?.textContent || "0";
+                    const fee = parseFloat(feeText.replace(/[^0-9.]/g, "")) || 0;
+                    totalFee += fee;
+                }
+            }
+            // 更新表格总费用显示（需页面有对应ID的元素）
+            const totalElement = document.getElementById(`total-fee-${tableId}`);
+            if (totalElement) {
+                totalElement.textContent = `$${totalFee.toFixed(2)}`;
+            }
+        }
     }
 
     // 驳回模态框相关
@@ -1506,22 +1645,23 @@
     function toggleSelectAll(selectAllId, checkboxClass) {
         const selectAll = document.getElementById(selectAllId);
         const checkboxes = document.getElementsByClassName(checkboxClass);
-
         for (let checkbox of checkboxes) {
             checkbox.checked = selectAll.checked;
         }
     }
 
-    // 表格过滤
+    // 表格过滤函数（整合多关键词搜索+兼容event+支持多表格）
     function filterTable(tableId, columnIndex) {
         const table = document.getElementById(tableId);
         if (!table) return;
 
-        let inputValue = event.target.value.trim();
+        // 兼容event全局变量
+        const inputEvent = event || window.event;
+        let inputValue = inputEvent.target.value.trim();
         const searchTerms = inputValue.split(/\s+/).filter(term => term.length > 0);
-
         const tr = table.getElementsByTagName("tr");
 
+        // 从第3行开始过滤（跳过表头和搜索行）
         for (let i = 2; i < tr.length; i++) {
             let found = false;
             const td = tr[i].getElementsByTagName("td");
@@ -1529,8 +1669,9 @@
             if (td[columnIndex]) {
                 const cellText = td[columnIndex].textContent.toUpperCase();
                 if (searchTerms.length === 0) {
-                    found = true;
+                    found = true; // 无搜索词时显示所有行
                 } else {
+                    // 多关键词匹配（任意一个关键词命中即可）
                     found = searchTerms.some(term => cellText.includes(term.toUpperCase()));
                 }
             }
@@ -1538,18 +1679,17 @@
             tr[i].style.display = found ? "" : "none";
         }
 
-        calculateAllFees();
+        // 过滤后重新计算指定表格的费用
+        calculateAllFees(tableId);
     }
 
     // 客户下拉框选中状态修复
     window.addEventListener('load', function () {
         const customerSelect = document.getElementById('id_customer_name');
         const selectedCustomerId = "{{ selected_customer_id|default:'' }}";
-
         if (selectedCustomerId && customerSelect) {
             customerSelect.value = selectedCustomerId;
         }
-
         calculateAllFees();
     });
 
@@ -1563,12 +1703,99 @@
         });
     }
 
-    // 新增：滚动到页面底部函数
+    // 滚动到页面底部函数
     function scrollToBottom() {
         window.scrollTo({
             top: document.body.scrollHeight,
-            behavior: 'smooth' // 平滑滚动
+            behavior: 'smooth'
         });
+    }
+
+    // 切换供应商列表（提柜/卸柜）- 修复版
+    function switchCarrierList() {
+        var type = document.getElementById("supplier_type").value;
+        var pickupList = document.getElementById("pickup_carrier_list");
+        var unloadList = document.getElementById("unload_carrier_list");
+
+        if (type === "pickup_carrier") {
+            pickupList.style.display = "inline-block";
+            unloadList.style.display = "none";
+            // 保留name，不清空
+            pickupList.name = "pickup_carrier";
+            unloadList.name = "unload_carrier";
+        } else {
+            pickupList.style.display = "none";
+            unloadList.style.display = "inline-block";
+            // 保留name，不清空
+            pickupList.name = "pickup_carrier";
+            unloadList.name = "unload_carrier";
+        }
+    }
+
+    // 表格初始化函数（绑定搜索框回车/重置事件）
+    function initTable(tableId) {
+        const table = document.getElementById(tableId);
+        if (!table) return;
+
+        // 初始化表格总费用
+        calculateAllFees(tableId);
+
+        // 给搜索框绑定回车事件
+        const searchInputs = table.parentNode.querySelectorAll(".search-input");
+        searchInputs.forEach(input => {
+            input.addEventListener("keydown", function(e) {
+                if (e.key === "Enter") {
+                    const colIndex = this.dataset.columnIndex || this.getAttribute('data-column-index');
+                    if (colIndex) filterTable(tableId, colIndex);
+                }
+            });
+        });
+
+        // 重置过滤按钮事件
+        const resetBtn = table.parentNode.querySelector(".reset-filter");
+        if (resetBtn) {
+            resetBtn.addEventListener("click", function() {
+                // 清空搜索框
+                searchInputs.forEach(input => input.value = "");
+                // 显示所有行
+                const tr = table.getElementsByTagName("tr");
+                for (let i = 2; i < tr.length; i++) {
+                    tr[i].style.display = "";
+                }
+                // 重新计算费用
+                calculateAllFees(tableId);
+            });
+        }
+    }
+
+    // 收集勾选的集装箱ID并填充到隐藏字段
+    function collectSelectedContainers() {
+        // 1. 获取所有勾选的复选框
+        const checkboxes = document.querySelectorAll('.export-record-checkbox:checked');
+        if (checkboxes.length === 0) {
+            alert('请至少勾选一个集装箱！');
+            return false;
+        }
+
+        // 2. 收集集装箱ID（container_number）
+        const selectedIds = [];
+        checkboxes.forEach(checkbox => {
+            selectedIds.push(checkbox.value);
+        });
+
+        // 3. 填充到隐藏字段（JSON格式）
+        document.getElementById('selected_container_ids').value = JSON.stringify(selectedIds);
+
+        // 4. 填充供应商筛选条件
+        const supplierType = document.getElementById('supplier_type').value;
+        document.getElementById('export_supplier_type').value = supplierType;
+
+        const carrierSelect = supplierType === 'pickup_carrier'
+            ? document.getElementById('pickup_carrier_list')
+            : document.getElementById('unload_carrier_list');
+        document.getElementById('export_carrier').value = carrierSelect.value;
+
+        return true;
     }
 </script>
 {% endblock %}
