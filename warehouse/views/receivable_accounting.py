@@ -292,7 +292,6 @@ class ReceivableAccounting(View):
         container_number = request.POST.get("container_number")
         invoice_number = request.POST.get("invoice_number")
         items_data = request.POST.get("items_data")
-        print(request.POST)
 
         invoice = Invoicev2.objects.get(invoice_number=invoice_number)
         container = Container.objects.get(container_number=container_number)
