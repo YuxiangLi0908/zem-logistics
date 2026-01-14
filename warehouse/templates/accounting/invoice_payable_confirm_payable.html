@@ -774,10 +774,22 @@
                 <!-- 子标签页 -->
                 <div class="sub-content-tabs">
                     <div class="sub-content-tab active" data-subtab="pick-pending">
-                        待确认 <span class="tab-badge">{{finance_pending|length }}</span>
+                        待确认 <span class="tab-badge">{{ finance_pending|length }}</span>
                     </div>
                     <div class="sub-content-tab" data-subtab="pick-confirmed">
-                        已确认 <span class="tab-badge">{{finance_confirmed|length }}</span>
+                        已确认 <span class="tab-badge">{{ finance_confirmed|length }}</span>
+                    </div>
+                    <div class="sub-content-tab" data-subtab="pick-t-waited">
+                        提柜待核销 <span class="tab-badge">{{ finance_confirmed_t_waited|length }}</span>
+                    </div>
+                    <div class="sub-content-tab" data-subtab="pick-x-waited">
+                        卸柜待核销 <span class="tab-badge">{{ finance_confirmed_x_waited|length }}</span>
+                    </div>
+                    <div class="sub-content-tab" data-subtab="pick-t-completed">
+                        提柜已核销 <span class="tab-badge">{{ finance_confirmed_t_completed|length }}</span>
+                    </div>
+                    <div class="sub-content-tab" data-subtab="pick-x-completed">
+                        卸柜已核销 <span class="tab-badge">{{ finance_confirmed_x_completed|length }}</span>
                     </div>
                 </div>
 
@@ -785,281 +797,287 @@
                 <div id="pick-pending" class="tab-content active">
                     <div class="table-container">
                         {% if finance_pending %}
-                        <form method="post" id="pick-confirm-form">
-                            {% csrf_token %}
-                            <input type="hidden" name="step" value="payable_save_v1">
-                            <input type="hidden" name="start_date_confirm" value="{{ start_date_confirm }}">
-                            <input type="hidden" name="end_date_confirm" value="{{ end_date_confirm }}">
-                            <input type="hidden" name="warehouse_filter" value="{{ warehouse_filter }}">
-                            <input type="hidden" name="confirm_phase" value="pickup">
-                            <table class="table" id="pick-pending-table">
-                                <thead>
-                                <tr>
-                                    <th class="th"><input type="checkbox" id="pick-select-all"
-                                                       onclick="toggleSelectAll('pick-select-all', 'pick-orders')"></th>
-                                    <th class="th">客户</th>
-                                    <th class="th">仓点</th>
-                                    <th class="th">供应商</th>
-                                    <th class="th">卸柜供应商</th>
-                                    <th class="th">货柜号</th>
-                                    <th class="th">提柜费</th>
-                                    <th class="th">拆柜费</th>
-                                    <th class="th">入库拆柜费</th>
-                                    <th class="th">直送固定报价</th>
-                                    <th class="th">直送等待费用</th>
-                                    <th class="th">超重费</th>
-                                    <th class="th">滞港费</th>
-                                    <th class="th">滞箱费</th>
-                                    <th class="th">车架费</th>
-                                    <th class="th">其他费用</th>
-                                    <th class="th">总费用</th>
-                                </tr>
-                                <tr class="search-row">
-                                    <th class="th"></th>
-                                    <th class="th"></th>
-                                    <th class="th"><input type="text" class="search-input" placeholder="搜索仓点..."
-                                                       onkeyup="filterTable('pick-pending-table', 2)"></th>
-                                    <th class="th"><input type="text" class="search-input" placeholder="搜索供应商..."
-                                                       onkeyup="filterTable('pick-pending-table', 3)"></th>
-                                    <th class="th"><input type="text" class="search-input" placeholder="搜索供应商..."
-                                                       onkeyup="filterTable('pick-pending-table', 4)"></th>
-                                    <th class="th"><input type="text" class="search-input" placeholder="搜索货柜号..."
-                                                       onkeyup="filterTable('pick-pending-table', 5)"></th>
-                                    <th class="th"></th>
-                                    <th class="th"></th>
-                                    <th class="th"></th>
-                                    <th class="th"></th>
-                                    <th class="th"></th>
-                                    <th class="th"></th>
-                                    <th class="th"></th>
-                                    <th class="th"></th>
-                                    <th class="th"></th>
-                                    <th class="th"></th>
-                                    <th class="th"></th>
-                                </tr>
-                                </thead>
-                                <tbody>
-                                {% for c in finance_pending %}
-                                    <tr {% if c.is_over_3_days %}style="background-color: #ffebee; color: #c62828;"{% endif %}>
-                                        <td class="td">
-                                            <input type="checkbox" name="containers"
-                                                   value="{{ c.container_number.container_number }}"
-                                                   class="pick-orders">
-                                        </td>
+                            <form method="post" id="pick-confirm-form">
+                                {% csrf_token %}
+                                <input type="hidden" name="step" value="payable_save_v1">
+                                <input type="hidden" name="start_date_confirm" value="{{ start_date_confirm }}">
+                                <input type="hidden" name="end_date_confirm" value="{{ end_date_confirm }}">
+                                <input type="hidden" name="warehouse_filter" value="{{ warehouse_filter }}">
+                                <input type="hidden" name="confirm_phase" value="pickup">
+                                <table class="table" id="pick-pending-table">
+                                    <thead>
+                                    <tr>
+                                        <th class="th"><input type="checkbox" id="pick-select-all"
+                                                              onclick="toggleSelectAll('pick-select-all', 'pick-orders')">
+                                        </th>
+                                        <th class="th">客户</th>
+                                        <th class="th">仓点</th>
+                                        <th class="th">供应商</th>
+                                        <th class="th">卸柜供应商</th>
+                                        <th class="th">货柜号</th>
+                                        <th class="th">提柜费</th>
+                                        <th class="th">拆柜费</th>
+                                        <th class="th">入库拆柜费</th>
+                                        <th class="th">直送固定报价</th>
+                                        <th class="th">直送等待费用</th>
+                                        <th class="th">超重费</th>
+                                        <th class="th">滞港费</th>
+                                        <th class="th">滞箱费</th>
+                                        <th class="th">车架费</th>
+                                        <th class="th">其他费用</th>
+                                        <th class="th">总费用</th>
+                                    </tr>
+                                    <tr class="search-row">
+                                        <th class="th"></th>
+                                        <th class="th"></th>
+                                        <th class="th"><input type="text" class="search-input" placeholder="搜索仓点..."
+                                                              onkeyup="filterTable('pick-pending-table', 2)"></th>
+                                        <th class="th"><input type="text" class="search-input"
+                                                              placeholder="搜索供应商..."
+                                                              onkeyup="filterTable('pick-pending-table', 3)"></th>
+                                        <th class="th"><input type="text" class="search-input"
+                                                              placeholder="搜索供应商..."
+                                                              onkeyup="filterTable('pick-pending-table', 4)"></th>
+                                        <th class="th"><input type="text" class="search-input"
+                                                              placeholder="搜索货柜号..."
+                                                              onkeyup="filterTable('pick-pending-table', 5)"></th>
+                                        <th class="th"></th>
+                                        <th class="th"></th>
+                                        <th class="th"></th>
+                                        <th class="th"></th>
+                                        <th class="th"></th>
+                                        <th class="th"></th>
+                                        <th class="th"></th>
+                                        <th class="th"></th>
+                                        <th class="th"></th>
+                                        <th class="th"></th>
+                                        <th class="th"></th>
+                                    </tr>
+                                    </thead>
+                                    <tbody>
+                                    {% for c in finance_pending %}
+                                        <tr {% if c.is_over_3_days %}style="background-color: #ffebee; color: #c62828;"{% endif %}>
+                                            <td class="td">
+                                                <input type="checkbox" name="containers"
+                                                       value="{{ c.container_number.container_number }}"
+                                                       class="pick-orders">
+                                            </td>
 
-                                        <td class="td">
-                                            {% for order in c.container_number.orders.all %}
-                                                {{ order.customer_name.zem_name|default:"-" }}
-                                            {% endfor %}
-                                        </td>
+                                            <td class="td">
+                                                {% for order in c.container_number.orders.all %}
+                                                    {{ order.customer_name.zem_name|default:"-" }}
+                                                {% endfor %}
+                                            </td>
 
-                                        <td class="td">
-                                            {% for order in c.container_number.orders.all %}
-                                                {{ order.retrieval_id.retrieval_destination_area|default:"-" }}
-                                            {% endfor %}
-                                        </td>
+                                            <td class="td">
+                                                {% for order in c.container_number.orders.all %}
+                                                    {{ order.retrieval_id.retrieval_destination_area|default:"-" }}
+                                                {% endfor %}
+                                            </td>
 
-                                        <td class="td">
-                                            {% for order in c.container_number.orders.all %}
-                                                {{ order.retrieval_id.retrieval_carrier|default:"-" }}
-                                            {% endfor %}
-                                        </td>
+                                            <td class="td">
+                                                {% for order in c.container_number.orders.all %}
+                                                    {{ order.retrieval_id.retrieval_carrier|default:"-" }}
+                                                {% endfor %}
+                                            </td>
 
-                                        <td class="td">
-                                            {% for fee in c.container_number.invoice_itemv2.all %}
-                                                {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
-                                                    {% if '拆柜费用' in fee.description%}
-                                                        {{ fee.carrier|default:"-" }}
-                                                    {% endif %}
-                                                {% endif %}
-                                            {% endfor %}
-                                        </td>
-
-                                        <td class="td">
-                                            <a href="/accounting/?step=container_payable_pending_review&container_number={{ c.container_number.container_number }}&start_date={{ start_date }}&end_date={{ end_date }}&warehouse_filter={{ warehouse_filter }}"
-                                               class="container-link"
-                                               title="点击查看详情">{{ c.container_number.container_number }}</a>
-                                        </td>
-
-                                        <!-- 1. 提柜费用 -->
-                                    <td class="td_fee">
-                                        <span class="pickup-fee-amount">$0.00</span>
-                                        {% for fee in c.container_number.invoice_itemv2.all %}
-                                            {% if fee.description == "提柜费用" %}
-                                                {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
-                                                <span class="pickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
-                                                {% endif %}
-                                            {% endif %}
-                                        {% endfor %}
-                                    </td>
-
-                                    <!-- 2. 拆柜费用 -->
-                                    <td class="td_fee">
-                                        <span class="pickup-fee-amount">$0.00</span>
-                                        {% for fee in c.container_number.invoice_itemv2.all %}
-                                            {% if fee.description == "拆柜费用" %}
-                                                {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
-                                                <span class="pickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
-                                                {% endif %}
-                                            {% endif %}
-                                        {% endfor %}
-                                    </td>
-
-                                    <!-- 3. 入库拆柜费 -->
-                                    <td class="td_fee">
-                                        <span class="pickup-fee-amount">$0.00</span>
-                                        {% for fee in c.container_number.invoice_itemv2.all %}
-                                            {% if fee.description == "入库拆柜费" %}
-                                                {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
-                                                <span class="pickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
-                                                {% endif %}
-                                            {% endif %}
-                                        {% endfor %}
-                                    </td>
-
-                                    <!-- 4. 直送固定报价 -->
-                                    <td class="td_fee">
-                                        <span class="pickup-fee-amount">$0.00</span>
-                                        {% for fee in c.container_number.invoice_itemv2.all %}
-                                            {% if fee.description == "固定报价" %}
-                                                {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
-                                                <span class="pickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
-                                                {% endif %}
-                                            {% endif %}
-                                        {% endfor %}
-                                    </td>
-
-                                    <!-- 5. 直送等待费用 -->
-                                    <td class="td_fee">
-                                        <span class="pickup-fee-amount">$0.00</span>
-                                        {% for fee in c.container_number.invoice_itemv2.all %}
-                                            {% if fee.description == "等待费用" %}
-                                                {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
-                                                <span class="pickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
-                                                {% endif %}
-                                            {% endif %}
-                                        {% endfor %}
-                                    </td>
-
-                                    <!-- 6. 超重费用 -->
-                                    <td class="td_fee">
-                                        <span class="pickup-fee-amount">$0.00</span>
-                                        {% for fee in c.container_number.invoice_itemv2.all %}
-                                            {% if fee.description == "超重费用" %}
-                                                {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
-                                                <span class="pickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
-                                                {% endif %}
-                                            {% endif %}
-                                        {% endfor %}
-                                    </td>
-
-                                    <!-- 7. 港内滞港费 -->
-                                    <td class="td_fee">
-                                        <span class="pickup-fee-amount">$0.00</span>
-                                        {% for fee in c.container_number.invoice_itemv2.all %}
-                                            {% if fee.description == "港内滞港费" %}
-                                                {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
-                                                <span class="pickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
-                                                {% endif %}
-                                            {% endif %}
-                                        {% endfor %}
-                                    </td>
-
-                                    <!-- 8. 港外滞箱费 -->
-                                    <td class="td_fee">
-                                        <span class="pickup-fee-amount">$0.00</span>
-                                        {% for fee in c.container_number.invoice_itemv2.all %}
-                                            {% if fee.description == "港外滞箱费" %}
-                                                {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
-                                                <span class="pickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
-                                                {% endif %}
-                                            {% endif %}
-                                        {% endfor %}
-                                    </td>
-
-                                    <!-- 9. 车架费用 -->
-                                    <td class="td_fee">
-                                        <span class="pickup-fee-amount">$0.00</span>
-                                        {% for fee in c.container_number.invoice_itemv2.all %}
-                                            {% if fee.description == "车架费用" %}
-                                                {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
-                                                <span class="pickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
-                                                {% endif %}
-                                            {% endif %}
-                                        {% endfor %}
-                                    </td>
-
-                                    <!-- 其他费用 -->
-                                    <td class="td_fee_other"
-                                        data-container-id="{{ c.container_number.id }}"
-                                        data-type="other"
-                                        data-fees="
-                                                {% for fee in c.container_number.invoice_itemv2.all %}
-                                                    {% if '其他费用' in fee.description %}
-                                                        {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
-                                                            {{ fee.rate|default:0|floatformat:2 }},
-                                                        {% endif %}
-                                                    {% endif %}
-                                                {% endfor %}">
-                                        <div class="fee-total">
-                                            <strong>合计：<span class="total-amount">$0.00</span></strong>
-                                        </div>
-                                    </td>
-
-                                    <!-- 总费用 -->
-                                    <td class="td_fee_total"
-                                        data-container-id="{{ c.container_number.id }}"
-                                        data-type="total"
-                                        data-fees="
+                                            <td class="td">
                                                 {% for fee in c.container_number.invoice_itemv2.all %}
                                                     {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
-                                                    {{ fee.rate|default:0|floatformat:2 }},
+                                                        {% if '拆柜费用' in fee.description %}
+                                                            {{ fee.carrier|default:"-" }}
+                                                        {% endif %}
                                                     {% endif %}
-                                                {% endfor %}">
-                                        <div class="fee-total">
-                                            <strong>合计：<span class="total-amount">$0.00</span></strong>
+                                                {% endfor %}
+                                            </td>
+
+                                            <td class="td">
+                                                <a href="/accounting/?step=container_payable_pending_review&container_number={{ c.container_number.container_number }}&start_date={{ start_date }}&end_date={{ end_date }}&warehouse_filter={{ warehouse_filter }}"
+                                                   class="container-link"
+                                                   title="点击查看详情">{{ c.container_number.container_number }}</a>
+                                            </td>
+
+                                            <!-- 1. 提柜费用 -->
+                                            <td class="td_fee">
+                                                <span class="pickup-fee-amount">$0.00</span>
+                                                {% for fee in c.container_number.invoice_itemv2.all %}
+                                                    {% if fee.description == "提柜费用" %}
+                                                        {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
+                                                            <span class="pickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
+                                                        {% endif %}
+                                                    {% endif %}
+                                                {% endfor %}
+                                            </td>
+
+                                            <!-- 2. 拆柜费用 -->
+                                            <td class="td_fee">
+                                                <span class="pickup-fee-amount">$0.00</span>
+                                                {% for fee in c.container_number.invoice_itemv2.all %}
+                                                    {% if fee.description == "拆柜费用" %}
+                                                        {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
+                                                            <span class="pickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
+                                                        {% endif %}
+                                                    {% endif %}
+                                                {% endfor %}
+                                            </td>
+
+                                            <!-- 3. 入库拆柜费 -->
+                                            <td class="td_fee">
+                                                <span class="pickup-fee-amount">$0.00</span>
+                                                {% for fee in c.container_number.invoice_itemv2.all %}
+                                                    {% if fee.description == "入库拆柜费" %}
+                                                        {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
+                                                            <span class="pickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
+                                                        {% endif %}
+                                                    {% endif %}
+                                                {% endfor %}
+                                            </td>
+
+                                            <!-- 4. 直送固定报价 -->
+                                            <td class="td_fee">
+                                                <span class="pickup-fee-amount">$0.00</span>
+                                                {% for fee in c.container_number.invoice_itemv2.all %}
+                                                    {% if fee.description == "固定报价" %}
+                                                        {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
+                                                            <span class="pickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
+                                                        {% endif %}
+                                                    {% endif %}
+                                                {% endfor %}
+                                            </td>
+
+                                            <!-- 5. 直送等待费用 -->
+                                            <td class="td_fee">
+                                                <span class="pickup-fee-amount">$0.00</span>
+                                                {% for fee in c.container_number.invoice_itemv2.all %}
+                                                    {% if fee.description == "等待费用" %}
+                                                        {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
+                                                            <span class="pickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
+                                                        {% endif %}
+                                                    {% endif %}
+                                                {% endfor %}
+                                            </td>
+
+                                            <!-- 6. 超重费用 -->
+                                            <td class="td_fee">
+                                                <span class="pickup-fee-amount">$0.00</span>
+                                                {% for fee in c.container_number.invoice_itemv2.all %}
+                                                    {% if fee.description == "超重费用" %}
+                                                        {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
+                                                            <span class="pickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
+                                                        {% endif %}
+                                                    {% endif %}
+                                                {% endfor %}
+                                            </td>
+
+                                            <!-- 7. 港内滞港费 -->
+                                            <td class="td_fee">
+                                                <span class="pickup-fee-amount">$0.00</span>
+                                                {% for fee in c.container_number.invoice_itemv2.all %}
+                                                    {% if fee.description == "港内滞港费" %}
+                                                        {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
+                                                            <span class="pickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
+                                                        {% endif %}
+                                                    {% endif %}
+                                                {% endfor %}
+                                            </td>
+
+                                            <!-- 8. 港外滞箱费 -->
+                                            <td class="td_fee">
+                                                <span class="pickup-fee-amount">$0.00</span>
+                                                {% for fee in c.container_number.invoice_itemv2.all %}
+                                                    {% if fee.description == "港外滞箱费" %}
+                                                        {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
+                                                            <span class="pickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
+                                                        {% endif %}
+                                                    {% endif %}
+                                                {% endfor %}
+                                            </td>
+
+                                            <!-- 9. 车架费用 -->
+                                            <td class="td_fee">
+                                                <span class="pickup-fee-amount">$0.00</span>
+                                                {% for fee in c.container_number.invoice_itemv2.all %}
+                                                    {% if fee.description == "车架费用" %}
+                                                        {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
+                                                            <span class="pickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
+                                                        {% endif %}
+                                                    {% endif %}
+                                                {% endfor %}
+                                            </td>
+
+                                            <!-- 其他费用 -->
+                                            <td class="td_fee_other"
+                                                data-container-id="{{ c.container_number.id }}"
+                                                data-type="other"
+                                                data-fees="
+                                        {% for fee in c.container_number.invoice_itemv2.all %}
+                                            {% if '其他费用' in fee.description %}
+                                                {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
+                                                    {{ fee.rate|default:0|floatformat:2 }},
+                                                {% endif %}
+                                            {% endif %}
+                                        {% endfor %}">
+                                                <div class="fee-total">
+                                                    <strong>合计：<span class="total-amount">$0.00</span></strong>
+                                                </div>
+                                            </td>
+
+                                            <!-- 总费用 -->
+                                            <td class="td_fee_total"
+                                                data-container-id="{{ c.container_number.id }}"
+                                                data-type="total"
+                                                data-fees="
+                                        {% for fee in c.container_number.invoice_itemv2.all %}
+                                        {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
+                                            {{ fee.rate|default:0|floatformat:2 }},
+                                        {% endif %}
+                                        {% endfor %}">
+                                                <div class="fee-total">
+                                                    <strong>合计：<span class="total-amount">$0.00</span></strong>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                    </tbody>
+                                </table>
+
+                                <!-- 新增：待确认账单的操作按钮（表格左下方） -->
+                                <div class="table-actions">
+                                    <button type="submit" name="save_type" value="confirmed_finance"
+                                            class="btn btn-success">
+                                        <i class="bi bi-check-lg"></i> 确认账单
+                                    </button>
+                                    <button type="button" class="btn btn-danger" onclick="showRejectModal('pick')">
+                                        <i class="bi bi-x-lg"></i> 驳回账单
+                                    </button>
+                                </div>
+
+                                <!-- 驳回模态框 -->
+                                <div id="pick-rejectModal" class="modal">
+                                    <div class="modal-content">
+                                        <h5>驳回原因</h5>
+                                        <textarea id="pick-rejectReason" class="form-control" rows="4"></textarea>
+                                        <div style="margin-top: 20px; display: flex; gap: 15px;">
+                                            <button type="button" class="btn btn-secondary"
+                                                    onclick="hideRejectModal('pick')">
+                                                取消
+                                            </button>
+                                            <button type="submit" name="save_type" value="reject" class="btn btn-danger"
+                                                    form="pick-confirm-form" onclick="setRejectReason('pick')">
+                                                确认驳回
+                                            </button>
                                         </div>
-                                    </td>
-                                    </tr>
-                                {% endfor %}
-                                </tbody>
-                            </table>
-
-                            <!-- 新增：待确认账单的操作按钮（表格左下方） -->
-                            <div class="table-actions">
-                                <button type="submit" name="save_type" value="confirmed_finance" class="btn btn-success">
-                                    <i class="bi bi-check-lg"></i> 确认账单
-                                </button>
-                                <button type="button" class="btn btn-danger" onclick="showRejectModal('pick')">
-                                    <i class="bi bi-x-lg"></i> 驳回账单
-                                </button>
-                            </div>
-
-                            <!-- 驳回模态框 -->
-                            <div id="pick-rejectModal" class="modal">
-                                <div class="modal-content">
-                                    <h5>驳回原因</h5>
-                                    <textarea id="pick-rejectReason" class="form-control" rows="4"></textarea>
-                                    <div style="margin-top: 20px; display: flex; gap: 15px;">
-                                        <button type="button" class="btn btn-secondary" onclick="hideRejectModal('pick')">
-                                            取消
-                                        </button>
-                                        <button type="submit" name="save_type" value="reject" class="btn btn-danger"
-                                                form="pick-confirm-form" onclick="setRejectReason('pick')">
-                                            确认驳回
-                                        </button>
                                     </div>
                                 </div>
-                            </div>
-                            <input type="hidden" id="pick-rejectReasonInput" name="reject_reason" value="">
-                        </form>
+                                <input type="hidden" id="pick-rejectReasonInput" name="reject_reason" value="">
+                            </form>
                         {% else %}
-                        <div class="alert alert-info">暂无待确认的提拆账单</div>
+                            <div class="alert alert-info">暂无待确认的提拆账单</div>
                         {% endif %}
                     </div>
                 </div>
 
-                <!-- 已确认提拆账单（移除勾选框） -->
+                <!-- 已确认提拆账单（保留导出功能） -->
                 <div id="pick-confirmed" class="tab-content">
                     <div class="table-container">
                         {% if finance_confirmed %}
@@ -1127,240 +1145,824 @@
                                 </form>
                             </div>
 
-                        <table class="table" id="pick-confirmed-table">
-                            <thead>
-                            <tr>
-                                <th class="th export-checkbox-col">选择</th>
-                                <th class="th">客户</th>
-                                <th class="th">仓点</th>
-                                <th class="th">供应商</th>
-                                <th class="th">卸柜供应商</th>
-                                <th class="th">货柜号</th>
-                                <th class="th">提柜费</th>
-                                <th class="th">拆柜费</th>
-                                <th class="th">入库拆柜费</th>
-                                <th class="th">直送固定报价</th>
-                                <th class="th">直送等待费用</th>
-                                <th class="th">超重费</th>
-                                <th class="th">滞港费</th>
-                                <th class="th">滞箱费</th>
-                                <th class="th">车架费</th>
-                                <th class="th">其他费用</th>
-                                <th class="th">总费用</th>
-                            </tr>
-                            <tr class="search-row">
-                                <th class="th export-checkbox-col"></th>
-                                <th class="th"></th>
-                                <th class="th"><input type="text" class="search-input" placeholder="搜索仓点..."
-                                                   onkeyup="filterTable('pick-confirmed-table', 2)"></th>
-                                <th class="th"><input type="text" class="search-input" placeholder="搜索供应商..."
-                                                   onkeyup="filterTable('pick-confirmed-table', 3)"></th>
-                                <th class="th"><input type="text" class="search-input" placeholder="搜索供应商..."
-                                                   onkeyup="filterTable('pick-confirmed-table', 4)"></th>
-                                <th class="th"><input type="text" class="search-input" placeholder="搜索货柜号..."
-                                                   onkeyup="filterTable('pick-confirmed-table', 5)"></th>
-                                <th class="th"></th>
-                                <th class="th"></th>
-                                <th class="th"></th>
-                                <th class="th"></th>
-                                <th class="th"></th>
-                                <th class="th"></th>
-                                <th class="th"></th>
-                                <th class="th"></th>
-                                <th class="th"></th>
-                                <th class="th"></th>
-                                <th class="th"></th>
-                            </tr>
-                            </thead>
-                            <tbody>
-                            {% for c in finance_confirmed %}
-                                <tr class="export-record-row"
-                                    data-etd-date="{{ c.etd_date|default:'' }}"
-                                    data-carrier="{{ c.container_number.orders.first.retrieval_id.retrieval_carrier|default:'' }}"
-                                    data-unload-carrier="{% for fee in c.container_number.invoice_itemv2.all %}{% if '拆柜费用' in fee.description and 'payable' in fee.invoice_type %}{{ fee.carrier|default:'' }}{% endif %}{% endfor %}">
-                                    <td class="td export-checkbox-col">
-                                        <input type="checkbox" class="export-record-checkbox"
-                                               value="{{ c.container_number.container_number }}">
-                                    </td>
-                                    <td class="td">
-                                        {% for order in c.container_number.orders.all %}
-                                            {{ order.customer_name.zem_name|default:"-" }}
-                                        {% endfor %}
-                                    </td>
-
-                                    <td class="td">
-                                        {% for order in c.container_number.orders.all %}
-                                            {{ order.retrieval_id.retrieval_destination_area|default:"-" }}
-                                        {% endfor %}
-                                    </td>
-
-                                    <td class="td">
-                                        {% for order in c.container_number.orders.all %}
-                                            {{ order.retrieval_id.retrieval_carrier|default:"-" }}
-                                        {% endfor %}
-                                    </td>
-
-                                    <td class="td">
-                                        {% for fee in c.container_number.invoice_itemv2.all %}
-                                            {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
-                                                {% if '拆柜费用' in fee.description%}
-                                                    {{ fee.carrier|default:"-" }}
-                                                {% endif %}
-                                            {% endif %}
-                                        {% endfor %}
-                                    </td>
-
-                                    <td class="td">
-                                        <a href="/accounting/?step=container_payable&container_number={{ c.container_number.container_number }}&start_date={{ start_date }}&end_date={{ end_date }}&warehouse_filter={{ warehouse_filter }}"
-                                           class="container-link"
-                                           title="点击查看详情">{{ c.container_number.container_number }}</a>
-                                    </td>
-                                    <!-- 1. 提柜费用 -->
-                                    <td class="td_fee">
-                                        <span class="pickup-fee-amount">$0.00</span>
-                                        {% for fee in c.container_number.invoice_itemv2.all %}
-                                            {% if fee.description == "提柜费用" %}
-                                                <span class="pickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
-                                            {% endif %}
-                                        {% endfor %}
-                                    </td>
-
-                                    <!-- 2. 拆柜费用 -->
-                                    <td class="td_fee">
-                                        <span class="pickup-fee-amount">$0.00</span>
-                                        {% for fee in c.container_number.invoice_itemv2.all %}
-                                            {% if fee.description == "拆柜费用" %}
-                                                {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
-                                                <span class="pickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
-                                                {% endif %}
-                                            {% endif %}
-                                        {% endfor %}
-                                    </td>
-
-                                    <!-- 3. 入库拆柜费 -->
-                                    <td class="td_fee">
-                                        <span class="pickup-fee-amount">$0.00</span>
-                                        {% for fee in c.container_number.invoice_itemv2.all %}
-                                            {% if fee.description == "入库拆柜费" %}
-                                                {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
-                                                <span class="pickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
-                                                {% endif %}
-                                            {% endif %}
-                                        {% endfor %}
-                                    </td>
-
-                                    <!-- 4. 直送固定报价 -->
-                                    <td class="td_fee">
-                                        <span class="pickup-fee-amount">$0.00</span>
-                                        {% for fee in c.container_number.invoice_itemv2.all %}
-                                            {% if fee.description == "固定报价" %}
-                                                {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
-                                                <span class="pickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
-                                                {% endif %}
-                                            {% endif %}
-                                        {% endfor %}
-                                    </td>
-
-                                    <!-- 5. 直送等待费用 -->
-                                    <td class="td_fee">
-                                        <span class="pickup-fee-amount">$0.00</span>
-                                        {% for fee in c.container_number.invoice_itemv2.all %}
-                                            {% if fee.description == "等待费用" %}
-                                                {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
-                                                <span class="pickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
-                                                {% endif %}
-                                            {% endif %}
-                                        {% endfor %}
-                                    </td>
-
-                                    <!-- 6. 超重费用 -->
-                                    <td class="td_fee">
-                                        <span class="pickup-fee-amount">$0.00</span>
-                                        {% for fee in c.container_number.invoice_itemv2.all %}
-                                            {% if fee.description == "超重费用" %}
-                                                {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
-                                                <span class="pickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
-                                                {% endif %}
-                                            {% endif %}
-                                        {% endfor %}
-                                    </td>
-
-                                    <!-- 7. 港内滞港费 -->
-                                    <td class="td_fee">
-                                        <span class="pickup-fee-amount">$0.00</span>
-                                        {% for fee in c.container_number.invoice_itemv2.all %}
-                                            {% if fee.description == "港内滞港费" %}
-                                                {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
-                                                <span class="pickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
-                                                {% endif %}
-                                            {% endif %}
-                                        {% endfor %}
-                                    </td>
-
-                                    <!-- 8. 港外滞箱费 -->
-                                    <td class="td_fee">
-                                        <span class="pickup-fee-amount">$0.00</span>
-                                        {% for fee in c.container_number.invoice_itemv2.all %}
-                                            {% if fee.description == "港外滞箱费" %}
-                                                {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
-                                                <span class="pickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
-                                                {% endif %}
-                                            {% endif %}
-                                        {% endfor %}
-                                    </td>
-
-                                    <!-- 9. 车架费用 -->
-                                    <td class="td_fee">
-                                        <span class="pickup-fee-amount">$0.00</span>
-                                        {% for fee in c.container_number.invoice_itemv2.all %}
-                                            {% if fee.description == "车架费用" %}
-                                                {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
-                                                <span class="pickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
-                                                {% endif %}
-                                            {% endif %}
-                                        {% endfor %}
-                                    </td>
-
-                                    <!-- 其他费用 -->
-                                    <td class="td_fee_other"
-                                        data-container-id="{{ c.container_number.id }}"
-                                        data-type="other"
-                                        data-fees="
-                                                {% for fee in c.container_number.invoice_itemv2.all %}
-                                                    {% if '其他费用' in fee.description %}
-                                                        {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
-                                                        {{ fee.rate|default:0|floatformat:2 }},
-                                                        {% endif %}
-                                                    {% endif %}
-                                                {% endfor %}">
-                                        <div class="fee-total">
-                                            <strong>合计：<span class="total-amount">$0.00</span></strong>
-                                        </div>
-                                    </td>
-
-                                    <!-- 总费用 -->
-                                    <td class="td_fee_total"
-                                        data-container-id="{{ c.container_number.id }}"
-                                        data-type="total"
-                                        data-fees="
-                                                {% for fee in c.container_number.invoice_itemv2.all %}
-                                                {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
-                                                    {{ fee.rate|default:0|floatformat:2 }},
-                                                {% endif %}
-                                                {% endfor %}">
-                                        <div class="fee-total">
-                                            <strong>合计：<span class="total-amount">$0.00</span></strong>
-                                        </div>
-                                    </td>
+                            <table class="table" id="pick-confirmed-table">
+                                <thead>
+                                <tr>
+                                    <th class="th export-checkbox-col">选择</th>
+                                    <th class="th">客户</th>
+                                    <th class="th">仓点</th>
+                                    <th class="th">供应商</th>
+                                    <th class="th">卸柜供应商</th>
+                                    <th class="th">货柜号</th>
+                                    <th class="th">提柜费</th>
+                                    <th class="th">拆柜费</th>
+                                    <th class="th">入库拆柜费</th>
+                                    <th class="th">直送固定报价</th>
+                                    <th class="th">直送等待费用</th>
+                                    <th class="th">超重费</th>
+                                    <th class="th">滞港费</th>
+                                    <th class="th">滞箱费</th>
+                                    <th class="th">车架费</th>
+                                    <th class="th">其他费用</th>
+                                    <th class="th">总费用</th>
                                 </tr>
-                            {% endfor %}
-                            </tbody>
-                        </table>
+                                <tr class="search-row">
+                                    <th class="th export-checkbox-col"></th>
+                                    <th class="th"></th>
+                                    <th class="th"><input type="text" class="search-input" placeholder="搜索仓点..."
+                                                          onkeyup="filterTable('pick-confirmed-table', 2)"></th>
+                                    <th class="th"><input type="text" class="search-input" placeholder="搜索供应商..."
+                                                          onkeyup="filterTable('pick-confirmed-table', 3)"></th>
+                                    <th class="th"><input type="text" class="search-input" placeholder="搜索供应商..."
+                                                          onkeyup="filterTable('pick-confirmed-table', 4)"></th>
+                                    <th class="th"><input type="text" class="search-input" placeholder="搜索货柜号..."
+                                                          onkeyup="filterTable('pick-confirmed-table', 5)"></th>
+                                    <th class="th"></th>
+                                    <th class="th"></th>
+                                    <th class="th"></th>
+                                    <th class="th"></th>
+                                    <th class="th"></th>
+                                    <th class="th"></th>
+                                    <th class="th"></th>
+                                    <th class="th"></th>
+                                    <th class="th"></th>
+                                    <th class="th"></th>
+                                    <th class="th"></th>
+                                </tr>
+                                </thead>
+                                <tbody>
+                                {% for c in finance_confirmed %}
+                                    <tr class="export-record-row"
+                                        data-etd-date="{{ c.etd_date|default:'' }}"
+                                        data-carrier="{{ c.container_number.orders.first.retrieval_id.retrieval_carrier|default:'' }}"
+                                        data-unload-carrier="
+                                                {% for fee in c.container_number.invoice_itemv2.all %}{% if '拆柜费用' in fee.description and 'payable' in fee.invoice_type %}{{ fee.carrier|default:'' }}{% endif %}{% endfor %}">
+                                        <td class="td export-checkbox-col">
+                                            <input type="checkbox" class="export-record-checkbox"
+                                                   value="{{ c.container_number.container_number }}">
+                                        </td>
+                                        <td class="td">
+                                            {% for order in c.container_number.orders.all %}
+                                                {{ order.customer_name.zem_name|default:"-" }}
+                                            {% endfor %}
+                                        </td>
+
+                                        <td class="td">
+                                            {% for order in c.container_number.orders.all %}
+                                                {{ order.retrieval_id.retrieval_destination_area|default:"-" }}
+                                            {% endfor %}
+                                        </td>
+
+                                        <td class="td">
+                                            {% for order in c.container_number.orders.all %}
+                                                {{ order.retrieval_id.retrieval_carrier|default:"-" }}
+                                            {% endfor %}
+                                        </td>
+
+                                        <td class="td">
+                                            {% for fee in c.container_number.invoice_itemv2.all %}
+                                                {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
+                                                    {% if '拆柜费用' in fee.description %}
+                                                        {{ fee.carrier|default:"-" }}
+                                                    {% endif %}
+                                                {% endif %}
+                                            {% endfor %}
+                                        </td>
+
+                                        <td class="td">
+                                            <a href="/accounting/?step=container_payable&container_number={{ c.container_number.container_number }}&start_date={{ start_date }}&end_date={{ end_date }}&warehouse_filter={{ warehouse_filter }}"
+                                               class="container-link"
+                                               title="点击查看详情">{{ c.container_number.container_number }}</a>
+                                        </td>
+                                        <!-- 1. 提柜费用 -->
+                                        <td class="td_fee">
+                                            <span class="pickup-fee-amount">$0.00</span>
+                                            {% for fee in c.container_number.invoice_itemv2.all %}
+                                                {% if fee.description == "提柜费用" %}
+                                                    <span class="pickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
+                                                {% endif %}
+                                            {% endfor %}
+                                        </td>
+
+                                        <!-- 2. 拆柜费用 -->
+                                        <td class="td_fee">
+                                            <span class="pickup-fee-amount">$0.00</span>
+                                            {% for fee in c.container_number.invoice_itemv2.all %}
+                                                {% if fee.description == "拆柜费用" %}
+                                                    {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
+                                                        <span class="pickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
+                                                    {% endif %}
+                                                {% endif %}
+                                            {% endfor %}
+                                        </td>
+
+                                        <!-- 3. 入库拆柜费 -->
+                                        <td class="td_fee">
+                                            <span class="pickup-fee-amount">$0.00</span>
+                                            {% for fee in c.container_number.invoice_itemv2.all %}
+                                                {% if fee.description == "入库拆柜费" %}
+                                                    {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
+                                                        <span class="pickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
+                                                    {% endif %}
+                                                {% endif %}
+                                            {% endfor %}
+                                        </td>
+
+                                        <!-- 4. 直送固定报价 -->
+                                        <td class="td_fee">
+                                            <span class="pickup-fee-amount">$0.00</span>
+                                            {% for fee in c.container_number.invoice_itemv2.all %}
+                                                {% if fee.description == "固定报价" %}
+                                                    {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
+                                                        <span class="pickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
+                                                    {% endif %}
+                                                {% endif %}
+                                            {% endfor %}
+                                        </td>
+
+                                        <!-- 5. 直送等待费用 -->
+                                        <td class="td_fee">
+                                            <span class="pickup-fee-amount">$0.00</span>
+                                            {% for fee in c.container_number.invoice_itemv2.all %}
+                                                {% if fee.description == "等待费用" %}
+                                                    {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
+                                                        <span class="pickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
+                                                    {% endif %}
+                                                {% endif %}
+                                            {% endfor %}
+                                        </td>
+
+                                        <!-- 6. 超重费用 -->
+                                        <td class="td_fee">
+                                            <span class="pickup-fee-amount">$0.00</span>
+                                            {% for fee in c.container_number.invoice_itemv2.all %}
+                                                {% if fee.description == "超重费用" %}
+                                                    {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
+                                                        <span class="pickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
+                                                    {% endif %}
+                                                {% endif %}
+                                            {% endfor %}
+                                        </td>
+
+                                        <!-- 7. 港内滞港费 -->
+                                        <td class="td_fee">
+                                            <span class="pickup-fee-amount">$0.00</span>
+                                            {% for fee in c.container_number.invoice_itemv2.all %}
+                                                {% if fee.description == "港内滞港费" %}
+                                                    {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
+                                                        <span class="pickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
+                                                    {% endif %}
+                                                {% endif %}
+                                            {% endfor %}
+                                        </td>
+
+                                        <!-- 8. 港外滞箱费 -->
+                                        <td class="td_fee">
+                                            <span class="pickup-fee-amount">$0.00</span>
+                                            {% for fee in c.container_number.invoice_itemv2.all %}
+                                                {% if fee.description == "港外滞箱费" %}
+                                                    {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
+                                                        <span class="pickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
+                                                    {% endif %}
+                                                {% endif %}
+                                            {% endfor %}
+                                        </td>
+
+                                        <!-- 9. 车架费用 -->
+                                        <td class="td_fee">
+                                            <span class="pickup-fee-amount">$0.00</span>
+                                            {% for fee in c.container_number.invoice_itemv2.all %}
+                                                {% if fee.description == "车架费用" %}
+                                                    {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
+                                                        <span class="pickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
+                                                    {% endif %}
+                                                {% endif %}
+                                            {% endfor %}
+                                        </td>
+
+                                        <!-- 其他费用 -->
+                                        <td class="td_fee_other"
+                                            data-container-id="{{ c.container_number.id }}"
+                                            data-type="other"
+                                            data-fees="
+                                        {% for fee in c.container_number.invoice_itemv2.all %}
+                                            {% if '其他费用' in fee.description %}
+                                                {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
+                                                {{ fee.rate|default:0|floatformat:2 }},
+                                                {% endif %}
+                                            {% endif %}
+                                        {% endfor %}">
+                                            <div class="fee-total">
+                                                <strong>合计：<span class="total-amount">$0.00</span></strong>
+                                            </div>
+                                        </td>
+
+                                        <!-- 总费用 -->
+                                        <td class="td_fee_total"
+                                            data-container-id="{{ c.container_number.id }}"
+                                            data-type="total"
+                                            data-fees="
+                                        {% for fee in c.container_number.invoice_itemv2.all %}
+                                        {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
+                                            {{ fee.rate|default:0|floatformat:2 }},
+                                        {% endif %}
+                                        {% endfor %}">
+                                            <div class="fee-total">
+                                                <strong>合计：<span class="total-amount">$0.00</span></strong>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                                </tbody>
+                            </table>
                         {% else %}
-                        <div class="alert alert-info">暂无已确认的提拆账单</div>
+                            <div class="alert alert-info">暂无已确认的提拆账单</div>
                         {% endif %}
                     </div>
                 </div>
+
+                <!-- 提柜待核销：修复ID为pick-t-waited，对应data-subtab -->
+                <div id="pick-t-waited" class="tab-content">
+                    <div class="table-container">
+                        {% if finance_confirmed_t_waited %}
+                            <table class="table" id="pick-t-waited-table">
+                                <thead>
+                                <tr>
+                                    <th class="th">客户</th>
+                                    <th class="th">仓点</th>
+                                    <th class="th">供应商</th>
+                                    <th class="th">货柜号</th>
+                                    <th class="th">提柜费</th>
+                                    <th class="th">直送固定报价</th>
+                                    <th class="th">直送等待费用</th>
+                                    <th class="th">超重费</th>
+                                    <th class="th">滞港费</th>
+                                    <th class="th">滞箱费</th>
+                                    <th class="th">车架费</th>
+                                    <th class="th">提柜其他费用</th>
+                                    <th class="th">总费用</th>
+                                    <th class="th">核销金额</th>
+                                    <th class="th">操作</th>
+                                </tr>
+                                <tr class="search-row">
+                                    <th class="th"></th>
+                                    <th class="th"><input type="text" class="search-input" placeholder="搜索仓点..."
+                                                          onkeyup="filterTable('pick-t-waited-table', 1)"></th>
+                                    <th class="th"><input type="text" class="search-input" placeholder="搜索供应商..."
+                                                          onkeyup="filterTable('pick-t-waited-table', 2)"></th>
+                                    <th class="th"><input type="text" class="search-input" placeholder="搜索货柜号..."
+                                                          onkeyup="filterTable('pick-t-waited-table', 3)"></th>
+                                    <th class="th"></th>
+                                    <th class="th"></th>
+                                    <th class="th"></th>
+                                    <th class="th"></th>
+                                    <th class="th"></th>
+                                    <th class="th"></th>
+                                    <th class="th"></th>
+                                    <th class="th"></th>
+                                    <th class="th"></th>
+                                    <th class="th"></th>
+                                    <th class="th"></th>
+                                </tr>
+                                </thead>
+                                <tbody>
+                                {% for c in finance_confirmed_t_waited %}
+                                    <tr>
+                                        <td class="td">
+                                            {% for order in c.container_number.orders.all %}
+                                                {{ order.customer_name.zem_name|default:"-" }}
+                                            {% endfor %}
+                                        </td>
+                                        <td class="td">
+                                            {% for order in c.container_number.orders.all %}
+                                                {{ order.retrieval_id.retrieval_destination_area|default:"-" }}
+                                            {% endfor %}
+                                        </td>
+                                        <td class="td">
+                                            {% for order in c.container_number.orders.all %}
+                                                {{ order.retrieval_id.retrieval_carrier|default:"-" }}
+                                            {% endfor %}
+                                        </td>
+                                        <td class="td">
+                                            <a href="/accounting/?step=container_payable&container_number={{ c.container_number.container_number }}&start_date={{ start_date }}&end_date={{ end_date }}&warehouse_filter={{ warehouse_filter }}"
+                                               class="container-link"
+                                               title="点击查看详情">{{ c.container_number.container_number }}</a>
+                                        </td>
+                                        <!-- 提柜相关费用列（保持不变） -->
+                                        <td class="td_fee">
+                                            <span class="pickup-fee-amount">$0.00</span>
+                                            {% for fee in c.container_number.invoice_itemv2.all %}
+                                                {% if fee.description == "提柜费用" %}
+                                                    <span class="pickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
+                                                {% endif %}
+                                            {% endfor %}
+                                        </td>
+                                        <td class="td_fee">
+                                            <span class="pickup-fee-amount">$0.00</span>
+                                            {% for fee in c.container_number.invoice_itemv2.all %}
+                                                {% if fee.description == "固定报价" %}
+                                                    {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
+                                                        <span class="pickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
+                                                    {% endif %}
+                                                {% endif %}
+                                            {% endfor %}
+                                        </td>
+                                        <td class="td_fee">
+                                            <span class="pickup-fee-amount">$0.00</span>
+                                            {% for fee in c.container_number.invoice_itemv2.all %}
+                                                {% if fee.description == "等待费用" %}
+                                                    {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
+                                                        <span class="pickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
+                                                    {% endif %}
+                                                {% endif %}
+                                            {% endfor %}
+                                        </td>
+                                        <td class="td_fee">
+                                            <span class="pickup-fee-amount">$0.00</span>
+                                            {% for fee in c.container_number.invoice_itemv2.all %}
+                                                {% if fee.description == "超重费用" %}
+                                                    {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
+                                                        <span class="pickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
+                                                    {% endif %}
+                                                {% endif %}
+                                            {% endfor %}
+                                        </td>
+                                        <td class="td_fee">
+                                            <span class="pickup-fee-amount">$0.00</span>
+                                            {% for fee in c.container_number.invoice_itemv2.all %}
+                                                {% if fee.description == "港内滞港费" %}
+                                                    {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
+                                                        <span class="pickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
+                                                    {% endif %}
+                                                {% endif %}
+                                            {% endfor %}
+                                        </td>
+                                        <td class="td_fee">
+                                            <span class="pickup-fee-amount">$0.00</span>
+                                            {% for fee in c.container_number.invoice_itemv2.all %}
+                                                {% if fee.description == "港外滞箱费" %}
+                                                    {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
+                                                        <span class="pickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
+                                                    {% endif %}
+                                                {% endif %}
+                                            {% endfor %}
+                                        </td>
+                                        <td class="td_fee">
+                                            <span class="pickup-fee-amount">$0.00</span>
+                                            {% for fee in c.container_number.invoice_itemv2.all %}
+                                                {% if fee.description == "车架费用" %}
+                                                    {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
+                                                        <span class="pickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
+                                                    {% endif %}
+                                                {% endif %}
+                                            {% endfor %}
+                                        </td>
+                                        <td class="td_fee_other"
+                                            data-container-id="{{ c.container_number.id }}"
+                                            data-type="other"
+                                            data-fees="
+                                            {% for fee in c.container_number.invoice_itemv2.all %}
+                                                {% if '提柜其他费用' in fee.description %}
+                                                    {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
+                                                    {{ fee.rate|default:0|floatformat:2 }},
+                                                    {% endif %}
+                                                {% endif %}
+                                            {% endfor %}">
+                                            <div class="fee-total">
+                                                <strong>合计：<span class="total-amount">$0.00</span></strong>
+                                            </div>
+                                        </td>
+                                        <td class="td_fee_total"
+                                            data-container-id="{{ c.container_number.id }}"
+                                            data-type="total"
+                                            data-fees="
+                                            {% for fee in c.container_number.invoice_itemv2.all %}
+                                            {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
+                                                {% if fee.description in t_item or '提柜其他费用' in fee.description %}
+                                                    {{ fee.rate|default:0|floatformat:2 }},
+                                                {% endif %}
+                                            {% endif %}
+                                            {% endfor %}">
+                                            <div class="fee-total">
+                                                <strong>合计：<span class="total-amount">$0.00</span></strong>
+                                            </div>
+                                        </td>
+                                        <td class="td_fee">
+                                            <input type="number" name="write_off_amount">
+                                        </td>
+                                        <td class="td_fee">
+                                            <form action="" method="post">
+                                                <input type="hidden" name="step" value="write_off_amount_post">
+                                                <input type="hidden" name="write_off_amount" value="{{ write_off_amount }}">
+                                                <button type="submit">确认</button>
+                                            </form>
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                                </tbody>
+                            </table>
+                        {% else %}
+                            <div class="alert alert-info">暂无提柜待核销的账单</div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- 卸柜待核销：修复ID为pick-x-waited，对应data-subtab -->
+                <div id="pick-x-waited" class="tab-content">
+                    <div class="table-container">
+                        {% if finance_confirmed_x_waited %}
+                            <table class="table" id="pick-x-waited-table">
+                                <thead>
+                                <tr>
+                                    <th class="th">客户</th>
+                                    <th class="th">仓点</th>
+                                    <th class="th">卸柜供应商</th>
+                                    <th class="th">货柜号</th>
+                                    <th class="th">拆柜费</th>
+                                    <th class="th">入库拆柜费</th>
+                                    <th class="th">卸柜其他费用</th>
+                                    <th class="th">总费用</th>
+                                </tr>
+                                <tr class="search-row">
+                                    <th class="th"></th>
+                                    <th class="th"><input type="text" class="search-input" placeholder="搜索仓点..."
+                                                          onkeyup="filterTable('pick-x-waited-table', 1)"></th>
+                                    <th class="th"><input type="text" class="search-input" placeholder="搜索供应商..."
+                                                          onkeyup="filterTable('pick-x-waited-table', 2)"></th>
+                                    <th class="th"><input type="text" class="search-input" placeholder="搜索货柜号..."
+                                                          onkeyup="filterTable('pick-x-waited-table', 3)"></th>
+                                    <th class="th"></th>
+                                    <th class="th"></th>
+                                    <th class="th"></th>
+                                    <th class="th"></th>
+                                </tr>
+                                </thead>
+                                <tbody>
+                                {% for c in finance_confirmed_x_waited %}
+                                    <tr>
+                                        <td class="td">
+                                            {% for order in c.container_number.orders.all %}
+                                                {{ order.customer_name.zem_name|default:"-" }}
+                                            {% endfor %}
+                                        </td>
+                                        <td class="td">
+                                            {% for order in c.container_number.orders.all %}
+                                                {{ order.retrieval_id.retrieval_destination_area|default:"-" }}
+                                            {% endfor %}
+                                        </td>
+                                        <td class="td">
+                                            {% for fee in c.container_number.invoice_itemv2.all %}
+                                                {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
+                                                    {% if '拆柜费用' in fee.description %}
+                                                        {{ fee.carrier|default:"-" }}
+                                                    {% endif %}
+                                                {% endif %}
+                                            {% endfor %}
+                                        </td>
+                                        <td class="td">
+                                            <a href="/accounting/?step=container_payable&container_number={{ c.container_number.container_number }}&start_date={{ start_date }}&end_date={{ end_date }}&warehouse_filter={{ warehouse_filter }}"
+                                               class="container-link"
+                                               title="点击查看详情">{{ c.container_number.container_number }}</a>
+                                        </td>
+                                        <!-- 卸柜相关费用列 -->
+                                        <td class="td_fee">
+                                            <span class="pickup-fee-amount">$0.00</span>
+                                            {% for fee in c.container_number.invoice_itemv2.all %}
+                                                {% if fee.description == "拆柜费用" %}
+                                                    {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
+                                                        <span class="pickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
+                                                    {% endif %}
+                                                {% endif %}
+                                            {% endfor %}
+                                        </td>
+                                        <td class="td_fee">
+                                            <span class="pickup-fee-amount">$0.00</span>
+                                            {% for fee in c.container_number.invoice_itemv2.all %}
+                                                {% if fee.description == "入库拆柜费" %}
+                                                    {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
+                                                        <span class="pickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
+                                                    {% endif %}
+                                                {% endif %}
+                                            {% endfor %}
+                                        </td>
+                                        <td class="td_fee_other"
+                                            data-container-id="{{ c.container_number.id }}"
+                                            data-type="other"
+                                            data-fees="
+                                            {% for fee in c.container_number.invoice_itemv2.all %}
+                                                {% if '拆柜其他费用' in fee.description %}
+                                                    {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
+                                                    {{ fee.rate|default:0|floatformat:2 }},
+                                                    {% endif %}
+                                                {% endif %}
+                                            {% endfor %}">
+                                            <div class="fee-total">
+                                                <strong>合计：<span class="total-amount">$0.00</span></strong>
+                                            </div>
+                                        </td>
+                                        <td class="td_fee_total"
+                                            data-container-id="{{ c.container_number.id }}"
+                                            data-type="total"
+                                            data-fees="
+                                            {% for fee in c.container_number.invoice_itemv2.all %}
+                                            {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
+                                                {% if fee.description in x_item or '拆柜其他费用' in fee.description %}
+                                                    {{ fee.rate|default:0|floatformat:2 }},
+                                                {% endif %}
+                                            {% endif %}
+                                            {% endfor %}">
+                                            <div class="fee-total">
+                                                <strong>合计：<span class="total-amount">$0.00</span></strong>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                                </tbody>
+                            </table>
+                        {% else %}
+                            <div class="alert alert-info">暂无卸柜待核销的账单</div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- 提柜已核销：修复ID为pick-t-completed -->
+                <div id="pick-t-completed" class="tab-content">
+                    <div class="table-container">
+                        {% if finance_confirmed_t_completed %}
+                            <table class="table" id="pick-t-completed-table">
+                                <thead>
+                                <tr>
+                                    <th class="th">客户</th>
+                                    <th class="th">仓点</th>
+                                    <th class="th">供应商</th>
+                                    <th class="th">货柜号</th>
+                                    <th class="th">提柜费</th>
+                                    <th class="th">直送固定报价</th>
+                                    <th class="th">直送等待费用</th>
+                                    <th class="th">超重费</th>
+                                    <th class="th">滞港费</th>
+                                    <th class="th">滞箱费</th>
+                                    <th class="th">车架费</th>
+                                    <th class="th">提柜其他费用</th>
+                                    <th class="th">总费用</th>
+                                </tr>
+                                <tr class="search-row">
+                                    <th class="th"></th>
+                                    <th class="th"><input type="text" class="search-input" placeholder="搜索仓点..."
+                                                          onkeyup="filterTable('pick-t-completed-table', 1)"></th>
+                                    <th class="th"><input type="text" class="search-input" placeholder="搜索供应商..."
+                                                          onkeyup="filterTable('pick-t-completed-table', 2)"></th>
+                                    <th class="th"><input type="text" class="search-input" placeholder="搜索货柜号..."
+                                                          onkeyup="filterTable('pick-t-completed-table', 3)"></th>
+                                    <th class="th"></th>
+                                    <th class="th"></th>
+                                    <th class="th"></th>
+                                    <th class="th"></th>
+                                    <th class="th"></th>
+                                    <th class="th"></th>
+                                    <th class="th"></th>
+                                    <th class="th"></th>
+                                    <th class="th"></th>
+                                </tr>
+                                </thead>
+                                <tbody>
+                                {% for c in finance_confirmed_t_completed %}
+                                    <tr>
+                                        <td class="td">
+                                            {% for order in c.container_number.orders.all %}
+                                                {{ order.customer_name.zem_name|default:"-" }}
+                                            {% endfor %}
+                                        </td>
+                                        <td class="td">
+                                            {% for order in c.container_number.orders.all %}
+                                                {{ order.retrieval_id.retrieval_destination_area|default:"-" }}
+                                            {% endfor %}
+                                        </td>
+                                        <td class="td">
+                                            {% for order in c.container_number.orders.all %}
+                                                {{ order.retrieval_id.retrieval_carrier|default:"-" }}
+                                            {% endfor %}
+                                        </td>
+                                        <td class="td">
+                                            <a href="/accounting/?step=container_payable&container_number={{ c.container_number.container_number }}&start_date={{ start_date }}&end_date={{ end_date }}&warehouse_filter={{ warehouse_filter }}"
+                                               class="container-link"
+                                               title="点击查看详情">{{ c.container_number.container_number }}</a>
+                                        </td>
+                                        <!-- 提柜已核销费用列（同提柜待核销结构） -->
+                                        <td class="td_fee">
+                                            <span class="pickup-fee-amount">$0.00</span>
+                                            {% for fee in c.container_number.invoice_itemv2.all %}
+                                                {% if fee.description == "提柜费用" and fee.write_off_amount %}
+                                                    <span class="pickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
+                                                {% endif %}
+                                            {% endfor %}
+                                        </td>
+                                        <td class="td_fee">
+                                            <span class="pickup-fee-amount">$0.00</span>
+                                            {% for fee in c.container_number.invoice_itemv2.all %}
+                                                {% if fee.description == "固定报价" and fee.write_off_amount %}
+                                                    <span class="pickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
+                                                {% endif %}
+                                            {% endfor %}
+                                        </td>
+                                        <td class="td_fee">
+                                            <span class="pickup-fee-amount">$0.00</span>
+                                            {% for fee in c.container_number.invoice_itemv2.all %}
+                                                {% if fee.description == "等待费用" and fee.write_off_amount %}
+                                                    <span class="pickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
+                                                {% endif %}
+                                            {% endfor %}
+                                        </td>
+                                        <td class="td_fee">
+                                            <span class="pickup-fee-amount">$0.00</span>
+                                            {% for fee in c.container_number.invoice_itemv2.all %}
+                                                {% if fee.description == "超重费用" and fee.write_off_amount %}
+                                                    <span class="pickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
+                                                {% endif %}
+                                            {% endfor %}
+                                        </td>
+                                        <td class="td_fee">
+                                            <span class="pickup-fee-amount">$0.00</span>
+                                            {% for fee in c.container_number.invoice_itemv2.all %}
+                                                {% if fee.description == "港内滞港费" and fee.write_off_amount %}
+                                                    <span class="pickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
+                                                {% endif %}
+                                            {% endfor %}
+                                        </td>
+                                        <td class="td_fee">
+                                            <span class="pickup-fee-amount">$0.00</span>
+                                            {% for fee in c.container_number.invoice_itemv2.all %}
+                                                {% if fee.description == "港外滞箱费" and fee.write_off_amount %}
+                                                    <span class="pickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
+                                                {% endif %}
+                                            {% endfor %}
+                                        </td>
+                                        <td class="td_fee">
+                                            <span class="pickup-fee-amount">$0.00</span>
+                                            {% for fee in c.container_number.invoice_itemv2.all %}
+                                                {% if fee.description == "车架费用" and fee.write_off_amount %}
+                                                    <span class="pickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
+                                                {% endif %}
+                                            {% endfor %}
+                                        </td>
+                                        <td class="td_fee_other"
+                                            data-container-id="{{ c.container_number.id }}"
+                                            data-type="other"
+                                            data-fees="
+                                            {% for fee in c.container_number.invoice_itemv2.all %}
+                                                {% if '提柜其他费用' in fee.description and fee.write_off_amount %}
+                                                    {{ fee.rate|default:0|floatformat:2 }},
+                                                {% endif %}
+                                            {% endfor %}">
+                                            <div class="fee-total">
+                                                <strong>合计：<span class="total-amount">$0.00</span></strong>
+                                            </div>
+                                        </td>
+                                        <td class="td_fee_total"
+                                            data-container-id="{{ c.container_number.id }}"
+                                            data-type="total"
+                                            data-fees="
+                                            {% for fee in c.container_number.invoice_itemv2.all %}
+                                                {% if fee.write_off_amount %}
+                                                    {% if fee.description in t_item or '提柜其他费用' in fee.description %}
+                                                        {{ fee.rate|default:0|floatformat:2 }},
+                                                    {% endif %}
+                                                {% endif %}
+                                            {% endfor %}">
+                                            <div class="fee-total">
+                                                <strong>合计：<span class="total-amount">$0.00</span></strong>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                                </tbody>
+                            </table>
+                        {% else %}
+                            <div class="alert alert-info">暂无提柜已核销的账单</div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- 卸柜已核销：修复ID为pick-x-completed -->
+                <div id="pick-x-completed" class="tab-content">
+                    <div class="table-container">
+                        {% if finance_confirmed_x_completed %}
+                            <table class="table" id="pick-x-completed-table">
+                                <thead>
+                                <tr>
+                                    <th class="th">客户</th>
+                                    <th class="th">仓点</th>
+                                    <th class="th">卸柜供应商</th>
+                                    <th class="th">货柜号</th>
+                                    <th class="th">拆柜费</th>
+                                    <th class="th">入库拆柜费</th>
+                                    <th class="th">卸柜其他费用</th>
+                                    <th class="th">总费用</th>
+                                </tr>
+                                <tr class="search-row">
+                                    <th class="th"></th>
+                                    <th class="th"><input type="text" class="search-input" placeholder="搜索仓点..."
+                                                          onkeyup="filterTable('pick-x-completed-table', 1)"></th>
+                                    <th class="th"><input type="text" class="search-input" placeholder="搜索供应商..."
+                                                          onkeyup="filterTable('pick-x-completed-table', 2)"></th>
+                                    <th class="th"><input type="text" class="search-input" placeholder="搜索货柜号..."
+                                                          onkeyup="filterTable('pick-x-completed-table', 3)"></th>
+                                    <th class="th"></th>
+                                    <th class="th"></th>
+                                    <th class="th"></th>
+                                    <th class="th"></th>
+                                </tr>
+                                </thead>
+                                <tbody>
+                                {% for c in finance_confirmed_x_completed %}
+                                    <tr>
+                                        <td class="td">
+                                            {% for order in c.container_number.orders.all %}
+                                                {{ order.customer_name.zem_name|default:"-" }}
+                                            {% endfor %}
+                                        </td>
+                                        <td class="td">
+                                            {% for order in c.container_number.orders.all %}
+                                                {{ order.retrieval_id.retrieval_destination_area|default:"-" }}
+                                            {% endfor %}
+                                        </td>
+                                        <td class="td">
+                                            {% for fee in c.container_number.invoice_itemv2.all %}
+                                                {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
+                                                    {% if '拆柜费用' in fee.description and fee.write_off_amount %}
+                                                        {{ fee.carrier|default:"-" }}
+                                                    {% endif %}
+                                                {% endif %}
+                                            {% endfor %}
+                                        </td>
+                                        <td class="td">
+                                            <a href="/accounting/?step=container_payable&container_number={{ c.container_number.container_number }}&start_date={{ start_date }}&end_date={{ end_date }}&warehouse_filter={{ warehouse_filter }}"
+                                               class="container-link"
+                                               title="点击查看详情">{{ c.container_number.container_number }}</a>
+                                        </td>
+                                        <!-- 卸柜已核销费用列 -->
+                                        <td class="td_fee">
+                                            <span class="pickup-fee-amount">$0.00</span>
+                                            {% for fee in c.container_number.invoice_itemv2.all %}
+                                                {% if fee.description == "拆柜费用" and fee.write_off_amount %}
+                                                    {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
+                                                        <span class="pickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
+                                                    {% endif %}
+                                                {% endif %}
+                                            {% endfor %}
+                                        </td>
+                                        <td class="td_fee">
+                                            <span class="pickup-fee-amount">$0.00</span>
+                                            {% for fee in c.container_number.invoice_itemv2.all %}
+                                                {% if fee.description == "入库拆柜费" and fee.write_off_amount %}
+                                                    {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
+                                                        <span class="pickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
+                                                    {% endif %}
+                                                {% endif %}
+                                            {% endfor %}
+                                        </td>
+                                        <td class="td_fee_other"
+                                            data-container-id="{{ c.container_number.id }}"
+                                            data-type="other"
+                                            data-fees="
+                                            {% for fee in c.container_number.invoice_itemv2.all %}
+                                                {% if '拆柜其他费用' in fee.description and fee.write_off_amount %}
+                                                    {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
+                                                    {{ fee.rate|default:0|floatformat:2 }},
+                                                    {% endif %}
+                                                {% endif %}
+                                            {% endfor %}">
+                                            <div class="fee-total">
+                                                <strong>合计：<span class="total-amount">$0.00</span></strong>
+                                            </div>
+                                        </td>
+                                        <td class="td_fee_total"
+                                            data-container-id="{{ c.container_number.id }}"
+                                            data-type="total"
+                                            data-fees="
+                                            {% for fee in c.container_number.invoice_itemv2.all %}
+                                                {% if fee.write_off_amount %}
+                                                    {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
+                                                        {% if fee.description in x_item or '拆柜其他费用' in fee.description %}
+                                                            {{ fee.rate|default:0|floatformat:2 }},
+                                                        {% endif %}
+                                                    {% endif %}
+                                                {% endif %}
+                                            {% endfor %}">
+                                            <div class="fee-total">
+                                                <strong>合计：<span class="total-amount">$0.00</span></strong>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                                </tbody>
+                            </table>
+                        {% else %}
+                            <div class="alert alert-info">暂无卸柜已核销的账单</div>
+                        {% endif %}
+                    </div>
+                </div>
+
             </div>
         </div>
 
@@ -1539,18 +2141,20 @@
             tab.addEventListener('click', function() {
                 const parentTab = this.closest('.tab-content').id.replace('-content', '');
                 const subTabName = this.getAttribute('data-subtab');
-                // 移除同级别子标签页激活状态
+                // 移除同级别激活状态
                 this.closest('.sub-content-tabs').querySelectorAll('.sub-content-tab').forEach(t => {
                     t.classList.remove('active');
                 });
                 this.classList.add('active');
-                // 隐藏同级别子内容
+                // 隐藏同级别内容，显示当前标签页内容
                 document.querySelectorAll('#' + parentTab + '-content .tab-content').forEach(content => {
                     content.classList.remove('active');
                 });
                 document.getElementById(subTabName).classList.add('active');
                 // 切换后重新计算费用
-                setTimeout(calculateAllFees, 100);
+                setTimeout(() => {
+                    calculateAllFees(subTabName + '-table'); // 传入当前表格ID
+                }, 100);
             });
         });
 

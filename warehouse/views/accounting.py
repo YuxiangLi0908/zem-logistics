@@ -2671,15 +2671,29 @@ class Accounting(View):
             }
             return self.template_invoice_payable_confirm, context
 
+    from django.db import models
+    from django.db.models import Q, F, Sum, OuterRef, Exists, Subquery
+    from django.http import HttpRequest
+    from django.shortcuts import render
+    from datetime import datetime, timedelta
+    from typing import Any
+
+    # 假设这些是你已定义的模型和常量（根据实际情况调整）
+    # from your_app.models import (
+    #     InvoiceStatusv2, InvoiceItemv2, Order, Pallet, FleetShipmentPallet,
+    #     Customer, OrderForm
+    # )
+    # CARRIER_FLEET = {}  # 实际业务常量
+
     def handle_invoice_confirm_get_v1(
-        self,
-        request: HttpRequest,
-        start_date_confirm: str = None,
-        end_date_confirm: str = None,
-        customer: str = None,
-        warehouse: str = None,
+            self,
+            request: HttpRequest,
+            start_date_confirm: str = None,
+            end_date_confirm: str = None,
+            customer: str = None,
+            warehouse: str = None,
     ) -> tuple[Any, Any]:
-        """财务待确认-已确认"""
+        """财务待确认-已确认-提柜待核销-拆柜已核销"""
         current_date = datetime.now().date()
         start_date_confirm = (
             (current_date + timedelta(days=-60)).strftime("%Y-%m-%d")
@@ -2696,57 +2710,105 @@ class Accounting(View):
             if warehouse == "直送":
                 criteria &= models.Q(order_type="直送")
             else:
-                # 这是非直送的筛选，标记一下加上直送的筛选
+                # 非直送的筛选
                 criteria &= models.Q(
                     retrieval_id__retrieval_destination_precise=warehouse
                 )
         if customer:
             criteria &= models.Q(customer_name__zem_name=customer)
-        #待确认账单应付
-        selected_customer_id = request.POST.get("customer_name", "")  # 重点：字段名是"customer_name"（Form字段名）
+
+        # 待确认账单应付
+        selected_customer_id = request.POST.get("customer_name", "")
         order_form = OrderForm(
             initial={
-                "customer_name": selected_customer_id  # 关键：让表单默认选中该客户
+                "customer_name": selected_customer_id
             }
         )
         criteria &= models.Q(
-            models.Q(cancel_notification=False),
-            models.Q(vessel_id__vessel_etd__gte=start_date_confirm),
-            models.Q(vessel_id__vessel_etd__lte=end_date_confirm),
+            cancel_notification=False,
+            vessel_id__vessel_etd__gte=start_date_confirm,
+            vessel_id__vessel_etd__lte=end_date_confirm,
         )
 
+        # 子查询：判断订单是否存在
         order_exists_subquery = Order.objects.filter(
             criteria,
-            container_number_id=OuterRef("container_number_id"),  # OuterRef仅用于子查询
+            container_number_id=OuterRef("container_number_id"),
         )
-        # 2.2 预加载用（不含OuterRef，用于Prefetch）
+
+        # 预加载Order查询集（通用）
         order_prefetch_queryset = Order.objects.filter(
             criteria
         ).select_related("retrieval_id", "vessel_id", "customer_name")
 
-        # 查找提拆的待确认和已确认
+        # 提柜
+        t_item = ['提柜费用', '固定报价', '等待费用', '超重费用', '港内滞港费', '港外滞箱费', '车架费用']
+        # 卸柜
+        x_item = ['拆柜费用','入库拆柜费']
+
+        # 提柜待核销
+        itemv2_prefetch_queryset_t_waited = InvoiceItemv2.objects.filter(
+            models.Q(
+                description__in=["提柜费用", "固定报价", "等待费用", "超重费用", "车架费用", "港内滞港费", "港外滞箱费"]
+            ) | models.Q(
+                description__contains="提柜其他费用"
+            ) | models.Q(
+                description__contains="直送其他费用"
+            ),
+            write_off_amount__isnull=True,
+        )
+        # 提柜已核销
+        itemv2_prefetch_queryset_t_completed = InvoiceItemv2.objects.filter(
+            models.Q(
+                description__in=["提柜费用", "固定报价", "等待费用", "超重费用", "车架费用", "港内滞港费", "港外滞箱费"]
+            ) | models.Q(
+                description__contains="提柜其他费用"
+            ) | models.Q(
+                description__contains="直送其他费用"
+            ),
+            write_off_amount__isnull=False,
+        )
+
+
+        # 卸柜待核销
+        itemv2_prefetch_queryset_x_waited = InvoiceItemv2.objects.filter(
+            models.Q(
+                description__in=["拆柜费用", "入库拆柜费"]
+            ) | models.Q(
+                description__contains="拆柜其他费用"
+            ),
+            write_off_amount__isnull=True,
+        )
+        # 卸柜已核销
+        itemv2_prefetch_queryset_x_completed = InvoiceItemv2.objects.filter(
+            models.Q(
+                description__in=["拆柜费用", "入库拆柜费"]
+            ) | models.Q(
+                description__contains="拆柜其他费用"
+            ),
+            write_off_amount__isnull=False,
+        )
+
+
         # 提拆的待确认
         finance_pending = (
             InvoiceStatusv2.objects.select_related(
                 "container_number",
                 "invoice",
             ).prefetch_related(
-                # 预加载 Order（一对多反向关联）
                 Prefetch(
                     "container_number__orders",
-                    queryset=order_prefetch_queryset  # Order 自身的筛选条件
+                    queryset=order_prefetch_queryset
                 ),
-                # 预加载 InvoiceItemv2（费用项，一对多反向关联）
                 Prefetch(
                     "container_number__invoice_itemv2",
-                    queryset=InvoiceItemv2.objects.all()  # 费用项无需额外过滤，前端按描述匹配
+                    queryset=InvoiceItemv2.objects.all()
                 )
             )
-            # 关键修复：annotate 加在主查询上，计算集装箱的总费用
             .annotate(
                 total_fee=Sum(
-                    "container_number__invoice_itemv2__rate",  # 关联路径：InvoiceStatusv2→Container→InvoiceItemv2→rate
-                    default=0  # 无费用时默认 0，避免前端显示 None
+                    "container_number__invoice_itemv2__rate",
+                    default=0
                 )
             )
             .filter(
@@ -2755,7 +2817,6 @@ class Accounting(View):
                 finance_status="tobeconfirmed",
             )
         )
-
         finance_pending = list(finance_pending.iterator(chunk_size=200))
 
         # 提拆的已确认
@@ -2764,22 +2825,19 @@ class Accounting(View):
                 "container_number",
                 "invoice",
             ).prefetch_related(
-                # 预加载 Order（一对多反向关联）
                 Prefetch(
                     "container_number__orders",
-                    queryset=order_prefetch_queryset  # Order 自身的筛选条件
+                    queryset=order_prefetch_queryset
                 ),
-                # 预加载 InvoiceItemv2（费用项，一对多反向关联）
                 Prefetch(
                     "container_number__invoice_itemv2",
-                    queryset=InvoiceItemv2.objects.all()  # 费用项无需额外过滤，前端按描述匹配
+                    queryset=InvoiceItemv2.objects.all()
                 )
             )
-            # 关键修复：annotate 加在主查询上，计算集装箱的总费用
             .annotate(
                 total_fee=Sum(
-                    "container_number__invoice_itemv2__rate",  # 关联路径：InvoiceStatusv2→Container→InvoiceItemv2→rate
-                    default=0  # 无费用时默认 0，避免前端显示 None
+                    "container_number__invoice_itemv2__rate",
+                    default=0
                 )
             )
             .filter(
@@ -2788,11 +2846,181 @@ class Accounting(View):
                 finance_status="completed",
             )
         )
-
         finance_confirmed = list(finance_confirmed.iterator(chunk_size=200))
 
+        # 提柜待核销
+        finance_confirmed_t_waited = (
+            InvoiceStatusv2.objects.select_related(
+                "container_number",
+                "invoice",
+            ).prefetch_related(
+                Prefetch(
+                    "container_number__orders",
+                    queryset=order_prefetch_queryset
+                ),
+                Prefetch(
+                    "container_number__invoice_itemv2",
+                    queryset=itemv2_prefetch_queryset_t_waited
+                )
+            )
+            .annotate(
+                total_fee=Sum(
+                    "container_number__invoice_itemv2__rate",
+                    default=0
+                )
+            )
+            .filter(
+                Exists(order_exists_subquery),
+                # 修复3：子查询包含费用项描述筛选，确保只返回有提柜待核销费用的账单
+                Exists(
+                    InvoiceItemv2.objects.filter(
+                        models.Q(
+                            description__in=["提柜费用", "固定报价", "等待费用", "超重费用", "车架费用", "港内滞港费",
+                                             "港外滞箱费"]
+                        ) | models.Q(
+                            description__contains="提柜其他费用"
+                        ) | models.Q(
+                            description__contains="直送其他费用"
+                        ),
+                        container_number_id=OuterRef("container_number_id"),
+                        write_off_amount__isnull=True,
 
-        # criteria和fleetshipmentpallet表直接关联较为复杂，所以先筛选pallet表，然后根据PO_ID去筛选
+                    )
+                ),
+                models.Q(invoice_type="payable") | models.Q(invoice_type="payable_direct"),
+                finance_status="completed",
+            )
+        )
+        finance_confirmed_t_waited = list(finance_confirmed_t_waited.iterator(chunk_size=200))
+
+        # 提柜已核销
+        finance_confirmed_t_completed = (
+            InvoiceStatusv2.objects.select_related(
+                "container_number",
+                "invoice",
+            ).prefetch_related(
+                Prefetch(
+                    "container_number__orders",
+                    queryset=order_prefetch_queryset
+                ),
+                Prefetch(
+                    "container_number__invoice_itemv2",
+                    queryset=itemv2_prefetch_queryset_t_completed
+                )
+            )
+            .annotate(
+                total_fee=Sum(
+                    "container_number__invoice_itemv2__rate",
+                    default=0
+                )
+            )
+            .filter(
+                Exists(order_exists_subquery),
+                # 修复3：子查询包含费用项描述筛选，确保只返回有提柜待核销费用的账单
+                Exists(
+                    InvoiceItemv2.objects.filter(
+                        models.Q(
+                            description__in=["提柜费用", "固定报价", "等待费用", "超重费用", "车架费用", "港内滞港费",
+                                             "港外滞箱费"]
+                        ) | models.Q(
+                            description__contains="提柜其他费用"
+                        ) | models.Q(
+                            description__contains="直送其他费用"
+                        ),
+                        container_number_id=OuterRef("container_number_id"),
+                        write_off_amount__isnull=False,
+
+                    )
+                ),
+                models.Q(invoice_type="payable") | models.Q(invoice_type="payable_direct"),
+                finance_status="completed",
+            )
+        )
+        finance_confirmed_t_completed = list(finance_confirmed_t_completed.iterator(chunk_size=200))
+
+        # 卸柜待核销
+        finance_confirmed_x_waited = (
+            InvoiceStatusv2.objects.select_related(
+                "container_number",
+                "invoice",
+            ).prefetch_related(
+                Prefetch(
+                    "container_number__orders",
+                    queryset=order_prefetch_queryset
+                ),
+                Prefetch(
+                    "container_number__invoice_itemv2",
+                    queryset=itemv2_prefetch_queryset_x_waited
+                )
+            )
+            .annotate(
+                total_fee=Sum(
+                    "container_number__invoice_itemv2__rate",
+                    default=0
+                )
+            )
+            .filter(
+                Exists(order_exists_subquery),
+                # 修复5：子查询包含费用项描述筛选，确保只返回有拆柜已核销费用的账单
+                Exists(
+                    InvoiceItemv2.objects.filter(
+                        models.Q(
+                            description__in=["拆柜费用", "入库拆柜费"]
+                        ) | models.Q(
+                            description__contains="拆柜其他费用"
+                        ),
+                        container_number_id=OuterRef("container_number_id"),
+                        write_off_amount__isnull=True,
+                    )
+                ),
+                models.Q(invoice_type="payable") | models.Q(invoice_type="payable_direct"),
+                finance_status="completed",
+            )
+        )
+        finance_confirmed_x_waited = list(finance_confirmed_x_waited.iterator(chunk_size=200))
+
+        # 卸柜已核销
+        finance_confirmed_x_completed = (
+            InvoiceStatusv2.objects.select_related(
+                "container_number",
+                "invoice",
+            ).prefetch_related(
+                Prefetch(
+                    "container_number__orders",
+                    queryset=order_prefetch_queryset
+                ),
+                Prefetch(
+                    "container_number__invoice_itemv2",
+                    queryset=itemv2_prefetch_queryset_x_completed
+                )
+            )
+            .annotate(
+                total_fee=Sum(
+                    "container_number__invoice_itemv2__rate",
+                    default=0
+                )
+            )
+            .filter(
+                Exists(order_exists_subquery),
+                # 修复5：子查询包含费用项描述筛选，确保只返回有拆柜已核销费用的账单
+                Exists(
+                    InvoiceItemv2.objects.filter(
+                        models.Q(
+                            description__in=["拆柜费用", "入库拆柜费"]
+                        ) | models.Q(
+                            description__contains="拆柜其他费用"
+                        ),
+                        container_number_id=OuterRef("container_number_id"),
+                        write_off_amount__isnull=False,
+                    )
+                ),
+                models.Q(invoice_type="payable") | models.Q(invoice_type="payable_direct"),
+                finance_status="completed",
+            )
+        )
+        finance_confirmed_x_completed = list(finance_confirmed_x_completed.iterator(chunk_size=200))
+
+
         container_numbers = Order.objects.filter(criteria).values_list(
             "container_number", flat=True
         )
@@ -2803,7 +3031,7 @@ class Accounting(View):
         )
         delivery_pending_orders = (
             FleetShipmentPallet.objects.select_related(
-                "fleet_number",  # 确保预取关联的Fleet对象
+                "fleet_number",
                 "shipment_batch_number",
                 "container_number",
             )
@@ -2824,13 +3052,12 @@ class Accounting(View):
             .order_by("fleet_number", "pickup_number", "container_num")
         )
 
+        #派送
         deliverys = {}
         for order in delivery_pending_orders:
             fleet_id = order.fleet_number_id
             if fleet_id not in deliverys:
-                # 获取carrier信息
                 carrier = order.fleet_number.carrier if order.fleet_number else None
-
                 deliverys[fleet_id] = {
                     "fleets": {},
                     "total_pallets": 0,
@@ -2847,24 +3074,19 @@ class Accounting(View):
                     "total_rows": 0,
                 }
 
-            if (
-                    order.appointment_id
-                    not in deliverys[fleet_id]["fleets"][order.pickup_number][
-                "appointments"
-            ]
-            ):
-                deliverys[fleet_id]["fleets"][order.pickup_number]["appointments"][
-                    order.appointment_id
-                ] = {"orders": [], "total_pallets": 0, "total_expense": 0, "rowspan": 0}
+            if order.appointment_id not in deliverys[fleet_id]["fleets"][order.pickup_number]["appointments"]:
+                deliverys[fleet_id]["fleets"][order.pickup_number]["appointments"][order.appointment_id] = {
+                    "orders": [], "total_pallets": 0, "total_expense": 0, "rowspan": 0
+                }
 
-            # 计算单板成本并保留2位小数
+            # 计算单板成本
             per_expense = (
                 round(order.expense / int(order.total_pallet), 2)
                 if order.total_pallet
                 else 0
             )
 
-            # 为每个order添加统计字段
+            # 组装订单数据
             order_data = {
                 "object": order,
                 "cn_total_pallet": int(order.total_pallet) if order.total_pallet else 0,
@@ -2875,33 +3097,24 @@ class Accounting(View):
                 "carrier": deliverys[fleet_id]["carrier"],
             }
 
-            deliverys[fleet_id]["fleets"][order.pickup_number]["appointments"][
-                order.appointment_id
-            ]["orders"].append(order_data)
+            # 累加统计数据
+            appointment_data = deliverys[fleet_id]["fleets"][order.pickup_number]["appointments"][order.appointment_id]
+            appointment_data["orders"].append(order_data)
+            appointment_data["total_pallets"] += order_data["cn_total_pallet"]
+            appointment_data["total_expense"] += order_data["cn_total_expense"]
+            appointment_data["rowspan"] += 1
 
-            deliverys[fleet_id]["fleets"][order.pickup_number]["appointments"][
-                order.appointment_id
-            ]["total_pallets"] += int(order_data["cn_total_pallet"])
-            deliverys[fleet_id]["fleets"][order.pickup_number]["appointments"][
-                order.appointment_id
-            ]["total_expense"] += order_data["cn_total_expense"]
-            deliverys[fleet_id]["fleets"][order.pickup_number]["appointments"][
-                order.appointment_id
-            ]["rowspan"] += 1
+            fleet_pickup_data = deliverys[fleet_id]["fleets"][order.pickup_number]
+            fleet_pickup_data["ISA_total_pallets"] += order_data["cn_total_pallet"]
+            fleet_pickup_data["ISA_total_expense"] += order_data["cn_total_expense"]
+            fleet_pickup_data["total_rows"] += 1
 
-            deliverys[fleet_id]["fleets"][order.pickup_number][
-                "ISA_total_pallets"
-            ] += int(order_data["cn_total_pallet"])
-            deliverys[fleet_id]["fleets"][order.pickup_number][
-                "ISA_total_expense"
-            ] += order_data["cn_total_expense"]
-            deliverys[fleet_id]["fleets"][order.pickup_number]["total_rows"] += 1
+            fleet_data = deliverys[fleet_id]
+            fleet_data["total_pallets"] += order_data["cn_total_pallet"]
+            fleet_data["total_expense"] += order_data["cn_total_expense"]
+            fleet_data["total_rows"] += 1
 
-            deliverys[fleet_id]["total_pallets"] += int(order_data["cn_total_pallet"])
-            deliverys[fleet_id]["total_expense"] += order_data["cn_total_expense"]
-            deliverys[fleet_id]["total_rows"] += 1
-
-        # 转换数据结构
+        # 转换配送数据结构
         delivery_pending_orders = [
             {
                 "fleets": fleet_data["fleets"],
@@ -2912,6 +3125,7 @@ class Accounting(View):
             for fleet_data in deliverys.values()
         ]
 
+        # 页面上下文数据
         start_date_export = (current_date + timedelta(days=-15)).strftime("%Y-%m-%d")
         end_date_export = current_date.strftime("%Y-%m-%d")
         pickup_carriers = {
@@ -2932,6 +3146,7 @@ class Accounting(View):
             "KNO": "KNO",
         }
         existing_customers = Customer.objects.all().order_by("zem_name")
+
         context = {
             "finance_pending": finance_pending,
             "finance_confirmed": finance_confirmed,
@@ -2950,8 +3165,15 @@ class Accounting(View):
             "end_date_export": end_date_export,
             "invoice_type_filter": "payable",
             "CARRIER_FLEET": CARRIER_FLEET,
+            "finance_confirmed_t_waited": finance_confirmed_t_waited,
+            "finance_confirmed_x_waited": finance_confirmed_x_waited,
+            "finance_confirmed_t_completed": finance_confirmed_t_completed,
+            "finance_confirmed_x_completed": finance_confirmed_x_completed,
             "warehouse_filter": request.POST.get("warehouse_filter"),
+            "t_item": t_item,
+            "x_item": x_item,
         }
+
         return self.template_invoice_payable_confirm_payable, context
 
 
