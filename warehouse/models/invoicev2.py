@@ -167,6 +167,7 @@ class InvoiceItemv2(models.Model):
         ("delivery_public", "公仓派送"),
         ("delivery_other", "私仓派送"),
         ("activation_fee", "激活费"),
+        ('combina_extra_fee', '组合费额外费用')
     ]
     container_number = models.ForeignKey(
         Container, on_delete=models.CASCADE, related_name="invoice_itemv2"
