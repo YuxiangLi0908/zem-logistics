@@ -182,7 +182,9 @@ h2 {
         <strong>Container Number:</strong> {{ container_info.number }}
         {% elif invoice_info %}
         <strong>Invoice ID:</strong> {{ invoice_info.id }} | 
-        <strong>Invoice Number:</strong> {{ invoice_info.number }}
+        <strong>柜号:</strong> {{ container_number }} |
+        <strong>Invoice Number:</strong> {{ invoice_info.number }} |
+        <strong>总费用:</strong> {{ receivable_total_fee }}
         {% endif %}
     </div>
     <!-- 右侧删除按钮 -->
