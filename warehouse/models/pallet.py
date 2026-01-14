@@ -84,6 +84,7 @@ class Pallet(models.Model):
     ltl_quote_note = models.CharField(max_length=400, null=True, blank=True, verbose_name="ltl报价备注")
     ltl_contact_method = models.CharField(max_length=400, null=True, blank=True, verbose_name="ltl预约送货联系方式")
     del_qty = models.FloatField(null=True, blank=True, verbose_name="私仓派送费的数量")
+    ltl_plt_size_note = models.CharField(max_length=1000, null=True, blank=True, verbose_name="ltl-板子尺寸备注")
     history = HistoricalRecords()
 
     class Meta:

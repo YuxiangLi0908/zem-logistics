@@ -422,11 +422,17 @@
         min-width: 100px;
         max-width: 120px;
     }
-    textarea {
-        min-height: 40px; /* 最小高度 */
-        max-height: none; /* 取消最大高度限制 */
-        overflow: hidden !important; 
-        
+
+    .follow-input, .carrier-input, .address-input, .bol-input, 
+    .pallet-size-input, .plt-size-note-input, .editable-textarea {
+        display: block;
+        width: 100%;
+        resize: none; /* 禁用手动拉伸，完全交给 JS 控制 */
+        overflow: hidden; /* 隐藏滚动条 */
+        box-sizing: border-box; /* 关键：确保宽度包含 padding 和 border */
+        min-height: 32px; /* 设置一个最小高度 */
+        line-height: 1.5;
+        padding: 6px 8px;
     }
 </style>
 
@@ -489,6 +495,7 @@
                     <th>件数</th>
                     <th class="pallet-col">板数</th>
                     <th class="pallet-size-col">托盘尺寸</th>
+                    <th class="pallet-size-col">托盘尺寸备注</th>
                     <th class="quote-col">出库数量</th> 
                     <th class="quote-col">单板费</th> 
                     <th class="quote-col">出库费</th> 
@@ -538,28 +545,31 @@
                         <input type="text" class="filter-input" placeholder="筛选托盘尺寸..." data-column="9" onkeyup="applySelfPickColumnFilter(this)">
                     </td>
                     <td>
-                        <input type="text" class="filter-input" placeholder="筛选出库数量..." data-column="10" onkeyup="applySelfPickColumnFilter(this)">
+                        <input type="text" class="filter-input" placeholder="筛选托盘尺寸备注..." data-column="10" onkeyup="applySelfPickColumnFilter(this)">
+                    </td>
+                    <td>
+                        <input type="text" class="filter-input" placeholder="筛选出库数量..." data-column="11" onkeyup="applySelfPickColumnFilter(this)">
                     </td> 
                     <td>
-                        <input type="text" class="filter-input" placeholder="筛选单板费..." data-column="11" onkeyup="applySelfPickColumnFilter(this)">
+                        <input type="text" class="filter-input" placeholder="筛选单板费..." data-column="12" onkeyup="applySelfPickColumnFilter(this)">
                     </td> 
                     <td>
-                        <input type="text" class="filter-input" placeholder="筛选出库费..." data-column="12" onkeyup="applySelfPickColumnFilter(this)">
+                        <input type="text" class="filter-input" placeholder="筛选出库费..." data-column="13" onkeyup="applySelfPickColumnFilter(this)">
                     </td> 
                     <td>
-                        <input type="text" class="filter-input" placeholder="筛选出库费备注..." data-column="13" onkeyup="applySelfPickColumnFilter(this)">
+                        <input type="text" class="filter-input" placeholder="筛选出库费备注..." data-column="14" onkeyup="applySelfPickColumnFilter(this)">
                     </td> 
                     <td>
-                        <input type="text" class="filter-input" placeholder="筛选BOL号..." data-column="14" onkeyup="applySelfPickColumnFilter(this)">
+                        <input type="text" class="filter-input" placeholder="筛选BOL号..." data-column="15" onkeyup="applySelfPickColumnFilter(this)">
                     </td>                  
                     <td>
-                        <input type="text" class="filter-input" placeholder="筛选承运公司..." data-column="15" onkeyup="applySelfPickColumnFilter(this)">
+                        <input type="text" class="filter-input" placeholder="筛选承运公司..." data-column="16" onkeyup="applySelfPickColumnFilter(this)">
                     </td>
                     <td>
-                        <input type="text" class="filter-input" placeholder="筛选地址..." data-column="16" onkeyup="applySelfPickColumnFilter(this)">
+                        <input type="text" class="filter-input" placeholder="筛选地址..." data-column="17" onkeyup="applySelfPickColumnFilter(this)">
                     </td>
                     <td>
-                        <input type="text" class="filter-input" placeholder="筛选提货日期..." data-column="17" onkeyup="applySelfPickColumnFilter(this)">
+                        <input type="text" class="filter-input" placeholder="筛选提货日期..." data-column="18" onkeyup="applySelfPickColumnFilter(this)">
                     </td>
                     <td class="action-col">
                         <!-- 操作列不需要筛选 -->
@@ -657,6 +667,18 @@
                             </div>
                         {% else %}
                             <!-- PackingList 数据没有托盘尺寸字段 -->
+                            <span style="color: #999; font-style: italic;">-</span>
+                        {% endif %}
+                    </td>
+                    <td class="pallet-size-col">
+                        {% if cargo.data_source == "PALLET" %}
+                            <div style="position: relative;">
+                                <textarea class="fleet-editable-textarea plt-size-note-input"
+                                    placeholder="输入托盘尺寸备注"
+                                    oninput="autoResizeTextarea(this)"
+                                    rows="1">{{ cargo.ltl_plt_size_note|default_if_none:"" }}</textarea>
+                            </div>
+                        {% else %}
                             <span style="color: #999; font-style: italic;">-</span>
                         {% endif %}
                     </td>
@@ -779,6 +801,7 @@
     <input type="hidden" name="bol_number" id="bolNumberInput">
     <input type="hidden" name="pickup_date" id="pickupTimeInput">
     <input type="hidden" name="pallet_size" id="palletSizeInput">
+    <input type="hidden" name="ltl_plt_size_note" id="pltSizeNoteInput">
     <input type="hidden" name="follow_status" id="followStatusInput">
     <input type="hidden" name="del_qty" id="delQtyInput">
     <input type="hidden" name="ltl_unit_quote" id="unitQuoteInput">
@@ -795,9 +818,25 @@
         document.addEventListener('DOMContentLoaded', function() {
             initializeSelfpickPage();
            
-            // 初始化所有textarea
-            document.querySelectorAll('textarea').forEach(t => {
-                autoResizeTextarea(t);
+            // 获取所有的 textarea (包含你新加的备注列)
+            const allTextareas = document.querySelectorAll('textarea.follow-input, textarea.address-input, textarea.bol-input, textarea.pallet-size-input, textarea.plt-size-note-input');
+
+            // 1. 初始加载时：对每个 textarea 执行一次调整
+            // 使用 setTimeout 确保 DOM 已经完全渲染完毕再计算
+            setTimeout(() => {
+                allTextareas.forEach(t => autoResizeTextarea(t));
+            }, 100);
+
+            // 2. 绑定输入事件：实时调整
+            allTextareas.forEach(t => {
+                t.addEventListener('input', function() {
+                    autoResizeTextarea(this);
+                });
+            });
+
+            // 3. 处理窗口缩放：防止因为列宽变窄导致文字换行
+            window.addEventListener('resize', () => {
+                allTextareas.forEach(t => autoResizeTextarea(t));
             });
         });
 
@@ -826,9 +865,20 @@
 
         // 自动调整textarea高度
         function autoResizeTextarea(textarea) {
+            if (!textarea) return;
+
+            // 1. 先将高度设为 auto，让它收缩到最小（这一步非常关键，否则高度只会增加不会减少）
             textarea.style.height = 'auto';
-            textarea.style.overflow = 'hidden';   // 双保险
-            textarea.style.height = textarea.scrollHeight + 'px';
+
+            // 2. 读取 scrollHeight (这是内容的真实高度)
+            // 注意：如果 box-sizing 是 border-box，scrollHeight 就是我们需要的高度
+            let newHeight = textarea.scrollHeight;
+
+            // 3. 如果 scrollHeight 为 0（可能元素当前不可见），则不处理
+            if (newHeight > 0) {
+                // 额外补偿 2px 避免某些浏览器下的微小溢出导致闪烁
+                textarea.style.height = (newHeight + 2) + 'px';
+            }
         }
 
         // 新增：复制选中行数据到剪贴板
@@ -1056,6 +1106,7 @@
             const unitQuoteInput = row.querySelector('.unit-quote-input');
             const ltlQuoteInput = row.querySelector('.outbound-fee-input');
             const ltlQuoteNoteInput = row.querySelector('.outbound-fee-note-input');
+            const pltSizeNoteInput = row.querySelector('.plt-size-note-input');
 
             const followStatusValue = followStatusInput ? followStatusInput.value.trim() : '';
             const carrierValue = carrierInput ? carrierInput.value.trim() : '';
@@ -1067,6 +1118,7 @@
             const unitQuoteValue = unitQuoteInput ? unitQuoteInput.value.trim() : '';
             const ltlQuoteValue = ltlQuoteInput ? ltlQuoteInput.value.trim() : '';
             const ltlQuoteNoteValue = ltlQuoteNoteInput ? ltlQuoteNoteInput.value.trim() : '';
+            const pltSizeNoteValue = pltSizeNoteInput ? pltSizeNoteInput.value.trim() : '';
             
             /* const tbody = document.querySelector('#selfpick_cargoTable tbody');
             // 只有PALLET数据才有托盘尺寸输入框
@@ -1123,12 +1175,13 @@
             const unitQuoteInputField = document.getElementById('unitQuoteInput');
             const ltlQuoteInputField = document.getElementById('ltlQuoteInput');
             const ltlQuoteNoteInputField = document.getElementById('ltlQuoteNoteInput');
+            const pltSizeNoteInputField = document.getElementById('pltSizeNoteInput'); 
             const saveForm = document.getElementById('saveForm');
 
             if (cargoIdInput && carrierInputField && addressInputField && 
                 bolNumberInputField && pickupTimeInputField && followStatusInputField 
                 && palletSizeInputField && delQtyInputField && ltlQuoteInputField 
-                && ltlQuoteNoteInputField && unitQuoteInputField && saveForm) {
+                && ltlQuoteNoteInputField && unitQuoteInputField && pltSizeNoteInputField && saveForm) {
                 cargoIdInput.value = id;
                 carrierInputField.value = carrierValue;
                 addressInputField.value = addressValue;
@@ -1140,6 +1193,7 @@
                 unitQuoteInputField.value = unitQuoteValue;
                 ltlQuoteInputField.value = ltlQuoteValue;
                 ltlQuoteNoteInputField.value = ltlQuoteNoteValue; 
+                pltSizeNoteInputField.value = pltSizeNoteValue;
                 saveForm.submit();
             } else {
                 console.error('保存表单元素未找到');
