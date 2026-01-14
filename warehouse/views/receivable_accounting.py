@@ -7848,7 +7848,6 @@ class ReceivableAccounting(View):
         container_number = request.POST.get("container_number")
         invoice_number = request.POST.get("invoice_number")
         invoice = Invoicev2.objects.get(invoice_number=invoice_number)
-        total_fee = float(request.POST.get("totalAmount", 0))
         overweight_fee = float(request.POST.get("overweight_fee", 0))
         overpallet_fee = float(request.POST.get("overpallet_fee", 0))
         overregion_pickup_fee = float(request.POST.get("overregion_pickup_fee", 0))
@@ -7862,6 +7861,7 @@ class ReceivableAccounting(View):
         if extra_fee_ids:
             InvoiceItemv2.objects.filter(id__in=extra_fee_ids, invoice_number=invoice).delete()
         
+        total_fee = 0.0
 
         # 处理要更新的逻辑
         items_data_json = request.POST.get("extra_items_data", "[]")
@@ -7869,6 +7869,7 @@ class ReceivableAccounting(View):
             items_data = json.loads(items_data_json)
             username = request.user.username
             for item in items_data:
+                total_fee += item.get('amount', 0)
                 item_id = item.get('id')
                 if not item_id:
                     continue
@@ -7895,6 +7896,7 @@ class ReceivableAccounting(View):
         base_location = []
         #超重费
         if overweight_fee > 0:
+            total_fee += overweight_fee
             overweight_extra_weight = request.POST.get("overweight_extra_weight")
             invoice_item_data.append(
                 {
@@ -7915,6 +7917,7 @@ class ReceivableAccounting(View):
         
         #超板费
         if overpallet_fee > 0:
+            total_fee += overweight_fee
             current_pallets = request.POST.get("current_pallets")
             limit_pallets = request.POST.get("limit_pallets")
             over_count = float(current_pallets) - float(limit_pallets)
@@ -7937,6 +7940,7 @@ class ReceivableAccounting(View):
 
         #超区提拆费
         if overregion_pickup_fee > 0:
+            total_fee += overregion_pickup_fee
             overregion_pickup_non_combina_cbm_ratio = request.POST.get(
                 "overregion_pickup_non_combina_cbm_ratio"
             )
@@ -7962,6 +7966,7 @@ class ReceivableAccounting(View):
         
         #超区派送费
         if overregion_delivery_fee > 0:
+            total_fee += overregion_delivery_fee
             overregion_delivery_destination = request.POST.getlist(
                 "overregion_delivery_destination"
             )
@@ -7995,6 +8000,7 @@ class ReceivableAccounting(View):
                     )
 
         if addition_fee:
+            total_fee += overregion_delivery_fee
             invoice_item_data.append(
                 {
                     "item_category": "combina_extra_fee",
@@ -8025,7 +8031,7 @@ class ReceivableAccounting(View):
         invoice.invoice_date = invoice_data["invoice_date"]
         invoice.invoice_link = invoice_data["invoice_link"]
 
-        
+        #再计算一遍总数
         invoice.receivable_total_amount = total_fee
         invoice.remain_offset = total_fee
         invoice.save()
