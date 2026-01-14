@@ -142,8 +142,8 @@ class PostNsop(View):
     }
     shipment_type_options = {
         "FTL": "FTL",
-        # "LTL": "LTL",
-        # "外配": "外配",
+        "外配": "外配",
+        # "LTL": "LTL",     
         # "快递": "快递",
         # "客户自提": "客户自提",
     }
@@ -5623,6 +5623,7 @@ class PostNsop(View):
                     "ltl_cost_note",
                     "ltl_quote_note",
                     "ltl_contact_method",
+                    "ltl_plt_size_note",
                     warehouse=F("container_number__orders__retrieval_id__retrieval_destination_precise"),
                     retrieval_destination_precise=F("container_number__orders__retrieval_id__retrieval_destination_precise"),
                     customer_name=F("container_number__orders__customer_name__zem_name"),
@@ -6178,6 +6179,7 @@ class PostNsop(View):
         ltl_cost_note = request.POST.get('ltl_cost_note', '').strip()
         ltl_quote_note = request.POST.get('ltl_quote_note', '').strip()
         contact_method = request.POST.get('contact_method', '').strip()
+        ltl_plt_size_note = request.POST.get('ltl_plt_size_note', '').strip()
 
         # 判断前端是否传递了成本和报价参数
         ltl_cost_raw = request.POST.get('ltl_cost', '').strip()
@@ -6255,6 +6257,9 @@ class PostNsop(View):
 
         if contact_method:
             update_data["ltl_release_command"] = contact_method
+
+        if ltl_plt_size_note:
+            update_data["ltl_plt_size_note"] = ltl_plt_size_note
         
         # 批量更新通用字段
         if update_data:
@@ -6268,7 +6273,7 @@ class PostNsop(View):
 
         username = request.user.username
         status_message = None
-        if ltl_quote:
+        if ltl_quote or '组合柜' in ltl_quote_note:
             # 录到派送账单
             status_message = await self._delivery_account_entry(ids, ltl_quote, ltl_quote_note, username)
 
@@ -6309,6 +6314,8 @@ class PostNsop(View):
 
         # 遍历每组
         for index_key, group_pallets in pallet_index.items():
+            if len(group_pallets) <= 0:
+                continue
             first_pallet = group_pallets[0]
             po_id = getattr(first_pallet, "PO_ID")
             shipping_mark = getattr(first_pallet, "shipping_mark")
@@ -6335,15 +6342,18 @@ class PostNsop(View):
                 )()
                 if receivable_statuses and receivable_statuses.finance_status == "completed":
                     return '账单已被财务确认不可修改出库费！'
-                # 更新原记录
-                existing_item.qty = qty
-                existing_item.rate = ltl_quote
-                existing_item.cbm = total_cbm
-                existing_item.weight = total_weight
-                existing_item.amount = ltl_quote
-                existing_item.note = ltl_quote_note
-                existing_item.warehouse_code = getattr(first_pallet, "destination", "")
-                await sync_to_async(existing_item.save)()
+                if "组合柜" in ltl_quote_note:
+                    await self._single_po_match_combina(container, group_pallets, False, username, qty, existing_item)
+                else:
+                    # 更新原记录
+                    existing_item.qty = qty
+                    existing_item.rate = ltl_quote
+                    existing_item.cbm = total_cbm
+                    existing_item.weight = total_weight
+                    existing_item.amount = ltl_quote
+                    existing_item.note = ltl_quote_note
+                    existing_item.warehouse_code = getattr(first_pallet, "destination", "")
+                    await sync_to_async(existing_item.save)()
             else:
                 # 查 invoice_number
                 invoice_record = await sync_to_async(
@@ -6354,32 +6364,150 @@ class PostNsop(View):
                     # 调用自定义方法创建 invoice
                     invoice_record, invoice_status = await self._create_invoice_and_status(container)
 
-                # 创建新记录
-                item = InvoiceItemv2(
-                    container_number=container,
-                    invoice_number=invoice_record,
-                    invoice_type="receivable",
-                    item_category="delivery_other",
-                    description="派送费",
-                    warehouse_code=getattr(first_pallet, "destination", ""),
-                    shipping_marks=shipping_mark,
-                    rate=ltl_quote,
-                    amount=ltl_quote,
-                    qty=qty,
-                    cbm=total_cbm,
-                    weight=total_weight,
-                    delivery_type="selfdelivery",
-                    PO_ID=po_id,
-                    note=ltl_quote_note,
-                    registered_user=username 
-                )
-                await sync_to_async(item.save)()
+                if "组合柜" in ltl_quote_note:
+                    #按组合柜方式计算
+                    await self._single_po_match_combina(container, group_pallets, invoice_record, username, qty, False)
+                else:
+                    # 创建新记录
+                    item = InvoiceItemv2(
+                        container_number=container,
+                        invoice_number=invoice_record,
+                        invoice_type="receivable",
+                        item_category="delivery_other",
+                        description="派送费",
+                        warehouse_code=getattr(first_pallet, "destination", ""),
+                        shipping_marks=shipping_mark,
+                        rate=ltl_quote,
+                        amount=ltl_quote,
+                        qty=qty,
+                        cbm=total_cbm,
+                        weight=total_weight,
+                        delivery_type="selfdelivery",
+                        PO_ID=po_id,
+                        note=ltl_quote_note,
+                        registered_user=username 
+                    )
+                    await sync_to_async(item.save)()
 
         # 看下这个柜子私仓派送是不是都录完了，录完了就改状态
         container = pallets[0].container_number
         status_message = await self._try_complete_delivery_other_status(container)
         return status_message
     
+    async def _single_po_match_combina(self, container, group, invoice_record, username, qty, existing_item):
+        '''私仓匹配组合柜计费'''
+        order = await sync_to_async(
+            Order.objects.select_related(
+                'retrieval_id',
+                'vessel_id',
+                'customer_name'
+            ).filter(container_number=container).first
+        )()
+        
+        quotations = await self._get_fee_details(order, order.retrieval_id.retrieval_destination_area,order.customer_name.zem_name)
+        if isinstance(quotations, dict) and quotations.get("error_messages"):
+            return {"error_messages": quotations["error_messages"]}
+        fee_details = quotations['fees']
+
+        warehouse = order.retrieval_id.retrieval_destination_area
+        container_type_temp = 0 if "40" in container.container_type else 1
+        combina_key = f"{warehouse}_COMBINA"
+        if combina_key not in fee_details:
+            context = {
+                "error_messages": f"未找到组合柜报价表规则 {combina_key}"
+            }
+            return (context, [])  # 返回错误，空列表
+        
+        rules = fee_details.get(combina_key).details
+        first_pallet = group[0]
+        po_id = getattr(first_pallet, "PO_ID", "")
+        destination_str = getattr(first_pallet, "destination", "")
+        destination_origin, destination = self._process_destination(destination_str)
+        is_combina_region = False
+
+        # 去预报里找总cbm和重量
+        total_pl_details = await sync_to_async(
+            lambda: PackingList.objects.filter(
+                PO_ID=po_id,
+                container_number=container
+            ).aggregate(
+                total_cbm=Coalesce(Sum('cbm'), 0.0),
+                total_weight=Coalesce(Sum('total_weight_lbs'), 0.0)
+            )
+        )()
+        THRESHOLD = 0.001
+        if total_pl_details['total_cbm'] > THRESHOLD:
+            total_cbm = total_pl_details['total_cbm']
+        else:
+            total_cbm = sum(float(getattr(p, "cbm", 0.0) or 0.0) for p in group)
+
+        if total_pl_details['total_weight'] > THRESHOLD:
+            total_weight = total_pl_details['total_weight']
+        else:
+            total_weight = sum(float(getattr(p, "weight_lbs", 0.0) or 0.0) for p in group)
+        
+        for region, region_data in rules.items():
+            for item in region_data:
+                if destination in item["location"]:
+                    is_combina_region = True
+                    price = item["prices"][container_type_temp]
+                    match_region = region
+                    break
+            if is_combina_region:
+                break
+        if destination.upper() == "UPS":
+            is_combina_region = False
+
+        if is_combina_region:
+            # 计算总CBM
+            total_container_cbm_result = await sync_to_async(
+                lambda: PackingList.objects.filter(
+                    container_number=container
+                ).aggregate(
+                    total_cbm=Coalesce(Sum('cbm'), 0.0)
+                )
+            )()
+            cbm_ratio = total_cbm / total_container_cbm_result.get('total_cbm', 0)
+            ltl_quote = price * cbm_ratio
+            if existing_item:
+                existing_item.qty = qty
+                existing_item.rate = price
+                existing_item.cbm = total_cbm
+                existing_item.weight = total_weight
+                existing_item.amount = ltl_quote
+                existing_item.warehouse_code = destination_str
+                existing_item.cbm_ratio = cbm_ratio
+                existing_item.registered_user = username
+                existing_item.delivery_type = "combine"
+                existing_item.description = "派送费"
+                existing_item.region = match_region
+                existing_item.regionPrice = price
+                await sync_to_async(existing_item.save)()
+            else:
+                item = InvoiceItemv2(
+                    container_number=container,
+                    invoice_number=invoice_record,
+                    invoice_type="receivable",
+                    item_category="delivery_other",
+                    description="派送费",
+                    warehouse_code=destination_str,
+                    shipping_marks=getattr(first_pallet, "shipping_mark", ""),
+                    rate=price,
+                    amount=ltl_quote,
+                    qty=qty,
+                    cbm=total_cbm,
+                    cbm_ratio=cbm_ratio,
+                    weight=total_weight,
+                    delivery_type="combine",
+                    PO_ID=po_id,
+                    region=match_region,
+                    regionPrice=price,
+                    registered_user=username 
+                )
+                await sync_to_async(item.save)() 
+        else:
+            raise ValueError("未在报价表的组合柜范围内找到这个区")    
+
     async def _try_complete_delivery_other_status(self, container):
         """
         判断该 container 下所有应录入的 delivery_other 是否已完成
@@ -6600,6 +6728,7 @@ class PostNsop(View):
         ltl_unit_quote = request.POST.get('ltl_unit_quote', '').strip()
         ltl_quote  = request.POST.get('ltl_quote', '').strip()
         ltl_quote_note  = request.POST.get('ltl_quote_note', '').strip()
+        ltl_plt_size_note = request.POST.get('ltl_plt_size_note', '').strip()
 
         est_pickup_time = None
         if pickup_date_str:
@@ -6653,6 +6782,8 @@ class PostNsop(View):
             update_data['ltl_quote_note'] = ltl_quote_note
         if ltl_unit_quote and is_pallet:
             update_data['ltl_unit_quote'] = ltl_unit_quote
+        if ltl_plt_size_note:
+            update_data['ltl_plt_size_note'] = ltl_plt_size_note
         
         # 批量更新通用字段
         if update_data:
@@ -7512,7 +7643,6 @@ class PostNsop(View):
     async def handle_po_invalid_save(self, request):
         '''PO校验保存'''
         json_data = request.POST.get('updated_data_json')
-        print(request.POST)
         if json_data:
             items_to_update = json.loads(json_data)
             

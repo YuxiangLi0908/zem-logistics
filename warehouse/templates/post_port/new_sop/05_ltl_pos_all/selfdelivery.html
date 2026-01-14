@@ -444,6 +444,18 @@
         font-size: 0.85rem;
         white-space: nowrap;
     }
+
+    .follow-input, .carrier-input, .address-input, .bol-input, 
+    .pallet-size-input, .plt-size-note-input, .editable-textarea {
+        display: block;
+        width: 100%;
+        resize: none; /* 禁用手动拉伸，完全交给 JS 控制 */
+        overflow: hidden; /* 隐藏滚动条 */
+        box-sizing: border-box; /* 关键：确保宽度包含 padding 和 border */
+        min-height: 32px; /* 设置一个最小高度 */
+        line-height: 1.5;
+        padding: 6px 8px;
+    }
 </style>
 
 <div id="fleet-page">
@@ -510,6 +522,7 @@
                     <th>件数</th>
                     <th class="fleet-pallet-col">板数</th>
                     <th class="fleet-pallet-size-col">托盘尺寸</th>
+                    <th class="fleet-pallet-size-col">托盘尺寸备注</th>
                     <th class="fleet-cost-col">成本</th>
                     <th class="fleet-cost-note-col">成本备注</th>
                     <th class="fleet-quote-col">报价</th>
@@ -564,25 +577,28 @@
                         <input type="text" class="fleet-filter-input" placeholder="筛选托盘尺寸..." data-column="12" onkeyup="fleet_applyColumnFilter(this)">
                     </td>
                     <td>
-                        <input type="text" class="fleet-filter-input" placeholder="筛选成本..." data-column="13" onkeyup="fleet_applyColumnFilter(this)">
+                        <input type="text" class="fleet-filter-input" placeholder="筛选托盘尺寸备注..." data-column="13" onkeyup="fleet_applyColumnFilter(this)">
                     </td>
                     <td>
-                        <input type="text" class="fleet-filter-input" placeholder="筛选成本备注..." data-column="14" onkeyup="fleet_applyColumnFilter(this)">
+                        <input type="text" class="fleet-filter-input" placeholder="筛选成本..." data-column="14" onkeyup="fleet_applyColumnFilter(this)">
                     </td>
                     <td>
-                        <input type="text" class="fleet-filter-input" placeholder="筛选报价..." data-column="15" onkeyup="fleet_applyColumnFilter(this)">
+                        <input type="text" class="fleet-filter-input" placeholder="筛选成本备注..." data-column="15" onkeyup="fleet_applyColumnFilter(this)">
                     </td>
                     <td>
-                        <input type="text" class="fleet-filter-input" placeholder="筛选报价备注..." data-column="16" onkeyup="fleet_applyColumnFilter(this)">
+                        <input type="text" class="fleet-filter-input" placeholder="筛选报价..." data-column="16" onkeyup="fleet_applyColumnFilter(this)">
                     </td>
                     <td>
-                        <input type="text" class="fleet-filter-input" placeholder="筛选承运公司..." data-column="17" onkeyup="fleet_applyColumnFilter(this)">
+                        <input type="text" class="fleet-filter-input" placeholder="筛选报价备注..." data-column="17" onkeyup="fleet_applyColumnFilter(this)">
                     </td>
                     <td>
-                        <input type="text" class="fleet-filter-input" placeholder="筛选BOL号..." data-column="18" onkeyup="fleet_applyColumnFilter(this)">
+                        <input type="text" class="fleet-filter-input" placeholder="筛选承运公司..." data-column="18" onkeyup="fleet_applyColumnFilter(this)">
                     </td>
                     <td>
-                        <input type="text" class="fleet-filter-input" placeholder="筛选PRO号..." data-column="19" onkeyup="fleet_applyColumnFilter(this)">
+                        <input type="text" class="fleet-filter-input" placeholder="筛选BOL号..." data-column="19" onkeyup="fleet_applyColumnFilter(this)">
+                    </td>
+                    <td>
+                        <input type="text" class="fleet-filter-input" placeholder="筛选PRO号..." data-column="20" onkeyup="fleet_applyColumnFilter(this)">
                     </td>
                     <td class="fleet-action-col">
                         <!-- 操作列不需要筛选 -->
@@ -704,6 +720,19 @@
                             <span style="color: #999; font-style: italic;">-</span>
                         {% endif %}
                     </td>
+                    <td class="fleet-pallet-size-col">
+                        {% if cargo.data_source == "PALLET" %}
+                            <div style="position: relative;">
+                                <!-- 增加类名 fleet-plt-size-note-input -->
+                                <textarea class="fleet-editable-textarea fleet-plt-size-note-input"
+                                    placeholder="输入托盘尺寸备注"
+                                    oninput="fleet_autoResizeTextarea(this)"
+                                    rows="1">{{ cargo.ltl_plt_size_note|default_if_none:"" }}</textarea>
+                            </div>
+                        {% else %}
+                            <span style="color: #999; font-style: italic;">-</span>
+                        {% endif %}
+                    </td>
                     <td class="fleet-cost-col">
                         {% if cargo.data_source == "PALLET" and not cargo.delivery_method|default:""|contains:"暂扣" %}
                             <input type="number" class="fleet-cost-input" 
@@ -807,6 +836,7 @@
     <input type="hidden" name="bol_number" id="fleet_bolNumberInput">
     <input type="hidden" name="pro_number" id="fleet_proNumberInput">
     <input type="hidden" name="pallet_size" id="fleet_palletSizeInput">
+    <input type="hidden" name="ltl_plt_size_note" id="fleet_pltSizeNoteInput">
     <input type="hidden" name="follow_status" id="fleet_followInput">
     <input type="hidden" name="warehouse" value="{{ warehouse }}">
     <input type="hidden" name="active_tab" value="scheduledFleet">
@@ -818,8 +848,27 @@
         // 自发页面JavaScript - 所有函数名都有fleet_前缀
         document.addEventListener('DOMContentLoaded', function() {
             fleet_initializeFleetPage();
+
             // 初始化所有textarea的高度
-            document.querySelectorAll('.fleet-pallet-size-input, .fleet-address-input, .fleet-bol-input, .fleet-pro-input, .fleet-note-input, .fleet-follow-input, .fleet-cost-note-input, .fleet-quote-note-input').forEach(fleet_autoResizeTextarea);
+            const allTextareas = document.querySelectorAll('.fleet-pallet-size-input, .fleet-address-input, .fleet-bol-input, .fleet-pro-input, .fleet-note-input, .fleet-follow-input, .fleet-cost-note-input, .fleet-quote-note-input, .fleet-plt-size-note-input');
+
+            // 1. 初始加载时：对每个 textarea 执行一次调整
+            // 使用 setTimeout 确保 DOM 已经完全渲染完毕再计算
+            setTimeout(() => {
+                allTextareas.forEach(t => fleet_autoResizeTextarea(t));
+            }, 100);
+
+            // 2. 绑定输入事件：实时调整
+            allTextareas.forEach(t => {
+                t.addEventListener('input', function() {
+                    fleet_autoResizeTextarea(this);
+                });
+            });
+
+            // 3. 处理窗口缩放：防止因为列宽变窄导致文字换行
+            window.addEventListener('resize', () => {
+                allTextareas.forEach(t => fleet_autoResizeTextarea(t));
+            });
         });
 
         // 全局变量 - 使用fleet_前缀
@@ -864,11 +913,22 @@
 
         // 自动调整textarea高度
         function fleet_autoResizeTextarea(textarea) {
+            if (!textarea) return;
+
+            // 1. 先将高度设为 auto，让它收缩到最小（这一步非常关键，否则高度只会增加不会减少）
             textarea.style.height = 'auto';
-            const newHeight = Math.max(32, textarea.scrollHeight);
-            textarea.style.height = newHeight + 'px';
+
+            // 2. 读取 scrollHeight (这是内容的真实高度)
+            // 注意：如果 box-sizing 是 border-box，scrollHeight 就是我们需要的高度
+            let newHeight = textarea.scrollHeight;
+
+            // 3. 如果 scrollHeight 为 0（可能元素当前不可见），则不处理
+            if (newHeight > 0) {
+                // 额外补偿 2px 避免某些浏览器下的微小溢出导致闪烁
+                textarea.style.height = (newHeight + 2) + 'px';
+            }
         }
-        
+                
         // 保存行数据到服务器
         function fleet_saveRowData(button) {
             const row = button.closest('tr');
@@ -887,6 +947,7 @@
             const proInput = row.querySelector('.fleet-pro-input');
             const palletSizeInput = row.querySelector('.fleet-pallet-size-input');
             const followInput = row.querySelector('.fleet-follow-input');
+            const pltSizeNoteInput = row.querySelector('.fleet-plt-size-note-input');
             
             const carrierValue = carrierInput ? carrierInput.value.trim() : '';
             const addressValue = addressInput ? addressInput.value.trim() : '';
@@ -900,6 +961,7 @@
             const proValue = proInput ? proInput.value.trim() : '';
             const palletSizeValue = palletSizeInput ? palletSizeInput.value.trim() : '';
             const followValue = followInput ? followInput.value.trim() : '';
+            const pltSizeNoteValue = pltSizeNoteInput ? pltSizeNoteInput.value.trim() : '';
             
             // 设置表单数据
             const cargoIdInput = document.getElementById('fleet_cargoIdInput');
@@ -915,12 +977,13 @@
             const proNumberInputField = document.getElementById('fleet_proNumberInput');
             const palletSizeInputField = document.getElementById('fleet_palletSizeInput');
             const followInputField = document.getElementById('fleet_followInput');
+            const pltSizeNoteInputField = document.getElementById('fleet_pltSizeNoteInput');
             const saveForm = document.getElementById('fleet_saveForm');
             
             if (cargoIdInput && carrierInputField && addressInputField && noteInputField && 
                 contactMethodInputField && costInputField && costNoteInputField && quoteInputField && 
                 quoteNoteInputField && bolNumberInputField && proNumberInputField && 
-                palletSizeInputField && followInputField && saveForm) {
+                palletSizeInputField && followInputField && pltSizeNoteInputField && saveForm) {
                 cargoIdInput.value = id;
                 carrierInputField.value = carrierValue;
                 addressInputField.value = addressValue;
@@ -934,6 +997,7 @@
                 proNumberInputField.value = proValue;
                 palletSizeInputField.value = palletSizeValue;
                 followInputField.value = followValue; 
+                pltSizeNoteInputField.value = pltSizeNoteValue; 
                 saveForm.submit();
             } else {
                 console.error('保存表单元素未找到');
