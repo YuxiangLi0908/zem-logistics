@@ -3476,7 +3476,6 @@ class ReceivableAccounting(View):
                         }
 
                         is_hold = False
-                        remain_offset = 0
 
                         if finance_status != "completed":  
                             
@@ -3492,7 +3491,7 @@ class ReceivableAccounting(View):
                             order.append(order_data)
                         else:
                             #已开的才看剩余金额
-                            remain_offset = getattr(invoice, 'receivable_total_amount', 0) - getattr(invoice, 'receivable_offset_amount', 0)
+                            remain_offset = remain_offset
                             invoice_date = invoice.invoice_date
                             invoice_link = invoice.invoice_link
                             receivable_total_amount = getattr(invoice, 'receivable_total_amount', 0)
@@ -3692,7 +3691,6 @@ class ReceivableAccounting(View):
                         # 计算剩余金额
                         rec_total = getattr(invoice, 'receivable_total_amount', 0) or 0
                         rec_offset = getattr(invoice, 'receivable_offset_amount', 0) or 0
-                        remain_offset = rec_total - rec_offset
 
                         # 处理 Statement 关联
                         stmt = invoice.statement_id
@@ -3704,7 +3702,7 @@ class ReceivableAccounting(View):
                             'invoice_id__invoice_link': invoice.invoice_link,
                             'invoice_id__receivable_total_amount': rec_total,
                             'invoice_id__payable_total_amount': getattr(invoice, 'payable_total_amount', 0),
-                            'invoice_id__remain_offset': remain_offset,
+                            'invoice_id__remain_offset': rec_offset,
                             'invoice_id__is_invoice_delivered': invoice.is_invoice_delivered,
                             'invoice_id__statement_id__invoice_statement_id': stmt_id,
                             'invoice_id__statement_id__statement_link': stmt_link,
