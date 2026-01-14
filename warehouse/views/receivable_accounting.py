@@ -1123,7 +1123,12 @@ class ReceivableAccounting(View):
             return self.handle_confirm_entry_post(request,context)
 
         with transaction.atomic():
-
+            # 重开时，把是组合柜额外费用类型的记录删除，因为再开的时候会重新生成
+            InvoiceItemv2.objects.filter(
+                invoice_number_id__in=invoice_id_list,
+                item_category='combina_extra_fee'
+            ).delete()
+            
             status_updated = InvoiceStatusv2.objects.filter(
                 invoice_id__in=invoice_id_list,
                 invoice_type="receivable",
@@ -1137,6 +1142,8 @@ class ReceivableAccounting(View):
                 is_invoice_delivered=False,
                 receivable_is_locked=False
             )
+
+
         context = {'success_messages':'账单退回状态成功！'}
         return self.handle_confirm_entry_post(request,context)
 
@@ -1501,6 +1508,7 @@ class ReceivableAccounting(View):
             container_number__container_number=container_number
         )
         ctx = self._parse_invoice_excel_data(order, invoice)
+        
         ac = Accounting()
         workbook, invoice_data = ac._generate_invoice_excel(ctx)
         invoice.invoice_date = invoice_data["invoice_date"]
@@ -1531,6 +1539,7 @@ class ReceivableAccounting(View):
         )
 
         for item in invoice_item:
+            print(item)
             if item.delivery_type == "combine":
                 qty.append(item.cbm_ratio)
             else:
@@ -7859,6 +7868,8 @@ class ReceivableAccounting(View):
     def handle_invoice_confirm_combina_save(
         self, request: HttpRequest
     ) -> tuple[Any, Any]:
+        '''组合柜账单，财务保存'''
+
         container_number = request.POST.get("container_number")
         invoice_number = request.POST.get("invoice_number")
         invoice = Invoicev2.objects.get(invoice_number=invoice_number)
@@ -7886,8 +7897,10 @@ class ReceivableAccounting(View):
             overweight_extra_weight = request.POST.get("overweight_extra_weight")
             invoice_item_data.append(
                 {
+                    "item_category": "combina_extra_fee",
                     "container_number": container,
                     "invoice_number": invoice,
+                    "invoice_type": "receivable",
                     "description": "超重费",
                     "warehouse_code": None,
                     "cbm": None,
@@ -7906,8 +7919,10 @@ class ReceivableAccounting(View):
             over_count = float(current_pallets) - float(limit_pallets)
             invoice_item_data.append(
                 {
+                    "item_category": "combina_extra_fee",
                     "container_number": container,
                     "invoice_number": invoice,
+                    "invoice_type": "receivable",
                     "description": "超板费",
                     "warehouse_code": None,
                     "cbm": None,
@@ -7929,8 +7944,10 @@ class ReceivableAccounting(View):
             )
             invoice_item_data.append(
                 {
+                    "item_category": "combina_extra_fee",
                     "container_number": container,
                     "invoice_number": invoice,
+                    "invoice_type": "receivable",
                     "description": "提拆费",
                     "warehouse_code": None,
                     "cbm": None,
@@ -7961,8 +7978,10 @@ class ReceivableAccounting(View):
                 if overregion_delivery_destination[i] not in base_location:
                     invoice_item_data.append(
                         {
+                            "item_category": "combina_extra_fee",
                             "container_number": container,
                             "invoice_number": invoice,
+                            "invoice_type": "receivable",
                             "description": "超区派送费",
                             "warehouse_code": overregion_delivery_destination[i],
                             "cbm": overregion_delivery_cbm[i],
@@ -7977,8 +7996,10 @@ class ReceivableAccounting(View):
         if addition_fee:
             invoice_item_data.append(
                 {
+                    "item_category": "combina_extra_fee",
                     "container_number": container,
                     "invoice_number": invoice,
+                    "invoice_type": "receivable",
                     "description": "单柜超仓点费用",
                     "warehouse_code": None,
                     "cbm": None,
