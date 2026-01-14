@@ -218,16 +218,16 @@
         </tr>
         <tr class="search-row">
             <td></td> 
-            <td><input type="text" class="header-search" placeholder="搜索出库批次" data-column="0"></td>
-            <td><input type="text" class="header-search" placeholder="搜索预约批次" data-column="1"></td>
-            <td><input type="text" class="header-search" placeholder="搜索详情" data-column="2"></td>
-            <td><input type="text" class="header-search" placeholder="搜索客户名" data-column="3"></td>
-            <td><input type="text" class="header-search" placeholder="搜索预约发车日期" data-column="4"></td>
-            <td><input type="text" class="header-search" placeholder="搜索实际发车日期" data-column="5"></td>
-            <td><input type="text" class="header-search" placeholder="搜索板数" data-column="6"></td>
-            <td><input type="text" class="header-search" placeholder="搜索件数" data-column="7"></td>
+            <td><input type="text" class="header-search" placeholder="搜索出库批次" data-column="1"></td>
+            <td><input type="text" class="header-search" placeholder="搜索预约批次" data-column="2"></td>
+            <td><input type="text" class="header-search" placeholder="搜索详情" data-column="3"></td>
+            <td><input type="text" class="header-search" placeholder="搜索客户名" data-column="4"></td>
+            <td><input type="text" class="header-search" placeholder="搜索预约发车日期" data-column="5"></td>
+            <td><input type="text" class="header-search" placeholder="搜索实际发车日期" data-column="6"></td>
+            <td><input type="text" class="header-search" placeholder="搜索板数" data-column="7"></td>
+            <td><input type="text" class="header-search" placeholder="搜索件数" data-column="8"></td>
             <td>
-                <select class="search-select" data-column="8" onchange="filterPodTable(this)">
+                <select class="search-select" data-column="9" onchange="filterPodTable(this)">
                     <option value="">全部</option>
                     <option value="是">是</option>
                     <option value="否">否</option>
@@ -361,8 +361,8 @@
             if (cell) {
                 let txtValue = '';
                 
-                // 特殊处理POD送达状态列（第7列）
-                if (columnIndex === 8) {
+                // 特殊处理POD送达状态列（第9列）
+                if (columnIndex === 9) {
                     const select = cell.querySelector('.status-select');
                     if (select) {
                         const selectedOption = select.options[select.selectedIndex];
