@@ -822,25 +822,6 @@
                 });
             });
 
-            // 添加键盘快捷键支持 (Ctrl+C 或 Cmd+C)
-            document.addEventListener('keydown', function(e) {
-                // 检查是否按下了 Ctrl+C 或 Cmd+C
-                if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
-                    // 检查是否有选中的行
-                    const selectedCheckboxes = Array.from(document.querySelectorAll('.self-cargo-checkbox:checked'))
-                        .filter(checkbox => {
-                            const row = checkbox.closest('tr');
-                            return row.style.display !== 'none' && !row.classList.contains('filter-row');
-                        });
-                    
-                    if (selectedCheckboxes.length > 0) {
-                        // 阻止默认的复制行为
-                        e.preventDefault();
-                        // 调用我们的复制函数
-                        copySelectedRows();
-                    }
-                }
-            });
         }
 
         // 自动调整textarea高度

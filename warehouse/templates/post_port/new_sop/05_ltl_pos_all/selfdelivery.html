@@ -841,8 +841,6 @@
                 });
             });
 
-            // 初始化复制快捷键
-            fleet_initCopyShortcut();
             // 添加复制按钮提示样式
             if (!document.querySelector('#fleet-copy-btn-styles')) {
                 const style = document.createElement('style');
@@ -1141,35 +1139,6 @@
             }, 2000);
         }
         
-        // 新增：键盘快捷键监听（针对自发页面）
-        function fleet_initCopyShortcut() {
-            document.addEventListener('keydown', function(e) {
-                // 检查是否按下了 Ctrl+Shift+C（避免与第一个页面的Ctrl+C冲突）
-                if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'C') {
-                    // 检查是否在自发页面
-                    const fleetPage = document.getElementById('fleet-page');
-                    if (!fleetPage) return;
-                    
-                    // 检查是否有选中的行
-                    const selectedCheckboxes = Array.from(document.querySelectorAll('.fleet-cargo-checkbox:checked'))
-                        .filter(checkbox => {
-                            const row = checkbox.closest('tr');
-                            return row.style.display !== 'none' && !row.classList.contains('fleet-filter-row');
-                        });
-                    
-                    if (selectedCheckboxes.length > 0) {
-                        // 阻止默认的复制行为
-                        e.preventDefault();
-                        // 调用我们的复制函数
-                        fleet_copySelectedRows();
-                    } else {
-                        // 如果用户按了快捷键但没有选中行，给一个提示
-                        e.preventDefault();
-                        fleet_showCopyNotification('请先勾选要复制的行', 'warning');
-                    }
-                }
-            });
-        }
         // 在初始化函数中调用快捷键初始化
         function fleet_initializeFleetPage() {
             fleet_updateSelectedCount();
@@ -1186,9 +1155,6 @@
                     fleet_updateSelectedCount();
                 });
             });
-            
-            // 初始化复制快捷键
-            fleet_initCopyShortcut();
             
             // 添加复制按钮提示样式
             if (!document.querySelector('#fleet-copy-btn-styles')) {
@@ -1502,6 +1468,5 @@
         window.fleet_autoResizeTextarea = fleet_autoResizeTextarea;
         window.fleet_copySelectedRows = fleet_copySelectedRows;
         window.fleet_showCopyNotification = fleet_showCopyNotification;
-        window.fleet_initCopyShortcut = fleet_initCopyShortcut;
     })();
 </script>
