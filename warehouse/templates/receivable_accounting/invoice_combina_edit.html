@@ -133,6 +133,19 @@
         overflow: auto;
     }
 
+    .fee-input:disabled {
+        background-color: transparent;
+        border: none;
+        padding: 0;
+        color: inherit;
+        cursor: default;
+        appearance: none;
+    }
+
+    .fee-input {
+        font-size: 0.8rem;
+    }
+
     @media (max-width: 1200px) {
         .info-cards-container {
             grid-template-columns: 1fr;
@@ -285,6 +298,7 @@
     <input type="hidden" name="end_date" value="{{ end_date }}">
     <input type="hidden" name="customer" value="{{ customer }}">
     <input type="hidden" name="warehouse" value="{{ warehouse }}">
+    <input type="hidden" name="delete_records" id="delete_records" value="{}">
 
 
     <div class="container-fluid mt-3">
@@ -300,7 +314,7 @@
         
                 <span class="mx-auto" style="font-size: 1rem; color: white;">{{ invoice_number }}-{{ container_number }}-{{ container_type }}</span>            
                 &nbsp;&nbsp;
-                <button type="submit" class="btn btn-success btn-sm" onclick="modifyStatus('complete')">
+                <button type="submit" class="btn btn-success btn-sm" onclick="confirmBill('complete')">
                     <i class="bi bi-check-circle me-1"></i>确认账单
                 </button>
                 
@@ -865,58 +879,71 @@
         
         <!-- 额外费用 -->
         <div class="card mb-3 shadow-sm">
-            <div class="card-header bg-light text-dark p-2">
-                <h6 class="mb-0 fw-bold fs-5 text-white bg-primary px-2 py-1 rounded d-inline-block">
-                    <i class="bi bi-box-seam me-1"></i>
-                    额外费用
-                </h6>
-                <span class="badge bg-warning text-dark ms-2" title="客服手动录入">
-                    <i class="bi bi-pencil-square me-1"></i>客服录入
-                </span>
-                <span class="badge bg-info text-dark ms-2" title="仅展示，不可修改">
-                    <i class="bi bi-eye me-1"></i>仅展示
-                </span>
+            <div class="card-header bg-light text-dark p-2 d-flex justify-content-between align-items-center">
+                <div>
+                    <h6 class="mb-0 fw-bold fs-5 text-white bg-primary px-2 py-1 rounded d-inline-block">
+                        <i class="bi bi-box-seam me-1"></i>额外费用
+                    </h6>
+                    <span class="badge bg-warning text-dark ms-2"><i class="bi bi-pencil-square me-1"></i>客服录入</span>
+                </div>
+                <div>
+                    <button type="button" class="btn btn-sm btn-outline-primary" id="btn-edit-extra-fees" onclick="toggleExtraFeesEdit()">
+                        <i class="bi bi-pencil"></i> 开启编辑
+                    </button>
+                    <!-- 隐藏域：用于提交给后端的数据 -->
+                    <input type="hidden" name="extra_items_data" id="extra_items_data">
+                </div>
             </div>
             <div class="card-body p-2">
                 <div class="table-responsive">
                     <table id="extraFeesTable" class="table table-sm table-hover">
                         <thead>
                             <tr>
-                                <th width="10%">阶段</th>
-                                <th width="20%">费用名称</th>
-                                <th width="12%">目的地/仓点</th>
+                                <th width="8%">阶段</th>
+                                <th width="15%">费用名称</th>
+                                <th width="10%">目的地/仓点</th>
                                 <th width="10%">派送类型</th>
-                                <th width="8%">单价</th>
-                                <th width="8%">数量</th>
-                                <th width="8%">体积(CBM)</th>
-                                <th width="8%">重量(LBS)</th>
-                                <th width="8%">附加费</th>
-                                <th width="12%">总金额</th>
-                                <th width="10%">PO_ID</th>
-                                <th width="12%">备注</th>
-                                <th width="8%">登记人</th>
+                                <th width="7%">单价</th>
+                                <th width="7%">数量</th>
+                                <th width="7%">CBM</th>
+                                <th width="7%">LBS</th>
+                                <th width="7%">附加费</th>
+                                <th width="10%">总金额</th>
+                                <th width="8%">PO_ID</th>
+                                <th width="10%">备注</th>
+                                <th width="5%" class="edit-column d-none">操作</th>
                             </tr>
                         </thead>
                         <tbody>
                             {% for fee in extra_fees %}
-                            <tr>
+                            <tr class="fee-row" data-id="{{ fee.id }}">
                                 <td>
-                                    <span class="badge {% if fee.item_category_display == '港前' %}bg-primary text-white{% elif '仓库' in fee.item_category_display %}bg-success text-white{% else %}bg-info text-dark{% endif %}">
-                                        {{ fee.item_category_display }}
-                                    </span>
+                                    <select class="form-select form-select-sm fee-input" name="item_category" disabled>
+                                        <option value="preport" {% if fee.item_category == 'preport' %}selected{% endif %}>港前</option>
+                                        <option value="warehouse_public" {% if fee.item_category == 'warehouse_public' %}selected{% endif %}>公仓库内</option>
+                                        <option value="warehouse_other" {% if fee.item_category == 'warehouse_other' %}selected{% endif %}>私仓库内</option>
+                                        <option value="delivery_public" {% if fee.item_category == 'delivery_public' %}selected{% endif %}>公仓派送</option>
+                                        <option value="delivery_other" {% if fee.item_category == 'delivery_other' %}selected{% endif %}>私仓派送</option>
+                                        <option value="activation_fee" {% if fee.item_category == 'activation_fee' %}selected{% endif %}>激活费</option>
+                                        <option value="combina_extra_fee" {% if fee.item_category == 'combina_extra_fee' %}selected{% endif %}>组合费额外</option>
+                                    </select>
                                 </td>
-                                <td>{{ fee.description }}</td>
-                                <td>{{ fee.warehouse_code }}</td>
-                                <td>{{ fee.delivery_type }}</td>
-                                <td class="text-end">${{ fee.rate|floatformat:2 }}</td>
-                                <td class="text-end">{{ fee.qty|floatformat:1 }}</td>
-                                <td class="text-end">{{ fee.cbm|floatformat:2 }}</td>
-                                <td class="text-end">{{ fee.weight|floatformat:1 }}</td>
-                                <td class="text-end">${{ fee.surcharges|floatformat:2 }}</td>
-                                <td class="text-end fw-bold text-primary">${{ fee.amount|floatformat:2 }}</td>
-                                <td>{{ fee.PO_ID }}</td>
-                                <td><small>{{ fee.note }}</small></td>
-                                <td><small>{{ fee.registered_user }}</small></td>
+                                <td><input type="text" class="form-control form-control-sm fee-input" name="description" value="{{ fee.description }}" disabled></td>
+                                <td><input type="text" class="form-control form-control-sm fee-input" name="warehouse_code" value="{{ fee.warehouse_code }}" disabled></td>
+                                <td><input type="text" class="form-control form-control-sm fee-input" name="delivery_type" value="{{ fee.delivery_type }}" disabled></td>
+                                <td><input type="number" step="0.01" class="form-control form-control-sm fee-input calc-trigger" name="rate" value="{{ fee.rate }}" disabled></td>
+                                <td><input type="number" step="0.1" class="form-control form-control-sm fee-input calc-trigger" name="qty" value="{{ fee.qty }}" disabled></td>
+                                <td><input type="number" step="0.01" class="form-control form-control-sm fee-input" name="cbm" value="{{ fee.cbm }}" disabled></td>
+                                <td><input type="number" step="0.1" class="form-control form-control-sm fee-input" name="weight" value="{{ fee.weight }}" disabled></td>
+                                <td><input type="number" step="0.01" class="form-control form-control-sm fee-input calc-trigger" name="surcharges" value="{{ fee.surcharges }}" disabled></td>
+                                <td><input type="number" step="0.01" class="form-control form-control-sm fee-input total-amount-cell" name="amount" value="{{ fee.amount }}" disabled></td>
+                                <td><input type="text" class="form-control form-control-sm fee-input" name="PO_ID" value="{{ fee.PO_ID }}" disabled></td>
+                                <td><input type="text" class="form-control form-control-sm fee-input" name="note" value="{{ fee.note }}" disabled></td>
+                                <td class="edit-column d-none text-center">
+                                    <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeExtraFeeRow(this, '{{ fee.id }}')">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </td>
                             </tr>
                             {% empty %}
                             <tr>
@@ -1323,28 +1350,126 @@
         }
     }
 
+    function toggleExtraFeesEdit() {
+        const table = document.getElementById('extraFeesTable');
+        const inputs = table.querySelectorAll('.fee-input');
+        const btn = document.getElementById('btn-edit-extra-fees');
+        const editCols = table.querySelectorAll('.edit-column');
+        
+        const isEditing = btn.classList.contains('btn-primary'); // 简单判断状态
+
+        if (!isEditing) {
+            // 进入编辑模式
+            inputs.forEach(input => input.disabled = false);
+            editCols.forEach(col => col.classList.remove('d-none'));
+            btn.innerHTML = '<i class="bi bi-x-circle"></i> 取消编辑';
+            btn.classList.replace('btn-outline-primary', 'btn-primary');
+        } else {
+            // 退出编辑模式（实际应用中这里可以加个重载页面的逻辑来取消修改）
+            location.reload(); 
+        }
+    }
+
+    // 2. 行内自动计算总额
+    document.addEventListener('input', function(e) {
+        if (e.target.classList.contains('calc-trigger')) {
+            const row = e.target.closest('.fee-row');
+            const rate = parseFloat(row.querySelector('[name="rate"]').value) || 0;
+            const qty = parseFloat(row.querySelector('[name="qty"]').value) || 0;
+            const surcharges = parseFloat(row.querySelector('[name="surcharges"]').value) || 0;
+            
+            const amountField = row.querySelector('[name="amount"]');
+            const total = (rate * qty) + surcharges;
+            amountField.value = total.toFixed(2);
+            
+            updateExtraFeesSummary();
+            updateTotalAmount(); // 调用原有的全局总计更新
+        }
+    });
+
+    // 3. 更新额外费用模块的小计
+    function updateExtraFeesSummary() {
+        let sum = 0;
+        document.querySelectorAll('.fee-row').forEach(row => {
+            if (row.style.display !== 'none') {
+                sum += parseFloat(row.querySelector('[name="amount"]').value) || 0;
+            }
+        });
+        document.getElementById('extraFeesTotal').textContent = '$' + sum.toFixed(2);
+    }
+
+    // 4. 删除行逻辑
+    function removeExtraFeeRow(btn, id) {
+        if (!confirm('确定要删除此项费用吗？')) return;
+        const row = btn.closest('.fee-row');
+        row.style.display = 'none'; // 视觉隐藏
+        row.classList.add('marked-deleted');
+        
+        // 调用原有逻辑将 ID 加入删除列表
+        addToDeleteList('extra_fee', id);
+        
+        updateExtraFeesSummary();
+        updateTotalAmount();
+    }
+
+    // 5. 拦截表单提交，封装 JSON
+    // 修改原有的 modifyStatus 或在确认账单按钮的 onclick 中加入：
+    function prepareExtraData() {
+        const items = [];
+        document.querySelectorAll('.fee-row:not(.marked-deleted)').forEach(row => {
+            const item = {
+                id: row.getAttribute('data-id'),
+                item_category: row.querySelector('[name="item_category"]').value,
+                description: row.querySelector('[name="description"]').value,
+                warehouse_code: row.querySelector('[name="warehouse_code"]').value,
+                delivery_type: row.querySelector('[name="delivery_type"]').value,
+                rate: row.querySelector('[name="rate"]').value,
+                qty: row.querySelector('[name="qty"]').value,
+                cbm: row.querySelector('[name="cbm"]').value,
+                weight: row.querySelector('[name="weight"]').value,
+                surcharges: row.querySelector('[name="surcharges"]').value,
+                amount: row.querySelector('[name="amount"]').value,
+                PO_ID: row.querySelector('[name="PO_ID"]').value,
+                note: row.querySelector('[name="note"]').value,
+            };
+            items.push(item);
+        });
+        document.getElementById('extra_items_data').value = JSON.stringify(items);
+    }
+
+    // 修改原有的“确认账单”点击事件
+    // 原代码: onclick="modifyStatus('complete')"
+    // 改为:
+    function confirmBill(type) {
+        prepareExtraData(); // 封装数据
+        modifyStatus(type); // 设置状态
+    }
     // 创建删除列表
     let deleteRecords = {
         'extra_fee': []
     };
 
     function addToDeleteList(type, recordId) {
-        if (recordId && !deleteRecords[type].includes(recordId)) {
+        // 过滤掉没有 ID 的新行（新行直接删除即可，无需通知后端）
+        if (!recordId || recordId === '' || recordId === 'None') return;
+
+        // 确保类型数组存在
+        if (!deleteRecords[type]) {
+            deleteRecords[type] = [];
+        }
+
+        // 如果 ID 不在列表中，则添加
+        if (!deleteRecords[type].includes(recordId)) {
             deleteRecords[type].push(recordId);
-            
-            // 更新隐藏字段
-            let deleteInput = document.getElementById('delete_records');
-            if (!deleteInput) {
-                deleteInput = document.createElement('input');
-                deleteInput.type = 'hidden';
-                deleteInput.name = 'delete_records';
-                deleteInput.id = 'delete_records';
-                document.querySelector('form[method="post"]').appendChild(deleteInput);
-            }
+        }
+
+        // 更新隐藏域的值
+        const deleteInput = document.getElementById('delete_records');
+        if (deleteInput) {
             deleteInput.value = JSON.stringify(deleteRecords);
         }
     }
-
+    
     document.addEventListener('DOMContentLoaded', function() {
         const rejectPhase = document.getElementById('rejectPhase');
         const warehouseTypeContainer = document.getElementById('warehouseTypeContainer');
@@ -1362,6 +1487,7 @@
             }
         });
     });
+
     function shouldCalculateDeliveryTotal(type) {
         // 这些类型不自动计算
         const noCalcTypes = ["自发", "UPS", "本地派送","客户自提","selfpickup"];
@@ -1372,6 +1498,7 @@
             input.addEventListener('input', updateTotalAmount);
         }
     });
+
     //计算每个费用的总价
     function calculateFeeTotal(row) {
         const typeInput = row.querySelector('input[name*="[type]"]');

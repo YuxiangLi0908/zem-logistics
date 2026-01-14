@@ -1128,7 +1128,7 @@ class ReceivableAccounting(View):
                 invoice_number_id__in=invoice_id_list,
                 item_category='combina_extra_fee'
             ).delete()
-            
+
             status_updated = InvoiceStatusv2.objects.filter(
                 invoice_id__in=invoice_id_list,
                 invoice_type="receivable",
@@ -1668,6 +1668,7 @@ class ReceivableAccounting(View):
                 'warehouse_other': invoice.receivable_wh_other_amount or 0,
                 'delivery_public': invoice.receivable_delivery_public_amount or 0,
                 'delivery_other': invoice.receivable_delivery_other_amount or 0,
+                'combina_extra': ctx.get('combina_extra_fee'),
             }
             return self.template_invoice_items_edit, ctx
         
@@ -1763,7 +1764,8 @@ class ReceivableAccounting(View):
                         When(item_category="warehouse_other", then=Value(3)),
                         When(item_category="delivery_public", then=Value(4)),
                         When(item_category="delivery_other", then=Value(5)),
-                        default=Value(6),
+                        When(item_category="combina_extra_fee", then=Value(6)),
+                        default=Value(7),
                     ),
                     "item_category",
                     "-amount"  # 金额从大到小
@@ -1787,7 +1789,7 @@ class ReceivableAccounting(View):
             # 4. 分离组合柜数据和其他数据
             combina_items = []  # 组合柜数据
             other_items = []    # 其他数据
-            
+            combina_extra_fee = 0.0
             # 处理所有类别
             for category, data in categories_data.items():
                 if category == 'delivery_public':
@@ -1818,6 +1820,7 @@ class ReceivableAccounting(View):
                         combina_groups[key]['items'].append(item)
                         combina_groups[key]['rowspan'] += 1
                     
+
                     # 处理组合柜数据
                     for group_key, group_data in combina_groups.items():
                         group_items = []
@@ -1839,6 +1842,8 @@ class ReceivableAccounting(View):
                 else:
                     # 其他类别的所有项目都添加到其他数据
                     other_items.extend(data['items'])
+                    if data['items'].item_category == "combina_extra_fee":
+                        combina_extra_fee += item.amount or 0
             
             # 5. 分别计算统计数据
             # 组合柜统计
@@ -1872,6 +1877,7 @@ class ReceivableAccounting(View):
                 'warehouse_other': '私仓库内费用',
                 'delivery_public': '公仓派送费用',
                 'delivery_other': '私仓派送费用',
+                'combina_extra': '组合柜额外费用',
             }
             
             # 7. 获取delivery_type的中文显示
@@ -1883,7 +1889,12 @@ class ReceivableAccounting(View):
                 'hold': '暂扣',
                 'other': '其他',
             }
-            
+            customer =  invoice.customer
+            if not customer:
+                order = Order.objects.get(container_number__container_number=container_number)
+                customer = order.customer_name
+                invoice.customer = customer
+                invoice.save()
             context = {
                 'invoice_number': invoice.invoice_number,
                 'container_number': container_number,
@@ -1898,7 +1909,7 @@ class ReceivableAccounting(View):
                 'categories_data': categories_data,
                 'category_display_names': category_display_names,
                 'delivery_type_display': delivery_type_display,
-                
+                'combina_extra_fee': combina_extra_fee,
                 # 三种统计数据
                 'combina_stats': combina_stats,
                 'other_stats': other_stats,
@@ -1912,12 +1923,6 @@ class ReceivableAccounting(View):
         except Invoicev2.DoesNotExist:
             context = {
                 'error_messages': f'找不到发票号: {invoice.invoice_number if hasattr(invoice, "invoice_number") else "未知"}',
-                'success': False,
-            }
-            return context
-        except Exception as e:
-            context = {
-                'error_messages': f'加载数据失败: {str(e)}',
                 'success': False,
             }
             return context
@@ -7834,36 +7839,6 @@ class ReceivableAccounting(View):
             }
         )
         return context
-    
-    def _delete_extra_fee_records(self, invoice, delete_records):
-        """删除标记为删除的额外费用记录"""
-        # 删除港口相关费用
-        port_ids = delete_records.get('port', [])
-        if port_ids:
-            InvoiceItemv2.objects.filter(
-                invoice_number=invoice,
-                id__in=port_ids,
-                item_category='preport'
-            ).delete()
-        
-        # 删除仓库相关费用
-        warehouse_ids = delete_records.get('warehouse', [])
-        if warehouse_ids:
-            InvoiceItemv2.objects.filter(
-                invoice_number=invoice,
-                id__in=warehouse_ids,
-                item_category__in=['warehouse_public', 'warehouse_other']
-            ).delete()
-        
-        # 删除派送相关费用
-        delivery_ids = delete_records.get('delivery', [])
-        if delivery_ids:
-            InvoiceItemv2.objects.filter(
-                invoice_number=invoice,
-                id__in=delivery_ids,
-                item_category__in=['delivery_public', 'delivery_other'],
-                delivery_type__ne="combine"  # 不删除组合柜记录
-            ).delete()
 
     def handle_invoice_confirm_combina_save(
         self, request: HttpRequest
@@ -7881,12 +7856,38 @@ class ReceivableAccounting(View):
         addition_fee_str = request.POST.get("addition_fee")
         addition_fee = float(addition_fee_str) if addition_fee_str else 0
 
-         # 获取要删除的记录列表
-        delete_records_json = request.POST.get("delete_records", "{}")
-        delete_records = json.loads(delete_records_json)
+        delete_data = request.POST.get('delete_records', '{}')
+        delete_dict = json.loads(delete_data)
+        extra_fee_ids = delete_dict.get('extra_fee', [])
+        if extra_fee_ids:
+            InvoiceItemv2.objects.filter(id__in=extra_fee_ids, invoice_number=invoice).delete()
         
-        # 删除标记为删除的记录
-        self._delete_extra_fee_records(invoice, delete_records)
+
+        # 处理要更新的逻辑
+        items_data_json = request.POST.get("extra_items_data", "[]")
+        if items_data_json:
+            items_data = json.loads(items_data_json)
+            username = request.user.username
+            for item in items_data:
+                item_id = item.get('id')
+                if not item_id:
+                    continue
+                    
+                # 找到记录并更新
+                InvoiceItemv2.objects.filter(id=item_id, invoice_number=invoice).update(
+                    item_category=item.get('item_category'),
+                    description=item.get('description'),
+                    warehouse_code=item.get('warehouse_code'),
+                    delivery_type=item.get('delivery_type'),
+                    rate=float(item.get('rate') or 0),
+                    qty=float(item.get('qty') or 0),
+                    cbm=float(item.get('cbm') or 0),
+                    weight=float(item.get('weight') or 0),
+                    surcharges=float(item.get('surcharges') or 0),
+                    amount=float(item.get('amount') or 0),
+                    note=item.get('note'),
+                    registered_user=username,
+                )
 
         container = Container.objects.get(container_number=container_number)
         invoice_item_data = []
