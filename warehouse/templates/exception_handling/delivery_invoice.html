@@ -354,8 +354,6 @@ h2 {
         <thead>
             <tr>
                 <th>ID</th>
-                <th>Container ID</th>
-                <th>invoice_type</th>
                 <th>Item Category</th>
                 <th>delivery_type</th>
                 <th>PO_ID</th>
@@ -372,14 +370,13 @@ h2 {
                 <th>surcharges</th>
                 <th>registered_user</th>
                 <th>note</th>
+                <th>操作</th>
             </tr>
         </thead>
         <tbody id="tableBody">
             {% for item in invoice_items %}
             <tr>
                 <td>{{ item.id }}</td>
-                <td>{{ item.container_number_id }}</td>
-                <td>{{ item.invoice_type }}</td>
                 <td>{{ item.item_category }}</td>
                 <td>{{ item.delivery_type|default_if_none:'' }}</td>
                 <td>{{ item.PO_ID|default_if_none:'' }}</td>
