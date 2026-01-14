@@ -4384,7 +4384,7 @@ class Accounting(View):
         unload_carrier = params.get("unload_carrier", "").strip()
         supplier_type = params.get("supplier_type", "pickup_carrier").strip()
         selected_customer_id = params.get("customer_name", "").strip()
-
+        order_form = OrderForm(request.POST)
         # 如果有客户ID，查询对应的客户对象
         if selected_customer_id:
             order_form = OrderForm(
