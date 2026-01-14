@@ -471,7 +471,7 @@
 
     .category-grid {
         display: grid;
-        grid-template-columns: repeat(5, 1fr);
+        grid-template-columns: repeat(6, 1fr);
         gap: 1px;
         background: var(--border-color);
     }
@@ -649,6 +649,10 @@
             <div class="category-item">
                 <div class="category-label">私仓派送费用</div>
                 <div class="category-amount">${{ category_totals.delivery_other|floatformat:2 }}</div>
+            </div>
+            <div class="category-item">
+                <div class="category-label">组合柜额外费用</div>
+                <div class="category-amount">${{ category_totals.combina_extra_fee|floatformat:2 }}</div>
             </div>
         </div>
     </div>
