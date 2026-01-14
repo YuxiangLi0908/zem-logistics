@@ -23,11 +23,15 @@
                         <thead>
                             <tr>
                                 <th>预约类型</th>
-                                <th>预约账号</th>
+                                <!-- FTL 专用 -->
+                                <th class="ftl-field">预约账号</th>
+                                
                                 <th>预约号</th>
-                                <th>Scheduled Time</th>
-                                <th>Pickup Time</th>
+                                <!-- FTL 显示 Scheduled Time，外配显示 提货时间 (两者共用 shipment_appointment 参数名) -->
+                                <th class="ftl-field">Scheduled Time</th>                            
+                                <th>Pickup Time</th>                             
                                 <th>发货仓库</th>
+                                <th class="outside-field" style="display:none;"></th> <!-占位-->
                             </tr>
                         </thead>
                         <tbody>
@@ -39,20 +43,24 @@
                                         {% endfor %}
                                     </select>
                                 </td>
-                                <td>
+                                <!-- FTL: 预约账号 -->
+                                <td class="ftl-field">
                                     <select name="shipment_account" id="shipment-account-select" class="form-select">
                                         {% for k, v in account_options.items %}
                                             <option value="{{ v }}">{{ k }}</option>
                                         {% endfor %}
                                     </select>
                                 </td>
+                                
                                 <td>
                                     <input type="text" name="appointment_id" id="appointment_id" class="form-input" required>
                                 </td>
-                                <td>
+                                <!-- 时间段: shipment_appointment -->
+                                <td class="ftl-field">
                                     <input type="datetime-local" id="scheduled-time-input" name="shipment_appointment" class="form-input" required>
                                 </td>
-                                <td>
+                                
+                                 <td>
                                     <input type="datetime-local" id="pickup-time-input" name="pickup_time" class="form-input">
                                 </td>
                                 
@@ -67,26 +75,39 @@
                                         {% endfor %}
                                     </select>
                                 </td>
+                                <td class="outside-field">
+                                    
+                                </td>
                             </tr>
+                             <!-- 第二行表头 -->
                             <tr>
-                                <th>装车类型</th>
-                                <th>Pickup Number</th>
+                                <th class="ftl-field">装车类型</th>
+                                <th class="ftl-field">Pickup Number</th>
+                                <!-- 外配专用 -->
+                                <th class="outside-field" style="display:none;">Carrier</th>
                                 <th>目的地</th>
                                 <th>地址</th>
                                 <th>备注</th>                             
-                                <th>shipment ID</th>
+                                <th class="ftl-field">shipment ID</th>
+                                <th class="outside-field" style="display:none;">BOL号</th>
                             </tr>
                             <tr>
-                                <td>
+                                <!-- FTL 专用字段 -->
+                                <td class="ftl-field">
                                     <select name="load_type" id="load-type-select" class="form-select">
                                         {% for k, v in load_type_options.items %}
                                             <option value="{{ v }}">{{ k }}</option>
                                         {% endfor %}
                                     </select>
                                 </td>
-                                <td>
+                                <td class="ftl-field">
                                     <input type="text" name="pickupNumber" id="pickup_number" class="form-input">                                   
                                 </td>
+                                <!-- 外配: Carrier -->
+                                <td class="outside-field" style="display:none;">
+                                    <input type="text" name="carrier" id="carrier" class="form-input">
+                                </td>
+                                <!-- 通用字段 -->
                                 <td>
                                     <input type="text" name="destination" id="ftl-destination" class="form-input" required>
                                 </td>
@@ -96,8 +117,13 @@
                                 <td>
                                     <input type="text" name="note" id="note" class="form-input">
                                 </td>
-                                <td>
+                                <!-- FTL: shipment ID -->
+                                <td class="ftl-field">
                                     <input type="text" name="shipment_cargo_id" id="shipment_cargo_id" class="form-input">
+                                </td>
+                                <!-- 外配: arm_bol -->
+                                <td class="outside-field" style="display:none;">
+                                    <input type="text" name="arm_bol" id="arm_bol" class="form-input">
                                 </td>
                             </tr>
                         </tbody>
@@ -318,6 +344,24 @@
 <script>
     // 在相关输入框变化时自动更新 pickupNumber
     document.addEventListener('DOMContentLoaded', function() {
+        const typeSelect = document.getElementById('shipment-type-select');
+        if (typeSelect) {
+            // 绑定切换事件
+            typeSelect.addEventListener('change', toggleFields);
+        }
+
+        // 3. 监听模态框打开，打开时根据默认选中的类型初始化显示
+        const modal = document.getElementById('bindShipmentModal');
+        if (modal) {
+            const observer = new MutationObserver(function(mutations) {
+                mutations.forEach(function(mutation) {
+                    if (mutation.target.style.display === 'block') {
+                        toggleFields(); // 每次打开弹窗都根据当前选中的预约类型刷新一次界面
+                    }
+                });
+            });
+            observer.observe(modal, { attributes: true, attributeFilter: ['style'] });
+        }
         const shipmentAccountSelect = document.getElementById('shipment-account-select');
         
         if (shipmentAccountSelect) {
@@ -325,6 +369,40 @@
         }
     });
 
+    function toggleFields() {
+        const typeSelect = document.getElementById('shipment-type-select');
+        if (!typeSelect) return;
+
+        const selectedText = typeSelect.options[typeSelect.selectedIndex].text;
+        const ftlFields = document.querySelectorAll('.ftl-field');
+        const outsideFields = document.querySelectorAll('.outside-field');
+        
+        // 获取 Scheduled Time 的表头文字，动态修改它
+        const timeHeader = document.getElementById('time-header-label');
+        const scheduledInput = document.getElementById('scheduled-time-input');
+
+        if (selectedText.includes('外配')) {
+            // --- 外配模式 ---
+            ftlFields.forEach(el => el.style.display = 'none');
+            outsideFields.forEach(el => el.style.display = ''); // 显示外配专用
+            
+            if (timeHeader) timeHeader.innerText = '提货时间';
+            if (scheduledInput) {
+                scheduledInput.required = false; 
+            }
+            // 隐藏不必要的必填验证（可选）
+            document.getElementById('appointment_id').required = true; // 预约号外配也需要
+        } else {
+            // --- FTL 模式 ---
+            ftlFields.forEach(el => el.style.display = ''); // 显示FTL专用
+            outsideFields.forEach(el => el.style.display = 'none');
+            
+            if (timeHeader) timeHeader.innerText = 'Scheduled Time';
+            if (scheduledInput) {
+                scheduledInput.required = true;
+            }
+        }
+    }
     // 绑定预约模态框的JavaScript
     document.querySelectorAll('.open-bind-modal').forEach(btn => {
         btn.addEventListener('click', function() {

@@ -3121,15 +3121,19 @@ class PostNsop(View):
         
     async def handle_appointment_post(
         self, request: HttpRequest
-    ) -> tuple[str, dict[str, Any]]:    
+    ) -> tuple[str, dict[str, Any]]:  
+        '''港后的预约出库功能''' 
         context = {}
-
-        pickup_number_raw = request.POST.get('pickupNumber')
+        shipment_type = request.POST.get('shipment_type')
         page = request.POST.get("page")
-        if page == "arm_appointment":
-            pickup_number = await self._get_unique_pickup_number(pickup_number_raw)
+        if shipment_type == "FTL":         
+            pickup_number_raw = request.POST.get('pickupNumber')        
+            if page == "arm_appointment":
+                pickup_number = await self._get_unique_pickup_number(pickup_number_raw)
+            else:
+                pickup_number = pickup_number_raw
         else:
-            pickup_number = pickup_number_raw
+            pickup_number = None
         appointment_id = request.POST.get('appointment_id')
         ids = request.POST.get("cargo_ids")
         plt_ids = request.POST.get("plt_ids")
