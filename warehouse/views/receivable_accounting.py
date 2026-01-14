@@ -4603,6 +4603,28 @@ class ReceivableAccounting(View):
         # 设置item_category
         item_category = f"warehouse_{delivery_type}"
         
+        # 确定当前状态
+        if invoice_status.finance_status == "completed":
+            current_status = "confirmed"
+        else:
+            status_field = f"warehouse_{delivery_type}_status"
+            current_status = getattr(invoice_status, status_field, 'unstarted')
+        context.update({
+            "invoice_number": invoice.invoice_number,
+            "warehouse": order.retrieval_id.retrieval_destination_area,
+            "warehouse_filter": request.GET.get("warehouse_filter"),
+            "container_number": container_number,
+            "receivable_is_locked": invoice.receivable_is_locked,
+            "start_date": start_date,
+            "end_date": end_date,
+            "invoice": invoice,
+            "status": current_status,
+            "warehouse_status": current_status,  # 兼容性
+            "invoice_type": "receivable",
+            "delivery_type": delivery_type,
+            "item_category": item_category,
+            "receivable_is_locked": invoice.receivable_is_locked,     
+        })
         # 获取报价表的相关信息
         quotation, quotation_error = self._get_quotation_for_order(order, 'receivable')
         if quotation_error:
@@ -4683,28 +4705,11 @@ class ReceivableAccounting(View):
         existing_descriptions = [item.description for item in existing_items]
         # 计算可用的标准费用项目（还没有被添加的）
         available_standard_items = [item for item in standard_fee_items if item not in existing_descriptions]
-        # 确定当前状态
-        if invoice_status.finance_status == "completed":
-            current_status = "confirmed"
-        else:
-            status_field = f"warehouse_{delivery_type}_status"
-            current_status = getattr(invoice_status, status_field, 'unstarted')
+        
 
-        context.update({
-            "warehouse": order.retrieval_id.retrieval_destination_area,
-            "warehouse_filter": request.GET.get("warehouse_filter"),
-            "container_number": container_number,
-            "receivable_is_locked": invoice.receivable_is_locked,
-            "start_date": start_date,
-            "end_date": end_date,
-            "FS": FS,
-            "receivable_is_locked": invoice.receivable_is_locked,
-            "invoice_type": "receivable",
-            "delivery_type": delivery_type,
-            "item_category": item_category,
-            "fee_data": fee_data,
-            "invoice_number": invoice.invoice_number,
-            "invoice": invoice,
+        context.update({          
+            "FS": FS,             
+            "fee_data": fee_data,         
             "quotation_info": {
                 "quotation_id": quotation.quotation_id,
                 "version": quotation.version,
@@ -4716,8 +4721,7 @@ class ReceivableAccounting(View):
             "standard_fee_items": standard_fee_items,
             "available_standard_items": available_standard_items,
             "existing_descriptions": existing_descriptions,
-            "status": current_status,
-            "warehouse_status": current_status,  # 兼容性
+            
         })
         
         return context
