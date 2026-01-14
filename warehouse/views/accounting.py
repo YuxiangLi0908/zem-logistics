@@ -460,6 +460,9 @@ class Accounting(View):
         elif step == "export_confirmed_by_month_carrier_v1_search":
             template, context = self.export_confirmed_by_month_carrier_v1_search(request)
             return render(request, template, context)
+        elif step == "batch_write_off_amount_post_t":
+            template, context = self.batch_write_off_amount_post_t(request)
+            return render(request, template, context)
         elif step == "export_carrier_payable_delivery":
             return self.export_carrier_payable_delivery(request)
         elif step == "check_unreferenced_delivery":
@@ -4524,6 +4527,19 @@ class Accounting(View):
             "unload_carriers": unload_carriers,
         }
         return self.template_invoice_payable_confirm_payable, context
+
+    def batch_write_off_amount_post_t(self, request):
+        batch_amount = request.POST.get('batch_amount')
+        container_number_ids_list = request.POST.get('container_number_ids').split(",")
+        batch_amount = float(batch_amount)
+        current_date = datetime.now().date()
+        for container_number_id in container_number_ids_list:
+            invoice_items = InvoiceItemv2.objects.filter(container_number_id=container_number_id).all()
+            for invoice_item in invoice_items:
+                invoice_item.write_off_amount = batch_amount  # 批量核销金额
+                invoice_item.write_off_time = current_date  # 核销时间
+                invoice_item.save()
+        return self.handle_invoice_confirm_get_v1(request)
 
 
     def export_carrier_payable_delivery(self, request):

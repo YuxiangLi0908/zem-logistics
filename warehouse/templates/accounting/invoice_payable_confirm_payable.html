@@ -1449,17 +1449,34 @@
                 <div id="pick-t-waited" class="tab-content">
                     <div class="table-container">
                         {% if finance_confirmed_t_waited %}
-                            <!-- 提柜待核销表格上方新增批量操作区域（适配原有样式） -->
+                            <!-- 第一步：把隐藏表单移到批量操作区域外，仅保留隐藏输入项 -->
+                            <form id="batch-writeoff-form" method="POST" style="display: none;">
+                                {% csrf_token %} <!-- Django自动生成CSRF Token，无需手动处理 -->
+                                <input type="hidden" name="step" value="batch_write_off_amount_post_t">
+                                <input type="hidden" name="write_off_type" id="batch-writeoff-type">
+                                <input type="hidden" name="batch_amount" id="batch-writeoff-amount">
+                                <input type="hidden" name="container_number_ids" id="batch-writeoff-container-ids">
+                            </form>
+
+                            <!-- 批量操作区域：仅保留交互元素，移除表单嵌套 -->
                             <div class="export-select-all-container">
                                 <input type="checkbox" id="pick-confirmed-select-all"
-                                       onclick="toggleSelectAllFiltered('pick-confirmed-select-all', 'export-record-checkbox', 'pick-confirmed-table')"
+                                       onclick="toggleSelectAllFiltered('pick-confirmed-select-all', 'pick-t-writeoff', 'pick-t-waited-table')"
                                        style="width: 18px; height: 18px; cursor: pointer;">
                                 <label for="pick-confirmed-select-all"
                                        style="margin: 0; font-weight: 500; cursor: pointer;">全选</label>
-                                <span class="export-selected-count" id="pick-confirmed-selected-count">已选：0 条</span>
+                                <span class="export-selected-count" id="pick-t-selected-count">已选：0 条</span>
+                                <input type="number" id="pick-t-batch-amount" placeholder="输入批量核销金额"
+                                       name="batch_t_write_off_amount"
+                                       style="width: 150px; margin-left: 10px; padding: 6px 10px; border: 1px solid #ced4da; border-radius: 6px; font-size: 0.85rem;">
+                                <button type="button" class="btn btn-primary btn-sm"
+                                        onclick="batchWriteOff('pick-t')"
+                                        style="margin-left: 10px;">
+                                    <i class="fas fa-check"></i> 批量确认核销
+                                </button>
                             </div>
 
-                            <!-- 核心修复：补全table标签，所有thead/tbody必须放在table内 -->
+                            <!-- 表格部分：保留原有结构，仅确认data-container-id正确 -->
                             <table class="table" id="pick-t-waited-table">
                                 <!-- 提柜待核销表格thead修改（操作列前加核销金额列） -->
                                 <thead>
@@ -2402,7 +2419,7 @@
             }
         }
 
-        // 3. 初始化全选功能（待确认+已确认表格）
+        // 3. 初始化全选功能（包含待核销表格）
         initSelectAllFunctions();
 
         // 4. 主标签页切换逻辑（修复定位+稳定性）
@@ -2452,8 +2469,11 @@
                     const targetSubContent = document.getElementById(subTabName);
                     if (targetSubContent) {
                         targetSubContent.classList.add('active');
-                        // 切换后重新计算费用
-                        setTimeout(() => calculateAllFees(subTabName + '-table'), 100);
+                        // 切换后重新计算费用 + 重新绑定勾选事件
+                        setTimeout(() => {
+                            calculateAllFees(subTabName + '-table');
+                            bindWriteOffCheckboxEvents(); // 切换标签后重新绑定
+                        }, 100);
                     }
                 }
             });
@@ -2468,17 +2488,12 @@
 
         // 7. 初始化表格（包含导出功能的核心表格）
         initTable("pick-confirmed-table");
-        // 如有其他表格，添加：initTable("unload-confirmed-table");
+        // 初始化待核销表格
+        initTable("pick-t-waited-table");
+        initTable("pick-x-waited-table");
 
-        // 8. 监听核销勾选框，更新选中数量
-        const pickTCheckboxes = document.querySelectorAll('.pick-t-writeoff');
-        pickTCheckboxes.forEach(checkbox => {
-            checkbox.addEventListener('change', updateSelectedCount('pick-t'));
-        });
-        const pickXCheckboxes = document.querySelectorAll('.pick-x-writeoff');
-        pickXCheckboxes.forEach(checkbox => {
-            checkbox.addEventListener('change', updateSelectedCount('pick-x'));
-        });
+        // 8. 初始化核销勾选框事件（核心修复：独立函数，支持重复绑定）
+        bindWriteOffCheckboxEvents();
 
         // 9. 单个核销表单提交验证
         document.querySelectorAll('.single-writeoff-form').forEach(form => {
@@ -2495,7 +2510,42 @@
         });
     });
 
-    // ===================== 核心功能函数：全选 =====================
+    // ===================== 核心修复：核销勾选框事件绑定（独立函数） =====================
+    function bindWriteOffCheckboxEvents() {
+        // 移除旧事件（避免重复绑定）
+        const allCheckboxes = document.querySelectorAll('.pick-t-writeoff, .pick-x-writeoff');
+        allCheckboxes.forEach(checkbox => {
+            // 重置事件监听（简单方案：克隆节点替换）
+            const newCheckbox = checkbox.cloneNode(true);
+            checkbox.parentNode.replaceChild(newCheckbox, checkbox);
+        });
+
+        // 重新绑定提柜待核销勾选框
+        const pickTCheckboxes = document.querySelectorAll('.pick-t-writeoff');
+        pickTCheckboxes.forEach(checkbox => {
+            checkbox.addEventListener('change', function () {
+                updateSelectedCount('pick-t');
+                // 同步全选状态
+                updateSelectAllStatusFiltered('pick-confirmed-select-all', 'pick-t-writeoff', 'pick-t-waited-table');
+            });
+        });
+
+        // 重新绑定卸柜待核销勾选框
+        const pickXCheckboxes = document.querySelectorAll('.pick-x-writeoff');
+        pickXCheckboxes.forEach(checkbox => {
+            checkbox.addEventListener('change', function () {
+                updateSelectedCount('pick-x');
+                // 同步全选状态
+                updateSelectAllStatusFiltered('pick-x-select-all', 'pick-x-writeoff', 'pick-x-waited-table');
+            });
+        });
+
+        // 初始化选中数量
+        updateSelectedCount('pick-t');
+        updateSelectedCount('pick-x');
+    }
+
+    // ===================== 核心功能函数：全选（新增过滤表格的全选逻辑） =====================
     function initSelectAllFunctions() {
         // 待确认表格全选
         const pickSelectAll = document.getElementById('pick-select-all');
@@ -2514,6 +2564,78 @@
             });
             updateSelectAllStatus('pick-confirm-select-all', 'export-record-checkbox');
         }
+
+        // 提柜待核销全选（核心新增）
+        const pickTSelectAll = document.getElementById('pick-confirmed-select-all');
+        if (pickTSelectAll) {
+            pickTSelectAll.addEventListener('click', function () {
+                toggleSelectAllFiltered('pick-confirmed-select-all', 'pick-t-writeoff', 'pick-t-waited-table');
+            });
+            updateSelectAllStatusFiltered('pick-confirmed-select-all', 'pick-t-writeoff', 'pick-t-waited-table');
+        }
+
+        // 卸柜待核销全选（核心新增）
+        const pickXSelectAll = document.getElementById('pick-x-select-all');
+        if (pickXSelectAll) {
+            pickXSelectAll.addEventListener('click', function () {
+                toggleSelectAllFiltered('pick-x-select-all', 'pick-x-writeoff', 'pick-x-waited-table');
+            });
+            updateSelectAllStatusFiltered('pick-x-select-all', 'pick-x-writeoff', 'pick-x-waited-table');
+        }
+    }
+
+    // 适配表格过滤的全选函数（核心修复）
+    function toggleSelectAllFiltered(selectAllId, checkboxClass, tableId) {
+        const selectAll = document.getElementById(selectAllId);
+        if (!selectAll) return;
+
+        const table = document.getElementById(tableId);
+        if (!table) return;
+
+        const checkboxes = table.querySelectorAll('.' + checkboxClass);
+        let visibleCount = 0;
+        let checkedVisibleCount = 0;
+
+        // 仅操作可见行的复选框
+        checkboxes.forEach(checkbox => {
+            const tr = checkbox.closest('tr');
+            if (tr && tr.style.display !== 'none') {
+                visibleCount++;
+                checkbox.checked = selectAll.checked;
+                if (checkbox.checked) checkedVisibleCount++;
+            }
+        });
+
+        // 更新选中数量
+        if (checkboxClass === 'pick-t-writeoff') {
+            updateSelectedCount('pick-t');
+        } else if (checkboxClass === 'pick-x-writeoff') {
+            updateSelectedCount('pick-x');
+        }
+    }
+
+    // 适配表格过滤的全选状态更新（核心修复）
+    function updateSelectAllStatusFiltered(selectAllId, checkboxClass, tableId) {
+        const selectAll = document.getElementById(selectAllId);
+        if (!selectAll) return;
+
+        const table = document.getElementById(tableId);
+        if (!table) return;
+
+        const checkboxes = table.querySelectorAll('.' + checkboxClass);
+        let visibleCount = 0;
+        let checkedVisibleCount = 0;
+
+        checkboxes.forEach(checkbox => {
+            const tr = checkbox.closest('tr');
+            if (tr && tr.style.display !== 'none') {
+                visibleCount++;
+                if (checkbox.checked) checkedVisibleCount++;
+            }
+        });
+
+        // 更新全选框状态
+        selectAll.checked = (visibleCount > 0 && checkedVisibleCount === visibleCount);
     }
 
     function toggleSelectAll(selectAllId, checkboxClass) {
@@ -2580,7 +2702,7 @@
 
         // 2. 处理重复的费用span显示
         document.querySelectorAll('.td_fee').forEach(cell => {
-            const spans = cell.querySelectorAll('.pickup-fee-amount');
+            const spans = cell.querySelectorAll('.pickup-fee-amount, .unpickup-fee-amount');
             if (spans.length > 1) {
                 spans.forEach((span, index) => {
                     span.style.display = index === spans.length - 1 ? 'inline-block' : 'none';
@@ -2598,7 +2720,7 @@
             for (let i = 2; i < tr.length; i++) {
                 if (tr[i].style.display !== "none") {
                     const tdList = tr[i].getElementsByTagName("td");
-                    const feeText = tdList[7]?.textContent || "0";
+                    const feeText = tdList[13]?.textContent || "0"; // 总费用列索引修正
                     const fee = parseFloat(feeText.replace(/[^0-9.]/g, "")) || 0;
                     totalFee += fee;
                 }
@@ -2644,6 +2766,12 @@
             updateSelectAllStatus('pick-select-all', 'pick-orders');
         } else if (tableId === 'pick-confirmed-table') {
             updateSelectAllStatus('pick-confirm-select-all', 'export-record-checkbox');
+        } else if (tableId === 'pick-t-waited-table') {
+            updateSelectAllStatusFiltered('pick-confirmed-select-all', 'pick-t-writeoff', 'pick-t-waited-table');
+            updateSelectedCount('pick-t');
+        } else if (tableId === 'pick-x-waited-table') {
+            updateSelectAllStatusFiltered('pick-x-select-all', 'pick-x-writeoff', 'pick-x-waited-table');
+            updateSelectedCount('pick-x');
         }
     }
 
@@ -2736,20 +2864,22 @@
         }
     }
 
-    // ===================== 辅助功能函数：核销相关 =====================
+    // ===================== 辅助功能函数：核销相关（修复更新逻辑） =====================
     function updateSelectedCount(type) {
-        return function () {
-            const checkboxes = document.querySelectorAll(`.${type}-writeoff:checked`);
-            const countElement = document.getElementById(`${type}-selected-count`);
-            if (countElement) {
-                countElement.textContent = `已选：${checkboxes.length} 条`;
-            }
+        // 直接执行更新，不再返回函数（修复事件绑定问题）
+        const checkboxes = document.querySelectorAll(`.${type}-writeoff:checked`);
+        const countElement = document.getElementById(`${type}-selected-count`);
+        if (countElement) {
+            countElement.textContent = `已选：${checkboxes.length} 条`;
         }
     }
 
     function batchWriteOff(type) {
         const batchAmountInput = document.getElementById(`${type}-batch-amount`);
-        if (!batchAmountInput) return;
+        if (!batchAmountInput) {
+            console.error('批量核销金额输入框不存在：', `${type}-batch-amount`);
+            return;
+        }
 
         const batchAmount = parseFloat(batchAmountInput.value) || 0;
         if (batchAmount <= 0) {
@@ -2757,48 +2887,57 @@
             return;
         }
 
+        // 1. 获取勾选的复选框
         const checkboxes = document.querySelectorAll(`.${type}-writeoff:checked`);
         if (checkboxes.length === 0) {
             alert('请至少勾选一条记录！');
             return;
         }
 
-        // 构建表单数据
-        const formData = new FormData();
-        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value;
-        if (csrfToken) formData.append('csrfmiddlewaretoken', csrfToken);
-
-        formData.append('step', 'batch_write_off_amount_post');
-        formData.append('write_off_type', type);
-        formData.append('batch_amount', batchAmount);
-
-        const containerIds = [];
+        // 2. 批量填写金额到输入框（保留原有逻辑）
         checkboxes.forEach(checkbox => {
             const containerId = checkbox.getAttribute('data-container-id');
-            if (containerId) containerIds.push(containerId);
             const amountInput = document.querySelector(`.write-off-amount[data-container-id="${containerId}"]`);
-            if (amountInput) amountInput.value = batchAmount;
+            if (amountInput) {
+                amountInput.value = batchAmount;
+            }
         });
-        formData.append('container_ids', JSON.stringify(containerIds));
 
-        // 提交批量核销请求
-        fetch(window.location.href, {
-            method: 'POST',
-            body: formData
-        })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    alert('批量核销成功！');
-                    window.location.reload();
-                } else {
-                    alert('批量核销失败：' + (data.message || '未知错误'));
-                }
-            })
-            .catch(error => {
-                console.error('批量核销请求失败：', error);
-                alert('批量核销请求失败，请重试！');
-            });
+        // 3. 收集container_number_id（替换itemv2_id，过滤空值）
+        const containerIds = [];
+        const emptyIdIndexes = [];
+        checkboxes.forEach((checkbox, index) => {
+            // 核心：获取data-container-id（即container_number_id）
+            const containerId = checkbox.getAttribute('data-container-id')?.trim() || '';
+            console.log(`勾选框${index + 1}的container_number_id：`, containerId);
+            if (containerId) {
+                containerIds.push(containerId);
+            } else {
+                emptyIdIndexes.push(index + 1);
+                console.warn(`勾选框${index + 1}的data-container-id为空`);
+            }
+        });
+
+        // 提示空ID（保留原有逻辑）
+        if (emptyIdIndexes.length > 0) {
+            const confirmContinue = confirm(`注意：勾选框${emptyIdIndexes.join(',')}无有效集装箱ID，是否继续处理其他记录？`);
+            if (!confirmContinue) {
+                return;
+            }
+        }
+        if (containerIds.length === 0) {
+            alert('所有勾选的记录都没有有效集装箱ID，无法执行批量核销！');
+            return;
+        }
+
+        // 4. 给隐藏form赋值（核心：替换为container_number_ids）
+        const batchForm = document.getElementById('batch-writeoff-form');
+        document.getElementById('batch-writeoff-type').value = type;
+        document.getElementById('batch-writeoff-amount').value = batchAmount;
+        document.getElementById('batch-writeoff-container-ids').value = containerIds.join(','); // 多个集装箱ID用逗号分隔
+
+        // 5. 提交form表单（自动携带CSRF Token）
+        batchForm.submit();
     }
 
     // ===================== 辅助功能函数：通用 =====================
@@ -2856,6 +2995,74 @@
             return;
         }
         hiddenInput.value = reason;
+    }
+
+    // 批量核销：仅保留表单赋值+提交，删除所有fetch/AJAX逻辑
+    function batchWriteOff(type) {
+        const batchAmountInput = document.getElementById(`${type}-batch-amount`);
+        if (!batchAmountInput) {
+            console.error('批量核销金额输入框不存在：', `${type}-batch-amount`);
+            return;
+        }
+
+        // 1. 金额校验
+        const batchAmount = parseFloat(batchAmountInput.value) || 0;
+        if (batchAmount <= 0) {
+            alert('请输入有效的核销金额！');
+            return;
+        }
+
+        // 2. 获取勾选的复选框
+        const checkboxes = document.querySelectorAll(`.${type}-writeoff:checked`);
+        if (checkboxes.length === 0) {
+            alert('请至少勾选一条记录！');
+            return;
+        }
+
+        // 3. 批量填写金额到输入框（保留原有逻辑）
+        checkboxes.forEach(checkbox => {
+            const containerId = checkbox.getAttribute('data-container-id');
+            const amountInput = document.querySelector(`.write-off-amount[data-container-id="${containerId}"]`);
+            if (amountInput) {
+                amountInput.value = batchAmount;
+            }
+        });
+
+        // 4. 核心修改：收集container_number_id（替换itemv2_id）
+        const containerIds = [];
+        const emptyIdIndexes = [];
+        checkboxes.forEach((checkbox, index) => {
+            const containerId = checkbox.getAttribute('data-container-id')?.trim() || '';
+            console.log(`勾选框${index + 1}的container_number_id：`, containerId);
+            if (containerId) {
+                containerIds.push(containerId);
+            } else {
+                emptyIdIndexes.push(index + 1);
+                console.warn(`勾选框${index + 1}的data-container-id为空`);
+            }
+        });
+
+        // 5. 空ID提示（保留原有逻辑，仅改文案）
+        if (emptyIdIndexes.length > 0) {
+            const confirmContinue = confirm(`注意：勾选框${emptyIdIndexes.join(',')}无有效集装箱ID，是否继续处理其他记录？`);
+            if (!confirmContinue) {
+                return;
+            }
+        }
+        if (containerIds.length === 0) {
+            alert('所有勾选的记录都没有有效集装箱ID，无法执行批量核销！');
+            return;
+        }
+        console.log('最终收集的有效containerIds：', containerIds);
+
+        // 6. 给隐藏表单赋值（核心：传递container_number_ids）
+        const batchForm = document.getElementById('batch-writeoff-form');
+        document.getElementById('batch-writeoff-type').value = type;
+        document.getElementById('batch-writeoff-amount').value = batchAmount;
+        document.getElementById('batch-writeoff-container-ids').value = containerIds.join(','); // 逗号分隔多个ID
+
+        // 7. 提交表单（自动携带CSRF Token，无AJAX，无JSON解析问题）
+        batchForm.submit();
     }
 </script>
 {% endblock %}
