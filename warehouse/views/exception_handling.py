@@ -2483,22 +2483,26 @@ class ExceptionHandling(View):
                 invoice = await sync_to_async(
                     lambda: Invoicev2.objects.filter(invoice_number=search_value).first()
                 )()
-                # 如果没找到，尝试按 container_number 查
                 if not invoice:
                     container = await sync_to_async(
                         lambda: Container.objects.filter(container_number=search_value).first()
                     )()
-                    if container:
-                        invoice = await sync_to_async(
-                            lambda: Invoice.objects.filter(container_number=container).first()
-                        )()
+                else:
+                    container = await sync_to_async(
+                        lambda: Container.objects.filter(container_number=invoice.container_number).first()
+                    )()
+                # 如果没找到，尝试按 container_number 查
+                if not invoice and container:
+                    invoice = await sync_to_async(
+                        lambda: Invoice.objects.filter(container_number=container).first()
+                    )()
 
                 if invoice:
                     context["invoice_info"] = {"id": invoice.id, "number": invoice.invoice_number}
 
                     # 查该 Invoice 下的 InvoiceDelivery
                     invoice_items = await sync_to_async(list)(
-                        InvoiceItemv2.objects.filter(invoice_number=invoice)
+                        InvoiceItemv2.objects.filter(invoice_number=invoice,invoice_type="receivable")
                         .values(
                             "id", "container_number_id","invoice_type", "item_category", "cbm",
                             "cbm_ratio", "weight", "description", "qty","note",
@@ -2506,7 +2510,10 @@ class ExceptionHandling(View):
                             "region","regionPrice","surcharges","registered_user"
                         )
                     )
+                    receivable_total_fee = sum(item['amount'] for item in invoice_items if item['amount'] is not None)
                     context["invoice_items"] = invoice_items
+                    context["receivable_total_fee"] = receivable_total_fee
+                    context["container_number"] = container.container_number
                 else:
                     messages.warning(request, f"未找到 Invoice 或 Container: {search_value}")
             # === Pallet 查询 ===
