@@ -520,6 +520,8 @@
                     <th class="fleet-note-col">备注</th>
                     <th>CBM</th>
                     <th>件数</th>
+                    <th>重量kg</th>
+                    <th>重量lbs</th>
                     <th class="fleet-pallet-col">板数</th>
                     <th class="fleet-pallet-size-col">托盘尺寸</th>
                     <th class="fleet-pallet-size-col">打板备注</th>
@@ -571,34 +573,40 @@
                         <input type="text" class="fleet-filter-input" placeholder="筛选件数..." data-column="10" onkeyup="fleet_applyColumnFilter(this)">
                     </td>
                     <td>
-                        <input type="text" class="fleet-filter-input" placeholder="筛选板数..." data-column="11" onkeyup="fleet_applyColumnFilter(this)">
+                        <input type="text" class="fleet-filter-input" placeholder="筛选重量..." data-column="11" onkeyup="fleet_applyColumnFilter(this)">
                     </td>
                     <td>
-                        <input type="text" class="fleet-filter-input" placeholder="筛选托盘尺寸..." data-column="12" onkeyup="fleet_applyColumnFilter(this)">
+                        <input type="text" class="fleet-filter-input" placeholder="筛选重量..." data-column="12" onkeyup="fleet_applyColumnFilter(this)">
                     </td>
                     <td>
-                        <input type="text" class="fleet-filter-input" placeholder="筛选托盘尺寸备注..." data-column="13" onkeyup="fleet_applyColumnFilter(this)">
+                        <input type="text" class="fleet-filter-input" placeholder="筛选板数..." data-column="13" onkeyup="fleet_applyColumnFilter(this)">
                     </td>
                     <td>
-                        <input type="text" class="fleet-filter-input" placeholder="筛选成本..." data-column="14" onkeyup="fleet_applyColumnFilter(this)">
+                        <input type="text" class="fleet-filter-input" placeholder="筛选托盘尺寸..." data-column="14" onkeyup="fleet_applyColumnFilter(this)">
                     </td>
                     <td>
-                        <input type="text" class="fleet-filter-input" placeholder="筛选成本备注..." data-column="15" onkeyup="fleet_applyColumnFilter(this)">
+                        <input type="text" class="fleet-filter-input" placeholder="筛选托盘尺寸备注..." data-column="15" onkeyup="fleet_applyColumnFilter(this)">
                     </td>
                     <td>
-                        <input type="text" class="fleet-filter-input" placeholder="筛选报价..." data-column="16" onkeyup="fleet_applyColumnFilter(this)">
+                        <input type="text" class="fleet-filter-input" placeholder="筛选成本..." data-column="16" onkeyup="fleet_applyColumnFilter(this)">
                     </td>
                     <td>
-                        <input type="text" class="fleet-filter-input" placeholder="筛选报价备注..." data-column="17" onkeyup="fleet_applyColumnFilter(this)">
+                        <input type="text" class="fleet-filter-input" placeholder="筛选成本备注..." data-column="17" onkeyup="fleet_applyColumnFilter(this)">
                     </td>
                     <td>
-                        <input type="text" class="fleet-filter-input" placeholder="筛选承运公司..." data-column="18" onkeyup="fleet_applyColumnFilter(this)">
+                        <input type="text" class="fleet-filter-input" placeholder="筛选报价..." data-column="18" onkeyup="fleet_applyColumnFilter(this)">
                     </td>
                     <td>
-                        <input type="text" class="fleet-filter-input" placeholder="筛选BOL号..." data-column="19" onkeyup="fleet_applyColumnFilter(this)">
+                        <input type="text" class="fleet-filter-input" placeholder="筛选报价备注..." data-column="19" onkeyup="fleet_applyColumnFilter(this)">
                     </td>
                     <td>
-                        <input type="text" class="fleet-filter-input" placeholder="筛选PRO号..." data-column="20" onkeyup="fleet_applyColumnFilter(this)">
+                        <input type="text" class="fleet-filter-input" placeholder="筛选承运公司..." data-column="20" onkeyup="fleet_applyColumnFilter(this)">
+                    </td>
+                    <td>
+                        <input type="text" class="fleet-filter-input" placeholder="筛选BOL号..." data-column="21" onkeyup="fleet_applyColumnFilter(this)">
+                    </td>
+                    <td>
+                        <input type="text" class="fleet-filter-input" placeholder="筛选PRO号..." data-column="22" onkeyup="fleet_applyColumnFilter(this)">
                     </td>
                     <td class="fleet-action-col">
                         <!-- 操作列不需要筛选 -->
@@ -689,6 +697,8 @@
                     </td>
                     <td>{{ cargo.total_cbm|floatformat:3|default:"0.000" }}</td>
                     <td>{{ cargo.total_pcs|default:0 }}</td>
+                    <td>{{ cargo.total_weight_kg|default:0 }}</td>
+                    <td>{{ cargo.total_weight_lbs|default:0 }}</td>
                     <td class="fleet-pallet-col">
                         {% if cargo.total_n_pallet_act %}
                             <span class="fleet-pallet-count">{{ cargo.total_n_pallet_act }}</span>
