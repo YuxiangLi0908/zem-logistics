@@ -2287,7 +2287,7 @@ class ReceivableAccounting(View):
             if delivery_category == "hold":
                 note = f"暂扣, {note}"
             elif delivery_category == "combine":
-                note = f"{region}, {note}"
+                note = region
             if not po_id:
                 error_messages.append(f"第{row_index + 1}行: PO号不能为空")
                 continue                 
@@ -5630,16 +5630,28 @@ class ReceivableAccounting(View):
                 description = ""
 
             item_data = {
+                "id": None,
                 "PO_ID": po_id,
-                "destination": dest_fixed,
+                "destination": destination,
+                "delivery_method": group.get("delivery_method", ""),
+                "delivery_category": "combine",
                 "total_pallets": group.get("total_pallets", 0),
-                "total_cbm": round(group.get("total_cbm", 0), 2),
+                "total_cbm": round(cbm, 2),
+                "total_weight_lbs": round(group.get("total_weight_lbs", 0), 2),
+                "shipping_marks": group.get("shipping_marks", ""),
+                "pallet_ids": group.get("pallet_ids", []),
                 "rate": price,
-                "amount": amount,
-                "combina_region": region_name, # 还是显示“美西一区”
                 "description": description,
+                "surcharges": 0,
+                "note": "",
+                "amount": amount,
+                "is_existing": False,
+                "is_previous_existing": False,
+                "need_manual_input": False,
                 "is_combina_item": True,
-                # ... 其他字段
+                "combina_region": region,
+                "combina_price": price,
+                "cbm_ratio": cbm_ratio,
             }
             combina_items.append(item_data)
 
