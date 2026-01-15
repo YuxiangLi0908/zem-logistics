@@ -187,6 +187,7 @@
                         <th>派送时间</th>
                         <th>板数</th>
                         <th>CBM</th>
+                        <th>重量(lbs)</th>
                         <th>是否甩板</th>
                         <th>匹配度</th>
                         <th>操作</th>
@@ -201,7 +202,8 @@
                         <td><input type="text" class="header-search" placeholder="搜索派送时间" data-column="6"></td>
                         <td><input type="text" class="header-search" placeholder="搜索板数" data-column="7"></td>
                         <td><input type="text" class="header-search" placeholder="搜索CBM" data-column="8"></td>
-                        <td><input type="text" class="header-search" placeholder="搜索是否甩板" data-column="9"></td>
+                        <td><input type="text" class="header-search" placeholder="搜索重量" data-column="9"></td>
+                        <td><input type="text" class="header-search" placeholder="搜索是否甩板" data-column="10"></td>
                         <td></td>
                         <td></td>
                     </tr>
@@ -293,6 +295,7 @@
                                 {% endif %}
                             </td>
                             <td class="cbm-col">{{ cargo.total_cbm|default:0|floatformat:3 }}</td>
+                            <td class="weight-col">{{ cargo.total_weight|default:0|floatformat:2 }}</td>
                             <td class="is-dropped">
                                 {% if cargo.is_dropped_pallet == True %}
                                     {% if cargo.rebuilt_is_dropped_pallet %}
@@ -450,6 +453,7 @@
                                 {% endif %}
                             </td>
                             <td class="cbm-col">{{ cargo.total_cbm|default:0|floatformat:3 }}</td>
+                            <td class="weight-col">{{ cargo.total_weight|default:0|floatformat:2 }}</td>
                             <td class="is-dropped">
                                 {% if cargo.is_dropped_pallet == True %}
                                     {% if cargo.rebuilt_is_dropped_pallet %}
