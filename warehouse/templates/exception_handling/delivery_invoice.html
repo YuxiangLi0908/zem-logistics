@@ -165,12 +165,17 @@ h2 {
                 <option value="">选择查询类型</option>
                 <option value="container" {% if search_type == 'container' %}selected{% endif %}>柜号查询</option>
                 <option value="invoice" {% if search_type == 'invoice' %}selected{% endif %}>旧账单查询</option>
-                <option value="invoicev2" {% if search_type == 'invoicev2' %}selected{% endif %}>新账单查询</option>
+                <option value="invoicev2" {% if search_type == 'invoicev2' %}selected{% endif %} selected>新账单查询</option>
                 <option value="pallet" {% if search_type == 'pallet' %}selected{% endif %}>Pallet ID 查询</option>
             </select>
             <input type="text" name="search_value" class="search-input"
                    placeholder="输入查询值" value="{{ search_value|default:'' }}" required>
             <button type="submit" class="search-btn">查询</button>
+            <div class="checkbox-wrapper">
+                <input type="checkbox" name="my_checkbox" value="true"
+                    {% if my_checkbox == 'true' %}checked{% endif %}>
+                <label for="my_checkbox">只看组合柜区</label>
+            </div>
         </div>
     </form>
 </div>
@@ -427,6 +432,27 @@ h2 {
             <button type="submit" style="padding:6px 12px; background:#c0392b; color:white; border:none; border-radius:4px;">删除全部公仓派送的</button>
         </form>
     </div>
+</div>
+{% endif %}
+
+{% if region_items %}
+<div style="overflow-x:auto;">
+    <table class="data-table" style="width:auto; min-width:300px; margin:0 auto; border-collapse: collapse;">
+        <thead>
+            <tr>
+                <th style="width:150px; min-width:150px; text-align:center;">warehouse_code</th>          
+                <th style="width:100px; min-width:100px; text-align:center;">region</th>
+            </tr>
+        </thead>
+        <tbody id="tableBody">
+            {% for item in region_items %}
+            <tr>
+                <td style="text-align:center; padding:8px 12px;">{{ item.warehouse_code }}</td>     
+                <td style="text-align:center; padding:8px 12px;">{{ item.region }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
 </div>
 {% endif %}
 

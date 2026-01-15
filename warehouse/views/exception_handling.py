@@ -2497,25 +2497,37 @@ class ExceptionHandling(View):
                         lambda: Invoice.objects.filter(container_number=container).first()
                     )()
 
-                if invoice:
-                    context["invoice_info"] = {"id": invoice.id, "number": invoice.invoice_number}
-
-                    # 查该 Invoice 下的 InvoiceDelivery
+                context["invoice_info"] = {"id": invoice.id, "number": invoice.invoice_number}
+                my_checkbox = request.POST.get("my_checkbox")
+                is_checked = my_checkbox == "true"
+                if is_checked:
+                    # 只看组合柜类型的地址和所属区
                     invoice_items = await sync_to_async(list)(
-                        InvoiceItemv2.objects.filter(invoice_number=invoice,invoice_type="receivable")
+                        InvoiceItemv2.objects.filter(invoice_number=invoice,invoice_type="receivable",delivery_type="combine")
                         .values(
-                            "id", "container_number_id","invoice_type", "item_category", "cbm",
-                            "cbm_ratio", "weight", "description", "qty","note",
-                            "rate", "amount", "PO_ID", "delivery_type","warehouse_code",
-                            "region","regionPrice","surcharges","registered_user"
+                            "warehouse_code","region"
                         )
                     )
-                    receivable_total_fee = sum(item['amount'] for item in invoice_items if item['amount'] is not None)
-                    context["invoice_items"] = invoice_items
-                    context["receivable_total_fee"] = receivable_total_fee
-                    context["container_number"] = container.container_number
+                    context["region_items"] = invoice_items
+                    context['my_checkbox'] = 'true'
                 else:
-                    messages.warning(request, f"未找到 Invoice 或 Container: {search_value}")
+                    if invoice:
+                        # 查该 Invoice 下的 InvoiceDelivery
+                        invoice_items = await sync_to_async(list)(
+                            InvoiceItemv2.objects.filter(invoice_number=invoice,invoice_type="receivable")
+                            .values(
+                                "id", "container_number_id","invoice_type", "item_category", "cbm",
+                                "cbm_ratio", "weight", "description", "qty","note",
+                                "rate", "amount", "PO_ID", "delivery_type","warehouse_code",
+                                "region","regionPrice","surcharges","registered_user"
+                            )
+                        )
+                        receivable_total_fee = sum(item['amount'] for item in invoice_items if item['amount'] is not None)
+                        context["invoice_items"] = invoice_items
+                        context["receivable_total_fee"] = receivable_total_fee
+                        context["container_number"] = container.container_number
+                    else:
+                        messages.warning(request, f"未找到 Invoice 或 Container: {search_value}")
             # === Pallet 查询 ===
             elif search_type == "pallet":
                 try:
