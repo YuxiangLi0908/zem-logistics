@@ -5288,6 +5288,7 @@ class ReceivableAccounting(View):
                 processed_po_ids = set(combina_result.get("processed_po_ids", []))
                 result["combina_items"].extend(new_items)
 
+                
                 for item in new_items:
                     total_combina_cbm += item.get("total_cbm")
                     if item.get("PO_ID") in processed_po_ids:
@@ -5577,7 +5578,8 @@ class ReceivableAccounting(View):
             match_found = False
             for region_name, region_list in rules.items():
                 for idx, tier in enumerate(region_list):
-                    if dest_fixed in tier["location"]:
+                    normalized_tier_locations = [loc.strip() for loc in tier["location"] if loc]
+                    if dest_fixed in normalized_tier_locations:
                         # 找到了具体的区和该区下的价格梯度
                         tier_key = f"{region_name}_{idx}"
                         price = tier["prices"][container_type_temp]
