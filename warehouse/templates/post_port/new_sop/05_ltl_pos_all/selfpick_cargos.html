@@ -497,7 +497,6 @@
                     <th>重量lbs</th>
                     <th class="pallet-col">板数</th>
                     <th class="pallet-size-col">托盘尺寸</th>
-                    <th class="pallet-size-col">打板备注</th>
                     <th class="quote-col">出库数量</th> 
                     <th class="quote-col">单板费</th> 
                     <th class="quote-col">出库费</th> 
@@ -551,9 +550,6 @@
                         托盘尺寸筛选只对PALLET数据有效
                         {% endcomment %}
                         <input type="text" class="filter-input" placeholder="筛选托盘尺寸..." data-column="11" onkeyup="applySelfPickColumnFilter(this)">
-                    </td>
-                    <td>
-                        <input type="text" class="filter-input" placeholder="筛选托盘尺寸备注..." data-column="12" onkeyup="applySelfPickColumnFilter(this)">
                     </td>
                     <td>
                         <input type="text" class="filter-input" placeholder="筛选出库数量..." data-column="13" onkeyup="applySelfPickColumnFilter(this)">
@@ -677,18 +673,6 @@
                             </div>
                         {% else %}
                             <!-- PackingList 数据没有托盘尺寸字段 -->
-                            <span style="color: #999; font-style: italic;">-</span>
-                        {% endif %}
-                    </td>
-                    <td class="pallet-size-col">
-                        {% if cargo.data_source == "PALLET" %}
-                            <div style="position: relative;">
-                                <textarea class="fleet-editable-textarea plt-size-note-input"
-                                    placeholder="输入托盘尺寸备注"
-                                    oninput="autoResizeTextarea(this)"
-                                    rows="1">{{ cargo.ltl_plt_size_note|default_if_none:"" }}</textarea>
-                            </div>
-                        {% else %}
                             <span style="color: #999; font-style: italic;">-</span>
                         {% endif %}
                     </td>
@@ -816,7 +800,6 @@
     <input type="hidden" name="del_qty" id="delQtyInput">
     <input type="hidden" name="ltl_unit_quote" id="unitQuoteInput">
     <input type="hidden" name="ltl_quote" id="ltlQuoteInput">
-    <input type="hidden" name="ltl_quote_note" id="ltlQuoteNoteInput">
     <input type="hidden" name="warehouse" value="{{ warehouse }}">
     <input type="hidden" name="active_tab" value="scheduled">
 </form>
@@ -943,7 +926,6 @@
                 if (palletSize === '-' || palletSize.includes('font-style: italic')) {
                     palletSize = '';
                 }
-                console.log('托盘尺寸',palletSizeTd,palletSize);
 
                 // 添加到数据数组
                 rowsData.push([containerNumber, destination, shippingMark, palletSize]);
@@ -1116,7 +1098,6 @@
             const unitQuoteInput = row.querySelector('.unit-quote-input');
             const ltlQuoteInput = row.querySelector('.outbound-fee-input');
             const ltlQuoteNoteInput = row.querySelector('.outbound-fee-note-input');
-            const pltSizeNoteInput = row.querySelector('.plt-size-note-input');
 
             const followStatusValue = followStatusInput ? followStatusInput.value.trim() : '';
             const carrierValue = carrierInput ? carrierInput.value.trim() : '';
@@ -1128,7 +1109,6 @@
             const unitQuoteValue = unitQuoteInput ? unitQuoteInput.value.trim() : '';
             const ltlQuoteValue = ltlQuoteInput ? ltlQuoteInput.value.trim() : '';
             const ltlQuoteNoteValue = ltlQuoteNoteInput ? ltlQuoteNoteInput.value.trim() : '';
-            const pltSizeNoteValue = pltSizeNoteInput ? pltSizeNoteInput.value.trim() : '';
             
             /* const tbody = document.querySelector('#selfpick_cargoTable tbody');
             // 只有PALLET数据才有托盘尺寸输入框
@@ -1185,13 +1165,12 @@
             const unitQuoteInputField = document.getElementById('unitQuoteInput');
             const ltlQuoteInputField = document.getElementById('ltlQuoteInput');
             const ltlQuoteNoteInputField = document.getElementById('ltlQuoteNoteInput');
-            const pltSizeNoteInputField = document.getElementById('pltSizeNoteInput'); 
             const saveForm = document.getElementById('saveForm');
 
             if (cargoIdInput && carrierInputField && addressInputField && 
                 bolNumberInputField && pickupTimeInputField && followStatusInputField 
                 && palletSizeInputField && delQtyInputField && ltlQuoteInputField 
-                && ltlQuoteNoteInputField && unitQuoteInputField && pltSizeNoteInputField && saveForm) {
+                && ltlQuoteNoteInputField && unitQuoteInputField && saveForm) {
                 cargoIdInput.value = id;
                 carrierInputField.value = carrierValue;
                 addressInputField.value = addressValue;
@@ -1203,7 +1182,6 @@
                 unitQuoteInputField.value = unitQuoteValue;
                 ltlQuoteInputField.value = ltlQuoteValue;
                 ltlQuoteNoteInputField.value = ltlQuoteNoteValue; 
-                pltSizeNoteInputField.value = pltSizeNoteValue;
                 saveForm.submit();
             } else {
                 console.error('保存表单元素未找到');
