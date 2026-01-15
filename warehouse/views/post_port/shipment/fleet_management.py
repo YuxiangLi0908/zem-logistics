@@ -2936,6 +2936,8 @@ class FleetManagement(View):
         return False
 
     def _parse_tzinfo(self, s: str) -> str:
+        if not isinstance(s, str):
+            return "America/New_York"
         if "NJ" in s.upper():
             return "America/New_York"
         elif "SAV" in s.upper():
