@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta, time
 from typing import Any, Dict, List, Tuple
-from django.db.models import Prefetch, F
+from django.db.models import Prefetch, F, Subquery, OuterRef
 from collections import OrderedDict, defaultdict
 import pandas as pd
 import json
@@ -5566,6 +5566,10 @@ class PostNsop(View):
         
         data = []
         if plt_criteria:
+            pk_subquery = PackingList.objects.filter(
+                shipping_mark=OuterRef("shipping_mark"),
+                PO_ID=OuterRef("PO_ID")
+            )
             pal_list = await sync_to_async(list)(
                 Pallet.objects.prefetch_related(
                     "container_number",
@@ -5628,6 +5632,7 @@ class PostNsop(View):
                     "ltl_quote_note",
                     "ltl_contact_method",
                     "ltl_plt_size_note",
+                    "PO_ID",
                     warehouse=F("container_number__orders__retrieval_id__retrieval_destination_precise"),
                     retrieval_destination_precise=F("container_number__orders__retrieval_id__retrieval_destination_precise"),
                     customer_name=F("container_number__orders__customer_name__zem_name"),
@@ -5651,9 +5656,9 @@ class PostNsop(View):
                     ),
                     total_pcs=Sum("pcs", output_field=IntegerField()),
                     total_cbm=Round(Sum("cbm", output_field=FloatField()), 3),
-                    total_weight_lbs=Round(Sum("weight_lbs", output_field=FloatField()), 3),
+                    total_weight_lbs=Subquery(pk_subquery.values('total_weight_lbs')[:1]),
                     # 新增：总重量kg
-                    total_weight_kg=Round(Sum("weight_kg", output_field=FloatField()), 3),
+                    total_weight_kg=Subquery(pk_subquery.values('total_weight_kg')[:1]),
                     total_n_pallet_act=Count("pallet_id", distinct=True),
                     label=Value("ACT"),
                     note_sp=StringAgg("note_sp", delimiter=",", distinct=True),
