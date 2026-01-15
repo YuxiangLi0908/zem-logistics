@@ -4842,6 +4842,7 @@ class PostNsop(View):
                 
                 intelligent_pos = result_intel['intelligent_pos']
                 intelligent_pos_stats = result_intel['intelligent_pos_stats']
+                
                 intelligent_cargos = [{
                     'unique_id': pos.get('unique_id', ''),
                     'ids': pos.get('ids', ''),
@@ -4855,7 +4856,7 @@ class PostNsop(View):
                     'delivery_window_end': pos.get('delivery_window_end'),
                     'total_n_pallet_act': pos.get('total_n_pallet_act') or pos.get('total_n_pallet_est', 0),
                     'total_cbm': pos.get('total_cbm', 0),
-                    'total_weight': pos.get('total_weight_lbs', 0),
+                    'total_weight': pos.get('total_weight', 0),
                     'label': pos.get('label', ''),
                     'destination': pos.get('destination', ''),
                     'location': pos.get('location') if pos.get('location') else pos.get('warehouse', ''),
