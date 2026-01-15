@@ -184,7 +184,8 @@
                                         {% elif c.total_n_pallet_est|modulo:1 >= 0.45 %}
                                         {{ c.total_n_pallet_est|floor_division:1|add:1|floatformat:0 }}
                                         {% else %}
-                                        {{ c.total_n_pallet_est|floor_division:1|floatformat:0 }}
+                                        {{ c.total_n_pallet_est|floor_division:1|floatfo
+                                            rmat:0 }}
                                         {% endif %}
                                     {% endif %}
                                 </td>
