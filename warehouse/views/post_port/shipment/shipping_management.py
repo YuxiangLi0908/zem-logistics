@@ -1475,9 +1475,9 @@ class ShippingManagement(View):
                 elif shipment_type == "外配":
                     shipmentappointment = request.POST.get("shipment_est_arrival", None)
                     tzinfo = self._parse_tzinfo(request.POST.get("origin", ""))
-                    if shipmentappointment == "":
-                        shipmentappointment = current_time
-                        shipmentappointment_utc = current_time
+                    if not shipmentappointment or shipmentappointment == "":                      
+                        shipmentappointment = pickup_time
+                        shipmentappointment_utc = pickup_time
                     else:
                         shipmentappointment_utc = self._parse_ts(
                             shipmentappointment, tzinfo
@@ -1547,7 +1547,10 @@ class ShippingManagement(View):
                         dt = appointment_datetime
                     month_day = dt.strftime("%m%d")
                     destination = request.POST.get("destination", None)
-                    pickupNumber = "ZEM" + "-" + wh + "-" + "" + month_day + ca + destination
+                    if shipment_type == "外配":
+                        pickupNumber = None
+                    else:
+                        pickupNumber = "ZEM" + "-" + wh + "-" + "" + month_day + ca + destination
                     fleet = Fleet(
                         **{
                             "carrier": request.POST.get("carrier").strip(),
