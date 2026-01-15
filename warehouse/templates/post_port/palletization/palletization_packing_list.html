@@ -421,51 +421,70 @@
     };
 
     function processForm() {
-        var firstEmptyRow = document.getElementById('palletization-row-empty');
-        if (firstEmptyRow && firstEmptyRow.style.display === 'none') {
-            var inputs = firstEmptyRow.querySelectorAll('input, select');
-            inputs.forEach(function(input) {
-                if (input.hasAttribute('required')) {
-                    input.removeAttribute('required');
-                };
-                input.disabled = true;
-            });
-        };
-        var deliveryMethodSelects = document.querySelectorAll('select.new-delivery-method');
-        var isValid = true;
-        deliveryMethodSelects.forEach(function(select) {
-            if (!select.disabled) {
-                if (select.value.trim() === '') {
-                    isValid = false;
-                    select.style.border = '2px solid red';
-                } else {
-                    select.style.border = '';
-                };
+    var firstEmptyRow = document.getElementById('palletization-row-empty');
+    if (firstEmptyRow && firstEmptyRow.style.display === 'none') {
+        var inputs = firstEmptyRow.querySelectorAll('input, select');
+        inputs.forEach(function(input) {
+            if (input.hasAttribute('required')) {
+                input.removeAttribute('required');
             };
+            input.disabled = true;
         });
-        if (!isValid) {
-            event.preventDefault();
-            alert("请选择'派送方式'!");
+    };
+    var deliveryMethodSelects = document.querySelectorAll('select.new-delivery-method');
+    var isValid = true;
+    deliveryMethodSelects.forEach(function(select) {
+        if (!select.disabled) {
+            if (select.value.trim() === '') {
+                isValid = false;
+                select.style.border = '2px solid red';
+            } else {
+                select.style.border = '';
+            };
         };
-        var palletCount = document.querySelectorAll('input[name="n_pallet"]');
-        var pcsCount = document.querySelectorAll('input[name="pcs_actul"]');
-        var palletValid = true;
-        for (i = 0; i < palletCount.length; i++){
-            const p = palletCount[i].value;
-            const pcs = pcsCount[i].value;
+    });
+    if (!isValid) {
+        event.preventDefault();
+        alert("请选择'派送方式'!");
+    };
+
+    // ========== 核心修改：打板数校验新增派送方式判断 ==========
+    var palletCount = document.querySelectorAll('input[name="n_pallet"]');
+    var pcsCount = document.querySelectorAll('input[name="pcs_actul"]');
+    // 新增：获取所有派送方式（包含原有隐藏项和新增行的下拉框）
+    var deliveryMethods = document.querySelectorAll('input[name="delivery_method"], select[name="new_delivery_method"]');
+    var palletValid = true;
+
+    for (var i = 0; i < palletCount.length; i++){
+        const p = palletCount[i].value;
+        const pcs = pcsCount[i].value;
+        // 新增：获取当前行的派送方式（兼容原有行和新增行）
+        let deliveryMethod = '';
+        if (deliveryMethods[i]) {
+            deliveryMethod = deliveryMethods[i].value || '';
+        }
+
+        // 核心判断：仅当派送方式不包含"直送"时，才校验打板数
+        if (!deliveryMethod.includes('直送')) {
             if (p == 0 && pcs != 0) {
                 palletCount[i].style.border = '2px solid red';
-                var palletValid = false;
+                palletValid = false;
             } else {
                 palletCount[i].style.border = '';
             };
-        };
-        if (!palletValid) {
-            alert("请核对打板数!");
-            event.preventDefault();
-            return
+        } else {
+            // 派送方式包含"直送"：清除红色边框，跳过校验
+            palletCount[i].style.border = '';
         };
     };
+    // ========== 核心修改结束 ==========
+
+    if (!palletValid) {
+        alert("请核对打板数!");
+        event.preventDefault();
+        return
+    };
+};
     function showBatchLocationDialog() {
         document.getElementById('batchLocationDialog').style.display = 'block';
     }
