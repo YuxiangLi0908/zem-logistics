@@ -5463,7 +5463,8 @@ class ReceivableAccounting(View):
                 #判断改之前是不是组合柜，如果是组合->非组合，要补收一份组合柜，非组合->组合，正常按组合收，            
                 for region, region_data in rules.items():
                     for item in region_data:
-                        if destination_origin in item["location"]:
+                        normalized_locations = [loc.strip() for loc in item["location"] if loc]
+                        if destination_origin in normalized_locations:
                             is_combina_origin = True
                             break
                     if is_combina_origin:
@@ -5473,7 +5474,8 @@ class ReceivableAccounting(View):
             is_combina_region = False
             for region, region_data in rules.items():
                 for item in region_data:
-                    if destination in item["location"]:
+                    normalized_locations = [loc.strip() for loc in item["location"] if loc]
+                    if destination in normalized_locations:
                         is_combina_region = True
                         break
                 if is_combina_region:
