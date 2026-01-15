@@ -188,7 +188,7 @@ class InvoiceItemv2(models.Model):
     warehouse_code = models.CharField(max_length=200, null=True, blank=True) #目的地
     shipping_marks = models.CharField(max_length=99999, null=True, blank=True) #私仓用的唛头
     region = models.CharField(max_length=200, null=True, blank=True) #派送是哪个区
-    regionPrice = models.FloatField(null=True, blank=True) #派送是哪个区
+    regionPrice = models.FloatField(null=True, blank=True) #派送区的价格
     surcharges = models.FloatField(null=True, blank=True) #附加费
     note = models.CharField(max_length=2000, null=True, blank=True) #备注
     registered_user = models.CharField(max_length=2000, null=True, blank=True) #记录谁录的费用
