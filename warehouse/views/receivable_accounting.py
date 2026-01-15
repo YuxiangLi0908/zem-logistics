@@ -5632,7 +5632,7 @@ class ReceivableAccounting(View):
             item_data = {
                 "id": None,
                 "PO_ID": po_id,
-                "destination": destination,
+                "destination": dest_fixed,
                 "delivery_method": group.get("delivery_method", ""),
                 "delivery_category": "combine",
                 "total_pallets": group.get("total_pallets", 0),
