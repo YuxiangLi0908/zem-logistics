@@ -2335,6 +2335,7 @@ class ReceivableAccounting(View):
             item.description = description
             item.warehouse_code = destination
             item.region = region
+            item.regionPrice = rate_float
             item.cbm = cbm
             item.weight = weight
             item.cbm_ratio = cbm_ratio
