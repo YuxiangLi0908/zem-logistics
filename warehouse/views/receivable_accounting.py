@@ -5295,7 +5295,6 @@ class ReceivableAccounting(View):
                         if region not in combina_items_by_region:
                             combina_items_by_region[region] = []
                         combina_items_by_region[region].append(item)
-                
                 result["combina_info"] = combina_result.get("info", {})
                 # 从待处理的pallet_groups中移除已处理的组合柜记录
                 pallet_groups = [g for g in pallet_groups if g.get("PO_ID") not in processed_po_ids]
@@ -5650,7 +5649,7 @@ class ReceivableAccounting(View):
                 "is_previous_existing": False,
                 "need_manual_input": False,
                 "is_combina_item": True,
-                "combina_region": region,
+                "combina_region": region_name,
                 "combina_price": price,
                 "cbm_ratio": cbm_ratio,
             }
