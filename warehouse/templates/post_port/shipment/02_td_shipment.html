@@ -189,7 +189,7 @@
                                     {% endif %}
                                 </td>
                                 <td class="td">
-                                    {% with first_value=c.custom_delivery_method|split_and_get_first %}
+                                    {% with first_value=c.custom_delivery_method|default:""|split_and_get_first %}
                                         {{ first_value }}
                                     {% endwith %}
                                 </td>
