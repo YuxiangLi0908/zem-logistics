@@ -2283,7 +2283,6 @@ class ReceivableAccounting(View):
             shipping_marks = item_data.get("shipping_marks", "")
 
             registered_user = item_data.get("registered_user") or username
-            
             if delivery_category == "hold":
                 note = f"暂扣, {note}"
             elif delivery_category == "combine":
@@ -2341,6 +2340,7 @@ class ReceivableAccounting(View):
             item.cbm_ratio = cbm_ratio
             item.registered_user = registered_user
             item.shipping_marks = shipping_marks
+            item.note = note
             
             # 保存
             item.save()
