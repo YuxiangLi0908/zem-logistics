@@ -32,7 +32,7 @@ from django.db.models import (
     Q,
     Sum,
     Value,
-    When,
+    When, Prefetch,
 )
 from django.db.models.functions import Cast, Concat, Round
 from django.forms import model_to_dict
@@ -44,6 +44,7 @@ from django.views import View
 from xhtml2pdf import pisa
 
 from warehouse.models.order import Order
+from warehouse.models.vessel import Vessel
 from warehouse.models.packing_list import PackingList
 from warehouse.models.pallet import Pallet
 from warehouse.models.po_check_eta import PoCheckEtaSeven
@@ -104,18 +105,30 @@ async def export_palletization_list_v2(request: HttpRequest) -> HttpResponse:
     (新)拆柜单导出
     """
     status = request.POST.get("status")
-    warehouse = request.POST.get("warehouse").split("-")[0].upper()
+    warehouse = request.POST.get("warehouse").split("-")[0].upper() if request.POST.get("warehouse") else ""
     container_number = request.POST.get("container_number")
     warehouse_unpacking_time = request.POST.get("first_time_download")
+
     try:
         warehouse_unpacking_time = datetime.strptime(warehouse_unpacking_time, "%Y-%m-%d %H:%M:%S").strftime(
-            "%d/%m /%Y")
+            "%d/%m/%Y")
     except (ValueError, TypeError):
         warehouse_unpacking_time = "未获取到时间"
 
+    TARGET_WAREHOUSES = {"GEU2", "GEU3", "GYR2", "GYR3", "IUSP", "ONT8", "LAX9", "LGB8", "SBD1"}  # 指定9个仓点
+    UTC_TZ = pytz.UTC
+    BASE_ETA = UTC_TZ.localize(datetime(2026, 1, 19))  # 带UTC时区的基准时间
+
     if status == "non_palletized":
+        vessel_prefetch_queryset = Vessel.objects.all()
         packing_list = await sync_to_async(list)(
-            PackingList.objects.select_related("container_number", "pallet")
+            PackingList.objects.select_related("container_number", "pallet", "shipment_batch_number")
+            .prefetch_related(
+                Prefetch(
+                    "container_number__orders__vessel_id",
+                    queryset=vessel_prefetch_queryset
+                )
+            )
             .filter(container_number__container_number=container_number)
             .annotate(
                 custom_delivery_method=Case(
@@ -143,6 +156,7 @@ async def export_palletization_list_v2(request: HttpRequest) -> HttpResponse:
                 str_fba_id=Cast("fba_id", CharField()),
                 str_ref_id=Cast("ref_id", CharField()),
                 str_shipping_mark=Cast("shipping_mark", CharField()),
+                vessel_eta=F("container_number__orders__vessel_id__vessel_eta"),
             )
             .values(
                 "container_number__container_number",
@@ -155,6 +169,8 @@ async def export_palletization_list_v2(request: HttpRequest) -> HttpResponse:
                 "shipment_batch_number__shipment_batch_number",
                 "PO_ID",
                 "delivery_type",
+                "shipment_batch_number__load_type",
+                "vessel_eta",  # 带时区的datetime值
             )
             .annotate(
                 fba_ids=StringAgg("str_fba_id", delimiter=",", distinct=True),
@@ -178,59 +194,19 @@ async def export_palletization_list_v2(request: HttpRequest) -> HttpResponse:
 
     data = [i for i in packing_list]
     df = pd.DataFrame.from_records(data)
-    slot_rules = {
-        "SAV": {
-            "destinations": {"BNA2", "BNA6", "CHA2", "CLT2", "CLT3", "GSO1", "HSV1", "IUS3",
-                             "JAX3", "MCO2", "MGE3", "MEM1", "PBI3", "RDU2", "RDU4", "RYY2",
-                             "SAV3", "TMB8", "TPA2", "TPA3", "TPA6", "WALMART-ATL1", "WALMART-ATL3",
-                             "WALMART-MCO1", "XAV3", "XLX6", "XPB2"},
-            "slot": "NQ1"
-        },
-        "NJ": {
-            "destinations": {"ABE4", "ABE8", "ACY2", "ALB1", "AVP1", "BOS7", "BWI4", "CHO1",
-                             "CMH2", "CMH3", "DEN4", "DET1", "DET2", "HGR6", "ILG1", "IUS1",
-                             "LBE1", "MDT1", "MDT4", "ORF2", "PHL6", "PIT2", "RNN3", "SWF1",
-                             "SWF2", "TEB3", "TEB4", "TEB6"},
-            "slot": "NQ2"
-        },
-        "LA": {
-            "rules": [
-                {"destinations": {"ABQ2", "DCA6", "DEN8", "FAT2", "FTW1", "FWA4", "GEU2", "GEU3"}, "slot": "NR"},
-                {"destinations": {"GEU5", "GYR2", "GYR3", "IAH3", "IND9", "IUSF", "IUSJ", "IUSP"}, "slot": "NS"},
-                {"destinations": {"IUTI", "LAS1", "LAX9", "LFB1", "LGB6", "LGB8", "MCE1", "MDW2"}, "slot": "NT"},
-                {"destinations": {"MIT2", "MQJ1", "ONT8", "POC1", "POC3", "QXY8", "RFD2", "RMN3"}, "slot": "NU"},
-                {"destinations": {"SBD1", "SBD2", "SCK4", "SMF6", "TCY1", "TCY2", "TEB9", "VGT2", "WALMART-LAX2T",
-                                  "XLX7"}, "slot": "NV"},
-                {"destinations": {"AMA1", "DEN2", "DFW6", "FOE1", "FTW5", "GEG2", "HEA2", "ICT2", "IGQ2", "IUSL",
-                                  "IUSQ", "IUST", "IUTE", "IUTH", "LAN2", "LFT1", "LIT2", "MCC1", "MDW6", "MKC4",
-                                  "OAK3", "ORD2", "PDX7", "PHX5", "PHX7", "PPO4", "PSC2", "SCK1", "SLC2", "SNA4",
-                                  "STL3", "STL4", "Walmart-DFW2n", "Walmart-DFW5s", "Walmart-DFW6s", "SMF3", "POC2",
-                                  "MEM6", "SCK8", "SAT4", "HLI2", "IUSR", "IUSW"}, "slot": "NX"}
-            ]
-        }
-    }
-    df["slot"] = ""
-    public_mask = df["delivery_type"] == "public"
+    df["拆柜备注"] = ""  # 初始化拆柜备注为空
 
-    if not df.empty and public_mask.any():
-        if warehouse == "SAV":
-            sav_mask = public_mask & df["destination"].isin(slot_rules["SAV"]["destinations"])
-            df.loc[sav_mask, "slot"] = slot_rules["SAV"]["slot"]
-            df.loc[public_mask & ~sav_mask, "slot"] = "NX"
+    if not df.empty:
+        df["vessel_eta_dt"] = pd.to_datetime(df["vessel_eta"], errors="coerce", utc=True)
 
-        elif warehouse == "NJ":
-            nj_mask = public_mask & df["destination"].isin(slot_rules["NJ"]["destinations"])
-            df.loc[nj_mask, "slot"] = slot_rules["NJ"]["slot"]
-            df.loc[public_mask & ~nj_mask, "slot"] = "NX"
+        # 2. 定义判断条件（时区一致，可直接比较）
+        mask = (
+                (df["shipment_batch_number__load_type"] == "卡板")  # 卡板类型
+                & (df["vessel_eta_dt"] >= BASE_ETA)  # 带时区的时间比较，无类型错误
+                & (df["destination"].isin(TARGET_WAREHOUSES))  # 仓点在指定9个列表内
+        )
 
-        elif warehouse == "LA":
-            df.loc[public_mask, "slot"] = "NX"
-            for rule in slot_rules["LA"]["rules"]:
-                la_mask = public_mask & df["destination"].isin(rule["destinations"])
-                df.loc[la_mask, "slot"] = rule["slot"]
-
-        else:
-            df.loc[public_mask, "slot"] = "NX"
+        df.loc[mask, "拆柜备注"] = "100 height"
 
     if not df.empty:
         df = df.rename(
@@ -245,36 +221,29 @@ async def export_palletization_list_v2(request: HttpRequest) -> HttpResponse:
         df["delivery_method"] = df["delivery_method"].apply(
             lambda x: x.split("-")[0] if x and isinstance(x, str) else x
         )
-        df["pcs_original"] = df["pcs"].astype(str)  # 新增：保存pcs原始值
+        df["pcs_original"] = df["pcs"].astype(str)  # 保存pcs原始值
         df["pcs"] = df["pcs_original"].copy()
 
+        # 清空pcs和shipping_mark的逻辑
         mask_base = (df["delivery_method"] == "卡车派送") & (df["delivery_type"] == "public")
         mask_tecao = df["note"].apply(
             lambda x: "特操" in x if (x and isinstance(x, str)) else False
         )
         mask_clear_pcs = mask_base & (~mask_tecao)
-        df["pcs"] = df["pcs_original"]
         df.loc[mask_clear_pcs, "pcs"] = ""
+
         mask_note_empty = (df["note"] == "")
         mask_clear_mark = mask_base & mask_note_empty
         df.loc[mask_clear_mark, "shipping_mark"] = ""
-        df["pl"] = ""
 
-        df = df[
-            [
-                "destination",
-                "delivery_method",
-                "shipping_mark",
-                "pcs",
-                "pl",
-                "note",
-                "slot",
-            ]
-        ]
+        df["pl"] = ""  # 清空打板数字段
+
+        df = df[["destination", "delivery_method", "shipping_mark", "pcs", "pl", "note", "拆柜备注"]]
     else:
-        df = pd.DataFrame(columns=["destination", "delivery_method", "shipping_mark", "pcs", "pl", "note", "slot"])
+        df = pd.DataFrame(columns=["destination", "delivery_method", "shipping_mark", "pcs", "pl", "note", "拆柜备注"])
 
-    df = df[["destination", "delivery_method", "shipping_mark", "slot", "pcs", "pl", "note"]]
+    df = df[["destination", "delivery_method", "shipping_mark", "拆柜备注", "pcs", "pl", "note"]]
+
     buffer = BytesIO()
     wb = openpyxl.Workbook()
     ws = wb.active
@@ -293,36 +262,36 @@ async def export_palletization_list_v2(request: HttpRequest) -> HttpResponse:
     left_alignment = Alignment(horizontal='left', vertical='center', wrap_text=True)
     UNIFIED_ROW_HEIGHT = 30
 
+    # 第一行合并单元格（柜号）
     ws.merge_cells('A1:C1')
     for col_idx in range(1, 4):
         cell = ws.cell(row=1, column=col_idx)
         cell.border = thin_border
-
     ws['A1'] = container_number or "未指定柜号"
     ws['A1'].font = header1_font
     ws['A1'].alignment = left_alignment
     ws.row_dimensions[1].height = UNIFIED_ROW_HEIGHT
 
+    # 第一行合并单元格（拆柜时间）
     ws.merge_cells('D1:E1')
     for col_idx in range(4, 6):
         cell = ws.cell(row=1, column=col_idx)
         cell.border = thin_border
-
     ws['D1'] = warehouse_unpacking_time
     ws['D1'].font = header1_font
     ws['D1'].alignment = center_alignment
 
+    # 第一行合并单元格（dock）
     ws.merge_cells('F1:G1')
     for col_idx in range(6, 8):
         cell = ws.cell(row=1, column=col_idx)
         cell.border = thin_border
-
     ws['F1'] = 'dock'
     ws['F1'].font = header1_font
-    ws['F1'].border = thin_border
     ws['F1'].alignment = center_alignment
 
-    column_names = ["destination", "delivery_method", "shipping_mark", "slot", "pcs", "pl", "note"]
+    # 表头行（第二行）
+    column_names = ["destination", "delivery_method", "shipping_mark", "拆柜备注", "pcs", "pl", "note"]
     for col_idx, name in enumerate(column_names, 1):
         cell = ws.cell(row=2, column=col_idx)
         cell.value = name
@@ -331,6 +300,7 @@ async def export_palletization_list_v2(request: HttpRequest) -> HttpResponse:
         cell.alignment = center_alignment
     ws.row_dimensions[2].height = UNIFIED_ROW_HEIGHT
 
+    # 数据行
     for row_idx, row in enumerate(dataframe_to_rows(df, index=False, header=False), 3):
         ws.row_dimensions[row_idx].height = UNIFIED_ROW_HEIGHT
         for col_idx, value in enumerate(row, 1):
@@ -338,11 +308,12 @@ async def export_palletization_list_v2(request: HttpRequest) -> HttpResponse:
             cell.value = value if pd.notna(value) else ""
             cell.font = data_font
             cell.border = thin_border
-            if col_idx == 6:
+            if col_idx == 6:  # pl列左对齐
                 cell.alignment = left_alignment
             else:
                 cell.alignment = center_alignment
 
+    # 调整列宽
     total_columns = len(column_names)
     for col_idx in range(1, total_columns + 1):
         max_length = 0
@@ -355,13 +326,14 @@ async def export_palletization_list_v2(request: HttpRequest) -> HttpResponse:
             if len(cell_value) > max_length:
                 max_length = len(cell_value)
 
+        # 列宽适配
         if col_idx == 6:
             adjusted_width = max(10, min(max_length + 5, 30))
         else:
             adjusted_width = max(8, min(max_length + 2, 20))
-
         ws.column_dimensions[column_letter].width = adjusted_width
 
+    # 保存并返回响应
     wb.save(buffer)
     buffer.seek(0)
 
@@ -373,7 +345,6 @@ async def export_palletization_list_v2(request: HttpRequest) -> HttpResponse:
     response["Content-Disposition"] = f"attachment; filename={filename}"
 
     return response
-
 
 async def export_palletization_list(request: HttpRequest) -> HttpResponse:
     status = request.POST.get("status")
@@ -587,7 +558,6 @@ async def export_palletization_list(request: HttpRequest) -> HttpResponse:
     response["Content-Disposition"] = f"attachment; filename={container_number}.xlsx"
     df.to_excel(excel_writer=response, index=False, columns=df.columns)
     return response
-
 
 def export_po_check(request: HttpRequest) -> HttpResponse:
     pl_ids = request.POST.getlist("pl_ids")
