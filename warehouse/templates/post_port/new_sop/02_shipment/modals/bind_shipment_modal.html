@@ -154,10 +154,10 @@
                          <tfoot style="background-color: #f8f9fa; font-weight: bold; border-top: 2px solid #dee2e6;">
                             <tr id="totalSummaryRow">
                                 <td colspan="4" style="text-align: right;">当前勾选总计:</td>
-                                <td id="totalDestCount">0 目的地</td>
-                                <td id="sumWeight">0.00</td>
+                                <td id="totalDestCount">0 条</td>                             
                                 <td id="sumPallets">0.00</td>
                                 <td id="sumCbm">0.000</td>
+                                <td id="sumWeight">0.00</td>
                                 <td></td>
                             </tr>
                         </tfoot>
@@ -746,7 +746,7 @@
         document.getElementById('sumCbm').innerText = totalCbm.toFixed(3);
         
         // 更新目的地计数（可选）
-        document.getElementById('totalDestCount').innerText = selected.length + " PO项";
+        document.getElementById('totalDestCount').innerText = selected.length + "条";
     }
 
     function closeBindModal() {
