@@ -5563,134 +5563,105 @@ class ReceivableAccounting(View):
                 group_cbm_ratios[max_key] = round(group_cbm_ratios[max_key] + diff, 4)
 
         # 5. 计算组合柜总费用
-        combina_regions_data = {}  # 记录每个区域的费用数据
-        destination_region_map = {}
-        destination_price_map = {}
+        combina_tiers_data = {}  # 存储结构为：(区名, 梯度索引) -> 数据
+        # 记录每个具体的 PO+Dest 属于哪个梯度索引
+        item_to_tier_map = {}
 
-        # 按区域计算费用， combina_destinations_cbm = {"LAX": 25.5, "ONT": 18.2,"SFO": 12.8 }
-
-        for destination_str, cbm in combina_destinations_cbm.items():
-            region_found = False
-            #rules = {"CA1": [ {"location": ["LAX", "ONT"], "prices": [1500, 1800]}],
-                #{"CA2": [  {"location": ["SFO", "SJC"], "prices": [1600, 1900]}]}
-            for region, region_data in rules.items():
-                
-                for item in region_data:
-
-                    destination = self._process_destination_wlm(destination_str)  
-                   
-                    if destination in item["location"]:
-                        destination_region_map[destination] = region
-                        destination_price_map[destination] = item["prices"][container_type_temp]
-
-                        if region not in combina_regions_data:
-                            combina_regions_data[region] = {
+        for group in combina_pallet_groups:
+            dest_str = group.get("destination", "")
+            dest_fixed = self._process_destination_wlm(dest_str)
+            po_id = group.get("PO_ID")
+            
+            match_found = False
+            for region_name, region_list in rules.items():
+                for idx, tier in enumerate(region_list):
+                    if dest_fixed in tier["location"]:
+                        # 找到了具体的区和该区下的价格梯度
+                        tier_key = f"{region_name}_{idx}"
+                        price = tier["prices"][container_type_temp]
+                        
+                        if tier_key not in combina_tiers_data:
+                            combina_tiers_data[tier_key] = {
+                                "region_name": region_name,
+                                "price": price,
                                 "total_cbm": 0,
-                                "destinations": [],
-                                "items": [],
-                                "price": item["prices"][container_type_temp]
+                                "destinations": set()
                             }
-                        combina_regions_data[region]["total_cbm"] += cbm
-                        combina_regions_data[region]["destinations"].append(destination)
-
-                        region_found = True
+                        
+                        combina_tiers_data[tier_key]["total_cbm"] += round(group.get("total_cbm", 0), 2)
+                        combina_tiers_data[tier_key]["destinations"].add(dest_fixed)
+                        item_to_tier_map[(po_id, dest_fixed)] = tier_key
+                        
+                        match_found = True
                         break
-                if region_found:
-                    break
+                if match_found: break
                 
         # 6. 计算组合柜总费用
         combina_base_fee = 0
-        for region, data in combina_regions_data.items():
-            cbm_ratio = data["total_cbm"] / total_container_cbm if total_container_cbm > 0 else 0
-            region_fee = data["price"] * cbm_ratio
-            combina_base_fee += region_fee
-
-        combina_base_fee = round(combina_base_fee, 4)
+        for key, data in combina_tiers_data.items():
+            ratio = data["total_cbm"] / total_container_cbm if total_container_cbm > 0 else 0
+            combina_base_fee += data["price"] * ratio
 
            
         # 7. 构建组合柜项目数据（按区域分组）
         combina_items = []
-        region_groups = []  
-        for region, region_data in combina_regions_data.items():
-            region_items = []
-            region_price = region_data["price"]
-            region_total_cbm = region_data["total_cbm"]
-            region_cbm_price = 0.00
-
-            # 对该区域内的每个目的地构建item
-            for group in combina_pallet_groups:
-                destination_str = group.get("destination", "")
-                destination = self._process_destination_wlm(destination_str)  
-                if destination and '-' in destination:
-                    # 分割并取第二部分
-                    parts = destination.split('-')
-                    if len(parts) > 1:
-                        destination = parts[1]
-
-                if destination not in region_data["destinations"]:
-                    continue
-                
-                po_id = group.get("PO_ID")
-                cbm = round(group.get("total_cbm", 0), 2)
-                key = (po_id, destination)
-                cbm_ratio = group_cbm_ratios.get(key, 0.0)
-                amount = round(region_price * cbm_ratio, 2)
-                
-                if destination in need_Additional_des:
-                    description = "由于组合转非组合，需要补交相应的组合费用"
-                    amount = 0 - amount
-                else:
-                    description = ""
-
-                region_cbm_price += amount
-                item_data = {
-                    "id": None,
-                    "PO_ID": po_id,
-                    "destination": destination,
-                    "delivery_method": group.get("delivery_method", ""),
-                    "delivery_category": "combine",
-                    "total_pallets": group.get("total_pallets", 0),
-                    "total_cbm": round(cbm, 2),
-                    "total_weight_lbs": round(group.get("total_weight_lbs", 0), 2),
-                    "shipping_marks": group.get("shipping_marks", ""),
-                    "pallet_ids": group.get("pallet_ids", []),
-                    "rate": region_price,
-                    "description": description,
-                    "surcharges": 0,
-                    "note": "",
-                    "amount": amount,
-                    "is_existing": False,
-                    "is_previous_existing": False,
-                    "need_manual_input": False,
-                    "is_combina_item": True,
-                    "combina_region": region,
-                    "combina_price": region_price,
-                    "cbm_ratio": cbm_ratio,
-                }
-                
-                region_items.append(item_data)
-                combina_items.append(item_data)
+        region_groups_display = {}
+        for group in combina_pallet_groups:
+            dest_str = group.get("destination", "")
+            dest_fixed = self._process_destination_wlm(dest_str)
+            po_id = group.get("PO_ID")
             
-            total_cbm = round(region_total_cbm, 4)
-            # 添加区域分组信息
-            region_groups.append({
-                "region": region,
-                "price": region_price,
-                "region_price": region_cbm_price,
-                "total_cbm": total_cbm,
-                "destinations": region_data["destinations"],
-                "items": region_items
-            })
+            tier_key = item_to_tier_map.get((po_id, dest_fixed))
+            if not tier_key: continue
+            
+            tier_info = combina_tiers_data[tier_key]
+            price = tier_info["price"]
+            region_name = tier_info["region_name"]
+            
+            # 计算金额
+            cbm_ratio = group_cbm_ratios.get((po_id, dest_fixed), 0.0)
+            amount = round(price * cbm_ratio, 2)
 
-        # 7. 返回组合柜数据
+            if dest_str in need_Additional_des:
+                description, amount = "由于组合转非组合，补交组合费用", 0 - amount
+            else:
+                description = ""
+
+            item_data = {
+                "PO_ID": po_id,
+                "destination": dest_fixed,
+                "total_pallets": group.get("total_pallets", 0),
+                "total_cbm": round(group.get("total_cbm", 0), 2),
+                "rate": price,
+                "amount": amount,
+                "combina_region": region_name, # 还是显示“美西一区”
+                "description": description,
+                "is_combina_item": True,
+                # ... 其他字段
+            }
+            combina_items.append(item_data)
+
+            # 组织给前端展示用的 groups
+            if tier_key not in region_groups_display:
+                region_groups_display[tier_key] = {
+                    "region": region_name,
+                    "price": price,
+                    "region_price": 0,
+                    "total_cbm": 0,
+                    "items": []
+                }
+            region_groups_display[tier_key]["items"].append(item_data)
+            region_groups_display[tier_key]["region_price"] += amount
+            region_groups_display[tier_key]["total_cbm"] += item_data["total_cbm"]
+        
         return {
             "items": combina_items,
-            "groups": region_groups,
+            "groups": list(region_groups_display.values()),
             "info": {
                 "base_fee": round(combina_base_fee, 2),
-                "total_cbm": round(total_container_cbm, 2),
+                "total_cbm": total_container_cbm,
                 "total_pallets": total_combina_pallets,
-                "region_count": len(combina_regions_data)
+                "region_count": len(combina_tiers_data)
             },
             "processed_po_ids": list(processed_po_ids)
         }
