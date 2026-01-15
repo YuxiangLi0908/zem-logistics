@@ -5671,63 +5671,7 @@ class PostNsop(View):
             processed_pal_list = []
 
             for cargo in pal_list:
-                plt_ids = [pid.strip() for pid in cargo['plt_ids'].split(',') if pid.strip()]
-
-                pallets = await sync_to_async(list)(
-                    Pallet.objects.filter(id__in=plt_ids)
-                    .values('id', 'length', 'width', 'height', 'cbm', 'pcs', 'weight_lbs')
-                    .order_by('id')
-                )
-                # 强制序列化
-                cargo['pallet_items'] = [
-                    {
-                        'id': int(p['id']),
-                        'length': float(p['length']) if p['length'] is not None else 0,
-                        'width': float(p['width']) if p['width'] is not None else 0,
-                        'height': float(p['height']) if p['height'] is not None else 0,
-                        'cbm': float(p['cbm']) if p['cbm'] is not None else 0,
-                        'pcs': float(p['pcs']) if p['pcs'] is not None else 0,
-                        'weight_lbs': float(p['weight_lbs']) / 2.20462 if p['weight_lbs'] is not None else 0,
-                    }
-                    for p in pallets
-                ]
-                
-                cargo['pallet_items_json'] = json.dumps(cargo['pallet_items'])
-
-                # ==============================
-                # 构建 pallet_size_formatted
-                # ==============================
-                pallet_map = OrderedDict()
-
-                for p in cargo['pallet_items']:
-                    length = int(p['length'])
-                    width = int(p['width'])
-                    height = int(p['height'])
-                    pcs = int(p['pcs'])
-                    weight_kg = round(p['weight_lbs'] * 0.453592, 2)
-
-                    # 跳过无效托盘
-                    if not (length and width and height):
-                        continue
-
-                    size_key = f"{length}*{width}*{height}"
-
-                    if size_key not in pallet_map:
-                        pallet_map[size_key] = {
-                            'count': 1,          # 板数
-                            'pcs': pcs,
-                            'weight_kg': weight_kg
-                        }
-                    else:
-                        pallet_map[size_key]['count'] += 1
-
-
-                pallet_lines = []
-                for size, info in pallet_map.items():
-                    line = f"{size}*{info['count']}板  {info['pcs']}件  {info['weight_kg']}kg"
-                    pallet_lines.append(line)
-
-                cargo['pallet_size_formatted'] = "\n".join(pallet_lines)
+                cargo['pallet_size_formatted'] = cargo['ltl_plt_size_note']
                 processed_pal_list.append(cargo)
 
             data += processed_pal_list
@@ -6189,7 +6133,6 @@ class PostNsop(View):
         ltl_cost_note = request.POST.get('ltl_cost_note', '').strip()
         ltl_quote_note = request.POST.get('ltl_quote_note', '').strip()
         contact_method = request.POST.get('contact_method', '').strip()
-        ltl_plt_size_note = request.POST.get('ltl_plt_size_note', '').strip()
 
         # 判断前端是否传递了成本和报价参数
         ltl_cost_raw = request.POST.get('ltl_cost', '').strip()
@@ -6268,8 +6211,8 @@ class PostNsop(View):
         if contact_method:
             update_data["ltl_release_command"] = contact_method
 
-        if ltl_plt_size_note:
-            update_data["ltl_plt_size_note"] = ltl_plt_size_note
+        if pallet_size:
+            update_data["ltl_plt_size_note"] = pallet_size
         
         # 批量更新通用字段
         if update_data:
@@ -6738,7 +6681,6 @@ class PostNsop(View):
         ltl_unit_quote = request.POST.get('ltl_unit_quote', '').strip()
         ltl_quote  = request.POST.get('ltl_quote', '').strip()
         ltl_quote_note  = request.POST.get('ltl_quote_note', '').strip()
-        ltl_plt_size_note = request.POST.get('ltl_plt_size_note', '').strip()
 
         est_pickup_time = None
         if pickup_date_str:
@@ -6792,8 +6734,8 @@ class PostNsop(View):
             update_data['ltl_quote_note'] = ltl_quote_note
         if ltl_unit_quote and is_pallet:
             update_data['ltl_unit_quote'] = ltl_unit_quote
-        if ltl_plt_size_note:
-            update_data['ltl_plt_size_note'] = ltl_plt_size_note
+        if pallet_size:
+            update_data['ltl_plt_size_note'] = pallet_size
         
         # 批量更新通用字段
         if update_data:
