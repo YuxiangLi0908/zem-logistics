@@ -10129,6 +10129,8 @@ class Accounting(View):
         pickup_fee = 0
         if match:
             pick_subkey = int(match.group())
+            if warehouse_precise == "LA 91748":
+                warehouse_precise = "LA 91761"
             if pick_subkey == 40:
                 try:
                     pickup_fee = fee_detail[warehouse][warehouse_precise][preport_carrier]["basic_40"]
