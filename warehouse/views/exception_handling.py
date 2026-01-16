@@ -2552,166 +2552,161 @@ class ExceptionHandling(View):
         context = {"search_type": search_type, "search_value": search_value}
         search_results = []
 
-        try:
-            # === 柜号查询 ===
-            if search_type == "container":
+        # === 柜号查询 ===
+        if search_type == "container":
+            container = await sync_to_async(
+                lambda: Container.objects.filter(container_number=search_value).first()
+            )()
+            if container:
+                context["container_info"] = {"id": container.id, "number": container.container_number}
+                pallets = await sync_to_async(list)(
+                    Pallet.objects.filter(container_number=container)
+                    .select_related("invoice_delivery","shipment_batch_number", "shipment_batch_number__fleet_number")
+                    .values(
+                        "id", "container_number__container_number", "shipment_batch_number", "shipment_batch_number__shipment_batch_number", 
+                        "shipment_batch_number__fleet_number__fleet_number","destination", "delivery_method",
+                        "cbm", "weight_lbs", "pcs", "location", "note",
+                        "fba_id", "ref_id", "invoice_delivery_id"
+                    )
+                )
+                search_results = pallets
+            else:
+                messages.warning(request, f"未找到柜号: {search_value}")
+
+        # === 发票查询 ===
+        elif search_type == "invoice":
+            invoice = None
+            # 优先尝试查 invoice_number
+            invoice = await sync_to_async(
+                lambda: Invoice.objects.filter(invoice_number=search_value).first()
+            )()
+            # 如果没找到，尝试按 container_number 查
+            if not invoice:
                 container = await sync_to_async(
                     lambda: Container.objects.filter(container_number=search_value).first()
                 )()
                 if container:
-                    context["container_info"] = {"id": container.id, "number": container.container_number}
-                    pallets = await sync_to_async(list)(
-                        Pallet.objects.filter(container_number=container)
-                        .select_related("invoice_delivery","shipment_batch_number", "shipment_batch_number__fleet_number")
-                        .values(
-                            "id", "container_number__container_number", "shipment_batch_number", "shipment_batch_number__shipment_batch_number", 
-                            "shipment_batch_number__fleet_number__fleet_number","destination", "delivery_method",
-                            "cbm", "weight_lbs", "pcs", "location", "note",
-                            "fba_id", "ref_id", "invoice_delivery_id"
-                        )
-                    )
-                    search_results = pallets
-                else:
-                    messages.warning(request, f"未找到柜号: {search_value}")
-
-            # === 发票查询 ===
-            elif search_type == "invoice":
-                invoice = None
-                # 优先尝试查 invoice_number
-                invoice = await sync_to_async(
-                    lambda: Invoice.objects.filter(invoice_number=search_value).first()
-                )()
-                # 如果没找到，尝试按 container_number 查
-                if not invoice:
-                    container = await sync_to_async(
-                        lambda: Container.objects.filter(container_number=search_value).first()
-                    )()
-                    if container:
-                        invoice = await sync_to_async(
-                            lambda: Invoice.objects.filter(container_number=container).first()
-                        )()
-
-                if invoice:
-                    context["invoice_info"] = {"id": invoice.id, "number": invoice.invoice_number}
-
-                    # 查该 Invoice 下的 InvoiceDelivery
-                    invoice_deliveries = await sync_to_async(list)(
-                        InvoiceDelivery.objects.filter(invoice_number=invoice)
-                        .values(
-                            "id", "invoice_delivery", "invoice_type", "delivery_type",
-                            "destination", "zipcode", "total_pallet", "total_cbm",
-                            "total_weight_lbs", "total_cost", "expense", "note"
-                        )
-                    )
-                    context["invoice_deliveries"] = invoice_deliveries
-                else:
-                    messages.warning(request, f"未找到 Invoice 或 Container: {search_value}")
-
-            elif search_type == "invoicev2":
-                invoice = None
-                # 优先尝试查 invoice_number
-                invoice = await sync_to_async(
-                    lambda: Invoicev2.objects.filter(invoice_number=search_value).first()
-                )()
-                if not invoice:
-                    container = await sync_to_async(
-                        lambda: Container.objects.filter(container_number=search_value).first()
-                    )()
-                else:
-                    container = await sync_to_async(
-                        lambda: Container.objects.filter(container_number=invoice.container_number).first()
-                    )()
-                # 如果没找到，尝试按 container_number 查
-                if not invoice and container:
                     invoice = await sync_to_async(
                         lambda: Invoice.objects.filter(container_number=container).first()
                     )()
 
+            if invoice:
                 context["invoice_info"] = {"id": invoice.id, "number": invoice.invoice_number}
-                my_checkbox = request.POST.get("my_checkbox")
-                is_checked = my_checkbox == "true"
-                if is_checked:
-                    # 只看组合柜类型的地址和所属区
+
+                # 查该 Invoice 下的 InvoiceDelivery
+                invoice_deliveries = await sync_to_async(list)(
+                    InvoiceDelivery.objects.filter(invoice_number=invoice)
+                    .values(
+                        "id", "invoice_delivery", "invoice_type", "delivery_type",
+                        "destination", "zipcode", "total_pallet", "total_cbm",
+                        "total_weight_lbs", "total_cost", "expense", "note"
+                    )
+                )
+                context["invoice_deliveries"] = invoice_deliveries
+            else:
+                messages.warning(request, f"未找到 Invoice 或 Container: {search_value}")
+
+        elif search_type == "invoicev2":
+            invoice = None
+            # 优先尝试查 invoice_number
+            invoice = await sync_to_async(
+                lambda: Invoicev2.objects.filter(invoice_number=search_value).first()
+            )()
+            if not invoice:
+                container = await sync_to_async(
+                    lambda: Container.objects.filter(container_number=search_value).first()
+                )()
+                print('container',container)
+                invoice = await sync_to_async(
+                    lambda: Invoicev2.objects.filter(container_number=container).first()
+                )()               
+            else:
+                container = await sync_to_async(
+                    lambda: Container.objects.filter(container_number=invoice.container_number).first()
+                )()
+            # 如果没找到，尝试按 container_number 查
+            if invoice:
+                context["invoice_info"] = {"id": invoice.id, "number": invoice.invoice_number}
+            my_checkbox = request.POST.get("my_checkbox")
+            is_checked = my_checkbox == "true"
+            if is_checked:
+                # 只看组合柜类型的地址和所属区
+                invoice_items = await sync_to_async(list)(
+                    InvoiceItemv2.objects.filter(invoice_number=invoice,invoice_type="receivable",delivery_type="combine")
+                    .values(
+                        "warehouse_code","region"
+                    )
+                )
+                context["region_items"] = invoice_items
+                context['my_checkbox'] = 'true'
+            else:
+                if invoice:
+                    # 查该 Invoice 下的 InvoiceDelivery
                     invoice_items = await sync_to_async(list)(
-                        InvoiceItemv2.objects.filter(invoice_number=invoice,invoice_type="receivable",delivery_type="combine")
+                        InvoiceItemv2.objects.filter(invoice_number=invoice,invoice_type="receivable")
                         .values(
-                            "warehouse_code","region"
+                            "id", "container_number_id","invoice_type", "item_category", "cbm",
+                            "cbm_ratio", "weight", "description", "qty","note",
+                            "rate", "amount", "PO_ID", "delivery_type","warehouse_code",
+                            "region","regionPrice","surcharges","registered_user"
                         )
                     )
-                    context["region_items"] = invoice_items
-                    context['my_checkbox'] = 'true'
+                    receivable_total_fee = sum(item['amount'] for item in invoice_items if item['amount'] is not None)
+                    context["invoice_items"] = invoice_items
+                    context["receivable_total_fee"] = receivable_total_fee
+                    context["container_number"] = container.container_number
                 else:
-                    if invoice:
-                        # 查该 Invoice 下的 InvoiceDelivery
-                        invoice_items = await sync_to_async(list)(
-                            InvoiceItemv2.objects.filter(invoice_number=invoice,invoice_type="receivable")
-                            .values(
-                                "id", "container_number_id","invoice_type", "item_category", "cbm",
-                                "cbm_ratio", "weight", "description", "qty","note",
-                                "rate", "amount", "PO_ID", "delivery_type","warehouse_code",
-                                "region","regionPrice","surcharges","registered_user"
-                            )
-                        )
-                        receivable_total_fee = sum(item['amount'] for item in invoice_items if item['amount'] is not None)
-                        context["invoice_items"] = invoice_items
-                        context["receivable_total_fee"] = receivable_total_fee
-                        context["container_number"] = container.container_number
+                    messages.warning(request, f"未找到 Invoice 或 Container: {search_value}")
+        # === Pallet 查询 ===
+        elif search_type == "pallet":
+            try:
+                if "," in search_value:
+                    pallet_ids = [
+                        int(i.strip()) for i in search_value.split(",") if i.strip().isdigit()
+                    ]
+                    if not pallet_ids:
+                        messages.error(request, "请输入有效的 Pallet ID 列表")
                     else:
-                        messages.warning(request, f"未找到 Invoice 或 Container: {search_value}")
-            # === Pallet 查询 ===
-            elif search_type == "pallet":
-                try:
-                    if "," in search_value:
-                        pallet_ids = [
-                            int(i.strip()) for i in search_value.split(",") if i.strip().isdigit()
-                        ]
-                        if not pallet_ids:
-                            messages.error(request, "请输入有效的 Pallet ID 列表")
-                        else:
-                            pallets = await sync_to_async(
-                                lambda: list(
-                                    Pallet.objects.filter(id__in=pallet_ids)
-                                    .select_related("invoice_delivery", "container_number","shipment_batch_number", "shipment_batch_number__fleet_number")
-                                    .values(
-                                        "id", "container_number__container_number", "shipment_batch_number", "shipment_batch_number__shipment_batch_number", 
-                                        "shipment_batch_number__fleet_number__fleet_number", "destination", "delivery_method",
-                                        "cbm", "weight_lbs", "pcs", "location", "note",
-                                        "fba_id", "ref_id", "invoice_delivery_id"
-                                    )
+                        pallets = await sync_to_async(
+                            lambda: list(
+                                Pallet.objects.filter(id__in=pallet_ids)
+                                .select_related("invoice_delivery", "container_number","shipment_batch_number", "shipment_batch_number__fleet_number")
+                                .values(
+                                    "id", "container_number__container_number", "shipment_batch_number", "shipment_batch_number__shipment_batch_number", 
+                                    "shipment_batch_number__fleet_number__fleet_number", "destination", "delivery_method",
+                                    "cbm", "weight_lbs", "pcs", "location", "note",
+                                    "fba_id", "ref_id", "invoice_delivery_id"
                                 )
-                            )()
-                            if pallets:
-                                search_results = pallets
-                            else:
-                                messages.warning(request, f"未找到指定的 Pallet ID: {search_value}")
-                    else:
-                        pallet_id = int(search_value)
-                        pallet = await sync_to_async(
-                            lambda: Pallet.objects.filter(id=pallet_id)
-                            .select_related("invoice_delivery", "container_number","shipment_batch_number", "shipment_batch_number__fleet_number")
-                            .values(
-                                "id", "container_number__container_number","shipment_batch_number", "shipment_batch_number__shipment_batch_number", 
-                                "shipment_batch_number__fleet_number__fleet_number", "destination", "delivery_method",
-                                "cbm", "weight_lbs", "pcs", "location", "note",
-                                "fba_id", "ref_id", "invoice_delivery_id"
-                            ).first()
+                            )
                         )()
-                        if pallet:
-                            search_results = [pallet]
+                        if pallets:
+                            search_results = pallets
                         else:
-                            messages.warning(request, f"未找到 Pallet ID: {search_value}")
-                except ValueError:
-                    messages.error(request, "Pallet ID 必须是数字")
+                            messages.warning(request, f"未找到指定的 Pallet ID: {search_value}")
+                else:
+                    pallet_id = int(search_value)
+                    pallet = await sync_to_async(
+                        lambda: Pallet.objects.filter(id=pallet_id)
+                        .select_related("invoice_delivery", "container_number","shipment_batch_number", "shipment_batch_number__fleet_number")
+                        .values(
+                            "id", "container_number__container_number","shipment_batch_number", "shipment_batch_number__shipment_batch_number", 
+                            "shipment_batch_number__fleet_number__fleet_number", "destination", "delivery_method",
+                            "cbm", "weight_lbs", "pcs", "location", "note",
+                            "fba_id", "ref_id", "invoice_delivery_id"
+                        ).first()
+                    )()
+                    if pallet:
+                        search_results = [pallet]
+                    else:
+                        messages.warning(request, f"未找到 Pallet ID: {search_value}")
+            except ValueError:
+                messages.error(request, "Pallet ID 必须是数字")
 
-            context.update({
-                "search_results": search_results,
-                "search_performed": True
-            })
-            return self.template_delivery_invoice, context
-
-        except Exception as e:
-            messages.error(request, f"查询过程中发生错误: {str(e)}")
-            return self.template_delivery_invoice, {"search_performed": True}
+        context.update({
+            "search_results": search_results,
+            "search_performed": True
+        })
+        return self.template_delivery_invoice, context
 
     async def delete_all_invoice_items_public(self, request: HttpRequest):
         """删除全部公仓派送"""
