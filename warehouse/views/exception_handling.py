@@ -349,8 +349,6 @@ class ExceptionHandling(View):
                             orders = list(container.orders.all())
                             if orders:
                                 order_type = orders[0].order_type or ""
-                        if order_type != "转运":
-                            continue
                         # 2. 查询 InvoiceItemv2 记录并计算总额
                         invoice_items = list(
                             InvoiceItemv2.objects.filter(
