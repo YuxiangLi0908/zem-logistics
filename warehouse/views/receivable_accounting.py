@@ -5702,7 +5702,7 @@ class ReceivableAccounting(View):
             region_name = tier_info["region_name"]
             
             # 计算金额
-            cbm_ratio = group_cbm_ratios.get((po_id, dest_fixed), 0.0)
+            cbm_ratio = round(group_cbm_ratios.get((po_id, dest_fixed), 0.0), 4)
             amount = round(price * cbm_ratio, 2)
 
             if dest_str in need_Additional_des:
