@@ -158,7 +158,7 @@ class ExceptionHandling(View):
         #修改约状态相关的
         if step == "search_shipment":
             template, context = await self.handle_search_shipment(request)
-            return await sync_to_async(render)(request, template, context)          
+            return await sync_to_async(render)(request, template, context)    
         elif step == "update_shipment_status":
             template, context = await self.handle_update_shipment_status(request)
             return await sync_to_async(render)(request, template, context)
@@ -284,9 +284,32 @@ class ExceptionHandling(View):
         elif step == "delete_shipment_batch_number":
             template, context = await self.handle_delete_shipment_batch_number(request)
             return await sync_to_async(render)(request, template, context)
+        elif step =="update_invoice_status":
+            template, context = await self.handle_update_invoice_status(request)
+            return await sync_to_async(render)(request, template, context)
         else:
             return await sync_to_async(T49Webhook().post)(request)
-    
+        
+    async def handle_update_invoice_status(self, request):
+        '''更新账单的状态'''
+        record_id = request.POST.get("record_id")
+        field = request.POST.get("field")
+        value = request.POST.get("value")
+        allow_fields = [
+            "preport_status",
+            "warehouse_public_status",
+            "warehouse_other_status",
+            "delivery_public_status",
+            "delivery_other_status",
+            "finance_status",
+        ]
+        if field in allow_fields:
+            obj = await sync_to_async(InvoiceStatusv2.objects.get)(id=record_id)
+            setattr(obj, field, value)
+            await sync_to_async(obj.save)(update_fields=[field])
+
+        return await self.handle_search_shipment(request)
+
     async def handle_search_receivable_total_fee(self, request):
         '''查询invoicev2的应收总费用是0'''
         invoices_without_amount = await sync_to_async(list)(
@@ -2136,8 +2159,22 @@ class ExceptionHandling(View):
                 context['search_value'] = search_value
                 context['fleets'] = [fleets]
                 context['fleet_sp'] = fleet_sp
+            elif search_type == 'invoicestatus':
+                invoicestatus_object = await sync_to_async(
+                    lambda: list(InvoiceStatusv2.objects.filter(container_number__container_number=search_value))
+                )()
+                for s in invoicestatus_object:
+                    s.preport_choices = s._meta.get_field("preport_status").choices
+                    s.warehouse_public_choices = s._meta.get_field("warehouse_public_status").choices
+                    s.warehouse_other_choices = s._meta.get_field("warehouse_other_status").choices
+                    s.delivery_public_choices = s._meta.get_field("delivery_public_status").choices
+                    s.delivery_other_choices = s._meta.get_field("delivery_other_status").choices
+                    s.finance_choices = s._meta.get_field("finance_status").choices
+                context['search_type'] = 'invoicestatus'
+                context['search_value'] = search_value
+                context['invoicestatus_object'] = invoicestatus_object
                 
-            if search_type != 'fleet':
+            if search_type != 'fleet' and search_type != 'invoicestatus':
                 # 将单个shipment对象放入列表中，保持前端模板的一致性
                 context['shipments'] = [shipment]
                 context['search_batch_number'] = search_value
@@ -2154,8 +2191,6 @@ class ExceptionHandling(View):
                 messages.error(request, f"未找到批次号 '{search_value}' 的相关数据")
             else:
                 messages.error(request, f"未找到预约号 '{search_value}' 的相关数据")
-        except Exception as e:
-            messages.error(request, f"查询失败: {str(e)}")
         
         return self.template_post_port_status, context
     
