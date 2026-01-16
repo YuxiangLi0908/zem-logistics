@@ -446,6 +446,8 @@ class Accounting(View):
             return render(request, template, context)
         elif step == "invoice_payable_carrier_export":
             return self.handle_carrier_invoice_export(request)
+        elif step == "invoice_payable_carrier_export_v1":
+            return self.handle_carrier_invoice_export_v1(request)
         elif step == "payable_confirm_phase":
             template, context = self.handle_invoice_payable_confirm_phase(request)
             return render(request, template, context)
@@ -6447,6 +6449,228 @@ class Accounting(View):
         response["Content-Disposition"] = f"attachment; filename={filename}"
 
         wb.save(response)
+        return response
+
+    def handle_carrier_invoice_export_v1(self, request: HttpRequest) -> HttpResponse:
+        select_month = request.POST.get("select_month")
+        select_carrier = request.POST.get("select_carrier")
+
+        # 1. 基础参数校验
+        if not select_month or not select_carrier:
+            raise ValueError("请选择月份和供应商")
+
+        year, month = map(int, select_month.split("-"))
+        month = month - 1  # 实际提柜时间-1个月
+
+        # 2. 查询符合条件的订单（优化过滤逻辑）
+        order_list = Order.objects.filter(
+            retrieval_id__actual_retrieval_timestamp__year=year,
+            retrieval_id__actual_retrieval_timestamp__month=month,
+            invoice_id__isnull=False,
+        ).exclude(
+            payable_status__stage="unstarted",
+            payable_status__isnull=False
+        ).order_by(
+            "warehouse", "retrieval_id__actual_retrieval_timestamp"
+        )
+
+        if not order_list:
+            raise ValueError("未查询到符合条件的订单")
+
+        # 3. 定义固定费用类型（修复语法错误：补充逗号）
+        fixed_fee_types = []
+        if select_carrier in ["BBR", "KNO", "JOHN", "unload"]:
+            fixed_fee_types = ["拆柜费用", "入库拆柜费", "总费用"]
+        elif select_carrier in ["GM", "Kars"]:
+            fixed_fee_types = [
+                "基本费用",
+                "超重费",
+                "车架费",
+                "入库拆柜费",
+                "总费用",
+            ]
+        elif select_carrier == "东海岸":
+            fixed_fee_types = [
+                "基本费用",
+                "超重费",
+                "车架费",
+                "入库拆柜费",
+                "总费用",
+                "还空时间"
+            ]
+        else:
+            fixed_fee_types = [
+                "基本费用",
+                "超重费",
+                "车架费",
+                "拆柜费用",  # 修复：补充逗号
+                "入库拆柜费",
+                "总费用",
+            ]
+
+        # 4. 定义排除拆柜费的供应商列表
+        exclude_pallet_carriers = ["Kars", "东海岸", "GM"]
+        is_exclude_pallet = select_carrier in exclude_pallet_carriers
+
+        # 5. 处理订单数据，组装Excel行数据
+        rows = []
+        for order in order_list:
+            # 5.1 查询该订单对应的发票和费用明细（修复：用filter替代get，支持多条费用记录）
+            try:
+                invoice = Invoicev2.objects.get(
+                    container_number__container_number=order.container_number
+                )
+                # 查询该发票下的所有应付费用记录（修复：get→filter，支持多条）
+                invoice_items = InvoiceItemv2.objects.filter(
+                    models.Q(invoice_type="payable") | models.Q(invoice_type="payable_direct"),
+                    invoice_number__invoice_number=invoice.invoice_number,
+                )
+            except (Invoicev2.DoesNotExist, InvoiceItemv2.DoesNotExist):
+                continue  # 无发票/费用记录则跳过
+
+            # 5.2 供应商过滤（修复：原逻辑的供应商匹配）
+            carrier_match = False
+            if select_carrier in ["BBR", "KNO", "JOHN", "unload"]:
+                # 匹配费用记录中的carrier
+                carrier_match = any(item.carrier == select_carrier for item in invoice_items)
+            else:
+                # 匹配订单提柜供应商
+                s_carrier = {
+                    "ARM": "大方广",
+                    "Kars": "kars"
+                }.get(select_carrier, select_carrier)
+                carrier_match = (order.retrieval_id.retrieval_carrier == s_carrier)
+
+            if not carrier_match:
+                continue  # 供应商不匹配则跳过
+
+            # 5.3 初始化行数据（处理空值）
+            row_data = {
+                "柜号": order.container_number.container_number,
+                "提柜时间": (
+                    order.retrieval_id.actual_retrieval_timestamp.strftime("%Y-%m-%d")
+                    if order.retrieval_id and order.retrieval_id.actual_retrieval_timestamp
+                    else ""
+                ),
+                "还空时间": (
+                    order.retrieval_id.empty_returned_at.strftime("%Y-%m-%d")
+                    if order.retrieval_id and order.retrieval_id.empty_returned_at
+                    else ""
+                ),
+                "仓库": order.warehouse.name if hasattr(order.warehouse, 'name') else "直送",
+                "柜型": order.container_number.container_type if order.container_number else "",
+                # 初始化费用字段为0
+                "基本费用": 0.0,
+                "超重费": 0.0,
+                "车架费": 0.0,
+                "拆柜费用": 0.0,
+                "入库拆柜费": 0.0,
+                "总费用": 0.0,
+                "其他费用": {},  # 存储其他费用字典
+            }
+
+            # 5.4 遍历费用明细，计算各项费用（修复：循环多条费用记录）
+            total_amount = 0.0
+            for item in invoice_items:
+                rate = float(item.rate) if item.rate else 0.0
+                description = item.description or ""
+
+                # 匹配固定费用类型
+                if description == "提柜费用":
+                    row_data["基本费用"] = rate
+                    total_amount += rate
+                elif description == "超重费用":
+                    row_data["超重费"] = rate
+                    total_amount += rate
+                elif description == "车架费用":
+                    row_data["车架费"] = rate
+                    total_amount += rate
+                elif description == "拆柜费用":
+                    row_data["拆柜费用"] = rate
+                    # 排除拆柜费的供应商：不计入总费用
+                    if not is_exclude_pallet:
+                        total_amount += rate
+                elif description == "入库拆柜费":
+                    row_data["入库拆柜费"] = rate
+                    total_amount += rate
+                elif "其他费用" in description:
+                    # 处理其他费用（如：提柜其他费用-PNCT）
+                    try:
+                        fee_name = description.split("-")[1]
+                        row_data["其他费用"][fee_name] = rate
+                        total_amount += rate
+                    except IndexError:
+                        pass  # 格式异常则跳过
+
+            # 5.5 赋值总费用
+            row_data["总费用"] = total_amount
+
+            # 5.6 填充固定费用类型（确保字段存在）
+            for fee_type in fixed_fee_types:
+                if fee_type not in row_data:
+                    row_data[fee_type] = 0.0
+
+            rows.append(row_data)
+
+        if not rows:
+            raise ValueError("未查询到符合条件的费用记录")
+
+        # 6. 构建Excel表头（优化：包含其他费用）
+        # 基础表头
+        if select_carrier == "东海岸":
+            valid_headers = ["柜号", "提柜时间", "还空时间", "仓库", "柜型"]
+        else:
+            valid_headers = ["柜号", "提柜时间", "仓库", "柜型"]
+
+        # 添加固定费用类型表头
+        for fee_type in fixed_fee_types:
+            if fee_type not in valid_headers and fee_type != "还空时间":
+                valid_headers.append(fee_type)
+
+        # 添加其他费用表头（去重）
+        other_fee_headers = set()
+        for row in rows:
+            other_fee_headers.update(row["其他费用"].keys())
+        for fee_name in sorted(other_fee_headers):
+            valid_headers.append(f"其他费用-{fee_name}")
+
+        # 去重并保持顺序
+        valid_headers = list(dict.fromkeys(valid_headers))
+
+        # 7. 创建Excel并写入数据
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = f"{select_carrier}_{select_month}账单"
+
+        # 写入表头
+        ws.append(valid_headers)
+
+        # 写入行数据
+        for row in rows:
+            row_values = []
+            for header in valid_headers:
+                if header.startswith("其他费用-"):
+                    # 提取其他费用名称
+                    fee_name = header.split("-")[1]
+                    row_values.append(row["其他费用"].get(fee_name, 0.0))
+                else:
+                    # 固定字段值
+                    value = row.get(header, 0.0)
+                    # 格式化数值（保留2位小数）
+                    if isinstance(value, (int, float)):
+                        row_values.append(round(value, 2))
+                    else:
+                        row_values.append(value)
+            ws.append(row_values)
+
+        # 8. 构建响应
+        response = HttpResponse(
+            content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+        filename = f"{select_carrier}_账单_{select_month}.xlsx"
+        response["Content-Disposition"] = f"attachment; filename={filename}"
+        wb.save(response)
+
         return response
 
     def handle_invoice_confirm_combina_save(
