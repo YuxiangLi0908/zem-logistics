@@ -288,8 +288,8 @@ class ExceptionHandling(View):
         '''有的转运类型的invoicev2的总费用是0'''
         invoices_without_amount = await sync_to_async(list)(
             Invoicev2.objects.filter(
-                Q(receivable_total_amount__isnull=True) | 
-                Q(receivable_total_amount=0)
+                (Q(receivable_total_amount__isnull=True) | Q(receivable_total_amount=0) | Q(remain_offset=0) | Q(remain_offset__isnull=True)) &
+                Q(invoicestatusv2__finance_status__in=['unstarted', 'tobeconfirmed'])  # 排除已完成
             )
             .select_related('container_number')
             .prefetch_related('container_number__orders')
