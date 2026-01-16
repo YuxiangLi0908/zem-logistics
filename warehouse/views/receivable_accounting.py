@@ -1843,7 +1843,7 @@ class ReceivableAccounting(View):
                 else:
                     # 其他类别的所有项目都添加到其他数据
                     other_items.extend(data['items'])
-                    if data['items'].item_category == "combina_extra_fee":
+                    if category == "combina_extra_fee":
                         combina_extra_fee += item.amount or 0
             
             # 5. 分别计算统计数据
