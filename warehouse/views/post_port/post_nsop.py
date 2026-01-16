@@ -3076,6 +3076,7 @@ class PostNsop(View):
         shipment_appointment_tz = self._parse_datetime(shipment_appointment)
         tzinfo = self._parse_tzinfo(warehouse)
         shipmentappointment_utc = self._parse_ts(shipment_appointment, tzinfo)
+        current_time = timezone.now()
         # 创建Shipment记录
         shipment_data = {
             'shipment_batch_number': batch_number,
@@ -3087,6 +3088,7 @@ class PostNsop(View):
             'ARM_PRO': arm_pro,
             'is_print_label': is_print_label,
             'pickup_time': pickup_time,
+            'shipment_schduled_at': current_time,
             'shipment_appointment': shipment_appointment,
             'shipment_appointment_tz': shipment_appointment_tz,
             'shipment_appointment_utc': shipmentappointment_utc,
