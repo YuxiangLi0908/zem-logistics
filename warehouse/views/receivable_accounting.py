@@ -3692,7 +3692,7 @@ class ReceivableAccounting(View):
                         # === 已录入/已完成 (Previous Order List) ===
                         # 计算剩余金额
                         rec_total = getattr(invoice, 'receivable_total_amount', 0) or 0
-                        rec_offset = getattr(invoice, 'receivable_offset_amount', 0) or 0
+                        rec_offset = getattr(invoice, 'remain_offset', 0) or 0
 
                         # 处理 Statement 关联
                         stmt = invoice.statement_id
