@@ -5367,101 +5367,179 @@ class Accounting(View):
                 invoice_item.note = data.get("per_diem_fee_note")
                 invoice_item.save()
                 pt_amount += float(data.get("per_diem_fee"))
+
         # 提柜其他费用
         pickup_fee_names = data.getlist("pickup_fee_name[]")
         pickup_fee_amounts = data.getlist("pickup_fee_amount[]")
-        if pickup_fee_amounts:
-            for fee_name, fee_amount in zip(pickup_fee_names, pickup_fee_amounts):
-                if fee_name.strip() and fee_amount.strip():
-                    try:
-                        fee_amount = float(fee_amount)
-                    except ValueError:
-                        continue
-                    try:
-                        invoice_item = InvoiceItemv2.objects.filter(
-                            container_number=container,
-                            invoice_number=invoice,
-                            invoice_type="payable",
-                            description=fee_name,
-                        ).get()
-                        invoice_item.rate = fee_amount
-                        invoice_item.save()
-                    except InvoiceItemv2.DoesNotExist:
-                        invoice_item = InvoiceItemv2(
-                            container_number=container,
-                            invoice_number=invoice,
-                            invoice_type="payable",
-                        )
-                        if "提柜其他费用" in fee_name:
-                            invoice_item.description = fee_name
-                        else:
-                            invoice_item.description = f'提柜其他费用-{fee_name}'
-                        invoice_item.rate = fee_amount
-                        invoice_item.save()
+
+        submitted_pickup_fees = []
+        for fee_name, fee_amount in zip(pickup_fee_names, pickup_fee_amounts):
+            if fee_name.strip() and fee_amount.strip():
+                if "提柜其他费用" in fee_name:
+                    unified_name = fee_name
+                else:
+                    unified_name = f"提柜其他费用-{fee_name.strip()}"
+                submitted_pickup_fees.append({
+                    "name": unified_name,
+                    "amount": float(fee_amount) if fee_amount.strip().replace('.', '').isdigit() else 0.0
+                })
+
+        # 查询数据库中当前柜号+发票下的所有提柜其他费用记录
+        db_pickup_fees = InvoiceItemv2.objects.filter(
+            container_number=container,
+            invoice_number=invoice,
+            invoice_type="payable",
+            description__startswith="提柜其他费用-"  # 精准匹配提柜其他费用前缀
+        )
+
+        # 比对：删除数据库中不在提交列表里的冗余记录
+        submitted_fee_names = [fee["name"] for fee in submitted_pickup_fees]
+
+        # 删除冗余（不在提交列表的）
+        for db_fee in db_pickup_fees:
+            if db_fee.description not in submitted_fee_names:
+                db_fee.delete()
+
+        for fee in submitted_pickup_fees:
+            fee_name = fee["name"]
+            fee_amount = fee["amount"]
+
+            if fee_amount <= 0:  # 过滤无效金额
+                continue
+
+            try:
+                invoice_item = InvoiceItemv2.objects.get(
+                    container_number=container,
+                    invoice_number=invoice,
+                    invoice_type="payable",
+                    description=fee_name,
+                )
+                invoice_item.rate = fee_amount
+                invoice_item.save()
+            except InvoiceItemv2.DoesNotExist:
+                invoice_item = InvoiceItemv2(
+                    container_number=container,
+                    invoice_number=invoice,
+                    invoice_type="payable",
+                    description=fee_name,
+                    rate=fee_amount
+                )
+                invoice_item.save()
+
         # 拆柜其他费用
         pallet_fee_names = data.getlist("pallet_fee_name[]")
         pallet_fee_amounts = data.getlist("pallet_fee_amount[]")
-        if pickup_fee_amounts:
-            for fee_name, fee_amount in zip(pallet_fee_names, pallet_fee_amounts):
-                if fee_name.strip() and fee_amount.strip():
-                    try:
-                        fee_amount = float(fee_amount)
-                    except ValueError:
-                        continue
-                    try:
-                        invoice_item = InvoiceItemv2.objects.filter(
-                            container_number=container,
-                            invoice_number=invoice,
-                            invoice_type="payable",
-                            description=fee_name,
-                        ).get()
-                        invoice_item.rate = fee_amount
-                        invoice_item.carrier = data.get("palletization_carrier")
-                        invoice_item.save()
-                    except InvoiceItemv2.DoesNotExist:
-                        invoice_item = InvoiceItemv2(
-                            container_number=container,
-                            invoice_number=invoice,
-                            invoice_type="payable",
-                        )
-                        if "拆柜其他费用" in fee_name:
-                            invoice_item.description = fee_name
-                        else:
-                            invoice_item.description = f'拆柜其他费用-{fee_name}'
-                        invoice_item.carrier = data.get("palletization_carrier")
-                        invoice_item.rate = fee_amount
-                        invoice_item.save()
+
+        submitted_pallet_fees = []
+        for fee_name, fee_amount in zip(pallet_fee_names, pallet_fee_amounts):
+            if fee_name.strip() and fee_amount.strip():
+                if "拆柜其他费用" in fee_name:
+                    unified_name = fee_name
+                else:
+                    unified_name = f"拆柜其他费用-{fee_name.strip()}"
+                submitted_pallet_fees.append({
+                    "name": unified_name,
+                    "amount": float(fee_amount) if fee_amount.strip().replace('.', '').isdigit() else 0.0
+                })
+
+        db_pallet_fees = InvoiceItemv2.objects.filter(
+            container_number=container,
+            invoice_number=invoice,
+            invoice_type="payable",
+            description__startswith="拆柜其他费用-"  # 精准匹配提柜其他费用前缀
+        )
+
+        submitted_pallet_names = [fee["name"] for fee in submitted_pallet_fees]
+
+        # 删除冗余（不在提交列表的）
+        for db_fee in db_pallet_fees:
+            if db_fee.description not in submitted_pallet_names:
+                db_fee.delete()
+
+        for fee in submitted_pallet_fees:
+            fee_name = fee["name"]
+            fee_amount = fee["amount"]
+
+            if fee_amount <= 0:  # 过滤无效金额
+                continue
+
+            try:
+                invoice_item = InvoiceItemv2.objects.get(
+                    container_number=container,
+                    invoice_number=invoice,
+                    invoice_type="payable",
+                    description=fee_name,
+                )
+                invoice_item.rate = fee_amount
+                invoice_item.save()
+            except InvoiceItemv2.DoesNotExist:
+                invoice_item = InvoiceItemv2(
+                    container_number=container,
+                    invoice_number=invoice,
+                    invoice_type="payable",
+                    description=fee_name,
+                    rate=fee_amount
+                )
+                invoice_item.save()
+
         # 直送其他费用
         direct_other_fee_names = data.getlist("direct_other_fee_name[]")
         direct_other_fee_amounts = data.getlist("direct_other_fee_amount[]")
-        if direct_other_fee_amounts:
-            for fee_name, fee_amount in zip(direct_other_fee_names, direct_other_fee_amounts):
-                if fee_name.strip() and fee_amount.strip():
-                    try:
-                        fee_amount = float(fee_amount)
-                    except ValueError:
-                        continue
-                    try:
-                        invoice_item = InvoiceItemv2.objects.filter(
-                            container_number=container,
-                            invoice_number=invoice,
-                            invoice_type="payable_direct",
-                            description=fee_name,
-                        ).get()
-                        invoice_item.rate = fee_amount
-                        invoice_item.save()
-                    except InvoiceItemv2.DoesNotExist:
-                        invoice_item = InvoiceItemv2(
-                            container_number=container,
-                            invoice_number=invoice,
-                            invoice_type="payable_direct",
-                        )
-                        if "直送其他费用" in fee_name:
-                            invoice_item.description = fee_name
-                        else:
-                            invoice_item.description = f'直送其他费用-{fee_name}'
-                        invoice_item.rate = fee_amount
-                        invoice_item.save()
+
+        submitted_direct_other_fees = []
+        for fee_name, fee_amount in zip(direct_other_fee_names, direct_other_fee_amounts):
+            if fee_name.strip() and fee_amount.strip():
+                if "直送其他费用" in fee_name:
+                    unified_name = fee_name
+                else:
+                    unified_name = f"直送其他费用-{fee_name.strip()}"
+                submitted_direct_other_fees.append({
+                    "name": unified_name,
+                    "amount": float(fee_amount) if fee_amount.strip().replace('.', '').isdigit() else 0.0
+                })
+
+        # 查询数据库中当前柜号+发票下的所有提柜其他费用记录
+        db_direct_other_fees = InvoiceItemv2.objects.filter(
+            container_number=container,
+            invoice_number=invoice,
+            invoice_type="payable_direct",
+            description__startswith="直送其他费用-"  # 精准匹配提柜其他费用前缀
+        )
+
+        # 比对：删除数据库中不在提交列表里的冗余记录
+        submitted_direct_other_names = [fee["name"] for fee in db_direct_other_fees]
+
+        # 删除冗余（不在提交列表的）
+        for db_fee in db_direct_other_fees:
+            if db_fee.description not in submitted_direct_other_names:
+                db_fee.delete()
+
+        for fee in submitted_direct_other_fees:
+            fee_name = fee["name"]
+            fee_amount = fee["amount"]
+
+            if fee_amount <= 0:  # 过滤无效金额
+                continue
+
+            try:
+                invoice_item = InvoiceItemv2.objects.get(
+                    container_number=container,
+                    invoice_number=invoice,
+                    invoice_type="payable_direct",
+                    description=fee_name,
+                )
+                invoice_item.rate = fee_amount
+                invoice_item.save()
+            except InvoiceItemv2.DoesNotExist:
+                invoice_item = InvoiceItemv2(
+                    container_number=container,
+                    invoice_number=invoice,
+                    invoice_type="payable_direct",
+                    description=fee_name,
+                    rate=fee_amount
+                )
+                invoice_item.save()
+
         # 应付提拆费
         invoice.payable_preport_amount = pt_amount
         # 应付总金额
