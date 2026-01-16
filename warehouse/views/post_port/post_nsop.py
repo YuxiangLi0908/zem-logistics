@@ -3072,6 +3072,10 @@ class PostNsop(View):
         else:
             destination_name = destination
         batch_number = await self.generate_unique_batch_number(destination_name)
+
+        shipment_appointment_tz = self._parse_datetime(shipment_appointment)
+        tzinfo = self._parse_tzinfo(warehouse)
+        shipmentappointment_utc = self._parse_ts(shipment_appointment, tzinfo)
         # 创建Shipment记录
         shipment_data = {
             'shipment_batch_number': batch_number,
@@ -3083,6 +3087,9 @@ class PostNsop(View):
             'ARM_PRO': arm_pro,
             'is_print_label': is_print_label,
             'pickup_time': pickup_time,
+            'shipment_appointment': shipment_appointment,
+            'shipment_appointment_tz': shipment_appointment_tz,
+            'shipment_appointment_utc': shipmentappointment_utc,
             'fleet_number': fleet,
             'total_weight': total_weight,
             'total_cbm': total_cbm,
@@ -3091,9 +3098,6 @@ class PostNsop(View):
         }
         if shipment_type == "客户自提" and "NJ" in warehouse: 
             # 客户自提的预约完要直接跳到POD上传,时间按预计提货时间
-            tzinfo = self._parse_tzinfo(warehouse)
-            shipmentappointment_utc = self._parse_ts(shipment_appointment, tzinfo)
-
             shipment_data.update({
                 'is_shipped': True,
                 'shipped_at': shipment_appointment,
@@ -3118,7 +3122,42 @@ class PostNsop(View):
         
         context = {'success_messages':f'预约出库绑定成功!预约批次号是{batch_number}!'}
         return await self.handle_ltl_unscheduled_pos_post(request, context)
-        
+    
+    def _parse_datetime(self, datetime_string: str) -> tuple[str, str]:
+        try:
+            dt = datetime.fromisoformat(datetime_string)
+            return ""   # 你原函数只返回 timezone，这里保持结构不破坏
+        except ValueError:
+            pass
+        datetime_pattern = re.compile(
+            r"""
+            (?P<month>\d{1,2})          # Month (1 or 2 digits)
+            [/\-]                       # Separator (/, -)
+            (?P<day>\d{1,2})            # Day (1 or 2 digits)
+            [/\-]                       # Separator (/, -)
+            (?P<year>\d{4})             # Year (4 digits)
+            [, ]*                       # Optional comma or space
+            (?P<hour>\d{1,2})           # Hour (1 or 2 digits)
+            [:]                         # Colon
+            (?P<minute>\d{2})           # Minute (2 digits)
+            [ ]*                        # Optional space
+            (?P<period>AM|PM)           # AM or PM
+            [ ,]*                       # Optional comma or space
+            (?P<timezone>[A-Z+\-:\d]*)? # Optional timezone
+            """,
+            re.VERBOSE | re.IGNORECASE,
+        )
+        match = datetime_pattern.search(datetime_string)
+        if not match:
+            raise ValueError(f"Invalid datetime format: {datetime_string}")
+
+        parts = match.groupdict()
+        month, day, year = int(parts["month"]), int(parts["day"]), int(parts["year"])
+        hour, minute = int(parts["hour"]), int(parts["minute"])
+        period = parts["period"].upper()
+        timezone = parts["timezone"].strip() if parts["timezone"] else ""
+        return timezone
+    
     async def handle_appointment_post(
         self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:  
