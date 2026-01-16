@@ -208,6 +208,31 @@ async def export_palletization_list_v2(request: HttpRequest) -> HttpResponse:
 
         df.loc[mask, "拆柜备注"] = "100 height"
 
+        # ===================== 核心修改：合并note到拆柜备注 =====================
+        # 1. 处理note空值：将NaN/None转为空字符串
+        df["note"] = df["note"].fillna("").astype(str)
+
+        # 2. 定义拼接逻辑：
+        # - 拆柜备注是100 height + note非空 → "100 height, note内容"
+        # - 拆柜备注是空 + note非空 → "note内容"
+        # - 其他情况保持原拆柜备注
+        def merge_note_to_remark(remark, note):
+            if note.strip() == "":  # note为空，直接返回原备注
+                return remark
+            if remark == "100 height":  # 有100 height，加逗号拼接
+                return f"{remark}, {note.strip()}"
+            else:  # 无100 height，直接用note
+                return note.strip()
+
+        # 应用拼接逻辑到拆柜备注列
+        df["拆柜备注"] = df.apply(
+            lambda row: merge_note_to_remark(row["拆柜备注"], row["note"]),
+            axis=1
+        )
+
+        # 3. 清空原note列
+        df["note"] = ""
+
     if not df.empty:
         df = df.rename(
             {
@@ -224,17 +249,32 @@ async def export_palletization_list_v2(request: HttpRequest) -> HttpResponse:
         df["pcs_original"] = df["pcs"].astype(str)  # 保存pcs原始值
         df["pcs"] = df["pcs_original"].copy()
 
-        # 清空pcs和shipping_mark的逻辑
+        # 清空pcs和shipping_mark的逻辑（调整后）
         mask_base = (df["delivery_method"] == "卡车派送") & (df["delivery_type"] == "public")
-        mask_tecao = df["note"].apply(
-            lambda x: "特操" in x if (x and isinstance(x, str)) else False
+
+        # 1. 从拆柜备注提取原note内容
+        def extract_original_note(remark):
+            if not isinstance(remark, str) or remark.strip() == "":
+                return ""
+            note_part = remark.replace("100 height, ", "").replace("100 height", "")
+            return note_part.strip()
+
+        df["original_note_from_remark"] = df["拆柜备注"].apply(extract_original_note)
+
+        # 2. 判断特操
+        mask_tecao = df["original_note_from_remark"].apply(
+            lambda x: "特操" in x if x else False
         )
         mask_clear_pcs = mask_base & (~mask_tecao)
         df.loc[mask_clear_pcs, "pcs"] = ""
 
-        mask_note_empty = (df["note"] == "")
+        # 3. 判断note是否为空
+        mask_note_empty = (df["original_note_from_remark"] == "")
         mask_clear_mark = mask_base & mask_note_empty
         df.loc[mask_clear_mark, "shipping_mark"] = ""
+
+        # 4. 清理临时列
+        df = df.drop("original_note_from_remark", axis=1)
 
         df["pl"] = ""  # 清空打板数字段
 
