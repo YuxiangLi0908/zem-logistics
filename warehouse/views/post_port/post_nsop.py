@@ -5753,11 +5753,6 @@ class PostNsop(View):
                     str_id=Cast("id", CharField()),
                     str_shipping_mark=Cast("shipping_mark", CharField()),
                     data_source=Value("PACKINGLIST", output_field=CharField()),
-                    # 重量换算：lbs 转 kg
-                    weight_kg=ExpressionWrapper(
-                        F("total_weight_lbs") * 0.453592,
-                        output_field=FloatField()
-                    ),
                     is_pass=Case(
                         When(
                             container_number__orders__retrieval_id__planned_release_time__isnull=False,
@@ -5860,8 +5855,8 @@ class PostNsop(View):
                     ),
                     total_pcs=Sum("pcs", output_field=FloatField()),
                     total_cbm=Round(Sum("cbm", output_field=FloatField()), 3),
-                    total_weight_lbs=Round(Sum("total_weight_lbs", output_field=FloatField()), 3),
-                    total_weight_kg=Round(Sum("weight_kg", output_field=FloatField()), 3),
+                    total_weight_lbs=Sum("total_weight_lbs", output_field=FloatField()),
+                    total_weight_kg=Sum("total_weight_kg", output_field=FloatField()),
                     total_n_pallet_est=Ceil(Sum("cbm", output_field=FloatField()) / 2),
                     label=Value("EST"),
                     note_sp=StringAgg("note_sp", delimiter=",", distinct=True)
