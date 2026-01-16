@@ -272,6 +272,9 @@ class ExceptionHandling(View):
         elif step == "update_shipment_type_to_fleet_type":
             template, context = await self.handle_update_shipment_type_to_fleet_type(request)
             return await sync_to_async(render)(request, template, context) 
+        elif step == "search_receivable_total_fee":
+            template, context = await self.handle_search_receivable_total_fee(request)
+            return await sync_to_async(render)(request, template, context)
         elif step == "update_receivable_total_fee":
             template, context = await self.handle_update_receivable_total_fee(request)
             return await sync_to_async(render)(request, template, context) 
@@ -284,12 +287,12 @@ class ExceptionHandling(View):
         else:
             return await sync_to_async(T49Webhook().post)(request)
     
-    async def handle_update_receivable_total_fee(self, request):
-        '''有的转运类型的invoicev2的总费用是0'''
+    async def handle_search_receivable_total_fee(self, request):
+        '''查询invoicev2的应收总费用是0'''
         invoices_without_amount = await sync_to_async(list)(
             Invoicev2.objects.filter(
                 (Q(receivable_total_amount__isnull=True) | Q(receivable_total_amount=0) | Q(remain_offset=0) | Q(remain_offset__isnull=True)) &
-                Q(invoicestatusv2__finance_status='completed')  # 排除已完成
+                Q(invoicestatusv2__finance_status='completed')  
             )
             .select_related('container_number')
             .prefetch_related('container_number__orders')
@@ -315,6 +318,99 @@ class ExceptionHandling(View):
                 })
 
         context={'abnormal_receivable_fee':result_list}
+        return self.template_post_port_status, context
+    
+    async def handle_update_receivable_total_fee(self, request):
+        '''invoicev2的应收总费用是0的赋值'''
+        invoices_without_amount = await sync_to_async(list)(
+            Invoicev2.objects.filter(
+                (Q(receivable_total_amount__isnull=True) | Q(receivable_total_amount=0) | Q(remain_offset=0) | Q(remain_offset__isnull=True)) &
+                Q(invoicestatusv2__finance_status='completed')  
+            )
+            .select_related('container_number')
+            .prefetch_related('container_number__orders')
+        )
+        result_list = []
+        updated_count = 0
+
+        @transaction.atomic
+        def update_invoices():
+            nonlocal updated_count
+            with transaction.atomic():
+                for invoice in invoices_without_amount:
+                    try:
+                        container = invoice.container_number
+                        if not container:
+                            continue
+                        
+                        # 1. 获取订单类型（用于结果展示）
+                        order_type = ""
+                        if hasattr(container, 'orders'):
+                            orders = list(container.orders.all())
+                            if orders:
+                                order_type = orders[0].order_type or ""
+                        if order_type != "转运":
+                            continue
+                        # 2. 查询 InvoiceItemv2 记录并计算总额
+                        invoice_items = list(
+                            InvoiceItemv2.objects.filter(
+                                container_number=container,
+                                invoice_number=invoice,
+                                invoice_type="receivable"
+                            )
+                        )
+                        
+                        # 计算总金额
+                        total_amount = sum(item.amount or 0 for item in invoice_items)
+                        
+                        # 3. 更新 Invoicev2 记录
+                        update_needed = False
+                        
+                        # 如果 receivable_total_amount 为空或0，则更新
+                        if invoice.receivable_total_amount in (None, 0):
+                            invoice.receivable_total_amount = total_amount
+                            update_needed = True
+                        
+                        # 如果 remain_offset 为空或0，也更新为相同的值
+                        if invoice.remain_offset in (None, 0):
+                            invoice.remain_offset = total_amount
+                            update_needed = True
+                        
+                        # 如果有更新，保存记录
+                        if update_needed and total_amount > 0:
+                            invoice.save()
+                            updated_count += 1
+                        
+                        # 4. 添加到结果列表（无论是否更新）
+                        result_list.append({
+                            'container_number': container.container_number if container.container_number else "",
+                            'order_type': order_type,
+                            'receivable_total_amount': invoice.receivable_total_amount or 0,
+                            'remain_offset': invoice.remain_offset or 0,
+                            'invoice_number': invoice.invoice_number or "",
+                            'calculated_amount': total_amount,  # 计算出的金额
+                            'is_updated': update_needed and total_amount > 0,  # 是否已更新
+                            'invoice_item_count': len(invoice_items)  # 关联的费用项数量
+                        })
+                        
+                    except Exception as e:
+                        # 记录错误但继续处理其他发票
+                        result_list.append({
+                            'container_number': container.container_number if container and container.container_number else "",
+                            'order_type': order_type,
+                            'error': str(e),
+                            'invoice_number': invoice.invoice_number or ""
+                        })
+                        continue
+
+        # 执行更新
+        await sync_to_async(update_invoices, thread_sensitive=True)()
+
+        context = {
+            'success_messages': f'成功更新了{updated_count}条!',
+            'abnormal_receivable_fee': result_list
+        }
+
         return self.template_post_port_status, context
 
     async def handle_update_shipment_type_to_fleet_type(self, request):
