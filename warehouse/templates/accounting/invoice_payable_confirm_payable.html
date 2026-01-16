@@ -1456,6 +1456,10 @@
                                 <input type="hidden" name="write_off_type" id="batch-writeoff-type">
                                 <input type="hidden" name="batch_amount" id="batch-writeoff-amount">
                                 <input type="hidden" name="container_number_ids" id="batch-writeoff-container-ids">
+                                <input type="hidden" name="start_date_confirm" value="{{ start_date_confirm }}">
+                                <input type="hidden" name="end_date_confirm" value="{{ end_date_confirm }}">
+                                <input type="hidden" name="warehouse_filter" value="{{ warehouse_filter }}">
+                                <input type="hidden" name="customer_name" value="{{ selected_customer_id|default:'' }}">
                             </form>
 
                             <!-- 批量操作区域：仅保留交互元素，移除表单嵌套 -->
@@ -1661,10 +1665,14 @@
                                             <form action="" method="post" class="single-writeoff-form"
                                                   style="margin: 0;">
                                                 {% csrf_token %}
-                                                <input type="hidden" name="step" value="write_off_amount_post">
+                                                <input type="hidden" name="step" value="write_off_amount_post_t">
                                                 <input type="hidden" name="container_id"
                                                        value="{{ c.container_number.id }}">
                                                 <input type="hidden" name="write_off_type" value="pick-t">
+                                                <input type="hidden" name="start_date_confirm" value="{{ start_date_confirm }}">
+                                                <input type="hidden" name="end_date_confirm" value="{{ end_date_confirm }}">
+                                                <input type="hidden" name="warehouse_filter" value="{{ warehouse_filter }}">
+                                                <input type="hidden" name="customer_name" value="{{ selected_customer_id|default:'' }}">
                                                 <button type="submit" class="btn btn-success btn-sm"
                                                         style="padding: 4px 10px; font-size: 0.8rem;">确认
                                                 </button>
@@ -1684,6 +1692,19 @@
                 <div id="pick-x-waited" class="tab-content">
                     <div class="table-container">
                         {% if finance_confirmed_x_waited %}
+                            <!-- 第一步：新增卸柜批量核销的隐藏表单（和提柜结构一致） -->
+                            <form id="batch-writeoff-form-x" method="POST" style="display: none;">
+                                {% csrf_token %}
+                                <input type="hidden" name="step" value="batch_write_off_amount_post_x">
+                                <input type="hidden" name="write_off_type" id="batch-writeoff-type-x">
+                                <input type="hidden" name="batch_amount" id="batch-writeoff-amount-x">
+                                <input type="hidden" name="container_number_ids" id="batch-writeoff-container-ids-x">
+                                <input type="hidden" name="start_date_confirm" value="{{ start_date_confirm }}">
+                                <input type="hidden" name="end_date_confirm" value="{{ end_date_confirm }}">
+                                <input type="hidden" name="warehouse_filter" value="{{ warehouse_filter }}">
+                                <input type="hidden" name="customer_name" value="{{ selected_customer_id|default:'' }}">
+                            </form>
+
                             <!-- 批量操作区域 -->
                             <div class="export-select-all-container">
                                 <input type="checkbox" id="pick-x-select-all"
@@ -1694,7 +1715,7 @@
                                 <span class="export-selected-count" id="pick-x-selected-count">已选：0 条</span>
                                 <input type="number" id="pick-x-batch-amount" placeholder="输入批量核销金额"
                                        style="width: 150px; margin-left: 10px; padding: 6px 10px; border: 1px solid #ced4da; border-radius: 6px; font-size: 0.85rem;">
-                                <button type="button" class="btn btn-primary btn-sm" onclick="batchWriteOff('pick-x')"
+                                <button type="button" class="btn btn-primary btn-sm" onclick="batchWriteOffX('pick-x')"
                                         style="margin-left: 10px;">
                                     <i class="fas fa-check"></i> 批量确认核销
                                 </button>
@@ -1708,14 +1729,9 @@
                                     <th class="th">仓点</th>
                                     <th class="th">供应商</th>
                                     <th class="th">货柜号</th>
-                                    <th class="th">卸柜费</th>
-                                    <th class="th">直送固定报价</th>
-                                    <th class="th">直送等待费用</th>
-                                    <th class="th">超重费</th>
-                                    <th class="th">滞港费</th>
-                                    <th class="th">滞箱费</th>
-                                    <th class="th">车架费</th>
-                                    <th class="th">卸柜其他费用</th>
+                                    <th class="th">拆柜费</th>
+                                    <th class="th">入库拆柜费</th>
+                                    <th class="th">拆柜其他费用</th>
                                     <th class="th">总费用</th>
                                     <th class="th">核销金额</th>
                                     <th class="th">操作</th>
@@ -1729,11 +1745,6 @@
                                                           onkeyup="filterTable('pick-x-waited-table', 3)"></th>
                                     <th class="th"><input type="text" class="search-input" placeholder="搜索货柜号..."
                                                           onkeyup="filterTable('pick-x-waited-table', 4)"></th>
-                                    <th class="th"></th>
-                                    <th class="th"></th>
-                                    <th class="th"></th>
-                                    <th class="th"></th>
-                                    <th class="th"></th>
                                     <th class="th"></th>
                                     <th class="th"></th>
                                     <th class="th"></th>
@@ -1762,88 +1773,32 @@
                                                class="container-link"
                                                title="点击查看详情">{{ c.container_number.container_number }}</a>
                                         </td>
-                                        <!-- 卸柜费 -->
+                                        <!-- 拆柜费用 -->
                                         <td class="td_fee">
                                             <span class="unpickup-fee-amount">$0.00</span>
                                             {% for fee in c.container_number.invoice_itemv2.all %}
-                                                {% if fee.description == "卸柜费用" %}
+                                                {% if fee.description == "拆柜费用" %}
                                                     <span class="unpickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
                                                 {% endif %}
                                             {% endfor %}
                                         </td>
-                                        <!-- 直送固定报价 -->
+                                        <!-- 入库拆柜费用 -->
                                         <td class="td_fee">
                                             <span class="unpickup-fee-amount">$0.00</span>
                                             {% for fee in c.container_number.invoice_itemv2.all %}
-                                                {% if fee.description == "固定报价" %}
-                                                    {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
-                                                        <span class="unpickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
-                                                    {% endif %}
+                                                {% if fee.description == "入库拆柜费用" %}
+                                                    <span class="unpickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
                                                 {% endif %}
                                             {% endfor %}
                                         </td>
-                                        <!-- 直送等待费用 -->
-                                        <td class="td_fee">
-                                            <span class="unpickup-fee-amount">$0.00</span>
-                                            {% for fee in c.container_number.invoice_itemv2.all %}
-                                                {% if fee.description == "等待费用" %}
-                                                    {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
-                                                        <span class="unpickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
-                                                    {% endif %}
-                                                {% endif %}
-                                            {% endfor %}
-                                        </td>
-                                        <!-- 超重费 -->
-                                        <td class="td_fee">
-                                            <span class="unpickup-fee-amount">$0.00</span>
-                                            {% for fee in c.container_number.invoice_itemv2.all %}
-                                                {% if fee.description == "超重费用" %}
-                                                    {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
-                                                        <span class="unpickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
-                                                    {% endif %}
-                                                {% endif %}
-                                            {% endfor %}
-                                        </td>
-                                        <!-- 滞港费 -->
-                                        <td class="td_fee">
-                                            <span class="unpickup-fee-amount">$0.00</span>
-                                            {% for fee in c.container_number.invoice_itemv2.all %}
-                                                {% if fee.description == "港内滞港费" %}
-                                                    {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
-                                                        <span class="unpickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
-                                                    {% endif %}
-                                                {% endif %}
-                                            {% endfor %}
-                                        </td>
-                                        <!-- 滞箱费 -->
-                                        <td class="td_fee">
-                                            <span class="unpickup-fee-amount">$0.00</span>
-                                            {% for fee in c.container_number.invoice_itemv2.all %}
-                                                {% if fee.description == "港外滞箱费" %}
-                                                    {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
-                                                        <span class="unpickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
-                                                    {% endif %}
-                                                {% endif %}
-                                            {% endfor %}
-                                        </td>
-                                        <!-- 车架费 -->
-                                        <td class="td_fee">
-                                            <span class="unpickup-fee-amount">$0.00</span>
-                                            {% for fee in c.container_number.invoice_itemv2.all %}
-                                                {% if fee.description == "车架费用" %}
-                                                    {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
-                                                        <span class="unpickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
-                                                    {% endif %}
-                                                {% endif %}
-                                            {% endfor %}
-                                        </td>
-                                        <!-- 卸柜其他费用 -->
+
+                                        <!-- 拆柜其他费用 -->
                                         <td class="td_fee_other"
                                             data-container-id="{{ c.container_number.id }}"
                                             data-type="other"
                                             data-fees="
                     {% for fee in c.container_number.invoice_itemv2.all %}
-                        {% if '卸柜其他费用' in fee.description %}
+                        {% if '拆柜其他费用' in fee.description %}
                             {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
                             {{ fee.rate|default:0|floatformat:2 }},
                             {% endif %}
@@ -1860,7 +1815,7 @@
                                             data-fees="
                     {% for fee in c.container_number.invoice_itemv2.all %}
                     {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
-                        {% if fee.description in ut_item or '卸柜其他费用' in fee.description %}
+                        {% if fee.description in x_item or '拆柜其他费用' in fee.description %}
                             {{ fee.rate|default:0|floatformat:2 }},
                         {% endif %}
                     {% endif %}
@@ -1881,10 +1836,14 @@
                                             <form action="" method="post" class="single-writeoff-form"
                                                   style="margin: 0;">
                                                 {% csrf_token %}
-                                                <input type="hidden" name="step" value="write_off_amount_post">
+                                                <input type="hidden" name="step" value="write_off_amount_post_x">
                                                 <input type="hidden" name="container_id"
                                                        value="{{ c.container_number.id }}">
                                                 <input type="hidden" name="write_off_type" value="pick-x">
+                                                <input type="hidden" name="start_date_confirm" value="{{ start_date_confirm }}">
+                                                <input type="hidden" name="end_date_confirm" value="{{ end_date_confirm }}">
+                                                <input type="hidden" name="warehouse_filter" value="{{ warehouse_filter }}">
+                                                <input type="hidden" name="customer_name" value="{{ selected_customer_id|default:'' }}">
                                                 <button type="submit" class="btn btn-success btn-sm"
                                                         style="padding: 4px 10px; font-size: 0.8rem;">确认
                                                 </button>
@@ -2067,11 +2026,26 @@
                                         </td>
                                         <!-- 核销金额 -->
                                         <td class="td_fee">
-                                            {{ c.write_off_amount|floatformat:2 }}
+                                            <span class="pickup-fee-amount">$0.00</span>
+                                            {% with fee=c.container_number.invoice_itemv2.first %}
+                                                {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
+                                                    {% if fee %}
+                                                        <span class="pickup-fee-amount">${{ fee.write_off_amount|default:0.00|floatformat:2 }}</span>
+                                                    {% endif %}
+                                                {% endif %}
+                                            {% endwith %}
                                         </td>
                                         <!-- 核销时间 -->
                                         <td class="td">
-                                            {{ c.write_off_time|date:"Y-m-d H:i:s" }}
+                                            {% with fee=c.container_number.invoice_itemv2.first %}
+                                                {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
+                                                    {% if fee %}
+                                                        <span class="pickup-fee-amount">{{ fee.write_off_time|date:"Y-m-d"|default:"-" }}</span>
+                                                    {% endif %}
+                                                {% else %}
+                                                    <span class="pickup-fee-amount">-</span>
+                                                {% endif %}
+                                            {% endwith %}
                                         </td>
                                     </tr>
                                 {% endfor %}
@@ -2094,14 +2068,9 @@
                                     <th class="th">仓点</th>
                                     <th class="th">供应商</th>
                                     <th class="th">货柜号</th>
-                                    <th class="th">卸柜费</th>
-                                    <th class="th">直送固定报价</th>
-                                    <th class="th">直送等待费用</th>
-                                    <th class="th">超重费</th>
-                                    <th class="th">滞港费</th>
-                                    <th class="th">滞箱费</th>
-                                    <th class="th">车架费</th>
-                                    <th class="th">卸柜其他费用</th>
+                                    <th class="th">拆柜费</th>
+                                    <th class="th">入库拆柜费</th>
+                                    <th class="th">拆柜其他费用</th>
                                     <th class="th">总费用</th>
                                     <th class="th">核销金额</th>
                                     <th class="th">核销时间</th>
@@ -2114,11 +2083,6 @@
                                                           onkeyup="filterTable('pick-x-completed-table', 2)"></th>
                                     <th class="th"><input type="text" class="search-input" placeholder="搜索货柜号..."
                                                           onkeyup="filterTable('pick-x-completed-table', 3)"></th>
-                                    <th class="th"></th>
-                                    <th class="th"></th>
-                                    <th class="th"></th>
-                                    <th class="th"></th>
-                                    <th class="th"></th>
                                     <th class="th"></th>
                                     <th class="th"></th>
                                     <th class="th"></th>
@@ -2145,71 +2109,16 @@
                                         <td class="td_fee">
                                             <span class="unpickup-fee-amount">$0.00</span>
                                             {% for fee in c.container_number.invoice_itemv2.all %}
-                                                {% if fee.description == "卸柜费用" %}
+                                                {% if fee.description == "拆柜费用" %}
                                                     <span class="unpickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
                                                 {% endif %}
                                             {% endfor %}
                                         </td>
-                                        <!-- 直送固定报价 -->
+                                        <!-- 入库拆柜费 -->
                                         <td class="td_fee">
                                             <span class="unpickup-fee-amount">$0.00</span>
                                             {% for fee in c.container_number.invoice_itemv2.all %}
-                                                {% if fee.description == "固定报价" %}
-                                                    {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
-                                                        <span class="unpickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
-                                                    {% endif %}
-                                                {% endif %}
-                                            {% endfor %}
-                                        </td>
-                                        <!-- 直送等待费用 -->
-                                        <td class="td_fee">
-                                            <span class="unpickup-fee-amount">$0.00</span>
-                                            {% for fee in c.container_number.invoice_itemv2.all %}
-                                                {% if fee.description == "等待费用" %}
-                                                    {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
-                                                        <span class="unpickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
-                                                    {% endif %}
-                                                {% endif %}
-                                            {% endfor %}
-                                        </td>
-                                        <!-- 超重费 -->
-                                        <td class="td_fee">
-                                            <span class="unpickup-fee-amount">$0.00</span>
-                                            {% for fee in c.container_number.invoice_itemv2.all %}
-                                                {% if fee.description == "超重费用" %}
-                                                    {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
-                                                        <span class="unpickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
-                                                    {% endif %}
-                                                {% endif %}
-                                            {% endfor %}
-                                        </td>
-                                        <!-- 滞港费 -->
-                                        <td class="td_fee">
-                                            <span class="unpickup-fee-amount">$0.00</span>
-                                            {% for fee in c.container_number.invoice_itemv2.all %}
-                                                {% if fee.description == "港内滞港费" %}
-                                                    {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
-                                                        <span class="unpickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
-                                                    {% endif %}
-                                                {% endif %}
-                                            {% endfor %}
-                                        </td>
-                                        <!-- 滞箱费 -->
-                                        <td class="td_fee">
-                                            <span class="unpickup-fee-amount">$0.00</span>
-                                            {% for fee in c.container_number.invoice_itemv2.all %}
-                                                {% if fee.description == "港外滞箱费" %}
-                                                    {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
-                                                        <span class="unpickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
-                                                    {% endif %}
-                                                {% endif %}
-                                            {% endfor %}
-                                        </td>
-                                        <!-- 车架费 -->
-                                        <td class="td_fee">
-                                            <span class="unpickup-fee-amount">$0.00</span>
-                                            {% for fee in c.container_number.invoice_itemv2.all %}
-                                                {% if fee.description == "车架费用" %}
+                                                {% if fee.description == "入库拆柜费" %}
                                                     {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
                                                         <span class="unpickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
                                                     {% endif %}
@@ -2222,7 +2131,7 @@
                                             data-type="other"
                                             data-fees="
                     {% for fee in c.container_number.invoice_itemv2.all %}
-                        {% if '卸柜其他费用' in fee.description %}
+                        {% if '拆柜其他费用' in fee.description %}
                             {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
                             {{ fee.rate|default:0|floatformat:2 }},
                             {% endif %}
@@ -2239,7 +2148,7 @@
                                             data-fees="
                     {% for fee in c.container_number.invoice_itemv2.all %}
                     {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
-                        {% if fee.description in ut_item or '卸柜其他费用' in fee.description %}
+                        {% if fee.description in x_item or '拆柜其他费用' in fee.description %}
                             {{ fee.rate|default:0|floatformat:2 }},
                         {% endif %}
                     {% endif %}
@@ -2250,18 +2159,33 @@
                                         </td>
                                         <!-- 核销金额 -->
                                         <td class="td_fee">
-                                            {{ c.write_off_amount|floatformat:2 }}
+                                            <span class="pickup-fee-amount">$0.00</span>
+                                            {% with fee=c.container_number.invoice_itemv2.first %}
+                                                {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
+                                                    {% if fee %}
+                                                        <span class="pickup-fee-amount">${{ fee.write_off_amount|default:0.00|floatformat:2 }}</span>
+                                                    {% endif %}
+                                                {% endif %}
+                                            {% endwith %}
                                         </td>
                                         <!-- 核销时间 -->
                                         <td class="td">
-                                            {{ c.write_off_time|date:"Y-m-d H:i:s" }}
+                                            {% with fee=c.container_number.invoice_itemv2.first %}
+                                                {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
+                                                    {% if fee %}
+                                                        <span class="pickup-fee-amount">{{ fee.write_off_time|date:"Y-m-d"|default:"-" }}</span>
+                                                    {% endif %}
+                                                {% else %}
+                                                    <span class="pickup-fee-amount">-</span>
+                                                {% endif %}
+                                            {% endwith %}
                                         </td>
                                     </tr>
                                 {% endfor %}
                                 </tbody>
                             </table>
                         {% else %}
-                            <div class="alert alert-info">暂无卸柜已核销的账单</div>
+                            <div class="alert alert-info">暂无拆柜已核销的账单</div>
                         {% endif %}
                     </div>
 
@@ -2473,6 +2397,7 @@
                         setTimeout(() => {
                             calculateAllFees(subTabName + '-table');
                             bindWriteOffCheckboxEvents(); // 切换标签后重新绑定
+                            initSingleWriteOff(); // 重新绑定单个核销事件
                         }, 100);
                     }
                 }
@@ -2495,19 +2420,12 @@
         // 8. 初始化核销勾选框事件（核心修复：独立函数，支持重复绑定）
         bindWriteOffCheckboxEvents();
 
-        // 9. 单个核销表单提交验证
-        document.querySelectorAll('.single-writeoff-form').forEach(form => {
-            form.addEventListener('submit', function (e) {
-                const amountInput = this.parentNode.querySelector('.write-off-amount');
-                if (!amountInput) return;
-                const amount = parseFloat(amountInput.value) || 0;
-                if (amount <= 0) {
-                    e.preventDefault();
-                    alert('请输入有效的核销金额！');
-                    amountInput.focus();
-                }
-            });
-        });
+        // 9. 初始化单个核销事件（提柜+卸柜都适配）
+        initSingleWriteOff();
+
+        // 10. 暴露批量核销函数到全局
+        window.batchWriteOff = batchWriteOff;   // 提柜批量核销
+        window.batchWriteOffX = batchWriteOffX; // 卸柜批量核销
     });
 
     // ===================== 核心修复：核销勾选框事件绑定（独立函数） =====================
@@ -2874,6 +2792,58 @@
         }
     }
 
+    // ===================== 单个核销函数（适配提柜+卸柜） =====================
+    function initSingleWriteOff() {
+        // 先移除旧的事件绑定（避免重复）
+        document.querySelectorAll('.single-writeoff-form').forEach(form => {
+            const newForm = form.cloneNode(true);
+            form.parentNode.replaceChild(newForm, form);
+        });
+
+        // 给所有单个核销的表单绑定提交事件
+        const singleWriteOffForms = document.querySelectorAll('.single-writeoff-form');
+        singleWriteOffForms.forEach(form => {
+            form.addEventListener('submit', function (e) {
+                // 1. 阻止默认提交，先做校验
+                e.preventDefault();
+
+                // 2. 获取当前表单对应的container_id和核销金额输入框
+                const containerId = this.querySelector('input[name="container_id"]').value;
+                const amountInput = document.querySelector(`.write-off-amount[data-container-id="${containerId}"]`);
+
+                // 3. 校验金额输入框是否存在
+                if (!amountInput) {
+                    alert('未找到对应的核销金额输入框！');
+                    return;
+                }
+
+                // 4. 校验金额有效性
+                const writeOffAmount = parseFloat(amountInput.value) || 0;
+                if (writeOffAmount <= 0) {
+                    alert('请输入有效的核销金额（大于0）！');
+                    amountInput.focus(); // 聚焦到输入框，方便用户修改
+                    return;
+                }
+
+                // 5. 给表单添加核销金额的隐藏字段（因为输入框不在表单内，需要手动传）
+                let amountField = this.querySelector('input[name="write_off_amount"]');
+                if (!amountField) {
+                    amountField = document.createElement('input');
+                    amountField.type = 'hidden';
+                    amountField.name = 'write_off_amount';
+                    this.appendChild(amountField);
+                }
+                amountField.value = writeOffAmount;
+
+                // 6. 确认提交（可选：增加确认提示）
+                if (confirm(`确认核销柜号ID【${containerId}】的金额：$${writeOffAmount.toFixed(2)}？`)) {
+                    this.submit(); // 提交表单
+                }
+            });
+        });
+    }
+
+    // ===================== 批量核销函数 - 提柜（pick-t） =====================
     function batchWriteOff(type) {
         const batchAmountInput = document.getElementById(`${type}-batch-amount`);
         if (!batchAmountInput) {
@@ -2940,6 +2910,73 @@
         batchForm.submit();
     }
 
+    // ===================== 批量核销函数 - 卸柜（pick-x） =====================
+    function batchWriteOffX(type) {
+        const batchAmountInput = document.getElementById(`${type}-batch-amount`);
+        if (!batchAmountInput) {
+            console.error('批量核销金额输入框不存在：', `${type}-batch-amount`);
+            return;
+        }
+
+        const batchAmount = parseFloat(batchAmountInput.value) || 0;
+        if (batchAmount <= 0) {
+            alert('请输入有效的核销金额！');
+            return;
+        }
+
+        // 1. 获取勾选的复选框
+        const checkboxes = document.querySelectorAll(`.${type}-writeoff:checked`);
+        if (checkboxes.length === 0) {
+            alert('请至少勾选一条记录！');
+            return;
+        }
+
+        // 2. 批量填写金额到输入框（保留原有逻辑）
+        checkboxes.forEach(checkbox => {
+            const containerId = checkbox.getAttribute('data-container-id');
+            const amountInput = document.querySelector(`.write-off-amount[data-container-id="${containerId}"]`);
+            if (amountInput) {
+                amountInput.value = batchAmount;
+            }
+        });
+
+        // 3. 收集container_number_id（替换itemv2_id，过滤空值）
+        const containerIds = [];
+        const emptyIdIndexes = [];
+        checkboxes.forEach((checkbox, index) => {
+            // 核心：获取data-container-id（即container_number_id）
+            const containerId = checkbox.getAttribute('data-container-id')?.trim() || '';
+            console.log(`勾选框${index + 1}的container_number_id：`, containerId);
+            if (containerId) {
+                containerIds.push(containerId);
+            } else {
+                emptyIdIndexes.push(index + 1);
+                console.warn(`勾选框${index + 1}的data-container-id为空`);
+            }
+        });
+
+        // 提示空ID（保留原有逻辑）
+        if (emptyIdIndexes.length > 0) {
+            const confirmContinue = confirm(`注意：勾选框${emptyIdIndexes.join(',')}无有效集装箱ID，是否继续处理其他记录？`);
+            if (!confirmContinue) {
+                return;
+            }
+        }
+        if (containerIds.length === 0) {
+            alert('所有勾选的记录都没有有效集装箱ID，无法执行批量核销！');
+            return;
+        }
+
+        // 4. 给卸柜隐藏form赋值（核心：替换为container_number_ids）
+        const batchForm = document.getElementById('batch-writeoff-form-x');
+        document.getElementById('batch-writeoff-type-x').value = type;
+        document.getElementById('batch-writeoff-amount-x').value = batchAmount;
+        document.getElementById('batch-writeoff-container-ids-x').value = containerIds.join(','); // 多个集装箱ID用逗号分隔
+
+        // 5. 提交form表单（自动携带CSRF Token）
+        batchForm.submit();
+    }
+
     // ===================== 辅助功能函数：通用 =====================
     // 客户下拉框选中状态修复
     window.addEventListener('load', function () {
@@ -2995,74 +3032,6 @@
             return;
         }
         hiddenInput.value = reason;
-    }
-
-    // 批量核销：仅保留表单赋值+提交，删除所有fetch/AJAX逻辑
-    function batchWriteOff(type) {
-        const batchAmountInput = document.getElementById(`${type}-batch-amount`);
-        if (!batchAmountInput) {
-            console.error('批量核销金额输入框不存在：', `${type}-batch-amount`);
-            return;
-        }
-
-        // 1. 金额校验
-        const batchAmount = parseFloat(batchAmountInput.value) || 0;
-        if (batchAmount <= 0) {
-            alert('请输入有效的核销金额！');
-            return;
-        }
-
-        // 2. 获取勾选的复选框
-        const checkboxes = document.querySelectorAll(`.${type}-writeoff:checked`);
-        if (checkboxes.length === 0) {
-            alert('请至少勾选一条记录！');
-            return;
-        }
-
-        // 3. 批量填写金额到输入框（保留原有逻辑）
-        checkboxes.forEach(checkbox => {
-            const containerId = checkbox.getAttribute('data-container-id');
-            const amountInput = document.querySelector(`.write-off-amount[data-container-id="${containerId}"]`);
-            if (amountInput) {
-                amountInput.value = batchAmount;
-            }
-        });
-
-        // 4. 核心修改：收集container_number_id（替换itemv2_id）
-        const containerIds = [];
-        const emptyIdIndexes = [];
-        checkboxes.forEach((checkbox, index) => {
-            const containerId = checkbox.getAttribute('data-container-id')?.trim() || '';
-            console.log(`勾选框${index + 1}的container_number_id：`, containerId);
-            if (containerId) {
-                containerIds.push(containerId);
-            } else {
-                emptyIdIndexes.push(index + 1);
-                console.warn(`勾选框${index + 1}的data-container-id为空`);
-            }
-        });
-
-        // 5. 空ID提示（保留原有逻辑，仅改文案）
-        if (emptyIdIndexes.length > 0) {
-            const confirmContinue = confirm(`注意：勾选框${emptyIdIndexes.join(',')}无有效集装箱ID，是否继续处理其他记录？`);
-            if (!confirmContinue) {
-                return;
-            }
-        }
-        if (containerIds.length === 0) {
-            alert('所有勾选的记录都没有有效集装箱ID，无法执行批量核销！');
-            return;
-        }
-        console.log('最终收集的有效containerIds：', containerIds);
-
-        // 6. 给隐藏表单赋值（核心：传递container_number_ids）
-        const batchForm = document.getElementById('batch-writeoff-form');
-        document.getElementById('batch-writeoff-type').value = type;
-        document.getElementById('batch-writeoff-amount').value = batchAmount;
-        document.getElementById('batch-writeoff-container-ids').value = containerIds.join(','); // 逗号分隔多个ID
-
-        // 7. 提交表单（自动携带CSRF Token，无AJAX，无JSON解析问题）
-        batchForm.submit();
     }
 </script>
 {% endblock %}
