@@ -3008,6 +3008,8 @@ class PostNsop(View):
         address = request.POST.get('address', '').strip()
         carrier = request.POST.get('carrier', '').strip()
         shipment_appointment = request.POST.get('shipment_appointment', '').strip()
+        if not shipment_appointment:
+            raise ValueError("提货时间不能为空！")
         arm_bol = request.POST.get('arm_bol', '').strip()
         arm_pro = request.POST.get('arm_pro', '').strip()
         is_print_label = request.POST.get('is_print_label', 'false').strip() == 'true'

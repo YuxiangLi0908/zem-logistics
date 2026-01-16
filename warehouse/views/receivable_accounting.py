@@ -5271,13 +5271,16 @@ class ReceivableAccounting(View):
                     
                     # 按区域分组
                     region = item_data.get("region", "未知")
-                    combina_items_by_region.setdefault(region, []).append(item_data)
+                    price = float(item_data.get("rate", 0))
+                    group_key = (region, price)
+                    combina_items_by_region.setdefault(group_key, []).append(item_data)
                 else:
                     normal_items.append(item_data)
+
         # 构建组合柜分组数据
-        for region, items in combina_items_by_region.items():
+        for (region, price), items in combina_items_by_region.items():
             if items:
-                price = float(items[0].get("rate", 0))
+                price = price
                 total_cbm = sum(item.get("total_cbm", 0) for item in items)
                 total_cbm_ratio = round(sum(float(item.get("cbm_ratio") or 0) for item in items), 4)
                 region_price = round(total_cbm * price / combina_total_cbm, 3)
