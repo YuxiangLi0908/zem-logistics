@@ -226,21 +226,35 @@
     <table class="data-table">
         <thead>
             <tr>
+                <th>订单号</th>
                 <th>柜号</th>
                 <th>类型</th>
                 <th>总费用</th>
-                <th>待核销金额</th>
-                <th>订单号</th>
+                <th>待核销金额</th>             
+                <th>计算金额</th>
+                <th>项目数量</th>
+                <th>是否更新</th>
+                <th>错误</th>
             </tr>
         </thead>
         <tbody>
             {% for ab_fee in abnormal_receivable_fee %}
             <tr>
+                <td>{{ ab_fee.invoice_number }}</td>
                 <td>{{ ab_fee.container_number }}</td>
                 <td>{{ ab_fee.order_type }}</td>
                 <td>{{ ab_fee.receivable_total_amount }}</td>
-                <td>{{ ab_fee.remain_offset }}</td>
-                <td>{{ ab_fee.invoice_number }}</td>
+                <td>{{ ab_fee.remain_offset }}</td>               
+                <td>{{ ab_fee.calculated_amount }}</td>
+                <td>{{ ab_fee.invoice_item_count }}</td>
+                <td style="text-align:center;">
+                    {% if ab_fee.is_updated %}
+                        <span style="color:green;font-weight:bold;">✔</span>
+                    {% else %}
+                        <span style="color:red;font-weight:bold;">✘</span>
+                    {% endif %}
+                </td>
+                <td>{{ ab_fee.error }}</td>
             </tr>
             {% endfor %}
         </tbody>
@@ -507,8 +521,14 @@
 
 <form method="post" style="display: inline-block; margin: 2px;">
     {% csrf_token %}
+    <input type="hidden" name="step" value="search_receivable_total_fee">
+    <button type="submit" class="search-btn">查询转运类型总费用为空</button>
+</form>
+
+<form method="post" style="display: inline-block; margin: 2px;">
+    {% csrf_token %}
     <input type="hidden" name="step" value="update_receivable_total_fee">
-    <button type="submit" class="search-btn">查询转运类型总费用为空的赋值</button>
+    <button type="submit" class="search-btn">转运类型总费用为空的赋值</button>
 </form>
 
 <script>
