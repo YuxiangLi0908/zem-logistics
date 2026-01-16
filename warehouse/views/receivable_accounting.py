@@ -7859,7 +7859,7 @@ class ReceivableAccounting(View):
             items_data = json.loads(items_data_json)
             username = request.user.username
             for item in items_data:
-                total_fee += item.get('amount', 0)
+                total_fee += float(item.get('amount', 0))
                 item_id = item.get('id')
                 if not item_id:
                     continue
