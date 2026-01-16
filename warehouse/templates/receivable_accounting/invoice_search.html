@@ -4,31 +4,110 @@
 <style>
     .status-grid {
         display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        gap: 4px;
-        font-size: 12px;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 6px;
+        font-size: 13px;
+        align-items: center;
     }
     .status-item {
-        padding: 2px 4px;
-        border-radius: 3px;
+        padding: 4px 6px;
+        border-radius: 6px;
         text-align: center;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
+        border: 1px solid #ddd;
+        background: #fafafa;
+        line-height: 1.4;
     }
-    .status-completed { background-color: #d4edda; color: #155724; }
-    .status-pending { background-color: #fff3cd; color: #856404; }
-    .status-rejected { background-color: #f8d7da; color: #721c24; }
-    .status-unstarted { background-color: #e2e3e5; color: #383d41; }
-    .status-inprogress { background-color: #cce7ff; color: #004085; }
-    
-    /* 新增：用于区分同一柜号的不同发票 */
+    .status-completed {
+        background: #e9f7ef;
+        color: #1e7e34;
+        border-color: #b7e1cd;
+    }
+
+    .status-pending {
+        background: #fff8e6;
+        color: #8a6d3b;
+        border-color: #f2ddb0;
+    }
+
+    .status-rejected {
+        background: #fdecea;
+        color: #b02a37;
+        border-color: #f5c2c7;
+    }
+
+    .status-unstarted {
+        background: #f2f3f5;
+        color: #555;
+        border-color: #dcdfe6;
+    }
+
+    .status-inprogress {
+        background: #eef5ff;
+        color: #1d4ed8;
+        border-color: #c7ddff;
+    }
+
     .same-container-row {
-        background-color: #f9f9f9;
+        background-color: #f7f9fc;
     }
+
     .invoice-number-cell {
-        font-weight: bold;
-        color: #1890ff;
+        font-weight: 600;
+        color: #2d7cf0;
+    }
+    .export-panel-wrap {
+        display: flex;
+        justify-content: center;
+    }
+
+    .export-panel {
+        background: #f8fafc;
+        border: 1px solid #e3e6eb;
+        border-radius: 8px;
+        padding: 12px 18px;
+        margin: 12px 0 18px;
+        display: flex;
+        align-items: flex-end;
+        gap: 14px;
+    }
+
+    .export-panel label {
+        font-size: 13px;
+        color: #444;
+        margin-bottom: 6px;
+    }
+
+    .export-panel textarea {
+        min-width: 360px;
+        padding: 8px;
+        border-radius: 6px;
+        border: 1px solid #d0d5dd;
+        font-size: 13px;
+        resize: vertical;
+    }
+
+    .export-panel textarea:focus {
+        outline: none;
+        border-color: #2d7cf0;
+        box-shadow: 0 0 0 2px rgba(45,124,240,0.1);
+    }
+
+    .export-panel button {
+        padding: 8px 18px;
+        border-radius: 6px;
+        border: none;
+        background: #2d7cf0;
+        color: #fff;
+        font-size: 13px;
+        cursor: pointer;
+        height: 36px;
+    }
+
+    .export-panel button:hover {
+        background: #1f66d1;
     }
 </style>
 
@@ -58,6 +137,25 @@
         </div>
     </form>
 </div>
+
+<div class="export-panel-wrap">
+    <form method="post" class="export-panel">
+        {% csrf_token %}
+        <input type="hidden" name="step" value="export_details_invoicestatus">
+
+        <div style="display:flex; flex-direction:column;">
+            <label>Container 列表（空格分隔）</label>
+            <textarea name="search_containers"
+                      rows="3"
+                      placeholder="例如: ABC123 DEF456 GHI789"></textarea>
+        </div>
+
+        <button type="submit">
+            导出未录入详情
+        </button>
+    </form>
+</div>
+
 <div style="max-height: 100%; max-width: 1200px; padding: 20px; margin: 0 auto; background-color: #fff; border-radius: 8px; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);">
     <table id="quote-table" class="table" style="font-size: 14px; width: 100%; border-collapse: collapse;">
         <thead>
@@ -124,7 +222,7 @@
                         {% if item.payable_status %}{{ item.display_stage }}
                         {% elif not item.receivable_status and not item.payable_status %}{{ item.display_stage }}{% endif %}
                     </td>
-                    <td class="td" style="padding: 8px; border: 1px solid #ddd; text-align: center;vertical-align: middle;">
+                    <td class="td" style="padding: 10px; border: 1px solid #ddd; text-align: center;vertical-align: middle;">
                         {% if item.display_key_status %}
                             {{ item.display_key_status }}
                         {% else %}

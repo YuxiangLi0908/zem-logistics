@@ -151,9 +151,6 @@ class ReceivableAccounting(View):
         if step == "invoice_search":  #账单进度
             template, context = self.handle_invoice_search_get(request)
             return render(request, template, context)
-        elif step == "alert":  #预警监控
-            template, context = self.handle_alert_monitoring_get()
-            return render(request, template, context)
         elif step == "preport":  #港前
             context = {"warehouse_options": self.warehouse_options,"order_form": OrderForm()}
             return render(request, self.template_preport_entry, context)
@@ -283,6 +280,8 @@ class ReceivableAccounting(View):
             return render(request, template, context)
         elif step == "export_invoice":
             return self.handle_export_invoice_post(request)
+        elif step == "export_details_invoicestatus":  #预警监控
+            return self.handle_export_details_invoicestatus(request)
         else:
             raise ValueError(f"unknow request {step}")
 
@@ -647,6 +646,83 @@ class ReceivableAccounting(View):
     def handle_export_invoice_post(self, request: HttpRequest) -> HttpResponse:
         resp, file_name, pdf_file, context = export_invoice(request)
         return resp
+
+    def handle_export_details_invoicestatus(self, request):
+        '''导出未完成状态的账单详情'''
+        raw = request.POST.get("search_containers", "").strip()
+
+        # 支持 空格 / 换行 / 逗号
+        raw = raw.replace(",", " ").replace("\n", " ")
+        containers = [c.strip() for c in raw.split() if c.strip()]
+
+        if not containers:
+            return self.template_post_port_status, {
+                "error_messages": "请输入 container"
+            }
+
+        records = InvoiceStatusv2.objects.filter(
+            container_number__container_number__in=containers,
+            invoice_type="receivable"
+        ).select_related("container_number")
+
+        # --- 分组 ---
+        preport_list = []
+        wp_list = []
+        wo_list = []
+        dp_list = []
+        do_list = []
+
+        for r in records:
+            if r.preport_status != "completed":
+                preport_list.append(r)
+            if r.warehouse_public_status != "completed":
+                wp_list.append(r)
+            if r.warehouse_other_status != "completed":
+                wo_list.append(r)
+            if r.delivery_public_status != "completed":
+                dp_list.append(r)
+            if r.delivery_other_status != "completed":
+                do_list.append(r)
+
+        STATUS_MAP = {
+            "unstarted": "未录入",
+            "in_progress": "录入中",
+            "pending_review": "待组长审核",
+            "completed": "已完成",
+            "rejected": "已驳回",
+        }
+
+        # --- 生成 Excel ---
+        wb = Workbook()
+        wb.remove(wb.active)
+
+        def write_sheet(title, rows, status_field, reason_field):
+            ws = wb.create_sheet(title)
+            ws.append(["Container", "状态", "原因"])
+
+            for r in rows:
+                raw_status = getattr(r, status_field)
+                cn_status = STATUS_MAP.get(raw_status, raw_status)
+
+                ws.append([
+                    r.container_number.container_number,
+                    cn_status,
+                    getattr(r, reason_field, "")
+                ])
+
+        write_sheet("港前未完成", preport_list, "preport_status", "preport_reason")
+        write_sheet("仓库公仓未完成", wp_list, "warehouse_public_status", "warehouse_public_reason")
+        write_sheet("仓库私仓未完成", wo_list, "warehouse_other_status", "warehouse_self_reason")
+        write_sheet("派送公仓未完成", dp_list, "delivery_public_status", "delivery_public_reason")
+        write_sheet("派送私仓未完成", do_list, "delivery_other_status", "delivery_other_reason")
+
+        response = HttpResponse(
+            content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+        response["Content-Disposition"] = "attachment; filename=invoice_status_unfinished.xlsx"
+
+        wb.save(response)
+        return response
 
     def handle_invoice_search_get(
         self,
