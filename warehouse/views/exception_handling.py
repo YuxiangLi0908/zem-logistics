@@ -272,6 +272,9 @@ class ExceptionHandling(View):
         elif step == "update_shipment_type_to_fleet_type":
             template, context = await self.handle_update_shipment_type_to_fleet_type(request)
             return await sync_to_async(render)(request, template, context) 
+        elif step == "update_receivable_total_fee":
+            template, context = await self.handle_update_receivable_total_fee(request)
+            return await sync_to_async(render)(request, template, context) 
         elif step == "delete_shipment":
             template, context = await self.handle_delete_shipment(request)
             return await sync_to_async(render)(request, template, context)
@@ -281,6 +284,39 @@ class ExceptionHandling(View):
         else:
             return await sync_to_async(T49Webhook().post)(request)
     
+    async def handle_update_receivable_total_fee(self, request):
+        '''有的转运类型的invoicev2的总费用是0'''
+        invoices_without_amount = await sync_to_async(list)(
+            Invoicev2.objects.filter(
+                Q(receivable_total_amount__isnull=True) | 
+                Q(receivable_total_amount=0)
+            )
+            .select_related('container_number')
+            .prefetch_related('container_number__orders')
+        )
+        result_list = []
+        for invoice in invoices_without_amount:
+            container = invoice.container_number
+            if container:
+                # 获取订单类型
+                order_type = ""
+                if hasattr(container, 'orders'):
+                    # 获取第一个订单的类型
+                    orders = await sync_to_async(list)(container.orders.all())
+                    if orders:
+                        order_type = orders[0].order_type if orders[0].order_type else ""
+                
+                result_list.append({
+                    'container_number': container.container_number if container.container_number else "",
+                    'order_type': order_type,
+                    'receivable_total_amount': invoice.receivable_total_amount or 0,
+                    'remain_offset': invoice.remain_offset or 0,
+                    'invoice_number': invoice.invoice_number or ""
+                })
+
+        context={'abnormal_receivable_fee':result_list}
+        return self.template_post_port_status, context
+
     async def handle_update_shipment_type_to_fleet_type(self, request):
         fleets_without_type = await sync_to_async(list)(
             Fleet.objects.filter(
