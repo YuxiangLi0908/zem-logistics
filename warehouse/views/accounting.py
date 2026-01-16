@@ -14,6 +14,7 @@ from itertools import chain, groupby
 from operator import attrgetter
 
 from asgiref.sync import sync_to_async, async_to_sync
+from chardet.cli.chardetect import description_of
 
 from django.db import transaction
 from django.db.models.fields.json import KeyTextTransform
@@ -463,6 +464,16 @@ class Accounting(View):
         elif step == "batch_write_off_amount_post_t":
             template, context = self.batch_write_off_amount_post_t(request)
             return render(request, template, context)
+        elif step == "write_off_amount_post_t":
+            template, context = self.write_off_amount_post_t(request)
+            return render(request, template, context)
+        elif step == "batch_write_off_amount_post_x":
+            template, context = self.batch_write_off_amount_post_x(request)
+            return render(request, template, context)
+        elif step == "write_off_amount_post_x":
+            template, context = self.write_off_amount_post_x(request)
+            return render(request, template, context)
+
         elif step == "export_carrier_payable_delivery":
             return self.export_carrier_payable_delivery(request)
         elif step == "check_unreferenced_delivery":
@@ -2674,20 +2685,6 @@ class Accounting(View):
             }
             return self.template_invoice_payable_confirm, context
 
-    from django.db import models
-    from django.db.models import Q, F, Sum, OuterRef, Exists, Subquery
-    from django.http import HttpRequest
-    from django.shortcuts import render
-    from datetime import datetime, timedelta
-    from typing import Any
-
-    # 假设这些是你已定义的模型和常量（根据实际情况调整）
-    # from your_app.models import (
-    #     InvoiceStatusv2, InvoiceItemv2, Order, Pallet, FleetShipmentPallet,
-    #     Customer, OrderForm
-    # )
-    # CARRIER_FLEET = {}  # 实际业务常量
-
     def handle_invoice_confirm_get_v1(
             self,
             request: HttpRequest,
@@ -4529,18 +4526,160 @@ class Accounting(View):
         return self.template_invoice_payable_confirm_payable, context
 
     def batch_write_off_amount_post_t(self, request):
-        batch_amount = request.POST.get('batch_amount')
-        container_number_ids_list = request.POST.get('container_number_ids').split(",")
-        batch_amount = float(batch_amount)
-        current_date = datetime.now().date()
-        for container_number_id in container_number_ids_list:
-            invoice_items = InvoiceItemv2.objects.filter(container_number_id=container_number_id).all()
-            for invoice_item in invoice_items:
-                invoice_item.write_off_amount = batch_amount  # 批量核销金额
-                invoice_item.write_off_time = current_date  # 核销时间
-                invoice_item.save()
-        return self.handle_invoice_confirm_get_v1(request)
+        """提柜待核销-批量确认"""
+        batch_amount_str = request.POST.get('batch_amount')
+        container_number_ids_str = request.POST.get('container_number_ids', '')
+        start_date_confirm = request.POST.get("start_date_confirm")
+        end_date_confirm = request.POST.get("end_date_confirm")
+        warehouse = request.POST.get("warehouse_filter")
+        order_form = OrderForm(request.POST)
+        if order_form.is_valid():
+            customer = order_form.cleaned_data.get("customer_name")
+        else:
+            customer = None
+        # 转换金额为浮点数（捕获非数字异常）
+        try:
+            batch_amount = float(batch_amount_str)
+        except ValueError:
+            # 金额不是数字时的兜底处理
+            batch_amount = 0.0
 
+        # 处理柜号ID列表
+        container_number_ids_list = [
+            cid.strip() for cid in container_number_ids_str.split(",")
+            if cid.strip()
+        ]
+        # 无有效柜号ID时直接返回
+        if not container_number_ids_list:
+            return self.handle_invoice_confirm_get_v1(request, start_date_confirm, end_date_confirm, customer, warehouse)
+
+        # 排除拆柜费用的条件
+        exclude_conditions = Q(description__in=('入库拆柜费', '拆柜费用')) | Q(description__contains='拆柜其他费用')
+
+        current_date = datetime.now().date()
+        InvoiceItemv2.objects.filter(
+            container_number_id__in=container_number_ids_list
+        ).exclude(
+            exclude_conditions
+        ).update(
+            write_off_amount=batch_amount,
+            write_off_time=current_date
+        )
+        return self.handle_invoice_confirm_get_v1(request, start_date_confirm, end_date_confirm, customer, warehouse)
+
+    def write_off_amount_post_t(self, request):
+        """提柜待核销-单个确认"""
+        container_id = request.POST.get('container_id')
+        write_off_amount = float(request.POST.get('write_off_amount', 0))
+        start_date_confirm = request.POST.get("start_date_confirm")
+        end_date_confirm = request.POST.get("end_date_confirm")
+        warehouse = request.POST.get("warehouse_filter")
+        order_form = OrderForm(request.POST)
+
+        if order_form.is_valid():
+            customer = order_form.cleaned_data.get("customer_name")
+        else:
+            customer = None
+
+        if write_off_amount <= 0 or not container_id:
+            # 错误处理
+            return self.handle_invoice_confirm_get_v1(request, start_date_confirm, end_date_confirm, customer, warehouse)
+
+        # 更新该柜号的核销金额（注意过滤拆柜费用，和批量核销逻辑一致）
+        exclude_conditions = Q(description__in=('入库拆柜费', '拆柜费用')) | Q(description__contains='拆柜其他费用')
+        InvoiceItemv2.objects.filter(
+            container_number_id=container_id
+        ).exclude(
+            exclude_conditions
+        ).update(
+            write_off_amount=write_off_amount,
+            write_off_time=datetime.now().date()
+        )
+
+        return self.handle_invoice_confirm_get_v1(request, start_date_confirm, end_date_confirm, customer, warehouse)
+
+    def batch_write_off_amount_post_x(self, request):
+        """批量卸柜待核销"""
+        batch_amount_str = request.POST.get('batch_amount')
+        container_number_ids_str = request.POST.get('container_number_ids', '')
+        start_date_confirm = request.POST.get("start_date_confirm")
+        end_date_confirm = request.POST.get("end_date_confirm")
+        warehouse = request.POST.get("warehouse_filter")
+        order_form = OrderForm(request.POST)
+
+        if order_form.is_valid():
+            customer = order_form.cleaned_data.get("customer_name")
+        else:
+            customer = None
+        if not batch_amount_str:
+            return self.handle_invoice_confirm_get_v1(request, start_date_confirm, end_date_confirm, customer, warehouse)
+
+        try:
+            batch_amount = float(batch_amount_str)
+        except ValueError:
+            batch_amount = 0.0
+
+        container_number_ids_list = [
+            cid.strip() for cid in container_number_ids_str.split(",")
+            if cid.strip()
+        ]
+        if not container_number_ids_list:
+            return self.handle_invoice_confirm_get_v1(request, start_date_confirm, end_date_confirm, customer, warehouse)
+
+        conditions = Q(description__in=('入库拆柜费', '拆柜费用')) | Q(description__contains='拆柜其他费用')
+
+        current_date = datetime.now().date()
+        InvoiceItemv2.objects.filter(
+            conditions,
+            container_number_id__in=container_number_ids_list
+        ).update(
+            write_off_amount=batch_amount,
+            write_off_time=current_date
+        )
+        return self.handle_invoice_confirm_get_v1(request, start_date_confirm, end_date_confirm, customer, warehouse)
+
+
+    def write_off_amount_post_x(self, request):
+        """单个卸柜待核销"""
+        container_id_str = request.POST.get('container_id')  # 单个柜号ID
+        write_off_amount_str = request.POST.get('write_off_amount')  # 单个核销金额
+        start_date_confirm = request.POST.get("start_date_confirm")
+        end_date_confirm = request.POST.get("end_date_confirm")
+        warehouse = request.POST.get("warehouse_filter")
+        order_form = OrderForm(request.POST)
+        if order_form.is_valid():
+            customer = order_form.cleaned_data.get("customer_name")
+        else:
+            customer = None
+
+        # 校验柜号ID是否存在
+        if not container_id_str:
+            return self.handle_invoice_confirm_get_v1(request, start_date_confirm, end_date_confirm, customer, warehouse)
+
+        # 校验核销金额
+        try:
+            write_off_amount = float(write_off_amount_str)
+            # 金额≤0时直接返回（无效金额）
+            if write_off_amount <= 0:
+                return self.handle_invoice_confirm_get_v1(request, start_date_confirm, end_date_confirm, customer,
+                                                          warehouse)
+        except (ValueError, TypeError):
+            # 金额非数字/为空时，兜底为0（也可直接返回）
+            write_off_amount = 0.0
+            return self.handle_invoice_confirm_get_v1(request, start_date_confirm, end_date_confirm, customer, warehouse)
+
+        conditions = Q(description__in=('入库拆柜费', '拆柜费用')) | Q(description__contains='拆柜其他费用')
+
+        current_date = datetime.now().date()
+        InvoiceItemv2.objects.filter(
+            conditions,
+            container_number_id=container_id_str,
+        ).update(
+            write_off_amount=write_off_amount,
+            write_off_time=current_date
+        )
+
+        return self.handle_invoice_confirm_get_v1(request, start_date_confirm, end_date_confirm, customer, warehouse)
 
     def export_carrier_payable_delivery(self, request):
         confirm_phase = request.POST.get('confirm_phase')
@@ -5124,6 +5263,7 @@ class Accounting(View):
                 ).get()
                 invoice_item.rate = data.get("arrive_fee")
                 invoice_item.note = data.get("arrive_fee_note")
+                invoice_item.carrier = data.get("palletization_carrier")
                 invoice_item.save()
                 wh_amount += float(data.get("arrive_fee"))
             except InvoiceItemv2.DoesNotExist:
@@ -5133,6 +5273,7 @@ class Accounting(View):
                 invoice_item.description = "入库拆柜费"
                 invoice_item.rate = data.get("arrive_fee")
                 invoice_item.note = data.get("arrive_fee_note")
+                invoice_item.carrier = data.get("palletization_carrier")
                 invoice_item.save()
                 wh_amount += float(data.get("arrive_fee"))
         invoice.amount = wh_amount
@@ -5275,6 +5416,7 @@ class Accounting(View):
                             description=fee_name,
                         ).get()
                         invoice_item.rate = fee_amount
+                        invoice_item.carrier = data.get("palletization_carrier")
                         invoice_item.save()
                     except InvoiceItemv2.DoesNotExist:
                         invoice_item = InvoiceItemv2(
@@ -5286,6 +5428,7 @@ class Accounting(View):
                             invoice_item.description = fee_name
                         else:
                             invoice_item.description = f'拆柜其他费用-{fee_name}'
+                        invoice_item.carrier = data.get("palletization_carrier")
                         invoice_item.rate = fee_amount
                         invoice_item.save()
         # 直送其他费用

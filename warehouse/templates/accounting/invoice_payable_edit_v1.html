@@ -731,8 +731,8 @@
                                                    name="overweight_fee" value="{{ overweight_fee|default:0.00 }}"
                                                    oninput="calculateTotal()">
                                         {% else %}
-                                            {% if fee.rate %}
-                                                <span class="amount-display">{{ fee.rate }}</span>
+                                            {% if fee.rate and fee.rate != "/" %}
+                                                <span class="amount-display">{{ fee.rate|default:0.00 }}</span>
                                             {% else %}
                                                 <span class="amount-display amount-zero">0.00</span>
                                             {% endif %}
