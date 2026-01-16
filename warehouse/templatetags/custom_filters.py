@@ -10,6 +10,8 @@ register = template.Library()
 
 @register.filter
 def split_and_get_first(value: str) -> str:
+    if not value:  # 处理 None 或空字符串
+        return ""
     return value.split("-")[0]
 
 
