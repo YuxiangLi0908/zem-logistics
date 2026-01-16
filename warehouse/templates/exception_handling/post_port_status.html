@@ -336,8 +336,8 @@
             <td>{{ shipment.shipped_at|default:"-" }}</td>
             <td>{{ shipment.arrived_at|default:"-" }}</td>
             <td>{{ shipment.status }}</td>
-            <td>{{ shipment.appointment_status }}</td>
-            <td>{{ shipment.shipping_status }}</td>
+            <td>{{ shipment.appointment_status|default:"-" }}</td>
+            <td>{{ shipment.shipping_status|default:"-" }}</td>
             <td>
                 <form method="post" style="display: inline-block; margin: 2px;">
                     {% csrf_token %}
