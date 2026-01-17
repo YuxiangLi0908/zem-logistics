@@ -3099,6 +3099,7 @@ class PostNsop(View):
             'total_cbm': total_cbm,
             'total_pallet': total_pallet,
             'total_pcs': total_pcs,
+            'origin': warehouse,
         }
         if shipment_type == "客户自提" and "NJ" in warehouse: 
             # 客户自提的预约完要直接跳到POD上传,时间按预计提货时间
