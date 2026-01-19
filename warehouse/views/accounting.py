@@ -7796,6 +7796,8 @@ class Accounting(View):
         pre_order_pending = None
         # 客服已录入
         previous_order = None
+        # 客服待录入
+        orders = None
 
         is_payable_check = self._validate_user_invoice_payable_check(request.user)
         if is_payable_check:  # 审核应付看到的
