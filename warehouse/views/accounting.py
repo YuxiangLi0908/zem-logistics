@@ -7514,9 +7514,9 @@ class Accounting(View):
         return orders, pre_order_pending
 
     def get_orders_v1(self, order_exists_subquery, order_prefetch_queryset):
-        """审核应付看到的--待审核账单 已审核账单"""
-        # 待审核账单
-        order_pending = (
+        """审核应付看到的--待审核账单 已审核账单（合并查询优化版）"""
+        # 核心：合并待审核+已审核的查询条件，一次查询所有数据
+        combined_query = (
             InvoiceStatusv2.objects.select_related(
                 "container_number",
                 "invoice",
@@ -7534,11 +7534,35 @@ class Accounting(View):
             )
             .filter(
                 Exists(order_exists_subquery),
-                invoice_type="payable",
-                preport_status="pending_review",
+                Q(
+                    # 待审核的条件：invoice_type=payable + preport_status=pending_review
+                    invoice_type="payable",
+                    preport_status="pending_review"
+                ) | Q(
+                    # 已审核的条件：preport_status=completed + 两种发票类型
+                    preport_status="completed",
+                    invoice_type__in=["payable", "payable_direct"]
+                ),
+                id__isnull=False
             )
-            # 保留原有的 reject_priority 注解（如果需要排序）
+            # 关键：标记记录类型 + 保留原有注解
             .annotate(
+                # 标记类型：0=待审核，1=已审核
+                record_type=Case(
+                    When(
+                        invoice_type="payable",
+                        preport_status="pending_review",
+                        then=Value(0)
+                    ),
+                    When(
+                        preport_status="completed",
+                        invoice_type__in=["payable", "payable_direct"],
+                        then=Value(1)
+                    ),
+                    default=Value(-1),  # 异常值，理论上不会出现
+                    output_field=IntegerField()
+                ),
+                # 保留原有的 reject_priority 注解（待审核订单排序用）
                 reject_priority=Case(
                     When(preport_status="rejected", then=Value(1)),
                     When(warehouse_public_status="rejected", then=Value(1)),
@@ -7549,29 +7573,20 @@ class Accounting(View):
                     output_field=IntegerField(),
                 )
             )
+            # 排序：先按类型（待审核优先），待审核内部按reject_priority排序
+            .order_by("record_type", "reject_priority")
         )
 
-        orders = list(order_pending.iterator(chunk_size=200))
+        # 分批迭代查询（保持原有chunk_size=200的性能优化）
+        orders = []  # 待审核账单（原order_pending）
+        pre_order_pending = []  # 已审核账单（原pre_order_pending）
 
-        # 已审核账单查询
-        pre_order_pending = InvoiceStatusv2.objects.select_related(
-            "container_number",
-            "invoice",
-        ).prefetch_related(
-            Prefetch(
-                "container_number__orders",
-                queryset=order_prefetch_queryset
-            ),
-            Prefetch(
-                "container_number__invoice_itemv2",
-                queryset=InvoiceItemv2.objects.all()
-            )
-        ).filter(
-            Exists(order_exists_subquery),
-            models.Q(preport_status="completed"),
-            models.Q(invoice_type="payable") | models.Q(invoice_type="payable_direct"),
-            id__isnull=False,
-        )
+        for status_obj in combined_query.iterator(chunk_size=200):
+            # 按标记的record_type拆分数据
+            if status_obj.record_type == 0:
+                orders.append(status_obj)
+            elif status_obj.record_type == 1:
+                pre_order_pending.append(status_obj)
 
         return orders, pre_order_pending
 
@@ -7804,44 +7819,6 @@ class Accounting(View):
                         )
 
 
-        # 待录入的订单：用 Exists 避免重复，distinct 兜底
-        orders = (
-            InvoiceStatusv2.objects.select_related(
-                "container_number",
-                "invoice",
-            ).prefetch_related(
-                Prefetch(
-                    "container_number__orders",
-                    queryset=order_prefetch_queryset,
-                ),
-                Prefetch(
-                    "container_number__invoice_itemv2",
-                    queryset=InvoiceItemv2.objects.all()
-                )
-            ).filter(
-                Exists(order_exists_subquery),
-                Q(invoice_type="payable") | Q(invoice_type="payable_direct"),
-                Q(preport_status__in=["unstarted", "in_progress", "rejected"])
-                & Q(warehouse_public_status__in=["unstarted", "in_progress", "rejected"])
-                & Q(warehouse_other_status__in=["unstarted", "in_progress", "rejected"])
-                & Q(delivery_public_status__in=["unstarted", "in_progress", "rejected"])
-                & Q(delivery_other_status__in=["unstarted", "in_progress", "rejected"]),
-            )  # 只保留已有有效状态的订单
-            .annotate(
-                reject_priority=Case(
-                    When(preport_status="rejected", then=Value(1)),
-                    When(warehouse_public_status="rejected", then=Value(1)),
-                    When(warehouse_other_status="rejected", then=Value(1)),
-                    When(delivery_public_status="rejected", then=Value(1)),
-                    When(delivery_other_status="rejected", then=Value(1)),
-                    default=Value(2),
-                    output_field=IntegerField(),
-                )
-            )
-            .order_by("reject_priority")
-            .distinct()
-        )
-
         # 先判断权限，如果是初级审核应付账单权限，状态就是preport
         # 待审核账单
         order_pending = None
@@ -7857,41 +7834,110 @@ class Accounting(View):
             order_pending, pre_order_pending =self.get_orders_v1(order_exists_subquery, order_prefetch_queryset)
 
         if not is_payable_check or request.user.is_staff:
-            # 查找客服已录入账单
-            # 3. 查询InvoiceStatusv2：仅保留有符合条件Order的记录
-            previous_order = (
-                InvoiceStatusv2.objects.select_related("container_number", "invoice")
-                .prefetch_related(
-                    # 预加载符合条件的Order（原有逻辑不变）
+            # 1. 合并待录入+已录入查询，一次获取所有数据
+            combined_query = (
+                InvoiceStatusv2.objects.select_related(
+                    "container_number",
+                    "invoice",
+                ).prefetch_related(
                     Prefetch(
                         "container_number__orders",
-                        queryset=order_prefetch_queryset,  # 复用子查询的过滤条件，避免重复
+                        queryset=order_prefetch_queryset,
                     ),
                     Prefetch(
                         "container_number__invoice_itemv2",
                         queryset=InvoiceItemv2.objects.all()
                     )
                 )
-                # 核心新增：通过Exists确保只有有符合条件Order的集装箱才会被查询
+                # 核心过滤条件：合并两个查询的公共条件 + 互斥的状态条件
                 .filter(
-                    Exists(order_exists_subquery),  # 关键！过滤掉无符合条件Order的集装箱
-                    # 原有状态/发票类型过滤不变
-                    models.Q(preport_status__in=["pending_review", "completed"]) |
-                    models.Q(warehouse_public_status="completed") |
-                    models.Q(warehouse_other_status="completed") |
-                    models.Q(delivery_public_status="completed") |
-                    models.Q(delivery_other_status="completed"),
-                    models.Q(invoice_type="payable") | models.Q(invoice_type="payable_direct")
+                    Exists(order_exists_subquery),  # 两个查询共用的Exists条件
+                    Q(invoice_type="payable") | Q(invoice_type="payable_direct"),  # 共用的发票类型
+                    # 合并状态条件：待录入 OR 已录入（互斥）
+                    Q(
+                        # 待录入的状态条件（严格匹配原逻辑：所有状态都在待录入范围）
+                        preport_status__in=["unstarted", "in_progress", "rejected"],
+                        warehouse_public_status__in=["unstarted", "in_progress", "rejected"],
+                        warehouse_other_status__in=["unstarted", "in_progress", "rejected"],
+                        delivery_public_status__in=["unstarted", "in_progress", "rejected"],
+                        delivery_other_status__in=["unstarted", "in_progress", "rejected"],
+                    ) | Q(
+                        # 已录入的状态条件（严格匹配原逻辑：任意一个状态完成/待审核）
+                        Q(preport_status__in=["pending_review", "completed"]) |
+                        Q(warehouse_public_status="completed") |
+                        Q(warehouse_other_status="completed") |
+                        Q(delivery_public_status="completed") |
+                        Q(delivery_other_status="completed"),
+                        # 关键：排除待录入的状态（避免条件重叠）
+                        ~Q(
+                            preport_status__in=["unstarted", "in_progress", "rejected"],
+                            warehouse_public_status__in=["unstarted", "in_progress", "rejected"],
+                            warehouse_other_status__in=["unstarted", "in_progress", "rejected"],
+                            delivery_public_status__in=["unstarted", "in_progress", "rejected"],
+                            delivery_other_status__in=["unstarted", "in_progress", "rejected"],
+                        )
+                    )
                 )
+                # 注解：标记记录类型 + 保留待录入的reject_priority
+                .annotate(
+                    # 标记类型：0=待录入，1=已录入（严格匹配原查询逻辑）
+                    record_type=Case(
+                        When(
+                            # 待录入的判定条件（和原filter完全一致）
+                            preport_status__in=["unstarted", "in_progress", "rejected"],
+                            warehouse_public_status__in=["unstarted", "in_progress", "rejected"],
+                            warehouse_other_status__in=["unstarted", "in_progress", "rejected"],
+                            delivery_public_status__in=["unstarted", "in_progress", "rejected"],
+                            delivery_other_status__in=["unstarted", "in_progress", "rejected"],
+                            then=Value(0)
+                        ),
+                        When(
+                            # 已录入的判定条件（和原filter完全一致）
+                            Q(preport_status__in=["pending_review", "completed"]) |
+                            Q(warehouse_public_status="completed") |
+                            Q(warehouse_other_status="completed") |
+                            Q(delivery_public_status="completed") |
+                            Q(delivery_other_status="completed"),
+                            then=Value(1)
+                        ),
+                        default=Value(-1),  # 异常标记，便于排查
+                        output_field=IntegerField()
+                    ),
+                    # 保留原待录入订单的reject_priority注解（原逻辑不变）
+                    reject_priority=Case(
+                        When(preport_status="rejected", then=Value(1)),
+                        When(warehouse_public_status="rejected", then=Value(1)),
+                        When(warehouse_other_status="rejected", then=Value(1)),
+                        When(delivery_public_status="rejected", then=Value(1)),
+                        When(delivery_other_status="rejected", then=Value(1)),
+                        default=Value(2),
+                        output_field=IntegerField(),
+                    )
+                )
+                # 排序：待录入优先 + 待录入内部按reject_priority排序（原逻辑）
+                .order_by("record_type", "reject_priority")
+                .distinct()  # 保留原逻辑的distinct
             )
 
-            # 4. 绑定first_order（原有逻辑不变）
-            for status_obj in previous_order:
-                if status_obj.container_number:
-                    status_obj.first_order = status_obj.container_number.orders.first()
-                else:
-                    status_obj.first_order = None
-            # previous_order = self.process_orders_display_status_v2(previous_order)
+            # ===================== 内存拆分数据 =====================
+            # 1. 执行查询（仅一次数据库交互，iterator避免内存溢出）
+            combined_results = list(combined_query.iterator(chunk_size=200))
+
+            # 2. 拆分待录入订单（orders）和已录入订单（previous_order）
+            orders = []  # 待录入订单（对应原orders查询）
+            previous_order = []  # 已录入订单（对应原previous_order查询）
+
+            for status_obj in combined_results:
+                # 按标记的record_type拆分
+                if status_obj.record_type == 0:
+                    orders.append(status_obj)
+                elif status_obj.record_type == 1:
+                    # 给已录入订单绑定first_order（原逻辑不变）
+                    if status_obj.container_number:
+                        status_obj.first_order = status_obj.container_number.orders.first()
+                    else:
+                        status_obj.first_order = None
+                    previous_order.append(status_obj)
         groups = [group.name for group in request.user.groups.all()]
         if request.user.is_staff:
             groups.append("staff")
