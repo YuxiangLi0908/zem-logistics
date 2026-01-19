@@ -456,6 +456,15 @@
         line-height: 1.5;
         padding: 6px 8px;
     }
+    .btn-indigo {
+        background-color: #6610f2 !important;
+        border-color: #6610f2 !important;
+        color: #fff !important;
+    }
+    .btn-indigo:hover {
+        background-color: #520dc2 !important;
+        color: #fff !important;
+    }
 </style>
 
 <div id="fleet-page">
@@ -482,6 +491,9 @@
                 onclick="fleet_copySelectedRows()" 
                 title="复制选中行的柜号、目的地、唛头">
             <i class="fas fa-copy"></i> 复制选中行
+        </button>
+        <button class="fleet-action-btn btn-indigo" onclick="fleet_batchSaveRows()">
+            <i class="fas fa-save"></i> 批量保存参数
         </button>
         <button class="fleet-action-btn fleet-btn-secondary" onclick="fleet_clearAllFilters()">
             <i class="fas fa-times"></i> 清空筛选
@@ -633,9 +645,9 @@
                     data-quote="{{ cargo.ltl_quote|default:0 }}"
                     data-carrier="{{ cargo.fleet_carrier_company|default:'' }}"
                     data-address="{{ cargo.address|default:'' }}"
-                    data-note="{{ cargo.fleet_note|default:'' }}"
-                    data-bol="{{ cargo.fleet_ltl_bol_num|default:'' }}"
-                    data-pro="{{ cargo.fleet_ltl_pro_num|default:'' }}"
+                    data-note="{{ cargo.note|default:'' }}"
+                    data-bol="{{ cargo.ltl_bol_num|default:'' }}"
+                    data-pro="{{ cargo.ltl_pro_num|default:'' }}"
                     data-weight-lbs="{{ cargo.total_weight_lbs|default:0 }}"
                     data-pallet-items='{{ cargo.pallet_items_json|safe }}'>
                     <td class="fleet-checkbox-cell">
@@ -776,7 +788,7 @@
                     <td class="fleet-carrier-col">
                         <input type="text" class="fleet-carrier-input" 
                             data-id="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
-                            value="{{ cargo.fleet_carrier_company|default:'' }}"
+                            value="{{ cargo.carrier_company|default:'' }}"
                             placeholder="输入承运公司">
                     </td>
                     <td class="fleet-bol-col">
@@ -784,14 +796,14 @@
                             data-id="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
                             placeholder="输入BOL号"
                             oninput="fleet_autoResizeTextarea(this)"
-                            rows="1">{{ cargo.fleet_ltl_bol_num|default:'' }}</textarea>
+                            rows="1">{{ cargo.ltl_bol_num|default:'' }}</textarea>
                     </td>
                     <td class="fleet-pro-col">
                         <textarea class="fleet-pro-input" 
                             data-id="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
                             placeholder="输入PRO号"
                             oninput="fleet_autoResizeTextarea(this)"
-                            rows="1">{{ cargo.fleet_ltl_pro_num|default:'' }}</textarea>
+                            rows="1">{{ cargo.ltl_pro_num|default:'' }}</textarea>
                     </td>
                     <td class="fleet-action-col">
                         <div class="fleet-action-buttons">
@@ -830,6 +842,7 @@
     <input type="hidden" name="pro_number" id="fleet_proNumberInput">
     <input type="hidden" name="pallet_size" id="fleet_palletSizeInput">
     <input type="hidden" name="follow_status" id="fleet_followInput">
+    <input type="hidden" name="batch_data" id="fleet_batchDataInput">
     <input type="hidden" name="warehouse" value="{{ warehouse }}">
     <input type="hidden" name="active_tab" value="scheduledFleet">
 </form>
@@ -1510,7 +1523,59 @@
                 selectAllCheckbox.indeterminate = true;
             }
         }
+        
+        function fleet_batchSaveRows() {
+            // 1. 获取所有选中且可见的行
+            const selectedCheckboxes = Array.from(document.querySelectorAll('.fleet-cargo-checkbox:checked'))
+                .filter(checkbox => {
+                    const row = checkbox.closest('tr');
+                    return row.style.display !== 'none' && !row.classList.contains('fleet-filter-row');
+                });
 
+            if (selectedCheckboxes.length === 0) {
+                alert('请先选择要批量保存的行');
+                return;
+            }
+
+            if (!confirm(`确定要保存选中的 ${selectedCheckboxes.length} 组参数吗？`)) {
+                return;
+            }
+
+            // 2. 遍历选中的行，提取数据
+            const batchData = selectedCheckboxes.map(checkbox => {
+                const row = checkbox.closest('tr');
+                
+                // 提取各字段的值，逻辑与单行保存一致
+                return {
+                    cargo_id: checkbox.value,
+                    carrier_company: row.querySelector('.fleet-carrier-input')?.value.trim() || '',
+                    address: row.querySelector('.fleet-address-input')?.value.trim() || '',
+                    note: row.querySelector('.fleet-note-input')?.value.trim() || '',
+                    contact_method: row.querySelector('.fleet-contact-method-input')?.value.trim() || '',
+                    ltl_cost: row.querySelector('.fleet-cost-input')?.value.trim() || '',
+                    ltl_cost_note: row.querySelector('.fleet-cost-note-input')?.value.trim() || '',
+                    ltl_quote: row.querySelector('.fleet-quote-input')?.value.trim() || '',
+                    ltl_quote_note: row.querySelector('.fleet-quote-note-input')?.value.trim() || '',
+                    bol_number: row.querySelector('.fleet-bol-input')?.value.trim() || '',
+                    pro_number: row.querySelector('.fleet-pro-input')?.value.trim() || '',
+                    pallet_size: row.querySelector('.fleet-pallet-size-input')?.value.trim() || '',
+                    follow_status: row.querySelector('.fleet-follow-input')?.value.trim() || ''
+                };
+            });
+
+            // 3. 将数据填入表单并提交
+            const batchDataInput = document.getElementById('fleet_batchDataInput');
+            const saveForm = document.getElementById('fleet_saveForm');
+
+            if (batchDataInput && saveForm) {
+                // 清空单行保存用的 ID，防止后端混淆
+                document.getElementById('fleet_cargoIdInput').value = '';
+                
+                // 填入 JSON 数据
+                batchDataInput.value = JSON.stringify(batchData);
+                saveForm.submit();
+            }
+        }
         // 将函数暴露到全局作用域
         window.fleet_toggleSelectAll = fleet_toggleSelectAll;
         window.fleet_scheduleShipment = fleet_scheduleShipment;
@@ -1521,5 +1586,6 @@
         window.fleet_autoResizeTextarea = fleet_autoResizeTextarea;
         window.fleet_copySelectedRows = fleet_copySelectedRows;
         window.fleet_showCopyNotification = fleet_showCopyNotification;
+        window.fleet_batchSaveRows = fleet_batchSaveRows;
     })();
 </script>
