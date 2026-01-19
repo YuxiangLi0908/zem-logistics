@@ -5677,6 +5677,7 @@ class PostNsop(View):
                     "ltl_contact_method",
                     "ltl_plt_size_note",
                     "PO_ID",
+                    "del_qty",
                     warehouse=F("container_number__orders__retrieval_id__retrieval_destination_precise"),
                     retrieval_destination_precise=F("container_number__orders__retrieval_id__retrieval_destination_precise"),
                     customer_name=F("container_number__orders__customer_name__zem_name"),
@@ -6237,7 +6238,6 @@ class PostNsop(View):
             if ltl_quote_note: update_data["ltl_quote_note"] = ltl_quote_note
             if contact_method: update_data["ltl_release_command"] = contact_method
             if pallet_size: update_data["ltl_plt_size_note"] = pallet_size
-            print('update_data',update_data)
             # 批量更新通用字段
             if update_data:
                 await sync_to_async(model.objects.filter(id__in=ids).update)(**update_data)
@@ -6683,100 +6683,113 @@ class PostNsop(View):
     async def handle_save_selfpick_cargo(
         self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
-        cargo_id = request.POST.get('cargo_id')
-        carrier_company = request.POST.get('carrier_company', '').strip()
-        address = request.POST.get('address', '').strip()
-        bol_number = request.POST.get('bol_number', '').strip()
-        pickup_date_str = request.POST.get('pickup_date', '').strip()
-        pallet_size = request.POST.get('pallet_size', '').strip()
-        follow_status = request.POST.get('follow_status', '').strip()
-        del_qty = request.POST.get('del_qty', '').strip()
-        ltl_unit_quote = request.POST.get('ltl_unit_quote', '').strip()
-        ltl_quote  = request.POST.get('ltl_quote', '').strip()
-        ltl_quote_note  = request.POST.get('ltl_quote_note', '').strip()
-
-        est_pickup_time = None
-        if pickup_date_str:
+        '''LTL客服自提信息保存'''
+        batch_data_raw = request.POST.get('batch_data')
+        if batch_data_raw:
             try:
-                # 解析日期字符串（格式：YYYY-MM-DD）
-                pickup_date = datetime.strptime(pickup_date_str, '%Y-%m-%d').date()
-                # 将日期转换为带时间的datetime，默认时间为00:00
-                est_pickup_time = timezone.make_aware(
-                    datetime.combine(pickup_date, time.min)
-                )
-            except ValueError as e:
-                # 尝试其他可能的格式
-                try:
-                    # 如果传过来的是完整的时间格式
-                    est_pickup_time = timezone.datetime.fromisoformat(pickup_date_str.replace('Z', '+00:00'))
-                except ValueError:
-                    est_pickup_time = None
-        
-        is_pallet = False
-        # 1. 直接保存承运公司和地址
-        if cargo_id.startswith('plt_'):
-            # PALLET数据
-            ids = cargo_id.replace('plt_', '').split(',')
-            model = Pallet
-            is_pallet = True
+                update_items = json.loads(batch_data_raw)
+            except json.JSONDecodeError:
+                update_items = []
         else:
-            # PACKINGLIST数据
-            ids = cargo_id.split(',')
-            model = PackingList
-        
-        # 构建更新字典（公共逻辑）
-        update_data = {}
-        
-        if carrier_company:
-            update_data['carrier_company'] = carrier_company
-        if address:
-            update_data['address'] = address
-        if bol_number:
-            update_data['ltl_bol_num'] = bol_number
-        if est_pickup_time:
-            update_data['est_pickup_time'] = est_pickup_time
-        if follow_status:
-            update_data['ltl_follow_status'] = follow_status
-        if del_qty and is_pallet:
-            update_data['del_qty'] = del_qty
-        if ltl_quote and is_pallet:
-            update_data['ltl_quote'] = ltl_quote
-        if ltl_quote_note and is_pallet:
-            update_data['ltl_quote_note'] = ltl_quote_note
-        if ltl_unit_quote and is_pallet:
-            update_data['ltl_unit_quote'] = ltl_unit_quote
-        if pallet_size:
-            update_data['ltl_plt_size_note'] = pallet_size
-        
-        # 批量更新通用字段
-        if update_data:
-            await sync_to_async(model.objects.filter(id__in=ids).update)(**update_data)
-        
-        if cargo_id.startswith('plt_') and pallet_size:
-            success, message = await self._save_pallet_sizes(ids, pallet_size)
-            if not success:
-                context = {'error_messages': message}
-                return await self.handle_ltl_unscheduled_pos_post(request, context)
-        
-        status_message = None
-        if ltl_quote:
-            # 录到派送账单
-            username = request.user.username
-            if not del_qty:
-                del_qty = len(ids)
-            if not ltl_unit_quote:
-                ltl_unit_quote = ltl_quote
-            status_message = await self._delivery_account_selfpick_entry(ids, ltl_quote, ltl_quote_note, ltl_unit_quote, del_qty, username)
+            update_items = [{
+                'cargo_id': request.POST.get('cargo_id'),
+                'address': request.POST.get('address', '').strip(),
+                'pallet_size': request.POST.get('pallet_size', '').strip(),
+                'follow_status': request.POST.get('follow_status', '').strip(),
+                'bol_number': request.POST.get('bol_number', '').strip(),
+                'carrier_company': request.POST.get('carrier_company', '').strip(),
+                'pickup_date': request.POST.get('pickup_date', '').strip(),
+                'del_qty': request.POST.get('del_qty', '').strip(),
+                'ltl_unit_quote': request.POST.get('ltl_unit_quote', '').strip(),
+                'ltl_quote': request.POST.get('ltl_quote', '').strip(),
+                'ltl_quote_note': request.POST.get('ltl_quote_note', '').strip(),
+            }]
 
-        # 特殊处理：如果是PALLET数据且有托盘尺寸，保存托盘尺寸
-        success_message = '保存成功！'
-        if status_message:
-            success_message = mark_safe(f"{success_message}<br>{status_message}")
-                
-        # 构建返回上下文
-        if success_message:
-            context = {'success_messages': success_message}
+        total_updated = 0
+        username = request.user.username
+        billing_messages = []
+        # 2. 循环处理每一个更新项
+        for item in update_items:
+            cargo_id = item.get('cargo_id')
+            if not cargo_id:
+                continue
+            follow_status = item.get('follow_status', '')
+            pallet_size = item.get('pallet_size', '')
+            del_qty_raw = item.get('del_qty', '')
+            unit_quote_raw = item.get('ltl_unit_quote', '')
+            ltl_quote_raw = item.get('ltl_quote', '')
+            ltl_quote_note = item.get('ltl_quote_note', '')
+            bol_number = item.get('bol_number', '')
+            carrier_company = item.get('carrier_company', '')
+            address = item.get('address', '')
+            pickup_date = item.get('pickup_date', '')
+            est_pickup_time = None
+
+            if pickup_date:
+                try:
+                    # 解析日期字符串（格式：YYYY-MM-DD）
+                    pickup_date = datetime.strptime(pickup_date, '%Y-%m-%d').date()
+                    # 将日期转换为带时间的datetime，默认时间为00:00
+                    est_pickup_time = timezone.make_aware(
+                        datetime.combine(pickup_date, time.min)
+                    )
+                except ValueError as e:
+                    # 尝试其他可能的格式
+                    try:
+                        # 如果传过来的是完整的时间格式
+                        est_pickup_time = timezone.datetime.fromisoformat(pickup_date.replace('Z', '+00:00'))
+                    except ValueError:
+                        est_pickup_time = None
+            is_pallet = False
+            if cargo_id.startswith('plt_'):
+                is_pallet = True
+                ids = cargo_id.replace('plt_', '').split(',')
+                model = Pallet
+            else:
+                ids = cargo_id.split(',')
+                model = PackingList
+            update_data = {}
+            if follow_status or follow_status == '': update_data['ltl_follow_status'] = follow_status
+            if carrier_company or carrier_company == '': update_data['carrier_company'] = carrier_company
+            if address or address == '': update_data['address'] = address
+            if bol_number or bol_number == '': update_data['ltl_bol_num'] = bol_number
+            if pickup_date or pickup_date == '': update_data['est_pickup_time'] = pickup_date if pickup_date else None
+            
+            # 财务/尺寸相关字段
+            if pallet_size: update_data['ltl_plt_size_note'] = pallet_size
+            
+            if ltl_quote_raw and not del_qty_raw:
+                del_qty_raw = len(ids)
+            if ltl_quote_raw and not unit_quote_raw:
+                unit_quote_raw = float(ltl_quote_raw)
+            # 处理数值字段
+            if is_pallet:
+                if del_qty_raw: update_data['del_qty'] = float(del_qty_raw)
+                if unit_quote_raw: update_data['ltl_unit_quote'] = float(unit_quote_raw)
+                if ltl_quote_raw: update_data['ltl_quote'] = float(ltl_quote_raw)
+                if ltl_quote_note: update_data['ltl_quote_note'] = ltl_quote_note
+                if ltl_quote_raw and not del_qty_raw:
+                    update_data['del_qty'] = len(ids)
+
+            # 执行数据库更新
+            if update_data:
+                await sync_to_async(model.objects.filter(id__in=ids).update)(**update_data)
+                total_updated += 1
+
+            # 如果是托盘数据且有尺寸，调用特殊的保存方法
+            if cargo_id.startswith('plt_') and pallet_size:
+                await self._save_pallet_sizes(ids, pallet_size)
+
+            # 同步账单逻辑 (如果录入了报价)
+            if ltl_quote_raw:
+                msg = await self._delivery_account_selfpick_entry(ids, float(ltl_quote_raw), ltl_quote_note, unit_quote_raw, float(del_qty_raw), username)
+                if msg: billing_messages.append(msg)
         
+        success_msg = f"成功更新 {total_updated} 条记录。"
+        if billing_messages:
+            success_msg += "<br>" + "<br>".join(set(billing_messages))
+        context = {'success_messages': mark_safe(success_msg)}
+
         page = request.POST.get('page')
         if page == "history":
             return await self.handle_ltl_history_pos_post(request, context)
