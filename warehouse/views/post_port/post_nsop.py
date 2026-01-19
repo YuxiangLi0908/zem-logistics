@@ -6691,6 +6691,8 @@ class PostNsop(View):
             except json.JSONDecodeError:
                 update_items = []
         else:
+            ltl_quote_note = request.POST.get('ltl_quote_note', '').strip()
+            print('ltl_quote_note',ltl_quote_note)
             update_items = [{
                 'cargo_id': request.POST.get('cargo_id'),
                 'address': request.POST.get('address', '').strip(),

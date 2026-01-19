@@ -170,7 +170,7 @@
         text-align: left;
         font-weight: 600;
         font-size: 0.9rem;
-        z-index: 90 !important;
+        z-index: 102 !important;
     }
 
     .fleet-data-table td {
@@ -185,7 +185,7 @@
         background-color: #f8f9fa !important;
         position: sticky;
         top: 48px;
-        z-index: 90 !important;
+        z-index: 101 !important;
     }
 
     .fleet-filter-row td {
@@ -445,16 +445,11 @@
         white-space: nowrap;
     }
 
-    .follow-input, .carrier-input, .address-input, .bol-input, 
-    .pallet-size-input, .plt-size-note-input, .editable-textarea {
-        display: block;
-        width: 100%;
-        resize: none; /* 禁用手动拉伸，完全交给 JS 控制 */
-        overflow: hidden; /* 隐藏滚动条 */
-        box-sizing: border-box; /* 关键：确保宽度包含 padding 和 border */
-        min-height: 32px; /* 设置一个最小高度 */
-        line-height: 1.5;
-        padding: 6px 8px;
+    .fleet-editable-textarea, .fleet-follow-input, .fleet-address-input, 
+    .fleet-note-input, .fleet-pallet-size-input, .fleet-bol-input, .fleet-pro-input {
+        overflow-y: hidden; /* 隐藏滚动条，由 JS 控制高度 */
+        resize: vertical;   /* 保留手动拉伸功能 */
+        transition: background-color 0.2s;
     }
     .btn-indigo {
         background-color: #6610f2 !important;
@@ -850,30 +845,36 @@
 <script>
     // 使用IIFE避免变量污染
     (function() {
+        // 自动调整textarea高度
+        function fleet_autoResizeTextarea(textarea) {
+            if (!textarea || textarea.offsetParent === null) return; // 隐藏时不执行
+            textarea.style.height = 'auto';
+            // scrollHeight + 边框补偿
+            textarea.style.height = (textarea.scrollHeight + 2) + 'px';
+        }
+
+        // 2. 批量调整函数 (供初始化和Tab切换调用)
+        function fleet_resizeAll() {
+            // 延时执行确保Tab的display:block已生效
+            setTimeout(() => {
+                document.querySelectorAll('#fleet-page textarea').forEach(t => fleet_autoResizeTextarea(t));
+            }, 50);
+        }
+
+        // --- 关键：暴露给主页面Tab切换的接口 ---
+        window.initializeScheduledFleetSection = fleet_resizeAll;
+
         // 自发页面JavaScript - 所有函数名都有fleet_前缀
         document.addEventListener('DOMContentLoaded', function() {
             fleet_initializeFleetPage();
-
+            fleet_resizeAll();
             // 初始化所有textarea的高度
-            const allTextareas = document.querySelectorAll('.fleet-pallet-size-input, .fleet-address-input, .fleet-bol-input, .fleet-pro-input, .fleet-note-input, .fleet-follow-input, .fleet-cost-note-input, .fleet-quote-note-input, .fleet-plt-size-note-input');
-
+            document.querySelectorAll('#fleet-page textarea').forEach(t => {
+                t.addEventListener('input', function() { fleet_autoResizeTextarea(this); });
+            });
             // 1. 初始加载时：对每个 textarea 执行一次调整
             // 使用 setTimeout 确保 DOM 已经完全渲染完毕再计算
-            setTimeout(() => {
-                allTextareas.forEach(t => fleet_autoResizeTextarea(t));
-            }, 100);
-
-            // 2. 绑定输入事件：实时调整
-            allTextareas.forEach(t => {
-                t.addEventListener('input', function() {
-                    fleet_autoResizeTextarea(this);
-                });
-            });
-
-            // 3. 处理窗口缩放：防止因为列宽变窄导致文字换行
-            window.addEventListener('resize', () => {
-                allTextareas.forEach(t => fleet_autoResizeTextarea(t));
-            });
+            window.addEventListener('resize', fleet_resizeAll);
         });
 
         // 全局变量 - 使用fleet_前缀
@@ -913,24 +914,6 @@
                     }
                 `;
                 document.head.appendChild(style);
-            }
-        }
-
-        // 自动调整textarea高度
-        function fleet_autoResizeTextarea(textarea) {
-            if (!textarea) return;
-
-            // 1. 先将高度设为 auto，让它收缩到最小（这一步非常关键，否则高度只会增加不会减少）
-            textarea.style.height = 'auto';
-
-            // 2. 读取 scrollHeight (这是内容的真实高度)
-            // 注意：如果 box-sizing 是 border-box，scrollHeight 就是我们需要的高度
-            let newHeight = textarea.scrollHeight;
-
-            // 3. 如果 scrollHeight 为 0（可能元素当前不可见），则不处理
-            if (newHeight > 0) {
-                // 额外补偿 2px 避免某些浏览器下的微小溢出导致闪烁
-                textarea.style.height = (newHeight + 2) + 'px';
             }
         }
                 

@@ -152,6 +152,7 @@
         text-align: left;
         font-weight: 600;
         font-size: 0.9rem;
+        z-index: 102 !important;
     }
 
     .data-table td {
@@ -423,16 +424,13 @@
         max-width: 120px;
     }
 
-    .follow-input, .carrier-input, .address-input, .bol-input, 
-    .pallet-size-input, .plt-size-note-input, .editable-textarea {
-        display: block;
-        width: 100%;
-        resize: none; /* 禁用手动拉伸，完全交给 JS 控制 */
-        overflow: hidden; /* 隐藏滚动条 */
-        box-sizing: border-box; /* 关键：确保宽度包含 padding 和 border */
-        min-height: 32px; /* 设置一个最小高度 */
+    .editable-textarea, .follow-input, .address-input, 
+    .pallet-size-input, .bol-input, .pro-input {
+        overflow-y: hidden; /* 关键：交给 JS 处理高度，避免滚动条 */
+        resize: vertical;   /* 保留手动调整功能 */
+        min-height: 32px;
         line-height: 1.5;
-        padding: 6px 8px;
+        box-sizing: border-box; /* 确保宽度包含内边距 */
     }
 </style>
 
@@ -803,6 +801,7 @@
     <input type="hidden" name="del_qty" id="delQtyInput">
     <input type="hidden" name="ltl_unit_quote" id="unitQuoteInput">
     <input type="hidden" name="ltl_quote" id="ltlQuoteInput">
+    <input type="hidden" name="ltl_quote_note" id="ltlQuoteNoteInput">
     <input type="hidden" name="batch_data" id="batchDataInput">
     <input type="hidden" name="warehouse" value="{{ warehouse }}">
     <input type="hidden" name="active_tab" value="scheduled">
@@ -811,30 +810,41 @@
 <script>
     // 使用IIFE避免变量污染
     (function() {
+        // 自动调整textarea高度
+        function autoResizeTextarea(textarea) {
+            if (!textarea || textarea.offsetParent === null) return; 
+
+            // 1. 重置高度
+            textarea.style.height = 'auto';
+
+            // 2. 获取准确的边框高度（解决内容被隐藏的关键）
+            const style = window.getComputedStyle(textarea);
+            const borderHeight = parseFloat(style.borderTopWidth) + parseFloat(style.borderBottomWidth) || 0;
+
+            // 3. 计算新高度：内容真实高度 + 边框高度 + 少量容错(4px)
+            // 如果您之前加10px还隐藏，说明需要考虑计算样式后的总高度
+            const finalHeight = textarea.scrollHeight + borderHeight + 4;
+            textarea.style.height = finalHeight + 'px';;
+        }
+        function resizeAll() {
+            // 延时执行，确保在 Tab 切换为 display: block 之后获取 scrollHeight
+            setTimeout(() => {
+                const tas = document.querySelectorAll('#selfpick-page textarea');
+                tas.forEach(t => autoResizeTextarea(t));
+            }, 100);
+        }
         // 已放行客提页面JavaScript
         document.addEventListener('DOMContentLoaded', function() {
             initializeSelfpickPage();
+            resizeAll();
            
             // 获取所有的 textarea (包含你新加的备注列)
-            const allTextareas = document.querySelectorAll('textarea.follow-input, textarea.address-input, textarea.bol-input, textarea.pallet-size-input, textarea.plt-size-note-input');
-
-            // 1. 初始加载时：对每个 textarea 执行一次调整
-            // 使用 setTimeout 确保 DOM 已经完全渲染完毕再计算
-            setTimeout(() => {
-                allTextareas.forEach(t => autoResizeTextarea(t));
-            }, 100);
-
-            // 2. 绑定输入事件：实时调整
-            allTextareas.forEach(t => {
-                t.addEventListener('input', function() {
-                    autoResizeTextarea(this);
-                });
+            document.querySelector('#selfpick-page').addEventListener('input', function(e) {
+                if (e.target.tagName.toLowerCase() === 'textarea') {
+                    autoResizeTextarea(e.target);
+                }
             });
-
-            // 3. 处理窗口缩放：防止因为列宽变窄导致文字换行
-            window.addEventListener('resize', () => {
-                allTextareas.forEach(t => autoResizeTextarea(t));
-            });
+            window.addEventListener('resize', resizeAll);
         });
 
         // 全局变量
@@ -858,24 +868,6 @@
                 });
             });
 
-        }
-
-        // 自动调整textarea高度
-        function autoResizeTextarea(textarea) {
-            if (!textarea) return;
-
-            // 1. 先将高度设为 auto，让它收缩到最小（这一步非常关键，否则高度只会增加不会减少）
-            textarea.style.height = 'auto';
-
-            // 2. 读取 scrollHeight (这是内容的真实高度)
-            // 注意：如果 box-sizing 是 border-box，scrollHeight 就是我们需要的高度
-            let newHeight = textarea.scrollHeight;
-
-            // 3. 如果 scrollHeight 为 0（可能元素当前不可见），则不处理
-            if (newHeight > 0) {
-                // 额外补偿 2px 避免某些浏览器下的微小溢出导致闪烁
-                textarea.style.height = (newHeight + 2) + 'px';
-            }
         }
 
         // 新增：复制选中行数据到剪贴板
@@ -1188,7 +1180,7 @@
                 ltlQuoteNoteInputField.value = ltlQuoteNoteValue; 
                 saveForm.submit();
             } else {
-                console.error('保存表单元素未找到');
+                console.error('保存表单元素未找到',ltlQuoteInputField,ltlQuoteNoteInputField,unitQuoteInputField);
             }
         }
 
