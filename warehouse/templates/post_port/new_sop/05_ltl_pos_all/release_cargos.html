@@ -251,6 +251,12 @@
         <button class="action-btn btn-primary" onclick="exportSelectedCargos()">
             <i class="fas fa-file-export"></i> 导出未放行表格
         </button>
+        <button class="action-btn btn-success" onclick="batchSaveReleaseCommands()">
+            <i class="fas fa-save"></i> 批量保存指令
+        </button>
+        <button class="action-btn btn-success" onclick="batchUpdateVerifyStatus()">
+            <i class="fas fa-check-double"></i> 批量核实
+        </button>
         <button class="action-btn btn-secondary" onclick="clearAllFilters()">
             <i class="fas fa-times"></i> 清空筛选
         </button>
@@ -463,16 +469,29 @@
     <input type="hidden" name="active_tab" value="cargo">
 </form>
 
+<!-- 修改指令的表单 -->
 <form id="releaseCommandForm" method="post">
     {% csrf_token %}
     <input type="hidden" name="release_commands" id="releaseCommandsInput">
     <input type="hidden" name="step" value="save_releaseCommand">
     <input type="hidden" name="warehouse" value="{{ warehouse }}">
     <input type="hidden" name="active_tab" value="cargo">
+    <!-- 用于单条保存 -->
     <input type="hidden" name="cargo_id" id="main_cargoIdInput">
     <input type="hidden" name="release_command" id="releaseCommandInput">
+    <!-- 用于批量保存 -->
+     <input type="hidden" name="batch_commands" id="batchCommandsInput">
 </form>
 
+<!-- 用于批量核实的隐藏表单 -->
+<form id="batchVerifyForm" method="post" style="display: none;">
+    {% csrf_token %}
+    <input type="hidden" name="step" value="verify_ltl_cargo">
+    <input type="hidden" name="cargo_ids" id="batchVerifyCargoIds">
+    <input type="hidden" name="ltl_verify" value="true"> <!-- 固定为 true -->
+    <input type="hidden" name="warehouse" value="{{ warehouse }}">
+    <input type="hidden" name="active_tab" value="cargo">
+</form>
 <script>
     // 使用IIFE避免变量污染
     (function() {
@@ -716,7 +735,6 @@
                 const weightLbs = parseFloat(row.dataset.weightLbs) || 0;
                 const weightKg = parseFloat(row.dataset.weightKg) || 0;
                 
-                totalSelectedPallets += pallets;
                 totalSelectedCbm += cbm;
                 totalSelectedWeightLbs += weightLbs;
                 totalSelectedWeightKg += weightKg;
@@ -787,6 +805,9 @@
         window.clearAllFilters = clearAllFilters;
         window.applyColumnFilter = applyColumnFilter;
         window.updateSelectedCount = updateSelectedCount;
+        window.submitSingleReleaseCommand = submitSingleReleaseCommand;
+        window.batchSaveReleaseCommands = batchSaveReleaseCommands;
+        window.batchUpdateVerifyStatus = batchUpdateVerifyStatus;
     })(); // 立即执行
 
     function submitSingleReleaseCommand(btn) {
@@ -804,5 +825,75 @@
 
         document.getElementById('releaseCommandForm').submit();
         
+    }
+    // 批量保存指令函数
+    function batchSaveReleaseCommands() {
+        const selectedCheckboxes = Array.from(document.querySelectorAll('.cargo-checkbox:checked'))
+            .filter(checkbox => {
+                const row = checkbox.closest('tr');
+                return row.style.display !== 'none' && !row.classList.contains('filter-row');
+            });
+
+        if (selectedCheckboxes.length === 0) {
+            alert('请先选择要保存指令的货物');
+            return;
+        }
+
+        if (!confirm(`确认批量保存已选中的 ${selectedCheckboxes.length} 项指令吗？`)) {
+            return;
+        }
+
+        const commandsData = [];
+        selectedCheckboxes.forEach(checkbox => {
+            const row = checkbox.closest('tr');
+            const textarea = row.querySelector('.release-command-input');
+            if (textarea) {
+                commandsData.push({
+                    cargo_id: textarea.dataset.id,
+                    command: textarea.value.trim()
+                });
+            }
+        });
+
+        // 将数组转为 JSON 字符串放入隐藏域
+        document.getElementById('batchCommandsInput').value = JSON.stringify(commandsData);
+        
+        // 清空单条保存的参数，避免干扰
+        document.getElementById('main_cargoIdInput').value = '';
+        document.getElementById('releaseCommandInput').value = '';
+
+        document.getElementById('releaseCommandForm').submit();
+    }
+    function batchUpdateVerifyStatus() {
+        // 1. 获取所有可见且被勾选的行
+        const selectedCheckboxes = Array.from(document.querySelectorAll('.cargo-checkbox:checked'))
+            .filter(checkbox => {
+                const row = checkbox.closest('tr');
+                // 排除隐藏行和筛选行
+                return row.style.display !== 'none' && !row.classList.contains('filter-row');
+            });
+
+        if (selectedCheckboxes.length === 0) {
+            alert('请先选择要核实的货物');
+            return;
+        }
+
+        // 2. 确认操作
+        if (!confirm(`确认要批量核实选中的 ${selectedCheckboxes.length} 项记录吗？`)) {
+            return;
+        }
+
+        const cargoIds = [];
+
+        // 3. 解析 ID (区分普通货物和打板货物)
+        selectedCheckboxes.forEach(checkbox => {
+            const value = checkbox.value.trim();
+            cargoIds.push(value);
+        });
+
+        // 4. 填充并提交表单
+        document.getElementById('batchVerifyCargoIds').value = cargoIds.join(',');
+        
+        document.getElementById('batchVerifyForm').submit();
     }
 </script>
