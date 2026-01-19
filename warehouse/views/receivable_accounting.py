@@ -4,6 +4,8 @@ import math
 import re
 import json
 from collections import defaultdict
+
+from django.core.exceptions import ObjectDoesNotExist
 from django.utils.timezone import make_aware
 from datetime import date, datetime, timedelta, time as datetime_time
 
@@ -456,7 +458,7 @@ class ReceivableAccounting(View):
             )
         else:
             #说明这个柜子没有创建过账单，需要创建
-            invoice, invoice_status = self._create_invoice_and_status(container_number)
+            invoice, invoice_status, invoice_status_payable = self._create_invoice_and_status(container_number)
             invoice_id = invoice.id
 
         items = InvoiceItemv2.objects.filter(
@@ -4440,7 +4442,7 @@ class ReceivableAccounting(View):
             )
         else:
             #说明这个柜子没有创建过账单，需要创建
-            invoice, invoice_status = self._create_invoice_and_status(container_number)
+            invoice, invoice_status, invoice_status_payable = self._create_invoice_and_status(container_number)
 
         # 查看仓库和柜型，计算提拆费
         warehouse = order.retrieval_id.retrieval_destination_area
@@ -4676,7 +4678,7 @@ class ReceivableAccounting(View):
             )
         else:
             #说明这个柜子没有创建过账单，需要创建
-            invoice, invoice_status = self._create_invoice_and_status(container_number)
+            invoice, invoice_status, invoice_status_payable = self._create_invoice_and_status(container_number)
         
         # 设置item_category
         item_category = f"warehouse_{delivery_type}"
@@ -4890,7 +4892,7 @@ class ReceivableAccounting(View):
             )
         else:
             #说明这个柜子没有创建过账单，需要创建
-            invoice, invoice_status = self._create_invoice_and_status(container_number)
+            invoice, invoice_status, invoice_status_payable = self._create_invoice_and_status(container_number)
             invoice_id = invoice.id
 
         previous_item_dict = {}
@@ -6667,49 +6669,88 @@ class ReceivableAccounting(View):
         }
 
         return context
-        
-    def _create_invoice_and_status(self, container_number: str) -> tuple[Invoicev2, InvoiceStatusv2]:
-        """创建账单和状态记录"""
-        order = Order.objects.select_related(
-            "customer_name", "container_number"
-        ).get(container_number__container_number=container_number)
-        # 创建 Invoicev2
+
+    def _create_invoice_and_status(self, container_number: str) -> tuple[Invoicev2, InvoiceStatusv2, InvoiceStatusv2]:
+        """
+        创建账单和状态记录（应收+应付）
+        :param container_number: 柜号
+        :return: (invoice, invoice_status_receivable, invoice_status_payable)
+        """
+        # 1. 基础校验 + 查询订单（处理订单不存在的异常）
+        try:
+            order = Order.objects.select_related(
+                "customer_name", "container_number"
+            ).get(container_number__container_number=container_number)
+        except ObjectDoesNotExist:
+            raise ValueError(f"未找到柜号为 {container_number} 的订单")
+
+        # 2. 定义应付类型（根据订单类型）
+        payable_type = "payable_direct" if order.order_type == '直送' else "payable"
+
+        # 3. 检查是否已存在发票（核心：避免重复创建）
+        existing_invoice = Invoicev2.objects.filter(
+            container_number=order.container_number
+        ).first()
+
+        if existing_invoice:
+            # 3.1 检查应收状态（receivable）是否存在
+            existing_status_receivable = InvoiceStatusv2.objects.filter(
+                invoice=existing_invoice,
+                invoice_type="receivable"
+            ).first()
+            # 3.2 检查对应类型的应付状态是否存在
+            existing_status_payable = InvoiceStatusv2.objects.filter(
+                invoice=existing_invoice,
+                invoice_type=payable_type
+            ).first()
+
+            # 3.3 若两者都存在，直接返回（避免重复创建）
+            if existing_status_receivable and existing_status_payable:
+                return existing_invoice, existing_status_receivable, existing_status_payable
+            # 3.4 若其中一个不存在，补充创建（保证数据完整性）
+            elif not existing_status_receivable:
+                existing_status_receivable = InvoiceStatusv2.objects.create(
+                    container_number=order.container_number,
+                    invoice=existing_invoice,
+                    invoice_type="receivable"
+                )
+            elif not existing_status_payable:
+                existing_status_payable = InvoiceStatusv2.objects.create(
+                    container_number=order.container_number,
+                    invoice=existing_invoice,
+                    invoice_type=payable_type
+                )
+            return existing_invoice, existing_status_receivable, existing_status_payable
+
+        # 4. 无现有发票：新建发票 + 应收+应付状态（核心修复：使用新建的invoice，而非existing_invoice）
         current_date = datetime.now().date()
         order_id = str(order.id)
         customer_id = order.customer_name.id
 
-        # 先检查是否已经存在对应柜号的发票
-        existing_invoice = Invoicev2.objects.filter(
-            container_number=order.container_number
-        ).first()
-        
-        if existing_invoice:
-            # 如果发票已存在，检查对应的状态记录
-            existing_status = InvoiceStatusv2.objects.filter(
-                invoice=existing_invoice,
-                invoice_type="receivable"
-            ).first()
-            
-            if existing_status:
-                # 两者都存在，直接返回
-                return existing_invoice, existing_status
-        
+        # 4.1 新建发票（发票编号规则优化：避免重复）
         invoice = Invoicev2.objects.create(
             container_number=order.container_number,
-            invoice_number=f"{current_date.strftime('%Y-%m-%d').replace('-', '')}C{customer_id}{order_id}",
+            invoice_number=f"{current_date.strftime('%Y%m%d')}C{customer_id}{order_id}",
             created_at=current_date,
         )
-        
-        # 创建 InvoiceStatusv2
-        invoice_status = InvoiceStatusv2.objects.create(
+
+        # 4.2 新建应收状态
+        invoice_status_receivable = InvoiceStatusv2.objects.create(
             container_number=order.container_number,
             invoice=invoice,
             invoice_type="receivable"
         )
-        invoice.save()
-        invoice_status.save()
-        return invoice, invoice_status
-    
+
+        # 4.3 新建应付状态（核心修复：关联新建的invoice，而非existing_invoice）
+        invoice_status_payable = InvoiceStatusv2.objects.create(
+            container_number=order.container_number,
+            invoice=invoice,
+            invoice_type=payable_type
+        )
+
+        # 5. 返回结果（修正返回值类型定义，与实际返回3个值匹配）
+        return invoice, invoice_status_receivable, invoice_status_payable
+
     def _is_combina(self, container_number: str) -> Any:
         context = {}
         try:
@@ -7414,7 +7455,7 @@ class ReceivableAccounting(View):
             )
         else:
             #说明这个柜子没有创建过账单，需要创建
-            invoice, invoice_status = self._create_invoice_and_status(container_number)
+            invoice, invoice_status, invoice_status_payable = self._create_invoice_and_status(container_number)
 
         context = {
             "invoice_number": invoice.invoice_number,
