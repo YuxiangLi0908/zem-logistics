@@ -600,7 +600,7 @@
                         data-pallets="0"
                     {% endif %}
                     data-pallet-size="{{ cargo.pallet_size_formatted|default:'' }}"
-                    data-bol="{% if cargo.data_source == 'PALLET' %}{{ cargo.plt_ltl_bol_num|default:'' }}{% else %}{{ cargo.pl_ltl_bol_num|default:'' }}{% endif %}"
+                    data-bol="{{ cargo.ltl_bol_num|default:'' }}"
                     data-pickup-time="{{ cargo.est_pickup_time|default:'' }}"
                     data-carrier="{{ cargo.carrier_company|default:'' }}"
                     data-address="{{ cargo.address|default:'' }}"
@@ -744,7 +744,7 @@
                             data-id="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
                             placeholder="输入BOL号"
                             oninput="autoResizeTextarea(this)"
-                            >{% if cargo.data_source == 'PALLET' %}{{ cargo.plt_ltl_bol_num|default:'' }}{% else %}{{ cargo.pl_ltl_bol_num|default:'' }}{% endif %}</textarea>
+                            >{{ cargo.ltl_bol_num|default:'' }}</textarea>
                     </td>
                     <td class="company-col">
                         <input type="text" class="carrier-input" 
