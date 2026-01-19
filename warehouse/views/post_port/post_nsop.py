@@ -6125,31 +6125,41 @@ class PostNsop(View):
     async def handle_save_releaseCommand(
         self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
-        cargo_id = request.POST.get('cargo_id')
-        release_command = request.POST.get('release_command')
-        if cargo_id.startswith('plt_'):
-            # PALLET数据
-            ids = cargo_id.replace('plt_', '').split(',')
-            model = Pallet
-            
-        else:
-            # PACKINGLIST数据
-            ids = cargo_id.split(',')
-            model = PackingList
-        update_data = {}
-        
-        # 只有前端传递了这些参数才更新
-        if release_command or release_command == '':
-            update_data['ltl_release_command'] = release_command
+        '''单条或批量保存未放行的指令数据'''
+        # 1. 尝试获取批量数据
+        batch_commands_raw = request.POST.get('batch_commands')
+        tasks = []
 
-        if update_data:
+        if batch_commands_raw:
             try:
-                await sync_to_async(model.objects.filter(id__in=ids).update)(**update_data)
-            except Exception as e:
-                context = {'error_messages': f'保存失败: {str(e)}'}
-                return await self.handle_ltl_unscheduled_pos_post(request, context)
+                commands_list = json.loads(batch_commands_raw)
+            except json.JSONDecodeError:
+                commands_list = []
+        else:
+            cargo_id = request.POST.get('cargo_id')
+            release_command = request.POST.get('release_command')
+            if cargo_id:
+                commands_list = [{'cargo_id': cargo_id, 'command': release_command}]
+            else:
+                commands_list = []
+        num = 0
+        for item in commands_list:
+            c_id = item.get('cargo_id')
+            command_text = item.get('command')
+            if not c_id or not command_text: continue
 
-        return await self.handle_ltl_unscheduled_pos_post(request)
+            if c_id.startswith('plt_'):
+                target_ids = c_id.replace('plt_', '').split(',')
+                model = Pallet
+                
+            else:
+                target_ids = c_id.split(',')
+                model = PackingList
+            update_data = {'ltl_release_command': command_text}
+            await sync_to_async(model.objects.filter(id__in=target_ids).update)(**update_data)
+            num+=1
+        context = {'success_messages': f'保存成功{num}组数据!'}
+        return await self.handle_ltl_unscheduled_pos_post(request,context)
     
     async def handle_save_selfdel_cargo(
         self, request: HttpRequest
