@@ -1370,14 +1370,34 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // ========== 6. 表单提交加载状态 ==========
     const filterForms = document.querySelectorAll('.warehouse-selector');
+    // 存储原按钮文本，避免丢失
+    const btnOriginalTextMap = new Map();
+
     filterForms.forEach(form => {
-        form.addEventListener('submit', function() {
-            const submitBtn = this.querySelector('button[type="submit"]');
-            if (submitBtn) {
+        const submitBtn = form.querySelector('button[type="submit"]');
+        if (submitBtn) {
+            btnOriginalTextMap.set(submitBtn, submitBtn.innerHTML);
+            // 防重复提交标记
+            let isSubmitting = false;
+            form.addEventListener('submit', function(e) {
+                // 已在提交中，阻止重复提交
+                if (isSubmitting) {
+                    e.preventDefault();
+                    return;
+                }
+
+                isSubmitting = true;
                 submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 处理中...';
                 submitBtn.disabled = true;
-            }
-        });
+
+                // ========== 关键修复：自动恢复按钮状态 ==========
+                setTimeout(() => {
+                    submitBtn.innerHTML = btnOriginalTextMap.get(submitBtn);
+                    submitBtn.disabled = false;
+                    isSubmitting = false;
+                }, 3000); // 3秒后恢复，可根据实际导出耗时调整
+            });
+        }
     });
 });
 
