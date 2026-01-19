@@ -234,6 +234,11 @@
         opacity: 1;
         transform: scale(1.1);
     }
+    .btn-indigo {
+        background-color: #17a2b8 !important;
+        border-color: #17a2b8 !important;
+        color: #fff !important;
+    }
 </style>
 <div id="unscheduled-page">
     <!-- 批量操作区域 -->
@@ -251,7 +256,7 @@
         <button class="action-btn btn-primary" onclick="exportSelectedCargos()">
             <i class="fas fa-file-export"></i> 导出未放行表格
         </button>
-        <button class="action-btn btn-success" onclick="batchSaveReleaseCommands()">
+        <button class="action-btn btn-indigo" onclick="batchSaveReleaseCommands()">
             <i class="fas fa-save"></i> 批量保存指令
         </button>
         <button class="action-btn btn-success" onclick="batchUpdateVerifyStatus()">
