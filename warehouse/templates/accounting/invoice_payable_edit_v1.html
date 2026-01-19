@@ -968,7 +968,7 @@
             <div class="action-buttons">
                 {% if is_confirm %}
                     <!-- 已审核/已录入页面：只显示返回按钮 -->
-                    <button type="submit" class="btn btn-primary" onclick="modifyStatus('return')">
+                    <button type="submit" class="btn btn-primary" onclick="window.history.back()">
                         <i class="bi bi-arrow-left-circle"></i> 返回
                     </button>
                 {% elif not is_save_invoice %}
