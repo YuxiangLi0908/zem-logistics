@@ -1002,8 +1002,8 @@ class Palletization(View):
             if key not in pl_mapping:
                 pl_mapping[key] = {
                     'carrier_company': pl.carrier_company,
-                    'plt_ltl_bol_num': pl.pl_ltl_bol_num,
-                    'plt_ltl_pro_num': pl.pl_ltl_pro_num,
+                    'ltl_bol_num': pl.ltl_bol_num,
+                    'ltl_pro_num': pl.ltl_pro_num,
                     'PickupAddr': pl.PickupAddr,
                     'est_pickup_time': pl.est_pickup_time,
                     'ltl_follow_status': pl.ltl_follow_status,
@@ -1014,8 +1014,8 @@ class Palletization(View):
         # 字段映射关系：PackingList字段 -> Pallet字段
         field_mapping = {
             'carrier_company': 'carrier_company',
-            'plt_ltl_bol_num': 'plt_ltl_bol_num',
-            'plt_ltl_pro_num': 'plt_ltl_pro_num',
+            'ltl_bol_num': 'ltl_bol_num',
+            'ltl_pro_num': 'ltl_pro_num',
             'PickupAddr': 'PickupAddr',
             'est_pickup_time': 'est_pickup_time',
             'ltl_follow_status': 'ltl_follow_status',
