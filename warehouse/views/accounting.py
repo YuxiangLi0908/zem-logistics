@@ -6517,9 +6517,9 @@ class Accounting(View):
         for order in order_list:
             # 5.1 查询该订单对应的发票和费用明细（修复：用filter替代get，支持多条费用记录）
             try:
-                invoice = Invoicev2.objects.get(
+                invoice = Invoicev2.objects.filter(
                     container_number__container_number=order.container_number
-                )
+                ).order_by('-created_at').first()
                 # 查询该发票下的所有应付费用记录（修复：get→filter，支持多条）
                 invoice_items = InvoiceItemv2.objects.filter(
                     models.Q(invoice_type="payable") | models.Q(invoice_type="payable_direct"),
