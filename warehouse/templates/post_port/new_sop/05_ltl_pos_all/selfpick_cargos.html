@@ -459,6 +459,9 @@
         <button class="action-btn btn-warning" onclick="copySelectedRows()" title="复制选中行的柜号、目的地、唛头">
             <i class="fas fa-copy"></i> 复制选中行
         </button>
+        <button class="action-btn btn-indigo" onclick="selfpick_batchSaveRows()">
+            <i class="fas fa-save"></i> 批量保存参数
+        </button>
         <button class="action-btn btn-secondary" onclick="clearSelfPickAllFilters()">
             <i class="fas fa-times"></i> 清空筛选
         </button>
@@ -800,6 +803,7 @@
     <input type="hidden" name="del_qty" id="delQtyInput">
     <input type="hidden" name="ltl_unit_quote" id="unitQuoteInput">
     <input type="hidden" name="ltl_quote" id="ltlQuoteInput">
+    <input type="hidden" name="batch_data" id="batchDataInput">
     <input type="hidden" name="warehouse" value="{{ warehouse }}">
     <input type="hidden" name="active_tab" value="scheduled">
 </form>
@@ -1531,6 +1535,56 @@
                 selectAllCheckbox.indeterminate = true;
             }
         }
+        function selfpick_batchSaveRows() {
+            // 1. 获取所有选中且可见的行
+            const selectedCheckboxes = Array.from(document.querySelectorAll('.self-cargo-checkbox:checked'))
+                .filter(checkbox => {
+                    const row = checkbox.closest('tr');
+                    return row.style.display !== 'none' && !row.classList.contains('filter-row');
+                });
+
+            if (selectedCheckboxes.length === 0) {
+                alert('请先选择要批量保存的行');
+                return;
+            }
+
+            if (!confirm(`确定要批量保存选中的 ${selectedCheckboxes.length} 组参数吗？`)) {
+                return;
+            }
+
+            // 2. 遍历提取每一行的数据
+            const batchData = selectedCheckboxes.map(checkbox => {
+                const row = checkbox.closest('tr');
+                
+                // 这里的类名选择器要与你 HTML 中的 input/textarea 一一对应
+                return {
+                    cargo_id: checkbox.value,
+                    follow_status: row.querySelector('.follow-input')?.value.trim() || '',
+                    pallet_size: row.querySelector('.pallet-size-input')?.value.trim() || '',
+                    del_qty: row.querySelector('.qty-input')?.value.trim() || '',
+                    ltl_unit_quote: row.querySelector('.unit-quote-input')?.value.trim() || '',
+                    ltl_quote: row.querySelector('.outbound-fee-input')?.value.trim() || '',
+                    ltl_quote_note: row.querySelector('.outbound-fee-note-input')?.value.trim() || '',
+                    bol_number: row.querySelector('.bol-input')?.value.trim() || '',
+                    carrier_company: row.querySelector('.carrier-input')?.value.trim() || '',
+                    address: row.querySelector('.address-input')?.value.trim() || '',
+                    pickup_date: row.querySelector('.pickup-date-input')?.value.trim() || ''
+                };
+            });
+
+            // 3. 填入隐藏表单并提交
+            const batchDataInput = document.getElementById('batchDataInput');
+            const saveForm = document.getElementById('saveForm');
+
+            if (batchDataInput && saveForm) {
+                // 清空单条保存用的 ID 字段，防止后端逻辑干扰
+                document.getElementById('cargoIdInput').value = '';
+                
+                // 将数组序列化为 JSON
+                batchDataInput.value = JSON.stringify(batchData);
+                saveForm.submit();
+            }
+        }
 
         // 将函数暴露到全局作用域
         window.selfpick_toggleSelectAll = selfpick_toggleSelectAll;
@@ -1542,5 +1596,6 @@
         window.autoResizeTextarea = autoResizeTextarea;
         window.copySelectedRows = copySelectedRows;
         window.showCopyNotification = showCopyNotification;
+        window.selfpick_batchSaveRows = selfpick_batchSaveRows;
     })(); // 立即执行
 </script>
