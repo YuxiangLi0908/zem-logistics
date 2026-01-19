@@ -7789,43 +7789,6 @@ class Accounting(View):
             "customer_name__zem_name"
         )
 
-        # ========== 核心修改：按柜号去重，只取每个柜号的第一条Invoicev2 ==========
-        # 1. 先筛选出符合条件的所有Invoicev2
-        all_target_invoices = Invoicev2.objects.select_related("container_number").prefetch_related(
-            Prefetch("container_number__orders", queryset=order_prefetch_queryset)
-        ).filter(Exists(order_exists_subquery))
-
-        # 2. 按container_number_id去重，只保留每个柜号的第一条Invoicev2
-        # 注意：order_by("container_number_id", "id") 确保按ID升序取第一条（可替换为创建时间等）
-        target_invoices = all_target_invoices.order_by("container_number_id", "id").distinct("container_number_id")
-
-        # ========== 仅处理每个柜号的第一条Invoicev2 ==========
-        if target_invoices:
-            for target_invoice in target_invoices:
-                # 精准判断柜号是否为直送（覆盖所有Order）
-                container_orders = target_invoice.container_number.orders.all()
-                is_direct = container_orders.filter(order_type="直送").exists()
-                invoice_type = "payable_direct" if is_direct else "payable"
-
-                # 加锁+精准判断“柜号+当前类型”是否已有状态
-                with transaction.atomic():
-                    # 锁柜号，避免并发
-                    container = Container.objects.select_for_update().get(id=target_invoice.container_number.id)
-
-                    # 只判断当前invoice_type是否存在
-                    has_status = InvoiceStatusv2.objects.filter(
-                        container_number_id=container.id,
-                        invoice_type=invoice_type
-                    ).exists()
-
-                    if not has_status:
-                        InvoiceStatusv2.objects.create(
-                            container_number=container,
-                            invoice_type=invoice_type,
-                            invoice=target_invoice
-                        )
-
-
         # 先判断权限，如果是初级审核应付账单权限，状态就是preport
         # 待审核账单
         order_pending = None
