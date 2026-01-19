@@ -7774,13 +7774,20 @@ class Accounting(View):
         if preport_carrier:
             criteria &= models.Q(retrieval_id__retrieval_carrier=preport_carrier)
 
-        order_exists_subquery = Order.objects.filter(
-            criteria,
+        order_base_queryset = Order.objects.filter(criteria)
+        order_exists_subquery = order_base_queryset.filter(
             container_number_id=OuterRef("container_number_id"),
         )
-        order_prefetch_queryset = Order.objects.filter(
-            criteria
-        ).select_related("retrieval_id", "vessel_id", "customer_name")
+        order_prefetch_queryset = order_base_queryset.select_related(
+            "retrieval_id", "vessel_id", "customer_name"
+        ).only(
+            "id",
+            "container_number_id",
+            "retrieval_id__actual_retrieval_timestamp",
+            "retrieval_id__retrieval_destination_precise",
+            "vessel_id__destination_port",
+            "customer_name__zem_name"
+        )
 
         # ========== 核心修改：按柜号去重，只取每个柜号的第一条Invoicev2 ==========
         # 1. 先筛选出符合条件的所有Invoicev2
