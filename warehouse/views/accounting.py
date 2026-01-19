@@ -6462,6 +6462,14 @@ class Accounting(View):
         year, month = map(int, select_month.split("-"))
         month = month - 1  # 实际提柜时间-1个月
 
+        # ========== 核心配置：定义费用过滤的供应商列表 ==========
+        # 1. 排除提柜其他费用的供应商（保留拆柜其他费用）
+        exclude_pickup_other_fees_carriers = ["BBR", "KNO", "JOHN", "unload"]
+        is_exclude_pickup_other = select_carrier in exclude_pickup_other_fees_carriers
+
+        # 2. 排除拆柜其他费用的供应商（即：非上述供应商都排除拆柜其他费用）
+        is_exclude_unload_other = not is_exclude_pickup_other
+
         # 2. 查询符合条件的订单（优化过滤逻辑）
         order_list = Order.objects.filter(
             retrieval_id__actual_retrieval_timestamp__year=year,
@@ -6477,7 +6485,7 @@ class Accounting(View):
         if not order_list:
             raise ValueError("未查询到符合条件的订单")
 
-        # 3. 定义固定费用类型（修复语法错误：补充逗号）
+        # 3. 定义固定费用类型
         fixed_fee_types = []
         if select_carrier in ["BBR", "KNO", "JOHN", "unload"]:
             fixed_fee_types = ["拆柜费用", "入库拆柜费", "总费用"]
@@ -6503,7 +6511,7 @@ class Accounting(View):
                 "基本费用",
                 "超重费",
                 "车架费",
-                "拆柜费用",  # 修复：补充逗号
+                "拆柜费用",
                 "入库拆柜费",
                 "总费用",
             ]
@@ -6514,7 +6522,6 @@ class Accounting(View):
 
         # 5. 处理订单数据，组装Excel行数据
         rows = []
-        # 新增：记录所有费用列的数值，用于后续判断是否全为0
         column_values = {
             "基本费用": [],
             "超重费": [],
@@ -6527,28 +6534,25 @@ class Accounting(View):
         }
 
         for order in order_list:
-            # 5.1 查询该订单对应的发票和费用明细（修复：用filter替代get，支持多条费用记录）
+            # 5.1 查询该订单对应的发票和费用明细
             try:
                 invoice = Invoicev2.objects.filter(
                     container_number__container_number=order.container_number
                 ).order_by('-created_at').first()
-                if not invoice:  # 新增：invoice为空则跳过
+                if not invoice:
                     continue
-                # 查询该发票下的所有应付费用记录（修复：get→filter，支持多条）
                 invoice_items = InvoiceItemv2.objects.filter(
                     models.Q(invoice_type="payable") | models.Q(invoice_type="payable_direct"),
                     invoice_number__invoice_number=invoice.invoice_number,
                 )
             except (Invoicev2.DoesNotExist, InvoiceItemv2.DoesNotExist):
-                continue  # 无发票/费用记录则跳过
+                continue
 
-            # 5.2 供应商过滤（修复：原逻辑的供应商匹配）
+            # 5.2 供应商过滤
             carrier_match = False
             if select_carrier in ["BBR", "KNO", "JOHN", "unload"]:
-                # 匹配费用记录中的carrier
                 carrier_match = any(item.carrier == select_carrier for item in invoice_items)
             else:
-                # 匹配订单提柜供应商
                 s_carrier = {
                     "ARM": "大方广",
                     "Kars": "kars"
@@ -6556,9 +6560,9 @@ class Accounting(View):
                 carrier_match = (order.retrieval_id.retrieval_carrier == s_carrier) if order.retrieval_id else False
 
             if not carrier_match:
-                continue  # 供应商不匹配则跳过
+                continue
 
-            # 5.3 初始化行数据（处理空值）
+            # 5.3 初始化行数据
             row_data = {
                 "柜号": order.container_number.container_number if order.container_number else "",
                 "提柜时间": (
@@ -6573,7 +6577,6 @@ class Accounting(View):
                 ),
                 "仓库": order.warehouse.name if hasattr(order.warehouse, 'name') else "直送",
                 "柜型": order.container_number.container_type if order.container_number else "",
-                # 初始化费用字段为0
                 "基本费用": 0.0,
                 "超重费": 0.0,
                 "车架费": 0.0,
@@ -6584,13 +6587,20 @@ class Accounting(View):
                 "拆柜其他费用": {},
             }
 
-            # 5.4 遍历费用明细，计算各项费用（修复：循环多条费用记录）
+            # 5.4 遍历费用明细，计算各项费用
             total_amount = 0.0
             for item in invoice_items:
                 rate = float(item.rate) if item.rate else 0.0
                 description = item.description or ""
 
-                # 匹配固定费用类型
+                # ========== 规则1：排除指定供应商的提柜其他费用 ==========
+                if is_exclude_pickup_other and "提柜其他费用" in description:
+                    continue  # 直接跳过，不收集该费用数据
+
+                # ========== 规则2：排除其他供应商的拆柜其他费用 ==========
+                if is_exclude_unload_other and "拆柜其他费用" in description:
+                    continue  # 直接跳过，不收集该费用数据
+
                 if description == "提柜费用":
                     row_data["基本费用"] = rate
                     total_amount += rate
@@ -6602,45 +6612,41 @@ class Accounting(View):
                     total_amount += rate
                 elif description == "拆柜费用":
                     row_data["拆柜费用"] = rate
-                    # 排除拆柜费的供应商：不计入总费用
                     if not is_exclude_pallet:
                         total_amount += rate
                 elif description == "入库拆柜费":
                     row_data["入库拆柜费"] = rate
                     total_amount += rate
                 elif "提柜其他费用" in description:
-                    # 处理其他费用（如：提柜其他费用-PNCT）
                     try:
                         fee_name = description.split("-")[1]
                         row_data["提柜其他费用"][fee_name] = rate
                         total_amount += rate
-                        # 记录到column_values中
                         if fee_name not in column_values["提柜其他费用"]:
                             column_values["提柜其他费用"][fee_name] = []
                         column_values["提柜其他费用"][fee_name].append(rate)
                     except IndexError:
-                        pass  # 格式异常则跳过
+                        pass
                 elif "拆柜其他费用" in description:
                     try:
                         fee_name = description.split("-")[1]
                         row_data["拆柜其他费用"][fee_name] = rate
                         total_amount += rate
-                        # 记录到column_values中
                         if fee_name not in column_values["拆柜其他费用"]:
                             column_values["拆柜其他费用"][fee_name] = []
                         column_values["拆柜其他费用"][fee_name].append(rate)
                     except IndexError:
-                        pass  # 格式异常则跳过
+                        pass
 
             # 5.5 赋值总费用
             row_data["总费用"] = total_amount
 
-            # 5.6 填充固定费用类型（确保字段存在）
+            # 5.6 填充固定费用类型
             for fee_type in fixed_fee_types:
                 if fee_type not in row_data:
                     row_data[fee_type] = 0.0
 
-            # 5.7 记录固定费用列的数值到column_values
+            # 5.7 记录固定费用列的数值
             column_values["基本费用"].append(row_data["基本费用"])
             column_values["超重费"].append(row_data["超重费"])
             column_values["车架费"].append(row_data["车架费"])
@@ -6653,40 +6659,40 @@ class Accounting(View):
         if not rows:
             raise ValueError("未查询到符合条件的费用记录")
 
-        # 6. 构建Excel表头（核心修改：过滤全为0的列）
-        # 6.1 基础表头
+        # 6. 构建Excel表头
         if select_carrier == "东海岸":
             valid_headers = ["柜号", "提柜时间", "还空时间", "仓库", "柜型"]
         else:
             valid_headers = ["柜号", "提柜时间", "仓库", "柜型"]
 
-        # 6.2 筛选固定费用类型中「非全0」的列
+        # 6.1 筛选固定费用类型中「非全0」的列
         for fee_type in fixed_fee_types:
-            if fee_type == "还空时间":  # 时间列不判断数值
+            if fee_type == "还空时间":
                 if fee_type not in valid_headers:
                     valid_headers.append(fee_type)
                 continue
-            # 判断该费用列是否全为0
             values = column_values.get(fee_type, [])
-            if any(v != 0.0 for v in values):  # 只要有一个非0值，就保留该列
+            if any(v != 0.0 for v in values):
                 if fee_type not in valid_headers:
                     valid_headers.append(fee_type)
 
-        # 6.3 筛选提柜其他费用中「非全0」的列
-        for fee_name, values in column_values["提柜其他费用"].items():
-            if any(v != 0.0 for v in values):  # 非全0则保留
-                header_name = f"提柜其他费用-{fee_name}"
-                if header_name not in valid_headers:
-                    valid_headers.append(header_name)
+        # ========== 规则1：仅非排除供应商才添加提柜其他费用表头 ==========
+        if not is_exclude_pickup_other:
+            for fee_name, values in column_values["提柜其他费用"].items():
+                if any(v != 0.0 for v in values):
+                    header_name = f"提柜其他费用-{fee_name}"
+                    if header_name not in valid_headers:
+                        valid_headers.append(header_name)
 
-        # 6.4 筛选拆柜其他费用中「非全0」的列
-        for fee_name, values in column_values["拆柜其他费用"].items():
-            if any(v != 0.0 for v in values):  # 非全0则保留
-                header_name = f"拆柜其他费用-{fee_name}"
-                if header_name not in valid_headers:
-                    valid_headers.append(header_name)
+        # ========== 规则2：仅指定供应商才添加拆柜其他费用表头 ==========
+        if not is_exclude_unload_other:
+            for fee_name, values in column_values["拆柜其他费用"].items():
+                if any(v != 0.0 for v in values):
+                    header_name = f"拆柜其他费用-{fee_name}"
+                    if header_name not in valid_headers:
+                        valid_headers.append(header_name)
 
-        # 6.5 去重并保持顺序
+        # 6.3 去重并保持顺序
         valid_headers = list(dict.fromkeys(valid_headers))
 
         # 7. 创建Excel并写入数据
@@ -6708,10 +6714,8 @@ class Accounting(View):
                     fee_name = header.split("-")[1]
                     value = row["拆柜其他费用"].get(fee_name, 0.0)
                 else:
-                    # 固定字段值
                     value = row.get(header, 0.0)
 
-                # 格式化数值（保留2位小数）
                 if isinstance(value, (int, float)):
                     row_values.append(round(value, 2))
                 else:
@@ -6727,6 +6731,7 @@ class Accounting(View):
         wb.save(response)
 
         return response
+
     def handle_invoice_confirm_combina_save(
         self, request: HttpRequest
     ) -> tuple[Any, Any]:
