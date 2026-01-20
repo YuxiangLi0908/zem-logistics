@@ -456,6 +456,12 @@ class ReceivableAccounting(View):
                     "invoice": invoice,
                 }
             )
+            payable_type = "payable_direct" if order.order_type == '直送' else "payable"
+            existing_status_payable, created = InvoiceStatusv2.objects.get_or_create(
+                container_number=order.container_number,
+                invoice=invoice,
+                invoice_type=payable_type
+            )
         else:
             #说明这个柜子没有创建过账单，需要创建
             invoice, invoice_status, invoice_status_payable = self._create_invoice_and_status(container_number)
