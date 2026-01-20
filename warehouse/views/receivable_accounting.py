@@ -3683,8 +3683,13 @@ class ReceivableAccounting(View):
 
         # 将发票按 container_id 分组
         container_invoice_map = defaultdict(list)
+        container_earliest_time_map = {}
         for inv in all_invoices:
-            container_invoice_map[inv.container_number_id].append(inv)
+            c_id = inv.container_number_id
+            container_invoice_map[c_id].append(inv)
+
+            if c_id not in container_earliest_time_map or inv.created_at < container_earliest_time_map[c_id]:
+                container_earliest_time_map[c_id] = inv.created_at
 
         # --- 5. [优化核心] 批量获取“暂扣”信息 ---
         # 只需要知道哪些 container_id 有暂扣记录即可
@@ -3712,6 +3717,7 @@ class ReceivableAccounting(View):
             if not invoices:
                 continue
             has_multiple_invoices = len(invoices) > 1
+            earliest_created_at = container_earliest_time_map.get(c_id)
 
             for invoice in invoices:
                 # 获取预加载的状态列表
@@ -3736,6 +3742,9 @@ class ReceivableAccounting(View):
                     del_other == "completed" and 
                     del_public == "completed"):
 
+                    is_extra_invoice = False
+                    if has_multiple_invoices and invoice.created_at > earliest_created_at:
+                        is_extra_invoice = True
                     # 处理发票创建时间逻辑
                     invoice_created_at = None
                     if has_multiple_invoices:
@@ -3749,6 +3758,7 @@ class ReceivableAccounting(View):
                         'customer_name__zem_name': o.customer_name.zem_name if o.customer_name else None,
                         'order_type': o.order_type,
                         'invoice_created_at': invoice_created_at,
+                        'is_extra_invoice': is_extra_invoice,
                         # 使用 getattr 安全获取关联属性，防止 NoneType 报错
                         'retrieval_id__retrieval_destination_precise': o.retrieval_id.retrieval_destination_precise if o.retrieval_id else None,
                         'retrieval_id__retrieval_carrier': getattr(o.retrieval_id, 'retrieval_carrier', None) if o.retrieval_id else None,
