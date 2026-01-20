@@ -7,6 +7,18 @@
         max-height: calc(100vh - 200px);
         overflow-y: auto;
     }
+    .departure-markings-cell {
+        white-space: normal !important;
+        word-break: break-word !important;
+        word-wrap: break-word !important;
+        max-width: 250px !important;  /* 限制最大宽度 */
+        min-width: 180px !important;  /* 保持最小宽度 */
+        max-height: 100px !important; /* 限制最大高度 */
+        overflow-y: auto !important;  /* 内容超出时显示滚动条 */
+        padding: 8px 4px !important;
+        line-height: 1.4 !important;
+        vertical-align: top !important;
+    }
 </style>
 <div id="confirmDepartureModal" class="modal">
     <div class="modal-content" style="width: 95%; max-width: 1200px; max-height: 700px;">
@@ -45,7 +57,7 @@
                             <thead>
                                 <tr>
                                     <th>目的地</th>
-                                    <th>唛头</th>
+                                    <th style="width: 250px; min-width: 250px;">唛头</th>
                                     <th>柜号</th>
                                     <th>计划板数</th>
                                     <th>实际出库板数</th>
@@ -122,6 +134,7 @@ function openDepartureModal(fleetNumber, fleetData) {
             const markingsTd = document.createElement('td');
             markingsTd.textContent = cargo.markings || '-';
             markingsTd.title = cargo.markings || '';
+            markingsTd.className = 'departure-markings-cell';
             tr.appendChild(markingsTd);
 
             // 柜号

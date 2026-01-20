@@ -1,6 +1,6 @@
 <!-- fleet_modal.html -->
 <div id="fleetModal" class="modal">
-  <div class="modal-content" style="width: 90%; max-width: 1200px; min-width: 800px;">
+  <div class="modal-content" style="width: 90%; max-width: 1200px; min-width: 800px; margin-top: 60px;">
 
     <div id="fleetModalBody" style="padding-top: 10px;">
         <div style="border-radius: 12px; padding: 20px; margin-top: 10px;">
@@ -97,7 +97,7 @@
                     <thead>
                         <tr>
                             <th>预约批次</th>
-                            <th>唛头</th>
+                            <th style="width: 200px; min-width: 200px;">唛头</th>
                             <th>柜号</th>
                             <th>目的地</th>                           
                             <th>Scheduled Time</th>                          
@@ -252,10 +252,10 @@
                     
                     // CBM显示逻辑：有数据则显示格式化后的数字，否则显示空
                     const cbmDisplay = hasCbmData && totalCbm > 0 ? Number(totalCbm).toFixed(2) : '';
-                    
+                    console.log('预约批次信息展示',shipment);
                     const newRow = document.createElement("tr");
                     newRow.innerHTML = `
-                        <td style="max-width: 120px; word-break: break-all;">${formatValue(shipment.appointmentId)}</td>
+                        <td style="max-width: 120px; word-break: break-all;">${formatValue(shipment.shipment_batch_number)}</td>
                         <td style="max-width: 120px; word-break: break-all;" title="${markings}">${markings || ''}</td>
                         <td style="max-width: 100px; word-break: break-all;">${containerNos || ''}</td>
                         <td>${formatValue(shipment.destination)}</td>              
@@ -287,7 +287,7 @@
         modal.className = 'modal';
         modal.style.display = 'block';
         modal.innerHTML = `
-            <div class="modal-content" style="width: 500px; max-width: 90%;">
+            <div class="modal-content" style="width: 500px; max-width: 90%; margin-top: 60px;">
                 <div style="padding: 30px; text-align: center;">
                     <div style="font-size: 48px; color: #ff6b6b; margin-bottom: 20px;">
                         <i class="fas fa-exclamation-triangle"></i>
