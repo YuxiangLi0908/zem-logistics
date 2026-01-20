@@ -10684,7 +10684,13 @@ class Accounting(View):
         arrive_fee = fee_detail[warehouse][warehouse_precise][preport_carrier].get('arrive_warehouse')
         if arrive_fee == "/":
             arrive_fee = arrive_fee.replace("/", "")
-        # 获取拆柜供应商选项
+        if order.container_number.container_number == "TCNU1772642":
+            arrive_fee = InvoiceItemv2.objects.get(
+                invoice_type='payable',
+                container_number_id=order.container_number.id,
+                description='入库拆柜费'
+            ).rate
+
         # 1. 初始化包含默认空选项的字典（键值可根据你的需求调整，比如 ""/"请选择"）
         pallet_details = {"": ""}  # 第一个默认键值对为空
 
