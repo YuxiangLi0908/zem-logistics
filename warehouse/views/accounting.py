@@ -10649,11 +10649,20 @@ class Accounting(View):
         # 计算提拆费
         match = re.match(r"\d+", container_type)
         pickup_fee = 0
-        if match:
-            pick_subkey = int(match.group())
-            if warehouse_precise == "LA 91748":
-                warehouse_precise = "LA 91761"
-            if order.container_number.container_number != "TCNU1772642":
+        actual_day = None
+        pallet_details = None
+        palletization_carrier = None
+        overweight_fee = None
+        arrive_fee = None
+        chassis_fee = None
+        demurrage_fee = None
+        per_diem_fee = None
+        if order.container_number.container_number != "TCNU1772642":
+            if match:
+                pick_subkey = int(match.group())
+                if warehouse_precise == "LA 91748":
+                    warehouse_precise = "LA 91761"
+
                 if pick_subkey == 40:
                     try:
                         pickup_fee = fee_detail[warehouse][warehouse_precise][preport_carrier]["basic_40"]
@@ -10669,67 +10678,64 @@ class Accounting(View):
                         context.update({"error_messages": f"在报价表中找不到{warehouse}仓库{pick_subkey}柜型的提拆费"})
                         return self.template_invoice_payable_edit_v1, context
 
-        basic_fee = "N/A"
-        if fee_detail[warehouse][warehouse_precise][preport_carrier].get('basic_40'):
-            basic_fee = fee_detail[warehouse][warehouse_precise][preport_carrier].get('basic_40')
-        elif fee_detail[warehouse][warehouse_precise][preport_carrier].get('basic_45'):
-            basic_fee = fee_detail[warehouse][warehouse_precise][preport_carrier].get('basic_45')
-        # 超重费
-        overweight = 0
-        if float(order.container_number.weight_lbs) > 42000:
-            overweight = fee_detail[warehouse][warehouse_precise][preport_carrier].get('overweight')
-            if isinstance(overweight, str):
-                overweight = overweight.replace("\n", ";")
+            basic_fee = "N/A"
+            if fee_detail[warehouse][warehouse_precise][preport_carrier].get('basic_40'):
+                basic_fee = fee_detail[warehouse][warehouse_precise][preport_carrier].get('basic_40')
+            elif fee_detail[warehouse][warehouse_precise][preport_carrier].get('basic_45'):
+                basic_fee = fee_detail[warehouse][warehouse_precise][preport_carrier].get('basic_45')
+            # 超重费
+            overweight = 0
+            if float(order.container_number.weight_lbs) > 42000:
+                overweight = fee_detail[warehouse][warehouse_precise][preport_carrier].get('overweight')
+                if isinstance(overweight, str):
+                    overweight = overweight.replace("\n", ";")
 
-        # 入库费
-        arrive_fee = fee_detail[warehouse][warehouse_precise][preport_carrier].get('arrive_warehouse')
-        if arrive_fee == "/":
-            arrive_fee = arrive_fee.replace("/", "")
+            # 入库费
+            arrive_fee = fee_detail[warehouse][warehouse_precise][preport_carrier].get('arrive_warehouse')
+            if arrive_fee == "/":
+                arrive_fee = arrive_fee.replace("/", "")
 
-        # 1. 初始化包含默认空选项的字典（键值可根据你的需求调整，比如 ""/"请选择"）
-        pallet_details = {"": ""}  # 第一个默认键值对为空
+            # 1. 初始化包含默认空选项的字典（键值可根据你的需求调整，比如 ""/"请选择"）
+            pallet_details = {"": ""}  # 第一个默认键值对为空
 
-        # 2. 原有逻辑：筛选拆柜供应商选项（用临时字典存储，避免覆盖默认值）
-        temp_pallet_details = {
-            carrier: value
-            for carrier, details in fee_detail[warehouse][warehouse_precise].items()
-            for key in ["palletization", "arrive_warehouse"]
-            if (value := details.get(key)) is not None and value != "/"
-        }
+            # 2. 原有逻辑：筛选拆柜供应商选项（用临时字典存储，避免覆盖默认值）
+            temp_pallet_details = {
+                carrier: value
+                for carrier, details in fee_detail[warehouse][warehouse_precise].items()
+                for key in ["palletization", "arrive_warehouse"]
+                if (value := details.get(key)) is not None and value != "/"
+            }
 
-        # 3. 将筛选后的选项更新到包含默认值的字典中（保留默认值在第一位）
-        pallet_details.update(temp_pallet_details)
+            # 3. 将筛选后的选项更新到包含默认值的字典中（保留默认值在第一位）
+            pallet_details.update(temp_pallet_details)
 
-        palletization_carrier = fee_detail[warehouse][warehouse_precise][preport_carrier]
+            palletization_carrier = fee_detail[warehouse][warehouse_precise][preport_carrier]
 
-        # 计算车架费
-        context["chassis_fee"] = 0
-        actual_day = None
-        chassis_fee = None
-        cutoff_date = timezone.datetime(2025, 9, 1, tzinfo=timezone.utc)
-        if act_pick_time and act_pick_time < cutoff_date:
-            data = self._calculate_chassis_fee(context, fee_detail[warehouse][warehouse_precise][preport_carrier], order)
-            chassis_fee = data["chassis_fee"]
-            actual_day = data["actual_day"]
-        else:
-            data = self._calculate_chassis_fee_91(context, fee_detail[warehouse][warehouse_precise][preport_carrier], order)
-            chassis_fee = data["chassis_fee"]
-            actual_day = data["actual_day"]
-        demurrage_fee = fee_detail[warehouse][warehouse_precise][preport_carrier].get('demurrage')
-        per_diem_fee = fee_detail[warehouse][warehouse_precise][preport_carrier].get('per_diem')
-        # 构建费用提示信息
-        FS = {
-            "提柜费用": f"{basic_fee}",
-            "拆柜费用": f"{fee_detail[warehouse][warehouse_precise][preport_carrier].get('palletization')}",
-            "入库拆柜费": f"{fee_detail[warehouse][warehouse_precise][preport_carrier].get('arrive_warehouse')}",
-            "超重费用": f"{overweight}",
-            "车架费用": f"{fee_detail[warehouse][warehouse_precise][preport_carrier].get('chassis')}",
-            "港内滞港费": f"{fee_detail[warehouse][warehouse_precise][preport_carrier].get('demurrage')}",
-            "港外滞箱费": f"{fee_detail[warehouse][warehouse_precise][preport_carrier].get('per_diem')}",
-        }
-        if order.container_number.container_number == "TCNU1772642":
-            arrive_fee = 900
-            FS["入库拆柜费"] = 900
+            # 计算车架费
+            context["chassis_fee"] = 0
+            actual_day = None
+            chassis_fee = None
+            cutoff_date = timezone.datetime(2025, 9, 1, tzinfo=timezone.utc)
+            if act_pick_time and act_pick_time < cutoff_date:
+                data = self._calculate_chassis_fee(context, fee_detail[warehouse][warehouse_precise][preport_carrier], order)
+                chassis_fee = data["chassis_fee"]
+                actual_day = data["actual_day"]
+            else:
+                data = self._calculate_chassis_fee_91(context, fee_detail[warehouse][warehouse_precise][preport_carrier], order)
+                chassis_fee = data["chassis_fee"]
+                actual_day = data["actual_day"]
+            demurrage_fee = fee_detail[warehouse][warehouse_precise][preport_carrier].get('demurrage')
+            per_diem_fee = fee_detail[warehouse][warehouse_precise][preport_carrier].get('per_diem')
+            # 构建费用提示信息
+            FS = {
+                "提柜费用": f"{basic_fee}",
+                "拆柜费用": f"{fee_detail[warehouse][warehouse_precise][preport_carrier].get('palletization')}",
+                "入库拆柜费": f"{fee_detail[warehouse][warehouse_precise][preport_carrier].get('arrive_warehouse')}",
+                "超重费用": f"{overweight}",
+                "车架费用": f"{fee_detail[warehouse][warehouse_precise][preport_carrier].get('chassis')}",
+                "港内滞港费": f"{fee_detail[warehouse][warehouse_precise][preport_carrier].get('demurrage')}",
+                "港外滞箱费": f"{fee_detail[warehouse][warehouse_precise][preport_carrier].get('per_diem')}",
+            }
 
         # 新增：费用名称分割函数（提取-后面的名称）
         def split_fee_name(description):
@@ -10807,6 +10813,9 @@ class Accounting(View):
                         'note': '',
                     })
 
+        if order.container_number.container_number == "TCNU1772642":
+            arrive_fee = 900
+            FS["入库拆柜费"] = 900
         groups = context["groups"]
         context.update({
             "actual_day": actual_day,
