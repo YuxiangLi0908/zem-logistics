@@ -10657,6 +10657,8 @@ class Accounting(View):
         chassis_fee = None
         demurrage_fee = None
         per_diem_fee = None
+        overweight = None
+        FS = {}
         if order.container_number.container_number != "TCNU1772642":
             if match:
                 pick_subkey = int(match.group())
