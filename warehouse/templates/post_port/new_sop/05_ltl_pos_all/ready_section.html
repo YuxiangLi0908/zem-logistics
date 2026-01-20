@@ -103,6 +103,16 @@
     .cost-input.save-btn i {
         margin: 0; /* 移除图标边距 */
     }
+    .markings-col {
+        white-space: normal !important;  /* 允许换行 */
+        word-break: break-word !important;  /* 允许在单词内换行 */
+        word-wrap: break-word !important;  /* 长单词换行 */
+        max-width: 250px !important;  /* 设置最大宽度 */
+        min-width: 200px !important;  /* 设置最小宽度 */
+        padding: 8px !important;  /* 增加内边距使换行后内容更清晰 */
+        vertical-align: top !important;  /* 内容顶部对齐 */
+        line-height: 1.4 !important;  /* 增加行高提高可读性 */
+    }
 </style>
 
 <div class="table-container">
@@ -149,11 +159,11 @@
                         <td colspan="10" style="background: linear-gradient(90deg, #3498db, #6c8bc7); 
                                             height: 2px; padding: 0;"></td>
                     </tr>
-                    {% for shipment_id, shipment in fleet_group.shipments.items %}
+                    {% for shipment_batch_number, shipment in fleet_group.shipments.items %}
                         {% with shipment_rowspan=shipment.cargos|length|default:0 %}
                             {% with is_first_shipment=forloop.first %}
                                 {% if shipment_rowspan == 0 %}
-                                    <tr data-appointment-id="{{ shipment.appointment_id }}"
+                                    <tr data-shipment-batch="{{ shipment.shipment_batch_number }}"
                                         data-destination="{{ shipment.destination }}">
                                         {% if is_first_shipment %}
                                             <td rowspan="{{ fleet_rowspan }}" class="fleet-number-cell" style="vertical-align: middle; background-color: #f8f9fa;"
@@ -207,7 +217,7 @@
                                     {% for cargo in shipment.cargos %}
                                         <tr data-plt-id="{{ cargo.plt_ids }}"
                                             data-cargo-id="{{ cargo.cargo_ids }}"
-                                            data-appointment-id="{{ shipment.appointment_id }}"
+                                            data-shipment-batch="{{ shipment.shipment_batch_number }}"
                                             data-destination="{{ shipment.destination }}"
                                             data-container-no="{{ cargo.cns }}"
                                             data-markings="{{ cargo.shipping_marks|default:'' }}"
@@ -250,7 +260,10 @@
                                             {% endif %}
 
                                             <td class="cns-col">{{ cargo.cns|linebreaksbr }}</td>
-                                            <td class="markings-col" data-full="{{ cargo.shipping_marks|default:'' }}">{{ cargo.shipping_marks|default:"-"|truncatechars:20 }}</td>
+                                            <td class="markings-col" data-full="{{ cargo.shipping_marks|default:'' }}" 
+                                                style="white-space: normal; word-break: break-word; word-wrap: break-word; max-width: 250px; min-width: 200px; padding: 8px; vertical-align: top;">
+                                                {{ cargo.shipping_marks|default:"-" }}
+                                            </td>
                                             <td>
                                                 {% if cargo.label == "ACT" %}
                                                     {{ cargo.total_n_pallet_act|default:0 }}
@@ -434,9 +447,9 @@
 
         rows.forEach((row, idx) => {
             // Read raw dataset values (may be mixed)
-            const rawAppt = row.dataset.appointmentId || '';
+            const shipmentBatch = row.dataset.shipmentBatch || '';
             // If appointment id not in dataset, skip (非货物行或占位行)
-            if (!rawAppt) return;
+            if (!shipmentBatch) return;
             const rawPlt = (row.dataset.pltId || '').toString().trim();
             const rawCargo = (row.dataset.cargoId || '').toString().trim();
             const dest = row.dataset.destination || '';
@@ -459,15 +472,16 @@
                     pltId = rawPlt;
                 }
             }
+
             // Assemble into shipments map
-            if (!shipmentsMap[rawAppt]) {
-                shipmentsMap[rawAppt] = { 
-                    appointmentId: rawAppt, 
+            if (!shipmentsMap[shipmentBatch]) {
+                shipmentsMap[shipmentBatch] = { 
+                    shipment_batch_number: shipmentBatch, 
                     destination: dest, 
                     cargos: [] 
                 };
             }
-            shipmentsMap[rawAppt].cargos.push({
+            shipmentsMap[shipmentBatch].cargos.push({
                 containerNo,
                 markings,  // 添加唛头信息
                 plannedPallets: planned,
