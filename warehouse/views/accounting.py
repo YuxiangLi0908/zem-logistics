@@ -10727,8 +10727,9 @@ class Accounting(View):
             "港外滞箱费": f"{fee_detail[warehouse][warehouse_precise][preport_carrier].get('per_diem')}",
         }
         if order.container_number.container_number == "TCNU1772642":
-            arrive_fee = 900
-            FS["入库拆柜费"] = arrive_fee
+            preport_carrier = "ARM"
+            arrive_fee = fee_detail[warehouse][warehouse_precise][preport_carrier].get('arrive_warehouse')
+            FS["入库拆柜费"] = f"{fee_detail[warehouse][warehouse_precise][preport_carrier].get('arrive_warehouse')}",
 
         # 新增：费用名称分割函数（提取-后面的名称）
         def split_fee_name(description):
