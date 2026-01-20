@@ -10653,20 +10653,21 @@ class Accounting(View):
             pick_subkey = int(match.group())
             if warehouse_precise == "LA 91748":
                 warehouse_precise = "LA 91761"
-            if pick_subkey == 40:
-                try:
-                    pickup_fee = fee_detail[warehouse][warehouse_precise][preport_carrier]["basic_40"]
-                except KeyError:
-                    pickup_fee = 0
-                    context.update({"error_messages": f"在报价表中找不到{warehouse}仓库{pick_subkey}柜型的提拆费"})
-                    return self.template_invoice_payable_edit_v1, context
-            else:
-                try:
-                    pickup_fee = fee_detail[warehouse][warehouse_precise][preport_carrier]["basic_45"]
-                except KeyError:
-                    pickup_fee = 0
-                    context.update({"error_messages": f"在报价表中找不到{warehouse}仓库{pick_subkey}柜型的提拆费"})
-                    return self.template_invoice_payable_edit_v1, context
+            if order.container_number.container_number != "TCNU1772642":
+                if pick_subkey == 40:
+                    try:
+                        pickup_fee = fee_detail[warehouse][warehouse_precise][preport_carrier]["basic_40"]
+                    except KeyError:
+                        pickup_fee = 0
+                        context.update({"error_messages": f"在报价表中找不到{warehouse}仓库{pick_subkey}柜型的提拆费"})
+                        return self.template_invoice_payable_edit_v1, context
+                else:
+                    try:
+                        pickup_fee = fee_detail[warehouse][warehouse_precise][preport_carrier]["basic_45"]
+                    except KeyError:
+                        pickup_fee = 0
+                        context.update({"error_messages": f"在报价表中找不到{warehouse}仓库{pick_subkey}柜型的提拆费"})
+                        return self.template_invoice_payable_edit_v1, context
 
         basic_fee = "N/A"
         if fee_detail[warehouse][warehouse_precise][preport_carrier].get('basic_40'):
@@ -10727,9 +10728,8 @@ class Accounting(View):
             "港外滞箱费": f"{fee_detail[warehouse][warehouse_precise][preport_carrier].get('per_diem')}",
         }
         if order.container_number.container_number == "TCNU1772642":
-            preport_carrier = "ARM"
-            arrive_fee = fee_detail[warehouse][warehouse_precise][preport_carrier].get('arrive_warehouse')
-            FS["入库拆柜费"] = f"{fee_detail[warehouse][warehouse_precise][preport_carrier].get('arrive_warehouse')}",
+            arrive_fee = 900
+            FS["入库拆柜费"] = 900
 
         # 新增：费用名称分割函数（提取-后面的名称）
         def split_fee_name(description):
