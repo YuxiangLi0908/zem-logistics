@@ -3683,7 +3683,7 @@ class ReceivableAccounting(View):
             if c_id not in container_earliest_time_map or inv.created_at < container_earliest_time_map[c_id]:
                 container_earliest_time_map[c_id] = inv.created_at
 
-        # --- 5. [优化核心] 批量获取“暂扣”信息 ---
+        # --- 批量获取“暂扣”信息 ---
         # 只需要知道哪些 container_id 有暂扣记录即可
         hold_container_ids = set(
             Pallet.objects.filter(
@@ -3694,8 +3694,8 @@ class ReceivableAccounting(View):
         )
 
         # --- 6. 循环处理 ---
-        order_data_list = []      # 公仓待录入 (对应原代码 order)
-        previous_order_data_list = [] # 公仓已录入 (对应原代码 previous_order)
+        order_data_list = []      # 公仓待录入
+        previous_order_data_list = [] # 公仓已录入 
         
         for o in base_orders:
             container = o.container_number
@@ -6876,9 +6876,9 @@ class ReceivableAccounting(View):
         regions = list(matched_regions.keys())
         # LA仓库的特殊规则：CDEF区不能混
         if warehouse == "LA":
-            if vessel_etd.month > 7 or (
-                vessel_etd.month == 7 and vessel_etd.day >= 15
-            ):  # 715之后没有混区限制
+            if vessel_etd.year > 2025 or (vessel_etd.year == 2025 and 
+                                  (vessel_etd.month > 7 or 
+                                   (vessel_etd.month == 7 and vessel_etd.day >= 15))):  # 715之后没有混区限制
                 return False
             if len(regions) <= 1:  # 只有一个区，就没有混区的情况
                 return False
