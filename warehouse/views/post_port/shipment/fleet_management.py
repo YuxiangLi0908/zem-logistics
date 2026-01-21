@@ -39,7 +39,7 @@ from django.db.models import (
     Q,
     Sum,
     Value,
-    When,
+    When, Prefetch,
 )
 from django.db.models.functions import Cast, Round
 from django.http import HttpRequest, HttpResponse
@@ -1265,10 +1265,38 @@ class FleetManagement(View):
 
         shipment = await sync_to_async(list)(
             Shipment.objects.select_related("fleet_number")
-            .prefetch_related("fleetshipmentpallets")
+            .prefetch_related(
+                Prefetch(
+                    "fleetshipmentpallets",
+                    queryset=FleetShipmentPallet.objects.select_related("operator")  # 预加载operator
+                )
+            )
             .filter(criteria)
             .order_by("shipped_at")
         )
+
+        async def process_shipment_data(shipment_list):
+            processed = []
+            for s in shipment_list:
+                # 同步获取最新的fleetshipmentpallets记录（用sync_to_async包裹）
+                latest_pallet = await sync_to_async(
+                    lambda: s.fleetshipmentpallets.order_by("-cost_input_time", "-id").first()
+                )()
+
+                # 深度提取字段，避免后续访问触发懒加载
+                if latest_pallet:
+                    s.pallet_cost_input_time = latest_pallet.cost_input_time
+                    # 提取operator的用户名（或ID），而非直接存对象
+                    s.pallet_operator_name = latest_pallet.operator.username if latest_pallet.operator else None
+                else:
+                    s.pallet_cost_input_time = None
+                    s.pallet_operator_name = None
+
+                processed.append(s)
+            return processed
+
+        # 处理数据
+        shipment = await process_shipment_data(shipment)
         context = {
             "shipment_type": shipment_type,
             "pickup_number": pickup_number,
