@@ -76,6 +76,7 @@ from warehouse.utils.constants import (
     SP_URL,
     SYSTEM_FOLDER,
 )
+from warehouse.views.post_port.shipment.shipping_management import ShippingManagement
 from warehouse.views.export_file import link_callback
 
 matplotlib.use("Agg")
@@ -2734,6 +2735,9 @@ class FleetManagement(View):
         description = request.POST.get("abnormal_description", "").strip()
         # fleet_number = request.POST.get("fleet_number")
         shipment_batch_number = request.POST.get("shipment_batch_number")
+        abnormal_cost = request.POST.get("abnormal_cost")
+        if is_ltl is None:
+            is_ltl = False
 
         shipment = await sync_to_async(
             lambda: Shipment.objects.select_related("fleet_number").get(
@@ -2745,6 +2749,8 @@ class FleetManagement(View):
             fleet.is_canceled = True
             fleet.status = "Exception"
             fleet.status_description = f"{status}-{description}"
+            if abnormal_cost is not None:
+                fleet.fleet_cost_back = float(abnormal_cost)
 
         if not shipment.previous_fleets:
             shipment.previous_fleets = fleet.fleet_number
@@ -2756,9 +2762,10 @@ class FleetManagement(View):
         shipment.is_shipped = False
         shipment.shipped_at = None
         shipment.shipped_at_utc = None
+        
         await sync_to_async(shipment.save)()
         if fleet:
-            await sync_to_async(fleet.save)()
+            await sync_to_async(fleet.save)()    
         if name == "post_nsop":
             return True
         return await self.handle_delivery_and_pod_get(request)

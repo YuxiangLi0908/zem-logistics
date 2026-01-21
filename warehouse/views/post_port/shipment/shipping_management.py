@@ -3034,7 +3034,12 @@ class ShippingManagement(View):
     async def handle_cancel_abnormal_appointment_post(
         self, request: HttpRequest, name: str | None = None
     ) -> tuple[str, dict[str, Any]]:
+        '''异常预约里面，取消某个约'''
         shipment_batch_number = request.POST.get("batch_number")
+        if not shipment_batch_number:
+            shipment_batch_number = request.POST.get("shipment_batch_number")
+        if not shipment_batch_number:
+            raise ValueError("缺少批次号信息！")
         shipment = await sync_to_async(Shipment.objects.get)(
             shipment_batch_number=shipment_batch_number
         )
@@ -3118,7 +3123,7 @@ class ShippingManagement(View):
         shipment.is_canceled = True
         await sync_to_async(shipment.save)()
         if name == "post_nsop":
-            return "success", {"message": f"{shipment_batch_number} 已恢复正常"}
+            return "success", {"message": f"{shipment_batch_number} 已取消！"}
         return await self.handle_shipment_exceptions_get(request)
 
     async def _get_packing_list(

@@ -1,5 +1,5 @@
 <div id="abnormalModal" class="modal">
-    <div class="modal-content" style="max-width: 600px; padding: 25px; border-radius: 8px;">
+    <div class="abnormal-modal-content" style="max-width: 600px; padding: 25px; border-radius: 8px;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid #eee;">
             <h4 style="color: var(--secondary-color); margin: 0;">
                 <i class="fas fa-exclamation-triangle" style="color: #f39c12; margin-right: 8px;"></i> 车次异常报告
@@ -19,9 +19,8 @@
             <input type="hidden" name="step" value="abnormal_fleet">
             <input type="hidden" name="warehouse" value="{{ warehouse }}">
             <input type="hidden" name="fleet_number" id="abnormalFleetNumber" value="">
-            <input type="hidden" name="page" value="ltl_pos_all">
-            <input type="hidden" name="active_tab" value="ready">
             <input type="hidden" name="shipment_batch_number" id="abnormalShipmentNumber" value="">
+            <input type="hidden" name="active_tab" value="ready">
             
             <div class="table-container" style="margin-bottom: 20px;">
                 <table class="data-table" style="width: 100%; border-collapse: collapse;">
@@ -324,7 +323,7 @@ window.AbnormalModal = {
     background-color: rgba(0, 0, 0, 0.5);
 }
 
-.modal-content {
+.abnormal-modal-content {
     background-color: white;
     margin: auto;
     position: relative;
@@ -369,7 +368,7 @@ input[type="number"]::-webkit-outer-spin-button {
 
 /* 响应式调整 */
 @media (max-width: 768px) {
-    .modal-content {
+    .abnormal-modal-content {
         max-width: 95% !important;
         padding: 15px !important;
     }

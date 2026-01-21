@@ -401,6 +401,9 @@
             <div class="tab" data-tab="scheduledFleet">
                 已放行自发 <span class="badge">{{ summary.selfdel_count }}</span>
             </div>
+            <div class="tab" data-tab="unscheduledFleet">
+                未排车 <span class="badge">{{ summary.unfleet_count }}</span>
+            </div>
             <div class="tab" data-tab="readyShip">
                 待出库批次 <span class="badge">{{ summary.ready_to_ship_count }}</span>
             </div>
@@ -425,6 +428,11 @@
         <!-- 已放行自发标签页 -->
         <div class="content-section" id="scheduledFleet-section">
             {% include 'post_port/new_sop/05_ltl_pos_all/selfdelivery.html' %}
+        </div>
+
+        <!-- 未排车标签页 -->
+        <div class="content-section" id="unscheduledFleet-section">
+            {% include 'post_port/new_sop/05_ltl_pos_all/unscheduled_fleet.html' %}
         </div>
 
         <!-- 待出库批次标签页 -->
@@ -463,6 +471,7 @@
 {% include 'post_port/new_sop/05_ltl_pos_all/modal/abnormal_fleet.html' %}
 {% include 'post_port/new_sop/05_ltl_pos_all/modal/add_po_modal.html' %}
 {% include 'post_port/new_sop/05_ltl_pos_all/modal/departure_modal.html' %}
+
 <script>
     {% if show_add_po_modal %}
         setTimeout(function () {
@@ -504,6 +513,9 @@
                 }
                 if (activeTab === 'scheduledFleet' && typeof initializeScheduledFleetSection === 'function') {
                     setTimeout(initializeScheduledFleetSection, 100);
+                }
+                if (activeTab === 'unscheduledFleet' && typeof initializeUnscheduledFleetSection === 'function') {
+                    setTimeout(initializeUnscheduledFleetSection, 100);
                 }
                 if (activeTab === 'readyShip' && typeof initializeReadyShipSection === 'function') {
                     setTimeout(initializeReadyShipSection, 100);
@@ -550,6 +562,9 @@
                     }
                     if (tabName === 'scheduledFleet' && typeof initializeScheduledFleetSection === 'function') {
                         setTimeout(initializeScheduledFleetSection, 50);
+                    }
+                    if (tabName === 'unscheduledFleet' && typeof initializeUnscheduledFleetSection === 'function') {
+                        setTimeout(initializeUnscheduledFleetSection, 50);
                     }
                     if (tabName === 'readyShip' && typeof initializeReadyShipSection === 'function') {
                         setTimeout(initializeReadyShipSection, 50);
