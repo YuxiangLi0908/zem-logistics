@@ -26,6 +26,7 @@ class FleetShipmentPallet(models.Model):
     total_pallet = models.FloatField(null=True, default=0)
     expense = models.FloatField(null=True, blank=True)
     is_recorded = models.BooleanField(default=False, verbose_name="是否已记录")
+    description = models.CharField(max_length=255, null=True, blank=True, verbose_name="费用名称")
     cost_input_time = models.DateTimeField(
         null=True,
         blank=True,

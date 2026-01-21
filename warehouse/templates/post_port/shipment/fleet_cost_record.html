@@ -149,12 +149,15 @@
                         {% csrf_token %}
                         <tr>
                             <td class="td" style="max-width: 120px; word-break: break-all;">{{ f.fleet_number.pickup_number }}</td>
-                            <td class="td">                               
+                            <td class="td">
+                                <form action="" method="post">
+                                {% csrf_token %}
                                 <input type="number" width="50px" name="fleet_cost" value="{{ f.fleet_number.fleet_cost }}">
                                 <input type="hidden" name="fleet_number" value="{{ f.fleet_number }}">
                                 <input type="hidden" name="step" value="fleet_cost_confirm">
                                 <input type="hidden" name="area" value="{{ area }}">
                                 <button type="submit" class="btn btn-success" style="font-size: 11px;">确认</button>
+                                </form>
                             </td>
                             <td class="td" style="max-width: 120px; word-break: break-all;">{{ f.fleet_number.fleet_number }}</td>
                             <td class="td">{{ f.shipment_batch_number }}</td>
@@ -175,17 +178,20 @@
                             <td class="td">{{ f.shipped_pallet|floatformat:0 }}</td>
                             <td class="td" style="max-width: 120px; word-break: break-all;">{{ f.note|default_if_none:"" }}</td>
                             {% if shipment_type == '已录入内容' %}
-                                <td class="td" style="max-width: 120px; word-break: break-all;">
+                                <form action="" method="post">
+                                {% csrf_token %}
+                                <td class="td">
                                     <input type="number" width="50px" name="fleet_cost_back" value="{{ f.fleet_number.fleet_cost_back }}">
                                     <input type="hidden" name="fleet_number" value="{{ f.fleet_number }}">
                                     <input type="hidden" name="step" value="fleet_cost_confirm_back">
                                     <button type="submit" class="btn btn-success" style="font-size: 11px;">确定</button>
                                 </td>
+                                </form>
                             {% endif %}
                             <td class="td" style="max-width: 120px; word-break: break-all;">{{ f.fleetshipmentpallets.cost_input_time|date:"Y-m-d" }}</td>
                             <td class="td" style="max-width: 120px; word-break: break-all;">{{ f.fleetshipmentpallets.operator }}</td>
                         </tr>
-                    </form>    
+                    </form>
                     {% endfor %}
                 </tbody>
             </table>

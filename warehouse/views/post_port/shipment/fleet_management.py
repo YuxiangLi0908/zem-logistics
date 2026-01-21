@@ -12,6 +12,7 @@ from typing import Any
 import os
 
 from django.core.exceptions import ObjectDoesNotExist
+from numpy.core.records import record
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
 from reportlab.pdfbase import pdfmetrics
@@ -961,36 +962,89 @@ class FleetManagement(View):
         return await self.handle_fleet_cost_record_get(request,error_messages, success_count)
 
     async def handle_fleet_cost_confirm_get(
-        self, request: HttpRequest
+            self, request: HttpRequest
     ) -> tuple[Any, Any]:
+        """
+        成本录入-确认成本费用
+        核心逻辑：
+        1. 更新Fleet的fleet_cost字段；
+        2. 调用专用方法创建成本费用记录并分摊费用到FleetShipmentPallet；
+        3. 兼容无托盘记录的场景，补充创建基础记录。
+        """
         fleet_number = request.POST.get("fleet_number", "")
-        fleet_cost = float(request.POST.get("fleet_cost", ""))
-        fleet = await sync_to_async(Fleet.objects.get)(fleet_number=fleet_number)
+        # 修复1：增加空值/非数字校验，避免float转换报错
+        fleet_cost_str = request.POST.get("fleet_cost", "")
+        if not fleet_number:
+            raise ValueError("车次编号不能为空")
+        if not fleet_cost_str:
+            raise ValueError("成本费用不能为空")
+        try:
+            fleet_cost = float(fleet_cost_str)
+        except (ValueError, TypeError):
+            raise ValueError("成本费用必须是有效数字（如 100.00）")
+
+        # 查询车次记录
+        try:
+            fleet = await sync_to_async(Fleet.objects.get)(fleet_number=fleet_number)
+        except ObjectDoesNotExist:
+            raise ValueError(f"未找到车次 {fleet_number} 的记录")
+
+        # 更新车次成本
         fleet.fleet_cost = fleet_cost
         await sync_to_async(fleet.save)()
+
         error_messages = []
+        # 调用专用方法创建成本费用记录并分摊
+        try:
+            await self.insert_fleet_shipment_pallet_fleet_cost(
+                request, fleet_number, fleet_cost
+            )
+        except RuntimeError as e:
+            error_messages.append(f"成本费用分摊失败：{str(e)}")
+        except ValueError as e:
+            # 无托盘数据时，保留原有提示逻辑
+            error_messages.append(f"{fleet_number}车次里面板子是空的")
+
+        # 重置请求参数，返回原有逻辑
+        request.POST = request.POST.copy()
+        request.POST["fleet_number"] = ""
+        return await self.handle_fleet_cost_record_get(request)
+
+    async def insert_fleet_shipment_pallet_fleet_cost(self, request, fleet_number, fleet_cost):
+        """
+        传入车次号-车次分摊成本费用到FleetShipmentPallet
+        核心逻辑：
+        1. 按PO_ID分组查询托盘数据，创建FleetShipmentPallet记录；
+        2. 按总托盘数分摊本次成本费用到每条记录的expense字段。
+        """
+        criteria_plt = models.Q(
+            shipment_batch_number__fleet_number__fleet_number=fleet_number
+        )
+        try:
+            fleet = await sync_to_async(Fleet.objects.get)(fleet_number=fleet_number)
+        except ObjectDoesNotExist:
+            raise ValueError(f"未找到车次 {fleet_number} 的记录")
+
+        # 查询该车次下所有FleetShipmentPallet记录，计算分摊
         fleet_shipments = await sync_to_async(list)(
             FleetShipmentPallet.objects.filter(
-                fleet_number__fleet_number=fleet_number
-            ).only("PO_ID", "total_pallet")
+                fleet_number__fleet_number=fleet_number, description='成本费用'
+            ).only("id", "PO_ID", "total_pallet", "expense")
         )
         if not fleet_shipments:
-            # 如果找不到，说明这个车次，在系统上没有经过确认出库那一步，这里再补上
-            criteria_plt = models.Q(
-                shipment_batch_number__fleet_number__fleet_number=fleet_number
-            )
-            #先找到这个车/约里面的板子，按PO_ID分组，因为一组PO_ID存成一条记录
+            # 按PO_ID分组查询该车次下的托盘数据
             grouped_pallets = await sync_to_async(list)(
                 Pallet.objects.filter(criteria_plt)
                 .values("shipment_batch_number", "PO_ID", "container_number")
-                .annotate(
-                    actual_pallets=Count("pallet_id")
-                )  # 计算每组的板子数量
+                .annotate(actual_pallets=Count("pallet_id"))
                 .order_by("shipment_batch_number", "PO_ID")
             )
-            new_fleet_shipment_pallets = []
+
             if not grouped_pallets:
-                error_messages.append(f"{fleet_number}车次里面板子是空的")
+                raise ValueError(f"车次 {fleet_number} 无有效托盘数据，无法创建退回费用记录")
+
+            # 批量创建标注"退回费用"的FleetShipmentPallet记录
+            new_fleet_shipment_pallets = []
             for group in grouped_pallets:
                 new_record = FleetShipmentPallet(
                     fleet_number=fleet,
@@ -999,38 +1053,126 @@ class FleetManagement(View):
                     PO_ID=group["PO_ID"],
                     total_pallet=group["actual_pallets"],
                     container_number_id=group["container_number"],
-                    is_recorded=False, #这里只是登记，没有记录到总费用，所以默认是False
+                    is_recorded=False,
                     cost_input_time=datetime.now(),
                     operator=request.user,
+                    description="成本费用"
                 )
                 new_fleet_shipment_pallets.append(new_record)
-
             await sync_to_async(FleetShipmentPallet.objects.bulk_create)(
                 new_fleet_shipment_pallets, batch_size=500
             )
-            fleet_shipments = await sync_to_async(list)(
-                FleetShipmentPallet.objects.filter(
-                    fleet_number__fleet_number=fleet_number
-                ).only("PO_ID", "total_pallet")
+        try:
+            total_pallets_in_fleet = sum(
+                [fs.total_pallet for fs in fleet_shipments if fs.total_pallet]
             )
-        total_pallets_in_fleet = sum(
-            [fs.total_pallet for fs in fleet_shipments if fs.total_pallet]
+            if total_pallets_in_fleet == 0:
+                raise ValueError(f"车次 {fleet_number} 下无有效托盘数，无法分摊退回费用")
+
+            total_pallets_decimal = Decimal(str(total_pallets_in_fleet))  # 转为Decimal
+            fleet_cost = Decimal(str(fleet_cost))
+            # 计算每托盘分摊金额
+            cost_per_pallet = (fleet_cost / total_pallets_decimal).quantize(
+                Decimal("0.00"), rounding=ROUND_HALF_UP  # 保留2位小数，财务标准
+            )
+
+            # 批量更新分摊后的费用
+            update_records = []
+            for shipment in fleet_shipments:
+                if shipment.total_pallet:
+                    shipment.expense = cost_per_pallet * Decimal(shipment.total_pallet)
+                    update_records.append(shipment)
+
+            if update_records:
+                await sync_to_async(FleetShipmentPallet.objects.bulk_update)(
+                    update_records, ["expense"], batch_size=500
+                )
+        except Exception as e:
+            # 新增/更新失败时，抛出明确异常，方便排查
+            raise RuntimeError(f"退回费用记录创建/分摊失败：{str(e)}") from e
+
+    async def insert_fleet_shipment_pallet_fleet_cost_back(self, request, fleet_number, fleet_cost_back):
+        """
+        传入车次号-车次分摊退回费用到FleetShipmentPallet
+        核心逻辑：
+        1. 按PO_ID分组查询托盘数据，创建标注"退回费用"的FleetShipmentPallet记录；
+        2. 按总托盘数分摊本次退回费用到每条记录的expense字段。
+        """
+        criteria_plt = models.Q(
+            shipment_batch_number__fleet_number__fleet_number=fleet_number
         )
-        if total_pallets_in_fleet == 0:
-            raise ValueError("未查找该车次下的相关板子记录")
-        cost_per_pallet = fleet_cost / total_pallets_in_fleet
+        try:
+            fleet = await sync_to_async(Fleet.objects.get)(fleet_number=fleet_number)
+        except ObjectDoesNotExist:
+            raise ValueError(f"未找到车次 {fleet_number} 的记录")
 
-        for shipment in fleet_shipments:
-            if shipment.total_pallet:
-                shipment.expense = cost_per_pallet * shipment.total_pallet
-
-        await sync_to_async(FleetShipmentPallet.objects.bulk_update)(
-            fleet_shipments, ["expense"]
+        # 查询该车次下所有FleetShipmentPallet记录，计算分摊
+        fleet_shipments = await sync_to_async(list)(
+            FleetShipmentPallet.objects.filter(
+                fleet_number__fleet_number=fleet_number, description='退回费用'
+            ).only("id", "PO_ID", "total_pallet", "expense")
         )
+        if not fleet_shipments:
+            # 按PO_ID分组查询该车次下的托盘数据
+            grouped_pallets = await sync_to_async(list)(
+                Pallet.objects.filter(criteria_plt)
+                .values("shipment_batch_number", "PO_ID", "container_number")
+                .annotate(actual_pallets=Count("pallet_id"))
+                .order_by("shipment_batch_number", "PO_ID")
+            )
 
-        request.POST = request.POST.copy()
-        request.POST["fleet_number"] = ""
-        return await self.handle_fleet_cost_record_get(request)
+            if not grouped_pallets:
+                raise ValueError(f"车次 {fleet_number} 无有效托盘数据，无法创建退回费用记录")
+
+            # 批量创建标注"退回费用"的FleetShipmentPallet记录
+            new_fleet_shipment_pallets = []
+            for group in grouped_pallets:
+                new_record = FleetShipmentPallet(
+                    fleet_number=fleet,
+                    pickup_number=fleet.pickup_number,
+                    shipment_batch_number_id=group["shipment_batch_number"],
+                    PO_ID=group["PO_ID"],
+                    total_pallet=group["actual_pallets"],
+                    container_number_id=group["container_number"],
+                    is_recorded=False,
+                    cost_input_time=datetime.now(),
+                    operator=request.user,
+                    description="退回费用"
+                )
+                new_fleet_shipment_pallets.append(new_record)
+            # 批量新增退回费用记录
+            await sync_to_async(FleetShipmentPallet.objects.bulk_create)(
+                new_fleet_shipment_pallets, batch_size=500
+            )
+        try:
+            total_pallets_in_fleet = sum(
+                [fs.total_pallet for fs in fleet_shipments if fs.total_pallet]
+            )
+            if total_pallets_in_fleet == 0:
+                raise ValueError(f"车次 {fleet_number} 下无有效托盘数，无法分摊退回费用")
+
+            total_pallets_decimal = Decimal(str(total_pallets_in_fleet))  # 转为Decimal
+            fleet_cost_back = Decimal(str(fleet_cost_back))
+            # 计算每托盘分摊金额
+            cost_per_pallet = (fleet_cost_back / total_pallets_decimal).quantize(
+                Decimal("0.00"), rounding=ROUND_HALF_UP  # 保留2位小数，财务标准
+            )
+
+            # 批量更新分摊后的费用
+            update_records = []
+            for shipment in fleet_shipments:
+                if shipment.total_pallet:
+                    shipment.expense = cost_per_pallet * Decimal(shipment.total_pallet)
+                    update_records.append(shipment)
+
+            if update_records:
+                await sync_to_async(FleetShipmentPallet.objects.bulk_update)(
+                    update_records, ["expense"], batch_size=500
+                )
+        except Exception as e:
+            # 新增/更新失败时，抛出明确异常，方便排查
+            raise RuntimeError(f"退回费用记录创建/分摊失败：{str(e)}") from e
+
 
     async def handle_fleet_cost_confirm_get_back(
             self, request: HttpRequest
@@ -1041,7 +1183,7 @@ class FleetManagement(View):
         1. fleet_cost：初始成本（不变）；fleet_cost_back：累计退回费用（单独累加）；
         2. 分摊基数 = fleet_cost + fleet_cost_back；
         3. 仅更新fleet_cost_back，不修改fleet_cost；
-        4. 按分摊基数重新计算FleetShipmentPallet的expense。
+        4. 调用专用方法创建退回费用记录，并按托盘数分摊退回费用到FleetShipmentPallet。
         """
         fleet_number = request.POST.get("fleet_number", "").strip()
         fleet_cost_back_str = request.POST.get("fleet_cost_back", "").strip()
@@ -1052,6 +1194,7 @@ class FleetManagement(View):
             raise ValueError("退回补充费用不能为空")
 
         try:
+            # 确保金额精度（保留2位小数）
             current_back_fee = Decimal(fleet_cost_back_str).quantize(Decimal("0.00"), rounding=ROUND_HALF_UP)
         except (ValueError, TypeError):
             raise ValueError("退回补充费用必须是有效数字（如 100.00）")
@@ -1061,54 +1204,21 @@ class FleetManagement(View):
         except ObjectDoesNotExist:
             raise ValueError(f"未找到车次 {fleet_number} 的记录")
 
-        # 仅更新退回费用字段（fleet_cost_back），fleet_cost保持不变
-        original_back_fee = Decimal(str(fleet.fleet_cost_back)) if fleet.fleet_cost_back else Decimal("0.00")
-        total_back_fee = (original_back_fee + current_back_fee).quantize(Decimal("0.00"), rounding=ROUND_HALF_UP)
-        fleet.fleet_cost_back = float(total_back_fee)
+        # 1. 更新Fleet的累计退回费用
+        fleet.fleet_cost_back = float(current_back_fee)
         await sync_to_async(fleet.save)()
 
-        # 计算分摊用的总成本 = 初始成本(fleet_cost) + 累计退回费用(total_back_fee)
-        original_total_fee = Decimal(str(fleet.fleet_cost)) if fleet.fleet_cost else Decimal("0.00")
-        share_total_fee = (original_total_fee + total_back_fee).quantize(Decimal("0.00"), rounding=ROUND_HALF_UP)
-
-        fleet_shipments = await sync_to_async(list)(
-            FleetShipmentPallet.objects.filter(
-                fleet_number=fleet
-            ).only("id", "PO_ID", "total_pallet", "expense", "cost_input_time", "operator")
+        # 2. 核心改动：调用专用方法创建退回费用记录并分摊费用
+        # 传入本次新增的退回费用金额（current_back_fee）
+        await self.insert_fleet_shipment_pallet_fleet_cost_back(
+            request,
+            fleet_number,
+            current_back_fee
         )
 
-        total_pallets_in_fleet = sum(
-            [fs.total_pallet for fs in fleet_shipments if fs.total_pallet and fs.total_pallet > 0]
-        )
-        if total_pallets_in_fleet == 0:
-            raise ValueError(f"车次 {fleet_number} 下的托盘记录无有效托盘数，无法分摊费用")
-
-        # 重新计算单个托盘费用
-        cost_per_pallet = (share_total_fee / Decimal(str(total_pallets_in_fleet))).quantize(Decimal("0.00"),
-                                                                                            rounding=ROUND_HALF_UP)
-        update_expense_records = []
-
-        for shipment in fleet_shipments:
-            if shipment.total_pallet and shipment.total_pallet > 0:
-                shipment.expense = float(
-                    (cost_per_pallet * Decimal(str(shipment.total_pallet))).quantize(Decimal("0.00"),
-                                                                                     rounding=ROUND_HALF_UP)
-                )
-                shipment.cost_input_time = timezone.now()
-                shipment.operator = request.user if request.user.is_authenticated else None
-                update_expense_records.append(shipment)
-
-        if update_expense_records:
-            async with transaction.atomic():
-                await sync_to_async(FleetShipmentPallet.objects.bulk_update)(
-                    update_expense_records,
-                    ["expense", "cost_input_time", "operator"],
-                    batch_size=500
-                )
-
+        # 重置请求参数，返回原有逻辑
         request.POST = request.POST.copy()
         request.POST["fleet_number"] = ""
-        # 传递关键数据给前端
         return await self.handle_fleet_cost_record_get(
             request,
             error_messages=[]
