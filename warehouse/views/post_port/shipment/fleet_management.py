@@ -2408,6 +2408,7 @@ class FleetManagement(View):
             barcode_content = f"{container_number}|{destination}"
         else:
             barcode_content = f"{arm_pro}"
+        barcode_content = barcode_content.replace('\xa0', ' ')
         my_barcode = barcode_class(
             barcode_content, writer=ImageWriter()
         )  # 将条形码转换为图像形式
