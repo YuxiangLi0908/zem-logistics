@@ -188,8 +188,12 @@
                                 </td>
                                 </form>
                             {% endif %}
-                            <td class="td" style="max-width: 120px; word-break: break-all;">{{ f.fleetshipmentpallets.cost_input_time|date:"Y-m-d" }}</td>
-                            <td class="td" style="max-width: 120px; word-break: break-all;">{{ f.fleetshipmentpallets.operator }}</td>
+                            <td class="td" style="max-width: 120px; word-break: break-all;">
+                                {{ f.pallet_cost_input_time|default_if_none:""|date:"Y-m-d" }}
+                            </td>
+                            <td class="td" style="max-width: 120px; word-break: break-all;">
+                                {{ f.pallet_operator_name|default_if_none:"" }}
+                            </td>
                         </tr>
                     </form>
                     {% endfor %}
