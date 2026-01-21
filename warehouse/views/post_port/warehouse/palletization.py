@@ -1819,6 +1819,7 @@ class Palletization(View):
                     "master_shipment_batch_number__shipment_batch_number",
                     "PO_ID",
                     "delivery_type",
+                    "shipping_mark",
                     # "delivery_window_start",
                     # "delivery_window_end",
                 )
@@ -1853,6 +1854,7 @@ class Palletization(View):
                     str_weight=Cast("weight_lbs", CharField()),
                 )
                 .values(
+                    "shipping_mark",
                     "container_number__container_number",
                     "delivery_method",
                     "destination",
