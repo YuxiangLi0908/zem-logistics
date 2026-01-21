@@ -402,6 +402,9 @@
             <div class="tab" data-tab="scheduledFleet">
                 已放行自发 <span class="badge">{{ summary.selfdel_count }}</span>
             </div> 
+            <div class="tab" data-tab="unscheduledFleet">
+                历史约 <span class="badge">{{ summary.fleet_count }}</span>
+            </div>
         </div>
 
         <!-- 已放行客提标签页 -->
@@ -412,6 +415,11 @@
         <!-- 已放行自发标签页 -->
         <div class="content-section" id="scheduledFleet-section">
             {% include 'post_port/new_sop/06_ltl_history_pos/selfdelivery.html' %}
+        </div>
+
+        <!-- 历史约标签页 -->
+        <div class="content-section" id="unscheduledFleet-section">
+            {% include 'post_port/new_sop/06_ltl_history_pos/unscheduled_fleet.html' %}
         </div>
     </div>
 </div>
@@ -428,13 +436,13 @@
     <button type="submit">提交</button>
 </form>
 
-{% include 'post_port/new_sop/05_ltl_pos_all/modal/message_modal.html' %}
-{% include 'post_port/new_sop/05_ltl_pos_all/modal/bind_shipment_modal.html' %}
-{% include 'post_port/new_sop/05_ltl_pos_all/modal/addable_po_modal.html' %}
-{% include 'post_port/new_sop/05_ltl_pos_all/modal/fleet_modal.html' %}
-{% include 'post_port/new_sop/05_ltl_pos_all/modal/abnormal_fleet.html' %}
-{% include 'post_port/new_sop/05_ltl_pos_all/modal/add_po_modal.html' %}
-{% include 'post_port/new_sop/05_ltl_pos_all/modal/departure_modal.html' %}
+{% include 'post_port/new_sop/06_ltl_history_pos/modal/message_modal.html' %}
+{% include 'post_port/new_sop/06_ltl_history_pos/modal/bind_shipment_modal.html' %}
+{% include 'post_port/new_sop/06_ltl_history_pos/modal/addable_po_modal.html' %}
+{% include 'post_port/new_sop/06_ltl_history_pos/modal/fleet_modal.html' %}
+{% include 'post_port/new_sop/06_ltl_history_pos/modal/abnormal_fleet.html' %}
+{% include 'post_port/new_sop/06_ltl_history_pos/modal/add_po_modal.html' %}
+{% include 'post_port/new_sop/06_ltl_history_pos/modal/departure_modal.html' %}
 <script>
     {% if show_add_po_modal %}
         setTimeout(function () {
@@ -474,6 +482,9 @@
                 }
                 if (activeTab === 'scheduled' && typeof initializeScheduledSection === 'function') {
                     setTimeout(initializeScheduledSection, 100);
+                }
+                if (activeTab === 'unscheduledFleet' && typeof initializeUnscheduledFleetSection === 'function') {
+                    setTimeout(initializeUnscheduledFleetSection, 100);
                 }
                 if (activeTab === 'scheduledFleet' && typeof initializeScheduledFleetSection === 'function') {
                     setTimeout(initializeScheduledFleetSection, 100);
@@ -520,6 +531,9 @@
                     }
                     if (tabName === 'scheduled' && typeof initializeScheduledSection === 'function') {
                         setTimeout(initializeScheduledSection, 50);
+                    }
+                    if (tabName === 'unscheduledFleet' && typeof initializeUnscheduledFleetSection === 'function') {
+                        setTimeout(initializeUnscheduledFleetSection, 50);
                     }
                     if (tabName === 'scheduledFleet' && typeof initializeScheduledFleetSection === 'function') {
                         setTimeout(initializeScheduledFleetSection, 50);

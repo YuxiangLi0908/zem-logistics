@@ -7086,10 +7086,13 @@ class PostNsop(View):
         selfpick_cargos = await self._ltl_scheduled_self_pickup(pl_criteria, plt_criteria)
         # 已放行-自发
         selfdel_cargos = await self._ltl_self_delivery(pl_criteria, plt_criteria)
+        # 历史车次
+        fleet_cargos = await self._ltl_unscheduled_data(request, warehouse, start_date, end_date)
 
         summary = {
             'selfpick_count': len(selfpick_cargos),
             'selfdel_count': len(selfdel_cargos),
+            'fleet_count': len(fleet_cargos),
         }
         if not context:
             context = {}
@@ -7100,6 +7103,7 @@ class PostNsop(View):
             'load_type_options': LOAD_TYPE_OPTIONS,
             "selfpick_cargos": selfpick_cargos,
             "selfdel_cargos": selfdel_cargos,
+            "fleet_cargos": fleet_cargos,
             "summary": summary,
             'shipment_type_options': self.shipment_type_options,
             "carrier_options": self.carrier_options,
@@ -7195,7 +7199,7 @@ class PostNsop(View):
         return self.template_ltl_pos_all, context
     
     async def _ltl_unscheduled_data(
-        self, request: HttpRequest, warehouse:str, four_major_whs: str | None = None, group: str | None = None
+        self, request: HttpRequest, warehouse:str, start_date: str | None = None, end_date: str | None = None
     ) -> tuple[str, dict[str, Any]]:
         target_date = datetime(2025, 10, 10)
         base_q = models.Q(
@@ -7206,10 +7210,27 @@ class PostNsop(View):
             shipment_type__in=['LTL', '客户自提']
         )
 
+        if start_date and end_date:
+            start_datetime = datetime.strptime(start_date, "%Y-%m-%d")
+            end_datetime = datetime.strptime(end_date, "%Y-%m-%d") + timedelta(days=1)
+            time_filter_q = models.Q(
+                models.Q(pickup_time__range=(start_datetime, end_datetime)) |
+                models.Q(shipment_appointment__range=(start_datetime, end_datetime))
+            )
+            
+        else:
+            time_filter_q = models.Q(shipment_appointment__gt=target_date)
+        base_q = base_q & time_filter_q
+
         shipment_list = await sync_to_async(list)(
             Shipment.objects.filter(base_q).order_by("pickup_time", "shipment_appointment")
         )
         for shipment in shipment_list:
+            try:
+                fleet = await sync_to_async(Fleet.objects.get)(fleet_number=shipment.fleet_number)
+                shipment.fleet_number = fleet.fleet_number
+            except ObjectDoesNotExist:
+                shipment.fleet = None
             # 从packinglist表获取唛头
             packinglist_marks = await sync_to_async(list)(
                 PackingList.objects.filter(
@@ -7231,6 +7252,18 @@ class PostNsop(View):
             # 添加唛头字段到shipment对象
             shipment.shipping_marks = all_marks  # 列表形式
             shipment.shipping_marks_display = "，".join(all_marks) if all_marks else "无唛头"  # 显示用
+            if shipment.pod_link:
+                shipment.status_display = "已上传POD"
+                shipment.status_class = "status-pod"  # 绿色
+            elif shipment.is_arrived:
+                shipment.status_display = "已送达"
+                shipment.status_class = "status-arrived"  # 蓝色
+            elif shipment.is_shipped:
+                shipment.status_display = "已出库"
+                shipment.status_class = "status-shipped"  # 黄色
+            else:
+                shipment.status_display = "待处理"
+                shipment.status_class = "status-pending"  # 灰色
         return shipment_list
     
     async def _ltl_pod_get(
