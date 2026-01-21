@@ -254,6 +254,7 @@
                                 <th>地址</th>
                                 <th>承运公司</th>
                                 <th>提货时间</th>
+                                <th></th>
                             </tr>
                         </thead>
                         <tbody>
@@ -274,12 +275,14 @@
                                     <input type="datetime-local" id="pickup-time-input" name="shipment_appointment" class="form-input" required>
                                     <div class="field-hint">自动从选中记录获取，如不同则需手动填写</div>
                                 </td>
+                                <td></td>
                             </tr>
                             <tr>
                                 <th>BOL号</th>
                                 <th>PRO号</th>
                                 <th>是否需要打印Label</th>
                                 <th>预约类型</th>
+                                <th colspan="2">是否自动排车</th>
                             </tr>
                             <tr>
                                 <td>
@@ -301,6 +304,13 @@
                                         <option value="LTL">LTL</option>
                                         <option value="SELF_PICKUP">客户自提</option>
                                     </select>
+                                </td>
+                                <td>
+                                    <select name="auto_fleet" id="auto-fleet-select" class="form-select">
+                                        <option value="true" selected>是</option>
+                                        <option value="false">否</option>
+                                    </select>
+                                    <div class="field-hint">选择"是"将自动排车</div>
                                 </td>
                             </tr>
                         </tbody>

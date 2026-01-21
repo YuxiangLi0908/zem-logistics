@@ -257,10 +257,16 @@ class PostNsop(View):
             return render(request, template, context)
         elif step == "abnormal_fleet":
             fm = FleetManagement()
-            context = await fm.handle_abnormal_fleet_post(request,'post_nsop')
             page = request.POST.get("page")
+            context = await fm.handle_abnormal_fleet_post(request,'post_nsop')
+            
             if page == "arm_appointment":
                 template, context = await self.handle_unscheduled_pos_post(request)
+            elif page == "ltl_pos_all":
+                # 把约直接取消
+                sm = ShippingManagement()
+                info = await sm.handle_cancel_abnormal_appointment_post(request,'post_nsop')     
+                template, context = await self.handle_ltl_unscheduled_pos_post(request)
             else:
                 template, context = await self.handle_fleet_schedule_post(request)
             context.update({"success_messages": '异常处理成功!'})  
@@ -3015,6 +3021,13 @@ class PostNsop(View):
         is_print_label = request.POST.get('is_print_label', 'false').strip() == 'true'
         shipment_type = request.POST.get('shipment_type', '').strip()
         warehouse = request.POST.get('warehouse')
+        auto_fleet = request.POST.get('auto_fleet', 'true').strip()
+        auto_fleet_bool = auto_fleet.lower() == 'true'
+
+        nj_shipped = False
+        if shipment_type == "客户自提" and "NJ" in warehouse: 
+            nj_shipped = True
+            auto_fleet_bool = True
         
         # 解析ID列表
         packinglist_ids = []
@@ -3039,35 +3052,36 @@ class PostNsop(View):
             context = {'error_messages':'提货时间格式错误！'}
             return await self.handle_ltl_unscheduled_pos_post(request, context)
         
-        current_time = datetime.now()
-        try:
-            shipment_appointment_dt = datetime.fromisoformat(shipment_appointment.replace('Z', ''))
-            month_day = shipment_appointment_dt.strftime("%m%d")
-        except:
-            month_day = current_time.strftime("%m%d")
-        pickupNumber = "ZEM" + "-" + warehouse + "-" + "" + month_day + carrier + destination
-        fleet = Fleet(
-            **{
-                "carrier": request.POST.get("carrier").strip(),
-                "fleet_type": shipment_type,
-                "pickup_number": pickupNumber,
-                "appointment_datetime": shipment_appointment,  # 车次的提货时间
-                "fleet_number": "FO"
-                + current_time.strftime("%m%d%H%M%S")
-                + str(uuid.uuid4())[:2].upper(),
-                "scheduled_at": current_time,
-                "total_weight": total_weight,
-                "total_cbm": total_cbm,
-                "total_pallet": total_pallet,
-                "total_pcs": total_pcs,
-                "origin": warehouse,
-            }
-        )
-        # NJ仓的客户自提和UPS，都不需要确认出库和确认到达，客户自提需要POD上传
-        if shipment_type == "客户自提" and "NJ" in warehouse: 
-            fleet.departured_at = shipment_appointment
-            fleet.arrived_at = shipment_appointment
-        await sync_to_async(fleet.save)()
+        if auto_fleet_bool:
+            current_time = datetime.now()
+            try:
+                shipment_appointment_dt = datetime.fromisoformat(shipment_appointment.replace('Z', ''))
+                month_day = shipment_appointment_dt.strftime("%m%d")
+            except:
+                month_day = current_time.strftime("%m%d")
+            pickupNumber = "ZEM" + "-" + warehouse + "-" + "" + month_day + carrier + destination
+            fleet = Fleet(
+                **{
+                    "carrier": request.POST.get("carrier").strip(),
+                    "fleet_type": shipment_type,
+                    "pickup_number": pickupNumber,
+                    "appointment_datetime": shipment_appointment,  # 车次的提货时间
+                    "fleet_number": "FO"
+                    + current_time.strftime("%m%d%H%M%S")
+                    + str(uuid.uuid4())[:2].upper(),
+                    "scheduled_at": current_time,
+                    "total_weight": total_weight,
+                    "total_cbm": total_cbm,
+                    "total_pallet": total_pallet,
+                    "total_pcs": total_pcs,
+                    "origin": warehouse,
+                }
+            )
+            # NJ仓的客户自提和UPS，都不需要确认出库和确认到达，客户自提需要POD上传
+            if nj_shipped: 
+                fleet.departured_at = shipment_appointment
+                fleet.arrived_at = shipment_appointment
+            await sync_to_async(fleet.save)()
         
         if len(destination) > 8:
             destination_name = destination[:8]
@@ -3094,14 +3108,15 @@ class PostNsop(View):
             'shipment_appointment': shipment_appointment,
             'shipment_appointment_tz': shipment_appointment_tz,
             'shipment_appointment_utc': shipmentappointment_utc,
-            'fleet_number': fleet,
             'total_weight': total_weight,
             'total_cbm': total_cbm,
             'total_pallet': total_pallet,
             'total_pcs': total_pcs,
             'origin': warehouse,
         }
-        if shipment_type == "客户自提" and "NJ" in warehouse: 
+        if auto_fleet_bool:
+            shipment_data['fleet_number'] = fleet
+        if nj_shipped: 
             # 客户自提的预约完要直接跳到POD上传,时间按预计提货时间
             shipment_data.update({
                 'is_shipped': True,
@@ -3125,7 +3140,12 @@ class PostNsop(View):
                 shipment_batch_number=shipment
             )
         
-        context = {'success_messages':f'预约出库绑定成功!预约批次号是{batch_number}!'}
+        success_msg = f'预约出库绑定成功! <br>批次号是:{batch_number}!'
+        if auto_fleet_bool:
+            success_msg += ' <br>已自动排车！'
+        else:
+            success_msg += ' <br>需手动排车！'
+        context = {'success_messages': mark_safe(success_msg)}
         return await self.handle_ltl_unscheduled_pos_post(request, context)
     
     def _parse_datetime(self, datetime_string: str) -> tuple[str, str]:
@@ -3338,6 +3358,7 @@ class PostNsop(View):
     async def handle_fleet_confirmation_post(
         self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:     
+        '''确认出库界面'''
         page = request.POST.get("page")
         selected_ids_str = request.POST.get("selected_ids")
         fleet_cost = request.POST.get("fleet_cost")
@@ -3363,6 +3384,7 @@ class PostNsop(View):
             selected_ids = await sync_to_async(list)(
                 Shipment.objects.filter(appointment_id__in=selected_ids).values_list('id', flat=True)
             )
+
         request.POST = request.POST.copy()
         if selected_ids:
             #先生成fleet_number
@@ -3414,6 +3436,8 @@ class PostNsop(View):
         
         if page == "arm_appointment":
             return await self.handle_unscheduled_pos_post(request,context)
+        elif page == "ltl_unscheduledFleet":
+            return await self.handle_ltl_unscheduled_pos_post(request,context)
         return await self.handle_td_shipment_post(request, context)
 
     async def handle_appointment_time(
@@ -7121,6 +7145,9 @@ class PostNsop(View):
         selfpick_cargos = await self._ltl_scheduled_self_pickup(pl_criteria, plt_criteria)
         # 已放行-自发
         selfdel_cargos = await self._ltl_self_delivery(pl_criteria, plt_criteria)
+
+        #未排车
+        unschedule_fleet = await self._ltl_unscheduled_data(request, warehouse)
         #待出库
         ready_to_ship_data = await self._ltl_ready_to_ship_data(warehouse,request.user)
         # 待送达
@@ -7140,6 +7167,7 @@ class PostNsop(View):
             'ready_to_ship_count': len(ready_to_ship_data),
             'ready_count': len(delivery_data),
             'pod_count': len(pod_data),
+            'unfleet_count': len(unschedule_fleet),
         }
         if not context:
             context = {}
@@ -7159,11 +7187,51 @@ class PostNsop(View):
             "carrier_options": self.carrier_options,
             "abnormal_fleet_options": self.abnormal_fleet_options,
             "warehouse_name": warehouse_name,
+            'unschedule_fleet': unschedule_fleet,
         })
         active_tab = request.POST.get('active_tab')
         if active_tab:
             context.update({'active_tab':active_tab})
         return self.template_ltl_pos_all, context
+    
+    async def _ltl_unscheduled_data(
+        self, request: HttpRequest, warehouse:str, four_major_whs: str | None = None, group: str | None = None
+    ) -> tuple[str, dict[str, Any]]:
+        target_date = datetime(2025, 10, 10)
+        base_q = models.Q(
+            origin=warehouse,
+            fleet_number__isnull=True,
+            in_use=True,
+            is_canceled=False,
+            shipment_type__in=['LTL', '客户自提']
+        )
+
+        shipment_list = await sync_to_async(list)(
+            Shipment.objects.filter(base_q).order_by("pickup_time", "shipment_appointment")
+        )
+        for shipment in shipment_list:
+            # 从packinglist表获取唛头
+            packinglist_marks = await sync_to_async(list)(
+                PackingList.objects.filter(
+                    shipment_batch_number=shipment.id
+                ).values_list('shipping_mark', flat=True).distinct()
+            )
+            
+            # 从pallet表获取唛头
+            pallet_marks = await sync_to_async(list)(
+                Pallet.objects.filter(
+                    shipment_batch_number=shipment.id
+                ).values_list('shipping_mark', flat=True).distinct()
+            )
+            
+            # 合并并去重唛头
+            all_marks = set(packinglist_marks + pallet_marks)
+            all_marks = [mark for mark in all_marks if mark]  # 过滤空值
+            
+            # 添加唛头字段到shipment对象
+            shipment.shipping_marks = all_marks  # 列表形式
+            shipment.shipping_marks_display = "，".join(all_marks) if all_marks else "无唛头"  # 显示用
+        return shipment_list
     
     async def _ltl_pod_get(
         self, warehouse:str,

@@ -684,6 +684,7 @@
                             <th>总卡板数</th>
                             <th>一提两卸</th>
                             <th>备注</th>
+                            <th>车次成本</th>
                             <th>实际送达时间</th>
                             <th>车次异常</th>
                         </tr>
@@ -699,6 +700,7 @@
                             <td><input type="text" class="header-search" placeholder="搜索卡板数" data-column="8"></td>
                             <td><input type="text" class="header-search" placeholder="搜索一提两卸" data-column="9"></td>
                             <td><input type="text" class="header-search" placeholder="搜索备注" data-column="10"></td>
+                            <td><input type="text" class="header-search" placeholder="搜索成本" data-column="11"></td>
                             <td></td>
                             <td></td>
                         </tr>
@@ -729,6 +731,13 @@
                                 {% endif %}
                             </td>
                             <td style="max-width: 120px; word-break: break-all;">{{ s.fleet_number.note|default_if_none:"" }}</td>
+                            <td style="max-width: 120px; word-break: break-all;">
+                                {% if s.fleet_number.fleet_cost %}
+                                    {{ s.fleet_number.fleet_cost }}
+                                {% else %}
+                                    <span style="color: #6c757d; font-style: italic;">未录入</span>
+                                {% endif %}
+                            </td>
                             <td>
                                 <form method="post" enctype="multipart/form-data" action="" style="display: flex; gap: 5px; align-items: center;">
                                     {% csrf_token %}
@@ -741,7 +750,7 @@
                                 </form>
                             </td>
                             <td>
-                                <button type="button" class="table-btn btn-danger-small" onclick="abnormalPopUp('{{ s.fleet_number.fleet_number }}','{{ s.shipment_batch_number }}')">异常</button>
+                                <button type="button" class="table-btn btn-danger-small" onclick="abnormalPopUp('{{ s.fleet_number.fleet_number }}','{{ s.shipment_batch_number }}','{{ s.fleet_number.fleet_cost }}')">异常</button>
                             </td>
                         </tr>
                         {% endfor %}
@@ -829,57 +838,7 @@
 {% include 'post_port/new_sop/03_fleet_schedule/modals/departure_modal.html' %}
 {% include 'post_port/new_sop/03_fleet_schedule/modals/reschedule_modal.html' %}
 {% include 'post_port/new_sop/03_fleet_schedule/modals/message_modal.html' %}
-
-<div id="abnormalModal" class="modal">
-    <div class="modal-content" style="max-width: 500px;">
-        <span class="close-btn" onclick="closeAbnormalModal()">&times;</span>
-        <h4 style="color: var(--secondary-color); margin-bottom: 20px;">
-        <i class="fas fa-exclamation-triangle"></i> 车次异常报告
-        </h4>
-        <form method="post" enctype="multipart/form-data" action="">
-        {% csrf_token %}
-        <input type="hidden" name="step" value="abnormal_fleet">
-        <input type="hidden" name="warehouse" value="{{ warehouse }}">
-        <input type="hidden" name="fleet_number" id="abnormalFleetNumber" value="">
-        <input type="hidden" name="shipment_batch_number" id="abnormalShipmentNumber" value="">
-        
-        <div class="table-container" style="margin-bottom: 20px;">
-            <table class="data-table">
-            <thead>
-                <tr>
-                <th>异常状态</th>
-                <th>异常说明</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr>
-                <td>
-                    <select name="abnormal_status" class="table-input" style="width: 100%;" required>
-                    <option value="">请选择异常状态</option>
-                    {% for k, v in abnormal_fleet_options.items %}
-                    <option value="{{ v }}">{{ k }}</option>
-                    {% endfor %}
-                    </select>
-                </td>
-                <td>
-                    <input type="text" name="abnormal_description" class="table-input" style="width: 100%;" placeholder="请输入异常说明..." required>
-                </td>
-                </tr>
-            </tbody>
-            </table>
-        </div>
-        
-        <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
-            <button type="submit" class="action-btn btn-success">
-            <i class="fas fa-check"></i> 确认提交
-            </button>
-            <button type="button" class="action-btn btn-danger" onclick="closeAbnormalModal()">
-            <i class="fas fa-times"></i> 取消
-            </button>
-        </div>
-        </form>
-    </div>
-</div>
+{% include 'post_port/new_sop/03_fleet_schedule/modals/abnormal_fleet.html' %}
 
 <!-- 隐藏表单需要修改以支持大组匹配 -->
 <form method="post" action="" id="actionForm" style="display: none;">
@@ -1500,10 +1459,11 @@
         });
     }
 
-    function abnormalPopUp(fleetNumber, shipmentNumber) {
+    function abnormalPopUp(fleetNumber, shipmentNumber,fleetCost) {
         // 设置异常弹窗中的隐藏字段值
         document.getElementById('abnormalFleetNumber').value = fleetNumber;
         document.getElementById('abnormalShipmentNumber').value = shipmentNumber;
+        document.getElementById('abnormalFleetCost').value = fleetCost;
         
         // 显示异常弹窗
         document.getElementById('abnormalModal').style.display = 'block';

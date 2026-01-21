@@ -150,6 +150,7 @@
             <th style="width:80px;">件数</th> 
             <th style="min-width:200px;">物流跟踪</th> 
             <th>备注</th>
+            <th>车次成本</th>
             <th>实际送达时间</th>
             <th>车次异常</th>
         </tr>
@@ -162,6 +163,7 @@
             <td><input type="text" class="header-search" placeholder="搜索件数" data-column="5"></td>
             <td><input type="text" class="header-search" placeholder="搜索物流跟踪" data-column="6"></td>
             <td><input type="text" class="header-search" placeholder="搜索备注" data-column="7"></td>
+            <td><input type="text" class="header-search" placeholder="搜索成本" data-column="8"></td>
             <td></td>
             <td></td>
         </tr>
@@ -201,6 +203,13 @@
                 </form>
             </td>
             <td style="max-width: 120px; word-break: break-all;">{{ s.fleet_number.note|default_if_none:"" }}</td>
+            <td style="max-width: 120px; word-break: break-all;">
+                {% if s.fleet_number.fleet_cost %}
+                    {{ s.fleet_number.fleet_cost }}
+                {% else %}
+                    <span style="color: #6c757d; font-style: italic;">未录入</span>
+                {% endif %}
+            </td>
             <td>
                 <form method="post" enctype="multipart/form-data" action="" style="display: flex; gap: 5px; align-items: center;">
                     {% csrf_token %}
@@ -215,7 +224,7 @@
                 </form>
             </td>
             <td>
-                <button type="button" class="table-btn btn-danger-small" onclick="abnormalPopUp('{{ s.fleet_number.fleet_number }}','{{ s.shipment_batch_number }}')">异常</button>
+                <button type="button" class="table-btn btn-danger-small" onclick="abnormalPopUp('{{ s.fleet_number.fleet_number }}','{{ s.shipment_batch_number }}','{{ s.fleet_number.fleet_cost }}')">异常</button>
             </td>
         </tr>
         {% endfor %}
@@ -275,10 +284,11 @@
         }
     }
 
-    function abnormalPopUp(fleetNumber, batchNumber) {
+    function abnormalPopUp(fleetNumber, batchNumber,fleet_cost) {
         // 设置隐藏字段的值
         document.getElementById('abnormalFleetNumber').value = fleetNumber;
         document.getElementById('abnormalShipmentNumber').value = batchNumber;
+        document.getElementById('abnormalFleetCost').value = fleet_cost;
         
         // 显示弹框
         document.getElementById('abnormalModal').style.display = 'block';
