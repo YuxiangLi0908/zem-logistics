@@ -1243,23 +1243,18 @@ class ReceivableAccounting(View):
             context = {'error_messages':'未选择任何账单！'}
             return self.handle_confirm_entry_post(request,context)
 
-        selected_orders = list(
-            Invoicev2.objects.filter(id__in=invoice_id_list)
-            .values_list("container_number__container_number", flat=True)
-        )
+        invoices = Invoicev2.objects.filter(id__in=invoice_id_list).select_related(
+            "container_number", "customer"
+        )    
 
-        if selected_orders:
-            order = Order.objects.select_related(
-                "customer_name", "container_number", "invoice_id"
-            ).filter(container_number__container_number__in=selected_orders)
-            order_id = [o.id for o in order]
-            customer = order[0].customer_name
+        if invoices:
+            customer = invoices[0].customer
             current_date = datetime.now().date().strftime("%Y-%m-%d")
             invoice_statement_id = (
-                f"{current_date.replace('-', '')}S{customer.id}{max(order_id)}"
+                f"{current_date.replace('-', '')}S{customer.id}{max(invoice_id_list)}"
             )
             context = {
-                "order": order,
+                "invoices": invoices,  # 注意：这里传的是 invoices
                 "customer": customer,
                 "invoice_statement_id": invoice_statement_id,
                 "current_date": current_date,
@@ -1267,7 +1262,8 @@ class ReceivableAccounting(View):
             }
             return render(request, self.template_invoice_statement, context)
         else:
-            template, context = self.handle_confirm_entry_post(request)
+            context = {'error_messages': '未找到对应的账单记录！'}
+            template, context = self.handle_confirm_entry_post(request, context)
             return render(request, template, context)
 
 
