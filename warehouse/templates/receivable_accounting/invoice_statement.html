@@ -110,27 +110,28 @@
                 </tr>
             </thead>
             <tbody>
-                {% for o in order %}
+                {% for inv in invoices %}
                     <tr>
                         <td colspan="4" style="text-align: center;">
-                            TRANSFER CONTAINER FEE {{ o.container_number }} INV# {{ o.invoice_id.invoice_number }}
-                            <input type="hidden" name="container_number" value="{{ o.container_number }}">
-                            <input type="hidden" name="invoice_number" value="{{ o.invoice_id.invoice_number }}">
+                            TRANSFER CONTAINER FEE {{ inv.container_number.container_number }} INV# {{ inv.invoice_number }}
+
+                            <input type="hidden" name="container_number" value="{{ inv.container_number.container_number }}">
+                            <input type="hidden" name="invoice_number" value="{{ inv.invoice_number }}">
                         </td>
                         <td style="text-align: center;">
                             {% if invoice_type == 'receivable' %}
-                                $<input type="number" name="rate" step=0.01 value="{{ o.invoice_id.receivable_total_amount}}">
+                                $<input type="number" name="rate" step=0.01 value="{{ inv.receivable_total_amount}}">
                             {% elif invoice_type == 'payable' %}
-                                $<input type="number" name="rate" step=0.01 value="{{ o.invoice_id.payable_total_amount}}">
+                                $<input type="number" name="rate" step=0.01 value="{{ inv.payable_total_amount}}">
                             {% else%}
                                 缺少账单类型-{{invoice_type}}
                             {% endif %}
                         </td>
                         <td style="text-align: center;">
                             {% if invoice_type == 'receivable' %}
-                                $<input type="number" name="amount" step=0.01 value="{{ o.invoice_id.receivable_total_amount}}" oninput="updateStatementAmount(this)">
+                                $<input type="number" name="amount" step=0.01 value="{{ inv.receivable_total_amount }}" oninput="updateStatementAmount(this)">
                             {% elif invoice_type == 'payable' %}
-                                $<input type="number" name="amount" step=0.01 value="{{ o.invoice_id.payable_total_amount}}" oninput="updateStatementAmount(this)">
+                                $<input type="number" name="amount" step=0.01 value="{{ inv.payable_total_amount}}" oninput="updateStatementAmount(this)">
                             {% else%}
                                 缺少账单类型-{{invoice_type }}
                             {% endif %}
