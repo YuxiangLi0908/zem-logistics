@@ -7805,7 +7805,7 @@ class Accounting(View):
             # 待审核账单 已审核账单
             order_pending, pre_order_pending =self.get_orders_v1(order_exists_subquery, order_prefetch_queryset)
 
-        if not is_payable_check or request.user.is_staff:
+        if is_payable_check or request.user.is_staff:
             # 1. 合并待录入+已录入查询，一次获取所有数据
             combined_query = (
                 InvoiceStatusv2.objects.select_related(
