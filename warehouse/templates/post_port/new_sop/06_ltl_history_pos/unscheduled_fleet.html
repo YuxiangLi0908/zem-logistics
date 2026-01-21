@@ -95,28 +95,6 @@
         min-width: 300px;
     }
     
-    /* 表格样式调整 */
-    .data-table {
-        width: 100%;
-        border-collapse: collapse;
-        margin-top: 10px;
-        font-size: 0.85rem;
-    }
-    
-    .data-table th,
-    .data-table td {
-        padding: 8px 6px;
-        border: 1px solid #dee2e6;
-        vertical-align: middle;
-    }
-    
-    .data-table th {
-        background-color: #f8f9fa;
-        font-weight: 600;
-        text-align: left;
-        white-space: nowrap;
-    }
-    
     .table-container {
         overflow-x: auto;
         border-radius: 6px;
@@ -141,7 +119,7 @@
     </div>
 </div>
 
-{% if unschedule_fleet %}
+{% if fleet_cargos %}
 <div class="table-container">
     <table class="data-table">
         <thead>
@@ -184,7 +162,7 @@
                     <input type="hidden" name="shipment_ids" value='{{ s.id }}'>
                 </td>
                 <td style="word-break: break-word;">
-                    {{ s.fleet_number_display|default:"" }}
+                    {{ s.fleet_display_name|default:"" }}
                 </td>
                 <td style="word-break: break-word;">
                     {% if s.batch > 0 %}

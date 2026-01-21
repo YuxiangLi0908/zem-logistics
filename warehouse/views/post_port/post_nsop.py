@@ -7221,16 +7221,17 @@ class PostNsop(View):
         else:
             time_filter_q = models.Q(shipment_appointment__gt=target_date)
         base_q = base_q & time_filter_q
-
+        base_q = models.Q()
         shipment_list = await sync_to_async(list)(
-            Shipment.objects.filter(base_q).order_by("pickup_time", "shipment_appointment")
+            Shipment.objects.filter(base_q).select_related("fleet_number").order_by("pickup_time", "shipment_appointment")
         )
         for shipment in shipment_list:
-            try:
-                fleet = await sync_to_async(Fleet.objects.get)(fleet_number=shipment.fleet_number)
-                shipment.fleet_number = fleet.fleet_number
-            except ObjectDoesNotExist:
-                shipment.fleet = None
+            shipment.fleet_display_name = None
+            if shipment.fleet_number:
+                try:
+                    shipment.fleet_display_name = shipment.fleet_number.fleet_number
+                except ObjectDoesNotExist:
+                    shipment.fleet_display_name = None
             # 从packinglist表获取唛头
             packinglist_marks = await sync_to_async(list)(
                 PackingList.objects.filter(
