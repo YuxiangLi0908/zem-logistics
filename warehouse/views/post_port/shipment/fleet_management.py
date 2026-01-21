@@ -2890,6 +2890,12 @@ class FleetManagement(View):
             fleet.status_description = f"{status}-{description}"
             if abnormal_cost is not None:
                 fleet.fleet_cost_back = float(abnormal_cost)
+                # 分摊退回费用金额
+                await self.insert_fleet_shipment_pallet_fleet_cost_back(
+                    request,
+                    fleet.fleet_number,
+                    abnormal_cost
+                )
 
         if not shipment.previous_fleets:
             shipment.previous_fleets = fleet.fleet_number

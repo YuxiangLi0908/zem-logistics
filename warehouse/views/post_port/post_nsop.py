@@ -3421,6 +3421,10 @@ class PostNsop(View):
                 'total_pcs': total_pcs,
                 'fleet_cost': fleet_cost_value,
             }
+            # 分摊成本
+            await FleetManagement.self.insert_fleet_shipment_pallet_fleet_cost(
+                request, fleet_number, fleet_cost_value
+            )
             request.POST['fleet_number'] = fleet_number
             request.POST['fleet_type'] = fleet_type
         request.POST['fleet_data'] = str(fleet_data_dict)
