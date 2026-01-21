@@ -5845,6 +5845,8 @@ class ReceivableAccounting(View):
         context = {}
         po_id = group.get("PO_ID")
         delivery_method = group.get("delivery_method", "")
+        if not delivery_method:
+            raise ValueError("板子的派送方式是空的，联系客服！")
         warehouse = order.retrieval_id.retrieval_destination_area
 
         # 获取结果，如果为空则设置为0.0
