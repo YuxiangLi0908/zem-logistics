@@ -53,7 +53,7 @@
                     </button>
                 </div>
             </div>
-            <input type="hidden" name="step" value="fleet_cost">
+            <input type="hidden" name="step" value="fleet_cost_record">
         </form>
     </div>
 
@@ -69,7 +69,7 @@
                 <span style="font-size: 20px; font-weight: 700; 
                         text-shadow: 1px 1px 0 #fff, 2px 2px 0 rgba(255,77,79,0.3);
                         color: #ff4d4f;">
-                    派送成本录入
+                    派送成本录入-{{ shipment_type }}
                 </span>
                 <span class="badge" style="
                     display: inline-block;
@@ -83,7 +83,7 @@
                     box-shadow: 0 1px 3px rgba(0,0,0,0.1);
                 ">{{ fleet|length }}条</span>
             </h3>
-            <form method="post" enctype="multipart/form-data" style="font - size:11px;float: right;">   
+            <form method="post" enctype="multipart/form-data" style="font-size:11px;float: right;">
                 {% csrf_token %}
                 <input type="file" name="file">
                 <input type="hidden" name="step" value="upload_fleet_cost">
@@ -117,6 +117,11 @@
                         <th class="th">总CBM</th>
                         <th class="th">总卡板数</th>
                         <th class="th">备注</th>                      
+                        {% if shipment_type == '已录入内容' %}
+                            <th class="th">退回费用</th>
+                        {% endif %}
+                        <th class="th">录入时间</th>
+                        <th class="th">操作人</th>
                     </tr>
                     <tr style="position: sticky;" id="fleet-table-filter">
                         <th class="th"><input type="text" placeholder="搜索PickUp Number..." size="13" style="font-size: 11px;"></th>
@@ -129,6 +134,11 @@
                         <th class="th"></th>
                         <th class="th"></th>
                         <th class="th"></th>
+                        <th class="th"></th>
+                        <th class="th"></th>
+                        {% if shipment_type == '已录入内容' %}
+                            <th class="th"></th>
+                        {% endif %}
                         <th class="th"></th>
                         <th class="th"></th>
                     </tr>
@@ -164,7 +174,17 @@
                             <td class="td">{{ f.shipped_cbm|floatformat:2 }}</td>
                             <td class="td">{{ f.shipped_pallet|floatformat:0 }}</td>
                             <td class="td" style="max-width: 120px; word-break: break-all;">{{ f.note|default_if_none:"" }}</td>
-                        </tr>            
+                            {% if shipment_type == '已录入内容' %}
+                                <td class="td" style="max-width: 120px; word-break: break-all;">
+                                    <input type="number" width="50px" name="fleet_cost_back" value="{{ f.fleet_number.fleet_cost_back }}">
+                                    <input type="hidden" name="fleet_number" value="{{ f.fleet_number }}">
+                                    <input type="hidden" name="step" value="fleet_cost_confirm_back">
+                                    <button type="submit" class="btn btn-success" style="font-size: 11px;">确定</button>
+                                </td>
+                            {% endif %}
+                            <td class="td" style="max-width: 120px; word-break: break-all;">{{ f.fleetshipmentpallets.cost_input_time|date:"Y-m-d" }}</td>
+                            <td class="td" style="max-width: 120px; word-break: break-all;">{{ f.fleetshipmentpallets.operator }}</td>
+                        </tr>
                     </form>    
                     {% endfor %}
                 </tbody>

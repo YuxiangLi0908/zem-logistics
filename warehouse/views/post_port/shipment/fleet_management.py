@@ -7,8 +7,11 @@ import platform
 import re
 import uuid
 from datetime import datetime, timedelta
+from decimal import Decimal, ROUND_HALF_UP
 from typing import Any
 import os
+
+from django.core.exceptions import ObjectDoesNotExist
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
 from reportlab.pdfbase import pdfmetrics
@@ -238,6 +241,9 @@ class FleetManagement(View):
             return render(request, template, context)
         elif step == "fleet_cost_confirm":
             template, context = await self.handle_fleet_cost_confirm_get(request)
+            return render(request, template, context)
+        elif step == "fleet_cost_confirm_back":
+            template, context = await self.handle_fleet_cost_confirm_get_back(request)
             return render(request, template, context)
         elif step == "upload_fleet_cost":
             template, context = await self.handle_upload_fleet_cost_get(request)
@@ -994,6 +1000,8 @@ class FleetManagement(View):
                     total_pallet=group["actual_pallets"],
                     container_number_id=group["container_number"],
                     is_recorded=False, #这里只是登记，没有记录到总费用，所以默认是False
+                    cost_input_time=datetime.now(),
+                    operator=request.user,
                 )
                 new_fleet_shipment_pallets.append(new_record)
 
@@ -1024,6 +1032,88 @@ class FleetManagement(View):
         request.POST["fleet_number"] = ""
         return await self.handle_fleet_cost_record_get(request)
 
+    async def handle_fleet_cost_confirm_get_back(
+            self, request: HttpRequest
+    ) -> tuple[Any, Any]:
+        """
+        成本录入-退回费用再次录入
+        核心规则：
+        1. fleet_cost：初始成本（不变）；fleet_cost_back：累计退回费用（单独累加）；
+        2. 分摊基数 = fleet_cost + fleet_cost_back；
+        3. 仅更新fleet_cost_back，不修改fleet_cost；
+        4. 按分摊基数重新计算FleetShipmentPallet的expense。
+        """
+        fleet_number = request.POST.get("fleet_number", "").strip()
+        fleet_cost_back_str = request.POST.get("fleet_cost_back", "").strip()
+
+        if not fleet_number:
+            raise ValueError("车次编号不能为空")
+        if not fleet_cost_back_str:
+            raise ValueError("退回补充费用不能为空")
+
+        try:
+            current_back_fee = Decimal(fleet_cost_back_str).quantize(Decimal("0.00"), rounding=ROUND_HALF_UP)
+        except (ValueError, TypeError):
+            raise ValueError("退回补充费用必须是有效数字（如 100.00）")
+
+        try:
+            fleet = await sync_to_async(Fleet.objects.get)(fleet_number=fleet_number)
+        except ObjectDoesNotExist:
+            raise ValueError(f"未找到车次 {fleet_number} 的记录")
+
+        # 仅更新退回费用字段（fleet_cost_back），fleet_cost保持不变
+        original_back_fee = Decimal(str(fleet.fleet_cost_back)) if fleet.fleet_cost_back else Decimal("0.00")
+        total_back_fee = (original_back_fee + current_back_fee).quantize(Decimal("0.00"), rounding=ROUND_HALF_UP)
+        fleet.fleet_cost_back = float(total_back_fee)
+        await sync_to_async(fleet.save)()
+
+        # 计算分摊用的总成本 = 初始成本(fleet_cost) + 累计退回费用(total_back_fee)
+        original_total_fee = Decimal(str(fleet.fleet_cost)) if fleet.fleet_cost else Decimal("0.00")
+        share_total_fee = (original_total_fee + total_back_fee).quantize(Decimal("0.00"), rounding=ROUND_HALF_UP)
+
+        fleet_shipments = await sync_to_async(list)(
+            FleetShipmentPallet.objects.filter(
+                fleet_number=fleet
+            ).only("id", "PO_ID", "total_pallet", "expense", "cost_input_time", "operator")
+        )
+
+        total_pallets_in_fleet = sum(
+            [fs.total_pallet for fs in fleet_shipments if fs.total_pallet and fs.total_pallet > 0]
+        )
+        if total_pallets_in_fleet == 0:
+            raise ValueError(f"车次 {fleet_number} 下的托盘记录无有效托盘数，无法分摊费用")
+
+        # 重新计算单个托盘费用
+        cost_per_pallet = (share_total_fee / Decimal(str(total_pallets_in_fleet))).quantize(Decimal("0.00"),
+                                                                                            rounding=ROUND_HALF_UP)
+        update_expense_records = []
+
+        for shipment in fleet_shipments:
+            if shipment.total_pallet and shipment.total_pallet > 0:
+                shipment.expense = float(
+                    (cost_per_pallet * Decimal(str(shipment.total_pallet))).quantize(Decimal("0.00"),
+                                                                                     rounding=ROUND_HALF_UP)
+                )
+                shipment.cost_input_time = timezone.now()
+                shipment.operator = request.user if request.user.is_authenticated else None
+                update_expense_records.append(shipment)
+
+        if update_expense_records:
+            async with transaction.atomic():
+                await sync_to_async(FleetShipmentPallet.objects.bulk_update)(
+                    update_expense_records,
+                    ["expense", "cost_input_time", "operator"],
+                    batch_size=500
+                )
+
+        request.POST = request.POST.copy()
+        request.POST["fleet_number"] = ""
+        # 传递关键数据给前端
+        return await self.handle_fleet_cost_record_get(
+            request,
+            error_messages=[]
+        )
+
     async def handle_fleet_cost_record_get(
         self, request: HttpRequest, error_messages=None, success_count=0
     ) -> tuple[str, dict[str, Any]]:
@@ -1032,7 +1122,9 @@ class FleetManagement(View):
         batch_number = request.POST.get("batch_number", "")
         area = request.POST.get("area") or None
         status = request.POST.get("status", "")
+        shipment_type = None
         if status != "record":
+            # 已录入
             criteria = models.Q(
                 pod_uploaded_at__isnull=False,
                 shipped_at__isnull=False,
@@ -1040,8 +1132,9 @@ class FleetManagement(View):
                 shipment_schduled_at__gte="2025-05-01",
                 fleet_number__fleet_cost__isnull=False,
             )
-            
+            shipment_type = '已录入内容'
         else:
+            # 未录入
             criteria = models.Q(
                 pod_uploaded_at__isnull=False,
                 shipped_at__isnull=False,
@@ -1049,6 +1142,7 @@ class FleetManagement(View):
                 shipment_schduled_at__gte="2025-05-01",
                 fleet_number__fleet_cost__isnull=True,
             )
+            shipment_type = '未录入内容'
         if pickup_number:
             criteria &= models.Q(fleet_number__pickup_number=pickup_number)
         if fleet_number:
@@ -1060,10 +1154,12 @@ class FleetManagement(View):
 
         shipment = await sync_to_async(list)(
             Shipment.objects.select_related("fleet_number")
+            .prefetch_related("fleetshipmentpallets")
             .filter(criteria)
             .order_by("shipped_at")
         )
         context = {
+            "shipment_type": shipment_type,
             "pickup_number": pickup_number,
             "fleet_number": fleet_number,
             "batch_number": batch_number,

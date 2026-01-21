@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.db import models
 from simple_history.models import HistoricalRecords
 
@@ -15,7 +16,7 @@ class FleetShipmentPallet(models.Model):
     )
     pickup_number = models.CharField(max_length=255, null=True, blank=True)
     shipment_batch_number = models.ForeignKey(
-        Shipment, null=True, blank=True, on_delete=models.SET_NULL
+        Shipment, null=True, blank=True, on_delete=models.SET_NULL, related_name="fleetshipmentpallets"
     )
     transfer_number = models.ForeignKey(
         TransferLocation, null=True, blank=True, on_delete=models.SET_NULL
@@ -25,6 +26,20 @@ class FleetShipmentPallet(models.Model):
     total_pallet = models.FloatField(null=True, default=0)
     expense = models.FloatField(null=True, blank=True)
     is_recorded = models.BooleanField(default=False, verbose_name="是否已记录")
+    cost_input_time = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="成本录入时间",
+        help_text="录入/更新该批次成本的时间"
+    )
+    operator = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        verbose_name="操作人员",
+        help_text="录入/更新成本的操作人员"
+    )
     history = HistoricalRecords()
 
     def __str__(self) -> str:
