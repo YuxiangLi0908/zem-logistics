@@ -1248,7 +1248,17 @@ class ReceivableAccounting(View):
         )    
 
         if invoices:
-            customer = invoices[0].customer
+            first_invoice = invoices[0]
+            customer = first_invoice.customer
+            if not customer:
+                related_order = Order.objects.filter(
+                    container_number=first_invoice.container_number
+                ).select_related("customer_name").first()
+                
+                if related_order:
+                    customer = related_order.customer_name
+            if not customer:
+                raise ValueError("缺少客户信息")
             current_date = datetime.now().date().strftime("%Y-%m-%d")
             invoice_statement_id = (
                 f"{current_date.replace('-', '')}S{customer.id}{max(invoice_id_list)}"
