@@ -1525,6 +1525,9 @@ class OrderCreation(View):
                         if fba
                         else f"H{sm[-4:] if sm else ''.join(random.choices(string.ascii_letters.upper() + string.digits, k=4))}"
                     )
+                elif dm == "客户自提" and dest != "客户自提":
+                    po_id_hkey = f"{dm}-{dest}"
+                    po_id_seg = f"SP{dest.replace(' ', '').split('-')[-1]}"
                 elif dt == "other":
                     po_id_hkey = f"{dm}-{dest}-{sm}"
                     po_id_seg = (
