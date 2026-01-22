@@ -7034,6 +7034,11 @@ class PostNsop(View):
             fleet = await sync_to_async(Fleet.objects.get)(fleet_number=fleet_number)
             fleet.fleet_cost = float(fleet_cost)
             await sync_to_async(fleet.save)()
+            #分摊成本
+            fm = FleetManagement()
+            await fm.insert_fleet_shipment_pallet_fleet_cost(
+                request, fleet_number, fleet_cost
+            )
         
         return await self.handle_ltl_unscheduled_pos_post(request)
 
