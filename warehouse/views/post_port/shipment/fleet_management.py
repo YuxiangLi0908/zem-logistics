@@ -2889,6 +2889,8 @@ class FleetManagement(View):
             fleet.status_description = f"{status}-{description}"
             if fleet_cost is not None:
                 fleet.fleet_cost = float(fleet_cost)
+                # 分摊成本
+                await self.insert_fleet_shipment_pallet_fleet_cost( request, fleet.fleet_number, fleet_cost )
             else:
                 raise ValueError("车次成本不能为空！")
             if abnormal_cost is not None:
@@ -2913,7 +2915,9 @@ class FleetManagement(View):
         
         await sync_to_async(shipment.save)()
         if fleet:
-            await sync_to_async(fleet.save)()    
+            await sync_to_async(fleet.save)()  
+
+        
         if name == "post_nsop":
             return True
         return await self.handle_delivery_and_pod_get(request)
