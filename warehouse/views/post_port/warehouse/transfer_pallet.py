@@ -98,12 +98,14 @@ class TransferPallet(View):
     async def handle_transfer_warehouse_post(
         self, request: HttpRequest
     ) -> tuple[Any, Any]:
+        '''转仓操作'''
         shipping_warehouse = request.POST.get("warehouse")
         receiving_warehouse = request.POST.get("receiving_warehouse")
         pickup_number = request.POST.get("pickup_number", None)
         shipping_time = request.POST.get("shipping_time", None)
         note = request.POST.get("note", None)
         eta = request.POST.get("ETA", None)
+        fleet_cost = request.POST.get("fleet_cost", None)
         selectedIds = request.POST.getlist("plt_ids")
         ids = []
 
@@ -158,6 +160,9 @@ class TransferPallet(View):
                 + "-"
                 + random_code
             )
+        
+        fleet_cost = float(fleet_cost) if fleet_cost else 0.0
+
         fleet = Fleet(
             **{
                 "carrier": request.POST.get("carrier").strip(),
@@ -174,6 +179,7 @@ class TransferPallet(View):
                 "total_pallet": len(pallets),
                 "total_pcs": total_pcs,
                 "origin": receiving_warehouse,
+                "fleet_cost": fleet_cost,
             }
         )
         await sync_to_async(fleet.save)()

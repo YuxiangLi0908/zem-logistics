@@ -254,7 +254,7 @@
                                 <th>地址</th>
                                 <th>承运公司</th>
                                 <th>提货时间</th>
-                                <th></th>
+                                <th>车次成本</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -275,7 +275,10 @@
                                     <input type="datetime-local" id="pickup-time-input" name="shipment_appointment" class="form-input" required>
                                     <div class="field-hint">自动从选中记录获取，如不同则需手动填写</div>
                                 </td>
-                                <td></td>
+                                <td>
+                                    <input type="text" name="fleet_cost" id="fleet_cost" class="form-input">
+                                    <div class="field-hint">需要自动排车时录入</div>
+                                </td>
                             </tr>
                             <tr>
                                 <th>BOL号</th>

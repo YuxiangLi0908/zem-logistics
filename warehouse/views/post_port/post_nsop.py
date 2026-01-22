@@ -3060,6 +3060,12 @@ class PostNsop(View):
             except:
                 month_day = current_time.strftime("%m%d")
             pickupNumber = "ZEM" + "-" + warehouse + "-" + "" + month_day + carrier + destination
+
+            fleet_cost = (request.POST.get("fleet_cost", ""))
+            if not fleet_cost:
+                fleet_cost = 0.0
+            else:
+                fleet_cost = float(fleet_cost)
             fleet = Fleet(
                 **{
                     "carrier": request.POST.get("carrier").strip(),
@@ -3075,6 +3081,7 @@ class PostNsop(View):
                     "total_pallet": total_pallet,
                     "total_pcs": total_pcs,
                     "origin": warehouse,
+                    "fleet_cost": fleet_cost,
                 }
             )
             # NJ仓的客户自提和UPS，都不需要确认出库和确认到达，客户自提需要POD上传
