@@ -1,61 +1,381 @@
 <div id="abnormalModal" class="modal">
-    <div class="modal-content" style="max-width: 500px; padding: 30px;">
-        <span class="close-btn" onclick="closeAbnormalModal()" style="
-            position: absolute;
-            top: 15px;
-            right: 20px;
-            font-size: 28px;
-            font-weight: bold;
-            cursor: pointer;
-            color: #aaa;
-            line-height: 1;
-        ">&times;</span>
-        <h4 style="color: var(--secondary-color); margin-bottom: 20px;">
-        <i class="fas fa-exclamation-triangle"></i> 车次异常报告
-        </h4>
-        <form method="post" enctype="multipart/form-data" action="">
-        {% csrf_token %}
-        <input type="hidden" name="step" value="abnormal_fleet">
-        <input type="hidden" name="warehouse" value="{{ warehouse }}">
-        <input type="hidden" name="fleet_number" id="abnormalFleetNumber" value="">
-        <input type="hidden" name="page" value="arm_appointment">
-        <input type="hidden" name="active_tab" value="ready">
-        <input type="hidden" name="shipment_batch_number" id="abnormalShipmentNumber" value="">
-        
-        <div class="table-container" style="margin-bottom: 20px;">
-            <table class="data-table">
-            <thead>
-                <tr>
-                <th>异常状态</th>
-                <th>异常说明</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr>
-                <td>
-                    <select name="abnormal_status" class="table-input" style="width: 100%;" required>
-                    <option value="">请选择异常状态</option>
-                    {% for k, v in abnormal_fleet_options.items %}
-                    <option value="{{ v }}">{{ k }}</option>
-                    {% endfor %}
-                    </select>
-                </td>
-                <td>
-                    <input type="text" name="abnormal_description" class="table-input" style="width: 100%;" placeholder="请输入异常说明..." required>
-                </td>
-                </tr>
-            </tbody>
-            </table>
+    <div class="modal-content" style="max-width: 600px; padding: 25px; border-radius: 8px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid #eee;">
+            <h4 style="color: var(--secondary-color); margin: 0;">
+                <i class="fas fa-exclamation-triangle" style="color: #f39c12; margin-right: 8px;"></i> 车次异常报告
+            </h4>
+            <span class="close-btn" onclick="closeAbnormalModal()" style="
+                font-size: 24px;
+                font-weight: bold;
+                cursor: pointer;
+                color: #999;
+                line-height: 1;
+                transition: color 0.2s;
+            ">&times;</span>
         </div>
         
-        <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
-            <button type="submit" class="action-btn btn-success">
-            <i class="fas fa-check"></i> 确认提交
-            </button>
-            <button type="button" class="action-btn btn-danger" onclick="closeAbnormalModal()">
-            <i class="fas fa-times"></i> 取消
-            </button>
-        </div>
+        <form id="abnormalForm" method="post" enctype="multipart/form-data" action="">
+            {% csrf_token %}
+            <input type="hidden" name="step" value="abnormal_fleet">
+            <input type="hidden" name="warehouse" value="{{ warehouse }}">
+            <input type="hidden" name="fleet_number" id="abnormalFleetNumber" value="">
+            <input type="hidden" name="page" value="arm_appointment">
+            <input type="hidden" name="active_tab" value="ready">
+            <input type="hidden" name="shipment_batch_number" id="abnormalShipmentNumber" value="">
+            
+            <div class="table-container" style="margin-bottom: 20px;">
+                <table class="data-table" style="width: 100%; border-collapse: collapse;">
+                    <thead>
+                        <tr style="background-color: #f8f9fa;">
+                            <th style="padding: 12px 15px; text-align: left; font-weight: 600; width: 30%;">字段</th>
+                            <th style="padding: 12px 15px; text-align: left; font-weight: 600; width: 70%;">内容</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- 异常状态 -->
+                        <tr>
+                            <td style="padding: 12px 15px; background-color: #fafafa; border-bottom: 1px solid #eee;">
+                                <span style="font-weight: 500; color: #333;">异常状态</span>
+                            </td>
+                            <td style="padding: 12px 15px; border-bottom: 1px solid #eee;">
+                                <select name="abnormal_status" id="abnormalStatus" 
+                                        style="width: 100%; padding: 8px 10px; border: 1px solid #ddd; border-radius: 4px;" 
+                                        required>
+                                    <option value="">请选择异常状态</option>
+                                    {% for k, v in abnormal_fleet_options.items %}
+                                    <option value="{{ v }}">{{ k }}</option>
+                                    {% endfor %}
+                                </select>
+                            </td>
+                        </tr>
+                        
+                        <!-- 异常说明 -->
+                        <tr>
+                            <td style="padding: 12px 15px; background-color: #fafafa; border-bottom: 1px solid #eee;">
+                                <span style="font-weight: 500; color: #333;">异常说明</span>
+                            </td>
+                            <td style="padding: 12px 15px; border-bottom: 1px solid #eee;">
+                                <input type="text" name="abnormal_description" id="abnormalDescription" 
+                                       style="width: 100%; padding: 8px 10px; border: 1px solid #ddd; border-radius: 4px;" 
+                                       placeholder="请输入异常说明..." 
+                                       required>
+                            </td>
+                        </tr>
+                        
+                        <!-- 车次成本 -->
+                        <tr>
+                            <td style="padding: 12px 15px; background-color: #fafafa; border-bottom: 1px solid #eee;">
+                                <span style="font-weight: 500; color: #333;">车次成本</span>
+                            </td>
+                            <td style="padding: 12px 15px; border-bottom: 1px solid #eee;">
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <input type="number" 
+                                           name="fleet_cost" 
+                                           id="abnormalFleetCost" 
+                                           style="flex: 1; padding: 8px 10px; border: 1px solid #ddd; border-radius: 4px;" 
+                                           step="0.01" 
+                                           min="0" 
+                                           placeholder="请输入车次成本" 
+                                           required>
+                                    <span style="color: #666; font-size: 14px;"></span>
+                                </div>
+                            </td>
+                        </tr>
+                        
+                        <!-- 异常费用 -->
+                        <tr>
+                            <td style="padding: 12px 15px; background-color: #fafafa;">
+                                <span style="font-weight: 500; color: #333;">异常费用</span>
+                            </td>
+                            <td style="padding: 12px 15px;">
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <input type="number" 
+                                           name="abnormal_cost" 
+                                           id="abnormalCost" 
+                                           style="flex: 1; padding: 8px 10px; border: 1px solid #ddd; border-radius: 4px;" 
+                                           step="0.01" 
+                                           min="0" 
+                                           placeholder="请输入异常费用" 
+                                           required>
+                                    <span style="color: #666; font-size: 14px;"></span>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            
+            <div style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 25px; padding-top: 20px; border-top: 1px solid #eee;">
+                <button type="button" class="action-btn" onclick="closeAbnormalModal()" 
+                        style="padding: 8px 16px; background-color: #f8f9fa; border: 1px solid #ddd; color: #333; border-radius: 4px;">
+                    取消
+                </button>
+                <button type="submit" class="action-btn" id="submitAbnormalBtn"
+                        style="padding: 8px 20px; background-color: #28a745; color: white; border: none; border-radius: 4px;">
+                    确认提交
+                </button>
+            </div>
         </form>
     </div>
 </div>
+
+<script>
+// 打开异常模态框
+function openAbnormalModal(fleetNumber, shipmentNumber, fleetCost) {
+    
+    // 设置隐藏字段的值
+    document.getElementById('abnormalFleetNumber').value = fleetNumber || '';
+    document.getElementById('abnormalShipmentNumber').value = shipmentNumber || '';
+    
+    // 设置车次成本
+    const fleetCostInput = document.getElementById('abnormalFleetCost');
+    if (fleetCost && !isNaN(parseFloat(fleetCost))) {
+        fleetCostInput.value = parseFloat(fleetCost).toFixed(2);
+    } else {
+        fleetCostInput.value = '';
+    }
+    
+    // 清空其他字段
+    document.getElementById('abnormalStatus').value = '';
+    document.getElementById('abnormalDescription').value = '';
+    document.getElementById('abnormalCost').value = '';
+    
+    // 显示模态框
+    document.getElementById('abnormalModal').style.display = 'block';
+    
+    // 聚焦到第一个输入框
+    setTimeout(() => {
+        const statusSelect = document.getElementById('abnormalStatus');
+        if (statusSelect) statusSelect.focus();
+    }, 100);
+}
+
+// 关闭异常模态框
+function closeAbnormalModal() {
+    document.getElementById('abnormalModal').style.display = 'none';
+    // 重置表单
+    document.getElementById('abnormalForm').reset();
+}
+
+// 表单验证
+function validateAbnormalForm() {
+    const fleetCostInput = document.getElementById('abnormalFleetCost');
+    const abnormalStatusSelect = document.getElementById('abnormalStatus');
+    const abnormalDescriptionInput = document.getElementById('abnormalDescription');
+    const abnormalCostInput = document.getElementById('abnormalCost');
+    
+    // 验证车次成本
+    if (!fleetCostInput.value.trim()) {
+        alert('车次成本不能为空！');
+        fleetCostInput.focus();
+        return false;
+    }
+    
+    const fleetCost = parseFloat(fleetCostInput.value);
+    if (isNaN(fleetCost) || fleetCost < 0) {
+        alert('车次成本必须是有效的正数！');
+        fleetCostInput.focus();
+        fleetCostInput.select();
+        return false;
+    }
+    
+    // 验证异常状态
+    if (!abnormalStatusSelect.value) {
+        alert('请选择异常状态！');
+        abnormalStatusSelect.focus();
+        return false;
+    }
+    
+    // 验证异常说明
+    if (!abnormalDescriptionInput.value.trim()) {
+        alert('异常说明不能为空！');
+        abnormalDescriptionInput.focus();
+        return false;
+    }
+    
+    // 验证异常费用
+    if (!abnormalCostInput.value.trim()) {
+        alert('异常费用不能为空！');
+        abnormalCostInput.focus();
+        return false;
+    }
+    
+    const abnormalCost = parseFloat(abnormalCostInput.value);
+    if (isNaN(abnormalCost) || abnormalCost < 0) {
+        alert('异常费用必须是有效的正数！');
+        abnormalCostInput.focus();
+        abnormalCostInput.select();
+        return false;
+    }
+    
+    return true;
+}
+
+// 绑定表单提交事件
+document.addEventListener('DOMContentLoaded', function() {
+    const abnormalForm = document.getElementById('abnormalForm');
+    if (abnormalForm) {
+        abnormalForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            console.log('提交异常报告表单...');
+            
+            // 验证表单
+            if (!validateAbnormalForm()) {
+                return false;
+            }
+            
+            // 获取表单数据
+            const formData = {
+                status: document.getElementById('abnormalStatus').selectedOptions[0].text,
+                description: document.getElementById('abnormalDescription').value,
+                fleetCost: parseFloat(document.getElementById('abnormalFleetCost').value).toFixed(2),
+                abnormalCost: parseFloat(document.getElementById('abnormalCost').value).toFixed(2)
+            };
+            
+            // 显示确认对话框
+            const confirmMsg = `确认提交异常报告吗？\n\n` +
+                              `异常状态: ${formData.status}\n` +
+                              `异常说明: ${formData.description}\n` +
+                              `车次成本: ${formData.fleetCost} 元\n` +
+                              `异常费用: ${formData.abnormalCost} 元`;
+            
+            if (!confirm(confirmMsg)) {
+                return false;
+            }
+            
+            // 禁用提交按钮，防止重复提交
+            const submitBtn = document.getElementById('submitAbnormalBtn');
+            if (submitBtn) {
+                const originalText = submitBtn.innerHTML;
+                submitBtn.innerHTML = '提交中...';
+                submitBtn.disabled = true;
+                
+                // 5秒后恢复按钮
+                setTimeout(() => {
+                    submitBtn.innerHTML = originalText;
+                    submitBtn.disabled = false;
+                }, 5000);
+            }
+            
+            // 提交表单
+            this.submit();
+        });
+    }
+    
+    // 输入时格式化数值（保留两位小数）
+    const fleetCostInput = document.getElementById('abnormalFleetCost');
+    const abnormalCostInput = document.getElementById('abnormalCost');
+    
+    if (fleetCostInput) {
+        fleetCostInput.addEventListener('blur', function() {
+            if (this.value && !isNaN(parseFloat(this.value))) {
+                this.value = parseFloat(this.value).toFixed(2);
+            }
+        });
+    }
+    
+    if (abnormalCostInput) {
+        abnormalCostInput.addEventListener('blur', function() {
+            if (this.value && !isNaN(parseFloat(this.value))) {
+                this.value = parseFloat(this.value).toFixed(2);
+            }
+        });
+    }
+    
+    // 点击关闭按钮时关闭模态框
+    const closeBtn = document.querySelector('.close-btn');
+    if (closeBtn) {
+        closeBtn.addEventListener('mouseenter', function() {
+            this.style.color = '#666';
+        });
+        closeBtn.addEventListener('mouseleave', function() {
+            this.style.color = '#999';
+        });
+    }
+});
+
+// 点击模态框外部关闭
+window.addEventListener('click', function(event) {
+    const modal = document.getElementById('abnormalModal');
+    if (event.target === modal) {
+        closeAbnormalModal();
+    }
+});
+
+// 为外部调用提供接口
+window.AbnormalModal = {
+    open: openAbnormalModal,
+    close: closeAbnormalModal
+};
+</script>
+
+<style>
+/* 基础样式 */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+}
+
+.modal-content {
+    background-color: white;
+    margin: auto;
+    position: relative;
+    top: 50%;
+    transform: translateY(-50%);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+}
+
+/* 输入框聚焦效果 */
+select:focus, input:focus {
+    outline: none;
+    border-color: #007bff !important;
+    box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+}
+
+/* 按钮悬停效果 */
+.action-btn {
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.action-btn:hover {
+    opacity: 0.9;
+    transform: translateY(-1px);
+}
+
+/* 表格行悬停效果 */
+.data-table tr:hover {
+    background-color: #f9f9f9;
+}
+
+/* 数字输入框样式 */
+input[type="number"] {
+    -moz-appearance: textfield;
+}
+
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+    .modal-content {
+        max-width: 95% !important;
+        padding: 15px !important;
+    }
+    
+    .data-table th,
+    .data-table td {
+        padding: 10px 12px !important;
+    }
+}
+</style>
