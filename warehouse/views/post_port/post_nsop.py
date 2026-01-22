@@ -3393,6 +3393,7 @@ class PostNsop(View):
             )
 
         request.POST = request.POST.copy()
+        fm = FleetManagement()
         if selected_ids:
             #先生成fleet_number
             current_time = datetime.now()
@@ -3429,7 +3430,7 @@ class PostNsop(View):
                 'fleet_cost': fleet_cost_value,
             }
             # 分摊成本
-            await FleetManagement.self.insert_fleet_shipment_pallet_fleet_cost(
+            await fm.insert_fleet_shipment_pallet_fleet_cost(
                 request, fleet_number, fleet_cost_value
             )
             request.POST['fleet_number'] = fleet_number
@@ -3437,7 +3438,7 @@ class PostNsop(View):
         request.POST['fleet_data'] = str(fleet_data_dict)
         request.POST['fleet_cost'] = fleet_cost_value
         request.POST['selected_ids'] = selected_ids
-        fm = FleetManagement()
+        
         info = await fm.handle_fleet_confirmation_post(request,'post_nsop')
         context = {}
         if error_message:
@@ -7033,6 +7034,11 @@ class PostNsop(View):
             fleet = await sync_to_async(Fleet.objects.get)(fleet_number=fleet_number)
             fleet.fleet_cost = float(fleet_cost)
             await sync_to_async(fleet.save)()
+            #分摊成本
+            fm = FleetManagement()
+            await fm.insert_fleet_shipment_pallet_fleet_cost(
+                request, fleet_number, fleet_cost
+            )
         
         return await self.handle_ltl_unscheduled_pos_post(request)
 

@@ -42,6 +42,7 @@ from warehouse.models.transfer_location import TransferLocation
 from warehouse.models.warehouse import ZemWarehouse
 from warehouse.utils.constants import DELIVERY_METHOD_OPTIONS
 from warehouse.views.export_file import link_callback
+from warehouse.views.post_port.shipment.fleet_management import FleetManagement
 
 
 class TransferPallet(View):
@@ -162,7 +163,7 @@ class TransferPallet(View):
             )
         
         fleet_cost = float(fleet_cost) if fleet_cost else 0.0
-
+        fleet_number = "FO"+ current_time.strftime("%m%d%H%M%S")+ str(uuid.uuid4())[:2].upper()
         fleet = Fleet(
             **{
                 "carrier": request.POST.get("carrier").strip(),
@@ -170,9 +171,7 @@ class TransferPallet(View):
                 "pickup_number": pickup_number,
                 "appointment_datetime": shipping_time,
                 "departured_at": shipping_time,
-                "fleet_number": "FO"
-                + current_time.strftime("%m%d%H%M%S")
-                + str(uuid.uuid4())[:2].upper(),
+                "fleet_number": fleet_number,
                 "scheduled_at": current_time,
                 "total_weight": total_weight,
                 "total_cbm": total_cbm,
@@ -183,6 +182,11 @@ class TransferPallet(View):
             }
         )
         await sync_to_async(fleet.save)()
+
+        # 记录车次成本到fleet_shipment_pallet表
+        fm = FleetManagement()
+        await fm.insert_fleet_shipment_pallet_fleet_cost(request, fleet_number, fleet_cost)
+
         transfer_location = TransferLocation(
             **{
                 "shipping_warehouse": shipping_warehouse,
