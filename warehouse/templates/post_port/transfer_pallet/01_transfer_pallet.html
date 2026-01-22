@@ -146,6 +146,82 @@
         border: 1px solid #ced4da;
         border-radius: 4px;
     }
+    .transfer-popup {
+        display: none; /* 初始隐藏 */
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 450px;
+        background: #ffffff;
+        border-radius: 8px;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+        z-index: 1000;
+        overflow: hidden;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+
+    /* 头部样式 */
+    .popup-header {
+        background-color: #f8f9fa;
+        padding: 15px 20px;
+        font-size: 18px;
+        font-weight: 600;
+        color: #333;
+        border-bottom: 1px solid #eee;
+    }
+
+    /* 表单区域 */
+    #transferForm {
+        padding: 20px;
+    }
+
+    .transfer-info-table td {
+        padding: 8px 5px;
+        vertical-align: middle;
+    }
+
+    /* 输入框通用样式 */
+    .form-control-custom {
+        width: 100%;
+        padding: 8px 12px;
+        border-radius: 5px;
+        border: 1px solid #ddd;
+        font-size: 14px;
+        transition: border-color 0.2s;
+        box-sizing: border-box;
+    }
+
+    .form-control-custom:focus {
+        border-color: #007bff;
+        outline: none;
+        box-shadow: 0 0 0 2px rgba(0,123,255,0.1);
+    }
+
+    /* 按钮区域 */
+    .popup-buttons {
+        margin-top: 20px;
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+    }
+
+    .btn-custom {
+        padding: 8px 20px;
+        border-radius: 5px;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        border: none;
+        transition: opacity 0.2s;
+    }
+
+    .btn-custom:hover {
+        opacity: 0.9;
+    }
+
+    .btn-primary-custom { background: #007bff; color: white; }
+    .btn-secondary-custom { background: #6c757d; color: white; }
 </style>
 
 <div class="inventory-container">
@@ -253,11 +329,11 @@
         <input type="hidden" name="step" value="transfer_warehouse">
         <input type="hidden" name="warehouse" value="{{ warehouse }}">
         
-        <table class="transfer-info-table" style="width: 100%; margin-bottom: 15px;">
+        <table class="transfer-info-table" style="width: 100%;">
             <tr>
-                <td><strong>发货仓库:</strong></td>
+                <td width="30%"><strong>发货仓库:</strong></td>
                 <td>
-                    <select name="shipping_warehouse" style="width: 100%; padding: 5px; border-radius: 4px; border: 1px solid #ced4da;">
+                    <select name="shipping_warehouse" class="form-control-custom">
                         {% for k, v in warehouse_options.items %}
                             <option value="{{ v }}" {% if k == warehouse %}selected{% endif %}>{{ k }}</option>
                         {% endfor %}
@@ -267,7 +343,7 @@
             <tr>
                 <td><strong>收货仓库:</strong></td>
                 <td>
-                    <select name="receiving_warehouse" style="width: 100%; padding: 5px; border-radius: 4px; border: 1px solid #ced4da;">
+                    <select name="receiving_warehouse" class="form-control-custom">
                         {% for k, v in warehouse_options.items %}
                             <option value="{{ v }}">{{ k }}</option>
                         {% endfor %}
@@ -276,31 +352,36 @@
             </tr>
             <tr>
                 <td><strong>pickupNumber:</strong></td>
-                <td><input type="text" name="pickup_number" placeholder="没有可以不输入" style="width: 100%; padding: 5px; border-radius: 4px; border: 1px solid #ced4da;"></td>
+                <td><input type="text" name="pickup_number" placeholder="可选输入" class="form-control-custom"></td>
             </tr>
             <tr>
                 <td><strong>carrier:</strong></td>
-                <td><input type="text" name="carrier" style="width: 100%; padding: 5px; border-radius: 4px; border: 1px solid #ced4da;"></td>
+                <td><input type="text" name="carrier" class="form-control-custom"></td>
             </tr>
             <tr>
                 <td><strong>备注:</strong></td>
-                <td><input type="text" name="note" style="width: 100%; padding: 5px; border-radius: 4px; border: 1px solid #ced4da;"></td>
+                <td><input type="text" name="note" class="form-control-custom"></td>
+            </tr>
+            <tr>
+                <td><strong>车次成本:</strong></td>
+                <td><input type="number" step="0.01" name="fleet_cost" placeholder="请输入成本" class="form-control-custom"></td>
             </tr>
             <tr>
                 <td><strong>发货时间:</strong></td>
-                <td><input type="datetime-local" name="shipping_time" style="width: 100%; padding: 5px; border-radius: 4px; border: 1px solid #ced4da;" required></td>
+                <td><input type="datetime-local" name="shipping_time" class="form-control-custom" required></td>
             </tr>
             <tr>
                 <td><strong>预计到达:</strong></td>
-                <td><input type="datetime-local" name="ETA" style="width: 100%; padding: 5px; border-radius: 4px; border: 1px solid #ced4da;" required></td>
+                <td><input type="datetime-local" name="ETA" class="form-control-custom" required></td>
             </tr>
+            
         </table>
         
         <div class="popup-buttons">
-            <button type="button" class="btn btn-secondary" onclick="closeTransferPopup()" style="padding: 5px 15px; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer;">
+            <button type="button" class="btn-custom btn-secondary-custom" onclick="closeTransferPopup()">
                 取消
             </button>
-            <button type="submit" class="btn btn-primary" style="padding: 5px 15px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">
+            <button type="submit" class="btn-custom btn-primary-custom">
                 确认转仓
             </button>
         </div>

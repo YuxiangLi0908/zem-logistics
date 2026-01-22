@@ -1059,6 +1059,7 @@ class OrderCreation(View):
     async def handle_peer_po_save(
         self, request: HttpRequest
     ) -> tuple[Any, Any]:
+        '''同行货物录入'''
         container_number = request.POST.get("container_number")
         customer_name = request.POST.get("customer_name")
         warehouse = request.POST.get("warehouse")
@@ -2248,6 +2249,7 @@ class OrderCreation(View):
             raise ValueError(f"invalid file format!")
         
     async def _naming_container(self,customer_name:str) -> str:
+        '''同行货物生成柜号逻辑'''
         max_attempts=10
         attempt = 0
         while attempt < max_attempts:
