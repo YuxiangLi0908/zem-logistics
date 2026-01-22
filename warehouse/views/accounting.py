@@ -5203,6 +5203,7 @@ class Accounting(View):
                 ).get()
                 invoice_item.rate = data.get("direct_basic_fee")
                 invoice_item.save()
+                pt_amount += float(data.get("direct_basic_fee"))
             except InvoiceItemv2.DoesNotExist:
                 invoice_item = InvoiceItemv2(
                     **{"container_number": container, "invoice_number": invoice, "invoice_type": "payable_direct"}
@@ -5210,6 +5211,7 @@ class Accounting(View):
                 invoice_item.description = "固定报价"
                 invoice_item.rate = data.get("direct_basic_fee")
                 invoice_item.save()
+                pt_amount += float(data.get("direct_basic_fee"))
         # 直送等待费用
         if data.get("chassis_fee"):
             try:
@@ -5221,6 +5223,7 @@ class Accounting(View):
                 ).get()
                 invoice_item.rate = data.get("chassis_fee")
                 invoice_item.save()
+                pt_amount += float(data.get("chassis_fee"))
             except InvoiceItemv2.DoesNotExist:
                 invoice_item = InvoiceItemv2(
                     **{"container_number": container, "invoice_number": invoice,
@@ -5230,6 +5233,7 @@ class Accounting(View):
                 invoice_item.rate = data.get("chassis_fee")
                 invoice_item.note = data.get("chassis_comment")
                 invoice_item.save()
+                pt_amount += float(data.get("chassis_fee"))
         # 拆柜费用
         if data.get("palletization_fee"):
             try:
@@ -5418,6 +5422,7 @@ class Accounting(View):
                 )
                 invoice_item.rate = fee_amount
                 invoice_item.save()
+                pt_amount += float(fee_amount)
             except InvoiceItemv2.DoesNotExist:
                 invoice_item = InvoiceItemv2(
                     container_number=container,
@@ -5427,6 +5432,7 @@ class Accounting(View):
                     rate=fee_amount
                 )
                 invoice_item.save()
+                pt_amount += float(fee_amount)
 
         # 拆柜其他费用
         pallet_fee_names = data.getlist("pallet_fee_name[]")
@@ -5474,6 +5480,7 @@ class Accounting(View):
                 )
                 invoice_item.rate = fee_amount
                 invoice_item.save()
+                wh_amount += float(fee_amount)
             except InvoiceItemv2.DoesNotExist:
                 invoice_item = InvoiceItemv2(
                     container_number=container,
@@ -5483,6 +5490,7 @@ class Accounting(View):
                     rate=fee_amount
                 )
                 invoice_item.save()
+                wh_amount += float(fee_amount)
 
         # 直送其他费用
         direct_other_fee_names = data.getlist("direct_other_fee_name[]")
@@ -5532,6 +5540,7 @@ class Accounting(View):
                 )
                 invoice_item.rate = fee_amount
                 invoice_item.save()
+                pt_amount += float(fee_amount)
             except InvoiceItemv2.DoesNotExist:
                 invoice_item = InvoiceItemv2(
                     container_number=container,
@@ -5541,9 +5550,12 @@ class Accounting(View):
                     rate=fee_amount
                 )
                 invoice_item.save()
+                pt_amount += float(fee_amount)
 
         # 应付提拆费
         invoice.payable_preport_amount = pt_amount
+        # 应付库内费（拆柜费+入库费+拆柜其他费用）
+        invoice.payable_warehouse_amount = wh_amount
         # 应付总金额
         invoice.payable_total_amount = total_amount
         invoice.save()
