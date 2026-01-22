@@ -3429,10 +3429,7 @@ class PostNsop(View):
                 'total_pcs': total_pcs,
                 'fleet_cost': fleet_cost_value,
             }
-            # 分摊成本
-            await fm.insert_fleet_shipment_pallet_fleet_cost(
-                request, fleet_number, fleet_cost_value
-            )
+            
             request.POST['fleet_number'] = fleet_number
             request.POST['fleet_type'] = fleet_type
         request.POST['fleet_data'] = str(fleet_data_dict)
@@ -3446,6 +3443,10 @@ class PostNsop(View):
         _, context = await self.handle_td_shipment_post(request, context)
         context.update({"success_messages": f'排车成功!批次号是：{fleet_number}'})   
         
+        # 分摊成本
+        await fm.insert_fleet_shipment_pallet_fleet_cost(
+            request, fleet_number, fleet_cost_value
+        )
         if page == "arm_appointment":
             return await self.handle_unscheduled_pos_post(request,context)
         elif page == "ltl_unscheduledFleet":
