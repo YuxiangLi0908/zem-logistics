@@ -1790,6 +1790,14 @@ class Palletization(View):
                             ),
                         ),
                         When(
+                            Q(delivery_method="客户自提") & ~Q(destination="客户自提"),
+                            then=Concat(
+                                "delivery_method",
+                                Value("-"),
+                                "destination",
+                            ),
+                        ),
+                        When(
                             Q(delivery_method="客户自提") | Q(destination="客户自提"),
                             then=Concat(
                                 "delivery_method",
