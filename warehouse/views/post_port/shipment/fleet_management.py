@@ -2874,9 +2874,8 @@ class FleetManagement(View):
         description = request.POST.get("abnormal_description", "").strip()
         # fleet_number = request.POST.get("fleet_number")
         shipment_batch_number = request.POST.get("shipment_batch_number")
+        fleet_cost = request.POST.get("fleet_cost")
         abnormal_cost = request.POST.get("abnormal_cost")
-        if is_ltl is None:
-            is_ltl = False
 
         shipment = await sync_to_async(
             lambda: Shipment.objects.select_related("fleet_number").get(
@@ -2888,6 +2887,10 @@ class FleetManagement(View):
             fleet.is_canceled = True
             fleet.status = "Exception"
             fleet.status_description = f"{status}-{description}"
+            if fleet_cost is not None:
+                fleet.fleet_cost = float(fleet_cost)
+            else:
+                raise ValueError("车次成本不能为空！")
             if abnormal_cost is not None:
                 fleet.fleet_cost_back = float(abnormal_cost)
                 # 分摊退回费用金额
