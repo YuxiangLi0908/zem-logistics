@@ -1507,11 +1507,12 @@ class OrderCreation(View):
             po_ids = []
             po_id_hash = {}
             seq_num = 1
-            for dm, sm, fba, dest in zip(
+            for dm, sm, fba, dest, dt in zip(
                 request.POST.getlist("delivery_method"),
                 request.POST.getlist("shipping_mark"),
                 request.POST.getlist("fba_id"),
                 destination_list,
+                request.POST.getlist("delivery_type"),
                 strict=True,
             ):
                 po_id: str = ""
@@ -1524,8 +1525,8 @@ class OrderCreation(View):
                         if fba
                         else f"H{sm[-4:] if sm else ''.join(random.choices(string.ascii_letters.upper() + string.digits, k=4))}"
                     )
-                elif dm == "客户自提" or dest == "客户自提":
-                    po_id_hkey = f"{dm}-{dest}-{fba}"
+                elif dt == "other":
+                    po_id_hkey = f"{dm}-{dest}-{sm}"
                     po_id_seg = (
                         f"S{sm[-4:]}"
                         if sm
