@@ -963,7 +963,20 @@ class FleetManagement(View):
             await sync_to_async(FleetShipmentPallet.objects.bulk_create)(
                 new_fleet_shipment_pallets, batch_size=500
             )
+
+            # 关键修复：创建后重新查询并赋值fleet_shipments
+            fleet_shipments = await sync_to_async(list)(
+                FleetShipmentPallet.objects.filter(
+                    fleet_number__fleet_number=fleet_number, description='成本费用'
+                ).only("id", "PO_ID", "total_pallet", "expense")
+            )
+
+            # 二次校验：若创建后仍为空，抛出异常
+            if not fleet_shipments:
+                raise RuntimeError(f"车次 {fleet_number} 创建成本费用记录后，查询结果为空")
+
         try:
+            # 计算总托盘数（过滤空值）
             total_pallets_in_fleet = sum(
                 [fs.total_pallet for fs in fleet_shipments if fs.total_pallet]
             )
@@ -1045,6 +1058,16 @@ class FleetManagement(View):
             await sync_to_async(FleetShipmentPallet.objects.bulk_create)(
                 new_fleet_shipment_pallets, batch_size=500
             )
+            # 关键修复：创建后重新查询并赋值fleet_shipments
+            fleet_shipments = await sync_to_async(list)(
+                FleetShipmentPallet.objects.filter(
+                    fleet_number__fleet_number=fleet_number, description='退回费用'
+                ).only("id", "PO_ID", "total_pallet", "expense")
+            )
+
+            # 二次校验：若创建后仍为空，抛出异常
+            if not fleet_shipments:
+                raise RuntimeError(f"车次 {fleet_number} 创建退回费用记录后，查询结果为空")
         try:
             total_pallets_in_fleet = sum(
                 [fs.total_pallet for fs in fleet_shipments if fs.total_pallet]
