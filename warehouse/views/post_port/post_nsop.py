@@ -6479,7 +6479,7 @@ class PostNsop(View):
                     total_cbm=Coalesce(Sum('cbm'), 0.0)
                 )
             )()
-            cbm_ratio = total_cbm / total_container_cbm_result.get('total_cbm', 0)
+            cbm_ratio = round(total_cbm / total_container_cbm_result.get('total_cbm', 0), 4)
             ltl_quote = price * cbm_ratio
             if existing_item:
                 existing_item.qty = qty
