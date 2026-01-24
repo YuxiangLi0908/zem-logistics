@@ -7101,9 +7101,10 @@ class PostNsop(View):
         )
 
         # 已放行-客提
-        selfpick_cargos = await self._ltl_scheduled_self_pickup(pl_criteria, plt_criteria)
+        release_cargos, selfpick_cargos, selfdel_cargos = await self._get_classified_cargos(pl_criteria, plt_criteria)
+        #selfpick_cargos = await self._ltl_scheduled_self_pickup(pl_criteria, plt_criteria)
         # 已放行-自发
-        selfdel_cargos = await self._ltl_self_delivery(pl_criteria, plt_criteria)
+        #selfdel_cargos = await self._ltl_self_delivery(pl_criteria, plt_criteria)
         # 历史车次
         fleet_cargos = await self._ltl_unscheduled_data(request, warehouse, start_date, end_date)
 
@@ -7135,6 +7136,35 @@ class PostNsop(View):
             context.update({'active_tab':active_tab})
         return self.template_ltl_history_pos, context
     
+    async def _get_classified_cargos(self, pl_criteria, plt_criteria):
+        """一次性获取并分类LTL的所有PO"""
+        # 获取全量数据 (注意：此时不要在 criteria 里加“自提”限制，获取该仓库下的所有)
+        all_raw_data = await self._ltl_packing_list(pl_criteria, plt_criteria)
+        
+        release_cargos = []     # 未放行 (Tab 1)
+        selfpick_cargos = []    # 已放行-客提 (Tab 2)
+        selfdel_cargos = []     # 已放行-自发 (Tab 3)
+
+        for item in all_raw_data:
+            is_pass = item.get('is_pass', False)
+            # 兼容 Pallet 和 PackingList 的 delivery_method 字段名
+            delivery_method = item.get('delivery_method') or item.get('custom_delivery_method') or ""
+            
+            if not is_pass:
+                # 未放行逻辑
+                release_cargos.append(item)
+            else:
+                # 已放行逻辑
+                if "自提" in delivery_method:
+                    selfpick_cargos.append(item)
+                else:
+                    selfdel_cargos.append(item)
+
+        # 针对未放行进行排序 (对应你原来的逻辑)
+        release_cargos.sort(key=lambda x: (x.get('ltl_verify', False),))
+        
+        return release_cargos, selfpick_cargos, selfdel_cargos
+
     async def handle_ltl_unscheduled_pos_post(
         self, request: HttpRequest, context: dict| None = None,
     ) -> tuple[str, dict[str, Any]]:
@@ -7160,13 +7190,14 @@ class PostNsop(View):
             container_number__orders__offload_id__offload_at__gt=datetime(2025, 12, 1),
             delivery_type="other"
         )
-        # 未放行
-        release_cargos = await self._ltl_unscheduled_cargo(pl_criteria, plt_criteria)
+        # 未放行、已放行-客提、已放行-自发
+        release_cargos, selfpick_cargos, selfdel_cargos = await self._get_classified_cargos(pl_criteria, plt_criteria)
+        #release_cargos = await self._ltl_unscheduled_cargo(pl_criteria, plt_criteria)
 
         # 已放行-客提
-        selfpick_cargos = await self._ltl_scheduled_self_pickup(pl_criteria, plt_criteria)
+        #selfpick_cargos = await self._ltl_scheduled_self_pickup(pl_criteria, plt_criteria)
         # 已放行-自发
-        selfdel_cargos = await self._ltl_self_delivery(pl_criteria, plt_criteria)
+        #selfdel_cargos = await self._ltl_self_delivery(pl_criteria, plt_criteria)
 
         #未排车
         unschedule_fleet = await self._ltl_unscheduled_data(request, warehouse)
