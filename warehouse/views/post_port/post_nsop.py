@@ -7090,11 +7090,14 @@ class PostNsop(View):
         end_date = current_date.strftime("%Y-%m-%d") if not end_date else end_date
         
         pl_criteria = Q(
-            id__isnull=True, 
+            container_number__orders__offload_id__offload_at__isnull=True,
+            container_number__orders__retrieval_id__retrieval_destination_area=warehouse_name,
+            container_number__orders__retrieval_id__actual_retrieval_timestamp__gte=start_date,
+            container_number__orders__retrieval_id__actual_retrieval_timestamp__lte=end_date,
+            delivery_type="other"
         )
         plt_criteria = Q(
-            location=warehouse,
-            shipment_batch_number__shipment_batch_number__isnull=True,
+            location=warehouse,            
             container_number__orders__offload_id__offload_at__gte=start_date,
             container_number__orders__offload_id__offload_at__lte=end_date, 
             delivery_type="other"
@@ -7180,11 +7183,13 @@ class PostNsop(View):
         
         pl_criteria = Q(
             container_number__orders__offload_id__offload_at__isnull=True,
+            shipment_batch_number__shipment_batch_number__isnull=True,
             container_number__orders__retrieval_id__retrieval_destination_area=warehouse_name,
             delivery_type="other"
         )
         plt_criteria = Q(
             location=warehouse,
+            shipment_batch_number__shipment_batch_number__isnull=True,
             container_number__orders__offload_id__offload_at__gt=datetime(2025, 12, 1),
             delivery_type="other"
         )
