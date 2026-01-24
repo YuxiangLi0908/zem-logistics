@@ -1379,13 +1379,21 @@ class FleetManagement(View):
     async def handle_fleet_confirmation_post(
         self, request: HttpRequest, name: str | None = None
     ) -> tuple[str, dict[str, Any]]:
+        '''确认排车操作'''
         current_time = datetime.now()
-        fleet_data = ast.literal_eval(request.POST.get("fleet_data"))
+        try:
+            fleet_data = ast.literal_eval(request.POST.get("fleet_data"))
+        except Exception as e:
+            raise ValueError(f"fleet_data 解析失败: {e}")
+        
         if name:
             shipment_ids = request.POST.get("selected_ids")
         else:
             shipment_ids = request.POST.get("selected_ids").strip("][").split(", ")
             shipment_ids = [int(i) for i in shipment_ids]
+
+        if len(shipment_ids) == 0: raise ValueError("传过来的预约批次是空的！")
+
         try:
             await sync_to_async(Fleet.objects.get)(
                 fleet_number=fleet_data["fleet_number"]
@@ -1410,6 +1418,14 @@ class FleetManagement(View):
                     "fleet_cost": request.POST.get("fleet_cost")
                 }
             )
+            if not fleet_data.get("fleet_number"):
+                # 如果字典里没有，尝试从 request.POST 直接读取
+                req_fleet_no = request.POST.get("fleet_number")
+                if req_fleet_no:
+                    fleet_data["fleet_number"] = req_fleet_no
+                else:
+                    # 如果连 request 里都没有，这里必须报错或抛出异常，否则数据库会报错
+                    raise ValueError("无法获取车次号(fleet_number)，请检查参数传递")
             fleet = Fleet(**fleet_data)
             await sync_to_async(fleet.save)()
             shipment = await sync_to_async(list)(
