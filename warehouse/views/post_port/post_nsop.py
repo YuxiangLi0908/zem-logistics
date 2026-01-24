@@ -7106,12 +7106,12 @@ class PostNsop(View):
         # 已放行-自发
         #selfdel_cargos = await self._ltl_self_delivery(pl_criteria, plt_criteria)
         # 历史车次
-        fleet_cargos = await self._ltl_unscheduled_data(request, warehouse, start_date, end_date)
-
+        #fleet_cargos = await self._ltl_unscheduled_data(request, warehouse, start_date, end_date)
+        fleet_cargos = None
         summary = {
             'selfpick_count': len(selfpick_cargos),
             'selfdel_count': len(selfdel_cargos),
-            'fleet_count': len(fleet_cargos),
+            'fleet_count': 0,
         }
         if not context:
             context = {}
