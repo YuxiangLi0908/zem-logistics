@@ -642,7 +642,7 @@
                                     data-id="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
                                     placeholder="输入托盘尺寸，如：32*35*60*3板 x件 xkg"
                                     oninput="autoResizeTextarea(this)"
-                                    >{{ cargo.pallet_size_formatted }}</textarea>
+                                    >{{ cargo.pallet_size_formatted|default_if_none:"" }}</textarea>
                                 <span class="help-tooltip" title="尺寸分配规则：
                     1. 单行格式：长*宽*高 x件 xkg（所有托盘按此尺寸）
                     2. 多行格式：长*宽*高*数量板 x件 xkg（换行分隔）
