@@ -283,6 +283,7 @@ class TerminalDispatch(View):
             "container_number", "retrieval_id", "offload_id", "vessel_id"
         ).filter(
             retrieval_id__retrieval_destination_area="LA",
+            retrieval_id__retrieval_delegation_status=True,
             offload_id__offload_at__isnull=True,
             cancel_notification=False,
         ).order_by("-vessel_id__vessel_eta").all()
