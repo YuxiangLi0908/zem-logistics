@@ -6417,7 +6417,7 @@ class PostNsop(View):
         combina_key = f"{warehouse}_COMBINA"
         if combina_key not in fee_details:
             context = {
-                "error_messages": f"未找到组合柜报价表规则 {combina_key}"
+                "error_messages": f"未找到组合柜报价表规则 {combina_key},报价表是{quotations['filename']}"
             }
             return (context, [])  # 返回错误，空列表
         
@@ -6509,7 +6509,7 @@ class PostNsop(View):
                 )
                 await sync_to_async(item.save)() 
         else:
-            raise ValueError("未在报价表的组合柜范围内找到这个区")    
+            raise ValueError(f"未在报价表的组合柜范围内找到这个区{quotations['filename']}")    
 
     async def _try_complete_delivery_other_status(self, container):
         """
