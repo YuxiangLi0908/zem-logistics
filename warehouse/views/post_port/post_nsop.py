@@ -7083,7 +7083,7 @@ class PostNsop(View):
         # 未给定时间时，自动查询过去三个月的
         current_date = datetime.now().date()
         start_date = (
-            (current_date + timedelta(days=-90)).strftime("%Y-%m-%d")
+            (current_date + timedelta(days=-60)).strftime("%Y-%m-%d")
             if not start_date
             else start_date
         )
@@ -7179,14 +7179,12 @@ class PostNsop(View):
             return self.template_unscheduled_pos_all, context
         
         pl_criteria = Q(
-            shipment_batch_number__shipment_batch_number__isnull=True,
             container_number__orders__offload_id__offload_at__isnull=True,
             container_number__orders__retrieval_id__retrieval_destination_area=warehouse_name,
             delivery_type="other"
         )
         plt_criteria = Q(
             location=warehouse,
-            shipment_batch_number__shipment_batch_number__isnull=True,
             container_number__orders__offload_id__offload_at__gt=datetime(2025, 12, 1),
             delivery_type="other"
         )
@@ -7263,8 +7261,7 @@ class PostNsop(View):
             start_datetime = datetime.strptime(start_date, "%Y-%m-%d")
             end_datetime = datetime.strptime(end_date, "%Y-%m-%d") + timedelta(days=1)
             time_filter_q = models.Q(
-                models.Q(pickup_time__range=(start_datetime, end_datetime)) |
-                models.Q(shipment_appointment__range=(start_datetime, end_datetime))
+                shipment_appointment__range=(start_datetime, end_datetime)
             )
             
         else:
