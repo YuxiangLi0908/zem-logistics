@@ -6494,13 +6494,14 @@ class PostNsop(View):
                 existing_item.description = "派送费"
                 existing_item.region = match_region
                 existing_item.regionPrice = price
+                existing_item.item_category = "delivery_public"
                 await sync_to_async(existing_item.save)()
             else:
                 item = InvoiceItemv2(
                     container_number=container,
                     invoice_number=invoice_record,
                     invoice_type="receivable",
-                    item_category="delivery_other",
+                    item_category="delivery_public",
                     description="派送费",
                     warehouse_code=destination_str,
                     shipping_marks=getattr(first_pallet, "shipping_mark", ""),
