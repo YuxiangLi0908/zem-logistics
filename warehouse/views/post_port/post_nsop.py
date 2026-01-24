@@ -2215,14 +2215,18 @@ class PostNsop(View):
         region = None
         for region, region_data in rules.items():
             for item in region_data:
-                if destination in item["location"]:
+                rule_locations = item.get("location", [])
+                if isinstance(rule_locations, str):
+                    rule_locations = [rule_locations] # 统一转成列表处理
+
+                if any(destination == loc.replace(" ", "").upper() for loc in rule_locations):
                     is_combina_region = True
                     price = item["prices"][container_type_temp]
                     region = region
                     break
             if is_combina_region:
                 break
-        if destination.upper() == "UPS":
+        if destination == "UPS":
             is_combina_region = False
         
         if is_combina_region:
@@ -2280,6 +2284,7 @@ class PostNsop(View):
                 else:
                     second_result = second_part
                 
+                second_result = second_result.replace(" ", "").upper()
                 return first_result, second_result
             else:
                 raise ValueError(first_change_pos)
@@ -2295,6 +2300,7 @@ class PostNsop(View):
         else:
             second_result = destination_origin
         
+        second_result = second_result.replace(" ", "").upper()
         return None, second_result
     
     async def _is_combina(self, container: Container, order: Order, warehouse) -> Any:
@@ -6451,14 +6457,17 @@ class PostNsop(View):
         
         for region, region_data in rules.items():
             for item in region_data:
-                if destination in item["location"]:
+                rule_locations = item.get("location", [])
+                if isinstance(rule_locations, str):
+                    rule_locations = [rule_locations] # 统一转成列表处理
+                if any(destination == loc.replace(" ", "").upper() for loc in rule_locations):
                     is_combina_region = True
                     price = item["prices"][container_type_temp]
                     match_region = region
                     break
             if is_combina_region:
                 break
-        if destination.upper() == "UPS":
+        if destination == "UPS":
             is_combina_region = False
 
         if is_combina_region:
