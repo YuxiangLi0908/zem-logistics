@@ -6137,7 +6137,8 @@ class ReceivableAccounting(View):
                         # 如果查询出错，不修改值
                         continue
                 else:
-                    
+                    if '_' in po_id:
+                        continue
                     try:
                         aggregated = PackingList.objects.filter(PO_ID=po_id).aggregate(
                             total_cbm=Sum('cbm'),
