@@ -7290,16 +7290,13 @@ class PostNsop(View):
         else:
             time_filter_q = models.Q(shipment_appointment__gt=target_date)
         base_q = base_q & time_filter_q
-        base_q = models.Q()
         shipment_list = await sync_to_async(list)(
             Shipment.objects.filter(base_q).select_related("fleet_number").order_by("pickup_time", "shipment_appointment")
         )
-        new_shipment_list = []
         for shipment in shipment_list:
-            is_public = self._check_destination_delivery_type(shipment.destination)
-            if is_public:
-                continue
-            new_shipment_list.append(shipment)
+            #is_public = self._check_destination_delivery_type(shipment.destination)
+            # if is_public:
+            #     continue
             shipment.fleet_display_name = None
             if shipment.fleet_number:
                 try:
@@ -7339,8 +7336,7 @@ class PostNsop(View):
             else:
                 shipment.status_display = "待处理"
                 shipment.status_class = "status-pending"  # 灰色
-            new_shipment_list.append(shipment)
-        return new_shipment_list
+        return shipment_list
     
     async def _check_destination_delivery_type(self, destination: str) -> bool:
         """检查目的地对应的delivery_type是否包含自提或自发"""
