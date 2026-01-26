@@ -7277,7 +7277,6 @@ class PostNsop(View):
             in_use=True,
             is_canceled=False,
             shipment_type__in=['LTL', '客户自提'],
-            is_notified_customer=False,
         )
 
         if start_date and end_date:
