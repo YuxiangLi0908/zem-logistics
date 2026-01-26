@@ -2751,7 +2751,7 @@ class Accounting(View):
         # 提柜待核销
         itemv2_prefetch_queryset_t_waited = InvoiceItemv2.objects.filter(
             models.Q(
-                description__in=["提柜费用", "固定报价", "等待费用", "超重费用", "车架费用", "港内滞港费", "港外滞箱费"]
+                description__in=t_item
             ) | models.Q(
                 description__contains="提柜其他费用"
             ) | models.Q(
@@ -2762,7 +2762,7 @@ class Accounting(View):
         # 提柜已核销
         itemv2_prefetch_queryset_t_completed = InvoiceItemv2.objects.filter(
             models.Q(
-                description__in=["提柜费用", "固定报价", "等待费用", "超重费用", "车架费用", "港内滞港费", "港外滞箱费"]
+                description__in=t_item
             ) | models.Q(
                 description__contains="提柜其他费用"
             ) | models.Q(
@@ -2775,7 +2775,7 @@ class Accounting(View):
         # 卸柜待核销
         itemv2_prefetch_queryset_x_waited = InvoiceItemv2.objects.filter(
             models.Q(
-                description__in=["拆柜费用", "入库拆柜费"]
+                description__in=x_item
             ) | models.Q(
                 description__contains="拆柜其他费用"
             ),
@@ -2784,16 +2784,16 @@ class Accounting(View):
         # 卸柜已核销
         itemv2_prefetch_queryset_x_completed = InvoiceItemv2.objects.filter(
             models.Q(
-                description__in=["拆柜费用", "入库拆柜费"]
+                description__in=x_item
             ) | models.Q(
                 description__contains="拆柜其他费用"
             ),
             write_off_amount__isnull=False,
         )
 
-
-        # 提拆的待确认
-        finance_pending = (
+        # ===================== 合并待确认+已确认查询 =====================
+        # 单次查询同时获取待确认+已确认数据，并标记分类
+        finance_pending_confirmed_data = (
             InvoiceStatusv2.objects.select_related(
                 "container_number",
                 "invoice",
@@ -2808,47 +2808,41 @@ class Accounting(View):
                 )
             )
             .annotate(
+                # 计算总费用（原逻辑不变）
                 total_fee=Sum(
                     "container_number__invoice_itemv2__rate",
                     default=0
-                )
-            )
-            .filter(
-                Exists(order_exists_subquery),
-                models.Q(invoice_type="payable") | models.Q(invoice_type="payable_direct"),
-                finance_status="tobeconfirmed",
-            )
-        )
-        finance_pending = list(finance_pending.iterator(chunk_size=200))
-
-        # 提拆的已确认
-        finance_confirmed = (
-            InvoiceStatusv2.objects.select_related(
-                "container_number",
-                "invoice",
-            ).prefetch_related(
-                Prefetch(
-                    "container_number__orders",
-                    queryset=order_prefetch_queryset
                 ),
-                Prefetch(
-                    "container_number__invoice_itemv2",
-                    queryset=InvoiceItemv2.objects.all()
-                )
-            )
-            .annotate(
-                total_fee=Sum(
-                    "container_number__invoice_itemv2__rate",
-                    default=0
+                # 标记分类：区分待确认/已确认
+                finance_type=Case(
+                    When(finance_status="tobeconfirmed", then=Value("pending")),
+                    When(finance_status="completed", then=Value("confirmed")),
+                    default=Value("other"),
+                    output_field=CharField()
                 )
             )
             .filter(
                 Exists(order_exists_subquery),
                 models.Q(invoice_type="payable") | models.Q(invoice_type="payable_direct"),
-                finance_status="completed",
+                # 只筛选待确认/已确认，排除其他状态
+                finance_status__in=["tobeconfirmed", "completed"]
             )
         )
-        finance_confirmed = list(finance_confirmed.iterator(chunk_size=200))
+
+        # 转换为列表（保持原iterator优化）
+        finance_pending_confirmed_list = list(finance_pending_confirmed_data.iterator(chunk_size=200))
+
+        # 按分类分组，还原原变量名
+        finance_groups = {}
+        for item in finance_pending_confirmed_list:
+            if item.finance_type == "pending":
+                finance_groups.setdefault("pending", []).append(item)
+            elif item.finance_type == "confirmed":
+                finance_groups.setdefault("confirmed", []).append(item)
+
+        # 待确认 已确认
+        finance_pending = finance_groups.get("pending", [])
+        finance_confirmed = finance_groups.get("confirmed", [])
 
         # 提柜待核销
         finance_confirmed_t_waited = (
@@ -2877,8 +2871,7 @@ class Accounting(View):
                 Exists(
                     InvoiceItemv2.objects.filter(
                         models.Q(
-                            description__in=["提柜费用", "固定报价", "等待费用", "超重费用", "车架费用", "港内滞港费",
-                                             "港外滞箱费"]
+                            description__in=t_item
                         ) | models.Q(
                             description__contains="提柜其他费用"
                         ) | models.Q(
@@ -2922,8 +2915,7 @@ class Accounting(View):
                 Exists(
                     InvoiceItemv2.objects.filter(
                         models.Q(
-                            description__in=["提柜费用", "固定报价", "等待费用", "超重费用", "车架费用", "港内滞港费",
-                                             "港外滞箱费"]
+                            description__in=t_item
                         ) | models.Q(
                             description__contains="提柜其他费用"
                         ) | models.Q(
@@ -2967,7 +2959,7 @@ class Accounting(View):
                 Exists(
                     InvoiceItemv2.objects.filter(
                         models.Q(
-                            description__in=["拆柜费用", "入库拆柜费"]
+                            description__in=x_item
                         ) | models.Q(
                             description__contains="拆柜其他费用"
                         ),
@@ -3008,7 +3000,7 @@ class Accounting(View):
                 Exists(
                     InvoiceItemv2.objects.filter(
                         models.Q(
-                            description__in=["拆柜费用", "入库拆柜费"]
+                            description__in=x_item
                         ) | models.Q(
                             description__contains="拆柜其他费用"
                         ),
@@ -3100,7 +3092,7 @@ class Accounting(View):
             }
 
             # 累加统计数据
-            appointment_data = deliverys[fleet_id]["fleets"][order.pickup_number]["appointments"][order.appointment_id]
+            appointment_data = deliverys[fleet_id]["fleets"][order.pickup_number]["appointments"][order.shipment_batch_number.appointment_id]
             appointment_data["orders"].append(order_data)
             appointment_data["total_pallets"] += order_data["cn_total_pallet"]
             appointment_data["total_expense"] += order_data["cn_total_expense"]

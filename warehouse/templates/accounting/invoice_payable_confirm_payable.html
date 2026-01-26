@@ -2254,6 +2254,7 @@
                                     <th class="th" style="vertical-align: middle;">单板成本</th>
                                     <th class="th" style="vertical-align: middle;">车次总板数</th>
                                     <th class="th" style="vertical-align: middle;">车次总成本</th>
+                                    <th class="th" style="vertical-align: middle;">核销金额</th>
                                 </tr>
                                 </thead>
                                 <tbody>
@@ -2288,6 +2289,27 @@
                                     </td>
                                     <td class="td" rowspan="{{ pickup_data.total_rows }}" style="vertical-align: middle;">
                                         ${{pickup_data.ISA_total_expense }}
+                                    </td>
+                                    <td class="td" style="vertical-align: middle;">
+                                        <input type="number" name="write_off_amount" class="write-off-amount"
+                                               data-container-id="{{ c.container_number.id }}" step="0.01" min="0"
+                                               placeholder="输入核销金额"
+                                               style="width: 100%; padding: 4px 8px; border: 1px solid #ced4da; border-radius: 4px; text-align: center;">
+                                        <form action="" method="post" class="single-writeoff-form"
+                                              style="margin: 0;">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="step" value="write_off_amount_post_x">
+                                            <input type="hidden" name="container_id"
+                                                   value="{{ c.container_number.id }}">
+                                            <input type="hidden" name="write_off_type" value="pick-x">
+                                            <input type="hidden" name="start_date_confirm" value="{{ start_date_confirm }}">
+                                            <input type="hidden" name="end_date_confirm" value="{{ end_date_confirm }}">
+                                            <input type="hidden" name="warehouse_filter" value="{{ warehouse_filter }}">
+                                            <input type="hidden" name="customer_name" value="{{ selected_customer_id|default:'' }}">
+                                            <button type="submit" class="btn btn-success btn-sm"
+                                                    style="padding: 4px 10px; font-size: 0.8rem;">确认
+                                            </button>
+                                        </form>
                                     </td>
                                     {% endif %}
                                 </tr>
