@@ -2019,16 +2019,21 @@ class ReceivableAccounting(View):
             return context
         
     def handle_convert_type_post(self, request: HttpRequest):
+        '''派送账单更改派送类型'''
         context = {}
         container_number = request.POST.get("container_number")
         to_delivery_type = request.POST.get("to_delivery_type")
         template_delivery_type = request.POST.get("template_delivery_type")
         item_id = request.POST.get("item_id")
         po_id = request.POST.get("po_id")
+        shipping_marks = request.POST.get("shipping_marks")
+
         qs = Pallet.objects.filter(
             container_number__container_number=container_number,
             PO_ID=po_id
         )
+        if to_delivery_type == "public" and shipping_marks:
+            qs = qs.filter(shipping_mark__in=shipping_marks)
         
         updated = qs.update(delivery_type=to_delivery_type)
         unique_destinations = list(qs.values_list('destination', flat=True).distinct())
