@@ -942,7 +942,7 @@ class FleetManagement(View):
             )
 
             if not grouped_pallets:
-                raise ValueError(f"车次 {fleet_number} 无有效托盘数据，无法创建退回费用记录")
+                raise ValueError(f"车次 {fleet_number} 无有效托盘数据，无法创建车次成本费用记录")
 
             # 批量创建标注"退回费用"的FleetShipmentPallet记录
             new_fleet_shipment_pallets = []
@@ -968,7 +968,7 @@ class FleetManagement(View):
                 [fs.total_pallet for fs in fleet_shipments if fs.total_pallet]
             )
             if total_pallets_in_fleet == 0:
-                raise ValueError(f"车次 {fleet_number} 下无有效托盘数，无法分摊退回费用")
+                raise ValueError(f"车次 {fleet_number} 下无有效托盘数，无法分摊车次成本费用")
 
             total_pallets_decimal = Decimal(str(total_pallets_in_fleet))  # 转为Decimal
             fleet_cost = Decimal(str(fleet_cost))
