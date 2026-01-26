@@ -1966,7 +1966,7 @@ class Palletization(View):
                     offload_id__offload_required=True,
                     offload_id__offload_at__isnull=False,
                     cancel_notification=False,
-                    created_at__gte=timezone.now() - timedelta(days=90),  #最近3个月的柜子
+                    created_at__gte=timezone.now() - timedelta(days=120),  #最近3个月的柜子
                     # retrieval_id__actual_retrieval_timestamp__isnull=False,
                 )
             )
