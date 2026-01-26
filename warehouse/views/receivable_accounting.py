@@ -5672,8 +5672,7 @@ class ReceivableAccounting(View):
         for key, ratio in group_cbm_ratios.items():
             if ratio <= 0:
                 po_id, dest = key
-                error_msg = f"账单计算异常: 发现负数占比({ratio})。PO号: {po_id}, 目的地: {dest}。"
-                raise ValueError(combina_pallet_groups)
+                error_msg = f"账单计算异常: 发现负数占比({ratio})。PO号: {po_id}, 目的地: {dest}。其中预报的整柜cbm是{total_container_cbm}，组合柜的总cbm是{combina_cbm_manual}"
                 raise ValueError(error_msg)
         # 5. 计算组合柜总费用
         combina_tiers_data = {}  # 存储结构为：(区名, 梯度索引) -> 数据
