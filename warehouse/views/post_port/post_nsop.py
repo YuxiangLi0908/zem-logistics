@@ -147,6 +147,13 @@ class PostNsop(View):
         # "快递": "快递",
         # "客户自提": "客户自提",
     }
+    RE_PUBLIC_WH = re.compile(
+        r"^[A-Z]{4}$|"               # 4位纯字母
+        r"^[A-Z]{3}\d{1,2}$|"         # 3字母 + 1或2位数字 (最常见)
+        r"^[A-Z]{3}\d[A-Z]$|"         # 3字母 + 1数字 + 1字母
+        r"^[A-Z]{2}\d{2}$"            # 2字母 + 2数字
+    )
+    PUBLIC_KEYWORDS = {"WALMART", "沃尔玛", "AMAZON", "亚马逊"}
     
     async def get(self, request: HttpRequest) -> HttpResponse:
         if not await self._user_authenticate(request):
@@ -7269,7 +7276,8 @@ class PostNsop(View):
             fleet_number__isnull=True,
             in_use=True,
             is_canceled=False,
-            shipment_type__in=['LTL', '客户自提']
+            shipment_type__in=['LTL', '客户自提'],
+            is_notified_customer=False,
         )
 
         if start_date and end_date:
@@ -7286,7 +7294,12 @@ class PostNsop(View):
         shipment_list = await sync_to_async(list)(
             Shipment.objects.filter(base_q).select_related("fleet_number").order_by("pickup_time", "shipment_appointment")
         )
+        new_shipment_list = []
         for shipment in shipment_list:
+            is_public = self._check_destination_delivery_type(shipment.destination)
+            if is_public:
+                continue
+            new_shipment_list.append(shipment)
             shipment.fleet_display_name = None
             if shipment.fleet_number:
                 try:
@@ -7326,8 +7339,34 @@ class PostNsop(View):
             else:
                 shipment.status_display = "待处理"
                 shipment.status_class = "status-pending"  # 灰色
-        return shipment_list
+            new_shipment_list.append(shipment)
+        return new_shipment_list
     
+    async def _check_destination_delivery_type(self, destination: str) -> bool:
+        """检查目的地对应的delivery_type是否包含自提或自发"""
+        
+        if not destination:
+            return False
+        # 1. 统一转为大写并去除两端空格
+        dest_upper = str(destination).strip().upper()
+        
+        # 2. 移除中间可能的空格进行正则校验 (例如将 "ONT 8" 视为 "ONT8")
+        dest_compact = dest_upper.replace(" ", "")
+
+        # 3. 正则表达式校验 (匹配标准仓库代码)
+        if self.RE_PUBLIC_WH.match(dest_compact):
+            return True
+
+        # 4. 关键字校验 (匹配包含关键词的情况)
+        if any(kw in dest_upper for kw in self.PUBLIC_KEYWORDS):
+            return True
+
+        # 5. 特殊规则：如果目的地全是数字（某些仓点的内部编号）
+        if dest_compact.isdigit() and len(dest_compact) >= 4:
+            return True
+
+        return False
+
     async def _ltl_pod_get(
         self, warehouse:str,
     ) -> dict[str, Any]: 
