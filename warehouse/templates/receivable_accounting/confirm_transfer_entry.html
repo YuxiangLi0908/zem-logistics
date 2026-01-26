@@ -810,8 +810,7 @@
                                                        name="amount" 
                                                        value="{{ it.amount|floatformat:2|default:'0.00' }}" 
                                                        class="input-control input-amount amount-input"
-                                                       data-category="{{ key }}"
-                                                       readonly>
+                                                       data-category="{{ key }}">
                                             </td>
                                             <td>
                                                 <input type="text" 
@@ -955,390 +954,444 @@
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-$(document).ready(function() {
-    // 初始化每行的金额计算
-    initAmountCalculation();
-    
-    // 初始化类别总金额
-    updateAllCategoryTotals();
-    
-    // 初始化总金额
-    updateTotalAmount();
-    
-    // 表单提交前处理 - 收集所有数据到items_data
-    $('#invoice-form').on('submit', function(e) {
-        const stepVal = $(this).find('input[name="step"]').val();
-        if (stepVal === 'confirm_save_all') {
-            // 构造 items 数组
-            const items = [];
-            let rowIndex = 0;
-            
-            // 遍历所有表格的行
-            $('tbody tr.row-existing').each(function() {
-                const $row = $(this);
-                const category = $row.data('category');
-                
-                // 收集该行的所有数据
-                const itemData = {
-                    rowIndex: rowIndex,
-                    category: category,
-                    item_id: $row.find('input[name="item_id"]').val() || '',
-                    description: $row.find('input[name="description"]').val() || '',
-                    qty: $row.find('input[name="qty"]').val() || '0',
-                    rate: $row.find('input[name="rate"]').val() || '0',
-                    surcharges: $row.find('input[name="surcharges"]').val() || '0',
-                    amount: $row.find('input[name="amount"]').val() || '0',
-                    note: $row.find('input[name="note"]').val() || '',
-                    warehouse_code: $row.find('input[name="warehouse_code"]').val() || '',
-                    po_id: $row.find('input[name="po_id"]').val() || ''
-                };
-                
-                items.push(itemData);
-                rowIndex++;
-            });
-            
-            // 将数据放入隐藏字段
-            $('#items-data').val(JSON.stringify(items));
-        }
-    });
-
-    $('.input-qty, .input-rate, .input-surcharge').on('input', function() {
-        calculateItemAmount($(this));
-    });
-    
-    // 计算总条目数
-    updateTotalItemsCount();
-});
-
-// 初始化金额计算
-function initAmountCalculation() {
-    // 为所有输入框添加事件监听
-    $('.input-qty, .input-rate, .input-surcharge').on('input', function() {
-        calculateItemAmount($(this));
-    });
-}
-
-// 计算单行金额
-function calculateItemAmount($input) {
-    const $row = $input.closest('tr');
-    const $qtyInput = $row.find('.input-qty');
-    const $rateInput = $row.find('.input-rate');
-    const $surchargeInput = $row.find('.input-surcharge');
-    const $amountInput = $row.find('.input-amount');
-    const category = $row.data('category');
-    
-    const qty = parseFloat($qtyInput.val()) || 1;
-    const rate = parseFloat($rateInput.val()) || 0;
-    const surcharges = parseFloat($surchargeInput.val()) || 0;
-    
-    // 计算金额：数量 × 单价 + 附加费
-    const amount = (qty * rate) + surcharges;
-    
-    // 更新金额输入框
-    $amountInput.val(amount.toFixed(2));
-    
-    // 更新类别总金额和总金额
-    updateCategoryTotal(category);
-    updateTotalAmount();
-}
-
-// 更新类别总金额
-function updateCategoryTotal(category) {
-    let total = 0;
-    $(`.amount-input[data-category="${category}"]`).each(function() {
-        const amount = parseFloat($(this).val()) || 0;
-        total += amount;
-    });
-    
-    // 更新类别小计显示
-    $(`#${category}-total`).text(total.toFixed(2));
-}
-
-// 更新所有类别总金额
-function updateAllCategoryTotals() {
-    const categories = ['preport', 'warehouse_public', 'warehouse_other', 'delivery_public', 'delivery_other'];
-    categories.forEach(category => {
-        updateCategoryTotal(category);
-    });
-}
-
-// 更新总金额
-function updateTotalAmount() {
-    let total = 0;
-    $('.amount-input').each(function() {
-        const amount = parseFloat($(this).val()) || 0;
-        total += amount;
-    });
-    
-    // 更新总金额显示
-    $('#total-amount').text(total.toFixed(2));
-    $('#total-amount-display').text(total.toFixed(2) + ' USD');
-}
-
-// 显示驳回模态框
-function showRejectModal(category) {
-    const categoryNames = {
-        'preport': '港前费用',
-        'warehouse_public': '公仓库内费用',
-        'warehouse_other': '私仓库内费用',
-        'delivery_public': '公仓派送费用',
-        'delivery_other': '私仓派送费用',
-        'activation_fee': 'PO激活费'
-    };
-    
-    // 设置驳回的类别
-    $('#reject-category').val(category);
-    
-    // 更新模态框标题
-    $('#rejectModalLabel').html(`<i class="fas fa-ban me-2"></i> 驳回${categoryNames[category]}`);
-    
-    // 显示模态框
-    const rejectModal = new bootstrap.Modal(document.getElementById('rejectModal'));
-    rejectModal.show();
-}
-
-// 页面加载完成后初始化
-$(document).ready(function() {
-    // 初始化所有输入框的事件监听
-    initAmountCalculation();
-    
-    // 初始化金额显示
-    updateAllCategoryTotals();
-    updateTotalAmount();
-    
-    // 计算总条目数
-    const totalItems = $('.row-existing').length;
-    $('#total-items-count').text(totalItems);
-});
-function showAddItemModal() {
-    $('#add-category-select').val('');
-    const addModal = new bootstrap.Modal(document.getElementById('addItemModal'));
-    addModal.show();
-}
-
-// 添加新项目行
-function addNewItem() {
-    const category = $('#add-category-select').val();
-    if (!category) {
-        alert('请选择费用类别');
-        return;
-    }
-      
-    // 生成新行的HTML
-    const newRowHtml = generateNewRowHtml(category);
-    console.log('category', category);
-    
-    // 关键修改：找到对应类别的表格
-    // 1. 找到对应的section（标题区域）
-    const $section = $(`.${category}-section`);
-    console.log('section', $section);
-    
-    if ($section.length === 0) {
-        console.error('找不到对应的section');
-        return;
-    }
-    
-    // 2. 找到该section下面的表格
-    const $table = $section.next('table');
-    console.log('table', $table);
-    
-    if ($table.length === 0) {
-        console.error('找不到对应的表格');
-        return;
-    }
-    
-    // 3. 找到表格的tbody（如果不存在则创建）
-    let $tbody = $table.find('tbody');
-    
-    if ($tbody.length === 0) {
-        $table.append('<tbody></tbody>');
-        $tbody = $table.find('tbody');
-    }
-    
-    console.log('tbody', $tbody);
-    
-    if ($tbody.length > 0) {
-        $tbody.append(newRowHtml);
+    $(document).ready(function() {
+        // 初始化
+        // 初始化每行的金额计算
+        initAmountCalculation();
         
-        // 重新绑定事件
-        bindRowEvents($tbody.find('tr').last());
+        // 初始化类别总金额
+        updateAllCategoryTotals();
         
-        // 更新统计
-        updateCategoryTotal(category);
+        // 初始化总金额
         updateTotalAmount();
+        // 计算总条目数
         updateTotalItemsCount();
         
-        // 关闭模态框
-        const modal = bootstrap.Modal.getInstance(document.getElementById("addItemModal"));
-        if (modal) {
-            modal.hide();
-        }
-    } else {
-        console.error('找不到对应的tbody');
-    }
-}
+        // 1. 核心：监听 数量、单价、附加费 的变化 (使用事件委托，确保新行也有效)
+        $(document).on('input', '.input-qty, .input-rate, .input-surcharge', function() {
+            calculateRowAmount($(this));
+        });
 
-// 生成新行的HTML
-function generateNewRowHtml(category) {
-    const isDelivery = category === 'delivery_public' || category === 'delivery_other';
-    
-    if (isDelivery) {
-        return `
-            <tr class="row-existing row-new" data-category="${category}" data-item-id="new">
-                <td class="cell-stats">
-                    <input type="hidden" name="item_id" value="new">
-                    新
-                </td>
-                <td class="cell-description">
-                    <input type="text" 
-                           name="description" 
-                           value="" 
-                           class="input-control"
-                           placeholder="费用名称"
-                           required>
-                </td>
-                <td class="cell-destination">
-                    <input type="text" 
-                           name="warehouse_code" 
-                           value="" 
-                           class="input-control"
-                           placeholder="目的地">
-                </td>
-                <td class="cell-stats">
-                    <input type="number" 
-                           step="0.01"
-                           name="qty" 
-                           value="0" 
-                           class="input-control input-qty"
-                           onchange="calculateItemAmount(this)">
-                </td>
-                <td class="cell-stats">
-                    <input type="number" 
-                           step="0.01"
-                           name="rate" 
-                           value="0" 
-                           class="input-control input-rate"
-                           onchange="calculateItemAmount(this)">
-                </td>
-                <td class="cell-stats">
-                    <input type="number" 
-                           step="0.01"
-                           name="surcharges" 
-                           value="0" 
-                           class="input-control input-surcharge"
-                           onchange="calculateItemAmount(this)">
-                </td>
-                <td class="cell-stats">
-                    <input type="number" 
-                           step="0.01"
-                           name="amount" 
-                           value="0.00" 
-                           class="input-control input-amount amount-input"
-                           data-category="${category}"
-                           readonly>
-                </td>
-                <td>
-                    <input type="text" 
-                           name="note" 
-                           value="" 
-                           class="input-control input-note"
-                           placeholder="备注">
-                </td>
-                <td class="column-poid">
-                    <input type="text" 
-                           name="po_id" 
-                           value="" 
-                           class="input-control"
-                           placeholder="PO号">
-                </td>
-            </tr>
-        `;
-    } else {
-        return `
-            <tr class="row-existing row-new" data-category="${category}" data-item-id="new">
-                <td class="cell-stats">
-                    <input type="hidden" name="item_id" value="new">
-                    新
-                </td>
-                <td class="cell-description">
-                    <input type="text" 
-                           name="description" 
-                           value="" 
-                           class="input-control"
-                           placeholder="费用名称"
-                           required>
-                </td>
-                <td class="cell-stats">
-                    <input type="number" 
-                           step="0.01"
-                           name="qty" 
-                           value="0" 
-                           class="input-control input-qty"
-                           onchange="calculateItemAmount(this)">
-                </td>
-                <td class="cell-stats">
-                    <input type="number" 
-                           step="0.01"
-                           name="rate" 
-                           value="0" 
-                           class="input-control input-rate"
-                           onchange="calculateItemAmount(this)">
-                </td>
-                <td class="cell-stats">
-                    <input type="number" 
-                           step="0.01"
-                           name="surcharges" 
-                           value="0" 
-                           class="input-control input-surcharge"
-                           onchange="calculateItemAmount(this)">
-                </td>
-                <td class="cell-stats">
-                    <input type="number" 
-                           step="0.01"
-                           name="amount" 
-                           value="0.00" 
-                           class="input-control input-amount amount-input"
-                           data-category="${category}"
-                           readonly>
-                </td>
-                <td>
-                    <input type="text" 
-                           name="note" 
-                           value="" 
-                           class="input-control input-note"
-                           placeholder="备注">
-                </td>
-                <td style="display:none;">
-                    <input type="text" 
-                           name="warehouse_code" 
-                           value="" 
-                           class="input-control"
-                           placeholder="目的地">
-                </td>
-                <td style="display:none;" class="column-poid">
-                    <input type="text" 
-                           name="po_id" 
-                           value="" 
-                           class="input-control"
-                           placeholder="PO号">
-                </td>
-            </tr>
-        `;
-    }
-}
+        // 2. 核心：监听 金额列 的直接手动修改
+        $(document).on('input', '.amount-input', function() {
+            const category = $(this).data('category');
+            updateCategoryTotal(category);
+            updateTotalAmount();
+        });
+        // 防止回车提交表单
+        $('#invoice-form').on('keydown', 'input', function(e) {
+            if (e.keyCode === 13) {
+                e.preventDefault();
+                return false;
+            }
+        })
 
-// 绑定行事件
-function bindRowEvents($row) {
-    $row.find('.input-qty, .input-rate, .input-surcharge').on('input', function() {
-        calculateItemAmount($(this));
+        // 表单提交前处理 - 收集所有数据到items_data
+        $('#invoice-form').on('submit', function(e) {
+            const stepVal = $(this).find('input[name="step"]').val();
+            if (stepVal === 'confirm_save_all') {
+                // 构造 items 数组
+                const items = [];
+                let rowIndex = 0;
+                
+                // 遍历所有表格的行
+                $('tbody tr.row-existing').each(function() {
+                    const $row = $(this);
+                    const category = $row.data('category');
+                    
+                    // 收集该行的所有数据
+                    const itemData = {
+                        rowIndex: rowIndex,
+                        category: category,
+                        item_id: $row.find('input[name="item_id"]').val() || '',
+                        description: $row.find('input[name="description"]').val() || '',
+                        qty: $row.find('input[name="qty"]').val() || '0',
+                        rate: $row.find('input[name="rate"]').val() || '0',
+                        surcharges: $row.find('input[name="surcharges"]').val() || '0',
+                        amount: $row.find('input[name="amount"]').val() || '0',
+                        note: $row.find('input[name="note"]').val() || '',
+                        warehouse_code: $row.find('input[name="warehouse_code"]').val() || '',
+                        po_id: $row.find('input[name="po_id"]').val() || ''
+                    };
+                    
+                    items.push(itemData);
+                    rowIndex++;
+                });
+                
+                // 将数据放入隐藏字段
+                $('#items-data').val(JSON.stringify(items));
+            }
+        });
+        
+        
     });
-}
 
-// 更新总条目数
-function updateTotalItemsCount() {
-    const totalItems = $('.row-existing').length;
-    $('#total-items-count').text(totalItems);
-}
+    // 计算行金额
+    function calculateRowAmount($input) {
+        const $row = $input.closest('tr');
+        const $qtyInput = $row.find('.input-qty');
+        const $rateInput = $row.find('.input-rate');
+        const $surchargeInput = $row.find('.input-surcharge');
+        const $amountInput = $row.find('.input-amount');
+        const category = $row.data('category');
+
+        const qty = parseFloat($qtyInput.val()) || 0;
+        const rate = parseFloat($rateInput.val()) || 0;
+        const surcharges = parseFloat($surchargeInput.val()) || 0;
+
+        // 计算逻辑：(数量 * 单价) + 附加费
+        // 注意：如果非派送类数量默认为0，这里加个逻辑，如果qty为0但rate有值，可根据业务决定是否按1算
+        const amount = (qty * rate) + surcharges;
+
+        $amountInput.val(amount.toFixed(2));
+
+        // 更新汇总
+        updateCategoryTotal(category);
+        updateTotalAmount();
+    }
+    // 初始化金额计算
+    function initAmountCalculation() {
+        // 为所有输入框添加事件监听
+        $('.input-qty, .input-rate, .input-surcharge').on('input', function() {
+            calculateItemAmount($(this));
+        });
+        // 为非派送类金额列添加双击事件
+        $('.editable-amount').on('dblclick', function() {
+            restoreAutoCalculation(this);
+        });
+    }
+
+    // 计算单行金额
+    function calculateItemAmount($input) {
+        const $row = $input.closest('tr');
+        const $amountInput = $row.find('.input-amount');
+        const category = $row.data('category');
+
+        const isNonDelivery = category === 'preport' || category === 'warehouse_public' || category === 'warehouse_other';
+        // 满足以下条件才自动计算金额列
+        if (!isNonDelivery || $amountInput.data('auto-calculated') !== false) {
+            const $qtyInput = $row.find('.input-qty');
+            const $rateInput = $row.find('.input-rate');
+            const $surchargeInput = $row.find('.input-surcharge');
+            
+            const qty = parseFloat($qtyInput.val()) || 1;
+            const rate = parseFloat($rateInput.val()) || 0;
+            const surcharges = parseFloat($surchargeInput.val()) || 0;
+            
+            // 计算金额：数量 × 单价 + 附加费
+            const amount = (qty * rate) + surcharges;
+            
+            // 更新金额输入框
+            $amountInput.val(amount.toFixed(2));
+            
+            // 如果是非派送类且可编辑，标记为自动计算
+            if (isNonDelivery && $amountInput.hasClass('editable-amount')) {
+                $amountInput.data('auto-calculated', true);
+            }
+            
+            // 更新类别总金额和总金额
+            updateCategoryTotal(category);
+            updateTotalAmount();
+        }
+    }
+    // 处理金额列实时输入（非派送类）
+    function handleAmountManualInput(input) {
+        const $amountInput = $(input);
+        const $row = $amountInput.closest('tr');
+        const category = $row.data('category');
+        
+        // 标记为手动修改
+        $amountInput.data('auto-calculated', false);
+        
+        // 实时更新类别总金额和总金额
+        updateCategoryTotal(category);
+        updateTotalAmount();
+    }
+    // 处理手动修改金额（仅非派送类）
+    function handleAmountManualChange(input) {
+        const $amountInput = $(input);   
+        // 标记为手动修改
+        $amountInput.data('auto-calculated', false);
+    }
+    // 双击恢复自动计算（仅非派送类）
+    function restoreAutoCalculation(input) {
+        const $input = $(input);
+        if ($input.hasClass('editable-amount')) {
+            $input.data('auto-calculated', true);
+            
+            // 触发自动计算
+            const $row = $input.closest('tr');
+            const $qtyInput = $row.find('.input-qty');
+            if ($qtyInput.length) {
+                calculateItemAmount($qtyInput);
+            }
+        }
+    }
+
+    // 更新类别总金额
+    function updateCategoryTotal(category) {
+        let total = 0;
+        $(`.amount-input[data-category="${category}"]`).each(function() {
+            const amount = parseFloat($(this).val()) || 0;
+            total += amount;
+        });
+        
+        // 更新类别小计显示
+        $(`#${category}-total`).text(total.toFixed(2));
+    }
+
+    // 更新所有类别总金额
+    function updateAllCategoryTotals() {
+        const categories = ['preport', 'warehouse_public', 'warehouse_other', 'delivery_public', 'delivery_other','activation_fee'];
+        categories.forEach(category => {
+            updateCategoryTotal(category);
+        });
+    }
+
+    // 更新总金额
+    function updateTotalAmount() {
+        let total = 0;
+        $('.amount-input').each(function() {
+            total += parseFloat($(this).val()) || 0;
+        });
+        $('#total-amount').text(total.toFixed(2));
+        $('#total-amount-display').text(total.toFixed(2) + ' USD');
+    }
+
+    // 显示驳回模态框
+    function showRejectModal(category) {
+        const categoryNames = {
+            'preport': '港前费用',
+            'warehouse_public': '公仓库内费用',
+            'warehouse_other': '私仓库内费用',
+            'delivery_public': '公仓派送费用',
+            'delivery_other': '私仓派送费用',
+            'activation_fee': 'PO激活费'
+        };
+        
+        // 设置驳回的类别
+        $('#reject-category').val(category);
+        
+        // 更新模态框标题
+        $('#rejectModalLabel').html(`<i class="fas fa-ban me-2"></i> 驳回${categoryNames[category]}`);
+        
+        // 显示模态框
+        new bootstrap.Modal(document.getElementById('rejectModal')).show();
+    }
+
+    // 页面加载完成后初始化
+    $(document).ready(function() {
+        // 初始化所有输入框的事件监听
+        initAmountCalculation();
+        
+        // 初始化金额显示
+        updateAllCategoryTotals();
+        updateTotalAmount();
+        
+        // 计算总条目数
+        const totalItems = $('.row-existing').length;
+        $('#total-items-count').text(totalItems);
+    });
+    function showAddItemModal() {
+        $('#add-category-select').val('');
+        new bootstrap.Modal(document.getElementById('addItemModal')).show();
+    }
+
+    // 添加新项目行
+    function addNewItem() {
+        const category = $('#add-category-select').val();
+        if (!category) return alert('请选择费用类别');
+        
+        const isDelivery = category === 'delivery_public' || category === 'delivery_other';
+        const newRowHtml = `
+            <tr class="row-existing row-new" data-category="${category}">
+                <td class="cell-stats"><input type="hidden" name="item_id" value="new">新</td>
+                <td class="cell-description"><input type="text" name="description" class="input-control" required></td>
+                ${isDelivery ? `<td class="cell-destination"><input type="text" name="warehouse_code" class="input-control"></td>` : `<td style="display:none;"><input type="text" name="warehouse_code"></td>`}
+                ${isDelivery ? `<td class="cell-cbm"><input type="number" name="cbm" class="input-control"></td>` : ''}
+                <td class="cell-stats"><input type="number" step="0.01" name="qty" value="0" class="input-control input-qty"></td>
+                <td class="cell-stats"><input type="number" step="0.01" name="rate" value="0" class="input-control input-rate"></td>
+                <td class="cell-stats"><input type="number" step="0.01" name="surcharges" value="0" class="input-control input-surcharge"></td>
+                <td class="cell-stats"><input type="number" step="0.01" name="amount" value="0.00" class="input-control input-amount amount-input" data-category="${category}"></td>
+                <td><input type="text" name="note" class="input-control"></td>
+                ${isDelivery ? `<td class="column-poid"><input type="text" name="po_id" class="input-control"></td>` : `<td style="display:none;"><input type="text" name="po_id"></td>`}
+            </tr>`;
+
+        const $tbody = $(`.${category}-section`).next('table').find('tbody');
+        $tbody.append(newRowHtml);
+        
+        updateTotalItemsCount();
+        bootstrap.Modal.getInstance(document.getElementById("addItemModal")).hide();
+    }
+
+    // 生成新行的HTML
+    function generateNewRowHtml(category) {
+        const isDelivery = category === 'delivery_public' || category === 'delivery_other';
+        
+        if (isDelivery) {
+            return `
+                <tr class="row-existing row-new" data-category="${category}" data-item-id="new">
+                    <td class="cell-stats">
+                        <input type="hidden" name="item_id" value="new">
+                        新
+                    </td>
+                    <td class="cell-description">
+                        <input type="text" 
+                            name="description" 
+                            value="" 
+                            class="input-control"
+                            placeholder="费用名称"
+                            required>
+                    </td>
+                    <td class="cell-destination">
+                        <input type="text" 
+                            name="warehouse_code" 
+                            value="" 
+                            class="input-control"
+                            placeholder="目的地">
+                    </td>
+                    <td class="cell-stats">
+                        <input type="number" 
+                            step="0.01"
+                            name="qty" 
+                            value="0" 
+                            class="input-control input-qty"
+                            onchange="calculateItemAmount(this)">
+                    </td>
+                    <td class="cell-stats">
+                        <input type="number" 
+                            step="0.01"
+                            name="rate" 
+                            value="0" 
+                            class="input-control input-rate"
+                            onchange="calculateItemAmount(this)">
+                    </td>
+                    <td class="cell-stats">
+                        <input type="number" 
+                            step="0.01"
+                            name="surcharges" 
+                            value="0" 
+                            class="input-control input-surcharge"
+                            onchange="calculateItemAmount(this)">
+                    </td>
+                    <td class="cell-stats">
+                        <input type="number" 
+                            step="0.01"
+                            name="amount" 
+                            value="0.00" 
+                            class="input-control input-amount amount-input"
+                            data-category="${category}"
+                            readonly>
+                    </td>
+                    <td>
+                        <input type="text" 
+                            name="note" 
+                            value="" 
+                            class="input-control input-note"
+                            placeholder="备注">
+                    </td>
+                    <td class="column-poid">
+                        <input type="text" 
+                            name="po_id" 
+                            value="" 
+                            class="input-control"
+                            placeholder="PO号">
+                    </td>
+                </tr>
+            `;
+        } else {
+            return `
+                <tr class="row-existing row-new" data-category="${category}" data-item-id="new">
+                    <td class="cell-stats">
+                        <input type="hidden" name="item_id" value="new">
+                        新
+                    </td>
+                    <td class="cell-description">
+                        <input type="text" 
+                            name="description" 
+                            value="" 
+                            class="input-control"
+                            placeholder="费用名称"
+                            required>
+                    </td>
+                    <td class="cell-stats">
+                        <input type="number" 
+                            step="0.01"
+                            name="qty" 
+                            value="0" 
+                            class="input-control input-qty"
+                            onchange="calculateItemAmount(this)">
+                    </td>
+                    <td class="cell-stats">
+                        <input type="number" 
+                            step="0.01"
+                            name="rate" 
+                            value="0" 
+                            class="input-control input-rate"
+                            onchange="calculateItemAmount(this)">
+                    </td>
+                    <td class="cell-stats">
+                        <input type="number" 
+                            step="0.01"
+                            name="surcharges" 
+                            value="0" 
+                            class="input-control input-surcharge"
+                            onchange="calculateItemAmount(this)">
+                    </td>
+                    <td class="cell-stats">
+                        <input type="number" 
+                            step="0.01"
+                            name="amount" 
+                            value="0.00" 
+                            class="input-control input-amount amount-input"
+                            data-category="${category}"
+                            readonly>
+                    </td>
+                    <td>
+                        <input type="text" 
+                            name="note" 
+                            value="" 
+                            class="input-control input-note"
+                            placeholder="备注">
+                    </td>
+                    <td style="display:none;">
+                        <input type="text" 
+                            name="warehouse_code" 
+                            value="" 
+                            class="input-control"
+                            placeholder="目的地">
+                    </td>
+                    <td style="display:none;" class="column-poid">
+                        <input type="text" 
+                            name="po_id" 
+                            value="" 
+                            class="input-control"
+                            placeholder="PO号">
+                    </td>
+                </tr>
+            `;
+        }
+    }
+
+    // 绑定行事件
+    function bindRowEvents($row) {
+        $row.find('.input-qty, .input-rate, .input-surcharge').on('input', function() {
+            calculateItemAmount($(this));
+        });
+        // 为非派送类金额列绑定实时输入事件
+        $row.find('.editable-amount').on('input', function() {
+            handleAmountManualInput(this);
+        }).on('change', function() {
+            handleAmountManualChange(this);
+        }).on('dblclick', function() {
+            restoreAutoCalculation(this);
+        });
+    }
+
+    // 更新总条目数
+    function updateTotalItemsCount() {
+        $('#total-items-count').text($('.row-existing').length);
+    }
 
 </script>
 {% endblock %}
