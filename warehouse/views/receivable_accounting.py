@@ -5626,7 +5626,7 @@ class ReceivableAccounting(View):
         
         # 4. 计算占比（保留四位小数）
         group_cbm_ratios = {}
-
+        combina_cbm_manual = 0
         for g in combina_pallet_groups:
             po_id = g.get("PO_ID")
             destination_str = g.get("destination", "")
@@ -5634,13 +5634,14 @@ class ReceivableAccounting(View):
             key = (po_id, destination)
 
             cbm = round(g.get("total_cbm", 0), 2)
-            if total_container_cbm > 0:
-                
+            combina_cbm_manual += cbm
+            if total_container_cbm > 0:             
                 group_cbm_ratios[key] = round(cbm / total_container_cbm, 4)
 
             else:
                 group_cbm_ratios[key] = 0.0
-
+        print('组合柜内体积之和是',combina_cbm_manual)
+        print('整柜的体积之和是',total_container_cbm)
         # 判断下如果所有仓点都是组合柜区域内，那就要保证总和为1
         unique_poids = set(poid_list)
         prefixes = {po_id.split('_')[0] for po_id in unique_poids if '_' in po_id}
