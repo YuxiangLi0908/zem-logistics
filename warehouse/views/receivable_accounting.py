@@ -5667,7 +5667,7 @@ class ReceivableAccounting(View):
                 group_cbm_ratios[max_key] = max(0, new_ratio)
         # 检验cbm_ratio是否有负数
         for key, ratio in group_cbm_ratios.items():
-            if ratio < 0:
+            if ratio <= 0:
                 po_id, dest = key
                 error_msg = f"账单计算异常: 发现负数占比({ratio})。PO号: {po_id}, 目的地: {dest}。"
                 raise ValueError(error_msg)
