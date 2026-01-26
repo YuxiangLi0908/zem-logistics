@@ -5640,8 +5640,6 @@ class ReceivableAccounting(View):
 
             else:
                 group_cbm_ratios[key] = 0.0
-        print('组合柜内体积之和是',combina_cbm_manual)
-        print('整柜的体积之和是',total_container_cbm)
         # 判断下如果所有仓点都是组合柜区域内，那就要保证总和为1
         unique_poids = set(poid_list)
         prefixes = {po_id.split('_')[0] for po_id in unique_poids if '_' in po_id}
@@ -5675,6 +5673,7 @@ class ReceivableAccounting(View):
             if ratio <= 0:
                 po_id, dest = key
                 error_msg = f"账单计算异常: 发现负数占比({ratio})。PO号: {po_id}, 目的地: {dest}。"
+                raise ValueError(combina_pallet_groups)
                 raise ValueError(error_msg)
         # 5. 计算组合柜总费用
         combina_tiers_data = {}  # 存储结构为：(区名, 梯度索引) -> 数据
