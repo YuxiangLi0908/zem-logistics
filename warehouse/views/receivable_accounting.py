@@ -6046,13 +6046,17 @@ class ReceivableAccounting(View):
             }
         }
         
-    def _get_pallet_groups_by_po(self, container_number: str, delivery_type: str, invoice: Invoicev2) -> tuple[list, list, dict]:
+    def _get_pallet_groups_by_po(self, container_number: str, delivery_type: str, invoice: Invoicev2, ignore_del_type: bool = False) -> tuple[list, list, dict]:
         """获取托盘数据"""
         context = {}
         error_messages = []
+        query_filters = {
+            'container_number__container_number': container_number,
+        }
+        if not ignore_del_type:
+            query_filters['delivery_type'] = delivery_type
         base_query = Pallet.objects.filter(
-            container_number__container_number=container_number,
-            delivery_type=delivery_type
+            **query_filters
         ).exclude(
             PO_ID__isnull=True
         ).exclude(
@@ -7562,7 +7566,7 @@ class ReceivableAccounting(View):
         )
         
         # 2、组合柜相关信息
-        pallet_groups, other_pallet_groups, ctx = self._get_pallet_groups_by_po(container_number, "public", invoice)
+        pallet_groups, other_pallet_groups, ctx = self._get_pallet_groups_by_po(container_number, "public", invoice, True)
         existing_items = self._get_existing_invoice_items(invoice, "delivery_public")
         result_existing = self._separate_existing_items(existing_items, pallet_groups)
         combina_groups = result_existing['combina_groups']
@@ -7815,7 +7819,6 @@ class ReceivableAccounting(View):
 
     def _recalculate_cbm_ratio(self, container_number, invoice, total_container_cbm):
         '''计算派送费中非组合柜的cbm_ratio'''
-        print('重新计算cbm比例')
         items = InvoiceItemv2.objects.filter(
             invoice_type="receivable",
             container_number__container_number=container_number,
