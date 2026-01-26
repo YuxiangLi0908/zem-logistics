@@ -4880,7 +4880,7 @@ class ReceivableAccounting(View):
         return result
     
     def handle_container_delivery_post(self, request:HttpRequest, context: dict| None = None) -> Dict[str, Any]:
-        '''柜子派送账单计算'''
+        '''计算柜子的派送账单'''
         if not context:
             context = {}
         container_number = request.GET.get("container_number")
@@ -5626,8 +5626,7 @@ class ReceivableAccounting(View):
         
         # 4. 计算占比（保留四位小数）
         group_cbm_ratios = {}
-        # 记录哪些 key 是真正的当前组合柜货物（排除掉补费项）
-        real_combina_keys = []
+
         for g in combina_pallet_groups:
             po_id = g.get("PO_ID")
             destination_str = g.get("destination", "")
@@ -5635,14 +5634,12 @@ class ReceivableAccounting(View):
             key = (po_id, destination)
 
             cbm = round(g.get("total_cbm", 0), 2)
-            if total_container_cbm > 0:              
+            if total_container_cbm > 0:
+                
                 group_cbm_ratios[key] = round(cbm / total_container_cbm, 4)
 
             else:
                 group_cbm_ratios[key] = 0.0
-
-            if destination_str not in need_Additional_des:
-                real_combina_keys.append(key)
 
         # 判断下如果所有仓点都是组合柜区域内，那就要保证总和为1
         unique_poids = set(poid_list)
@@ -5650,9 +5647,10 @@ class ReceivableAccounting(View):
         poid_list = list(unique_poids | prefixes)
 
         missing_records = PackingList.objects.filter(container_number=container).exclude(PO_ID__in=poid_list)
+
         has_missing = missing_records.exists()
         
-        if not has_missing and not has_previous_items and real_combina_keys:
+        if not has_missing:
             #修正比例：保证总和 = 1.0000, 现在不按组合柜占比为1了，和其他仓点不好算
             ratio_sum = round(sum(group_cbm_ratios.values()), 4)
             if ratio_sum != 1.0:
@@ -5660,18 +5658,23 @@ class ReceivableAccounting(View):
 
                 # 最大 CBM 仓点承担误差
                 max_key = max(
-                    real_combina_keys,
-                    key=lambda k: group_cbm_ratios[k]
+                    group_cbm_ratios,
+                    key=lambda k: next(
+                        (
+                            round(g.get("total_cbm", 0), 2)
+                            for g in combina_pallet_groups
+                            if (g.get("PO_ID"), g.get("destination", "")) == k
+                        ),
+                        0
+                    )
                 )
-                new_ratio = round(group_cbm_ratios[max_key] + diff, 4)
-                group_cbm_ratios[max_key] = max(0, new_ratio)
-        # 检验cbm_ratio是否有负数
+                group_cbm_ratios[max_key] = round(group_cbm_ratios[max_key] + diff, 4)
+
         for key, ratio in group_cbm_ratios.items():
             if ratio <= 0:
                 po_id, dest = key
                 error_msg = f"账单计算异常: 发现负数占比({ratio})。PO号: {po_id}, 目的地: {dest}。"
                 raise ValueError(error_msg)
-
         # 5. 计算组合柜总费用
         combina_tiers_data = {}  # 存储结构为：(区名, 梯度索引) -> 数据
         # 记录每个具体的 PO+Dest 属于哪个梯度索引
