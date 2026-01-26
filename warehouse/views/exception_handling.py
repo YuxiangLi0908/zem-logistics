@@ -281,6 +281,9 @@ class ExceptionHandling(View):
         elif step == "delete_shipment":
             template, context = await self.handle_delete_shipment(request)
             return await sync_to_async(render)(request, template, context)
+        elif step == "delete_fleet":
+            template, context = await self.handle_delete_fleet(request)
+            return await sync_to_async(render)(request, template, context)
         elif step == "delete_shipment_batch_number":
             template, context = await self.handle_delete_shipment_batch_number(request)
             return await sync_to_async(render)(request, template, context)
@@ -2335,6 +2338,27 @@ class ExceptionHandling(View):
                     messages.success(request, "批次号删除成功")
                 except Exception as e:
                     messages.error(request, f"批次号删除失败: {str(e)}")
+        return self.template_post_port_status, context
+    
+    async def handle_delete_fleet(self, request: HttpRequest):
+        '''删除车次'''
+        context = {}
+        fleet_id = request.POST.get('fleet_id')
+        if not fleet_id:
+            messages.error(request, "缺少必要参数")
+            return self.template_post_port_status, context
+        # 异步获取shipment对象
+        try:
+            fleet = await sync_to_async(
+                lambda: Fleet.objects.filter(id=fleet_id).first()
+            )()
+            if fleet:
+                await sync_to_async(fleet.delete)()
+                messages.success(request, "记录删除成功")
+            else:
+                messages.error(request, "未找到要删除的记录")
+        except Exception as e:
+            messages.error(request, f"记录删除失败: {str(e)}")
         return self.template_post_port_status, context
     
     async def handle_delete_shipment(self, request: HttpRequest):
