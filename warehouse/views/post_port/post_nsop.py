@@ -2215,14 +2215,18 @@ class PostNsop(View):
         region = None
         for region, region_data in rules.items():
             for item in region_data:
-                if destination in item["location"]:
+                rule_locations = item.get("location", [])
+                if isinstance(rule_locations, str):
+                    rule_locations = [rule_locations] # 统一转成列表处理
+
+                if any(destination == loc.replace(" ", "").upper() for loc in rule_locations):
                     is_combina_region = True
                     price = item["prices"][container_type_temp]
                     region = region
                     break
             if is_combina_region:
                 break
-        if destination.upper() == "UPS":
+        if destination == "UPS":
             is_combina_region = False
         
         if is_combina_region:
@@ -2280,6 +2284,7 @@ class PostNsop(View):
                 else:
                     second_result = second_part
                 
+                second_result = second_result.replace(" ", "").upper()
                 return first_result, second_result
             else:
                 raise ValueError(first_change_pos)
@@ -2295,6 +2300,7 @@ class PostNsop(View):
         else:
             second_result = destination_origin
         
+        second_result = second_result.replace(" ", "").upper()
         return None, second_result
     
     async def _is_combina(self, container: Container, order: Order, warehouse) -> Any:
@@ -3060,6 +3066,12 @@ class PostNsop(View):
             except:
                 month_day = current_time.strftime("%m%d")
             pickupNumber = "ZEM" + "-" + warehouse + "-" + "" + month_day + carrier + destination
+
+            fleet_cost = (request.POST.get("fleet_cost", ""))
+            if not fleet_cost:
+                fleet_cost = 0.0
+            else:
+                fleet_cost = float(fleet_cost)
             fleet = Fleet(
                 **{
                     "carrier": request.POST.get("carrier").strip(),
@@ -3075,6 +3087,7 @@ class PostNsop(View):
                     "total_pallet": total_pallet,
                     "total_pcs": total_pcs,
                     "origin": warehouse,
+                    "fleet_cost": fleet_cost,
                 }
             )
             # NJ仓的客户自提和UPS，都不需要确认出库和确认到达，客户自提需要POD上传
@@ -3386,6 +3399,7 @@ class PostNsop(View):
             )
 
         request.POST = request.POST.copy()
+        fm = FleetManagement()
         if selected_ids:
             #先生成fleet_number
             current_time = datetime.now()
@@ -3421,16 +3435,13 @@ class PostNsop(View):
                 'total_pcs': total_pcs,
                 'fleet_cost': fleet_cost_value,
             }
-            # 分摊成本
-            await FleetManagement.self.insert_fleet_shipment_pallet_fleet_cost(
-                request, fleet_number, fleet_cost_value
-            )
+            
             request.POST['fleet_number'] = fleet_number
             request.POST['fleet_type'] = fleet_type
         request.POST['fleet_data'] = str(fleet_data_dict)
         request.POST['fleet_cost'] = fleet_cost_value
         request.POST['selected_ids'] = selected_ids
-        fm = FleetManagement()
+        
         info = await fm.handle_fleet_confirmation_post(request,'post_nsop')
         context = {}
         if error_message:
@@ -3438,6 +3449,10 @@ class PostNsop(View):
         _, context = await self.handle_td_shipment_post(request, context)
         context.update({"success_messages": f'排车成功!批次号是：{fleet_number}'})   
         
+        # 分摊成本
+        await fm.insert_fleet_shipment_pallet_fleet_cost(
+            request, fleet_number, fleet_cost_value
+        )
         if page == "arm_appointment":
             return await self.handle_unscheduled_pos_post(request,context)
         elif page == "ltl_unscheduledFleet":
@@ -6408,7 +6423,7 @@ class PostNsop(View):
         combina_key = f"{warehouse}_COMBINA"
         if combina_key not in fee_details:
             context = {
-                "error_messages": f"未找到组合柜报价表规则 {combina_key}"
+                "error_messages": f"未找到组合柜报价表规则 {combina_key},报价表是{quotations['filename']}"
             }
             return (context, [])  # 返回错误，空列表
         
@@ -6442,14 +6457,17 @@ class PostNsop(View):
         
         for region, region_data in rules.items():
             for item in region_data:
-                if destination in item["location"]:
+                rule_locations = item.get("location", [])
+                if isinstance(rule_locations, str):
+                    rule_locations = [rule_locations] # 统一转成列表处理
+                if any(destination == loc.replace(" ", "").upper() for loc in rule_locations):
                     is_combina_region = True
                     price = item["prices"][container_type_temp]
                     match_region = region
                     break
             if is_combina_region:
                 break
-        if destination.upper() == "UPS":
+        if destination == "UPS":
             is_combina_region = False
 
         if is_combina_region:
@@ -6461,7 +6479,7 @@ class PostNsop(View):
                     total_cbm=Coalesce(Sum('cbm'), 0.0)
                 )
             )()
-            cbm_ratio = total_cbm / total_container_cbm_result.get('total_cbm', 0)
+            cbm_ratio = round(total_cbm / total_container_cbm_result.get('total_cbm', 0), 4)
             ltl_quote = price * cbm_ratio
             if existing_item:
                 existing_item.qty = qty
@@ -6476,13 +6494,14 @@ class PostNsop(View):
                 existing_item.description = "派送费"
                 existing_item.region = match_region
                 existing_item.regionPrice = price
+                existing_item.item_category = "delivery_public"
                 await sync_to_async(existing_item.save)()
             else:
                 item = InvoiceItemv2(
                     container_number=container,
                     invoice_number=invoice_record,
                     invoice_type="receivable",
-                    item_category="delivery_other",
+                    item_category="delivery_public",
                     description="派送费",
                     warehouse_code=destination_str,
                     shipping_marks=getattr(first_pallet, "shipping_mark", ""),
@@ -6500,7 +6519,7 @@ class PostNsop(View):
                 )
                 await sync_to_async(item.save)() 
         else:
-            raise ValueError("未在报价表的组合柜范围内找到这个区")    
+            raise ValueError(f"未在报价表的组合柜范围内找到这个区{quotations['filename']}")    
 
     async def _try_complete_delivery_other_status(self, container):
         """
@@ -7026,6 +7045,11 @@ class PostNsop(View):
             fleet = await sync_to_async(Fleet.objects.get)(fleet_number=fleet_number)
             fleet.fleet_cost = float(fleet_cost)
             await sync_to_async(fleet.save)()
+            #分摊成本
+            fm = FleetManagement()
+            await fm.insert_fleet_shipment_pallet_fleet_cost(
+                request, fleet_number, fleet_cost
+            )
         
         return await self.handle_ltl_unscheduled_pos_post(request)
 
@@ -7069,34 +7093,38 @@ class PostNsop(View):
         # 未给定时间时，自动查询过去三个月的
         current_date = datetime.now().date()
         start_date = (
-            (current_date + timedelta(days=-90)).strftime("%Y-%m-%d")
+            (current_date + timedelta(days=-60)).strftime("%Y-%m-%d")
             if not start_date
             else start_date
         )
         end_date = current_date.strftime("%Y-%m-%d") if not end_date else end_date
         
         pl_criteria = Q(
-            id__isnull=True, 
+            container_number__orders__offload_id__offload_at__isnull=True,
+            container_number__orders__retrieval_id__retrieval_destination_area=warehouse_name,
+            container_number__orders__retrieval_id__actual_retrieval_timestamp__gte=start_date,
+            container_number__orders__retrieval_id__actual_retrieval_timestamp__lte=end_date,
+            delivery_type="other"
         )
         plt_criteria = Q(
-            location=warehouse,
-            shipment_batch_number__shipment_batch_number__isnull=True,
+            location=warehouse,            
             container_number__orders__offload_id__offload_at__gte=start_date,
             container_number__orders__offload_id__offload_at__lte=end_date, 
             delivery_type="other"
         )
 
         # 已放行-客提
-        selfpick_cargos = await self._ltl_scheduled_self_pickup(pl_criteria, plt_criteria)
+        release_cargos, selfpick_cargos, selfdel_cargos = await self._get_classified_cargos(pl_criteria, plt_criteria)
+        #selfpick_cargos = await self._ltl_scheduled_self_pickup(pl_criteria, plt_criteria)
         # 已放行-自发
-        selfdel_cargos = await self._ltl_self_delivery(pl_criteria, plt_criteria)
+        #selfdel_cargos = await self._ltl_self_delivery(pl_criteria, plt_criteria)
         # 历史车次
-        fleet_cargos = await self._ltl_unscheduled_data(request, warehouse, start_date, end_date)
-
+        #fleet_cargos = await self._ltl_unscheduled_data(request, warehouse, start_date, end_date)
+        fleet_cargos = None
         summary = {
             'selfpick_count': len(selfpick_cargos),
             'selfdel_count': len(selfdel_cargos),
-            'fleet_count': len(fleet_cargos),
+            'fleet_count': 0,
         }
         if not context:
             context = {}
@@ -7121,6 +7149,35 @@ class PostNsop(View):
             context.update({'active_tab':active_tab})
         return self.template_ltl_history_pos, context
     
+    async def _get_classified_cargos(self, pl_criteria, plt_criteria):
+        """一次性获取并分类LTL的所有PO"""
+        # 获取全量数据 (注意：此时不要在 criteria 里加“自提”限制，获取该仓库下的所有)
+        all_raw_data = await self._ltl_packing_list(pl_criteria, plt_criteria)
+        
+        release_cargos = []     # 未放行 (Tab 1)
+        selfpick_cargos = []    # 已放行-客提 (Tab 2)
+        selfdel_cargos = []     # 已放行-自发 (Tab 3)
+
+        for item in all_raw_data:
+            is_pass = item.get('is_pass', False)
+            # 兼容 Pallet 和 PackingList 的 delivery_method 字段名
+            delivery_method = item.get('delivery_method') or item.get('custom_delivery_method') or ""
+            
+            if not is_pass:
+                # 未放行逻辑
+                release_cargos.append(item)
+            else:
+                # 已放行逻辑
+                if "自提" in delivery_method:
+                    selfpick_cargos.append(item)
+                else:
+                    selfdel_cargos.append(item)
+
+        # 针对未放行进行排序 (对应你原来的逻辑)
+        release_cargos.sort(key=lambda x: (x.get('ltl_verify', False),))
+        
+        return release_cargos, selfpick_cargos, selfdel_cargos
+
     async def handle_ltl_unscheduled_pos_post(
         self, request: HttpRequest, context: dict| None = None,
     ) -> tuple[str, dict[str, Any]]:
@@ -7135,8 +7192,8 @@ class PostNsop(View):
             return self.template_unscheduled_pos_all, context
         
         pl_criteria = Q(
-            shipment_batch_number__shipment_batch_number__isnull=True,
             container_number__orders__offload_id__offload_at__isnull=True,
+            shipment_batch_number__shipment_batch_number__isnull=True,
             container_number__orders__retrieval_id__retrieval_destination_area=warehouse_name,
             delivery_type="other"
         )
@@ -7146,13 +7203,14 @@ class PostNsop(View):
             container_number__orders__offload_id__offload_at__gt=datetime(2025, 12, 1),
             delivery_type="other"
         )
-        # 未放行
-        release_cargos = await self._ltl_unscheduled_cargo(pl_criteria, plt_criteria)
+        # 未放行、已放行-客提、已放行-自发
+        release_cargos, selfpick_cargos, selfdel_cargos = await self._get_classified_cargos(pl_criteria, plt_criteria)
+        #release_cargos = await self._ltl_unscheduled_cargo(pl_criteria, plt_criteria)
 
         # 已放行-客提
-        selfpick_cargos = await self._ltl_scheduled_self_pickup(pl_criteria, plt_criteria)
+        #selfpick_cargos = await self._ltl_scheduled_self_pickup(pl_criteria, plt_criteria)
         # 已放行-自发
-        selfdel_cargos = await self._ltl_self_delivery(pl_criteria, plt_criteria)
+        #selfdel_cargos = await self._ltl_self_delivery(pl_criteria, plt_criteria)
 
         #未排车
         unschedule_fleet = await self._ltl_unscheduled_data(request, warehouse)
@@ -7218,8 +7276,7 @@ class PostNsop(View):
             start_datetime = datetime.strptime(start_date, "%Y-%m-%d")
             end_datetime = datetime.strptime(end_date, "%Y-%m-%d") + timedelta(days=1)
             time_filter_q = models.Q(
-                models.Q(pickup_time__range=(start_datetime, end_datetime)) |
-                models.Q(shipment_appointment__range=(start_datetime, end_datetime))
+                shipment_appointment__range=(start_datetime, end_datetime)
             )
             
         else:

@@ -91,6 +91,7 @@ class OrderCreation(View):
         if not await self._user_authenticate(request):
             return redirect("login")
         step = request.GET.get("step", None)
+        print(f"GET step: {step}")
         if step == "all":
             template, context = await self.handle_order_basic_info_get()
             return await sync_to_async(render)(request, template, context)
@@ -114,6 +115,7 @@ class OrderCreation(View):
         if not await self._user_authenticate(request):
             return redirect("login")
         step = request.POST.get("step", None)
+        print(f"POST step: {step}")
         if step == "create_order_basic":
             template, context = await self.handle_create_order_basic_post(request)
             return await sync_to_async(render)(request, template, context)
@@ -1057,6 +1059,7 @@ class OrderCreation(View):
     async def handle_peer_po_save(
         self, request: HttpRequest
     ) -> tuple[Any, Any]:
+        '''同行货物录入'''
         container_number = request.POST.get("container_number")
         customer_name = request.POST.get("customer_name")
         warehouse = request.POST.get("warehouse")
@@ -1413,6 +1416,7 @@ class OrderCreation(View):
     async def handle_update_order_packing_list_info_post(
         self, request: HttpRequest
     ) -> tuple[Any, Any]:
+        '''更新Packing List信息'''
         container_number = request.POST.get("container_number")
         order = await sync_to_async(
             Order.objects.select_related(
@@ -2249,6 +2253,7 @@ class OrderCreation(View):
             raise ValueError(f"invalid file format!")
         
     async def _naming_container(self,customer_name:str) -> str:
+        '''同行货物生成柜号逻辑'''
         max_attempts=10
         attempt = 0
         while attempt < max_attempts:

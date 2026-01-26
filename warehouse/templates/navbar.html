@@ -66,7 +66,6 @@
                                     <a>预约管理</a>
                                     <div class="nested-dropdown-content">
                                         <a href="{% url 'schedule_shipment' %}?step=appointment_management" target="_blank">备约</a>
-                                        <a href="{% url 'create_order' %}?step=peer_po_creation">外配货物登记</a>
                                         <a href="{% url 'schedule_shipment' %}" target="_blank">预约出库</a>
                                         <a href="{% url 'schedule_shipment' %}?step=batch_shipment" target="_blank">批量预约出库</a>
                                         <a href="{% url 'schedule_shipment' %}?step=shipment_exceptions" target="_blank">异常预约</a>
@@ -82,13 +81,7 @@
                                         <a href="{% url 'pod' %}?step=fleet_cost_record" target="_blank">派送成本录入</a>
                                     </div>
                                 </div>
-                                <div class="nested-dropdown">
-                                    <a>卡板转仓</a>
-                                    <div class="nested-dropdown-content">
-                                        <a href="{% url 'transferpallet' %}?step=operation">转仓操作</a>
-                                        <a href="{% url 'transferpallet' %}?step=transfer_history">转仓历史及BOL</a>
-                                    </div>
-                                </div>
+                                
                                 <div class="nested-dropdown">
                                     <a>表格导出</a>
                                     <div class="nested-dropdown-content">
@@ -133,6 +126,14 @@
                                         </div>
                                         <a href="{% url 'post_nsop' %}?step=fleet_management" target="_blank">车次操作</a>
                                         <a href="{% url 'post_nsop' %}?step=history_shipment" target="_blank">历史排约</a>
+                                        <a href="{% url 'create_order' %}?step=peer_po_creation">外配货物登记</a>
+                                        <div class="nested-dropdown">
+                                            <a>卡板转仓</a>
+                                            <div class="nested-dropdown-content">
+                                                <a href="{% url 'transferpallet' %}?step=operation">转仓操作</a>
+                                                <a href="{% url 'transferpallet' %}?step=transfer_history">转仓历史及BOL</a>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                                 <div class="nested-dropdown">
