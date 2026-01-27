@@ -3033,12 +3033,28 @@ class Accounting(View):
             .distinct()
         )
 
-
-        #派送待确认（待核销）
+        # 派送待确认（待核销）
         # 预加载所有InvoiceItemv2数据（按柜号分组，方便后续判断）
         itemv2_queryset = InvoiceItemv2.objects.select_related("container_number").only(
             "id", "container_number_id", "write_off_amount", "rate", "description", "write_off_time",
-            "note"
+            "note", "invoice_type"  # 补充invoice_type字段
+        )
+
+        # 定义：筛选「派送费用+应付+未核销」的InvoiceItemv2的Exists查询
+        unwritten_off_itemv2 = Exists(
+            InvoiceItemv2.objects.filter(
+                container_number_id=OuterRef("container_number_id"),  # 关联柜号
+                description__contains='派送费用',
+                invoice_type='payable',
+                write_off_amount__isnull=True  # 未核销（无核销金额）
+            )
+        )
+
+        # 定义：筛选「有任意InvoiceItemv2记录」的Exists查询
+        has_itemv2 = Exists(
+            InvoiceItemv2.objects.filter(
+                container_number_id=OuterRef("container_number_id")
+            )
         )
 
         # 筛选无核销记录的
@@ -3072,7 +3088,11 @@ class Accounting(View):
                     ).values("destination")[:1],
                     output_field=CharField()
                 ),
-                # 注解：判断该柜号是否有已核销的InvoiceItemv2（用于筛选待确认）
+                # 注解1：是否有任意InvoiceItemv2记录
+                has_itemv2=has_itemv2,
+                # 注解2：是否有「派送费用+应付+未核销」的InvoiceItemv2记录
+                has_unwritten_off_itemv2=unwritten_off_itemv2,
+                # 注解3：原has_written_off保留（判断是否已核销）
                 has_written_off=Exists(
                     InvoiceItemv2.objects.filter(
                         container_number_id=OuterRef("container_number_id"),
@@ -3080,10 +3100,12 @@ class Accounting(View):
                     )
                 )
             )
-            # 筛选待确认：无InvoiceItemv2记录 或 有记录但未核销
+            # ========== 核心修复：重构过滤逻辑 ==========
+            # 筛选条件：
+            # 1. 无任何InvoiceItemv2记录（has_itemv2=False）
+            # 2. 有InvoiceItemv2记录，但属于「派送费用+应付+未核销」（has_unwritten_off_itemv2=True）
             .filter(
-                models.Q(container_number__invoice_itemv2__isnull=True) |  # 无InvoiceItemv2记录
-                (models.Q(write_off_amount__isnull=True) & models.Q(description__contains='派送费用')& models.Q(invoice_type='payable'))  # 有记录但未核销
+                Q(has_itemv2=False) | Q(has_unwritten_off_itemv2=True)
             )
             .order_by("fleet_number__id", "pickup_number", "container_num")
         )
