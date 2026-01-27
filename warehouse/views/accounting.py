@@ -463,6 +463,9 @@ class Accounting(View):
         elif step == "export_confirmed_by_month_carrier_v1_search":
             template, context = self.export_confirmed_by_month_carrier_v1_search(request)
             return render(request, template, context)
+        elif step == "export_delivery_by_month_carrier_v1_search":
+            template, context = self.export_delivery_by_month_carrier_v1_search(request)
+            return render(request, template, context)
         elif step == "export_delivery_search":
             template, context = self.export_delivery_search(request)
             return render(request, template, context)
@@ -3046,16 +3049,10 @@ class Accounting(View):
                 container_number_id=OuterRef("container_number_id"),  # 关联柜号
                 description__contains='派送费用',
                 invoice_type='payable',
-                write_off_amount__isnull=True  # 未核销（无核销金额）
+                write_off_amount__isnull=False
             )
         )
 
-        # 定义：筛选「有任意InvoiceItemv2记录」的Exists查询
-        has_itemv2 = Exists(
-            InvoiceItemv2.objects.filter(
-                container_number_id=OuterRef("container_number_id")
-            )
-        )
 
         # 筛选无核销记录的
         delivery_pending_orders = (
@@ -3088,24 +3085,76 @@ class Accounting(View):
                     ).values("destination")[:1],
                     output_field=CharField()
                 ),
-                # 注解1：是否有任意InvoiceItemv2记录
-                has_itemv2=has_itemv2,
                 # 注解2：是否有「派送费用+应付+未核销」的InvoiceItemv2记录
                 has_unwritten_off_itemv2=unwritten_off_itemv2,
-                # 注解3：原has_written_off保留（判断是否已核销）
-                has_written_off=Exists(
-                    InvoiceItemv2.objects.filter(
-                        container_number_id=OuterRef("container_number_id"),
-                        write_off_amount__isnull=False
-                    )
+            )
+            # 有InvoiceItemv2记录，但属于「派送费用+应付+未核销」
+            .filter(
+                Q(has_unwritten_off_itemv2=False)
+            )
+            .order_by("fleet_number__id", "pickup_number", "container_num")
+        )
+
+        # 派送
+        container_numbers = Order.objects.filter(criteria).values_list(
+            "container_number", flat=True
+        )
+        delivery_po_ids = (
+            Pallet.objects.filter(container_number__in=container_numbers)
+            .values_list("PO_ID", flat=True)
+            .distinct()
+        )
+
+        # 派送待确认（待核销）
+        itemv2_queryset = InvoiceItemv2.objects.select_related("container_number").only(
+            "id", "container_number_id", "write_off_amount", "rate", "description", "write_off_time",
+            "note", "invoice_type"
+        )
+
+        # 定义：筛选「派送费用+应付+已核销」的InvoiceItemv2的Exists查询
+        has_written_off_delivery_itemv2 = Exists(
+            InvoiceItemv2.objects.filter(
+                container_number_id=OuterRef("container_number_id"),
+                description__contains='派送费用',
+                invoice_type='payable',
+                write_off_amount__isnull=False  # 核销金额不为空 → 已核销
+            )
+        )
+
+        # 筛选：排除「派送费用+应付+已核销」的记录
+        delivery_pending_orders = (
+            FleetShipmentPallet.objects.select_related(
+                "fleet_number",
+                "shipment_batch_number",
+                "container_number",
+            )
+            .prefetch_related(
+                Prefetch(
+                    "container_number__invoice_itemv2",
+                    queryset=itemv2_queryset,
+                    to_attr="itemv2_list"  # 自定义属性名
                 )
             )
-            # ========== 核心修复：重构过滤逻辑 ==========
-            # 筛选条件：
-            # 1. 无任何InvoiceItemv2记录（has_itemv2=False）
-            # 2. 有InvoiceItemv2记录，但属于「派送费用+应付+未核销」（has_unwritten_off_itemv2=True）
             .filter(
-                Q(has_itemv2=False) | Q(has_unwritten_off_itemv2=True)
+                expense__isnull=False,
+                PO_ID__in=delivery_po_ids,
+            )
+            .annotate(
+                appointment_id=F("shipment_batch_number__appointment_id"),
+                container_num=F("container_number__container_number"),
+                pallet_destination=Subquery(
+                    Pallet.objects.filter(
+                        PO_ID=OuterRef("PO_ID"),
+                        shipment_batch_number=OuterRef("shipment_batch_number"),
+                    ).values("destination")[:1],
+                    output_field=CharField()
+                ),
+                # 注解：是否有「派送费用+应付+已核销」的InvoiceItemv2记录
+                has_written_off_delivery_itemv2=has_written_off_delivery_itemv2,
+            )
+            # 核心筛选：排除「有派送费用+应付+已核销记录」的行
+            .filter(
+                has_written_off_delivery_itemv2=False
             )
             .order_by("fleet_number__id", "pickup_number", "container_num")
         )
@@ -3113,7 +3162,7 @@ class Accounting(View):
         # 分批转换为列表
         delivery_pending_orders_list = list(delivery_pending_orders.iterator(chunk_size=200))
 
-        # ========== 第三步：原数据组装/统计逻辑（仅修正1处笔误） ==========
+        # ========== 第三步：数据组装/统计逻辑 ==========
         deliverys = {}
         for order in delivery_pending_orders_list:
             fleet_id = order.fleet_number_id
@@ -3137,7 +3186,6 @@ class Accounting(View):
                     "total_rows": 0,
                 }
 
-            # 修正：直接用注解后的appointment_id，避免重复查询
             appointment_id = order.appointment_id
             if appointment_id not in deliverys[fleet_id]["fleets"][order.pickup_number]["appointments"]:
                 deliverys[fleet_id]["fleets"][order.pickup_number]["appointments"][appointment_id] = {
@@ -3151,6 +3199,18 @@ class Accounting(View):
                 else 0
             )
 
+            itemv2_data = None
+            # 仅当有预加载的itemv2_list时，筛选「派送费用+应付+未核销」的记录
+            if hasattr(order.container_number, 'itemv2_list') and order.container_number.itemv2_list:
+                filtered_items = [
+                    item for item in order.container_number.itemv2_list
+                    if '派送费用' in (item.description or '')
+                       and item.invoice_type == 'payable'
+                       and item.write_off_amount is None  # 未核销
+                ]
+                if filtered_items:
+                    itemv2_data = filtered_items[0]
+
             # 组装订单数据
             order_data = {
                 "object": order,
@@ -3161,6 +3221,7 @@ class Accounting(View):
                 "pallet_destination": order.pallet_destination,
                 "carrier": deliverys[fleet_id]["carrier"],
                 "fleet_number": deliverys[fleet_id]["fleet_number"],
+                "itemv2_data": itemv2_data,
             }
 
             # 累加统计数据
@@ -4718,6 +4779,265 @@ class Accounting(View):
         }
         return self.template_invoice_payable_confirm_payable, context
 
+    def export_delivery_by_month_carrier_v1_search(self, request):
+        """派送已确认账单-导出的查询按钮"""
+        current_date = datetime.now().date()
+        params = request.POST
+        start_date_confirm = params.get("start_date_confirm")
+        end_date_confirm = params.get("end_date_confirm")
+        warehouse = params.get("warehouse_filter")
+        select_carrier = params.get("select_carrier", "").strip()
+        selected_customer_id = params.get("customer_name", "").strip()
+        order_form = OrderForm(request.POST)
+
+        # 如果有客户ID，查询对应的客户对象
+        if selected_customer_id:
+            order_form = OrderForm(
+                initial={
+                    "customer_name": selected_customer_id  # 关键：让表单默认选中该客户
+                }
+            )
+            customer = Customer.objects.get(id=selected_customer_id).zem_name
+        else:
+            customer = None
+
+        # 日期默认值处理
+        start_date_confirm = (
+            (current_date + timedelta(days=-60)).strftime("%Y-%m-%d")
+            if not start_date_confirm
+            else start_date_confirm
+        )
+        end_date_confirm = (
+            current_date.strftime("%Y-%m-%d")
+            if not end_date_confirm
+            else end_date_confirm
+        )
+
+        # 基础筛选条件（Order模型的筛选，移除carrier）
+        criteria = Q()
+        if warehouse:
+            if warehouse == "直送":
+                criteria &= Q(order_type="直送")
+            else:
+                criteria &= Q(retrieval_id__retrieval_destination_precise=warehouse)
+
+        # 客户筛选：仅当 customer 非空时生效
+        if customer:
+            criteria &= Q(customer_name__zem_name__icontains=customer)
+
+        # 日期和基础状态筛选
+        criteria &= Q(
+            cancel_notification=False,
+            vessel_id__vessel_etd__gte=start_date_confirm,
+            vessel_id__vessel_etd__lte=end_date_confirm,
+        )
+
+        # ========== 修复1：先获取符合条件的Order的container_number_id列表 ==========
+        # 提取Order中关联的Container ID（去重）
+        valid_container_ids = Order.objects.filter(criteria).values_list("container_number_id", flat=True).distinct()
+
+        # 子查询构建（仅Order的基础条件，无carrier）
+        order_exists_subquery = Order.objects.filter(
+            criteria,
+            container_number_id=OuterRef("container_number_id"),
+        )
+
+        order_prefetch_queryset = Order.objects.filter(
+            criteria
+        ).select_related("retrieval_id", "vessel_id", "customer_name")
+
+        # 已确认：修复container_number__in的筛选源（用valid_container_ids而非order_exists_subquery）
+        delivery_po_ids = (
+            Pallet.objects.filter(container_number_id__in=valid_container_ids)  # 关键：用Container ID列表筛选
+            .values_list("PO_ID", flat=True)
+            .distinct()
+        )
+
+        # ========== 核心优化：空值处理逻辑 ==========
+        # 先构建基础筛选条件
+        fleet_filter = Q(
+            expense__isnull=False,
+            PO_ID__in=delivery_po_ids,
+        )
+        # 仅当select_carrier非空时，才添加承运商筛选
+        if select_carrier and select_carrier.strip():
+            fleet_filter &= Q(fleet_number__carrier=select_carrier)
+
+        # 先查询基础派送订单，提取柜号ID
+        base_delivery_orders = (
+            FleetShipmentPallet.objects.select_related(
+                "fleet_number",
+                "shipment_batch_number",
+                "container_number",
+            )
+            .filter(fleet_filter)  # 空值时筛选所有，非空时筛选指定承运商
+            .annotate(
+                appointment_id=F("shipment_batch_number__appointment_id"),
+                container_num=F("container_number__container_number"),
+                pallet_destination=Subquery(
+                    Pallet.objects.filter(
+                        PO_ID=OuterRef("PO_ID"),
+                        shipment_batch_number=OuterRef("shipment_batch_number"),
+                    ).values("destination")[:1],
+                    output_field=CharField()
+                ),
+            )
+            .order_by("fleet_number__id", "pickup_number", "container_num")
+        )
+
+        # 提取所有基础订单的container_number_id（去重）
+        container_ids = base_delivery_orders.values_list("container_number_id", flat=True).distinct()
+
+        # 查询已核销的InvoiceItemv2
+        itemv2_valid_container_ids = InvoiceItemv2.objects.filter(
+            container_number_id__in=container_ids,  # 只查基础订单包含的柜号
+            write_off_amount__isnull=False,  # 已核销
+            description='派送费用',
+            invoice_type='payable'
+        ).values_list("container_number_id", flat=True).distinct()  # 去重，只保留有核销记录的柜号ID
+
+        # 只保留关联已核销InvoiceItemv2的订单
+        delivery_confirm_orders = (
+            base_delivery_orders.filter(
+                container_number_id__in=itemv2_valid_container_ids
+            )
+        )
+        # 分批转换为列表（避免内存溢出）
+        delivery_confirm_orders_list = list(delivery_confirm_orders.iterator(chunk_size=200))
+
+        deliverys_confirm = {}
+        for order in delivery_confirm_orders_list:
+            fleet_id = order.fleet_number_id
+            if fleet_id not in deliverys_confirm:
+                carrier = order.fleet_number.carrier if order.fleet_number else None
+                fleet_number = order.fleet_number.fleet_number if order.fleet_number else None
+                deliverys_confirm[fleet_id] = {
+                    "fleets": {},
+                    "total_pallets": 0,
+                    "total_expense": 0,
+                    "total_rows": 0,
+                    "carrier": carrier,
+                    "fleet_number": fleet_number,
+                }
+
+            if order.pickup_number not in deliverys_confirm[fleet_id]["fleets"]:
+                deliverys_confirm[fleet_id]["fleets"][order.pickup_number] = {
+                    "appointments": {},
+                    "ISA_total_pallets": 0,
+                    "ISA_total_expense": 0,
+                    "total_rows": 0,
+                }
+
+            appointment_id = order.appointment_id
+            if appointment_id not in deliverys_confirm[fleet_id]["fleets"][order.pickup_number]["appointments"]:
+                deliverys_confirm[fleet_id]["fleets"][order.pickup_number]["appointments"][appointment_id] = {
+                    "orders": [], "total_pallets": 0, "total_expense": 0, "rowspan": 0
+                }
+
+            # 计算单板成本
+            per_expense = (
+                round(order.expense / int(order.total_pallet), 2)
+                if order.total_pallet and order.total_pallet != 0
+                else 0
+            )
+
+            # 修复：避免invoice_itemv2.get()抛出异常
+            itemv2_data = None
+            if hasattr(order.container_number, 'invoice_itemv2') and order.container_number.invoice_itemv2.exists():
+                # 筛选已核销的派送费用应付账单
+                itemv2_data = order.container_number.invoice_itemv2.filter(
+                    description='派送费用',
+                    invoice_type='payable',
+                    write_off_amount__isnull=False
+                ).first()  # 用first()替代get()，无记录时返回None
+
+            # 组装订单数据
+            order_data = {
+                "object": order,
+                "cn_total_pallet": int(order.total_pallet) if order.total_pallet else 0,
+                "cn_total_expense": order.expense or 0,
+                "cn_per_expense": per_expense,
+                "container_num": order.container_num,
+                "pallet_destination": order.pallet_destination,
+                "carrier": deliverys_confirm[fleet_id]["carrier"],
+                "fleet_number": deliverys_confirm[fleet_id]["fleet_number"],
+                "itemv2_data": itemv2_data,
+            }
+
+            # 累加统计数据
+            appointment_data = deliverys_confirm[fleet_id]["fleets"][order.pickup_number]["appointments"][
+                appointment_id]
+            appointment_data["orders"].append(order_data)
+            appointment_data["total_pallets"] += order_data["cn_total_pallet"]
+            appointment_data["total_expense"] += order_data["cn_total_expense"]
+            appointment_data["rowspan"] += 1
+
+            fleet_pickup_data = deliverys_confirm[fleet_id]["fleets"][order.pickup_number]
+            fleet_pickup_data["ISA_total_pallets"] += order_data["cn_total_pallet"]
+            fleet_pickup_data["ISA_total_expense"] += order_data["cn_total_expense"]
+            fleet_pickup_data["total_rows"] += 1
+
+            fleet_data = deliverys_confirm[fleet_id]
+            fleet_data["total_pallets"] += order_data["cn_total_pallet"]
+            fleet_data["total_expense"] += order_data["cn_total_expense"]
+            fleet_data["total_rows"] += 1
+
+        # 转换配送数据结构
+        delivery_confirm_orders = [
+            {
+                "fleets": fleet_data["fleets"],
+                "total_pallets": int(fleet_data["total_pallets"]),
+                "total_expense": fleet_data["total_expense"],
+                "carrier": fleet_data["carrier"],
+                "fleet_number": fleet_data["fleet_number"],
+            }
+            for fleet_data in deliverys_confirm.values()
+        ]
+
+        # 页面上下文数据
+        start_date_export = (current_date + timedelta(days=-15)).strftime("%Y-%m-%d")
+        end_date_export = current_date.strftime("%Y-%m-%d")
+        pickup_carriers = {
+            "Kars": "Kars",
+            "东海岸": "东海岸",
+            "ARM": "ARM",
+            "GM": "GM",
+            "BEST": "BEST",
+        }
+        unload_carriers = {
+            "BBR": "BBR",
+            "KNO": "KNO",
+            "JOHN": "JOHN",
+            "unload": "UNLOAD",
+        }
+        warehouse_carriers = {
+            "BBR": "BBR",
+            "KNO": "KNO",
+        }
+        existing_customers = Customer.objects.all().order_by("zem_name")
+
+        context = {
+            "pickup_carriers": pickup_carriers,
+            "unload_carriers": unload_carriers,
+            "warehouse_carriers": warehouse_carriers,
+            "delivery_confirm_orders": delivery_confirm_orders,
+            "delivery_confirmed_orders": None,
+            "warehouse_options": self.warehouse_options,
+            "existing_customers": existing_customers,
+            "order_form": order_form,
+            "selected_customer_id": selected_customer_id,
+            "start_date_confirm": start_date_confirm,
+            "end_date_confirm": end_date_confirm,
+            "start_date_export": start_date_export,
+            "end_date_export": end_date_export,
+            "invoice_type_filter": "payable",
+            "CARRIER_FLEET": CARRIER_FLEET,
+            "selected_carrier": select_carrier,
+            "warehouse_filter": request.POST.get("warehouse_filter"),
+        }
+
+        return self.template_invoice_payable_confirm_payable, context
+
     def export_delivery_search(self, request):
         """派送已确认账单-导出的查询按钮"""
         current_date = datetime.now().date()
@@ -5108,7 +5428,7 @@ class Accounting(View):
         """单个派送输入备注"""
         # 1. 获取前端参数
         container_id_str = request.POST.get('container_id')  # 单个柜号ID
-        note_delivery = request.POST.getlist('note_delivery')[0]
+        note_delivery = request.POST.getlist('note')[0]
         start_date_confirm = request.POST.get("start_date_confirm")
         end_date_confirm = request.POST.get("end_date_confirm")
         warehouse = request.POST.get("warehouse_filter")
