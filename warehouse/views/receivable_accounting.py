@@ -8446,7 +8446,12 @@ class ReceivableAccounting(View):
         invoice_number = request.POST.get("invoice_number")
         invoice = Invoicev2.objects.get(invoice_number=invoice_number)
         overweight_fee = float(request.POST.get("overweight_fee", 0))
-        overpallet_fee = float(request.POST.get("overpallet_fee", 0))
+        overpallet_fee_str = request.POST.get("overpallet_fee")
+        if overpallet_fee_str in (None, ''):
+            overpallet_fee = 0.0
+        else:
+            overpallet_fee = float(overpallet_fee_str)
+            
         overregion_pickup_fee = float(request.POST.get("overregion_pickup_fee", 0))
         overregion_delivery_fee = float(request.POST.get("overregion_delivery_fee", 0))
         addition_fee_str = request.POST.get("addition_fee")
