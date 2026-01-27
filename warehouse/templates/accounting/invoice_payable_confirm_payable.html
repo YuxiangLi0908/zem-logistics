@@ -2205,38 +2205,15 @@
                     <div class="sub-content-tab active" data-subtab="delivery-pending">
                         待确认 <span class="tab-badge">{{delivery_pending_orders|length }}</span>
                     </div>
+                    <div class="sub-content-tab active" data-subtab="delivery-confirm">
+                        已确认 <span class="tab-badge">{{delivery_confirm_orders|length }}</span>
+                    </div>
                 </div>
 
                 <!-- 待确认派送账单 -->
                 <div id="delivery-pending" class="tab-content active">
                     <div class="table-container">
                         {% if delivery_pending_orders %}
-                        <!-- 导出控件 -->
-                        <div class="export-controls">
-                            <h6><b>导出选项：</b></h6>
-                            <form method="post" class="export-filter-form">
-                                {% csrf_token %}
-                                <div class="filter-group">
-                                    <label>ETD时间：</label>
-                                    <input type="date" name="start_date_export" value="{{ start_date_export }}">
-                                    <input type="date" name="end_date_export" value="{{ end_date_export }}">
-                                </div>
-                                <div class="filter-group">
-                                    <label>供应商：</label>
-                                    <select name="select_carrier">
-                                        {% for key,value in CARRIER_FLEET.items %}
-                                        <option value="{{ key }}">{{ value }}</option>
-                                        {% endfor %}
-                                    </select>
-                                </div>
-                                <input type="hidden" name="step" value="export_carrier_payable_delivery">
-                                <input type="hidden" name="confirm_phase" value="delivery">
-                                <button type="submit" class="btn btn-warning btn-sm">
-                                    <i class="fas fa-file-excel"></i> 导出Excel
-                                </button>
-                            </form>
-                        </div>
-
                         <form method="post" id="delivery-confirm-form">
                             {% csrf_token %}
                             <input type="hidden" name="step" value="payable_confirm_phase">
@@ -2244,6 +2221,7 @@
                             <table class="table">
                                 <thead>
                                 <tr>
+                                    <th class="th" style="vertical-align: middle;">车次</th>
                                     <th class="th" style="vertical-align: middle;">Carrier</th>
                                     <th class="th" style="vertical-align: middle;">Pickup Number</th>
                                     <th class="th" style="vertical-align: middle;">ISA</th>
@@ -2255,6 +2233,7 @@
                                     <th class="th" style="vertical-align: middle;">车次总板数</th>
                                     <th class="th" style="vertical-align: middle;">车次总成本</th>
                                     <th class="th" style="vertical-align: middle;">核销金额</th>
+                                    <th class="th" style="vertical-align: middle;">备注</th>
                                 </tr>
                                 </thead>
                                 <tbody>
@@ -2264,6 +2243,9 @@
                                 {% for order in appointment_data.orders %}
                                 <tr>
                                     {% if forloop.parentloop.first and forloop.first %}
+                                    <td class="td" rowspan="{{ pickup_data.total_rows }}" style="vertical-align: middle;">
+                                        {{fleet.fleet_number|default_if_none:"" }}
+                                    </td>
                                     <td class="td" rowspan="{{ pickup_data.total_rows }}" style="vertical-align: middle;">
                                         {{fleet.carrier|default_if_none:"" }}
                                     </td>
@@ -2292,15 +2274,35 @@
                                     </td>
                                     <td class="td" style="vertical-align: middle;">
                                         <input type="number" name="write_off_amount" class="write-off-amount"
-                                               data-container-id="{{ c.container_number.id }}" step="0.01" min="0"
+                                               data-container-id="{{ order.object.container_number.id }}" step="0.01" min="0"
                                                placeholder="输入核销金额"
                                                style="width: 100%; padding: 4px 8px; border: 1px solid #ced4da; border-radius: 4px; text-align: center;">
                                         <form action="" method="post" class="single-writeoff-form"
                                               style="margin: 0;">
                                             {% csrf_token %}
-                                            <input type="hidden" name="step" value="write_off_amount_post_x">
+                                            <input type="hidden" name="step" value="write_off_amount_post_delivery">
+                                            <input type="hidden" name="container_id" value="{{ order.object.container_number.id }}">
+                                            <input type="hidden" name="write_off_type" value="pick-x">
+                                            <input type="hidden" name="start_date_confirm" value="{{ start_date_confirm }}">
+                                            <input type="hidden" name="end_date_confirm" value="{{ end_date_confirm }}">
+                                            <input type="hidden" name="warehouse_filter" value="{{ warehouse_filter }}">
+                                            <input type="hidden" name="customer_name" value="{{ selected_customer_id|default:'' }}">
+                                            <button type="submit" class="btn btn-success btn-sm"
+                                                    style="padding: 4px 10px; font-size: 0.8rem;">确认
+                                            </button>
+                                        </form>
+                                    </td>
+                                    <td class="td" style="vertical-align: middle;">
+                                        <input type="text" name="note_delivery" class="write-off-amount-note"
+                                               data-container-id="{{ order.object.container_number.id }}" step="0.01" min="0"
+                                               placeholder="输入备注"
+                                               style="width: 100%; padding: 4px 8px; border: 1px solid #ced4da; border-radius: 4px; text-align: center;">
+                                        <form action="" method="post" class="single-writeoff-form"
+                                              style="margin: 0;">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="step" value="note_post_delivery">
                                             <input type="hidden" name="container_id"
-                                                   value="{{ c.container_number.id }}">
+                                                   value="{{ order.object.container_number.id }}">
                                             <input type="hidden" name="write_off_type" value="pick-x">
                                             <input type="hidden" name="start_date_confirm" value="{{ start_date_confirm }}">
                                             <input type="hidden" name="end_date_confirm" value="{{ end_date_confirm }}">
@@ -2312,6 +2314,113 @@
                                         </form>
                                     </td>
                                     {% endif %}
+                                </tr>
+                                {% endfor %}
+                                {% endfor %}
+                                {% endfor %}
+                                {% endfor %}
+                                </tbody>
+                            </table>
+                        </form>
+                        {% else %}
+                        <div class="alert alert-info">暂无待确认的派送账单</div>
+                        {% endif %}
+                    </div>
+                </div>
+                <!-- 已确认派送账单 -->
+                <div id="delivery-confirm" class="tab-content active">
+                    <div class="table-container">
+                        {% if delivery_pending_orders %}
+                        <!-- 导出控件 -->
+                        <div class="export-controls">
+                            <h6><b>导出选项：</b></h6>
+                            <form method="post" class="export-filter-form">
+                                {% csrf_token %}
+                                <div class="filter-group">
+                                    <label>供应商：</label>
+                                    <select name="select_carrier">
+                                        {% for key,value in CARRIER_FLEET.items %}
+                                        <option value="{{ key }}">{{ value }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <input type="hidden" name="step" value="export_carrier_payable_delivery">
+                                <input type="hidden" name="confirm_phase" value="delivery">
+                                <button type="submit" class="btn btn-warning btn-sm">
+                                    <i class="fas fa-file-excel"></i> 导出Excel
+                                </button>
+                            </form>
+                        </div>
+
+                        <form method="post" id="delivery-confirm-form">
+                            {% csrf_token %}
+                            <input type="hidden" name="step" value="payable_confirm_phase">
+                            <input type="hidden" name="confirm_phase" value="delivery">
+                            <table class="table">
+                                <thead>
+                                <tr>
+                                    <th class="th" style="vertical-align: middle;">车次</th>
+                                    <th class="th" style="vertical-align: middle;">Carrier</th>
+                                    <th class="th" style="vertical-align: middle;">Pickup Number</th>
+                                    <th class="th" style="vertical-align: middle;">ISA</th>
+                                    <th class="th" style="vertical-align: middle;">柜号</th>
+                                    <th class="th" style="vertical-align: middle;">目的地</th>
+                                    <th class="th" style="vertical-align: middle;">板数</th>
+                                    <th class="th" style="vertical-align: middle;">价格</th>
+                                    <th class="th" style="vertical-align: middle;">单板成本</th>
+                                    <th class="th" style="vertical-align: middle;">车次总板数</th>
+                                    <th class="th" style="vertical-align: middle;">车次总成本</th>
+                                    <th class="th" style="vertical-align: middle;">核销金额</th>
+                                    <th class="th" style="vertical-align: middle;">核销时间</th>
+                                    <th class="th" style="vertical-align: middle;">备注</th>
+                                </tr>
+                                </thead>
+                                <tbody>
+                                {% for fleet in delivery_confirm_orders %}
+                                {% for pickup_number, pickup_data in fleet.fleets.items %}
+                                {% for appointment_id, appointment_data in pickup_data.appointments.items %}
+                                {% for order in appointment_data.orders %}
+                                <tr>
+                                    {% if forloop.parentloop.first and forloop.first %}
+                                    <td class="td" rowspan="{{ pickup_data.total_rows }}" style="vertical-align: middle;">
+                                        {{fleet.fleet_number|default_if_none:"" }}
+                                    </td>
+                                    <td class="td" rowspan="{{ pickup_data.total_rows }}" style="vertical-align: middle;">
+                                        {{fleet.carrier|default_if_none:"" }}
+                                    </td>
+                                    <td class="td" rowspan="{{ pickup_data.total_rows }}" style="vertical-align: middle;">
+                                        {{pickup_number|default_if_none:"" }}
+                                    </td>
+                                    {% endif %}
+
+                                    {% if forloop.first %}
+                                    <td class="td" rowspan="{{ appointment_data.rowspan }}" style="vertical-align: middle;">
+                                        {{appointment_id|default_if_none:"" }}
+                                    </td>
+                                    {% endif %}
+
+                                    <td class="td" style="vertical-align: middle;">{{ order.container_num }}</td>
+                                    <td class="td" style="vertical-align: middle;">{{ order.pallet_destination }}</td>
+                                    <td class="td" style="vertical-align: middle;">{{ order.cn_total_pallet }}</td>
+                                    <td class="td" style="vertical-align: middle;">{{ order.cn_total_expense }}</td>
+                                    <td class="td" style="vertical-align: middle;">{{ order.cn_per_expense }}</td>
+                                    {% if forloop.parentloop.first and forloop.first %}
+                                    <td class="td" rowspan="{{ pickup_data.total_rows }}" style="vertical-align: middle;">
+                                        {{pickup_data.ISA_total_pallets }}
+                                    </td>
+                                    <td class="td" rowspan="{{ pickup_data.total_rows }}" style="vertical-align: middle;">
+                                        ${{pickup_data.ISA_total_expense }}
+                                    </td>
+                                    {% endif %}
+                                    <td class="td" style="vertical-align: middle;">
+                                        {{ order.itemv2_data.write_off_amount|default:"0.00" }}
+                                    </td>
+                                    <td class="td" style="vertical-align: middle;">
+                                        {{ order.itemv2_data.write_off_time|date:"Y-m-d"|default:"未核销" }}
+                                    </td>
+                                    <td class="td" style="vertical-align: middle;">
+                                        {{ order.itemv2_data.note|default:"无" }}
+                                    </td>
                                 </tr>
                                 {% endfor %}
                                 {% endfor %}
