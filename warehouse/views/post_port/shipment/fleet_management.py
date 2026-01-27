@@ -919,7 +919,7 @@ class FleetManagement(View):
         2. 按总托盘数分摊本次成本费用到每条记录的expense字段。
         """
         criteria_plt = models.Q(
-            shipment_batch_number__fleet_number__fleet_number=fleet_number
+            transfer_batch_number__fleet_number__fleet_number=fleet_number
         )
         try:
             fleet = await sync_to_async(Fleet.objects.get)(fleet_number=fleet_number)
@@ -936,21 +936,21 @@ class FleetManagement(View):
             # 按PO_ID分组查询该车次下的托盘数据
             grouped_pallets = await sync_to_async(list)(
                 Pallet.objects.filter(criteria_plt)
-                .values("shipment_batch_number", "PO_ID", "container_number")
+                .values("transfer_batch_number", "PO_ID", "container_number")
                 .annotate(actual_pallets=Count("pallet_id"))
                 .order_by("shipment_batch_number", "PO_ID")
             )
 
             if not grouped_pallets:
-                raise ValueError(f"车次 {fleet_number} 无有效托盘数据，无法创建退回费用记录")
+                raise ValueError(f"车次 {fleet_number} 无有效托盘数据，无法创建成本费用记录")
 
-            # 批量创建标注"退回费用"的FleetShipmentPallet记录
+            # 批量创建标注"成本费用"的FleetShipmentPallet记录
             new_fleet_shipment_pallets = []
             for group in grouped_pallets:
                 new_record = FleetShipmentPallet(
                     fleet_number=fleet,
                     pickup_number=fleet.pickup_number,
-                    shipment_batch_number_id=group["shipment_batch_number"],
+                    transfer_number_id=group['transfer_batch_number'],
                     PO_ID=group["PO_ID"],
                     total_pallet=group["actual_pallets"],
                     container_number_id=group["container_number"],
@@ -981,7 +981,7 @@ class FleetManagement(View):
                 [fs.total_pallet for fs in fleet_shipments if fs.total_pallet]
             )
             if total_pallets_in_fleet == 0:
-                raise ValueError(f"车次 {fleet_number} 下无有效托盘数，无法分摊退回费用")
+                raise ValueError(f"车次 {fleet_number} 下无有效托盘数，无法分摊成本费用")
 
             total_pallets_decimal = Decimal(str(total_pallets_in_fleet))  # 转为Decimal
             fleet_cost = Decimal(str(fleet_cost))
@@ -1003,7 +1003,7 @@ class FleetManagement(View):
                 )
         except Exception as e:
             # 新增/更新失败时，抛出明确异常，方便排查
-            raise RuntimeError(f"退回费用记录创建/分摊失败：{str(e)}") from e
+            raise RuntimeError(f"成本费用记录创建/分摊失败：{str(e)}") from e
 
     async def insert_fleet_shipment_pallet_fleet_cost_back(self, request, fleet_number, fleet_cost_back):
         """
