@@ -9,6 +9,7 @@ import string
 import zipfile
 from collections import defaultdict
 from datetime import date, datetime, timedelta, time as datetime_time
+from decimal import Decimal
 from io import BytesIO
 from itertools import chain, groupby
 from operator import attrgetter
@@ -59,6 +60,7 @@ from django.utils import timezone
 from django.utils.decorators import method_decorator
 from django.views import View
 from office365.runtime.auth.user_credential import UserCredential
+from django.db.models.fields import DecimalField, DateTimeField, CharField
 from office365.runtime.client_request_exception import ClientRequestException
 from office365.sharepoint.client_context import ClientContext
 from office365.sharepoint.sharing.links.kind import SharingLinkKind
@@ -4836,16 +4838,6 @@ class Accounting(View):
         # 提取Order中关联的Container ID（去重）
         valid_container_ids = Order.objects.filter(criteria).values_list("container_number_id", flat=True).distinct()
 
-        # 子查询构建（仅Order的基础条件，无carrier）
-        order_exists_subquery = Order.objects.filter(
-            criteria,
-            container_number_id=OuterRef("container_number_id"),
-        )
-
-        order_prefetch_queryset = Order.objects.filter(
-            criteria
-        ).select_related("retrieval_id", "vessel_id", "customer_name")
-
         # 已确认：修复container_number__in的筛选源（用valid_container_ids而非order_exists_subquery）
         delivery_po_ids = (
             Pallet.objects.filter(container_number_id__in=valid_container_ids)  # 关键：用Container ID列表筛选
@@ -5481,8 +5473,8 @@ class Accounting(View):
 
         return self.handle_invoice_confirm_get_v1(request, start_date_confirm, end_date_confirm, customer, warehouse)
 
-
     def export_carrier_payable_delivery(self, request):
+        """已核销派送-导出"""
         confirm_phase = request.POST.get('confirm_phase')
         if confirm_phase == 'delivery':
             # 1. 获取筛选参数
@@ -5490,21 +5482,42 @@ class Accounting(View):
             end_date = request.POST.get('end_date_export')
             carrier_key = request.POST.get('select_carrier')
             carrier_name = CARRIER_FLEET.get(carrier_key, '')
+            # 新增：获取选中的 fleet id
+            selected_fleet_ids = request.POST.get('selected_fleet_ids', '')
+            selected_fleet_ids = [fid.strip() for fid in selected_fleet_ids.split(',') if fid.strip()]
+
             excel_data = []
 
             # 2. 筛选数据（获取模型实例查询集）
-            criteria = models.Q(
-                models.Q(vessel_id__vessel_etd__gte=start_date),
-                models.Q(vessel_id__vessel_etd__lte=end_date),
-            )
+            criteria = models.Q()
+            if start_date:
+                criteria &= models.Q(vessel_id__vessel_etd__gte=start_date)
+            if end_date:
+                criteria &= models.Q(vessel_id__vessel_etd__lte=end_date)
+
             container_numbers = Order.objects.filter(criteria).values_list("container_number", flat=True)
             delivery_po_ids = Pallet.objects.filter(container_number__in=container_numbers).values_list("PO_ID",
                                                                                                         flat=True).distinct()
+
+            # 构建FleetShipmentPallet查询条件
+            fleet_shipment_criteria = models.Q(
+                expense__isnull=False,
+                PO_ID__in=delivery_po_ids,
+            )
+
+            # 新增：如果有选中的 fleet id，添加筛选条件
+            if selected_fleet_ids:
+                fleet_shipment_criteria &= models.Q(fleet_number_id__in=selected_fleet_ids)
+
+            # 筛选供应商
+            if carrier_key:
+                carrier_name_filter = CARRIER_FLEET.get(carrier_key, '')
+                fleet_shipment_criteria &= models.Q(fleet_number__carrier=carrier_name_filter)
+
             delivery_pending_orders = FleetShipmentPallet.objects.select_related(
                 "fleet_number", "shipment_batch_number", "container_number"
             ).filter(
-                expense__isnull=False,
-                PO_ID__in=delivery_po_ids,
+                fleet_shipment_criteria
             ).annotate(
                 appointment_id=F("shipment_batch_number__appointment_id"),
                 container_num=F("container_number__container_number"),
@@ -5514,15 +5527,32 @@ class Accounting(View):
                         shipment_batch_number=OuterRef("shipment_batch_number"),
                     ).values("destination")[:1]
                 ),
+                # ========== 修复核心：修正Subquery的output_field参数 ==========
+                write_off_amount=Subquery(
+                    InvoiceItemv2.objects.filter(
+                        container_number=OuterRef("container_number"),
+                    ).values("write_off_amount")[:1],  # 核销金额
+                    # 修复：使用字段类而非实例，且指定默认值处理空值
+                    output_field=models.DecimalField(max_digits=10, decimal_places=2, default=0)
+                ),
+                write_off_time=Subquery(
+                    InvoiceItemv2.objects.filter(
+                        container_number=OuterRef("container_number")
+                    ).values("write_off_time")[:1],  # 核销时间
+                    output_field=models.DateTimeField(null=True, blank=True)
+                ),
+                note=Subquery(
+                    InvoiceItemv2.objects.filter(
+                        container_number=OuterRef("container_number")
+                    ).values("note")[:1],  # 备注
+                    output_field=models.CharField(max_length=255, null=True, blank=True)
+                )
             ).order_by("fleet_number", "pickup_number", "container_num")
 
-            # 3. 转换数据结构为字典（用于构建Excel）
             deliverys = {}
-            for order in delivery_pending_orders:  # 此处order是FleetShipmentPallet模型实例
-                # 获取fleet_id（用于分组）
+            for order in delivery_pending_orders:
                 fleet_id = order.fleet_number_id
                 if fleet_id not in deliverys:
-                    # 从模型实例中获取carrier（注意：模型实例用.访问属性）
                     carrier = order.fleet_number.carrier if order.fleet_number else None
                     deliverys[fleet_id] = {
                         "fleets": {},
@@ -5530,6 +5560,7 @@ class Accounting(View):
                         "total_expense": 0,
                         "total_rows": 0,
                         "carrier": carrier,
+                        "fleet_number": order.fleet_number.fleet_number if order.fleet_number else '',  # 新增：车次号
                     }
 
                 # 按pickup_number分组
@@ -5553,14 +5584,30 @@ class Accounting(View):
                     }
 
                 # 计算单板成本
-                per_expense = round(order.expense / int(order.total_pallet), 2) if order.total_pallet else 0
-                # 构造订单数据（字典）
+                per_expense = round(order.expense / int(order.total_pallet),
+                                    2) if order.total_pallet and order.expense else 0
+
+                write_off_time_str = '未核销'
+                if hasattr(order, 'write_off_time') and order.write_off_time is not None:
+                    try:
+                        write_off_time_str = order.write_off_time.strftime('%Y-%m-%d %H:%M:%S')
+                    except (ValueError, TypeError):
+                        write_off_time_str = '格式异常'
+
+                # 空值处理：Decimal字段可能为None，需转为0
+                write_off_amount = order.write_off_amount or 0
+                if isinstance(write_off_amount, Decimal):
+                    write_off_amount = float(write_off_amount)
+
                 order_data = {
                     "container_num": order.container_num,
                     "pallet_destination": order.pallet_destination,
                     "cn_total_pallet": int(order.total_pallet) if order.total_pallet else 0,
                     "cn_total_expense": order.expense or 0,
                     "cn_per_expense": per_expense,
+                    "write_off_amount": write_off_amount,
+                    "write_off_time": write_off_time_str,
+                    "note": order.note or '无',
                 }
 
                 # 累加统计数据
@@ -5580,29 +5627,24 @@ class Accounting(View):
                 fleet_data["total_expense"] += order_data["cn_total_expense"]
                 fleet_data["total_rows"] += 1
 
-            # 转换为最终的字典列表
             delivery_pending_orders = [
                 {
                     "fleets": fleet_data["fleets"],
                     "total_pallets": int(fleet_data["total_pallets"]),
                     "total_expense": fleet_data["total_expense"],
                     "carrier": fleet_data["carrier"],
+                    "fleet_number": fleet_data["fleet_number"],  # 新增：车次号
+                    "fleet_id": fleet_id,  # 新增：fleet id
                 }
-                for fleet_data in deliverys.values()
+                for fleet_id, fleet_data in deliverys.items()
             ]
 
-            # 4. 遍历转换后的字典列表，构造Excel数据（仅保留这一次遍历）
-            for fleet in delivery_pending_orders:  # fleet是字典
-                # 筛选供应商
-                if carrier_key and fleet["carrier"] != carrier_name:
-                    continue
-                # 遍历pickup_number（字典用.items()）
+            for fleet in delivery_pending_orders:
                 for pickup_number, pickup_data in fleet["fleets"].items():
-                    # 遍历appointment_id
                     for appointment_id, appointment_data in pickup_data["appointments"].items():
-                        # 遍历订单
                         for order in appointment_data["orders"]:
                             row = [
+                                fleet["fleet_number"] or '',  # 车次
                                 fleet["carrier"] or '',  # Carrier
                                 pickup_number or '',  # Pickup Number
                                 appointment_id or '',  # ISA
@@ -5613,16 +5655,17 @@ class Accounting(View):
                                 order["cn_per_expense"] or 0,  # 单板成本
                                 pickup_data["ISA_total_pallets"] or 0,  # 车次总板数
                                 pickup_data["ISA_total_expense"] or 0,  # 车次总成本
+                                order["write_off_amount"] or 0,  # 核销金额
+                                order["write_off_time"] or '未核销',  # 核销时间
+                                order["note"] or '无',  # 备注
                             ]
                             excel_data.append(row)
 
-            # 5. 生成Excel
-            import pandas as pd
-            from django.http import HttpResponse
-
+            # 生成Excel
             columns = [
-                "Carrier", "Pickup Number", "ISA", "柜号", "目的地",
-                "板数", "价格", "单板成本", "车次总板数", "车次总成本"
+                "车次", "Carrier", "Pickup Number", "ISA", "柜号", "目的地",
+                "板数", "价格", "单板成本", "车次总板数", "车次总成本",
+                "核销金额", "核销时间", "备注"
             ]
             df = pd.DataFrame(excel_data, columns=columns)
 
