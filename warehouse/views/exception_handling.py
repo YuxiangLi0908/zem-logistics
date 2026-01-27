@@ -2816,6 +2816,7 @@ class ExceptionHandling(View):
                 invoice_type="receivable"
             ).update(finance_status="tobeconfirmed", delivery_public_status="unstarted")
         )()
+        messages.success(request, f"已更新财务状态为待确认，公仓派送状态为未录入")
         # 重新查询
         request.POST = request.POST.copy()
         request.POST["step"] = "search_invoice_delivery"
