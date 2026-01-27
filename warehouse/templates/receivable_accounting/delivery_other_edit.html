@@ -1069,6 +1069,7 @@
                             <thead>
                                 <tr>
                                     <th>目的地</th>
+                                    <th>唛头</th>
                                     <th>派送方式</th>
                                     <th>CBM</th>
                                     <th>重量(lbs)</th>                               
@@ -1086,6 +1087,15 @@
                                     data-shipping-marks="{{ group.shipping_marks|default:'' }}">
                                     
                                     <td class="cell-destination">{{ group.destination|default:"-" }}</td>
+                                    <td class="cell-mark">
+                                        <div class="mark-text" title="{{ group.shipping_marks|default:'' }}">
+                                            {% if group.delivery_type == "other" %}
+                                                {{ group.shipping_marks|default:"-"|truncatechars:30 }}
+                                            {% else %}
+                                                <span style="color: #999; font-style: italic;">-</span>
+                                            {% endif %}
+                                        </div>
+                                    </td>
                                     <td>{{ group.delivery_method|default:"-" }}</td>
                                     <td>{{ group.total_cbm|floatformat:2|default:"0.00" }}</td>
                                     <td>{{ group.total_weight_lbs|floatformat:2|default:"0.00" }}</td>                               
@@ -1511,7 +1521,7 @@ $(document).ready(function() {
         modal.show();
     }
     // ================ 转换类型 ================
-    function convertToCurrentType(poId, item_id, deliveryType) {
+    function convertToCurrentType(poId, item_id, deliveryType, shippingMarks) {
         $('#convert-po-id').val(poId);
         $('#convert-item-id').val(item_id);
         $('#to-delivery-type').val(deliveryType);

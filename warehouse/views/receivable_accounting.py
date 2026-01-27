@@ -2027,31 +2027,53 @@ class ReceivableAccounting(View):
         item_id = request.POST.get("item_id")
         po_id = request.POST.get("po_id")
         shipping_marks = request.POST.get("shipping_marks")
+        invoice_id = request.POST.get("invoice_id")
 
         qs = Pallet.objects.filter(
             container_number__container_number=container_number,
             PO_ID=po_id
         )
+
         if to_delivery_type == "public" and shipping_marks:
-            qs = qs.filter(shipping_mark__in=shipping_marks)
-        
+            marks_list = [mark.strip() for mark in shipping_marks.split() if mark.strip()]
+            qs = qs.filter(shipping_mark__in=marks_list)
+
         updated = qs.update(delivery_type=to_delivery_type)
         unique_destinations = list(qs.values_list('destination', flat=True).distinct())
         destinations = ', '.join(unique_destinations)
         operation_messages = []
 
         operation_messages.append(f"{destinations}转类型成功！共更新 {updated} 个板子派送方式为{to_delivery_type}")
-        if item_id and item_id != 'None':
+
+        #更新要转仓的派送状态
+        invoice_status = InvoiceStatusv2.objects.get(
+            invoice_id=invoice_id,
+            invoice_type="receivable"
+        )
+        if invoice_status:
+            if to_delivery_type == "public":
+                invoice_status.delivery_public_status = "unstarted"
+                operation_messages.append("已将公仓派送状态重置为'未录入'")
+            elif to_delivery_type == "other":
+                invoice_status.delivery_other_status = "unstarted"
+                operation_messages.append("已将私仓派送状态重置为'未录入'")
+            
+            # 保存更新
+            invoice_status.save()
+
+        if item_id and item_id != 'None':        
             try:
+                #防止对方工作人员已经录完账单，要将对应的账单状态改为未录入
+                invoice_item = InvoiceItemv2.objects.get(id=item_id)
+                
                 # 删除指定的记录
-                InvoiceItemv2.objects.get(id=item_id).delete()
+                invoice_item.delete()
                 operation_messages.append(f"成功删除原账单记录")
             except InvoiceItemv2.DoesNotExist:
                 operation_messages.append(f"原账单记录不存在")
             except Exception as e:
                 operation_messages.append(f"删除原账单记录出错，id: {item_id}, 错误: {e}")
         
-
         # 构造新的 GET 查询参数
         get_params = QueryDict(mutable=True)
         get_params["container_number"] = container_number
