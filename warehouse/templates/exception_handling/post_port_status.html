@@ -430,6 +430,7 @@
                 <th>总箱数</th>
                 <th>Pre-load</th>
                 <th>是否取消</th>
+                <th>删约（慎点）</th>
             </tr>
         </thead>
         <tbody>
@@ -505,6 +506,18 @@
                         </select>
                     </form>
                 </td>
+                <td>
+                <form method="post" style="display: inline-block; margin: 2px;">
+                    {% csrf_token %}
+                    <input type="hidden" name="step" value="delete_fleet">
+                    <input type="hidden" name="fleet_id" value="{{ fleet.id }}">
+                    <input type="hidden" name="search_fleet_number" value="{{ search_value }}">
+                    <input type="hidden" name="search_type" value="{{ search_type }}">
+                    <button type="submit" class="action-btn">
+                        删除
+                    </button>
+                </form>
+            </td>
             </tr>
             {% endfor %}
         </tbody>

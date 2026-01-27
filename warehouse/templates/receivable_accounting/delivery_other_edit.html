@@ -1069,6 +1069,7 @@
                             <thead>
                                 <tr>
                                     <th>目的地</th>
+                                    <th>唛头</th>
                                     <th>派送方式</th>
                                     <th>CBM</th>
                                     <th>重量(lbs)</th>                               
@@ -1081,9 +1082,20 @@
                             </thead>
                             <tbody>
                                 {% for group in other_pallet_groups %}
-                                <tr data-other-po="{{ group.PO_ID }}" data-other-delivery-type="{{ group.delivery_type }}">
+                                <tr data-other-po="{{ group.PO_ID }}" 
+                                    data-other-delivery-type="{{ group.delivery_type }}"
+                                    data-shipping-marks="{{ group.shipping_marks|default:'' }}">
                                     
                                     <td class="cell-destination">{{ group.destination|default:"-" }}</td>
+                                    <td class="cell-mark">
+                                        <div class="mark-text" title="{{ group.shipping_marks|default:'' }}">
+                                            {% if group.delivery_type == "other" %}
+                                                {{ group.shipping_marks|default:"-"|truncatechars:30 }}
+                                            {% else %}
+                                                <span style="color: #999; font-style: italic;">-</span>
+                                            {% endif %}
+                                        </div>
+                                    </td>
                                     <td>{{ group.delivery_method|default:"-" }}</td>
                                     <td>{{ group.total_cbm|floatformat:2|default:"0.00" }}</td>
                                     <td>{{ group.total_weight_lbs|floatformat:2|default:"0.00" }}</td>                               
@@ -1119,13 +1131,13 @@
                                         <!-- 转换类型按钮 -->
                                         {% if group.delivery_type == "public" %}
                                             <button type="button" class="btn-convert"
-                                                    onclick="convertToCurrentType('{{ group.PO_ID }}', '{{ group.item_id }}','other')"
+                                                    onclick="convertToCurrentType('{{ group.PO_ID }}', '{{ group.item_id }}','other','{{ group.shipping_marks|default:""|escapejs }}')"
                                                     style="background-color: #bae7ff; color: #0050b3; border: 1px solid #69c0ff;">
                                                 <i class="fas fa-sync-alt"></i>转私仓
                                             </button>
                                         {% elif group.delivery_type == "other" %}
                                             <button type="button" class="btn-convert"
-                                                    onclick="convertToCurrentType('{{ group.PO_ID }}', '{{ group.item_id }}','public')"
+                                                    onclick="convertToCurrentType('{{ group.PO_ID }}', '{{ group.item_id }}','public','{{ group.shipping_marks|default:""|escapejs }}')"
                                                     style="background-color: #d9f7be; color: #389e0d; border: 1px solid #95de64;">
                                                 <i class="fas fa-sync-alt"></i>转公仓
                                             </button>
@@ -1235,6 +1247,7 @@
     <input type="hidden" name="to_delivery_type" id="to-delivery-type">
     <input type="hidden" name="po_id" id="convert-po-id" value="">
     <input type="hidden" name="item_id" id="convert-item-id" value="">
+    <input type="hidden" name="shipping_marks" id="convert-shipping-marks" value="">
 </form>
 {% include 'receivable_accounting/modals/message_modal.html' %}
 <!-- Toast容器 -->
@@ -1508,14 +1521,13 @@ $(document).ready(function() {
         modal.show();
     }
     // ================ 转换类型 ================
-    function convertToCurrentType(poId, item_id, deliveryType) {
+    function convertToCurrentType(poId, item_id, deliveryType, shippingMarks) {
         $('#convert-po-id').val(poId);
         $('#convert-item-id').val(item_id);
         $('#to-delivery-type').val(deliveryType);
+        $('#convert-shipping-marks').val(shippingMarks || '');
         $('#convert-form').submit();
     }
-
-
 
 </script>
 {% endblock %} 
