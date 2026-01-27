@@ -395,7 +395,7 @@ class Inventory(View):
             return response
 
     async def handle_repalletize_post(
-        self, request: HttpRequest
+            self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
         plt_ids = request.POST.get("plt_ids")
         plt_ids = [int(i) for i in plt_ids.split(",")]
@@ -421,6 +421,12 @@ class Inventory(View):
         notes = request.POST.getlist("note_repalletize")
         pcses = [int(i) for i in pcses]
         n_pallets = [int(i) for i in n_pallets]
+        n_pallets_total = sum(n_pallets)  # 总板子数（核心：用于分摊CBM/重量）
+
+        # 容错：总板子数为0时直接返回错误，避免除零
+        if n_pallets_total == 0:
+            raise ValueError("总板子数不能为0，无法分摊CBM和重量！")
+
         # create new pallets
         new_pallets = []
         old_po_id = old_pallet[0].PO_ID
@@ -430,34 +436,42 @@ class Inventory(View):
 
         seq_num = 1
         for dest, dm, addr, zipcode, sm, fba, ref, p, n, note in zip(
-            destinations,
-            delivery_methods,
-            addresses,
-            zipcodes,
-            shipping_marks,
-            fba_ids,
-            ref_ids,
-            pcses,
-            n_pallets,
-            notes,
+                destinations,
+                delivery_methods,
+                addresses,
+                zipcodes,
+                shipping_marks,
+                fba_ids,
+                ref_ids,
+                pcses,
+                n_pallets,
+                notes,
         ):
             dest_clean = str(dest).strip()
             # 判断是公仓/私仓
             if "自提" not in str(dest) and (
-                re.fullmatch(r"^[A-Za-z]{4}\s*$", str(dest_clean))
-                or re.fullmatch(r"^[A-Za-z]{3}\s*\d$", str(dest_clean))
-                or re.fullmatch(r"^[A-Za-z]{3}\s*\d\s*[A-Za-z]$", str(dest_clean))
-                or any(
-                    kw.lower() in str(dest_clean).lower()
-                    for kw in {"walmart", "沃尔玛", "UPS", "FEDEX"}
-                )
+                    re.fullmatch(r"^[A-Za-z]{4}\s*$", str(dest_clean))
+                    or re.fullmatch(r"^[A-Za-z]{3}\s*\d$", str(dest_clean))
+                    or re.fullmatch(r"^[A-Za-z]{3}\s*\d\s*[A-Za-z]$", str(dest_clean))
+                    or any(
+                kw.lower() in str(dest_clean).lower()
+                for kw in {"walmart", "沃尔玛", "UPS", "FEDEX"}
+            )
             ):
                 delivery_type = "public"
             else:
                 delivery_type = "other"
+
+            # 容错：当前目的地板子数为0时跳过
+            if n == 0:
+                continue
+
             base_pcs = p // n
             remainder = p % n
-            # TODOs: find a better way to allocate cbm and weight
+
+            # 单托盘分摊比例 = 1 / 总板子数（每个板子分摊1份）
+            pallet_share_ratio = 1 / n_pallets_total
+
             new_pallets += [
                 {
                     "pallet_id": str(
@@ -471,10 +485,10 @@ class Inventory(View):
                     "zipcode": zipcode,
                     "delivery_method": dm,
                     "pcs": base_pcs + (1 if i < remainder else 0),
-                    "cbm": total_cbm * (base_pcs + (1 if i < remainder else 0)) / p,
-                    "weight_lbs": total_weight
-                    * (base_pcs + (1 if i < remainder else 0))
-                    / p,
+                    # CBM = 总CBM * 单托盘分摊比例（按板子数分摊）
+                    "cbm": round(total_cbm * pallet_share_ratio, 4),  # 保留4位小数
+                    # 重量 = 总重量 * 单托盘分摊比例
+                    "weight_lbs": round(total_weight * pallet_share_ratio, 2),
                     "note": note,
                     "shipping_mark": sm if sm else "",
                     "fba_id": fba if fba else "",
@@ -485,7 +499,7 @@ class Inventory(View):
                 }
                 for i in range(n)
             ]
-            seq_num += 1
+            seq_num += 1  # seq_num递增，避免PO_ID重复
             # 对应修改pl
             if old_packinglist:
                 pl_to_update = []
