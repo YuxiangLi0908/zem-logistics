@@ -5362,8 +5362,7 @@ class ReceivableAccounting(View):
                 "total_pallets": total_pallets,
                 "region_count": len(combina_groups)
             }
-        if len(combina_groups) == 0:
-            raise ValueError("该柜子满足组合柜条件，但是没有找到任何非组合柜的已录入项目，请检查数据完整性。")
+        
         return {
             "normal_items": normal_items,
             "combina_groups": combina_groups,
@@ -7547,6 +7546,7 @@ class ReceivableAccounting(View):
     def handle_container_invoice_combina_get(
         self, request: HttpRequest
     ) -> tuple[Any, Any]:
+        '''组合柜财务查看账单'''
         # 1、基础条件
         container_number = request.GET.get("container_number")
         container = Container.objects.get(container_number=container_number)
@@ -7603,6 +7603,8 @@ class ReceivableAccounting(View):
         existing_items = self._get_existing_invoice_items(invoice, "delivery_public")
         result_existing = self._separate_existing_items(existing_items, pallet_groups)
         combina_groups = result_existing['combina_groups']
+        if len(combina_groups) == 0:
+            raise ValueError("该柜子满足组合柜条件，但是没有找到任何组合柜的已录入项目，请联系公仓派送相关人员录入。")
         base_fee = result_existing['combina_info']['base_fee']        
         combina_total_cbm = result_existing['combina_info']['total_cbm']
         combina_total_cbm_ratio = result_existing['combina_info']['total_cbm_ratio']
@@ -8129,6 +8131,8 @@ class ReceivableAccounting(View):
         if existing_items:
             result_existing = self._separate_existing_items(existing_items, pallet_groups)
             combina_groups = result_existing['combina_groups']
+            if len(combina_groups) == 0:
+                raise ValueError("该柜子满足组合柜条件，但是没有找到任何组合柜的已录入项目，请联系公仓派送相关人员录入。")
             base_fee = result_existing['combina_info']['base_fee']        
             combina_total_cbm = result_existing['combina_info']['total_cbm']
             combina_total_cbm_ratio = result_existing['combina_info']['total_cbm_ratio']
@@ -8451,7 +8455,7 @@ class ReceivableAccounting(View):
             overpallet_fee = 0.0
         else:
             overpallet_fee = float(overpallet_fee_str)
-            
+
         overregion_pickup_fee = float(request.POST.get("overregion_pickup_fee", 0))
         overregion_delivery_fee = float(request.POST.get("overregion_delivery_fee", 0))
         addition_fee_str = request.POST.get("addition_fee")
