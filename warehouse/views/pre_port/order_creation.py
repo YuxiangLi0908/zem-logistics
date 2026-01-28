@@ -2329,9 +2329,26 @@ class OrderCreation(View):
             context["packing_list"] = packing_list
             return self.template_order_create_supplement_pl_tab, context
 
+    def clean_hidden_chars(self, s: str) -> str:
+        """
+        清洗字符串中的零宽字符(\u200c/\u200b)、全角空格、不可见控制符
+        """
+        if not s:
+            return ""
+        # 转成字符串（防止非字符串类型）+ 去除首尾普通空格
+        s_str = str(s).strip()
+        # 正则匹配所有隐藏排版字符，替换为空
+        hidden_pattern = re.compile(r'[\u200b\u200c\u200d\u00a0\u202f]+')
+        cleaned_str = hidden_pattern.sub('', s_str)
+        return cleaned_str
+
     def is_public_destination(self, destination):
-        dest_clean = str(destination).strip()
-        if not isinstance(dest_clean, str):  # 没有地址是私仓
+        # ========== 第一步：先清洗隐藏字符（核心修复） ==========
+        dest_clean = self.clean_hidden_chars(destination)
+
+        # ========== 第二步：原有判断逻辑（仅优化1个冗余判定） ==========
+        # ❶ 优化点：clean_hidden_chars返回的一定是字符串，无需再判断isinstance
+        if not dest_clean:  # 空字符串直接判定为非公共仓
             return False
         if "自提" in dest_clean:
             return False
