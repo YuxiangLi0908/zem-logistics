@@ -1,0 +1,213 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+<style>
+    body { background-color: #f0f2f5; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+    .main-wrapper { max-width: 1600px; margin: 40px auto; padding: 0 20px; }
+    
+    /* 顶部标题 */
+    .page-header { text-align: center; margin-bottom: 40px; }
+    .page-header h2 { color: #1a2a6c; font-weight: 700; letter-spacing: 1px; }
+    .page-header p { color: #7f8c8d; }
+
+    /* 模式卡片容器 */
+    .mode-container { display: flex; gap: 25px; margin-bottom: 30px; }
+    .mode-card { 
+        flex: 1; 
+        background: #fff; 
+        border-radius: 15px; 
+        padding: 25px; 
+        box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+        border: 1px solid rgba(0,0,0,0.05);
+        transition: transform 0.3s ease;
+        display: flex;
+        flex-direction: column;
+    }
+    .mode-card:hover { transform: translateY(-5px); }
+    
+    /* 卡片头部装饰 */
+    .mode-card.range-mode { border-top: 5px solid #3498db; }
+    .mode-card.list-mode { border-top: 5px solid #6c5ce7; }
+
+    .card-title { display: flex; align-items: center; margin-bottom: 20px; font-weight: 600; font-size: 1.1rem; }
+    .card-title i { margin-right: 12px; font-size: 1.4rem; }
+    .range-mode .card-title { color: #3498db; }
+    .list-mode .card-title { color: #6c5ce7; }
+
+    /* 表单控件设置 */
+    .form-group label { font-weight: 500; margin-bottom: 8px; color: #4b6584; display: block; }
+    .input-row { display: flex; align-items: center; gap: 10px; }
+    .custom-input { 
+        border: 2px solid #edf2f7; 
+        border-radius: 8px; 
+        padding: 10px 15px; 
+        transition: all 0.3s;
+        width: 100%;
+    }
+    .custom-input:focus { border-color: #3498db; outline: none; box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1); }
+    
+    .textarea-input { height: 100px; resize: none; }
+
+    .btn-submit { 
+        width: 100%; 
+        padding: 12px; 
+        border: none; 
+        border-radius: 8px; 
+        font-weight: 600; 
+        margin-top: auto; 
+        color: white; 
+        transition: all 0.3s;
+        cursor: pointer;
+    }
+    .btn-range { background: linear-gradient(135deg, #3498db, #2980b9); }
+    .btn-list { background: linear-gradient(135deg, #6c5ce7, #a29bfe); }
+    .btn-submit:hover { opacity: 0.9; transform: scale(1.02); }
+
+    /* 结果表格样式 */
+    .results-section { background: #fff; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); padding: 25px; }
+    .table-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+    
+    .data-table { width: 100%; border-collapse: separate; border-spacing: 0; }
+    .data-table thead th { 
+        background-color: #f8fafc; 
+        color: #64748b; 
+        font-weight: 600; 
+        text-transform: uppercase; 
+        font-size: 0.75rem; 
+        padding: 15px; 
+        border-bottom: 2px solid #edf2f7;
+        text-align: center;
+    }
+    .data-table tbody td { padding: 15px; border-bottom: 1px solid #edf2f7; vertical-align: middle; text-align: center; }
+    
+    /* 状态徽章 */
+    .badge { padding: 6px 12px; border-radius: 20px; font-weight: 600; font-size: 12px; }
+    .bg-success-subtle { background-color: #defadb; color: #1e8308; }
+    .bg-danger-subtle { background-color: #fde2e1; color: #b02a37; }
+    .bg-warning-subtle { background-color: #fff4d8; color: #b06900; }
+
+    .overweight-alert { background: #e74c3c; color: white; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; }
+    .filename-box { max-width: 180px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #94a3b8; font-size: 12px; }
+    .log-text { text-align: left !important; font-size: 13px; font-family: 'Consolas', monospace; }
+</style>
+
+<div class="main-wrapper">
+    <div class="page-header">
+        <h2><i class="fas fa-database"></i> 组合柜历史数据重算中心</h2>
+        <p>支持按 ID 范围批量更新或指定柜号列表精准计算</p>
+    </div>
+
+    <div class="mode-container">
+        <!-- 模式 A -->
+        <div class="mode-card range-mode">
+            <div class="card-title">
+                <i class="fas fa-layer-group"></i>
+                模式 A：按 ID 范围执行
+            </div>
+            <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="step" value="recalculate_combine">
+                <div class="form-group mb-4">
+                    <label>设置账单 ID 索引范围</label>
+                    <div class="input-row">
+                        <input type="number" name="start_index" class="custom-input" value="{{ start_index|default:0 }}" placeholder="起始 ID">
+                        <span class="text-muted">至</span>
+                        <input type="number" name="end_index" class="custom-input" value="{{ end_index|default:100 }}" placeholder="结束 ID">
+                    </div>
+                    <small class="text-muted mt-2 d-block">系统将遍历 ID 范围内的所有已财务确认账单</small>
+                </div>
+                <button type="submit" class="btn-submit btn-range">
+                    <i class="fas fa-play mr-2"></i> 开始范围更新
+                </button>
+            </form>
+        </div>
+
+        <!-- 模式 B -->
+        <div class="mode-card list-mode">
+            <div class="card-title">
+                <i class="fas fa-keyboard"></i>
+                模式 B：按柜号列表执行
+            </div>
+            <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="step" value="recalculate_by_containers">
+                <div class="form-group mb-3">
+                    <label>输入柜号（空格/逗号/换行分隔）</label>
+                    <textarea name="container_list" class="custom-input textarea-input" placeholder="例如: ZEMU1234567 MSKU0987654...">{{ container_list }}</textarea>
+                </div>
+                <button type="submit" class="btn-submit btn-list">
+                    <i class="fas fa-crosshairs mr-2"></i> 执行精准重算
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- 结果区域 -->
+    {% if migration_log %}
+    <div class="results-section">
+        <div class="table-header">
+            <h5 class="m-0"><i class="fas fa-clipboard-list text-primary"></i> 任务处理日志</h5>
+            <span class="text-muted">共处理: {{ migration_log|length }} 条记录</span>
+        </div>
+        <div class="table-responsive">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>柜号信息</th>
+                        <th>账单编号</th>
+                        <th>执行状态</th>
+                        <th>更新项</th>
+                        <th>参考报价单</th>
+                        <th>执行详细记录</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for log in migration_log %}
+                    <tr>
+                        <td>
+                            <span class="fw-bold">{{ log.container_number }}</span>
+                            {% if log.is_overweight %}
+                                <div class="overweight-alert mt-1">OVERWEIGHT</div>
+                            {% endif %}
+                        </td>
+                        <td class="text-muted">{{ log.invoice_number }}</td>
+                        <td>
+                            {% if "[成功]" in log.actions %}
+                                <span class="badge bg-success-subtle">SUCCESS</span>
+                            {% elif "[错误]" in log.actions %}
+                                <span class="badge bg-danger-subtle">FAILED</span>
+                            {% else %}
+                                <span class="badge bg-warning-subtle">SKIPPED</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if log.updated_count > 0 %}
+                                <span class="text-primary fw-bold">{{ log.updated_count }} Items</span>
+                            {% else %}
+                                <span class="text-secondary">-</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="filename-box" title="{{ log.filename }}">
+                                {{ log.filename|default:"N/A" }}
+                            </div>
+                        </td>
+                        <td class="log-text">
+                            {% if "[错误]" in log.actions %}
+                                <span class="text-danger"><i class="fas fa-times-circle"></i> {{ log.actions }}</span>
+                            {% elif "[成功]" in log.actions %}
+                                <span class="text-success"><i class="fas fa-check-circle"></i> {{ log.actions }}</span>
+                            {% else %}
+                                <span class="text-muted"><i class="fas fa-info-circle"></i> {{ log.actions }}</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
