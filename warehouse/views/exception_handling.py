@@ -3494,7 +3494,7 @@ class ExceptionHandling(View):
                     return log_entry
                 
                 rules = fee_details.get(combina_key).details
-                stipulate = fee_details.details
+                
                 destinations = list(Pallet.objects.filter(container_number=container)
                                 .values_list("destination", flat=True).distinct())
                 
@@ -3516,6 +3516,11 @@ class ExceptionHandling(View):
 
                 # 7. 计算超板费用
                 self._caculate_overpallet_fee(container_number, inv, fee_details, warehouse, container, destinations, username)
+
+                matching_quotation, quotation_error = rece_a._get_quotation_for_order(order, 'receivable')
+                stipulate = FeeDetail.objects.get(
+                    quotation_id=matching_quotation.id, fee_type="COMBINA_STIPULATE"
+                ).details
                 # 8. 计算超区提拆费
                 res_overregion = self._caculate_overregion_fee(container_number, inv, total_container_cbm, container, stipulate, warehouse, username)
                 if isinstance(res_overregion, str): # 如果返回字符串则代表错误
@@ -3523,7 +3528,7 @@ class ExceptionHandling(View):
                     return log_entry
                 
                 # 9. 超重费，需要手动输入
-                limit_weight = stipulate.details.get("global_rules", {}).get("weight_limit", {}).get("default", 0)
+                limit_weight = stipulate.get("global_rules", {}).get("weight_limit", {}).get("default", 0)
                 actual_weight_res = PackingList.objects.filter(
                     container_number__container_number=container.container_number
                 ).aggregate(total=Sum('total_weight_lbs'))
