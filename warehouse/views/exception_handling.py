@@ -3481,7 +3481,7 @@ class ExceptionHandling(View):
                 # 5.1 获取报价表规则
                 quotations = rece_a._get_fee_details(order, order.retrieval_id.retrieval_destination_area,order.customer_name.zem_name)
                 if isinstance(quotations, dict) and quotations.get("error_messages"):
-                    log_entry["actions"] = f'获取报价表规则错误:{quotations['error_messages']}'
+                    log_entry["actions"] = f"获取报价表规则错误:{quotations['error_messages']}"
                     return log_entry
 
                 quotation_info = quotations['quotation']
@@ -3490,7 +3490,7 @@ class ExceptionHandling(View):
                 fee_details = quotations['fees']
                 combina_key = f"{warehouse}_COMBINA"
                 if combina_key not in fee_details:
-                    log_entry["actions"] = f'获取报价表规则错误:combina_key，仓库为{warehouse}'
+                    log_entry["actions"] = f"获取报价表规则错误:combina_key，仓库为{warehouse}"
                     return log_entry
                 
                 rules = fee_details.get(combina_key).details
