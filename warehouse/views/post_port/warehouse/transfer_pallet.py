@@ -204,7 +204,7 @@ class TransferPallet(View):
 
         # 记录车次成本到fleet_shipment_pallet表
         fm = FleetManagement()
-        await fm.insert_fleet_shipment_pallet_fleet_cost(request, fleet_number, fleet_cost)
+        await fm.insert_fleet_shipment_pallet_fleet_cost_transfer(request, fleet_number, fleet_cost)
         mutable_get = request.GET.copy()
         mutable_get["warehouse"] = request.POST.get("warehouse")
         request.GET = mutable_get
