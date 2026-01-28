@@ -443,6 +443,7 @@
     <input type="hidden" name="invoice_number" value="{{ invoice_number }}">
     <input type="hidden" name="step" value="save_manual_invoice_items">
     <input type="hidden" name="items_data" id="items-data">
+    <input type="hidden" name="deleted_items" id="deleted-items" value="">
 </form>
 {% include 'receivable_accounting/modals/message_modal.html' %}
 
@@ -731,9 +732,9 @@
 </div>
 
 <script>
+    let deletedItems = [];
     // 页面加载完成后初始化
     document.addEventListener('DOMContentLoaded', function() {
-    
         // 初始化计算：页面一加载完就跑一遍
         // 延迟 100ms 是为了防止浏览器自动填充表单值时的竞争
         setTimeout(calculateTotalAmount, 100);
@@ -745,6 +746,15 @@
                 calculateTotalAmount();
             }
         });
+        const deletedItemsInput = document.getElementById('deleted-items');
+        if (deletedItemsInput && deletedItemsInput.value) {
+            try {
+                deletedItems = JSON.parse(deletedItemsInput.value);
+            } catch (e) {
+                console.error('解析已删除记录失败:', e);
+                deletedItems = [];
+            }
+        }
     });
 
     // 更新派送类型的数量显示
@@ -1043,8 +1053,23 @@
         const $row = $(buttonElement).closest('tr');
         const itemId = $row.data('item-id');
         
-        if (itemId && !confirm('确定要删除这条记录吗？')) {
-            return;
+        if (itemId) {
+            // 如果是已存在的记录（有ID），需要添加到删除列表
+            if (!confirm('确定要删除这条记录吗？删除后需要点击"保存所有修改"才能永久删除。')) {
+                return;
+            }
+            
+            // 添加到删除列表
+            if (!deletedItems.includes(itemId)) {
+                deletedItems.push(itemId);
+                updateDeletedItemsInput();
+            }
+            
+        } else {
+            // 如果是新增的未保存记录（无ID），直接删除
+            if (!confirm('确定要删除这条未保存的记录吗？')) {
+                return;
+            }
         }
         
         $row.remove();
@@ -1074,6 +1099,18 @@
         }
     }
 
+    // 更新删除记录的隐藏字段
+    function updateDeletedItemsInput() {
+        const deletedItemsInput = document.getElementById('deleted-items');
+        if (deletedItemsInput) {
+            deletedItemsInput.value = JSON.stringify(deletedItems);
+        }
+        
+        // 显示当前删除数量
+        if (deletedItems.length > 0) {
+            console.log(`已标记删除 ${deletedItems.length} 条记录`);
+        }
+    }
     // 滚动到新行
     function scrollToNewRow($newRow) {
         $('html, body').animate({
@@ -1170,6 +1207,7 @@
         // 将数据存入表单
         $('#items-data').val(JSON.stringify(itemsData));
         
+        updateDeletedItemsInput();
         // 显示保存提示
         showToast('正在保存数据...', 'success');
         
