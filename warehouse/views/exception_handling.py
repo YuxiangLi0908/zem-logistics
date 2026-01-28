@@ -2160,11 +2160,9 @@ class ExceptionHandling(View):
                 context['search_type'] = 'batch'
                 context['search_value'] = search_value
             elif search_type == 'shipment_id':
-                print('按id查询')
                 shipment = await sync_to_async(
                     lambda: Shipment.objects.select_related('fleet_number').get(id=search_value)
                 )()
-                print('shipment',shipment)
                 context['search_type'] = 'shipment_id'
                 context['search_value'] = search_value
             elif search_type == 'appointment':

@@ -289,7 +289,6 @@ class ReceivableAccounting(View):
 
     def handle_save_manual_invoice_items(self, request: HttpRequest):
         """手动保存所有账单记录"""
-        print(request.POST)
         context = {}
         container_number = request.POST.get("container_number")
         invoice_number = request.POST.get("invoice_number")
@@ -321,8 +320,17 @@ class ReceivableAccounting(View):
             )
             item.delete()
         self._update_invoice_total(invoice,container)
-        context = {'success_messages':'保存账单明细成功！'}
-        return self.handle_invoice_item_search(request,context)
+        context = {
+            'success_messages':'保存账单明细成功！',
+            'container_number': request.POST.get('container_number'),
+            'start_date': request.POST.get('start_date'),
+            'end_date': request.POST.get('end_date'),
+        }
+        request.POST = request.POST.copy()  # 创建可变副本
+        request.POST['container_number'] = context['container_number']
+        request.POST['start_date'] = context['start_date']
+        request.POST['end_date'] = context['end_date']
+        return self.handle_manual_process_search(request)
 
     def _save_delivery_items(self, item_data, item_id, invoice, container):
         """保存派送费用项"""
@@ -639,6 +647,7 @@ class ReceivableAccounting(View):
             "warehouse_filter": warehouse,
             "start_date": start_date,
             "end_date": end_date,
+            "container_number": container_number,
         })
 
         return self.template_supplementary_entry, context
