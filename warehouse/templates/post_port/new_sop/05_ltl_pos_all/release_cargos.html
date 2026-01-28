@@ -195,16 +195,20 @@
         justify-content: center;
     }
     .command-col {
-        min-width:120px;
+        min-width:160px;
     }
     .release-command-input {
         width: 100%;
         resize: none;
-        overflow: hidden !important;
-        height: auto !important;
-        min-height: 24px;
+        overflow: hidden; /* 隐藏滚动条，依靠高度自动撑开 */
+        height: auto;
+        min-height: 32px; /* 设置一个基础高度 */
         box-sizing: border-box;
-        line-height: 1.4;
+        line-height: 1.5;
+        padding: 6px 30px 6px 8px; /* 右侧留出保存按钮的距离 */
+        display: block;
+        white-space: pre-wrap; /* 确保换行显示 */
+        word-wrap: break-word;
     }
     .command-input-wrapper {
         position: relative;
@@ -510,6 +514,11 @@
 
         function initializeUnscheduledPage() {
             updateSelectedCount();
+
+            // --- 新增：初始化时自动调整所有指令框的高度 ---
+            document.querySelectorAll('.release-command-input').forEach(textarea => {
+                release_autoResizeTextarea(textarea);
+            });
             
             // 全选/取消全选
             const selectAllCheckbox = document.getElementById('unscheduled_selectAllCargos');
@@ -524,6 +533,10 @@
                 });
             });
             
+        }
+        function release_autoResizeTextarea(textarea) {
+            textarea.style.height = 'auto'; // 先重置高度
+            textarea.style.height = (textarea.scrollHeight) + 'px'; // 根据滚动高度设置实际高度
         }
 
         // 全选功能

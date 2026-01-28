@@ -5735,6 +5735,12 @@ class PostNsop(View):
                     vessel_eta=F("container_number__orders__vessel_id__vessel_eta"),                   
                 )
                 .annotate(
+                    # 如果 ltl_follow_status 包含 'pickup' (不区分大小写用 icontains)，设为 0，否则设为 1
+                    is_pickup_priority=Case(
+                        When(ltl_follow_status__icontains="pickup", then=Value(0)),
+                        default=Value(1),
+                        output_field=IntegerField(),
+                    ),
                     # 分组依据：destination + shipping_mark
                     custom_delivery_method=F("delivery_method"),
                     shipping_marks=F("shipping_mark"),  # 保持原有字段名
@@ -5758,7 +5764,7 @@ class PostNsop(View):
                     label=Value("ACT"),
                     note_sp=StringAgg("note_sp", delimiter=",", distinct=True),
                 )
-                .order_by("offload_at","destination", "shipping_mark")
+                .order_by("is_pickup_priority","offload_at","destination", "shipping_mark")
             )
 
             # 处理托盘尺寸信息
@@ -5886,6 +5892,12 @@ class PostNsop(View):
                     )
                 )
                 .annotate(
+                    # 如果 ltl_follow_status 包含 'pickup' (不区分大小写用 icontains)，设为 0，否则设为 1
+                    is_pickup_priority=Case(
+                        When(ltl_follow_status__icontains="pickup", then=Value(0)),
+                        default=Value(1),
+                        output_field=IntegerField(),
+                    ),
                     # 分组依据：destination + shipping_mark
                     shipping_marks=StringAgg(
                         "str_shipping_mark",
@@ -5913,7 +5925,7 @@ class PostNsop(View):
                     note_sp=StringAgg("note_sp", delimiter=",", distinct=True)
                 )
                 .distinct()
-                .order_by("actual_retrieval_time")
+                .order_by("is_pickup_priority","actual_retrieval_time")
             )
 
             data += pl_list
