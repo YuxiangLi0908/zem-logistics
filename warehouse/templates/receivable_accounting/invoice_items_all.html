@@ -434,11 +434,26 @@
         color: #1b5e20 !important;
         font-weight: bold;
     }
+    .group-total-label {
+        margin-left: 20px;
+        padding: 2px 10px;
+        background: #e3f2fd;
+        color: #1976d2;
+        border-radius: 4px;
+        font-size: 0.9rem;
+        font-weight: bold;
+        border: 1px solid #bbdefb;
+    }
+    #other-group-total, #delivery-group-total {
+        color: #d32f2f; /* 小计金额用红色突出 */
+    }
 </style>
 
 <!-- 隐藏的表单 -->
 <form method="post" id="invoice-items-form" style="display: none;">
     {% csrf_token %}
+    <input type="hidden" name="start_date" value="{{ start_date }}">
+    <input type="hidden" name="end_date" value="{{ end_date }}">
     <input type="hidden" name="container_number" value="{{ container_number }}">
     <input type="hidden" name="invoice_number" value="{{ invoice_number }}">
     <input type="hidden" name="step" value="save_manual_invoice_items">
@@ -499,6 +514,7 @@
                     <span style="font-size: 0.9rem; color: #666; margin-left: 10px;">
                         共 {{ other_items|length }} 条记录
                     </span>
+                    <span class="group-total-label">其他费用小计: <span id="other-group-total">0.00</span> </span>
                 </div>
                 <button type="button" class="btn btn-add" onclick="addOtherItem()">
                     <i class="fas fa-plus"></i>
@@ -597,6 +613,7 @@
                     <span style="font-size: 0.9rem; color: #666; margin-left: 10px;">
                         共 {{ delivery_items|length }} 条记录（不显示表示不显示在excel里，组合柜的数量是比例，非组合柜的是板数）
                     </span>
+                    <span class="group-total-label">派送费用小计: <span id="delivery-group-total">0.00</span> USD</span>
                 </div>
                 <button type="button" class="btn btn-add" onclick="addDeliveryItem()">
                     <i class="fas fa-plus"></i>
@@ -735,6 +752,20 @@
     let deletedItems = [];
     // 页面加载完成后初始化
     document.addEventListener('DOMContentLoaded', function() {
+        // 初始计算
+        calculateTotalAmount();
+        // 事件委托：处理数量、单价、附加费的变化 -> 自动计算行金额
+        // 监听 class 为 item-qty, item-rate, item-surcharges, item-cbm-ratio 的输入
+        $(document).on('input', '.item-qty, .item-rate, .item-surcharges, .item-cbm-ratio', function() {
+            const $row = $(this).closest('tr');
+            autoCalculateRowAmount($row);
+        });
+
+        // 事件委托：处理金额的直接修改
+        $(document).on('input', '.item-amount', function() {
+            calculateTotalAmount();
+        });
+
         // 初始化计算：页面一加载完就跑一遍
         // 延迟 100ms 是为了防止浏览器自动填充表单值时的竞争
         setTimeout(calculateTotalAmount, 100);
@@ -756,6 +787,35 @@
             }
         }
     });
+
+    /**
+     * 自动计算一行的金额
+     * 公式：金额 = (数量 * 单价) + 附加费
+     */
+    function autoCalculateRowAmount($row) {
+        // 获取数量：如果是组合柜，取体积占比，否则取数量
+        let qty = 0;
+        const $qtyInput = $row.find('.item-qty');
+        const $ratioInput = $row.find('.item-cbm-ratio');
+        
+        if ($ratioInput.length && $ratioInput.attr('type') !== 'hidden') {
+            qty = parseFloat($ratioInput.val()) || 0;
+        } else {
+            qty = parseFloat($qtyInput.val()) || 0;
+        }
+
+        const rate = parseFloat($row.find('.item-rate').val()) || 0;
+        const surcharges = parseFloat($row.find('.item-surcharges').val()) || 0;
+
+        // 计算结果
+        const total = (qty * rate) + surcharges;
+        
+        // 更新到金额输入框 (保留两位小数)
+        $row.find('.item-amount').val(total.toFixed(2));
+
+        // 触发总计更新
+        calculateTotalAmount();
+    }
 
     // 更新派送类型的数量显示
     function updateQtyDisplay(selectElement) {
@@ -792,7 +852,7 @@
         }
         
         // 重新计算金额
-        calculateDeliveryAmount($qtyCell.find('input'));
+        autoCalculateRowAmount($row);
     }
 
     // 计算其他费用金额
@@ -809,7 +869,6 @@
 
     // 计算总金额
     function calculateTotalAmount() {
-        console.log('开始计算了');
         let total = 0;
         // 使用更精确的类名组合选择器
         $('input.item-amount').each(function() {
@@ -828,6 +887,23 @@
         // 同时更新顶部和底部的显示区域
         $('#total-amount-display').text(formattedTotal);
         $('#total-amount').text(total.toFixed(2)); 
+
+        let otherTotal = 0;
+        let deliveryTotal = 0;
+
+        // 计算其他费用组
+        $('#other-items-body .item-amount').each(function() {
+            otherTotal += parseFloat($(this).val()) || 0;
+        });
+
+        // 计算派送费用组
+        $('#delivery-items-body .item-amount').each(function() {
+            deliveryTotal += parseFloat($(this).val()) || 0;
+        });
+        console.log('其他费用小计',otherTotal);
+        // 更新界面显示
+        $('#other-group-total').text(otherTotal.toLocaleString('en-US', { minimumFractionDigits: 2 }));
+        $('#delivery-group-total').text(deliveryTotal.toLocaleString('en-US', { minimumFractionDigits: 2 }));
     }
 
     // 新增其他费用项
