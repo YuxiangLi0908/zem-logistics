@@ -140,6 +140,7 @@ class Accounting(View):
     template_invoice_confirm = "accounting/invoice_confirm.html"
     template_invoice_payable_confirm = "accounting/invoice_payable_confirm.html"
     template_invoice_payable_confirm_payable = "accounting/invoice_payable_confirm_payable.html"
+    template_invoice_payable_confirm_payable_delivery = "accounting/invoice_payable_confirm_payable_delivery.html"
     template_invoice_confirm_edit = "accounting/invoice_confirm_edit.html"
     template_invoice_direct = "accounting/invoice_direct.html"
     template_invoice_direct_edit = "accounting/invoice_direct_edit.html"
@@ -237,6 +238,15 @@ class Accounting(View):
             if self._validate_user_invoice_confirm(request.user):
                 request.GET.invoice_type = "payable"
                 template, context = self.handle_invoice_confirm_get_v1(request)
+                return render(request, template, context)
+            else:
+                return HttpResponseForbidden(
+                    "You are not authenticated to access this page!"
+                )
+        elif step == "invoice_confirm_payable_delivery":
+            if self._validate_user_invoice_confirm(request.user):
+                request.GET.invoice_type = "payable"
+                template, context = self.handle_invoice_confirm_get_v1_delivery(request)
                 return render(request, template, context)
             else:
                 return HttpResponseForbidden(
@@ -382,6 +392,11 @@ class Accounting(View):
         elif step == "invoice_order_confirm_payable":
             template, context = self.handle_invoice_order_search_post_v1(
                 request, "confirm"
+            )
+            return render(request, template, context)
+        elif step == "invoice_order_confirm_payable_delivery":
+            template, context = self.handle_invoice_order_search_post_v1(
+                request, "confirm_delivery"
             )
             return render(request, template, context)
         elif step == "invoice_search":
@@ -3027,74 +3042,101 @@ class Accounting(View):
             )
         )
         finance_confirmed_x_completed = list(finance_confirmed_x_completed.iterator(chunk_size=200))
+        # 页面上下文数据
+        start_date_export = (current_date + timedelta(days=-15)).strftime("%Y-%m-%d")
+        end_date_export = current_date.strftime("%Y-%m-%d")
+        pickup_carriers = {
+            "": "",
+            "Kars": "Kars",
+            "东海岸": "东海岸",
+            "ARM": "ARM",
+            "GM": "GM",
+            "BEST": "BEST",
+        }
+        unload_carriers = {
+            "": "",
+            "BBR": "BBR",
+            "KNO": "KNO",
+            "JOHN": "JOHN",
+            "unload": "UNLOAD",
+        }
+        warehouse_carriers = {
+            "BBR": "BBR",
+            "KNO": "KNO",
+        }
+        existing_customers = Customer.objects.all().order_by("zem_name")
 
-        #派送
-        container_numbers = Order.objects.filter(criteria).values_list(
-            "container_number", flat=True
+        context = {
+            "finance_pending": finance_pending,
+            "finance_confirmed": finance_confirmed,
+            "pickup_carriers": pickup_carriers,
+            "unload_carriers": unload_carriers,
+            "warehouse_carriers": warehouse_carriers,
+            "delivery_confirmed_orders": None,
+            "warehouse_options": self.warehouse_options,
+            "existing_customers": existing_customers,
+            "order_form": order_form,
+            "selected_customer_id": selected_customer_id,
+            "start_date_confirm": start_date_confirm,
+            "end_date_confirm": end_date_confirm,
+            "start_date_export": start_date_export,
+            "end_date_export": end_date_export,
+            "invoice_type_filter": "payable",
+            "CARRIER_FLEET": CARRIER_FLEET,
+            "finance_confirmed_t_waited": finance_confirmed_t_waited,
+            "finance_confirmed_x_waited": finance_confirmed_x_waited,
+            "finance_confirmed_t_completed": finance_confirmed_t_completed,
+            "finance_confirmed_x_completed": finance_confirmed_x_completed,
+            "warehouse_filter": request.POST.get("warehouse_filter"),
+            "t_item": t_item,
+            "x_item": x_item,
+        }
+
+        return self.template_invoice_payable_confirm_payable, context
+
+    def handle_invoice_confirm_get_v1_delivery(
+            self,
+            request: HttpRequest,
+            start_date_confirm: str = None,
+            end_date_confirm: str = None,
+            customer: str = None,
+            warehouse: str = None,
+    ) -> tuple[Any, Any]:
+        """财务派送 待确认 已确认"""
+        current_date = datetime.now().date()
+        start_date_confirm = (
+            (current_date + timedelta(days=-60)).strftime("%Y-%m-%d")
+            if not start_date_confirm
+            else start_date_confirm
         )
-        delivery_po_ids = (
-            Pallet.objects.filter(container_number__in=container_numbers)
-            .values_list("PO_ID", flat=True)
-            .distinct()
+        end_date_confirm = (
+            current_date.strftime("%Y-%m-%d")
+            if not end_date_confirm
+            else end_date_confirm
         )
-
-        # 派送待确认（待核销）
-        # 预加载所有InvoiceItemv2数据（按柜号分组，方便后续判断）
-        itemv2_queryset = InvoiceItemv2.objects.select_related("container_number").only(
-            "id", "container_number_id", "write_off_amount", "rate", "description", "write_off_time",
-            "note", "invoice_type"  # 补充invoice_type字段
-        )
-
-        # 定义：筛选「派送费用+应付+未核销」的InvoiceItemv2的Exists查询
-        unwritten_off_itemv2 = Exists(
-            InvoiceItemv2.objects.filter(
-                container_number_id=OuterRef("container_number_id"),  # 关联柜号
-                description__contains='派送费用',
-                invoice_type='payable',
-                write_off_amount__isnull=False
-            )
-        )
-
-
-        # 筛选无核销记录的
-        delivery_pending_orders = (
-            FleetShipmentPallet.objects.select_related(
-                "fleet_number",
-                "shipment_batch_number",
-                "container_number",  # 关联柜号，用于间接关联InvoiceItemv2
-            )
-            # 预加载柜号对应的InvoiceItemv2数据（无直接外键，通过container_number关联）
-            .prefetch_related(
-                Prefetch(
-                    "container_number__invoice_itemv2",  # Container→InvoiceItemv2的反向关联
-                    queryset=itemv2_queryset,
-                    to_attr="itemv2_list"  # 自定义属性名，方便后续判断
+        criteria = models.Q()
+        if warehouse:
+            if warehouse == "直送":
+                criteria &= models.Q(order_type="直送")
+            else:
+                # 非直送的筛选
+                criteria &= models.Q(
+                    retrieval_id__retrieval_destination_precise=warehouse
                 )
-            )
-            .filter(
-                expense__isnull=False,
-                PO_ID__in=delivery_po_ids,  # 替换为你的PO_ID列表
-                # 可选：如果待确认有状态筛选，补充这里
-                # status="pending"
-            )
-            .annotate(
-                appointment_id=F("shipment_batch_number__appointment_id"),
-                container_num=F("container_number__container_number"),
-                pallet_destination=Subquery(
-                    Pallet.objects.filter(
-                        PO_ID=OuterRef("PO_ID"),
-                        shipment_batch_number=OuterRef("shipment_batch_number"),
-                    ).values("destination")[:1],
-                    output_field=CharField()
-                ),
-                # 注解2：是否有「派送费用+应付+未核销」的InvoiceItemv2记录
-                has_unwritten_off_itemv2=unwritten_off_itemv2,
-            )
-            # 有InvoiceItemv2记录，但属于「派送费用+应付+未核销」
-            .filter(
-                Q(has_unwritten_off_itemv2=False)
-            )
-            .order_by("fleet_number__id", "pickup_number", "container_num")
+        if customer:
+            criteria &= models.Q(customer_name__zem_name=customer)
+
+        # 待确认账单应付
+        selected_customer_id = request.POST.get("customer_name", "")
+        order_form = OrderForm(
+            initial={
+                "customer_name": selected_customer_id
+            }
+        )
+        criteria &= models.Q(
+            cancel_notification=False,
+            vessel_id__vessel_etd__gte=start_date_confirm,
+            vessel_id__vessel_etd__lte=end_date_confirm,
         )
 
         # 派送
@@ -3403,8 +3445,6 @@ class Accounting(View):
         existing_customers = Customer.objects.all().order_by("zem_name")
 
         context = {
-            "finance_pending": finance_pending,
-            "finance_confirmed": finance_confirmed,
             "pickup_carriers": pickup_carriers,
             "unload_carriers": unload_carriers,
             "warehouse_carriers": warehouse_carriers,
@@ -3421,16 +3461,10 @@ class Accounting(View):
             "end_date_export": end_date_export,
             "invoice_type_filter": "payable",
             "CARRIER_FLEET": CARRIER_FLEET,
-            "finance_confirmed_t_waited": finance_confirmed_t_waited,
-            "finance_confirmed_x_waited": finance_confirmed_x_waited,
-            "finance_confirmed_t_completed": finance_confirmed_t_completed,
-            "finance_confirmed_x_completed": finance_confirmed_x_completed,
             "warehouse_filter": request.POST.get("warehouse_filter"),
-            "t_item": t_item,
-            "x_item": x_item,
         }
 
-        return self.template_invoice_payable_confirm_payable, context
+        return self.template_invoice_payable_confirm_payable_delivery, context
 
 
     def handle_invoice_payable_confirm_phase(self, request):
@@ -4629,7 +4663,9 @@ class Accounting(View):
             traceback.print_exc()  # 打印详细错误到控制台，便于调试
             return HttpResponse(f"导出失败：{str(e)}", status=400)
 
-    def export_confirmed_by_month_carrier_v1_search(self, request):
+
+
+    def export_confirmed_by_month_carrier_v1_search(self, request: HttpRequest):
         """提拆已确认账单-导出的查询按钮"""
         current_date = datetime.now().date()
         params = request.POST
@@ -4641,111 +4677,132 @@ class Accounting(View):
         supplier_type = params.get("supplier_type", "pickup_carrier").strip()
         selected_customer_id = params.get("customer_name", "").strip()
         order_form = OrderForm(request.POST)
-        # 如果有客户ID，查询对应的客户对象
+
+        # 客户处理（增加异常捕获）
+        customer = None
         if selected_customer_id:
-            order_form = OrderForm(
-                initial={
-                    "customer_name": selected_customer_id  # 关键：让表单默认选中该客户
-                }
-            )
-            customer = Customer.objects.get(id=selected_customer_id).zem_name
+            try:
+                customer_obj = Customer.objects.get(id=selected_customer_id)
+                customer = customer_obj.zem_name
+                order_form = OrderForm(initial={"customer_name": selected_customer_id})
+            except Customer.DoesNotExist:
+                customer = None
+
+        # 日期处理（转为date对象，而非字符串）
+        if not start_date_confirm:
+            start_date = current_date + timedelta(days=-60)
         else:
-            customer = None
-        # 日期默认值处理
-        start_date_confirm = (
-            (current_date + timedelta(days=-60)).strftime("%Y-%m-%d")
-            if not start_date_confirm
-            else start_date_confirm
-        )
-        end_date_confirm = (
-            current_date.strftime("%Y-%m-%d")
-            if not end_date_confirm
-            else end_date_confirm
-        )
+            start_date = datetime.strptime(start_date_confirm, "%Y-%m-%d").date()
 
-        # 基础筛选条件
-        criteria = Q()
-        if warehouse:
-            if warehouse == "直送":
-                criteria &= Q(order_type="直送")
-            else:
-                criteria &= Q(retrieval_id__retrieval_destination_precise=warehouse)
+        if not end_date_confirm:
+            end_date = current_date
+        else:
+            end_date = datetime.strptime(end_date_confirm, "%Y-%m-%d").date()
 
-        # 客户筛选：仅当 customer 非空时生效
-        if customer:
-            criteria &= Q(customer_name__zem_name__icontains=customer)
-
-        # 日期和基础状态筛选
-        criteria &= Q(
-            cancel_notification=False,
-            vessel_id__vessel_etd__gte=start_date_confirm,
-            vessel_id__vessel_etd__lte=end_date_confirm,
+        # 初始化主查询条件（所有账单的基础条件）
+        base_criteria = Q(
+            finance_status="completed",
+            invoice_type__in=["payable", "payable_direct"],
+            container_number_id__isnull=False
         )
 
-        # 供应商类型筛选 - 严格区分
+        # 提柜供应商筛选：恢复柜号关联过滤 + 精准过滤提柜商 + 放宽非必要条件
         if supplier_type == "pickup_carrier":
-            # 提柜供应商：只筛选提柜供应商，不处理卸柜供应商
+            # 构建【基础过滤用】的Order条件（只保留核心过滤：提柜商/仓库/客户，放宽日期/非空条件）
+            order_filter_criteria = Q()
+            # 仓库筛选（保留）
+            if warehouse:
+                if warehouse == "直送":
+                    order_filter_criteria &= Q(order_type__icontains="直送")  # 模糊匹配，避免精确匹配不到
+                else:
+                    order_filter_criteria &= Q(
+                        retrieval_id__isnull=False,
+                        retrieval_id__retrieval_destination_precise__icontains=warehouse  # 模糊匹配
+                    )
+            # 客户筛选（保留，模糊匹配）
+            if customer:
+                order_filter_criteria &= Q(
+                    customer_name__isnull=False,
+                    customer_name__zem_name__icontains=customer
+                )
+            # 【核心】提柜商筛选（必须保留，精准匹配+模糊兼容，解决过滤无效问题）
             if pickup_carrier:
-                criteria &= Q(retrieval_id__retrieval_carrier=pickup_carrier)
-            # 卸柜供应商条件置空
-            criteria_v1 = Q()
-        else:  # unload_carrier
-            # 卸柜供应商：只筛选卸柜供应商
-            criteria_v1 = Q(
-                carrier=unload_carrier,
-                description="拆柜费用",
-                invoice_type__in=["payable", "payable_direct"]
-            ) if unload_carrier else Q()
+                order_filter_criteria &= Q(
+                    retrieval_id__isnull=False,
+                    retrieval_id__retrieval_carrier__icontains=pickup_carrier  # 用icontains避免大小写/空格问题
+                )
+            # 仅保留未取消的核心状态，**移除所有非必要的非空/日期严格条件**（避免过滤过度）
+            order_filter_criteria &= Q(cancel_notification=False)
 
-        # 子查询构建
-        order_exists_subquery = Order.objects.filter(
-            criteria,
-            container_number_id=OuterRef("container_number_id"),
-        )
+            # 构建【预加载用】的Order条件（全量条件：基础过滤 + 日期/船期，用于前端展示完整数据）
+            order_prefetch_criteria = order_filter_criteria.copy()
+            order_prefetch_criteria &= Q(
+                vessel_id__vessel_etd__date__gte=start_date,
+                vessel_id__vessel_etd__date__lte=end_date,
+            )
+            # 船期非空只做预加载过滤，不做账单过滤
+            if pickup_carrier or warehouse or customer:
+                order_prefetch_criteria &= Q(vessel_id__isnull=False, vessel_id__vessel_etd__isnull=False)
 
-        order_prefetch_queryset = Order.objects.filter(
-            criteria
-        ).select_related("retrieval_id", "vessel_id", "customer_name")
+            # ========== 核心1：恢复柜号关联过滤，实现提柜商精准筛选 ==========
+            order_subquery = Order.objects.filter(
+                order_filter_criteria,
+                container_number_id=OuterRef("container_number_id")
+            )
+            final_criteria = base_criteria & Exists(order_subquery)
 
-        itemv2_exists_subquery = InvoiceItemv2.objects.filter(
-            criteria_v1,
-            container_number_id=OuterRef("container_number_id"),
-        )
-
-        # 主查询 - 修复筛选条件整合方式
-        finance_confirmed = (
-            InvoiceStatusv2.objects.select_related(
-                "container_number",
-                "invoice",
-            ).prefetch_related(
+            # ========== 核心2：预加载全量符合条件的Order数据，保证前端展示 ==========
+            order_prefetch = Order.objects.filter(order_prefetch_criteria).select_related(
+                "retrieval_id", "vessel_id", "customer_name"
+            )
+            prefetch_list = [
                 Prefetch(
                     "container_number__orders",
-                    queryset=order_prefetch_queryset
+                    queryset=order_prefetch,
+                    to_attr="filtered_pickup_orders"
                 ),
-                Prefetch(
-                    "container_number__invoice_itemv2",
-                    queryset=InvoiceItemv2.objects.all()
-                )
+                Prefetch("container_number__invoice_itemv2", queryset=InvoiceItemv2.objects.all())
+            ]
+
+        # 卸柜供应商筛选（逻辑不变，保留原有过滤）
+        else:
+            itemv2_criteria = Q(
+                description__icontains="拆柜费用",
+                container_number_id__isnull=False
             )
+            if unload_carrier:
+                itemv2_criteria &= Q(carrier=unload_carrier)
+
+            itemv2_subquery = InvoiceItemv2.objects.filter(
+                itemv2_criteria,
+                container_number_id=OuterRef("container_number_id")
+            )
+            final_criteria = base_criteria & Exists(itemv2_subquery)
+
+            itemv2_prefetch = InvoiceItemv2.objects.filter(itemv2_criteria)
+            prefetch_list = [
+                Prefetch("container_number__orders", queryset=Order.objects.none()),
+                Prefetch("container_number__invoice_itemv2", queryset=itemv2_prefetch)
+            ]
+
+        # 主查询：过滤+预加载结合
+        finance_confirmed = (
+            InvoiceStatusv2.objects.select_related("container_number", "invoice")
+            .prefetch_related(*prefetch_list)
             .annotate(
                 total_fee=Sum(
                     "container_number__invoice_itemv2__rate",
-                    default=0
+                    default=0,
+                    filter=Q(container_number__invoice_itemv2__rate__isnull=False)
                 )
             )
-            .filter(
-                Exists(order_exists_subquery),
-                Q(invoice_type="payable") | Q(invoice_type="payable_direct"),
-                finance_status="completed",
-            )
+            .filter(final_criteria)
         )
 
-        # 仅在选择卸柜供应商时添加卸柜筛选条件
-        if supplier_type == "unload_carrier" and unload_carrier:
-            finance_confirmed = finance_confirmed.filter(Exists(itemv2_exists_subquery))
-
+        # 分批获取数据（避免内存溢出）
         finance_confirmed = list(finance_confirmed.iterator(chunk_size=200))
 
+        # 上下文数据
         pickup_carriers = {
             "": "",
             "Kars": "Kars",
@@ -4762,25 +4819,23 @@ class Accounting(View):
             "unload": "UNLOAD",
         }
 
-        # ========== 修复3：传递选中的客户ID到模板，保留下拉框选中状态 ==========
         context = {
             "finance_confirmed": finance_confirmed,
             "pickup_carrier": pickup_carrier,
             "unload_carrier": unload_carrier,
             "supplier_type": supplier_type,
-            "customer": customer,  # 客户对象
-            "selected_customer_id": selected_customer_id,  # 客户ID（关键：用于前端选中）
+            "customer": customer,
+            "selected_customer_id": selected_customer_id,
             "warehouse_options": self.warehouse_options,
-            "order_form": order_form,  # 正确初始化的表单
-            "start_date_confirm": start_date_confirm,
-            "end_date_confirm": end_date_confirm,
+            "order_form": order_form,
+            "start_date_confirm": start_date.strftime("%Y-%m-%d"),
+            "end_date_confirm": end_date.strftime("%Y-%m-%d"),
             "invoice_type_filter": "payable",
             "warehouse_filter": warehouse,
             "pickup_carriers": pickup_carriers,
             "unload_carriers": unload_carriers,
         }
         return self.template_invoice_payable_confirm_payable, context
-
     def export_delivery_by_month_carrier_v1_search(self, request):
         """派送已确认账单-导出的查询按钮"""
         current_date = datetime.now().date()
@@ -4989,29 +5044,9 @@ class Accounting(View):
         # 页面上下文数据
         start_date_export = (current_date + timedelta(days=-15)).strftime("%Y-%m-%d")
         end_date_export = current_date.strftime("%Y-%m-%d")
-        pickup_carriers = {
-            "Kars": "Kars",
-            "东海岸": "东海岸",
-            "ARM": "ARM",
-            "GM": "GM",
-            "BEST": "BEST",
-        }
-        unload_carriers = {
-            "BBR": "BBR",
-            "KNO": "KNO",
-            "JOHN": "JOHN",
-            "unload": "UNLOAD",
-        }
-        warehouse_carriers = {
-            "BBR": "BBR",
-            "KNO": "KNO",
-        }
         existing_customers = Customer.objects.all().order_by("zem_name")
 
         context = {
-            "pickup_carriers": pickup_carriers,
-            "unload_carriers": unload_carriers,
-            "warehouse_carriers": warehouse_carriers,
             "delivery_confirm_orders": delivery_confirm_orders,
             "delivery_confirmed_orders": None,
             "warehouse_options": self.warehouse_options,
@@ -5028,7 +5063,7 @@ class Accounting(View):
             "warehouse_filter": request.POST.get("warehouse_filter"),
         }
 
-        return self.template_invoice_payable_confirm_payable, context
+        return self.template_invoice_payable_confirm_payable_delivery, context
 
     def export_delivery_search(self, request):
         """派送已确认账单-导出的查询按钮"""
@@ -5355,7 +5390,7 @@ class Accounting(View):
 
         # 3. 基础校验：柜号ID为空直接返回
         if not container_id_str:
-            return self.handle_invoice_confirm_get_v1(request, start_date_confirm, end_date_confirm, customer,
+            return self.handle_invoice_confirm_get_v1_delivery(request, start_date_confirm, end_date_confirm, customer,
                                                       warehouse)
 
         # 4. 校验并转换核销金额
@@ -5363,11 +5398,11 @@ class Accounting(View):
             write_off_amount = float(write_off_amount_str)
             # 金额≤0时直接返回（无效金额）
             if write_off_amount <= 0:
-                return self.handle_invoice_confirm_get_v1(request, start_date_confirm, end_date_confirm, customer,
+                return self.handle_invoice_confirm_get_v1_delivery(request, start_date_confirm, end_date_confirm, customer,
                                                           warehouse)
         except (ValueError, TypeError):
             # 金额非数字/为空时，直接返回
-            return self.handle_invoice_confirm_get_v1(request, start_date_confirm, end_date_confirm, customer,
+            return self.handle_invoice_confirm_get_v1_delivery(request, start_date_confirm, end_date_confirm, customer,
                                                       warehouse)
 
         # 5. 核心逻辑：创建/更新发票记录（使用事务保证数据一致性）
@@ -5412,9 +5447,9 @@ class Accounting(View):
             import logging
             logger = logging.getLogger('django')
             logger.error(f"派送费用核销失败：柜号ID={container_id_str}，错误={str(e)}")
-            return self.handle_invoice_confirm_get_v1(request, start_date_confirm, end_date_confirm, customer,warehouse)
+            return self.handle_invoice_confirm_get_v1_delivery(request, start_date_confirm, end_date_confirm, customer,warehouse)
 
-        return self.handle_invoice_confirm_get_v1(request, start_date_confirm, end_date_confirm, customer, warehouse)
+        return self.handle_invoice_confirm_get_v1_delivery(request, start_date_confirm, end_date_confirm, customer, warehouse)
 
     def note_post_delivery(self, request):
         """单个派送输入备注"""
@@ -5430,7 +5465,7 @@ class Accounting(View):
             customer = order_form.cleaned_data.get("customer_name")
 
         if not container_id_str:
-            return self.handle_invoice_confirm_get_v1(request, start_date_confirm, end_date_confirm, customer,
+            return self.handle_invoice_confirm_get_v1_delivery(request, start_date_confirm, end_date_confirm, customer,
                                                       warehouse)
 
         current_date = datetime.now().date()
@@ -5469,9 +5504,9 @@ class Accounting(View):
             import logging
             logger = logging.getLogger('django')
             logger.error(f"派送费用核销失败：柜号ID={container_id_str}，错误={str(e)}")
-            return self.handle_invoice_confirm_get_v1(request, start_date_confirm, end_date_confirm, customer,warehouse)
+            return self.handle_invoice_confirm_get_v1_delivery(request, start_date_confirm, end_date_confirm, customer,warehouse)
 
-        return self.handle_invoice_confirm_get_v1(request, start_date_confirm, end_date_confirm, customer, warehouse)
+        return self.handle_invoice_confirm_get_v1_delivery(request, start_date_confirm, end_date_confirm, customer, warehouse)
 
     def export_carrier_payable_delivery(self, request):
         """已核销派送-导出"""
@@ -12380,6 +12415,12 @@ class Accounting(View):
             start_date_confirm = request.POST.get("start_date_confirm")
             end_date_confirm = request.POST.get("end_date_confirm")
             return self.handle_invoice_confirm_get_v1(
+                request, start_date_confirm, end_date_confirm, customer, warehouse
+            )
+        elif status == "confirm_delivery":
+            start_date_confirm = request.POST.get("start_date_confirm")
+            end_date_confirm = request.POST.get("end_date_confirm")
+            return self.handle_invoice_confirm_get_v1_delivery(
                 request, start_date_confirm, end_date_confirm, customer, warehouse
             )
         elif status == "search":
