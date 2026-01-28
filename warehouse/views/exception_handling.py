@@ -3528,7 +3528,7 @@ class ExceptionHandling(View):
                     return log_entry
                 
                 # 9. 超重费，需要手动输入
-                limit_weight = stipulate.details.get("global_rules", {}).get("weight_limit", {}).get("default", 0)
+                limit_weight = stipulate.get("global_rules", {}).get("weight_limit", {}).get("default", 0)
                 actual_weight_res = PackingList.objects.filter(
                     container_number__container_number=container.container_number
                 ).aggregate(total=Sum('total_weight_lbs'))
