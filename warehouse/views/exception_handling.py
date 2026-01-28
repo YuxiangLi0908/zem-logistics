@@ -303,7 +303,9 @@ class ExceptionHandling(View):
         elif step =="update_invoice_status":
             template, context = await self.handle_update_invoice_status(request)
             return await sync_to_async(render)(request, template, context)
-        
+        elif step == "overweight_single_save":
+            template, context = await self.handle_overweight_single_save(request)
+            return await sync_to_async(render)(request, template, context)
         else:
             return await sync_to_async(T49Webhook().post)(request)
         
@@ -2803,6 +2805,9 @@ class ExceptionHandling(View):
                 invoice_type="receivable"
             ).update(finance_status="tobeconfirmed", delivery_public_status="unstarted")
         )()
+        # 重新计算账单总费用
+        await self._async_update_invoice_amount(invoicev2,invoicev2.container_number)
+
         # 重新查询
         request.POST = request.POST.copy()
         request.POST["step"] = "search_invoice_delivery"
@@ -2831,6 +2836,9 @@ class ExceptionHandling(View):
             ).update(finance_status="tobeconfirmed", delivery_public_status="unstarted")
         )()
         messages.success(request, f"已更新财务状态为待确认，公仓派送状态为未录入")
+
+        # 重新计算账单总费用
+        await self._async_update_invoice_amount(invoicev2,invoicev2.container_number)
         # 重新查询
         request.POST = request.POST.copy()
         request.POST["step"] = "search_invoice_delivery"
@@ -2854,6 +2862,10 @@ class ExceptionHandling(View):
         except Exception as e:
             messages.error(request, f"删除过程中发生错误: {str(e)}")
 
+        inv = Invoicev2.objects.get(id=invoice_item_id)
+        container = inv.container_number
+        # 重新计算账单总费用
+        await self._async_update_invoice_amount(inv,container)
         # 重新查询
         request.POST = request.POST.copy()
         request.POST["step"] = "search_invoice_delivery"
@@ -3333,6 +3345,132 @@ class ExceptionHandling(View):
         
         return self.template_receivable_status_migrate, context
 
+    async def handle_overweight_single_save(self, request):
+        '''历史组合柜费用计算之超重费'''
+        invoice_number_str = request.POST.get('invoice_number', '').strip()
+        container_number_str = request.POST.get('container_number', '').strip()
+        overcharge_amount_str = request.POST.get('overcharge_amount', '0').strip()
+
+        container = Container.objects.get(container_number=container_number_str)
+        invoice = Invoicev2.objects.get(invoice_number=invoice_number_str)
+        InvoiceItemv2.objects.filter(
+            container_number=container,
+            invoice_number=invoice,
+            invoice_type='receivable'
+        ).filter(
+            Q(description__contains="超重费") | Q(note__contains="超重费")
+        ).delete()
+        InvoiceItemv2.objects.create(
+            item_category="combina_extra_fee",
+            container_number=container,
+            invoice_number=invoice,
+            invoice_type="receivable",
+            description="超重费",
+            qty=1,
+            rate=float(overcharge_amount_str),
+            amount=float(overcharge_amount_str),
+            weight=float(overcharge_amount_str),
+        )
+
+        await self._async_update_invoice_amount(invoice,container)
+        log_entry = {
+            "container_number": container_number_str,
+            "invoice_number": invoice_number_str,
+            "actions": "记录超重费成功",
+            "new_data": None, # 用于前端显示状态
+            "updated_count": 1,
+            "filename":"",
+            "is_overweight": True,
+        }
+        context = {
+            'migration_log': [log_entry],
+        }
+        return self.template_recaculate_combine, context
+
+
+    def _sync_update_invoice_amount(invoice, container):
+        """更新账单总费用"""
+        
+        # 1. 重新计算 'delivery_public' (公仓派送) 的总额
+        total_del_pub = InvoiceItemv2.objects.filter(
+            invoice_number=invoice,
+            container_number=container,
+            invoice_type='receivable',
+            item_category='delivery_public'
+        ).aggregate(total=Sum('amount'))['total'] or 0
+
+        # 2. 重新计算 'combina_extra_fee' (组合费额外费用) 的总额
+        total_extra = InvoiceItemv2.objects.filter(
+            invoice_number=invoice,
+            container_number=container,
+            invoice_type='receivable',
+            item_category='combina_extra_fee'
+        ).aggregate(total=Sum('amount'))['total'] or 0
+
+        # 3. 更新 Invoicev2 实例的 delivery_public 字段
+        invoice.receivable_delivery_public_amount = total_del_pub
+
+        # 4. 准备计算总金额所需的分项数据 (转为 Decimal 以避免浮点数精度丢失)
+        # 如果字段为 None，则默认为 0
+        preport = Decimal(str(invoice.receivable_preport_amount or 0))
+        wh_pub = Decimal(str(invoice.receivable_wh_public_amount or 0))
+        wh_oth = Decimal(str(invoice.receivable_wh_other_amount or 0))
+        del_oth = Decimal(str(invoice.receivable_delivery_other_amount or 0))
+        
+        # 当前计算出的值也要转 Decimal
+        current_del_pub = Decimal(str(total_del_pub))
+        current_extra = Decimal(str(total_extra))
+
+        # 5. 计算最终总金额
+        # 公式：港前 + 公仓 + 私仓 + 公仓派送(刚算的) + 私仓派送 + 额外费用(刚算的)
+        final_total = preport + wh_pub + wh_oth + current_del_pub + del_oth + current_extra
+
+        # 6. 赋值并保存
+        invoice.receivable_total_amount = float(final_total)
+        invoice.save()
+
+    @sync_to_async
+    def _async_update_invoice_amount(invoice, container):
+        """更新账单总费用"""
+        
+        # 1. 重新计算 'delivery_public' (公仓派送) 的总额
+        total_del_pub = InvoiceItemv2.objects.filter(
+            invoice_number=invoice,
+            container_number=container,
+            invoice_type='receivable',
+            item_category='delivery_public'
+        ).aggregate(total=Sum('amount'))['total'] or 0
+
+        # 2. 重新计算 'combina_extra_fee' (组合费额外费用) 的总额
+        total_extra = InvoiceItemv2.objects.filter(
+            invoice_number=invoice,
+            container_number=container,
+            invoice_type='receivable',
+            item_category='combina_extra_fee'
+        ).aggregate(total=Sum('amount'))['total'] or 0
+
+        # 3. 更新 Invoicev2 实例的 delivery_public 字段
+        invoice.receivable_delivery_public_amount = total_del_pub
+
+        # 4. 准备计算总金额所需的分项数据 (转为 Decimal 以避免浮点数精度丢失)
+        # 如果字段为 None，则默认为 0
+        preport = Decimal(str(invoice.receivable_preport_amount or 0))
+        wh_pub = Decimal(str(invoice.receivable_wh_public_amount or 0))
+        wh_oth = Decimal(str(invoice.receivable_wh_other_amount or 0))
+        del_oth = Decimal(str(invoice.receivable_delivery_other_amount or 0))
+        
+        # 当前计算出的值也要转 Decimal
+        current_del_pub = Decimal(str(total_del_pub))
+        current_extra = Decimal(str(total_extra))
+
+        # 5. 计算最终总金额
+        # 公式：港前 + 公仓 + 私仓 + 公仓派送(刚算的) + 私仓派送 + 额外费用(刚算的)
+        final_total = preport + wh_pub + wh_oth + current_del_pub + del_oth + current_extra
+
+        # 6. 赋值并保存
+        invoice.receivable_total_amount = float(final_total)
+        invoice.save()
+ 
     async def handle_recalculate_by_containers(self, request):
         """
         异步处理：根据输入的柜号列表重新计算
@@ -3502,8 +3640,12 @@ class ExceptionHandling(View):
                 new_items = []
                 # 5.1 公仓数据
                 for d_type in ['public', 'other']:
-                    pallet_groups = self._recaculate_pallet_groups(container_number,inv.invoice_number,d_type)              
-                    items, err = self._recaculate_combine_items(self, pallet_groups, container, inv, order, rules, warehouse, total_container_cbm, username, destinations)
+                    pallet_groups,err = self._recaculate_pallet_groups(container_number,inv.invoice_number,d_type)      
+                    if err:
+                        log_entry["actions"] = f"[错误]：计算组合项异常 - {err}"
+                        return log_entry
+                      
+                    items, err = self._recaculate_combine_items(pallet_groups, container, inv, order, rules, warehouse, total_container_cbm, username, destinations)
                     if err:
                         log_entry["actions"] = f"[错误]：计算组合项异常 - {err}"
                         return log_entry
@@ -3514,13 +3656,13 @@ class ExceptionHandling(View):
                     InvoiceItemv2.objects.bulk_create([InvoiceItemv2(**item) for item in new_items])
                     log_entry["updated_count"] = len(new_items)
 
-                # 7. 计算超板费用
-                self._caculate_overpallet_fee(container_number, inv, fee_details, warehouse, container, destinations, username)
-
                 matching_quotation, quotation_error = rece_a._get_quotation_for_order(order, 'receivable')
                 stipulate = FeeDetail.objects.get(
                     quotation_id=matching_quotation.id, fee_type="COMBINA_STIPULATE"
                 ).details
+                # 7. 计算超板费用
+                self._caculate_overpallet_fee(container_number, inv, fee_details, stipulate, warehouse, container, destinations, username)
+                
                 # 8. 计算超区提拆费
                 res_overregion = self._caculate_overregion_fee(container_number, inv, total_container_cbm, container, stipulate, warehouse, username)
                 if isinstance(res_overregion, str): # 如果返回字符串则代表错误
@@ -3537,30 +3679,7 @@ class ExceptionHandling(View):
                 
                 # 7. 更新 Invoicev2 的金额汇总
                 # 重新计算 delivery_public 总额
-                total_del_pub = InvoiceItemv2.objects.filter(
-                    invoice_number=inv,
-                    invoice_type='receivable',
-                    item_category='delivery_public'
-                ).aggregate(total=Sum('amount'))['total'] or 0
-
-                total_extra = InvoiceItemv2.objects.filter(
-                    invoice_number=inv,
-                    invoice_type='receivable',
-                    item_category='combina_extra_fee'
-                ).aggregate(total=Sum('amount'))['total'] or 0
-
-                inv.receivable_delivery_public_amount = total_del_pub
-                
-                # 计算最终总金额 (调用你提供的逻辑)
-                preport = Decimal(str(inv.receivable_preport_amount or 0))
-                wh_pub = Decimal(str(inv.receivable_wh_public_amount or 0))
-                wh_oth = Decimal(str(inv.receivable_wh_other_amount or 0))
-                del_oth = Decimal(str(inv.receivable_delivery_other_amount or 0))
-                
-                inv.receivable_total_amount = float(
-                    preport + wh_pub + wh_oth + Decimal(str(total_del_pub)) + del_oth + Decimal(str(total_extra))
-                )
-                inv.save()
+                self._sync_update_invoice_amount(inv,container)
 
                 log_entry["actions"] = "[成功]：数据已重算并保存"
                 
@@ -3625,11 +3744,10 @@ class ExceptionHandling(View):
         
 
 
-    def _caculate_overpallet_fee(self, container_number, inv, fee_details, warehouse, container, destinations, username):
+    def _caculate_overpallet_fee(self, container_number, inv, fee_details, stipulate, warehouse, container, destinations, username):
         '''计算超板费用'''
         rece_a = ReceivableAccounting()
 
-        stipulate = fee_details.details
         total_pallets = Pallet.objects.filter(container_number=container).count()  
         # 4.2、规定的最大板数
         max_pallets = rece_a._get_max_pallets(stipulate, warehouse, container.container_type)
@@ -3667,15 +3785,15 @@ class ExceptionHandling(View):
         )
         return max_price
     
-    async def _recaculate_combine_items(self, pallet_groups, container, inv, order, rules, warehouse, total_container_cbm, username, destinations):
+    def _recaculate_combine_items(self, pallet_groups, container, inv, order, rules, warehouse, total_container_cbm, username, destinations):
         '''重新计算历史组合柜数据的账单项'''
         container_type_temp = 0 if "40" in container.container_type else 1
         
         # 2. 筛选出属于组合区域的pallet_groups
         combina_items = []
         all_combina_destinations = set()
-
         for group in pallet_groups:
+            
             destination_str = group.get("destination", "")
 
             #改前和改后的
@@ -3704,6 +3822,7 @@ class ExceptionHandling(View):
                 cbm_ratio = round(cbm / total_container_cbm, 4) if total_container_cbm > 0 else 0
                 item_data = {
                     'container_number': container, # 外键对象
+                    'invoice_number': inv,
                     'invoice_type': 'receivable',
                     'item_category': 'delivery_public',
                     'delivery_type': 'combine',
@@ -3826,13 +3945,7 @@ class ExceptionHandling(View):
         '''重新计算组合柜数据查找板子数据'''
         base_query = Pallet.objects.filter(
             container_number__container_number=container_number,
-            invoice_type='receivable',
-            invoice_number=invoice_number,
             delivery_type=d_type,
-        ).exclude(
-            PO_ID__isnull=True
-        ).exclude(
-            PO_ID=""
         )
 
         group_fields = [
@@ -3899,7 +4012,7 @@ class ExceptionHandling(View):
                     
             except Exception as e:
                 return [], f"查询 PackingList 异常：{str(e)}"
-        return pallet_groups
+        return pallet_groups, ""
     
     async def handle_search_wrong_status(self,request):
         """
