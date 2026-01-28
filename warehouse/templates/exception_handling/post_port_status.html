@@ -183,6 +183,7 @@
         <div class="search-input-group">
             <select name="search_type" class="search-select" required>
                 <option value="batch" {% if search_type == 'batch' %}selected{% endif %}>批次号查询</option>
+                <option value="shipment_id" {% if search_type == 'shipment_id' %}selected{% endif %}>批次id查询</option>
                 <option value="appointment" {% if search_type == 'appointment' %}selected{% endif %}>预约号查询</option>
                 <option value="fleet" {% if search_type == 'fleet' %}selected{% endif %}>车次号查询</option>
                 <option value="invoicestatus" {% if search_type == 'invoicestatus' %}selected{% endif %}>柜号状态查询</option>
@@ -208,6 +209,7 @@
 <div class="search-info">
     <strong>查询方式:</strong> 
     {% if search_type == 'batch' %}批次号查询
+    {% elif search_type == 'shipment_id' %}预约批次id查询
     {% elif search_type == 'appointment' %}预约号查询
     {% endif %}
     <strong>查询内容:</strong> {{ search_value }} | 

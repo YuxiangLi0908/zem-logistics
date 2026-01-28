@@ -289,10 +289,13 @@ class ReceivableAccounting(View):
 
     def handle_save_manual_invoice_items(self, request: HttpRequest):
         """手动保存所有账单记录"""
+        print(request.POST)
         context = {}
         container_number = request.POST.get("container_number")
         invoice_number = request.POST.get("invoice_number")
         items_data = request.POST.get("items_data")
+        deleted_items_str = request.POST.get('deleted_items', '[]')
+        
 
         invoice = Invoicev2.objects.get(invoice_number=invoice_number)
         container = Container.objects.get(container_number=container_number)
@@ -308,6 +311,15 @@ class ReceivableAccounting(View):
                     self._save_delivery_items(item, item_id, invoice, container)
                 else:
                     self._save_other_items(item, item_id, invoice, container)
+        
+        deleted_items = json.loads(deleted_items_str)
+        for item_id in deleted_items:
+            item = InvoiceItemv2.objects.get(
+                id=item_id,
+                container_number=container,
+                invoice_number=invoice
+            )
+            item.delete()
         self._update_invoice_total(invoice,container)
         context = {'success_messages':'保存账单明细成功！'}
         return self.handle_invoice_item_search(request,context)

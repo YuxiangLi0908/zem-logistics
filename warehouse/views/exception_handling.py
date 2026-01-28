@@ -2159,6 +2159,14 @@ class ExceptionHandling(View):
                 )()
                 context['search_type'] = 'batch'
                 context['search_value'] = search_value
+            elif search_type == 'shipment_id':
+                print('按id查询')
+                shipment = await sync_to_async(
+                    lambda: Shipment.objects.select_related('fleet_number').get(id=search_value)
+                )()
+                print('shipment',shipment)
+                context['search_type'] = 'shipment_id'
+                context['search_value'] = search_value
             elif search_type == 'appointment':
                 # 按预约号查询
                 shipment = await sync_to_async(
@@ -2208,6 +2216,8 @@ class ExceptionHandling(View):
         except ObjectDoesNotExist:
             if search_type == 'batch':
                 messages.error(request, f"未找到批次号 '{search_value}' 的相关数据")
+            elif search_type == 'shipment_id':
+                messages.error(request, f"未找到id为 '{search_value}' 的预约批次数据")
             else:
                 messages.error(request, f"未找到预约号 '{search_value}' 的相关数据")
         
@@ -2820,7 +2830,9 @@ class ExceptionHandling(View):
         """删除单条 InvoiceDelivery"""
         search_type = request.POST.get("search_type")
         search_value = request.POST.get("search_value", "").strip()
-        invoicev2 = await sync_to_async(lambda: Invoicev2.objects.filter(invoice_number=search_value).first())()
+        invoice_number = request.POST.get("invoice_number", "").strip()
+
+        invoicev2 = await sync_to_async(lambda: Invoicev2.objects.filter(invoice_number=invoice_number).first())()
         try:
             # 删除 InvoiceDelivery
             await sync_to_async(
@@ -2831,14 +2843,15 @@ class ExceptionHandling(View):
             messages.error(request, f"删除过程中发生错误: {str(e)}")
         await sync_to_async(
             lambda: InvoiceStatusv2.objects.filter(
-                invoice__invoice_number=search_value, 
+                invoice__invoice_number=invoice_number, 
                 invoice_type="receivable"
             ).update(finance_status="tobeconfirmed", delivery_public_status="unstarted")
         )()
         messages.success(request, f"已更新财务状态为待确认，公仓派送状态为未录入")
 
         # 重新计算账单总费用
-        await self._async_update_invoice_amount(invoicev2,invoicev2.container_number)
+        inv = await sync_to_async(Invoicev2.objects.get)(invoice_number=invoice_number)
+        await self._async_update_invoice_amount(inv,inv.container_number)
         # 重新查询
         request.POST = request.POST.copy()
         request.POST["step"] = "search_invoice_delivery"
@@ -2852,6 +2865,7 @@ class ExceptionHandling(View):
         invoice_item_id = request.POST.get("invoice_item_id")
         search_type = request.POST.get("search_type")
         search_value = request.POST.get("search_value", "").strip()
+
 
         try:
             # 删除 InvoiceDelivery
@@ -3427,6 +3441,7 @@ class ExceptionHandling(View):
 
         # 6. 赋值并保存
         invoice.receivable_total_amount = float(final_total)
+        invoice.remain_offset = float(final_total)
         invoice.save()
 
     @sync_to_async
@@ -3469,6 +3484,7 @@ class ExceptionHandling(View):
 
         # 6. 赋值并保存
         invoice.receivable_total_amount = float(final_total)
+        invoice.remain_offset = float(final_total)
         invoice.save()
  
     async def handle_recalculate_by_containers(self, request):
