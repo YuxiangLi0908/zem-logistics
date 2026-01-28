@@ -3388,7 +3388,7 @@ class ExceptionHandling(View):
         return self.template_recaculate_combine, context
 
 
-    def _sync_update_invoice_amount(invoice, container):
+    def _sync_update_invoice_amount(self, invoice, container):
         """更新账单总费用"""
         
         # 1. 重新计算 'delivery_public' (公仓派送) 的总额
