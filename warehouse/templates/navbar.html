@@ -234,7 +234,15 @@
                                 <a href="{% url 'receivable_accounting' %}?step=supplementary" target="_blank">财务账单手动更改</a>
                                 <!-- 应付账单 -->
                                 <a href="{% url 'accounting' %}?step=invoice_payable_v1" target="_blank">应付账单</a>
-                                <a href="{% url 'accounting' %}?step=invoice_confirm_payable" target="_blank">财务确认账单（应付）</a>
+
+                                <div class="nested-dropdown">
+                                    <a>财务确认账单（应付）</a>
+                                    <div class="nested-dropdown-content">
+                                        <a href="{% url 'accounting' %}?step=invoice_confirm_payable" target="_blank">提拆账单</a>
+                                        <a href="{% url 'accounting' %}?step=invoice_confirm_payable_delivery" target="_blank">派送账单</a>
+                                    </div>
+                                </div>
+
                                 {% if user.is_authenticated and user.is_staff %}
                                 <a href="{% url 'receivable_accounting' %}?step=finance_stats" target="_blank">财务统计分析</a>
                                 <!-- 报价管理 -->
