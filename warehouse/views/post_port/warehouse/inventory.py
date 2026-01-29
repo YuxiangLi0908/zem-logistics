@@ -397,6 +397,7 @@ class Inventory(View):
     async def handle_repalletize_post(
             self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
+        """分拣操作"""
         plt_ids = request.POST.get("plt_ids")
         plt_ids = [int(i) for i in plt_ids.split(",")]
         old_pallet = await sync_to_async(list)(Pallet.objects.filter(id__in=plt_ids))
@@ -406,7 +407,7 @@ class Inventory(View):
         )
         total_weight = float(request.POST.get("weight"))
         total_cbm = float(request.POST.get("cbm"))
-        total_pcs = int(request.POST.get("pcs"))
+        total_pcs = int(request.POST.get("pcs"))  # 全局总件数（分摊基准）
         warehouse = request.POST.get("warehouse").upper().strip()
         # data of new pallets
         destinations = request.POST.getlist("destination_repalletize")
@@ -421,18 +422,21 @@ class Inventory(View):
         notes = request.POST.getlist("note_repalletize")
         pcses = [int(i) for i in pcses]
         n_pallets = [int(i) for i in n_pallets]
-        n_pallets_total = sum(n_pallets)  # 总板子数（核心：用于分摊CBM/重量）
+        n_pallets_total = sum(n_pallets)  # 总板子数（仅用于新托盘单托分摊）
 
         # 容错：总板子数为0时直接返回错误，避免除零
         if n_pallets_total == 0:
             raise ValueError("总板子数不能为0，无法分摊CBM和重量！")
 
-        # create new pallets
+        # create new pallets + 新增：初始化新装箱单列表
         new_pallets = []
+        new_packing_lists = []  # 存储分组创建的新装箱单
         old_po_id = old_pallet[0].PO_ID
         old_packinglist = await sync_to_async(list)(
             PackingList.objects.filter(PO_ID=old_po_id)
         )
+        # 提取原装箱单的基础模板字段（如无则赋默认值，避免空值）
+        pl_template = old_packinglist[0] if old_packinglist else None
 
         seq_num = 1
         for dest, dm, addr, zipcode, sm, fba, ref, p, n, note in zip(
@@ -469,9 +473,12 @@ class Inventory(View):
             base_pcs = p // n
             remainder = p % n
 
-            # 单托盘分摊比例 = 1 / 总板子数（每个板子分摊1份）
+            # 单托盘分摊比例 = 1 / 总板子数（仅用于新托盘单托的CBM/重量分摊）
             pallet_share_ratio = 1 / n_pallets_total
+            # 本组新PO_ID（与本组新托盘保持一致）
+            current_po_id = f"{old_po_id}_{seq_num}"
 
+            # 生成本组新托盘
             new_pallets += [
                 {
                     "pallet_id": str(
@@ -485,58 +492,60 @@ class Inventory(View):
                     "zipcode": zipcode,
                     "delivery_method": dm,
                     "pcs": base_pcs + (1 if i < remainder else 0),
-                    # CBM = 总CBM * 单托盘分摊比例（按板子数分摊）
-                    "cbm": round(total_cbm * pallet_share_ratio, 4),  # 保留4位小数
-                    # 重量 = 总重量 * 单托盘分摊比例
-                    "weight_lbs": round(total_weight * pallet_share_ratio, 2),
+                    # 单托CBM = 本组总CBM × 本组内单托分摊比例（1/本组托盘数n）
+                    "cbm": round(total_cbm * (p / total_pcs) * (1 / n), 4),
+                    # 单托磅数 = 本组总磅数 × 本组内单托分摊比例（1/本组托盘数n）
+                    "weight_lbs": round(total_weight * (p / total_pcs) * (1 / n), 2),
                     "note": note,
                     "shipping_mark": sm if sm else "",
                     "fba_id": fba if fba else "",
                     "ref_id": ref if ref else "",
                     "location": old_pallet[0].location,
-                    "PO_ID": f"{old_po_id}_{seq_num}",
+                    "PO_ID": current_po_id,  # 与新装箱单PO_ID一致
                     "delivery_type": delivery_type,
                 }
                 for i in range(n)
             ]
-            seq_num += 1  # seq_num递增，避免PO_ID重复
-            # 对应修改pl
-            if old_packinglist:
-                pl_to_update = []
-                for pl in old_packinglist:
-                    match = True
-                    if fba and fba not in pl.fba_id:
-                        match = False
-                    if ref and ref not in pl.ref_id:
-                        match = False
-                    if sm and sm not in pl.shipping_mark:
-                        match = False
-                    if match:
-                        pl.destination = dest
-                        pl.delivery_method = dm
-                        pl.address = addr
-                        pl.zipcode = zipcode
-                        pl.note = note
-                        pl.delivery_type = delivery_type
-                        pl_to_update.append(pl)
-                if pl_to_update:
-                    await sync_to_async(PackingList.objects.bulk_update)(
-                        pl_to_update,
-                        fields=[
-                            "destination",
-                            "delivery_method",
-                            "address",
-                            "zipcode",
-                            "note",
-                        ],
-                    )
-        instances = [Pallet(**p) for p in new_pallets]
-        await sync_to_async(bulk_create_with_history)(instances, Pallet)
-        # await sync_to_async(Pallet.objects.bulk_create)(
-        #     Pallet(**p) for p in new_pallets
-        # )
-        # delete old pallets
+
+            # ================================= 核心修正：按pcs比例分摊CBM/总磅数 =================================
+            new_pl_data = {
+                "PO_ID": current_po_id,
+                "destination": dest,
+                "address": addr,
+                "zipcode": zipcode,
+                "delivery_method": dm,
+                "delivery_type": delivery_type,
+                "note": note,
+                "shipping_mark": sm if sm else "",
+                "fba_id": fba if fba else "",
+                "ref_id": ref if ref else "",
+                "pcs": p,
+                # 修正1：CBM按【本组pcs/总pcs】比例计算（核心改这里）
+                "cbm": round(total_cbm * (p / total_pcs), 4),
+                # 修正2：总磅数按【本组pcs/总pcs】比例计算（核心改这里）
+                "total_weight_lbs": round(total_weight * (p / total_pcs), 2),
+                "total_weight_kg": round(total_weight * (p / total_pcs) * 0.453592, 2),
+                "container_number": container,
+            }
+            new_packing_lists.append(PackingList(**new_pl_data))
+            # ======================================================================================================
+
+            seq_num += 1  # seq_num递增，保证PO_ID唯一
+
+        # 批量创建新托盘（带历史记录）
+        if new_pallets:
+            instances = [Pallet(**p) for p in new_pallets]
+            await sync_to_async(bulk_create_with_history)(instances, Pallet)
+
+        # 批量创建新装箱单
+        if new_packing_lists:
+            await sync_to_async(PackingList.objects.bulk_create)(new_packing_lists)
+
+        # 删除原托盘 + 原装箱单（同步清理，避免冗余）
         await sync_to_async(Pallet.objects.filter(id__in=plt_ids).delete)()
+        if old_packinglist:
+            await sync_to_async(PackingList.objects.filter(PO_ID=old_po_id).delete)()
+
         return await self.handle_warehouse_post(request)
 
     async def handle_update_po_page_post(
