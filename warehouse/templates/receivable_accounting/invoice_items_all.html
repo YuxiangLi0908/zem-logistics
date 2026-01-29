@@ -548,6 +548,7 @@
                                 <option value="warehouse_public" {% if item.item_category == 'warehouse_public' %}selected{% endif %}>公仓库内</option>
                                 <option value="warehouse_other" {% if item.item_category == 'warehouse_other' %}selected{% endif %}>私仓库内</option>
                                 <option value="activation_fee" {% if item.item_category == 'activation_fee' %}selected{% endif %}>激活费</option>
+                                <option value="combina_extra_fee" {% if item.item_category == 'combina_extra_fee' %}selected{% endif %}>组合柜额外费用</option>
                             </select>
                             <div class="category-display mt-1">
                                 <span class="category-badge category-{{ item.item_category }}">
