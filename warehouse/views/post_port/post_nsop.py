@@ -10,6 +10,7 @@ import os
 import platform
 import matplotlib.pyplot as plt
 import matplotlib.font_manager as fm
+from django.db import transaction
 import re
 import base64
 import io
@@ -82,9 +83,11 @@ from warehouse.views.export_file import link_callback
 from warehouse.utils.constants import (
     LOAD_TYPE_OPTIONS,
     amazon_fba_locations,
-    NJ_DES,SAV_DES,LA_DES
+    NJ_DES,SAV_DES,LA_DES,
+    DELIVERY_METHOD_OPTIONS
 )
 FOUR_MAJOR_WAREHOUSES = ["ONT8", "LAX9", "LGB8", "SBD1"]
+
 
 class PostNsop(View):
     template_main_dash = "post_port/new_sop/01_appointment/01_appointment_management.html"
@@ -433,9 +436,45 @@ class PostNsop(View):
         elif step == "po_invalid_save":
             template, context = await self.handle_po_invalid_save(request)
             return render(request, template, context) 
+        elif step == "batch_update_delivery_method":
+            template, context = await self.handle_batch_update_delivery_method(request)
+            return render(request, template, context)
         else:
             raise ValueError('输入错误',step)
     
+    async def handle_batch_update_delivery_method(self, request: HttpRequest):
+        '''批量保存派送方式'''
+        context = {}
+        batch_data_json = request.POST.get('batch_methods')
+        try:
+            batch_data = json.loads(batch_data_json)
+
+            for entry in batch_data:
+                raw_id = entry.get('cargo_id', '')
+                new_method = entry.get('delivery_method', '')
+
+                if not raw_id:
+                    continue
+
+                if raw_id.startswith('plt_'):
+                    # --- 处理打板数据 (Pallet) ---
+                    # 移除前缀并分割成 ID 列表
+                    pallet_ids = raw_id.replace('plt_', '').split(',')
+                    # 批量更新对应的托盘
+                    await Pallet.objects.filter(id__in=pallet_ids).aupdate(delivery_method=new_method)
+                else:
+                    # --- 处理未打板数据 (PackingList) ---
+                    # 通常是普通货物的 ID 列表
+                    cargo_ids = raw_id.split(',')
+                    await PackingList.objects.filter(id__in=cargo_ids).aupdate(delivery_method=new_method)
+            context.update({'success_messages':f"成功批量修改 {len(batch_data)} 项派送方式"})
+        
+        except Exception as e:
+            context.update({'error_messages':f"修改 {len(batch_data)} 项派送方式失败，原因是{e}"})
+
+        # 重定向回原页面并保持当前的仓库和标签页
+        return await self.handle_ltl_unscheduled_pos_post(request, context)
+
     async def handle_bol_upload_post(self, request: HttpRequest) -> HttpResponse:
         '''客户自提的BOL文件下载'''
         fleet_number = request.POST.get("fleet_number")
@@ -6249,7 +6288,10 @@ class PostNsop(View):
                 'contact_method': request.POST.get('contact_method', '').strip(),
                 'ltl_cost': request.POST.get('ltl_cost', '').strip(),
                 'ltl_quote': request.POST.get('ltl_quote', '').strip(),
+                'delivery_method': request.POST.get('delivery_method', '').strip(),
+                'ltl_release_command': request.POST.get('ltl_release_command', '').strip(),
             }]
+
         total_status_messages = []
         username = request.user.username
         # 2. 循环处理每一个更新项
@@ -6268,7 +6310,9 @@ class PostNsop(View):
             ltl_cost_note = item.get('ltl_cost_note', '')
             ltl_quote_note = item.get('ltl_quote_note', '')
             contact_method = item.get('contact_method', '')
-            
+            delivery_method = item.get('delivery_method')
+            ltl_release_command = item.get('ltl_release_command')
+
             ltl_cost_raw = item.get('ltl_cost', '')
             has_ltl_cost_param = bool(ltl_cost_raw)
             ltl_quote_raw = item.get('ltl_quote', '')
@@ -6300,6 +6344,9 @@ class PostNsop(View):
             if ltl_quote_note: update_data["ltl_quote_note"] = ltl_quote_note
             if contact_method: update_data["ltl_release_command"] = contact_method
             if pallet_size: update_data["ltl_plt_size_note"] = pallet_size
+            if delivery_method is not None: update_data['delivery_method'] = delivery_method
+            if ltl_release_command is not None: update_data['ltl_release_command'] = ltl_release_command
+
             # 批量更新通用字段
             if update_data:
                 await sync_to_async(model.objects.filter(id__in=ids).update)(**update_data)
@@ -6758,7 +6805,6 @@ class PostNsop(View):
                 update_items = []
         else:
             ltl_quote_note = request.POST.get('ltl_quote_note', '').strip()
-            print('ltl_quote_note',ltl_quote_note)
             update_items = [{
                 'cargo_id': request.POST.get('cargo_id'),
                 'address': request.POST.get('address', '').strip(),
@@ -6771,6 +6817,9 @@ class PostNsop(View):
                 'ltl_unit_quote': request.POST.get('ltl_unit_quote', '').strip(),
                 'ltl_quote': request.POST.get('ltl_quote', '').strip(),
                 'ltl_quote_note': request.POST.get('ltl_quote_note', '').strip(),
+                'delivery_method': request.POST.get('delivery_method', '').strip(),
+                'note': request.POST.get('note', '').strip(),
+                'ltl_release_command': request.POST.get('ltl_release_command', '').strip(),
             }]
 
         total_updated = 0
@@ -6791,6 +6840,9 @@ class PostNsop(View):
             carrier_company = item.get('carrier_company', '')
             address = item.get('address', '')
             pickup_date = item.get('pickup_date', '')
+            delivery_method = item.get('delivery_method')
+            note = item.get('note')
+            ltl_release_command = item.get('ltl_release_command')
             est_pickup_time = None
 
             if pickup_date:
@@ -6798,16 +6850,16 @@ class PostNsop(View):
                     # 解析日期字符串（格式：YYYY-MM-DD）
                     pickup_date = datetime.strptime(pickup_date, '%Y-%m-%d').date()
                     # 将日期转换为带时间的datetime，默认时间为00:00
-                    est_pickup_time = timezone.make_aware(
+                    pickup_date = timezone.make_aware(
                         datetime.combine(pickup_date, time.min)
                     )
                 except ValueError as e:
                     # 尝试其他可能的格式
                     try:
                         # 如果传过来的是完整的时间格式
-                        est_pickup_time = timezone.datetime.fromisoformat(pickup_date.replace('Z', '+00:00'))
+                        pickup_date = timezone.datetime.fromisoformat(pickup_date.replace('Z', '+00:00'))
                     except ValueError:
-                        est_pickup_time = None
+                        pickup_date = None
             is_pallet = False
             if cargo_id.startswith('plt_'):
                 is_pallet = True
@@ -6821,7 +6873,10 @@ class PostNsop(View):
             if carrier_company or carrier_company == '': update_data['carrier_company'] = carrier_company
             if address or address == '': update_data['address'] = address
             if bol_number or bol_number == '': update_data['ltl_bol_num'] = bol_number
-            if pickup_date or pickup_date == '': update_data['est_pickup_time'] = pickup_date if pickup_date else None
+            if (pickup_date is not None) and pickup_date or pickup_date != '': update_data['est_pickup_time'] = pickup_date
+            if delivery_method is not None: update_data['delivery_method'] = delivery_method
+            if note is not None: update_data['note'] = note
+            if ltl_release_command is not None: update_data['ltl_release_command'] = ltl_release_command
             
             # 财务/尺寸相关字段
             if pallet_size: update_data['ltl_plt_size_note'] = pallet_size
@@ -6838,7 +6893,6 @@ class PostNsop(View):
                 if ltl_quote_note: update_data['ltl_quote_note'] = ltl_quote_note
                 if ltl_quote_raw and not del_qty_raw:
                     update_data['del_qty'] = len(ids)
-
             # 执行数据库更新
             if update_data:
                 await sync_to_async(model.objects.filter(id__in=ids).update)(**update_data)
