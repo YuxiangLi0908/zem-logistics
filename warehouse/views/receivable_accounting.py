@@ -1601,6 +1601,7 @@ class ReceivableAccounting(View):
         # 更新发票总额
         try:
             invoice.receivable_total_amount = total_amount
+            invoice.remain_offset = total_amount
             invoice.receivable_is_locked = True
             invoice.save()
         except Exception as e:

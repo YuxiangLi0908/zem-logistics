@@ -230,24 +230,14 @@
         transition: all 0.2s;
     }
 
-    .btn-primary {
-        background-color: #4a90e2;
-        color: white;
+    .btn-schedule {
+        background-color: #27ae60 !important;
+        color: white !important;
     }
-
-    .btn-primary:hover {
-        background-color: #3a7bc8;
+    .btn-schedule:hover {
+        background-color: #219150 !important;
     }
-
-    .btn-secondary {
-        background-color: #6c757d;
-        color: white;
-    }
-
-    .btn-secondary:hover {
-        background-color: #5a6268;
-    }
-
+    
     .btn-success {
         background-color: #28a745;
         color: white;
@@ -257,15 +247,34 @@
         background-color: #218838;
     }
 
-    .btn-warning {
-        background-color: #ffc107;
-        color: #212529;
+    .btn-copy-alt {
+        background-color: #3498db !important;
+        color: white !important;
+    }
+    .btn-copy-alt:hover {
+        background-color: #2980b9 !important;
     }
 
-    .btn-warning:hover {
-        background-color: #e0a800;
+    .btn-save-batch {
+        background-color: #5f27cd !important;
+        color: white !important;
+    }
+    .btn-save-batch:hover {
+        background-color: #48dbfb !important; /* 悬停时稍微变亮 */
     }
 
+    .btn-delivery-batch {
+        background-color: #f39c12 !important;
+        color: white !important;
+    }
+    .btn-delivery-batch:hover {
+        background-color: #e67e22 !important;
+    }
+
+    .btn-clear-filter {
+        background-color: #95a5a6 !important;
+        color: white !important;
+    }
     .selected-stats {
         display: flex; 
         align-items: center;
@@ -318,7 +327,35 @@
         min-width: 150px;
         max-width: 200px;
     }
-
+    .delivery-method-col {
+        min-width: 140px;
+    }
+    .note-col {
+        min-width: 160px;
+        max-width: 200px;
+    }
+    .note-input {
+        width: 100%;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+        padding: 4px 8px;
+        font-size: 0.85rem;
+        resize: vertical;
+        min-height: 32px;
+        line-height: 1.4;
+    }
+    .command-col {
+        min-width: 180px;
+        max-width: 250px;
+    }
+    /* 派送方式下拉框样式 */
+    .method-select {
+        width: 100%;
+        padding: 4px;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+        font-size: 0.85rem;
+    }
     .qty-input, .outbound-fee-input, .unit-quote-input, .outbound-fee-note-input {
         width: 100%;
         padding: 6px 8px;
@@ -432,6 +469,20 @@
         line-height: 1.5;
         box-sizing: border-box; /* 确保宽度包含内边距 */
     }
+    /* 针对 is_pickup_priority == 0 的行添加背景色 */
+    .data-table tbody tr.priority-highlight {
+        background-color: #e7f5ff !important; /* 极浅的黄色 */
+    }
+
+    /* 如果你希望鼠标悬停时颜色加深一点，可以加这个 */
+    .data-table tbody tr.priority-highlight:hover {
+        background-color: #d0ebff !important;
+    }
+
+    /* 确保行内的输入框背景色透明，以便透出底色 */
+    .priority-highlight td {
+        background-color: transparent !important;
+    }
 </style>
 
 <div id="selfpick-page">
@@ -451,16 +502,19 @@
             </span>
         </div>
         
-        <button class="action-btn btn-primary" onclick="scheduleShipment()">
+        <button class="action-btn btn-schedule" onclick="scheduleShipment()">
             <i class="fas fa-calendar-check"></i> 预约出库
         </button>
-        <button class="action-btn btn-warning" onclick="copySelectedRows()" title="复制选中行的柜号、目的地、唛头">
+        <button class="action-btn btn-copy-alt" onclick="copySelectedRows()" title="复制选中行的柜号、目的地、唛头">
             <i class="fas fa-copy"></i> 复制选中行
         </button>
-        <button class="action-btn btn-indigo" onclick="selfpick_batchSaveRows()">
+        <button class="action-btn btn-save-batch" onclick="selfpick_batchSaveRows()">
             <i class="fas fa-save"></i> 批量保存参数
         </button>
-        <button class="action-btn btn-secondary" onclick="clearSelfPickAllFilters()">
+        <button class="action-btn btn-delivery-batch" onclick="batchUpdateDeliveryMethod()">
+            <i class="fas fa-truck-loading"></i> 批量修改派送方式
+        </button>
+        <button class="action-btn btn-clear-filter" onclick="clearSelfPickAllFilters()">
             <i class="fas fa-times"></i> 清空筛选
         </button>
         <div class="filter-notice" style="font-size: 14px; padding: 8px 12px;">
@@ -489,9 +543,12 @@
                     <th>跟进状态</th>
                     <th class="customer-col">客户</th>
                     <th class="date-col">拆柜日期</th>
+                    <th class="delivery-method-col">派送方式</th>
                     <th>柜号</th>
                     <th>目的地</th>
                     <th class="mark-col">唛头</th>
+                    <th class="note-col">备注</th> 
+                    <th class="command-col">指令</th>
                     <th>CBM</th>
                     <th>件数</th>
                     <th>重量kg</th>
@@ -523,58 +580,67 @@
                         <input type="text" class="filter-input" placeholder="筛选拆柜日期..." data-column="2" onkeyup="applySelfPickColumnFilter(this)">
                     </td>
                     <td>
-                        <input type="text" class="filter-input" placeholder="筛选柜号..." data-column="3" onkeyup="applySelfPickColumnFilter(this)">
+                        <input type="text" class="filter-input" placeholder="筛选方式..." data-column="3" onkeyup="applySelfPickColumnFilter(this)">
                     </td>
                     <td>
-                        <input type="text" class="filter-input" placeholder="筛选目的地..." data-column="4" onkeyup="applySelfPickColumnFilter(this)">
+                        <input type="text" class="filter-input" placeholder="筛选柜号..." data-column="4" onkeyup="applySelfPickColumnFilter(this)">
+                    </td>
+                    <td>
+                        <input type="text" class="filter-input" placeholder="筛选目的地..." data-column="5" onkeyup="applySelfPickColumnFilter(this)">
                     </td>
                     <td class="mark-col">
-                        <input type="text" class="filter-input" placeholder="筛选唛头..." data-column="5" onkeyup="applySelfPickColumnFilter(this)">
+                        <input type="text" class="filter-input" placeholder="筛选唛头..." data-column="6" onkeyup="applySelfPickColumnFilter(this)">
                     </td>
                     <td>
-                        <input type="text" class="filter-input" placeholder="筛选CBM..." data-column="6" onkeyup="applySelfPickColumnFilter(this)">
+                        <input type="text" class="filter-input" placeholder="筛选备注..." data-column="7" onkeyup="applySelfPickColumnFilter(this)">
                     </td>
                     <td>
-                        <input type="text" class="filter-input" placeholder="筛选件数..." data-column="7" onkeyup="applySelfPickColumnFilter(this)">
+                        <input type="text" class="filter-input" placeholder="筛选指令..." data-column="8" onkeyup="applySelfPickColumnFilter(this)">
+                    </td> 
+                    <td>
+                        <input type="text" class="filter-input" placeholder="筛选CBM..." data-column="9" onkeyup="applySelfPickColumnFilter(this)">
                     </td>
                     <td>
-                        <input type="text" class="fleet-filter-input" placeholder="筛选重量..." data-column="8" onkeyup="applySelfPickColumnFilter(this)">
+                        <input type="text" class="filter-input" placeholder="筛选件数..." data-column="10" onkeyup="applySelfPickColumnFilter(this)">
                     </td>
                     <td>
-                        <input type="text" class="fleet-filter-input" placeholder="筛选重量..." data-column="9" onkeyup="applySelfPickColumnFilter(this)">
+                        <input type="text" class="fleet-filter-input" placeholder="筛选重量..." data-column="11" onkeyup="applySelfPickColumnFilter(this)">
                     </td>
                     <td>
-                        <input type="text" class="filter-input" placeholder="筛选板数..." data-column="10" onkeyup="applySelfPickColumnFilter(this)">
+                        <input type="text" class="fleet-filter-input" placeholder="筛选重量..." data-column="12" onkeyup="applySelfPickColumnFilter(this)">
+                    </td>
+                    <td>
+                        <input type="text" class="filter-input" placeholder="筛选板数..." data-column="13" onkeyup="applySelfPickColumnFilter(this)">
                     </td>
                     <td>
                         {% comment %}
                         托盘尺寸筛选只对PALLET数据有效
                         {% endcomment %}
-                        <input type="text" class="filter-input" placeholder="筛选托盘尺寸..." data-column="11" onkeyup="applySelfPickColumnFilter(this)">
+                        <input type="text" class="filter-input" placeholder="筛选托盘尺寸..." data-column="14" onkeyup="applySelfPickColumnFilter(this)">
                     </td>
                     <td>
-                        <input type="text" class="filter-input" placeholder="筛选出库数量..." data-column="13" onkeyup="applySelfPickColumnFilter(this)">
+                        <input type="text" class="filter-input" placeholder="筛选出库数量..." data-column="15" onkeyup="applySelfPickColumnFilter(this)">
                     </td> 
                     <td>
-                        <input type="text" class="filter-input" placeholder="筛选单板费..." data-column="14" onkeyup="applySelfPickColumnFilter(this)">
+                        <input type="text" class="filter-input" placeholder="筛选单板费..." data-column="16" onkeyup="applySelfPickColumnFilter(this)">
                     </td> 
                     <td>
-                        <input type="text" class="filter-input" placeholder="筛选出库费..." data-column="15" onkeyup="applySelfPickColumnFilter(this)">
+                        <input type="text" class="filter-input" placeholder="筛选出库费..." data-column="17" onkeyup="applySelfPickColumnFilter(this)">
                     </td> 
                     <td>
-                        <input type="text" class="filter-input" placeholder="筛选出库费备注..." data-column="16" onkeyup="applySelfPickColumnFilter(this)">
+                        <input type="text" class="filter-input" placeholder="筛选出库费备注..." data-column="18" onkeyup="applySelfPickColumnFilter(this)">
                     </td> 
                     <td>
-                        <input type="text" class="filter-input" placeholder="筛选BOL号..." data-column="17" onkeyup="applySelfPickColumnFilter(this)">
+                        <input type="text" class="filter-input" placeholder="筛选BOL号..." data-column="19" onkeyup="applySelfPickColumnFilter(this)">
                     </td>                  
                     <td>
-                        <input type="text" class="filter-input" placeholder="筛选承运公司..." data-column="18" onkeyup="applySelfPickColumnFilter(this)">
+                        <input type="text" class="filter-input" placeholder="筛选承运公司..." data-column="20" onkeyup="applySelfPickColumnFilter(this)">
                     </td>
                     <td>
-                        <input type="text" class="filter-input" placeholder="筛选地址..." data-column="19" onkeyup="applySelfPickColumnFilter(this)">
+                        <input type="text" class="filter-input" placeholder="筛选地址..." data-column="21" onkeyup="applySelfPickColumnFilter(this)">
                     </td>
                     <td>
-                        <input type="text" class="filter-input" placeholder="筛选提货日期..." data-column="20" onkeyup="applySelfPickColumnFilter(this)">
+                        <input type="text" class="filter-input" placeholder="筛选提货日期..." data-column="22" onkeyup="applySelfPickColumnFilter(this)">
                     </td>
                     <td class="action-col">
                         <!-- 操作列不需要筛选 -->
@@ -583,7 +649,7 @@
 
                 <!-- 数据行 -->
                 {% for cargo in selfpick_cargos %}
-                <tr class="data-row" 
+                <tr class="data-row {% if cargo.is_pickup_priority == 0 %}priority-highlight{% endif %}"
                     data-cargo-id="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
                     data-customer="{{ cargo.customer_name|default:'' }}"
                     data-follow-status="{{ cargo.ltl_follow_status|default:'' }}"
@@ -636,11 +702,40 @@
                             -
                         {% endif %}
                     </td>
+                    <td class="delivery-method-col">
+                        <select class="method-select delivery-method-input" data-id="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}">
+                            <option value="" {% if not cargo.delivery_method %}selected{% endif %}></option>
+                            <option value="卡车派送" {% if cargo.delivery_method == "卡车派送" %}selected{% endif %}>卡车派送</option>
+                            <option value="客户自提" {% if cargo.delivery_method == "客户自提" %}selected{% endif %}>客户自提</option>
+                            <option value="暂扣留仓(HOLD)" {% if cargo.delivery_method == "暂扣留仓(HOLD)" %}selected{% endif %}>暂扣留仓(HOLD)</option>
+                            <option value="整柜直送" {% if cargo.delivery_method == "整柜直送" %}selected{% endif %}>整柜直送</option>
+                            <option value="UPS" {% if cargo.delivery_method == "UPS" %}selected{% endif %}>UPS</option>
+                            <option value="FEDEX" {% if cargo.delivery_method == "FEDEX" %}selected{% endif %}>FEDEX</option>
+                            <option value="DHL" {% if cargo.delivery_method == "DHL" %}selected{% endif %}>DHL</option>
+                            <option value="DPD" {% if cargo.delivery_method == "DPD" %}selected{% endif %}>DPD</option>
+                            <option value="TNT" {% if cargo.delivery_method == "TNT" %}selected{% endif %}>TNT</option>
+                        </select>
+                    </td>
                     <td class="container-col" title="{{ cargo.container_numbers|default:'' }}">
                         {{ cargo.container_numbers|default:"-" }}
                     </td>
                     <td>{{ cargo.destination|default:"-" }}</td>
                     <td class="mark-col">{{ cargo.shipping_marks|default:"-" }}</td>
+                    <td class="note-col">
+                        <textarea class="editable-textarea note-input" 
+                            data-id="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
+                            placeholder="输入备注..."
+                            oninput="autoResizeTextarea(this)"
+                            style="min-height: 32px; width: 100%;">{{ cargo.note|default:'' }}
+                        </textarea>
+                    </td>
+                    <td class="command-col">
+                        <textarea class="editable-textarea command-input" 
+                            data-id="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
+                            oninput="autoResizeTextarea(this)"
+                            style="min-height: 32px; width: 100%;">{{ cargo.ltl_release_command|default:'' }}
+                        </textarea>
+                    </td>
                     <td>{{ cargo.total_cbm|floatformat:3|default:"0.000" }}</td>
                     <td>{{ cargo.total_pcs|default:0 }}</td>
                     <td>{{ cargo.total_weight_kg|default:0 }}</td>
@@ -776,7 +871,7 @@
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="15" style="text-align: center; padding: 20px;">
+                    <td colspan="27" style="text-align: center; padding: 20px;">
                         暂无已放行客提货物
                     </td>
                 </tr>
@@ -805,6 +900,10 @@
     <input type="hidden" name="batch_data" id="batchDataInput">
     <input type="hidden" name="warehouse" value="{{ warehouse }}">
     <input type="hidden" name="active_tab" value="scheduled">
+    <input type="hidden" name="delivery_method" id="deliveryMethodInput">
+    <input type="hidden" name="note" id="noteInput">
+    <input type="hidden" name="ltl_release_command" id="ltlReleaseCommandInput">
+    <input type="hidden" name="batch_methods" id="batchMethodsInput">
 </form>
 
 <script>
@@ -1094,6 +1193,9 @@
             const unitQuoteInput = row.querySelector('.unit-quote-input');
             const ltlQuoteInput = row.querySelector('.outbound-fee-input');
             const ltlQuoteNoteInput = row.querySelector('.outbound-fee-note-input');
+            const deliveryMethodInput = row.querySelector('.delivery-method-input');
+            const noteInput = row.querySelector('.note-input');
+            const releaseCommandInput = row.querySelector('.command-input');
 
             const followStatusValue = followStatusInput ? followStatusInput.value.trim() : '';
             const carrierValue = carrierInput ? carrierInput.value.trim() : '';
@@ -1105,6 +1207,9 @@
             const unitQuoteValue = unitQuoteInput ? unitQuoteInput.value.trim() : '';
             const ltlQuoteValue = ltlQuoteInput ? ltlQuoteInput.value.trim() : '';
             const ltlQuoteNoteValue = ltlQuoteNoteInput ? ltlQuoteNoteInput.value.trim() : '';
+            const deliveryMethodValue = deliveryMethodInput ? deliveryMethodInput.value : '';
+            const noteValue = noteInput ? noteInput.value.trim() : '';
+            const releaseCommandValue = releaseCommandInput ? releaseCommandInput.value.trim() : '';
             
             /* const tbody = document.querySelector('#selfpick_cargoTable tbody');
             // 只有PALLET数据才有托盘尺寸输入框
@@ -1161,12 +1266,17 @@
             const unitQuoteInputField = document.getElementById('unitQuoteInput');
             const ltlQuoteInputField = document.getElementById('ltlQuoteInput');
             const ltlQuoteNoteInputField = document.getElementById('ltlQuoteNoteInput');
+            const deliveryMethodInputField = document.getElementById('deliveryMethodInput');
+            const noteInputField = document.getElementById('noteInput');
+            const ltlReleaseCommandInputField = document.getElementById('ltlReleaseCommandInput');
             const saveForm = document.getElementById('saveForm');
 
             if (cargoIdInput && carrierInputField && addressInputField && 
                 bolNumberInputField && pickupTimeInputField && followStatusInputField 
                 && palletSizeInputField && delQtyInputField && ltlQuoteInputField 
-                && ltlQuoteNoteInputField && unitQuoteInputField && saveForm) {
+                && ltlQuoteNoteInputField && unitQuoteInputField &&
+                deliveryMethodInputField && noteInputField && ltlReleaseCommandInputField 
+                && saveForm) {
                 cargoIdInput.value = id;
                 carrierInputField.value = carrierValue;
                 addressInputField.value = addressValue;
@@ -1178,6 +1288,9 @@
                 unitQuoteInputField.value = unitQuoteValue;
                 ltlQuoteInputField.value = ltlQuoteValue;
                 ltlQuoteNoteInputField.value = ltlQuoteNoteValue; 
+                deliveryMethodInputField.value = deliveryMethodValue;
+                noteInputField.value = noteValue;
+                ltlReleaseCommandInputField.value = releaseCommandValue;
                 saveForm.submit();
             } else {
                 console.error('保存表单元素未找到',ltlQuoteInputField,ltlQuoteNoteInputField,unitQuoteInputField);
@@ -1396,7 +1509,7 @@
                     
                     if (cell) {
                         // 获取单元格文本（排除input/textarea元素的值）
-                        const inputElement = cell.querySelector('input, textarea');
+                        const inputElement = cell.querySelector('input, textarea, select');
                         if (inputElement) {
                             cellValue = inputElement.value.toLowerCase().trim();
                         } else {
@@ -1560,7 +1673,10 @@
                     bol_number: row.querySelector('.bol-input')?.value.trim() || '',
                     carrier_company: row.querySelector('.carrier-input')?.value.trim() || '',
                     address: row.querySelector('.address-input')?.value.trim() || '',
-                    pickup_date: row.querySelector('.pickup-date-input')?.value.trim() || ''
+                    pickup_date: row.querySelector('.pickup-date-input')?.value.trim() || '',
+                    delivery_method: row.querySelector('.delivery-method-input')?.value || '',
+                    note: row.querySelector('.note-input')?.value.trim() || '', // 如果备注也是input的话
+                    ltl_release_command: row.querySelector('.command-input')?.value || '',
                 };
             });
 
@@ -1577,7 +1693,44 @@
                 saveForm.submit();
             }
         }
+        function batchUpdateDeliveryMethod() {
+            const selectedCheckboxes = Array.from(document.querySelectorAll('.self-cargo-checkbox:checked'))
+                .filter(checkbox => {
+                    const row = checkbox.closest('tr');
+                    return row.style.display !== 'none' && !row.classList.contains('filter-row');
+                });
 
+            if (selectedCheckboxes.length === 0) {
+                alert('请先选择要修改派送方式的行');
+                return;
+            }
+
+            if (!confirm(`确定要批量修改选中的 ${selectedCheckboxes.length} 项派送方式吗？`)) {
+                return;
+            }
+
+            const methodData = selectedCheckboxes.map(checkbox => {
+                const row = checkbox.closest('tr');
+                return {
+                    cargo_id: checkbox.value,
+                    delivery_method: row.querySelector('.delivery-method-input').value
+                };
+            });
+
+            const batchMethodsInput = document.getElementById('batchMethodsInput');
+            const saveForm = document.getElementById('saveForm');
+
+            if (batchMethodsInput && saveForm) {
+                // 清空单行保存用的 ID，防止后端混淆
+                document.getElementById('cargoIdInput').value = '';
+                // 关键：修改 step 告诉后端这是一个批量修改派送方式的操作
+                const stepInput = saveForm.querySelector('input[name="step"]');
+                stepInput.value = "batch_update_delivery_method"; 
+                
+                batchMethodsInput.value = JSON.stringify(methodData);
+                saveForm.submit();
+            }
+        }
         // 将函数暴露到全局作用域
         window.selfpick_toggleSelectAll = selfpick_toggleSelectAll;
         window.scheduleShipment = scheduleShipment;
@@ -1589,5 +1742,6 @@
         window.copySelectedRows = copySelectedRows;
         window.showCopyNotification = showCopyNotification;
         window.selfpick_batchSaveRows = selfpick_batchSaveRows;
+        window.batchUpdateDeliveryMethod = batchUpdateDeliveryMethod;
     })(); // 立即执行
 </script>
