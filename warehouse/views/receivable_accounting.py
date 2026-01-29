@@ -1348,10 +1348,10 @@ class ReceivableAccounting(View):
         invoices = Invoicev2.objects.filter(container_number__container_number=container_number)
         if not invoices.exists():
             context = {'error_messages': f'{container_number}当前一份账单都没有录入，不可重开！'}
-            if "delivery" in status:
+            if "delivery_public_status" in status or "delivery_other_status" in status:
                 context = self.handle_delivery_entry_post(request, context)
                 return self.template_delivery_entry, context
-            elif "warehouse" in status:
+            else:
                 context = self.handle_warehouse_entry_post(request, context)
                 return self.template_warehouse_entry, context
         else:
@@ -1365,18 +1365,18 @@ class ReceivableAccounting(View):
                     finance_status = status_obj.finance_status
                     if finance_status != "completed":
                         context = {'error_messages': f'{container_number}还存在未开完的账单，不可重开！'}
-                        if "delivery" in status:
+                        if "delivery_public_status" in status or "delivery_other_status" in status:
                             context = self.handle_delivery_entry_post(request, context)
                             return self.template_delivery_entry, context
-                        elif "warehouse" in status:
+                        else:
                             context = self.handle_warehouse_entry_post(request, context)
                             return self.template_warehouse_entry, context
                 except InvoiceStatusv2.DoesNotExist:
                     context = {'error_messages': f'{container_number}还存在未开完的账单，不可重开！'}
-                    if "delivery" in status:
+                    if "delivery_public_status" in status or "delivery_other_status" in status:
                         context = self.handle_delivery_entry_post(request, context)
                         return self.template_delivery_entry, context
-                    elif "warehouse" in status:
+                    else:
                         context = self.handle_warehouse_entry_post(request, context)
                         return self.template_warehouse_entry, context
         #创建一份新的账单
