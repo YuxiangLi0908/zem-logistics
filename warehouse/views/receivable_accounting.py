@@ -1518,6 +1518,7 @@ class ReceivableAccounting(View):
                 rate = to_decimal(item.get('rate', 0))
                 surcharges = to_decimal(item.get('surcharges', 0))
                 amount = to_decimal(item.get('amount', 0))
+                total_amount += amount
         
                 # 处理PO_ID和warehouse_code
                 po_id = item.get('po_id', '').strip()
