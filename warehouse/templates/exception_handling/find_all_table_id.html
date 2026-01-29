@@ -294,6 +294,7 @@
                 <option value="AbnormalOffloadStatus" {% if table_name == 'AbnormalOffloadStatus' %}selected{% endif %}>AbnormalOffloadStatus - 异常卸货状态</option>
                 <option value="Order" {% if table_name == 'Order' %}selected{% endif %}>Order - 订单信息</option>
                 <option value="PackingList" {% if table_name == 'PackingList' %}selected{% endif %}>PackingList - 装箱单</option>
+                <option value="Historicalpackinglist" {% if table_name == 'Historicalpackinglist' %}selected{% endif %}>Historicalpackinglist - 历史装箱单</option>
                 <option value="PalletDestroyed" {% if table_name == 'PalletDestroyed' %}selected{% endif %}>PalletDestroyed - 销毁托盘</option>
                 <option value="Pallet" {% if table_name == 'Pallet' %}selected{% endif %}>Pallet - 托盘信息</option>
                 <option value="Historicalpallet" {% if table_name == 'Historicalpallet' %}selected{% endif %}>Historicalpallet - 历史托盘信息</option>
@@ -512,6 +513,11 @@
                 ['container_number', '柜号']
             ],
             'PackingList': [
+                ['id', 'ID'],
+                ['container_number', '柜号'],
+                ['PO_ID', 'PO编号']
+            ],
+            'Historicalpackinglist': [
                 ['id', 'ID'],
                 ['container_number', '柜号'],
                 ['PO_ID', 'PO编号']

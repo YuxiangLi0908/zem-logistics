@@ -84,6 +84,7 @@ class ExceptionHandling(View):
     template_excel_formula_tool = "exception_handling/excel_formula_tool.html"
     template_find_all_table = "exception_handling/find_all_table_id.html"   
     template_restore_sorted_data_get = "exception_handling/restore_sorted_data_get.html"
+    template_restore_sorted_data_get_packinglist = "exception_handling/restore_sorted_data_get_packinglist.html"
     template_query_pallet_packinglist = "exception_handling/query_pallet_packinglist.html"
     template_temporary_function = "exception_handling/temporary_function.html"
     template_receivable_status_migrate = "exception_handling/receivable_status_migrate.html"
@@ -126,6 +127,8 @@ class ExceptionHandling(View):
             return await sync_to_async(render)(request, self.template_find_all_table)
         elif step == "restore_sorted_data_get":
             return await sync_to_async(render)(request, self.template_restore_sorted_data_get)
+        elif step == "restore_sorted_data_get_packinglist":
+            return await sync_to_async(render)(request, self.template_restore_sorted_data_get_packinglist)
         elif step == "pl_plt_detail":
             if self._validate_user_exception_handling(request.user):
                 context = {"warehouse_form": ZemWarehouseForm()}
@@ -194,19 +197,33 @@ class ExceptionHandling(View):
         elif step == "query_history":
             template, context = await self.query_history(request)
             return await sync_to_async(render)(request, template, context)
+        elif step == "query_history_packinglist":
+            template, context = await self.query_history_packinglist(request)
+            return await sync_to_async(render)(request, template, context)
         elif step == "single_restore":
             template, context = await self.single_restore(request)
+            return await sync_to_async(render)(request, template, context)
+        elif step == "single_restore_packinglist":
+            template, context = await self.single_restore_packinglist(request)
             return await sync_to_async(render)(request, template, context)
         elif step == "single_delete":
             template, context = await self.single_delete(request)
             return await sync_to_async(render)(request, template, context)
+        elif step == "single_delete_packinglist":
+            template, context = await self.single_delete_packinglist(request)
+            return await sync_to_async(render)(request, template, context)
         elif step == "batch_restore":
             template, context = await self.batch_restore(request)
+            return await sync_to_async(render)(request, template, context)
+        elif step == "batch_restore_packinglist":
+            template, context = await self.batch_restore_packinglist(request)
             return await sync_to_async(render)(request, template, context)
         elif step == "batch_delete":
             template, context = await self.batch_delete(request)
             return await sync_to_async(render)(request, template, context)
-
+        elif step == "batch_delete_packinglist":
+            template, context = await self.batch_delete_packinglist(request)
+            return await sync_to_async(render)(request, template, context)
         elif step == "_get_query_context":
             template, context = await self._get_query_context(request)
             return await sync_to_async(render)(request, template, context)
@@ -1308,6 +1325,7 @@ class ExceptionHandling(View):
             'PalletDestroyed': PalletDestroyed,
             'Pallet': Pallet,
             'Historicalpallet': Pallet.history,
+            'Historicalpackinglist': PackingList.history,
             'PoCheckEtaSeven': PoCheckEtaSeven,
             'QuotationMaster': QuotationMaster,
             'TransferLocation': TransferLocation,
@@ -1400,6 +1418,7 @@ class ExceptionHandling(View):
             'AbnormalOffloadStatus': AbnormalOffloadStatus,
             'Order': Order,
             'PackingList': PackingList,
+            'Historicalpackinglist': PackingList.history,
             'PalletDestroyed': PalletDestroyed,
             'Pallet': Pallet,
             'Historicalpallet': Pallet.history,
@@ -1598,6 +1617,11 @@ class ExceptionHandling(View):
                 ('container_number', 'container_number'),
                 ('PO_ID', 'PO_ID')
             ],
+            'Historicalpackinglist': [
+                ('id', 'ID'),
+                ('container_number', 'container_number'),
+                ('PO_ID', 'PO_ID')
+            ],
             'PalletDestroyed': [
                 ('id', 'ID'),
                 ('container_number', 'container_number')
@@ -1728,6 +1752,54 @@ class ExceptionHandling(View):
 
         return self.template_restore_sorted_data_get, context
 
+    async def query_history_packinglist(self, request: HttpRequest):
+        """查询packinglist记录"""
+        # 1. 获取并处理请求参数
+        packinglist_ids = request.POST.get('packinglist_ids', '').strip()  # 获取用户输入的Pallet ID
+        context = {
+            'packinglist_ids': packinglist_ids,  # 回显用户输入的ID
+            'history_records': [],  # 存储查询到的历史记录（默认空）
+            'has_result': False  # 标记是否有查询结果
+        }
+
+        # 2. 验证输入，若有有效ID则查询历史表
+        if packinglist_ids:
+            # 解析ID（空格分隔，去重，过滤空值）
+            packinglist_id_list = [id.strip() for id in packinglist_ids.split() if id.strip().isdigit()]
+            if not packinglist_id_list:
+                context['error_msg'] = '请输入有效的数字类型Pallet ID'
+                return TemplateResponse(request, self.template_restore_sorted_data_get_packinglist, context)
+
+            try:
+                # 显示加载状态（前端通过has_result和loading标记控制，这里先查询）
+                # 获取历史表模型（通过你之前的get_model_by_name方法）
+                history_model = await self.get_model_by_name('Historicalpackinglist')
+                if not history_model:
+                    context['error_msg'] = '未找到历史表模型'
+                    return self.template_restore_sorted_data_get_packinglist, context
+
+                # 3. 异步查询历史记录（主表Pallet.id在历史表中对应id字段）
+                def get_history_records():
+                    # 历史表查询：过滤主表ID在列表中，按操作时间倒序
+                    return list(
+                        history_model.filter(id__in=packinglist_id_list)
+                        .order_by('-history_date')  # 最新操作在前
+                    )
+
+                # 执行查询并处理结果
+                history_records = await sync_to_async(get_history_records)()
+                if history_records:
+                    context['history_records'] = history_records
+                    context['has_result'] = True
+                else:
+                    context['error_msg'] = '未查询到相关历史记录'
+
+            except Exception as e:
+                logger.error(f"查询Pallet历史记录失败：{str(e)}", exc_info=True)
+                context['error_msg'] = f'查询失败：{str(e)}'
+
+        return self.template_restore_sorted_data_get_packinglist, context
+
     async def single_restore(self, request: HttpRequest):
         """单行恢复：根据历史记录ID恢复Pallet主表数据（完整字段匹配）"""
         history_id = request.POST.get('history_id')
@@ -1797,6 +1869,94 @@ class ExceptionHandling(View):
             context = await self._get_query_context(request)
             context['error_msg'] = f'恢复失败：{str(e)}'
             return self.template_restore_sorted_data_get, context
+
+    async def single_restore_packinglist(self, request: HttpRequest):
+        """单行恢复：根据历史记录ID恢复Pallet主表数据（完整字段匹配）"""
+        history_id = request.POST.get('history_id')
+        packinglist_id = request.POST.get('packinglist_id')
+        if not packinglist_id:
+            # 无ID则返回查询页面（确保返回TemplateResponse）
+            context = await self._get_query_context_packinglist(request)
+            return self.template_restore_sorted_data_get_packinglist, context
+
+        try:
+            # 获取历史表模型和记录
+            history_model = await self.get_model_by_name('Historicalpackinglist')
+            history_record = await sync_to_async(history_model.get)(history_id=history_id)
+
+            # 构建主表数据（与批量恢复完全一致）
+            packinglist_data = {
+                # 主键&核心外键字段
+                "id": getattr(history_record, "id", None),
+                "container_number_id": getattr(history_record, "container_number_id", None),
+                "shipment_batch_number_id": getattr(history_record, "shipment_batch_number_id", None),
+                "master_shipment_batch_number_id": getattr(history_record, "master_shipment_batch_number_id",
+                                                           None),
+                "quote_id_id": getattr(history_record, "quote_id_id", None),
+                # 配送基础信息
+                "destination": getattr(history_record, "destination", ""),
+                "address": getattr(history_record, "address", ""),
+                "zipcode": getattr(history_record, "zipcode", ""),
+                "delivery_method": getattr(history_record, "delivery_method", ""),
+                "delivery_type": getattr(history_record, "delivery_type", ""),
+                # 标识字段
+                "PO_ID": getattr(history_record, "PO_ID", ""),
+                "shipping_mark": getattr(history_record, "shipping_mark", ""),
+                "fba_id": getattr(history_record, "fba_id", ""),
+                "ref_id": getattr(history_record, "ref_id", ""),
+                # 计量核心字段
+                "pcs": getattr(history_record, "pcs", 0),
+                "unit_weight_lbs": getattr(history_record, "unit_weight_lbs", 0.0),
+                "total_weight_lbs": getattr(history_record, "total_weight_lbs", 0.0),
+                "total_weight_kg": getattr(history_record, "total_weight_kg", 0.0),
+                "cbm": getattr(history_record, "cbm", 0.0),
+                "n_pallet": getattr(history_record, "n_pallet", 0),
+                # 尺寸字段（表中字段为long/width/height，对应长度/宽度/高度）
+                "long": getattr(history_record, "long", 0.0),
+                "width": getattr(history_record, "width", 0.0),
+                "height": getattr(history_record, "height", 0.0),
+                # 备注&产品信息
+                "product_name": getattr(history_record, "product_name", ""),
+                "note": getattr(history_record, "note", ""),
+                "note_sp": getattr(history_record, "note_sp", ""),
+                # 联系人信息
+                "contact_name": getattr(history_record, "contact_name", ""),
+                "contact_method": getattr(history_record, "contact_method", ""),
+                # 物流相关字段
+                "express_number": getattr(history_record, "express_number", ""),
+                "carrier_company": getattr(history_record, "carrier_company", ""),
+                "PickupAddr": getattr(history_record, "PickupAddr", ""),
+                "est_pickup_time": getattr(history_record, "est_pickup_time", None),
+                # 配送时间窗口
+                "delivery_window_start": getattr(history_record, "delivery_window_start", None),
+                "delivery_window_end": getattr(history_record, "delivery_window_end", None),
+                # LTL相关字段（含布尔必段）
+                "ltl_verify": getattr(history_record, "ltl_verify", False),
+                "ltl_bol_num": getattr(history_record, "ltl_bol_num", ""),
+                "ltl_pro_num": getattr(history_record, "ltl_pro_num", ""),
+                "ltl_follow_status": getattr(history_record, "ltl_follow_status", ""),
+                "ltl_contact_method": getattr(history_record, "ltl_contact_method", ""),
+                "ltl_release_command": getattr(history_record, "ltl_release_command", "")
+            }
+
+            # 恢复主表数据
+            await sync_to_async(PackingList.objects.update_or_create)(
+                id=packinglist_id,
+                defaults=packinglist_data,
+            )
+
+
+            # 传递成功消息，返回查询页面
+            context = await self._get_query_context_packinglist(request)
+            context['message'] = '恢复成功！'
+            context['message_type'] = 'success'
+            return self.template_restore_sorted_data_get_packinglist, context
+
+        except Exception as e:
+            logger.error(f"单行恢复失败（历史ID：{history_id}）：{str(e)}", exc_info=True)
+            context = await self._get_query_context_packinglist(request)
+            context['error_msg'] = f'恢复失败：{str(e)}'
+            return self.template_restore_sorted_data_get_packinglist, context
 
     async def batch_restore(self, request: HttpRequest):
         """批量恢复：根据选中的历史记录ID列表恢复（完整字段匹配）"""
@@ -1890,6 +2050,114 @@ class ExceptionHandling(View):
             # 返回TemplateResponse
             return self.template_restore_sorted_data_get, context
 
+    async def batch_restore_packinglist(self, request: HttpRequest):
+        """批量恢复：根据选中的历史记录ID列表恢复（完整字段匹配）"""
+        selected_ids_str = request.POST.get('selected_history_ids', '').strip()
+        selected_packinglist_ids = request.POST.get('selected_packinglist_ids', '').strip()
+        if not selected_ids_str:
+            context = await self._get_query_context_packinglist(request)
+            context['error_msg'] = '请选中要恢复的历史记录！'
+            return self.template_restore_sorted_data_get_packinglist, context
+
+        selected_ids = [id.strip() for id in selected_ids_str.split(',') if id.strip()]
+        packinglist_ids = [id.strip() for id in selected_packinglist_ids.split(',') if id.strip()]
+        success_count = 0
+        failed_ids = []  # 记录恢复失败的历史ID
+
+        try:
+            history_model = await self.get_model_by_name('Historicalpackinglist')
+            for history_id, packinglist_id in zip(selected_ids, packinglist_ids):
+                try:
+                    # 查询单个历史记录
+                    history_record = await sync_to_async(history_model.get)(history_id=history_id)
+
+                    # 构建主表数据（与单行恢复完全一致）
+                    packinglist_data = {
+                        # 主键&核心外键字段
+                        "id": getattr(history_record, "id", None),
+                        "container_number_id": getattr(history_record, "container_number_id", None),
+                        "shipment_batch_number_id": getattr(history_record, "shipment_batch_number_id", None),
+                        "master_shipment_batch_number_id": getattr(history_record, "master_shipment_batch_number_id",
+                                                                   None),
+                        "quote_id_id": getattr(history_record, "quote_id_id", None),
+                        # 配送基础信息
+                        "destination": getattr(history_record, "destination", ""),
+                        "address": getattr(history_record, "address", ""),
+                        "zipcode": getattr(history_record, "zipcode", ""),
+                        "delivery_method": getattr(history_record, "delivery_method", ""),
+                        "delivery_type": getattr(history_record, "delivery_type", ""),
+                        # 标识字段
+                        "PO_ID": getattr(history_record, "PO_ID", ""),
+                        "shipping_mark": getattr(history_record, "shipping_mark", ""),
+                        "fba_id": getattr(history_record, "fba_id", ""),
+                        "ref_id": getattr(history_record, "ref_id", ""),
+                        # 计量核心字段
+                        "pcs": getattr(history_record, "pcs", 0),
+                        "unit_weight_lbs": getattr(history_record, "unit_weight_lbs", 0.0),
+                        "total_weight_lbs": getattr(history_record, "total_weight_lbs", 0.0),
+                        "total_weight_kg": getattr(history_record, "total_weight_kg", 0.0),
+                        "cbm": getattr(history_record, "cbm", 0.0),
+                        "n_pallet": getattr(history_record, "n_pallet", 0),
+                        # 尺寸字段（表中字段为long/width/height，对应长度/宽度/高度）
+                        "long": getattr(history_record, "long", 0.0),
+                        "width": getattr(history_record, "width", 0.0),
+                        "height": getattr(history_record, "height", 0.0),
+                        # 备注&产品信息
+                        "product_name": getattr(history_record, "product_name", ""),
+                        "note": getattr(history_record, "note", ""),
+                        "note_sp": getattr(history_record, "note_sp", ""),
+                        # 联系人信息
+                        "contact_name": getattr(history_record, "contact_name", ""),
+                        "contact_method": getattr(history_record, "contact_method", ""),
+                        # 物流相关字段
+                        "express_number": getattr(history_record, "express_number", ""),
+                        "carrier_company": getattr(history_record, "carrier_company", ""),
+                        "PickupAddr": getattr(history_record, "PickupAddr", ""),
+                        "est_pickup_time": getattr(history_record, "est_pickup_time", None),
+                        # 配送时间窗口
+                        "delivery_window_start": getattr(history_record, "delivery_window_start", None),
+                        "delivery_window_end": getattr(history_record, "delivery_window_end", None),
+                        # LTL相关字段（含布尔必段）
+                        "ltl_verify": getattr(history_record, "ltl_verify", False),
+                        "ltl_bol_num": getattr(history_record, "ltl_bol_num", ""),
+                        "ltl_pro_num": getattr(history_record, "ltl_pro_num", ""),
+                        "ltl_follow_status": getattr(history_record, "ltl_follow_status", ""),
+                        "ltl_contact_method": getattr(history_record, "ltl_contact_method", ""),
+                        "ltl_release_command": getattr(history_record, "ltl_release_command", "")
+                    }
+
+                    # 恢复主表数据
+                    await sync_to_async(PackingList.objects.update_or_create)(
+                        id=packinglist_id,
+                        defaults=packinglist_data,
+                    )
+                    success_count += 1
+                except Exception as e:
+                    logger.error(f"批量恢复单条失败（历史ID：{history_id}）：{str(e)}", exc_info=True)
+                    failed_ids.append(history_id)
+
+            # 构建结果消息
+            context = await self._get_query_context_packinglist(request)
+            if success_count > 0 and len(failed_ids) == 0:
+                context['message'] = f'批量恢复成功！共恢复 {success_count} 条记录'
+                context['message_type'] = 'success'
+            elif success_count > 0 and len(failed_ids) > 0:
+                context[
+                    'message'] = f'部分恢复成功！共恢复 {success_count} 条，失败 {len(failed_ids)} 条（失败ID：{",".join(failed_ids)}）'
+                context['message_type'] = 'warning'
+            else:
+                context['error_msg'] = f'批量恢复失败！所有选中记录均未恢复（失败ID：{",".join(failed_ids)}）'
+
+            # 返回TemplateResponse
+            return self.template_restore_sorted_data_get_packinglist, context
+
+        except Exception as e:
+            logger.error(f"批量恢复总览失败：{str(e)}", exc_info=True)
+            context = await self._get_query_context_packinglist(request)
+            context['error_msg'] = f'批量恢复失败：{str(e)}'
+            # 返回TemplateResponse
+            return self.template_restore_sorted_data_get_packinglist, context
+
     async def _get_query_context(self, request):
         """复用查询页面的context（补充所有需显示的历史字段）- 返回纯字典"""
         pallet_ids = request.POST.get('pallet_ids', '').strip()
@@ -1929,6 +2197,45 @@ class ExceptionHandling(View):
                     context['error_msg'] = f'查询历史记录失败：{str(e)}'
         return context
 
+    async def _get_query_context_packinglist(self, request):
+        """复用查询页面的context（补充所有需显示的历史字段）- 返回纯字典"""
+        packinglist_ids = request.POST.get('packinglist_ids', '').strip()
+        # 初始化context为字典（而非元组）
+        context = {
+            'packinglist_ids': packinglist_ids,
+            'history_records': [],
+            'has_result': False,
+            'error_msg': '',  # 初始化错误消息字段
+            'message': '',  # 初始化成功消息字段
+            'message_type': ''  # 初始化消息类型字段
+        }
+        if packinglist_ids:
+            # 解析有效ID（仅保留数字）
+            packinglist_id_list = [id.strip() for id in packinglist_ids.split() if id.strip().isdigit()]
+            if packinglist_id_list:
+                history_model = await self.get_model_by_name('Historicalpackinglist')
+                try:
+                    # 查询时包含所有需显示的字段（与前端表格列对应）
+                    history_records = await sync_to_async(list)(
+                        history_model.filter(id__in=packinglist_id_list)
+                        .order_by('-history_date')  # 最新操作在前
+                        .values(
+                            # 历史表特有字段
+                            'history_id', 'history_date', 'history_type',
+                            'history_user_id', 'history_change_reason',
+                            # Pallet主表关联字段（与前端表格列对应）
+                            'id', 'container_number_id', 'destination', 'fba_id', 'ref_id',
+                            'pcs', 'cbm', 'total_weight_lbs', 'delivery_method',
+                            'delivery_type', 'PO_ID', 'shipping_mark', 'note'
+                        )
+                    )
+                    context['history_records'] = history_records
+                    context['has_result'] = len(history_records) > 0
+                except Exception as e:
+                    logger.error(f"查询历史记录失败：{str(e)}", exc_info=True)
+                    context['error_msg'] = f'查询历史记录失败：{str(e)}'
+        return context
+
     async def single_delete(self, request: HttpRequest):
         """单行删除：通过历史记录关联的主表ID删除Pallet记录"""
         pallet_id = request.POST.get('pallet_id')
@@ -1956,6 +2263,34 @@ class ExceptionHandling(View):
             context = await self._get_query_context(request)
             context['error_msg'] = f'删除失败：{str(e)}'
             return self.template_restore_sorted_data_get, context
+
+    async def single_delete_packinglist(self, request: HttpRequest):
+        """单行删除：通过历史记录关联的主表ID删除Pallet记录"""
+        packinglist_id = request.POST.get('packinglist_id')
+        if not packinglist_id:
+            context = await self._get_query_context_packinglist(request)
+            context['error_msg'] = '未获取到要删除的Packinglist ID！'
+            return self.template_restore_sorted_data_get_packinglist, context
+
+        try:
+            # 执行主表删除（物理删除，若需逻辑删除可修改为更新状态字段）
+            delete_count, _ = await sync_to_async(PackingList.objects.filter(id=packinglist_id).delete)()
+
+            if delete_count > 0:
+                context = await self._get_query_context_packinglist(request)
+                context['message'] = f'成功删除PackingList ID为 {packinglist_id} 的主表记录！'
+                context['message_type'] = 'success'
+            else:
+                context = await self._get_query_context_packinglist(request)
+                context['error_msg'] = f'未找到PackingList ID为 {packinglist_id} 的主表记录（可能已删除）！'
+
+            return self.template_restore_sorted_data_get_packinglist, context
+
+        except Exception as e:
+            logger.error(f"单行删除失败（Pallet ID：{packinglist_id}）：{str(e)}", exc_info=True)
+            context = await self._get_query_context_packinglist(request)
+            context['error_msg'] = f'删除失败：{str(e)}'
+            return self.template_restore_sorted_data_get_packinglist, context
 
     async def batch_delete(self, request: HttpRequest):
         """批量删除：通过选中的历史记录关联的主表ID列表删除Pallet记录"""
@@ -2006,6 +2341,56 @@ class ExceptionHandling(View):
             context = await self._get_query_context(request)
             context['error_msg'] = f'批量删除失败：{str(e)}'
             return self.template_restore_sorted_data_get, context
+
+    async def batch_delete_packinglist(self, request: HttpRequest):
+        """批量删除：通过选中的历史记录关联的主表ID列表删除Pallet记录"""
+        selected_packinglist_packinglists_str = request.POST.get('selected_packinglist_ids', '').strip()
+        if not selected_packinglist_packinglists_str:
+            context = await self._get_query_context_packinglist(request)
+            context['error_msg'] = '请选中要删除的历史记录！'
+            return self.template_restore_sorted_data_get_packinglist, context
+
+        selected_packinglist_ids = [id.strip() for id in selected_packinglist_packinglists_str.split(',') if id.strip().isdigit()]
+        if not selected_packinglist_ids:
+            context = await self._get_query_context_packinglist(request)
+            context['error_msg'] = '未获取到有效的Pallet ID！'
+            return self.template_restore_sorted_data_get_packinglist, context
+
+        success_count = 0
+        failed_ids = []
+
+        try:
+            for packinglist_id in selected_packinglist_ids:
+                try:
+                    # 执行单条删除
+                    delete_count, _ = await sync_to_async(PackingList.objects.filter(id=packinglist_id).delete)()
+                    if delete_count > 0:
+                        success_count += 1
+                    else:
+                        failed_ids.append(packinglist_id)
+                except Exception as e:
+                    logger.error(f"批量删除单条失败（Packinglist ID：{packinglist_id}）：{str(e)}", exc_info=True)
+                    failed_ids.append(packinglist_id)
+
+            # 构建结果消息
+            context = await self._get_query_context_packinglist(request)
+            if success_count > 0 and len(failed_ids) == 0:
+                context['message'] = f'批量删除成功！共删除 {success_count} 条Packinglist主表记录'
+                context['message_type'] = 'success'
+            elif success_count > 0 and len(failed_ids) > 0:
+                context[
+                    'message'] = f'部分删除成功！共删除 {success_count} 条，失败 {len(failed_ids)} 条（失败ID：{",".join(failed_ids)}）'
+                context['message_type'] = 'warning'
+            else:
+                context['error_msg'] = f'批量删除失败！所有选中记录均未删除（失败ID：{",".join(failed_ids)}）'
+
+            return self.template_restore_sorted_data_get_packinglist, context
+
+        except Exception as e:
+            logger.error(f"批量删除总览失败：{str(e)}", exc_info=True)
+            context = await self._get_query_context_packinglist(request)
+            context['error_msg'] = f'批量删除失败：{str(e)}'
+            return self.template_restore_sorted_data_get_packinglist, context
 
     async def group_pallets_by_shipment(self, pallets):
         """按照PO_ID、shipment_batch_number、master_shipment_batch_number分组pallet记录"""
