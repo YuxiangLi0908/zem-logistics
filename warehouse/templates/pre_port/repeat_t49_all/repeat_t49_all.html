@@ -1,0 +1,292 @@
+{% extends 'base.html' %}
+{% block content %}
+<style>
+    /* 页面整体容器 */
+    .page-container {
+        max-width: 1400px;
+        margin: 25px auto;
+        padding: 0 20px;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    }
+
+    /* 页面主标题 */
+    .page-title {
+        font-size: 1.8rem;
+        font-weight: 700;
+        color: #2c3e50;
+        margin-bottom: 30px;
+        padding-bottom: 15px;
+        border-bottom: 2px solid #e9ecef;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    .page-title i {
+        color: #007bff;
+        font-size: 1.5rem;
+    }
+
+    /* 订单分组容器 */
+    .order-group {
+        background: #ffffff;
+        border-radius: 12px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+        border: 1px solid #e9ecef;
+        margin-bottom: 30px;
+        overflow: hidden;
+    }
+
+    /* 分组标题栏 */
+    .order-group h3 {
+        margin: 0;
+        padding: 20px 25px;
+        background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: #343a40;
+        border-bottom: 1px solid #e9ecef;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    /* 不同分组标题区分色标 */
+    .order-group h3.duplicate-title {
+        border-left: 4px solid #dc3545;
+    }
+    .order-group h3.t49-title {
+        border-left: 4px solid #ffc107;
+    }
+    .order-group h3 i {
+        font-size: 1.1rem;
+    }
+    /* 统计数字高亮 */
+    .count-badge {
+        background: #e9ecef;
+        color: #2c3e50;
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 0.9rem;
+        font-weight: 700;
+        margin-left: 10px;
+    }
+
+    /* 表格容器（处理宽表格横向滚动） */
+    .table-wrapper {
+        overflow-x: auto;
+        padding: 15px 25px;
+    }
+
+    /* 核心表格样式 */
+    .order-table {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0;
+        font-size: 0.95rem;
+        min-width: 768px;
+    }
+    .order-table thead tr {
+        background: #f8f9fa;
+    }
+    .order-table th {
+        padding: 16px 12px;
+        text-align: left;
+        font-weight: 600;
+        color: #495057;
+        border-bottom: 2px solid #e9ecef;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+    }
+    /* 表格单元格样式 */
+    .order-table td {
+        padding: 14px 12px;
+        color: #212529;
+        border-bottom: 1px solid #f1f3f5;
+        vertical-align: middle;
+    }
+    /* 行悬停效果 */
+    .order-table tbody tr:hover {
+        background: #f8f9fa;
+        transition: background 0.2s ease;
+    }
+    /* 奇偶行区分（提升可读性） */
+    .order-table tbody tr:nth-child(even) {
+        background: #fdfdfd;
+    }
+
+    /* 空数据样式优化 */
+    .empty-row td {
+        padding: 40px 20px !important;
+        text-align: center !important;
+        color: #6c757d;
+        font-size: 1rem;
+        border-bottom: none !important;
+    }
+
+    /* ========== 新增：操作按钮专属样式 ========== */
+    /* 按钮基础样式 - 适配表格内小尺寸 */
+    .table-btn {
+        padding: 6px 14px;
+        border: none;
+        border-radius: 6px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        display: inline-block;
+        line-height: 1;
+    }
+    /* 追踪T49按钮 - 蓝色主色（业务操作主按钮） */
+    .btn-track-t49 {
+        background-color: #007bff;
+        color: #ffffff;
+    }
+    .btn-track-t49:hover {
+        background-color: #0069d9;
+        transform: translateY(-1px);
+        box-shadow: 0 2px 6px rgba(0, 123, 255, 0.2);
+    }
+    /* 删除按钮 - 红色警示色（危险操作按钮） */
+    .btn-delete {
+        background-color: #dc3545;
+        color: #ffffff;
+    }
+    .btn-delete:hover {
+        background-color: #c82333;
+        transform: translateY(-1px);
+        box-shadow: 0 2px 6px rgba(220, 53, 69, 0.2);
+    }
+    /* 表格内表单重置 - 消除默认间距，避免按钮错位 */
+    .table-form {
+        margin: 0;
+        padding: 0;
+    }
+
+    /* 响应式适配（移动端优化） */
+    @media (max-width: 768px) {
+        .page-container {
+            margin: 15px auto;
+            padding: 0 15px;
+        }
+        .page-title {
+            font-size: 1.5rem;
+        }
+        .order-group h3 {
+            padding: 16px 20px;
+            font-size: 1.1rem;
+        }
+        .table-wrapper {
+            padding: 10px 15px;
+        }
+        .order-table th, .order-table td {
+            padding: 12px 10px;
+        }
+        /* 移动端按钮适配 - 缩小内边距，保证不挤压 */
+        .table-btn {
+            padding: 4px 10px;
+            font-size: 0.8rem;
+        }
+    }
+</style>
+
+<div class="page-container">
+    <!-- 页面主标题 -->
+    <h1 class="page-title">
+        <i class="fas fa-exclamation-triangle"></i>
+        重复订单&T49待追踪管理
+    </h1>
+
+    <!-- 重复柜号订单区块 -->
+    <div class="order-group">
+        <h3 class="duplicate-title">
+            <i class="fas fa-copy"></i>
+            重复柜号订单
+            <span class="count-badge">{{ duplicate_count }} 条</span>
+        </h3>
+        <div class="table-wrapper">
+            <table class="order-table">
+                <thead>
+                    <tr>
+                        <th>订单ID</th>
+                        <th>柜号</th>
+                        <th>创建时间</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for order in duplicate_orders %}
+                    <tr>
+                        <td>{{ order.id }}</td>
+                        <td>{{ order.container_number__container_number|default:"-" }}</td>
+                        <td>{{ order.created_at|date:"Y-m-d H:i:s" }}</td>
+                        <td>
+                            <!-- 新增table-form类，消除表单默认间距 -->
+                            <form method="post" action="" class="table-form">
+                                {% csrf_token %}
+                                <input type="hidden" name="step" value="delete_repeat_container">
+                                <input type="hidden" name="container_number_id" value="{{ order.container_number__id }}">
+                                <input type="hidden" name="order_id" value="{{ order.id }}">
+                                <!-- 添加btn-delete和table-btn类，应用美化样式 -->
+                                <button type="submit" class="table-btn btn-delete">删除</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr class="empty-row">
+                        <td colspan="4">暂无重复柜号订单数据</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- T49待追踪订单区块 -->
+    <div class="order-group">
+        <h3 class="t49-title">
+            <i class="fas fa-clock"></i>
+            T49待追踪订单
+            <span class="count-badge">{{ t49_pending_count }} 条</span>
+        </h3>
+        <div class="table-wrapper">
+            <table class="order-table">
+                <thead>
+                    <tr>
+                        <th>订单ID</th>
+                        <th>柜号</th>
+                        <th>创建时间</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for order in t49_pending_orders %}
+                    <tr>
+                        <td>{{ order.id }}</td>
+                        <td>{{ order.container_number__container_number|default:"-" }}</td>
+                        <td>{{ order.created_at|date:"Y-m-d H:i:s" }}</td>
+                        <td>
+                            <!-- 新增table-form类，消除表单默认间距 -->
+                            <form action="" method="post" class="table-form">
+                                {% csrf_token %}
+                                <input type="hidden" name="step" value="add_t49_order">
+                                <input type="hidden" name="order_id" value="{{ order.id }}">
+                                <!-- 添加btn-track-t49和table-btn类，应用美化样式 -->
+                                <button type="submit" class="table-btn btn-track-t49">追踪T49</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <!-- 修复：空数据行列数从3改为4，匹配表头列数，避免布局错位 -->
+                    <tr class="empty-row">
+                        <td colspan="4">暂无T49待追踪订单数据</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- 引入字体图标 -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+{% endblock %}

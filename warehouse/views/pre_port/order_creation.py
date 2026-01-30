@@ -59,6 +59,9 @@ class OrderCreation(View):
     template_order_create_base = (
         "pre_port/create_order/02_base_order_creation_status.html"
     )
+    template_repeat_t49_all = (
+        "pre_port/repeat_t49_all/repeat_t49_all.html"
+    )
     template_peer_pallet_create_base = (
         "pre_port/create_order/base_peer_pallet_creation.html"
     )
@@ -94,6 +97,9 @@ class OrderCreation(View):
         print(f"GET step: {step}")
         if step == "all":
             template, context = await self.handle_order_basic_info_get()
+            return await sync_to_async(render)(request, template, context)
+        if step == "repeat_t49_all":
+            template, context = await self.repeat_t49_all()
             return await sync_to_async(render)(request, template, context)
         elif step == "container_info_supplement":
             template, context = await self.handle_order_supplemental_info_get(request)
@@ -187,6 +193,12 @@ class OrderCreation(View):
             return await sync_to_async(render)(request, template, context)
         elif step == "check_order_status":
             template, context = await self.check_order_status(request)
+            return await sync_to_async(render)(request, template, context)
+        elif step == "delete_repeat_container":
+            template, context = await self.delete_repeat_container(request)
+            return await sync_to_async(render)(request, template, context)
+        elif step == "add_t49_order":
+            template, context = await self.add_t49_order(request)
             return await sync_to_async(render)(request, template, context)
         elif step == "modify_is_combina":
             raise ValueError('暂未开放修改计费权限')
@@ -1055,6 +1067,104 @@ class OrderCreation(View):
         order_id = request.POST.get("order_id")
         await Order.objects.filter(id=order_id).aupdate(status="checked")
         return await self.handle_order_management_container_get(request)
+
+
+    async def repeat_t49_all(self) -> tuple[Any, Any]:
+        """
+        分两组查询：
+        1. 重复柜号订单（柜号相同且满足过滤条件）
+        2. T49待追踪订单（add_to_t49=False且满足过滤条件）
+        """
+        # 公共过滤条件（抽离复用，避免重复代码）
+        common_filter = (
+                (models.Q(created_at__gte=timezone.make_aware(datetime(2024, 8, 19)))
+                 | models.Q(container_number__container_number__in=ADDITIONAL_CONTAINER))
+                & models.Q(offload_id__offload_at__isnull=True)
+                & models.Q(cancel_notification=False)
+        )
+
+        # ========== 第一组：查询重复柜号的订单 ==========
+        # 步骤1：先分组查询「出现多次的柜号」（分组+计数，筛选数量>1的柜号）
+        duplicate_container_nums = await sync_to_async(list)(
+            Order.objects.filter(common_filter)
+            .values("container_number__container_number")  # 按柜号分组
+            .annotate(container_count=models.Count("id"))  # 统计每个柜号的订单数
+            .filter(container_count__gt=1)  # 筛选订单数>1的（即重复柜号）
+            .values_list("container_number__container_number", flat=True)  # 仅提取柜号字符串
+        )
+
+        # 步骤2：根据重复柜号，查询对应的所有订单详情
+        duplicate_orders = await sync_to_async(list)(
+            Order.objects.select_related("container_number")
+            .values(
+                "id",  # 新增订单ID，方便区分同柜号不同订单
+                "created_at",
+                "container_number__container_number",
+                "container_number__id",
+                "add_to_t49"
+            )
+            .filter(
+                common_filter,
+                container_number__container_number__in=duplicate_container_nums  # 仅查重复柜号的订单
+            )
+            .order_by("container_number__container_number", "-created_at")  # 按柜号分组、创建时间倒序
+        )
+
+        # ========== 第二组：查询add_to_t49=False的T49待追踪订单 ==========
+        t49_pending_orders = await sync_to_async(list)(
+            Order.objects.select_related("container_number")
+            .values(
+                "id",
+                "created_at",
+                "container_number__container_number",
+                "add_to_t49"
+            )
+            .filter(
+                common_filter,
+                add_to_t49=False  # 核心条件：未加入T49追踪
+            )
+            .order_by("-created_at")  # 按创建时间倒序，最新的在前
+        )
+
+        # 组装上下文，将两组数据传入模板（模板中可通过duplicate_orders/t49_pending_orders分别渲染）
+        context = {
+            "duplicate_orders": duplicate_orders,  # 重复柜号订单组
+            "t49_pending_orders": t49_pending_orders,  # T49待追踪订单组
+            # 可新增统计数，方便页面展示（如「重复订单：X条」「T49待追踪：X条」）
+            "duplicate_count": len(duplicate_orders),
+            "t49_pending_count": len(t49_pending_orders),
+        }
+
+        return self.template_repeat_t49_all, context
+
+    async def delete_repeat_container(
+            self, request: HttpRequest
+    ) -> tuple[Any, Any]:
+        order_id = request.POST.get("order_id")
+        container_number_id = request.POST.get("container_number_id")
+        await sync_to_async(
+            Order.objects.filter(id=order_id).delete,
+            thread_sensitive=False  # 非线程敏感，提升异步执行效率
+        )()
+
+        await sync_to_async(
+            Container.objects.filter(id=container_number_id).delete,
+            thread_sensitive=False
+        )()
+
+        return await self.repeat_t49_all()
+
+    async def add_t49_order(
+            self, request: HttpRequest
+    ) -> tuple[Any, Any]:
+        order_id = request.POST.get("order_id")
+        await sync_to_async(
+            Order.objects.filter(id=order_id).update,
+            thread_sensitive=False  # 非线程敏感操作，提升执行效率
+        )(add_to_t49=True)
+        return await self.repeat_t49_all()
+
+
 
     async def handle_peer_po_save(
         self, request: HttpRequest
