@@ -1493,7 +1493,7 @@ class ReceivableAccounting(View):
         # 存储统计信息
         saved_items = []
         skipped_items = []
-        total_amount = 0.0
+        total_amount = Decimal('0.00')
         for item in items_data:
             try:
                 # 处理item_id
