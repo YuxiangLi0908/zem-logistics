@@ -871,10 +871,43 @@
                     </div>
                 </div>
 
-                <!-- 待确认提拆账单 -->
+                <!-- 待确认提拆账单（新增导出功能） -->
                 <div id="pick-pending" class="tab-content active">
                     <div class="table-container">
                         {% if finance_pending %}
+                            <!-- 新增：导出表单（独立表单，避免与确认/驳回表单冲突） -->
+                            <form method="post" id="pick-pending-export-form"
+                                  onsubmit="return checkPendingExportSelect()">
+                                {% csrf_token %}
+                                <input type="hidden" name="step" value="export_pending_by_month_carrier_v1">
+                                <!-- 隐藏字段：传递筛选条件，保证导出数据与当前查询一致 -->
+                                <input type="hidden" name="start_date_confirm" value="{{ start_date_confirm }}">
+                                <input type="hidden" name="end_date_confirm" value="{{ end_date_confirm }}">
+                                <input type="hidden" name="warehouse_filter" value="{{ warehouse_filter }}">
+                                <input type="hidden" name="customer_name" value="{{ selected_customer_id|default:'' }}">
+                                <input type="hidden" name="invoice_type"
+                                       value="{{ invoice_type_filter|default:'payable' }}">
+                                <!-- 存储勾选的货柜号，后端通过该字段获取导出数据 -->
+                                <input type="hidden" name="selected_containers" id="pick-pending-selected-containers"
+                                       value="">
+
+                                <!-- 导出操作栏：全选 + 导出按钮（表格上方，与操作按钮区呼应） -->
+                                <div class="export-select-all-container">
+                                    <input type="checkbox" id="pick-pending-select-all"
+                                           onclick="toggleSelectAll('pick-pending-select-all', 'pick-orders')"
+                                           style="width: 18px; height: 18px; cursor: pointer;">
+                                    <label for="pick-pending-select-all"
+                                           style="margin: 0; font-weight: 500; cursor: pointer;">全选待确认记录</label>
+                                    <span class="export-selected-count"
+                                          id="pick-pending-selected-count">已选：0 条</span>
+                                    <!-- 导出按钮：样式与现有按钮统一，增加excel图标 -->
+                                    <button type="submit" class="btn btn-success btn-sm" style="margin-left: 20px;">
+                                        <i class="fas fa-file-excel"></i> 导出勾选记录
+                                    </button>
+                                </div>
+                            </form>
+
+                            <!-- 原有确认/驳回表单：保留所有功能，仅调整全选框ID避免冲突 -->
                             <form method="post" id="pick-confirm-form">
                                 {% csrf_token %}
                                 <input type="hidden" name="step" value="payable_save_v1">
@@ -885,9 +918,8 @@
                                 <table class="table" id="pick-pending-table">
                                     <thead>
                                     <tr>
-                                        <th class="th"><input type="checkbox" id="pick-select-all"
-                                                              onclick="toggleSelectAll('pick-select-all', 'pick-orders')">
-                                        </th>
+                                        <!-- 调整全选框ID：与导出功能的全选框绑定 -->
+                                        <th class="th">选中</th>
                                         <th class="th">客户</th>
                                         <th class="th">仓点</th>
                                         <th class="th">供应商</th>
@@ -938,27 +970,25 @@
                                             <td class="td">
                                                 <input type="checkbox" name="containers"
                                                        value="{{ c.container_number.container_number }}"
-                                                       class="pick-orders">
+                                                       class="pick-orders"
+                                                       onchange="updatePendingSelectedCount()"> <!-- 新增勾选变更事件 -->
                                             </td>
-
+                                            <!-- 原有表格内容：完全保留，无修改 -->
                                             <td class="td">
                                                 {% for order in c.container_number.orders.all %}
                                                     {{ order.customer_name.zem_name|default:"-" }}
                                                 {% endfor %}
                                             </td>
-
                                             <td class="td">
                                                 {% for order in c.container_number.orders.all %}
                                                     {{ order.retrieval_id.retrieval_destination_area|default:"-" }}
                                                 {% endfor %}
                                             </td>
-
                                             <td class="td">
                                                 {% for order in c.container_number.orders.all %}
                                                     {{ order.retrieval_id.retrieval_carrier|default:"-" }}
                                                 {% endfor %}
                                             </td>
-
                                             <td class="td">
                                                 {% for fee in c.container_number.invoice_itemv2.all %}
                                                     {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
@@ -968,14 +998,12 @@
                                                     {% endif %}
                                                 {% endfor %}
                                             </td>
-
                                             <td class="td">
                                                 <a href="/accounting/?step=container_payable_pending_review&container_number={{ c.container_number.container_number }}&start_date={{ start_date }}&end_date={{ end_date }}&warehouse_filter={{ warehouse_filter }}"
                                                    class="container-link"
                                                    title="点击查看详情">{{ c.container_number.container_number }}</a>
                                             </td>
-
-                                            <!-- 1. 提柜费用 -->
+                                            <!-- 所有费用列：完全保留原有逻辑 -->
                                             <td class="td_fee">
                                                 <span class="pickup-fee-amount">$0.00</span>
                                                 {% for fee in c.container_number.invoice_itemv2.all %}
@@ -986,8 +1014,6 @@
                                                     {% endif %}
                                                 {% endfor %}
                                             </td>
-
-                                            <!-- 2. 拆柜费用 -->
                                             <td class="td_fee">
                                                 <span class="pickup-fee-amount">$0.00</span>
                                                 {% for fee in c.container_number.invoice_itemv2.all %}
@@ -998,8 +1024,6 @@
                                                     {% endif %}
                                                 {% endfor %}
                                             </td>
-
-                                            <!-- 3. 入库拆柜费 -->
                                             <td class="td_fee">
                                                 <span class="pickup-fee-amount">$0.00</span>
                                                 {% for fee in c.container_number.invoice_itemv2.all %}
@@ -1010,8 +1034,6 @@
                                                     {% endif %}
                                                 {% endfor %}
                                             </td>
-
-                                            <!-- 4. 直送固定报价 -->
                                             <td class="td_fee">
                                                 <span class="pickup-fee-amount">$0.00</span>
                                                 {% for fee in c.container_number.invoice_itemv2.all %}
@@ -1022,8 +1044,6 @@
                                                     {% endif %}
                                                 {% endfor %}
                                             </td>
-
-                                            <!-- 5. 直送等待费用 -->
                                             <td class="td_fee">
                                                 <span class="pickup-fee-amount">$0.00</span>
                                                 {% for fee in c.container_number.invoice_itemv2.all %}
@@ -1034,8 +1054,6 @@
                                                     {% endif %}
                                                 {% endfor %}
                                             </td>
-
-                                            <!-- 6. 超重费用 -->
                                             <td class="td_fee">
                                                 <span class="pickup-fee-amount">$0.00</span>
                                                 {% for fee in c.container_number.invoice_itemv2.all %}
@@ -1046,8 +1064,6 @@
                                                     {% endif %}
                                                 {% endfor %}
                                             </td>
-
-                                            <!-- 7. 港内滞港费 -->
                                             <td class="td_fee">
                                                 <span class="pickup-fee-amount">$0.00</span>
                                                 {% for fee in c.container_number.invoice_itemv2.all %}
@@ -1058,8 +1074,6 @@
                                                     {% endif %}
                                                 {% endfor %}
                                             </td>
-
-                                            <!-- 8. 港外滞箱费 -->
                                             <td class="td_fee">
                                                 <span class="pickup-fee-amount">$0.00</span>
                                                 {% for fee in c.container_number.invoice_itemv2.all %}
@@ -1070,8 +1084,6 @@
                                                     {% endif %}
                                                 {% endfor %}
                                             </td>
-
-                                            <!-- 9. 车架费用 -->
                                             <td class="td_fee">
                                                 <span class="pickup-fee-amount">$0.00</span>
                                                 {% for fee in c.container_number.invoice_itemv2.all %}
@@ -1082,8 +1094,6 @@
                                                     {% endif %}
                                                 {% endfor %}
                                             </td>
-
-                                            <!-- 其他费用 -->
                                             <td class="td_fee_other"
                                                 data-container-id="{{ c.container_number.id }}"
                                                 data-type="other"
@@ -1099,8 +1109,6 @@
                                                     <strong>合计：<span class="total-amount">$0.00</span></strong>
                                                 </div>
                                             </td>
-
-                                            <!-- 总费用 -->
                                             <td class="td_fee_total"
                                                 data-container-id="{{ c.container_number.id }}"
                                                 data-type="total"
@@ -1119,7 +1127,7 @@
                                     </tbody>
                                 </table>
 
-                                <!-- 新增：待确认账单的操作按钮（表格左下方） -->
+                                <!-- 原有操作按钮区：确认 + 驳回，完全保留 -->
                                 <div class="table-actions">
                                     <button type="submit" name="save_type" value="confirmed_finance"
                                             class="btn btn-success">
@@ -1130,7 +1138,7 @@
                                     </button>
                                 </div>
 
-                                <!-- 驳回模态框 -->
+                                <!-- 原有驳回模态框：完全保留 -->
                                 <div id="pick-rejectModal" class="modal">
                                     <div class="modal-content">
                                         <h5>驳回原因</h5>
@@ -2333,6 +2341,12 @@
         window.batchWriteOffX = batchWriteOffX; // 卸柜批量核销
         // 初始化派送账单全选功能
         initDeliverySelectAll();
+        // 新增：初始化待确认账单选中数量
+        updatePendingSelectedCount();
+        // 新增：给所有pick-orders勾选框绑定变更事件
+        document.querySelectorAll('.pick-orders').forEach(checkbox => {
+            checkbox.addEventListener('change', updatePendingSelectedCount);
+        });
     });
 
     // 初始化派送账单全选功能
@@ -2448,6 +2462,15 @@
 
     // ===================== 核心功能函数：全选（新增过滤表格的全选逻辑） =====================
     function initSelectAllFunctions() {
+        // 待确认账单全选（必须保留这行）
+        const pickPendingSelectAll = document.getElementById('pick-pending-select-all');
+        if (pickPendingSelectAll) {
+            pickPendingSelectAll.addEventListener('click', function () {
+                toggleSelectAll('pick-pending-select-all', 'pick-orders');
+            });
+            // 初始化全选框状态
+            updateSelectAllStatus('pick-pending-select-all', 'pick-orders');
+        }
         // 待确认表格全选
         const pickSelectAll = document.getElementById('pick-select-all');
         if (pickSelectAll) {
@@ -2544,24 +2567,38 @@
         if (!selectAll) return;
 
         const checkboxes = document.getElementsByClassName(checkboxClass);
-        let visibleCount = 0;
-        let checkedVisibleCount = 0;
-
-        // 仅操作可见行的复选框
+        // 1. 全选/取消全选所有可见的单选框
         for (let checkbox of checkboxes) {
             const tr = checkbox.closest('tr');
             if (tr && tr.style.display !== 'none') {
-                visibleCount++;
                 checkbox.checked = selectAll.checked;
-                if (checkbox.checked) checkedVisibleCount++;
             }
         }
 
-        // 监听单个复选框变化，同步全选状态
+        // 2. 关键修复：给所有单选框绑定change事件（确保全选后，单选变化能同步更新数量和全选状态）
         for (let checkbox of checkboxes) {
-            checkbox.addEventListener('change', function () {
-                updateSelectAllStatus(selectAllId, checkboxClass);
-            });
+            // 先移除原有事件（避免重复绑定）
+            checkbox.removeEventListener('change', handleCheckboxChange);
+            // 绑定新的统一事件
+            checkbox.addEventListener('change', handleCheckboxChange);
+        }
+
+        // 内部统一处理单选框变化的函数
+        function handleCheckboxChange() {
+            // 同步全选框状态
+            updateSelectAllStatus(selectAllId, checkboxClass);
+            // 同步选中数量（待确认账单专属）
+            if (checkboxClass === 'pick-orders') {
+                updatePendingSelectedCount();
+            }
+        }
+
+        if (checkboxClass === 'pick-orders') {
+            updatePendingSelectedCount(); // 待确认账单专属
+        } else if (checkboxClass === 'pick-t-writeoff') {
+            updateSelectedCount('pick-t'); // 提柜待核销
+        } else if (checkboxClass === 'pick-x-writeoff') {
+            updateSelectedCount('pick-x'); // 卸柜待核销
         }
     }
 
@@ -2570,17 +2607,19 @@
         if (!selectAll) return;
 
         const checkboxes = document.getElementsByClassName(checkboxClass);
-        let visibleCount = 0;
-        let checkedVisibleCount = 0;
+        let visibleCount = 0; // 可见行的单选框数量
+        let checkedVisibleCount = 0; // 可见行中已勾选的数量
 
         for (let checkbox of checkboxes) {
             const tr = checkbox.closest('tr');
+            // 仅统计可见行的单选框
             if (tr && tr.style.display !== 'none') {
                 visibleCount++;
                 if (checkbox.checked) checkedVisibleCount++;
             }
         }
 
+        // 只有当所有可见行都勾选时，全选框才勾选
         selectAll.checked = (visibleCount > 0 && checkedVisibleCount === visibleCount);
     }
 
@@ -3069,6 +3108,37 @@
             return;
         }
         hiddenInput.value = reason;
+    }
+
+    // 1. 更新待确认账单选中数量
+    function updatePendingSelectedCount() {
+        const checkboxes = document.querySelectorAll('.pick-orders:checked');
+        const countElement = document.getElementById('pick-pending-selected-count');
+        if (countElement) {
+            countElement.textContent = `已选：${checkboxes.length} 条`;
+        }
+        // 同步全选框状态
+        updateSelectAllStatus('pick-pending-select-all', 'pick-orders');
+    }
+
+    // 2. 导出前校验：确保至少勾选一条记录，收集货柜号
+    function checkPendingExportSelect() {
+        const checkboxes = document.querySelectorAll('.pick-orders:checked');
+        // 校验勾选状态
+        if (checkboxes.length === 0) {
+            alert('请至少勾选一条待确认的货柜记录！');
+            return false;
+        }
+        // 收集勾选的货柜号（去重，避免重复导出）
+        const selectedContainers = new Set();
+        checkboxes.forEach(checkbox => {
+            if (checkbox.value) {
+                selectedContainers.add(checkbox.value);
+            }
+        });
+        // 赋值给隐藏字段，后端通过name="selected_containers"获取
+        document.getElementById('pick-pending-selected-containers').value = Array.from(selectedContainers).join(',');
+        return true;
     }
 </script>
 {% endblock %}
