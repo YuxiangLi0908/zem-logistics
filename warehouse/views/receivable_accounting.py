@@ -1472,7 +1472,7 @@ class ReceivableAccounting(View):
         request.GET = get_params
         if not container_number or not invoice_number or not items_data_json:       
             context.update({'error_messages': '缺少必要参数！'})
-            return self.handle_container_invoice_confirm_get(request)
+            return self.handle_confirm_entry_post(request)
 
         try:
             items_data = json.loads(items_data_json)
@@ -1480,7 +1480,7 @@ class ReceivableAccounting(View):
                 items_data = json.loads(items_data)
         except json.JSONDecodeError as e:
             context.update({'error_messages': '表格数据解析错误！'})
-            return self.handle_container_invoice_confirm_get(request)
+            return self.handle_confirm_entry_post(request)
         
         # 获取容器和发票对象
         try:
@@ -1488,7 +1488,7 @@ class ReceivableAccounting(View):
             invoice = Invoicev2.objects.get(invoice_number=invoice_number)
         except (Container.DoesNotExist, Invoicev2.DoesNotExist) as e:
             context.update({'error_messages': '查不到柜号或者账单记录'})
-            return self.handle_container_invoice_confirm_get(request)
+            return self.handle_confirm_entry_post(request)
         
         # 存储统计信息
         saved_items = []
@@ -1597,7 +1597,7 @@ class ReceivableAccounting(View):
                 })
                 error_messages = f'保存项目失败: {str(e)}, 数据: {item}'
                 context.update({'error_messages': error_messages})
-                return self.handle_container_invoice_confirm_get(request)
+                return self.handle_confirm_entry_post(request)
         
         # 更新发票总额
         try:
@@ -1608,7 +1608,7 @@ class ReceivableAccounting(View):
         except Exception as e:
             error_messages = f'更新发票总额失败: {str(e)}'
             context.update({'error_messages': error_messages})
-            return self.handle_container_invoice_confirm_get(request)
+            return self.handle_confirm_entry_post(request)
         
         status_obj = InvoiceStatusv2.objects.get(
             invoice=invoice,
