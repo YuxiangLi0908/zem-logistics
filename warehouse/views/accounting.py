@@ -6,6 +6,7 @@ import os
 import random
 import re
 import string
+import traceback
 import zipfile
 from collections import defaultdict
 from datetime import date, datetime, timedelta, time as datetime_time
@@ -13,6 +14,7 @@ from decimal import Decimal
 from io import BytesIO
 from itertools import chain, groupby
 from operator import attrgetter
+from urllib.parse import quote
 
 from asgiref.sync import sync_to_async, async_to_sync
 from chardet.cli.chardetect import description_of
@@ -477,6 +479,8 @@ class Accounting(View):
             return self.export_confirmed_by_month_carrier(request)
         elif step == "export_confirmed_by_month_carrier_v1":
             return self.export_confirmed_by_month_carrier_v1(request)
+        elif step == "export_pending_by_month_carrier_v1":
+            return self.export_pending_by_month_carrier_v1(request)
         elif step == "export_confirmed_by_month_carrier_v1_search":
             template, context = self.export_confirmed_by_month_carrier_v1_search(request)
             return render(request, template, context)
@@ -3213,6 +3217,7 @@ class Accounting(View):
             if fleet_id not in deliverys:
                 carrier = order.fleet_number.carrier if order.fleet_number else None
                 fleet_number = order.fleet_number.fleet_number if order.fleet_number else None
+                fleet_id = order.fleet_number.id if order.fleet_number else None
                 deliverys[fleet_id] = {
                     "fleets": {},
                     "total_pallets": 0,
@@ -3220,6 +3225,7 @@ class Accounting(View):
                     "total_rows": 0,
                     "carrier": carrier,
                     "fleet_number": fleet_number,
+                    "fleet_id": fleet_id,
                 }
 
             if order.pickup_number not in deliverys[fleet_id]["fleets"]:
@@ -3293,6 +3299,7 @@ class Accounting(View):
                 "total_expense": fleet_data["total_expense"],
                 "carrier": fleet_data["carrier"],
                 "fleet_number": fleet_data["fleet_number"],
+                "fleet_id": fleet_data["fleet_id"],
             }
             for fleet_data in deliverys.values()
         ]
@@ -3349,6 +3356,7 @@ class Accounting(View):
             if fleet_id not in deliverys_confirm:
                 carrier = order.fleet_number.carrier if order.fleet_number else None
                 fleet_number = order.fleet_number.fleet_number if order.fleet_number else None
+                fleet_id = order.fleet_number.id if order.fleet_number else None
                 deliverys_confirm[fleet_id] = {
                     "fleets": {},
                     "total_pallets": 0,
@@ -3356,6 +3364,7 @@ class Accounting(View):
                     "total_rows": 0,
                     "carrier": carrier,
                     "fleet_number": fleet_number,
+                    "fleet_id": fleet_id,
                 }
 
             if order.pickup_number not in deliverys_confirm[fleet_id]["fleets"]:
@@ -3418,6 +3427,7 @@ class Accounting(View):
                 "total_expense": fleet_data["total_expense"],
                 "carrier": fleet_data["carrier"],
                 "fleet_number": fleet_data["fleet_number"],
+                "fleet_id": fleet_data["fleet_id"],
             }
             for fleet_data in deliverys_confirm.values()
         ]
@@ -4508,7 +4518,7 @@ class Accounting(View):
 
     def export_confirmed_by_month_carrier_v1(self, request):
         """
-        提拆账单导出：基于前端传递的集装箱ID，直接查询Container表，关联费用/客户信息导出
+        已确认-提拆账单导出：基于前端传递的集装箱ID，直接查询Container表，关联费用/客户信息导出
         修复：移除无效的invoicestatusv2_set预加载，优化查询逻辑
         """
         try:
@@ -4662,6 +4672,126 @@ class Accounting(View):
             import traceback
             traceback.print_exc()  # 打印详细错误到控制台，便于调试
             return HttpResponse(f"导出失败：{str(e)}", status=400)
+
+    def export_pending_by_month_carrier_v1(self, request):
+        """
+        待确认-提拆账单导出：强化兼容逗号分隔字符串
+        核心优化：精准拆分逗号分隔字符串，确保多集装箱号被正确识别
+        """
+        try:
+            # 1. 获取并解析前端参数【核心优化：强化逗号分隔字符串处理】
+            selected_containers = request.POST.get("selected_containers", "").strip()
+            # 空值直接抛异常
+            if not selected_containers:
+                raise ValueError("请至少勾选一个集装箱！")
+
+            selected_container_ids = []
+            # 优先判断是否为JSON格式（兼容原有JSON数组传参）
+            try:
+                parsed_data = json.loads(selected_containers)
+                # 解析为列表则直接使用，非列表则转为单元素列表
+                if isinstance(parsed_data, list):
+                    selected_container_ids = parsed_data
+                else:
+                    selected_container_ids = [parsed_data]
+            except json.JSONDecodeError:
+                selected_container_ids = [
+                    c.strip() for c in selected_containers.split(",")
+                    if c.strip()
+                ]
+
+            selected_container_ids = list(filter(None, list(set(selected_container_ids))))
+            if not selected_container_ids:
+                raise ValueError("请至少勾选一个有效的集装箱！")
+
+            containers = Container.objects.filter(
+                container_number__in=selected_container_ids
+            ).prefetch_related(
+                Prefetch(
+                    "orders",
+                    queryset=Order.objects.select_related(
+                        "retrieval_id", "vessel_id", "customer_name"
+                    ).filter(cancel_notification=False)
+                ),
+                Prefetch(
+                    "invoice_itemv2",
+                    queryset=InvoiceItemv2.objects.filter(
+                        invoice_type__in=["payable", "payable_direct"],
+                        rate__isnull=False
+                    ).only("description", "rate", "carrier")
+                )
+            )
+
+            if not containers.exists():
+                raise ValueError(f"未查询到有效集装箱，请检查勾选的集装箱号！")
+
+            FEE_MAPPING = {
+                "提柜费用": "pickup_fee",
+                "拆柜费用": "unload_fee",
+                "超重费用": "over_weight_fee",
+                "港内滞港费": "demurrage_fee",
+                "港外滞箱费": "per_diem_fee",
+                "车架费用": "chassis_fee",
+                "其他费用": "other_fee"
+            }
+            excel_data = []
+
+            for container in containers:
+                container_number = container.container_number or "-"
+                order_first = container.orders.first()
+                customer_name = "-"
+                warehouse = "-"
+                pickup_carrier = "-"
+                unload_carrier = "-"
+                fee_data = {k: 0.0 for k in FEE_MAPPING.values()}
+
+                if order_first:
+                    customer_name = getattr(getattr(order_first, "customer_name", None), "zem_name", "-") or "-"
+                    retrieval_id = getattr(order_first, "retrieval_id", None)
+                    if retrieval_id:
+                        warehouse = getattr(retrieval_id, "retrieval_destination_area", "-") or "-"
+                        pickup_carrier = getattr(retrieval_id, "retrieval_carrier", "-") or "-"
+
+                fee_items = list(container.invoice_itemv2.all())
+                for fee in fee_items:
+                    desc = fee.description or ""
+                    rate = float(fee.rate or 0.0)
+                    for fee_key, field_name in FEE_MAPPING.items():
+                        if fee_key in desc:
+                            fee_data[field_name] += rate
+                            if fee_key == "拆柜费用":
+                                unload_carrier = getattr(fee, "carrier", "-") or "-"
+                            break
+
+                total_fee = sum(fee_data.values())
+                excel_data.append([
+                    customer_name, warehouse, pickup_carrier, unload_carrier, container_number,
+                    fee_data["pickup_fee"], fee_data["unload_fee"], fee_data["over_weight_fee"],
+                    fee_data["demurrage_fee"], fee_data["per_diem_fee"], fee_data["chassis_fee"],
+                    fee_data["other_fee"], total_fee
+                ])
+
+            df = pd.DataFrame(
+                excel_data,
+                columns=["客户", "仓点", "提柜供应商", "卸柜供应商", "货柜号",
+                         "提柜费", "拆柜费", "超重费", "滞港费", "滞箱费",
+                         "车架费", "其他费用", "总费用"]
+            )
+
+            response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+            file_name = f"提拆账单_勾选导出_{len(containers)}个集装箱.xlsx"
+            response[
+                'Content-Disposition'] = f'attachment; filename="{quote(file_name)}"; filename*=UTF-8\'\'{quote(file_name)}'
+            df.to_excel(response, index=False, engine='openpyxl')
+
+            return response
+
+        except ValueError as e:
+            traceback.print_exc()
+            return HttpResponse(f"导出失败：{str(e)}", status=400)
+        except Exception as e:
+            traceback.print_exc()
+            return HttpResponse(f"系统异常，导出失败：请联系管理员处理", status=500)
 
 
 
@@ -4836,6 +4966,7 @@ class Accounting(View):
             "unload_carriers": unload_carriers,
         }
         return self.template_invoice_payable_confirm_payable, context
+
     def export_delivery_by_month_carrier_v1_search(self, request):
         """派送已确认账单-导出的查询按钮"""
         current_date = datetime.now().date()
@@ -4965,6 +5096,7 @@ class Accounting(View):
                     "total_rows": 0,
                     "carrier": carrier,
                     "fleet_number": fleet_number,
+                    "fleet_id": fleet_id,
                 }
 
             if order.pickup_number not in deliverys_confirm[fleet_id]["fleets"]:
@@ -5037,6 +5169,7 @@ class Accounting(View):
                 "total_expense": fleet_data["total_expense"],
                 "carrier": fleet_data["carrier"],
                 "fleet_number": fleet_data["fleet_number"],
+                "fleet_id": fleet_data["fleet_id"],
             }
             for fleet_data in deliverys_confirm.values()
         ]
@@ -5064,6 +5197,7 @@ class Accounting(View):
         }
 
         return self.template_invoice_payable_confirm_payable_delivery, context
+
 
     def export_delivery_search(self, request):
         """派送已确认账单-导出的查询按钮"""
@@ -5509,15 +5643,17 @@ class Accounting(View):
         return self.handle_invoice_confirm_get_v1_delivery(request, start_date_confirm, end_date_confirm, customer, warehouse)
 
     def export_carrier_payable_delivery(self, request):
-        """已核销派送-导出"""
+        """已核销派送-导出（适配待确认/已确认隔离）"""
         confirm_phase = request.POST.get('confirm_phase')
-        if confirm_phase == 'delivery':
+        # 修复核心：兼容前端传递的 delivery_pending/delivery_confirm/delivery 三种值
+        # 只要是这三个值之一，均执行导出逻辑（覆盖待确认、已确认、原有兼容场景）
+        if confirm_phase in ['delivery', 'delivery_pending', 'delivery_confirm']:
             # 1. 获取筛选参数
             start_date = request.POST.get('start_date_export')
             end_date = request.POST.get('end_date_export')
             carrier_key = request.POST.get('select_carrier')
             carrier_name = CARRIER_FLEET.get(carrier_key, '')
-            # 新增：获取选中的 fleet id
+            # 新增：获取选中的 fleet id（处理空值，避免分割出空字符串）
             selected_fleet_ids = request.POST.get('selected_fleet_ids', '')
             selected_fleet_ids = [fid.strip() for fid in selected_fleet_ids.split(',') if fid.strip()]
 
@@ -5540,11 +5676,11 @@ class Accounting(View):
                 PO_ID__in=delivery_po_ids,
             )
 
-            # 新增：如果有选中的 fleet id，添加筛选条件
+            # 新增：如果有选中的 fleet id，添加筛选条件（仅筛选选中的车次）
             if selected_fleet_ids:
                 fleet_shipment_criteria &= models.Q(fleet_number_id__in=selected_fleet_ids)
 
-            # 筛选供应商
+            # 筛选供应商（兼容Carrier_key为空的场景，即"全部供应商"）
             if carrier_key:
                 carrier_name_filter = CARRIER_FLEET.get(carrier_key, '')
                 fleet_shipment_criteria &= models.Q(fleet_number__carrier=carrier_name_filter)
@@ -5562,24 +5698,23 @@ class Accounting(View):
                         shipment_batch_number=OuterRef("shipment_batch_number"),
                     ).values("destination")[:1]
                 ),
-                # ========== 修复核心：修正Subquery的output_field参数 ==========
+                # 修复：Subquery指定output_field，处理空值
                 write_off_amount=Subquery(
                     InvoiceItemv2.objects.filter(
                         container_number=OuterRef("container_number"),
-                    ).values("write_off_amount")[:1],  # 核销金额
-                    # 修复：使用字段类而非实例，且指定默认值处理空值
+                    ).values("write_off_amount")[:1],
                     output_field=models.DecimalField(max_digits=10, decimal_places=2, default=0)
                 ),
                 write_off_time=Subquery(
                     InvoiceItemv2.objects.filter(
                         container_number=OuterRef("container_number")
-                    ).values("write_off_time")[:1],  # 核销时间
+                    ).values("write_off_time")[:1],
                     output_field=models.DateTimeField(null=True, blank=True)
                 ),
                 note=Subquery(
                     InvoiceItemv2.objects.filter(
                         container_number=OuterRef("container_number")
-                    ).values("note")[:1],  # 备注
+                    ).values("note")[:1],
                     output_field=models.CharField(max_length=255, null=True, blank=True)
                 )
             ).order_by("fleet_number", "pickup_number", "container_num")
@@ -5595,7 +5730,7 @@ class Accounting(View):
                         "total_expense": 0,
                         "total_rows": 0,
                         "carrier": carrier,
-                        "fleet_number": order.fleet_number.fleet_number if order.fleet_number else '',  # 新增：车次号
+                        "fleet_number": order.fleet_number.fleet_number if order.fleet_number else '',  # 车次号
                     }
 
                 # 按pickup_number分组
@@ -5618,10 +5753,12 @@ class Accounting(View):
                         "rowspan": 0,
                     }
 
-                # 计算单板成本
-                per_expense = round(order.expense / int(order.total_pallet),
-                                    2) if order.total_pallet and order.expense else 0
+                # 计算单板成本（防除零错误，判断total_pallet>0）
+                per_expense = 0.0
+                if order.total_pallet and order.expense and int(order.total_pallet) > 0:
+                    per_expense = round(order.expense / int(order.total_pallet), 2)
 
+                # 处理核销时间格式（兼容空值、格式异常）
                 write_off_time_str = '未核销'
                 if hasattr(order, 'write_off_time') and order.write_off_time is not None:
                     try:
@@ -5629,7 +5766,7 @@ class Accounting(View):
                     except (ValueError, TypeError):
                         write_off_time_str = '格式异常'
 
-                # 空值处理：Decimal字段可能为None，需转为0
+                # 空值处理：Decimal字段转float，防None
                 write_off_amount = order.write_off_amount or 0
                 if isinstance(write_off_amount, Decimal):
                     write_off_amount = float(write_off_amount)
@@ -5662,18 +5799,20 @@ class Accounting(View):
                 fleet_data["total_expense"] += order_data["cn_total_expense"]
                 fleet_data["total_rows"] += 1
 
+            # 整理待导出数据
             delivery_pending_orders = [
                 {
                     "fleets": fleet_data["fleets"],
                     "total_pallets": int(fleet_data["total_pallets"]),
                     "total_expense": fleet_data["total_expense"],
                     "carrier": fleet_data["carrier"],
-                    "fleet_number": fleet_data["fleet_number"],  # 新增：车次号
-                    "fleet_id": fleet_id,  # 新增：fleet id
+                    "fleet_number": fleet_data["fleet_number"],  # 车次号
+                    "fleet_id": fleet_id,  # fleet id
                 }
                 for fleet_id, fleet_data in deliverys.items()
             ]
 
+            # 组装Excel行数据
             for fleet in delivery_pending_orders:
                 for pickup_number, pickup_data in fleet["fleets"].items():
                     for appointment_id, appointment_data in pickup_data["appointments"].items():
@@ -5696,7 +5835,7 @@ class Accounting(View):
                             ]
                             excel_data.append(row)
 
-            # 生成Excel
+            # 生成Excel文件（兼容无数据场景，避免空文件报错）
             columns = [
                 "车次", "Carrier", "Pickup Number", "ISA", "柜号", "目的地",
                 "板数", "价格", "单板成本", "车次总板数", "车次总成本",
@@ -5704,13 +5843,18 @@ class Accounting(View):
             ]
             df = pd.DataFrame(excel_data, columns=columns)
 
+            # 构建响应
             response = HttpResponse(
                 content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
             )
-            filename = f"派送账单_{start_date or '全部'}_to_{end_date or '全部'}_{carrier_name or '全部供应商'}.xlsx"
+            # 优化文件名：区分待确认/已确认，方便识别
+            phase_name = "待确认" if confirm_phase == 'delivery_pending' else "已确认"
+            filename = f"{phase_name}派送账单_{start_date or '全部'}_to_{end_date or '全部'}_{carrier_name or '全部供应商'}.xlsx"
             response['Content-Disposition'] = f'attachment; filename="{filename}"'
             df.to_excel(response, index=False, engine='openpyxl')
             return response
+        # 非指定confirm_phase，返回错误提示
+        return HttpResponse("导出参数异常，请选择待确认/已确认账单后重试", status=400)
 
     def handle_invoice_delivery_calc_expense(self, container_number: str) -> None:
         fleet_expenses = (
@@ -11547,85 +11691,84 @@ class Accounting(View):
         per_diem_fee = None
         overweight = None
         FS = {}
-        if order.container_number.container_number != "TCNU1772642":
-            if match:
-                pick_subkey = int(match.group())
-                if warehouse_precise == "LA 91748":
-                    warehouse_precise = "LA 91761"
+        if match:
+            pick_subkey = int(match.group())
+            if warehouse_precise == "LA 91748":
+                warehouse_precise = "LA 91761"
 
-                if pick_subkey == 40:
-                    try:
-                        pickup_fee = fee_detail[warehouse][warehouse_precise][preport_carrier]["basic_40"]
-                    except KeyError:
-                        pickup_fee = 0
-                        context.update({"error_messages": f"在报价表中找不到{warehouse}仓库{pick_subkey}柜型的提拆费"})
-                        return self.template_invoice_payable_edit_v1, context
-                else:
-                    try:
-                        pickup_fee = fee_detail[warehouse][warehouse_precise][preport_carrier]["basic_45"]
-                    except KeyError:
-                        pickup_fee = 0
-                        context.update({"error_messages": f"在报价表中找不到{warehouse}仓库{pick_subkey}柜型的提拆费"})
-                        return self.template_invoice_payable_edit_v1, context
-
-            basic_fee = "N/A"
-            if fee_detail[warehouse][warehouse_precise][preport_carrier].get('basic_40'):
-                basic_fee = fee_detail[warehouse][warehouse_precise][preport_carrier].get('basic_40')
-            elif fee_detail[warehouse][warehouse_precise][preport_carrier].get('basic_45'):
-                basic_fee = fee_detail[warehouse][warehouse_precise][preport_carrier].get('basic_45')
-            # 超重费
-            overweight = 0
-            if float(order.container_number.weight_lbs) > 42000:
-                overweight = fee_detail[warehouse][warehouse_precise][preport_carrier].get('overweight')
-                if isinstance(overweight, str):
-                    overweight = overweight.replace("\n", ";")
-
-            # 入库费
-            arrive_fee = fee_detail[warehouse][warehouse_precise][preport_carrier].get('arrive_warehouse')
-            if arrive_fee == "/":
-                arrive_fee = arrive_fee.replace("/", "")
-
-            # 1. 初始化包含默认空选项的字典（键值可根据你的需求调整，比如 ""/"请选择"）
-            pallet_details = {"": ""}  # 第一个默认键值对为空
-
-            # 2. 原有逻辑：筛选拆柜供应商选项（用临时字典存储，避免覆盖默认值）
-            temp_pallet_details = {
-                carrier: value
-                for carrier, details in fee_detail[warehouse][warehouse_precise].items()
-                for key in ["palletization", "arrive_warehouse"]
-                if (value := details.get(key)) is not None and value != "/"
-            }
-
-            # 3. 将筛选后的选项更新到包含默认值的字典中（保留默认值在第一位）
-            pallet_details.update(temp_pallet_details)
-
-            palletization_carrier = fee_detail[warehouse][warehouse_precise][preport_carrier]
-
-            # 计算车架费
-            context["chassis_fee"] = 0
-            actual_day = None
-            chassis_fee = None
-            cutoff_date = timezone.datetime(2025, 9, 1, tzinfo=timezone.utc)
-            if act_pick_time and act_pick_time < cutoff_date:
-                data = self._calculate_chassis_fee(context, fee_detail[warehouse][warehouse_precise][preport_carrier], order)
-                chassis_fee = data["chassis_fee"]
-                actual_day = data["actual_day"]
+            if pick_subkey == 40:
+                try:
+                    pickup_fee = fee_detail[warehouse][warehouse_precise][preport_carrier]["basic_40"]
+                except KeyError:
+                    pickup_fee = 0
+                    context.update({"error_messages": f"在报价表中找不到{warehouse}仓库{pick_subkey}柜型的提拆费"})
+                    return self.template_invoice_payable_edit_v1, context
             else:
-                data = self._calculate_chassis_fee_91(context, fee_detail[warehouse][warehouse_precise][preport_carrier], order)
-                chassis_fee = data["chassis_fee"]
-                actual_day = data["actual_day"]
-            demurrage_fee = fee_detail[warehouse][warehouse_precise][preport_carrier].get('demurrage')
-            per_diem_fee = fee_detail[warehouse][warehouse_precise][preport_carrier].get('per_diem')
-            # 构建费用提示信息
-            FS = {
-                "提柜费用": f"{basic_fee}",
-                "拆柜费用": f"{fee_detail[warehouse][warehouse_precise][preport_carrier].get('palletization')}",
-                "入库拆柜费": f"{fee_detail[warehouse][warehouse_precise][preport_carrier].get('arrive_warehouse')}",
-                "超重费用": f"{overweight}",
-                "车架费用": f"{fee_detail[warehouse][warehouse_precise][preport_carrier].get('chassis')}",
-                "港内滞港费": f"{fee_detail[warehouse][warehouse_precise][preport_carrier].get('demurrage')}",
-                "港外滞箱费": f"{fee_detail[warehouse][warehouse_precise][preport_carrier].get('per_diem')}",
-            }
+                try:
+                    pickup_fee = fee_detail[warehouse][warehouse_precise][preport_carrier]["basic_45"]
+                except KeyError:
+                    pickup_fee = 0
+                    context.update({"error_messages": f"在报价表中找不到{warehouse}仓库{pick_subkey}柜型的提拆费"})
+                    return self.template_invoice_payable_edit_v1, context
+
+        basic_fee = "N/A"
+        if fee_detail[warehouse][warehouse_precise][preport_carrier].get('basic_40'):
+            basic_fee = fee_detail[warehouse][warehouse_precise][preport_carrier].get('basic_40')
+        elif fee_detail[warehouse][warehouse_precise][preport_carrier].get('basic_45'):
+            basic_fee = fee_detail[warehouse][warehouse_precise][preport_carrier].get('basic_45')
+        # 超重费
+        overweight = 0
+        if float(order.container_number.weight_lbs) > 42000:
+            overweight = fee_detail[warehouse][warehouse_precise][preport_carrier].get('overweight')
+            if isinstance(overweight, str):
+                overweight = overweight.replace("\n", ";")
+
+        # 入库费
+        arrive_fee = fee_detail[warehouse][warehouse_precise][preport_carrier].get('arrive_warehouse')
+        if arrive_fee == "/":
+            arrive_fee = arrive_fee.replace("/", "")
+
+        # 1. 初始化包含默认空选项的字典（键值可根据你的需求调整，比如 ""/"请选择"）
+        pallet_details = {"": ""}  # 第一个默认键值对为空
+
+        # 2. 原有逻辑：筛选拆柜供应商选项（用临时字典存储，避免覆盖默认值）
+        temp_pallet_details = {
+            carrier: value
+            for carrier, details in fee_detail[warehouse][warehouse_precise].items()
+            for key in ["palletization", "arrive_warehouse"]
+            if (value := details.get(key)) is not None and value != "/"
+        }
+
+        # 3. 将筛选后的选项更新到包含默认值的字典中（保留默认值在第一位）
+        pallet_details.update(temp_pallet_details)
+
+        palletization_carrier = fee_detail[warehouse][warehouse_precise][preport_carrier]
+
+        # 计算车架费
+        context["chassis_fee"] = 0
+        actual_day = None
+        chassis_fee = None
+        cutoff_date = timezone.datetime(2025, 9, 1, tzinfo=timezone.utc)
+        if act_pick_time and act_pick_time < cutoff_date:
+            data = self._calculate_chassis_fee(context, fee_detail[warehouse][warehouse_precise][preport_carrier], order)
+            chassis_fee = data["chassis_fee"]
+            actual_day = data["actual_day"]
+        else:
+            data = self._calculate_chassis_fee_91(context, fee_detail[warehouse][warehouse_precise][preport_carrier], order)
+            chassis_fee = data["chassis_fee"]
+            actual_day = data["actual_day"]
+        demurrage_fee = fee_detail[warehouse][warehouse_precise][preport_carrier].get('demurrage')
+        per_diem_fee = fee_detail[warehouse][warehouse_precise][preport_carrier].get('per_diem')
+        # 构建费用提示信息
+        FS = {
+            "提柜费用": f"{basic_fee}",
+            "拆柜费用": f"{fee_detail[warehouse][warehouse_precise][preport_carrier].get('palletization')}",
+            "入库拆柜费": f"{fee_detail[warehouse][warehouse_precise][preport_carrier].get('arrive_warehouse')}",
+            "超重费用": f"{overweight}",
+            "车架费用": f"{fee_detail[warehouse][warehouse_precise][preport_carrier].get('chassis')}",
+            "港内滞港费": f"{fee_detail[warehouse][warehouse_precise][preport_carrier].get('demurrage')}",
+            "港外滞箱费": f"{fee_detail[warehouse][warehouse_precise][preport_carrier].get('per_diem')}",
+        }
 
         # 新增：费用名称分割函数（提取-后面的名称）
         def split_fee_name(description):
@@ -11702,10 +11845,6 @@ class Accounting(View):
                         'amount': 0,
                         'note': '',
                     })
-
-        if order.container_number.container_number == "TCNU1772642":
-            arrive_fee = 900
-            FS["入库拆柜费"] = 900
         groups = context["groups"]
         context.update({
             "actual_day": actual_day,
