@@ -1493,7 +1493,7 @@ class ReceivableAccounting(View):
         # 存储统计信息
         saved_items = []
         skipped_items = []
-        total_amount = 0.0
+        total_amount = Decimal('0.00')
         for item in items_data:
             try:
                 # 处理item_id
@@ -1501,18 +1501,21 @@ class ReceivableAccounting(View):
                 
                 item_category = item.get('category', 'preport')
                 
-                # 处理数量、单价、金额等字段
-                qty = item.get('qty', '1')
-                rate = item.get('rate', '0')
-                surcharges = item.get('surcharges', '')
-                amount = item.get('amount', '0')
-                
                 # 转换为浮点数，处理可能的字符串格式
                 def to_decimal(v):
                     try:
-                        return Decimal(str(v)) if v not in (None, '') else Decimal('0')
-                    except (InvalidOperation, ValueError):
-                        return Decimal('0')
+                        if v is None or v == '':
+                            return Decimal('0.00')
+                        # 确保转换为字符串
+                        str_value = str(v)
+                        # 创建 Decimal
+                        decimal_value = Decimal(str_value)
+                        # 保留两位小数
+                        return decimal_value.quantize(Decimal('0.00'))
+                    except (InvalidOperation, ValueError) as e:
+                        print(f"转换错误: {v} -> {e}")
+                        return Decimal('0.00')
+                # 处理数量、单价、金额等字段
 
                 qty = to_decimal(item.get('qty', 0))
                 rate = to_decimal(item.get('rate', 0))
