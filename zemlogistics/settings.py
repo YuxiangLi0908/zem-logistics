@@ -30,6 +30,7 @@ ALLOWED_HOSTS = [
     "zem-warehouse.azurewebsites.net",
     "zem-logistics.azurewebsites.net",
     "*",
+    "20.119.0.48",
 ]
 CSRF_TRUSTED_ORIGINS = [
     "https://zem-warehouse.azurewebsites.net",
@@ -50,6 +51,8 @@ INSTALLED_APPS = [
     'warehouse',
     'bootstrap4',
     'simple_history',
+    'rest_framework',
+    'corsheaders',
 ]
 
 MIDDLEWARE = [
@@ -61,7 +64,19 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'simple_history.middleware.HistoryRequestMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
+    'django.middleware.common.CommonMiddleware',
 ]
+
+# 允许跨域（适配小程序请求，海外服务器需配置）
+CORS_ALLOW_ALL_ORIGINS = True  # 开发阶段临时放开，生产环境指定小程序域名
+CORS_ALLOW_METHODS = ['GET', 'POST']
+REST_FRAMEWORK = {
+    'DEFAULT_RENDERER_CLASSES': [
+        'rest_framework.renderers.JSONRenderer',
+    ],
+    'DEFAULT_AUTHENTICATION_CLASSES': [],  # 开发阶段先关闭认证，后续再加
+}
 
 ROOT_URLCONF = 'zemlogistics.urls'
 
