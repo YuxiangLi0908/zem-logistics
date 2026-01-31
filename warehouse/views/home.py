@@ -51,16 +51,6 @@ from warehouse.models.packing_list import PackingList
 from warehouse.utils.constants import ORDER_TYPES, PACKING_LIST_TEMP_COL_MAPPING
 
 
-from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import AllowAny  # 小程序访问暂时放开权限
-from rest_framework.response import Response
-from asgiref.sync import sync_to_async
-from ..serializers import ContainerQueryResponseSerializer  # 导入序列化器
-
-# 新增：货柜查询API接口（供小程序调用）
-@api_view(['GET'])  # 小程序用GET请求，方便传参
-@permission_classes([AllowAny])  # 暂时放开权限（后续可加token认证）
-
 class Home(View):
     template_main = "home.html"
 
@@ -432,75 +422,6 @@ class Home(View):
             data += pl_list
         return data
     
-    async def container_query_api(request):
-        """
-        小程序货柜查询接口
-        参数：container_number（货柜号）、shipping_marks（唛头）、fba_ids、ref_ids、destination 等
-        """
-        # 1. 获取小程序传的查询参数（和你现有post逻辑的参数一致）
-        query_params = {
-            'container_number': request.GET.get("container_number", "").strip() or None,
-            'shipment_batch_number': request.GET.get("shipment_batch_number", "").strip() or None,
-            'appointment_id': request.GET.get("appointment_id", "").strip() or None,
-            'destination': request.GET.get("destination", "").strip() or None,
-            'shipping_marks': request.GET.get("shipping_marks", "").strip() or None,
-            'fba_ids': request.GET.get("fba_ids", "").strip() or None,
-            'ref_ids': request.GET.get("ref_ids", "").strip() or None,
-        }
-
-        # 2. 复用你现有的查询逻辑（核心！不用改原有代码）
-        context = {'query_params': query_params}
-        pl_criteria = models.Q()
-        plt_criteria = models.Q()
-
-        if bool(query_params['shipping_marks'] or query_params['fba_ids'] or query_params['ref_ids'] or query_params['destination']):
-            # 只展示柜子基本信息（表格形式）
-            if query_params['shipping_marks']:
-                pl_criteria &= models.Q(shipping_mark__contains=query_params['shipping_marks'])
-                plt_criteria &= models.Q(shipping_mark__contains=query_params['shipping_marks'])
-            elif query_params['fba_ids']:
-                pl_criteria &= models.Q(fba_id__contains=query_params['fba_ids'])
-                plt_criteria &= models.Q(fba_id__contains=query_params['fba_ids'])
-            elif query_params['ref_ids']:
-                pl_criteria &= models.Q(ref_id__contains=query_params['ref_ids'])
-                plt_criteria &= models.Q(ref_id__contains=query_params['ref_ids'])
-            elif query_params['destination']:
-                pl_criteria &= models.Q(destination=query_params['destination'])
-                plt_criteria = models.Q(destination=query_params['destination'])
-            elif query_params['container_number']:
-                pl_criteria &= models.Q(container_number__container_number=query_params['container_number'])
-                plt_criteria &= models.Q(container_number__container_number=query_params['container_number'])
-            
-            temp = await Home()._get_post_port_data(pl_criteria, plt_criteria)
-            context['post_port_table'] = temp['warehouses']
-        else:
-            # 查柜号，展示港前信息
-            if bool(query_params['container_number']):
-                context['pre_port_data'] = await Home()._get_pre_port_data(query_params)
-                pl_criteria &= models.Q(container_number__container_number=query_params['container_number'])
-                plt_criteria &= models.Q(container_number__container_number=query_params['container_number'])
-            elif bool(query_params['shipment_batch_number'] or query_params['appointment_id']):
-                if query_params['shipment_batch_number']:
-                    pl_criteria &= models.Q(shipment_batch_number__shipment_batch_number=query_params['shipment_batch_number'])
-                    plt_criteria &= models.Q(shipment_batch_number__shipment_batch_number=query_params['shipment_batch_number'])
-                elif query_params['appointment_id']:
-                    pl_criteria &= models.Q(shipment_batch_number__appointment_id=query_params['appointment_id'])
-                    plt_criteria &= models.Q(shipment_batch_number__appointment_id=query_params['appointment_id'])
-            
-            # 查港后信息
-            temp = await Home()._get_post_port_data(pl_criteria, plt_criteria)
-            context['post_port_data'] = temp['warehouses']
-            context['status_summary'] = temp['status_summary']
-
-        # 3. 序列化查询结果（转成规范JSON）
-        serializer = ContainerQueryResponseSerializer(context)
-
-        # 4. 返回给小程序（统一格式）
-        return Response({
-            'code': 200,
-            'msg': '查询成功',
-            'data': serializer.data
-        })
     async def _user_authenticate(self, request: HttpRequest):
         if await sync_to_async(lambda: request.user.is_authenticated)():
             return True
