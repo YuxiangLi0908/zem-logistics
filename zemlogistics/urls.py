@@ -23,5 +23,4 @@ from warehouse.views.home import Home
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', include('warehouse.urls')),
-    path('api/container-query/', Home.container_query_api, name='container-query'),
 ] + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)

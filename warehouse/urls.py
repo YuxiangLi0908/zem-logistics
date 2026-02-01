@@ -130,4 +130,5 @@ urlpatterns = [
     path("pod_legacy/", POD.as_view(), name="pod_legacy"),
     path("inventory/", Inventory.as_view(), name="inventory"),
     path("transferpallet/", TransferPallet.as_view(), name="transferpallet"),
+    path('api/container-query/', Home.container_query_api, name='container-query'),
 ] + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
