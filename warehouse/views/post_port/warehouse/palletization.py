@@ -1363,10 +1363,11 @@ class Palletization(View):
                         my_barcode = barcode_class(
                             barcode_content, writer=ImageWriter()
                         )  # 将条形码转换为图像形式 
-                    except Exception as e:
-                        raise ValueError(
-                            f"生成条形码失败，内容：{barcode_content}，错误信息：{str(e)}"
-                        )
+                    except:
+                        barcode_content = barcode_content.encode("ascii", "ignore").decode()
+                        my_barcode = barcode_class(
+                            barcode_content, writer=ImageWriter()
+                        )  #
                     buffer = io.BytesIO()  # 创建缓冲区
                     my_barcode.write(buffer, options={"dpi": 600})  # 缓冲区存储图像
                     buffer.seek(0)
