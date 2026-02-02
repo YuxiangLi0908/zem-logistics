@@ -30,6 +30,7 @@ aiohttp = "^3.13.2"
 xlrd="^2.0.1"
 djangorestframework = "^3.16.1"
 django-cors-headers = "^4.9.0"
+poetry-plugin-export = "^1.10.0"
 
 
 [tool.poetry.group.dev.dependencies]
