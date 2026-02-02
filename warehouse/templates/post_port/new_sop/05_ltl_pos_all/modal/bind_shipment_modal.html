@@ -303,9 +303,9 @@
                                     </select>
                                 </td>
                                 <td>
-                                    <select name="shipment_type" id="shipment-type-select" class="form-select">
+                                    <select name="shipment_type" id="ltl-shipment-type-select" class="form-select">
                                         <option value="LTL">LTL</option>
-                                        <option value="SELF_PICKUP">客户自提</option>
+                                        <option value="客户自提">客户自提</option>
                                     </select>
                                 </td>
                                 <td>
@@ -461,7 +461,7 @@
         }
         
         // 验证预约类型
-        const shipmentTypeSelect = document.getElementById('shipment-type-select');
+        const shipmentTypeSelect = document.getElementById('ltl-shipment-type-select');
         if (!shipmentTypeSelect || !shipmentTypeSelect.value) {
             alert('请选择预约类型！');
             if (shipmentTypeSelect) shipmentTypeSelect.focus();

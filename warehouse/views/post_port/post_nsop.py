@@ -7433,7 +7433,8 @@ class PostNsop(View):
     ) -> dict[str, Any]: 
 
         criteria = models.Q(
-            models.Q(models.Q(pod_link__isnull=True) | models.Q(pod_link="")),
+            models.Q(pod_link__isnull=True) | models.Q(pod_link=""),
+            pod_to_customer=False,       
             shipped_at__isnull=False,
             arrived_at__isnull=False,
             shipment_schduled_at__gte="2024-12-01",
