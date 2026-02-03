@@ -6342,7 +6342,7 @@ class PostNsop(View):
             if has_ltl_quote_param: update_data['ltl_quote'] = ltl_quote
             if ltl_cost_note: update_data["ltl_cost_note"] = ltl_cost_note
             if ltl_quote_note: update_data["ltl_quote_note"] = ltl_quote_note
-            if contact_method: update_data["ltl_release_command"] = contact_method
+            if contact_method: update_data["ltl_contact_method"] = contact_method
             if pallet_size: update_data["ltl_plt_size_note"] = pallet_size
             if delivery_method is not None: update_data['delivery_method'] = delivery_method
             if ltl_release_command is not None: update_data['ltl_release_command'] = ltl_release_command
