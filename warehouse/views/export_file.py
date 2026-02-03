@@ -209,7 +209,7 @@ async def export_palletization_list_v2(request: HttpRequest) -> HttpResponse:
 
         # 2. 定义判断条件（时区一致，可直接比较）
         mask = (
-                (df["shipment_batch_number__load_type"] == "卡板")  # 卡板类型
+                (df["shipment_batch_number__load_type"] != "卡板")  # 卡板类型
                 & (df["vessel_eta_dt"] >= BASE_ETA)  # 带时区的时间比较，无类型错误
                 & (df["destination"].isin(TARGET_WAREHOUSES))  # 仓点在指定9个列表内
         )
