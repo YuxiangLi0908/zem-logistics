@@ -538,7 +538,7 @@
             </div>      
         </div>
     </form>
-    {{ container_ids }}
+    
     <div class="finance-main">
         <div class="content-tabs">
             <div class="content-tab" data-tab="entry" id="tab-entry">
@@ -962,7 +962,8 @@
         </div>
     </div>
 </div>
-
+所有的柜子：{{ container_ids }}
+所有的账单：{{ all_invoices }}
 {% include 'receivable_accounting/modals/message_modal.html' %}
 
 <script>
