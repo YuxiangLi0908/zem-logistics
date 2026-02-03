@@ -989,10 +989,10 @@
                 const row = checkbox.closest('tr');
                 
                 // 获取柜号（从第5个td开始，索引从0开始）
-                const containerTd = row.cells[4]; // 柜号列
-                const destinationTd = row.cells[5]; // 目的地列
-                const shippingMarkTd = row.cells[6]; // 唛头列
-                const palletSizeTd = row.cells[10];
+                const containerTd = row.cells[5]; // 柜号列
+                const destinationTd = row.cells[6]; // 目的地列
+                const shippingMarkTd = row.cells[7]; // 唛头列
+                const palletSizeTd = row.cells[15];
                 
                 // 提取文本内容（移除可能存在的HTML标签）
                 const containerNumber = containerTd ? containerTd.textContent.trim() : '';
