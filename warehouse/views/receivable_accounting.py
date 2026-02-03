@@ -2921,6 +2921,7 @@ class ReceivableAccounting(View):
             "warehouse_filter": warehouse,
             "default_tab": default_tab, 
             "is_leader": is_leader,
+            "container_ids": container_ids,
         })
         return context
 
