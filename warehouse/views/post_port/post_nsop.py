@@ -5969,6 +5969,30 @@ class PostNsop(View):
 
             data += pl_list
         
+        # 1. 定义日期提取辅助函数 (内部函数)
+        def get_pickup_date_key(status):
+            if not status:
+                return (99, 99)
+            # 搜索数字/数字格式 (如 2/1 或 02/18)
+            match = re.search(r'(\d+)/(\d+)', str(status))
+            if match:
+                try:
+                    month = int(match.group(1))
+                    day = int(match.group(2))
+                    return (month, day)
+                except ValueError:
+                    pass
+            return (99, 99) # 没匹配到日期的排在 pickup 类的最后
+
+        # 2. 统一排序逻辑
+        # Python 的 sort 是稳定的，可以一次性处理整个 data 列表
+        data.sort(key=lambda x: (
+            x.get('is_pickup_priority', 1),             # 第一优先级：含有 pickup 的在前 (0)
+            get_pickup_date_key(x.get('ltl_follow_status', '')), # 第二优先级：提取出的 (月, 日) 元组排序
+            x.get('offload_at') or '',                  # 第三优先级：拆柜日期 (MM-DD 字符串比较)
+            x.get('destination') or '',                 # 第四优先级：目的地
+            x.get('shipping_marks') or x.get('shipping_mark') or '' # 第五优先级：唛头
+        ))
         return data
     
     async def _ltl_unscheduled_cargo(self, pl_criteria, plt_criteria) -> Dict[str, Any]:
@@ -6320,6 +6344,7 @@ class PostNsop(View):
 
             ltl_cost = float(ltl_cost_raw) if has_ltl_cost_param else None
             ltl_quote = float(ltl_quote_raw) if has_ltl_quote_param else None
+            print('ltl_quote_raw',ltl_quote,has_ltl_quote_param)
 
             # 根据 ID 类型确定字段名
             if cargo_id.startswith('plt_'):
@@ -6354,7 +6379,8 @@ class PostNsop(View):
             if cargo_id.startswith('plt_') and pallet_size:
                 await self._save_pallet_sizes(ids, pallet_size)
             
-            if ltl_quote or '组合柜' in ltl_quote_note:
+            if has_ltl_quote_param or '组合柜' in ltl_quote_note:
+                if not ltl_quote_note: ltl_quote_note = '派送费'
                 msg = await self._delivery_account_entry(ids, ltl_quote, ltl_quote_note, username)
                 if msg: total_status_messages.append(msg)
 
@@ -6427,6 +6453,7 @@ class PostNsop(View):
                     existing_item.weight = total_weight
                     existing_item.amount = ltl_quote
                     existing_item.note = ltl_quote_note
+                    existing_item.description = ltl_quote_note
                     existing_item.warehouse_code = getattr(first_pallet, "destination", "")
                     await sync_to_async(existing_item.save)()
             else:
@@ -6449,7 +6476,7 @@ class PostNsop(View):
                         invoice_number=invoice_record,
                         invoice_type="receivable",
                         item_category="delivery_other",
-                        description="派送费",
+                        description=ltl_quote_note,
                         warehouse_code=getattr(first_pallet, "destination", ""),
                         shipping_marks=shipping_mark,
                         rate=ltl_quote,

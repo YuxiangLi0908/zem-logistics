@@ -3259,7 +3259,7 @@ class ExceptionHandling(View):
         except Exception as e:
             messages.error(request, f"删除过程中发生错误: {str(e)}")
 
-        inv = Invoicev2.objects.get(id=invoice_item_id)
+        inv = await sync_to_async(Invoicev2.objects.get)(id=invoice_item_id)
         container = inv.container_number
         # 重新计算账单总费用
         await self._async_update_invoice_amount(inv,container)
