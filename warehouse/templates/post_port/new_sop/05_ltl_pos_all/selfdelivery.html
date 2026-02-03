@@ -707,7 +707,7 @@
                     <td class="fleet-contact-method-col">
                         <input type="text" class="fleet-contact-method-input"
                             data-id="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
-                            value="{{ cargo.ltl_release_command|default:'' }}"
+                            value="{{ cargo.ltl_contact_method|default:'' }}"
                             placeholder="输入类型">
                     <td class="fleet-note-col">
                         <textarea class="fleet-editable-textarea fleet-note-input"
