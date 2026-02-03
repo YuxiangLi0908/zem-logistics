@@ -4094,10 +4094,14 @@ class ReceivableAccounting(View):
         current_date = datetime.now().date()
         start_date = (
             (current_date + timedelta(days=-90)).strftime("%Y-%m-%d")
-            if not start_date
+            if not start_date or start_date == "None"
             else start_date
         )
-        end_date = current_date.strftime("%Y-%m-%d") if not end_date else end_date
+        end_date = (
+            current_date.strftime("%Y-%m-%d")
+            if not end_date or end_date == "None"
+            else end_date
+        )
 
         # --- 2. 构建基础查询条件 ---
         criteria = (
