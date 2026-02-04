@@ -2571,7 +2571,10 @@ class ExceptionHandling(View):
                 context['fleet_sp'] = fleet_sp
             elif search_type == 'invoicestatus':
                 invoicestatus_object = await sync_to_async(
-                    lambda: list(InvoiceStatusv2.objects.filter(container_number__container_number=search_value))
+                    lambda: list(InvoiceStatusv2.objects.filter(
+                        container_number__container_number=search_value,
+                        invoice_type="receivable"
+                    ))
                 )()
                 for s in invoicestatus_object:
                     s.preport_choices = s._meta.get_field("preport_status").choices
