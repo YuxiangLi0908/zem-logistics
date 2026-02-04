@@ -881,7 +881,6 @@
 
             <!-- 隐藏字段 -->
             <input type="hidden" name="step" value="preport_save">
-            <input type="hidden" name="save_type" id="save_type" value="">
             <input type="hidden" name="container_number" value="{{ container_number }}">
             <input type="hidden" name="invoice_id" value="{{ invoice.id }}">
             <input type="hidden" name="start_date" value="{{ start_date }}">
@@ -891,21 +890,21 @@
             <!-- 操作按钮 -->
             {% if not receivable_is_locked %}
                 <div class="action-buttons">
-                    <button type="submit" class="btn btn-success" onclick="setSaveType('pending_review')">
+                    <button type="submit" name="save_type" value="pending_review" class="btn btn-success">
                         <i class="fas fa-check-circle"></i>
                         保存完成
                     </button>
-                    <button type="submit" class="btn btn-primary" onclick="setSaveType('in_progress')">
+                    <button type="submit" name="save_type" value="in_progress" class="btn btn-primary">
                         <i class="fas fa-save"></i>
                         暂存未完成
                     </button>
                     
                     {% if is_leader %}
-                    <button type="submit" class="btn btn-warning" onclick="setSaveType('completed')">
+                    <button type="submit" name="save_type" value="completed" class="btn btn-warning">
                         <i class="fas fa-thumbs-up"></i>
                         审核通过
                     </button>
-                    <button type="submit" class="btn btn-danger" onclick="setSaveType('rejected')">
+                    <button type="submit" name="save_type" value="rejected" class="btn btn-danger">
                         <i class="fas fa-thumbs-down"></i>
                         审核不通过
                     </button>
@@ -1127,11 +1126,6 @@
         `;
         container.appendChild(newRow);
         calculateTotalAmount();
-    }
-    
-    // 设置保存类型
-    function setSaveType(type) {
-        document.getElementById('save_type').value = type;
     }
     
     // 初始化计算总金额

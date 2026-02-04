@@ -2889,7 +2889,6 @@ class ReceivableAccounting(View):
                     else:
                         preport_to_record_orders.append(base_data)
 
-        origin_preport_to_record_orders = preport_to_record_orders.copy()
         # --- 8. 排序逻辑 ---
         preport_recorded_orders.sort(key=lambda x: {
             "rejected": 0,
@@ -2921,7 +2920,6 @@ class ReceivableAccounting(View):
             "warehouse_filter": warehouse,
             "default_tab": default_tab, 
             "is_leader": is_leader,
-            "origin_preport_to_record_orders": origin_preport_to_record_orders,
         })
         return context
 
@@ -6565,7 +6563,9 @@ class ReceivableAccounting(View):
 
     def handle_invoice_preport_save(self, request:HttpRequest) -> Dict[str, Any]:
         context = {} 
-        save_type = request.POST.get("save_type")       
+        save_type = request.POST.get("save_type")    
+        if not save_type:
+            raise ValueError("未检测到保存操作类型。请通过点击页面底部的操作按钮提交表单，不要直接按回车")   
         invoice_id = request.POST.get("invoice_id")
 
         current_user = request.user 
