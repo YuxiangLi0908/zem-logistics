@@ -3254,18 +3254,38 @@ class ExceptionHandling(View):
 
 
         try:
-            # 删除 InvoiceDelivery
-            await sync_to_async(
-                lambda: InvoiceItemv2.objects.filter(id=invoice_item_id).delete()
+            invoice_item = await sync_to_async(
+                lambda: InvoiceItemv2.objects.filter(id=invoice_item_id).first()
             )()
-            messages.success(request, f"成功删除 InvoiceDelivery ID {invoice_item_id}")
+            if invoice_item:
+                # 保存invoice_number用于后续查询
+                invoice_number_value = invoice_item.invoice_number_id
+                
+                # 删除 InvoiceItemv2
+                await sync_to_async(
+                    lambda: InvoiceItemv2.objects.filter(id=invoice_item_id).delete()
+                )()
+                
+                messages.success(request, f"成功删除 InvoiceItemv2 ID {invoice_item_id}")
+                
+                # 使用保存的invoice_number查询Invoicev2
+                inv = await sync_to_async(
+                    lambda: Invoicev2.objects.filter(id=invoice_number_value).first()
+                )()
+                
+                if inv:
+                    # 这里可以继续处理inv对象
+                    container = inv.container_number
+                    # 重新计算账单总费用
+                    await self._async_update_invoice_amount(inv,container)
+                else:
+                    messages.warning(request, f"未找到对应的Invoicev2记录")
+                    
+            else:
+                messages.error(request, f"未找到InvoiceItemv2 ID {invoice_item_id}")
         except Exception as e:
             messages.error(request, f"删除过程中发生错误: {str(e)}")
 
-        inv = await sync_to_async(Invoicev2.objects.get)(id=invoice_item_id)
-        container = inv.container_number
-        # 重新计算账单总费用
-        await self._async_update_invoice_amount(inv,container)
         # 重新查询
         request.POST = request.POST.copy()
         request.POST["step"] = "search_invoice_delivery"
