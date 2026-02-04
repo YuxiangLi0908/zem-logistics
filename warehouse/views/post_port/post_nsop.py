@@ -2343,6 +2343,15 @@ class PostNsop(View):
         
     def _process_destination(self, destination_origin):
         """处理目的地字符串"""
+        def clean_all_spaces(s):
+            if not s:  # 处理None/空字符串
+                return ""
+            # 匹配所有空格类型：
+            # \xa0 非中断空格 | \u3000 中文全角空格 | \s 普通空格/制表符/换行等
+            import re
+            cleaned = re.sub(r'[\xa0\u3000\s]+', '', str(s))
+            return cleaned
+        
         destination_origin = str(destination_origin)
 
         # 匹配模式：按"改"或"送"分割，分割符放在第一组的末尾
@@ -2379,7 +2388,7 @@ class PostNsop(View):
                     second_result = second_part
                 
                 second_result = second_result.replace(" ", "").upper()
-                return first_result, second_result
+                return clean_all_spaces(first_result), clean_all_spaces(second_result)
             else:
                 raise ValueError(first_change_pos)
         
@@ -2395,7 +2404,7 @@ class PostNsop(View):
             second_result = destination_origin
         
         second_result = second_result.replace(" ", "").upper()
-        return None, second_result
+        return None, clean_all_spaces(second_result)
     
     async def _is_combina(self, container: Container, order: Order, warehouse) -> Any:
         context = {}
