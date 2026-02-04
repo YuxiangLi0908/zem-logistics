@@ -2798,7 +2798,6 @@ class ReceivableAccounting(View):
         all_invoices = Invoicev2.objects.filter(
             container_number_id__in=container_ids
         ).prefetch_related(status_prefetch)
-        print('所有的账单',all_invoices)
         # --- 5. [安全机制] 批量创建缺失的 InvoiceStatus ---
         missing_statuses = []
         invoices_needing_update = []
@@ -2923,6 +2922,7 @@ class ReceivableAccounting(View):
             "is_leader": is_leader,
             "container_ids": container_ids,
             "all_invoices": all_invoices,
+            "base_orders":base_orders,
         })
         return context
 
