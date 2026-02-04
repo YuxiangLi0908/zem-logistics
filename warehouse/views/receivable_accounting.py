@@ -2875,10 +2875,7 @@ class ReceivableAccounting(View):
                     preport_status = base_data['preport_status']
                     
                     # 根据状态分组 (逻辑完全参考原代码)
-                    if preport_status in ["unstarted", "in_progress", None]:
-                        preport_to_record_orders.append(base_data)
-                    
-                    elif preport_status == "pending_review":
+                    if preport_status == "pending_review":
                         preport_pending_review_orders.append(base_data)
                         preport_recorded_orders.append(base_data)
                     
@@ -2889,6 +2886,10 @@ class ReceivableAccounting(View):
                     elif preport_status == "rejected":
                         preport_recorded_orders.append(base_data)
 
+                    else:
+                        preport_to_record_orders.append(base_data)
+
+        origin_preport_to_record_orders = preport_to_record_orders.copy()
         # --- 8. 排序逻辑 ---
         preport_recorded_orders.sort(key=lambda x: {
             "rejected": 0,
@@ -2920,9 +2921,7 @@ class ReceivableAccounting(View):
             "warehouse_filter": warehouse,
             "default_tab": default_tab, 
             "is_leader": is_leader,
-            "container_ids": container_ids,
-            "all_invoices": all_invoices,
-            "base_orders":base_orders,
+            "origin_preport_to_record_orders": origin_preport_to_record_orders,
         })
         return context
 
