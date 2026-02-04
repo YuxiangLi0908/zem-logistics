@@ -439,6 +439,9 @@ class PostNsop(View):
         elif step == "batch_update_delivery_method":
             template, context = await self.handle_batch_update_delivery_method(request)
             return render(request, template, context)
+        elif step == "batch_one_pick_multi_drop":
+            template, context = await self.handle_batch_one_pick_multi_drop(request)
+            return render(request, template, context)
         else:
             raise ValueError('输入错误',step)
     
@@ -475,6 +478,51 @@ class PostNsop(View):
         # 重定向回原页面并保持当前的仓库和标签页
         return await self.handle_ltl_unscheduled_pos_post(request, context)
 
+    async def handle_batch_one_pick_multi_drop(self, request: HttpRequest):
+        '''LTL 一提多卸标记'''
+        context = {}
+        batch_json = request.POST.get('batch_correlation_data', '[]')
+        try:
+            correlation_list = json.loads(batch_json)
+        except (json.JSONDecodeError, TypeError):
+            correlation_list = []
+
+        if correlation_list:
+            # 1. 生成 Seed: 取所有选中项唛头的前5位和后5位拼接
+            # 例如: ZSDMI5120800011 -> ZSDMI0011
+            seed_parts = []
+            for item in correlation_list:
+                mark = str(item.get('shipping_mark', '')).strip()
+                if len(mark) > 10:
+                    seed_parts.append(f"{mark[:5]}{mark[-5:]}")
+                else:
+                    seed_parts.append(mark)
+            
+            seed_str = "|".join(seed_parts)
+            
+            # 2. 通过 Seed 生成唯一的 UUID (uuid5 基于命名空间和字符串生成)
+            # 这样如果用户在不同时间点选了同一组唛头，生成的关联ID理论上是一致的
+            correlation_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, seed_str))
+
+            # 3. 异步循环更新
+            for entry in correlation_list:
+                raw_id = entry.get('cargo_id', '')
+                if not raw_id:
+                    continue
+
+                if raw_id.startswith('plt_'):
+                    # --- 处理打板数据 (Pallet) ---
+                    pallet_ids = raw_id.replace('plt_', '').split(',')
+                    # 使用异步 aupdate 批量更新
+                    await Pallet.objects.filter(id__in=pallet_ids).aupdate(ltl_correlation_id=correlation_id)
+                else:
+                    # --- 处理未打板数据 (PackingList) ---
+                    cargo_ids = raw_id.split(',')
+                    # 使用异步 aupdate 批量更新
+                    await PackingList.objects.filter(id__in=cargo_ids).aupdate(ltl_correlation_id=correlation_id)
+            context.update({'success_messages':f"成功关联一提多卸"})
+        return await self.handle_ltl_unscheduled_pos_post(request, context)
+    
     async def handle_bol_upload_post(self, request: HttpRequest) -> HttpResponse:
         '''客户自提的BOL文件下载'''
         fleet_number = request.POST.get("fleet_number")
@@ -5767,6 +5815,7 @@ class PostNsop(View):
                     "ltl_plt_size_note",
                     "PO_ID",
                     "del_qty",
+                    "ltl_correlation_id",
                     warehouse=F("container_number__orders__retrieval_id__retrieval_destination_precise"),
                     retrieval_destination_precise=F("container_number__orders__retrieval_id__retrieval_destination_precise"),
                     customer_name=F("container_number__orders__customer_name__zem_name"),
@@ -5883,6 +5932,7 @@ class PostNsop(View):
                     "ltl_contact_method",
                     "shipment_batch_number__shipment_batch_number",
                     "shipment_batch_number__fleet_number__fleet_number",
+                    "ltl_correlation_id",
                     warehouse=F("container_number__orders__retrieval_id__retrieval_destination_precise"),
                     vessel_eta=F("container_number__orders__vessel_id__vessel_eta"),
                     is_pass=F("is_pass"),
@@ -5987,12 +6037,31 @@ class PostNsop(View):
         # 2. 统一排序逻辑
         # Python 的 sort 是稳定的，可以一次性处理整个 data 列表
         data.sort(key=lambda x: (
-            x.get('is_pickup_priority', 1),             # 第一优先级：含有 pickup 的在前 (0)
-            get_pickup_date_key(x.get('ltl_follow_status', '')), # 第二优先级：提取出的 (月, 日) 元组排序
-            x.get('offload_at') or '',                  # 第三优先级：拆柜日期 (MM-DD 字符串比较)
-            x.get('destination') or '',                 # 第四优先级：目的地
-            x.get('shipping_marks') or x.get('shipping_mark') or '' # 第五优先级：唛头
+            0 if x.get('ltl_correlation_id') else 1,             # 第一优先级：有关联ID的在前
+            x.get('ltl_correlation_id') or '',                    # 第二优先级：相同 ID 聚合
+            x.get('is_pickup_priority', 1),                      # 第三优先级：pickup 状态
+            get_pickup_date_key(x.get('ltl_follow_status', '')), # 第四优先级：状态日期
+            x.get('offload_at') or '',                           # 第五优先级
+            x.get('destination') or '',                          # 第六优先级
+            x.get('shipping_marks') or x.get('shipping_mark') or ''
         ))
+
+        # 3. 为“一提多卸”组分配背景颜色
+        # 定义一组浅色调背景，避开红色/黄色等警告色
+        color_palette = ["#e8f4fd", "#eafaf1", "#fef9e7", "#f4ecf7", "#ebf5fb", "#fdf2e9", "#e8f8f5"]
+        id_to_color = {}
+        color_idx = 0
+        
+        for item in data:
+            corr_id = item.get('ltl_correlation_id')
+            if corr_id:
+                if corr_id not in id_to_color:
+                    # 分配颜色
+                    id_to_color[corr_id] = color_palette[color_idx % len(color_palette)]
+                    color_idx += 1
+                item['correlation_bg_color'] = id_to_color[corr_id]
+            else:
+                item['correlation_bg_color'] = "" # 无颜色
         return data
     
     async def _ltl_unscheduled_cargo(self, pl_criteria, plt_criteria) -> Dict[str, Any]:
