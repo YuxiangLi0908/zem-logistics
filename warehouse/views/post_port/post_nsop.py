@@ -1013,10 +1013,9 @@ class PostNsop(View):
                     address = re.sub("[\u4e00-\u9fff]", " ", address)
                     address = re.sub(r"\uFF0C", ",", address)
                     parts = [p.strip() for p in address.split(";")]
-                    
                     contact = {
                         "company": parts[0] if len(parts) > 0 else "",
-                        "road":    parts[1] if len(parts) > 1 else "",
+                        "Road":    parts[1] if len(parts) > 1 else "",
                         "city":    parts[2] if len(parts) > 2 else "",
                         "name":    parts[3] if len(parts) > 3 else "",
                         "phone":   parts[4] if len(parts) > 4 else "",
