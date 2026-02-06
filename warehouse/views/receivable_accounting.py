@@ -5467,13 +5467,15 @@ class ReceivableAccounting(View):
                 
                 if delivery_type == "public":
                     # 公仓：尝试自动计算费用
+                    vessel_etd = order.vessel_id.vessel_etd
                     item_data = self._process_public_unbilled(
                         group=group,
                         container=container,
                         order=order,
                         destination=destination,
                         location=location,
-                        fee_details=fee_details
+                        fee_details=fee_details,
+                        vessel_etd=vessel_etd
                     )
                     
                 else:
@@ -5929,9 +5931,21 @@ class ReceivableAccounting(View):
         destination,
         location,
         fee_details,
+        vessel_etd
     ) -> Dict[str, Any]:
         """处理公仓未录入的PO"""
         context = {}
+        # 判断是用新规则还是旧规则
+        cutoff_date = date(2025, 4, 1)
+        cutoff_datetime = datetime.combine(cutoff_date, datetime_time.min).replace(
+            tzinfo=pytz.UTC
+        )
+        is_new_rule = vessel_etd >= cutoff_datetime
+        rule_warehouse = order.retrieval_id.retrieval_destination_area
+        if 'LA' in rule_warehouse:
+            # LA 统一用旧规则
+            is_new_rule = False
+
         po_id = group.get("PO_ID")
         delivery_method = group.get("delivery_method", "")
         if not delivery_method:
@@ -5998,12 +6012,12 @@ class ReceivableAccounting(View):
                 rate = 0
                 amount = 0
                 total_pallets = self._calculate_total_pallet(
-                    total_cbm, True, is_niche_warehouse
+                    total_cbm, is_new_rule, is_niche_warehouse
                 )   
                 is_niche_warehouse = True
             else:            
                 total_pallets = self._calculate_total_pallet(
-                    total_cbm, True, is_niche_warehouse
+                    total_cbm, is_new_rule, is_niche_warehouse
                 )               
                 rate = float(rate) if rate else 0.0
                 total_pallets = float(total_pallets) if total_pallets else 0.0
