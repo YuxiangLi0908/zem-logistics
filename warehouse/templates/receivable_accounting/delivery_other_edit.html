@@ -911,6 +911,7 @@
                                             <option value="">请选择</option>
                                             <option value="selfpickup" {% if item.delivery_category == "selfpickup" %}selected{% endif %}>客户自提</option>
                                             <option value="selfdelivery" {% if item.delivery_category == "selfdelivery" %}selected{% endif %}>自发派送</option>
+                                            <option value="combine" {% if item.delivery_category == "combine" %}selected{% endif %}>组合柜</option>
                                             <option value="hold" {% if item.delivery_category == "hold" %}selected{% endif %}>暂扣留仓</option>
                                         </select>
                                     </div>
