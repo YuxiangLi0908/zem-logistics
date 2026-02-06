@@ -1371,6 +1371,10 @@ $(document).ready(function() {
             // 自发派送允许用户输入金额主体，但我们要确保附加费也累加进去
             const userAmount = parseFloat($amountInput.val());
             amount = userAmount + surcharges;
+        } else if (deliveryType === 'combine') {
+            // 自发派送允许用户输入金额主体，但我们要确保附加费也累加进去
+            const userAmount = parseFloat($amountInput.val());
+            amount = userAmount;
         } else {
             // 未选择类型时不自动计算（保持为0）
             amount = surcharges; // 保证至少包含附加费
