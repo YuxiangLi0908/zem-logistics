@@ -3808,6 +3808,41 @@ class ExceptionHandling(View):
         }
         return self.template_recaculate_combine, context
 
+    def _sync_update_invoice_combine_amount(self, invoice, container):
+        """更新账单总费用"""
+        
+        # 1. 重新计算 'delivery_public' (公仓派送) 的总额
+        total_del_pub = InvoiceItemv2.objects.filter(
+            invoice_number=invoice,
+            container_number=container,
+            invoice_type='receivable',
+            item_category='delivery_public'
+        ).aggregate(total=Sum('amount'))['total'] or 0
+
+        total_del_oth = InvoiceItemv2.objects.filter(
+            invoice_number=invoice,
+            container_number=container,
+            invoice_type='receivable',
+            item_category='delivery_other'
+        ).aggregate(total=Sum('amount'))['total'] or 0
+
+        # 3. 更新 Invoicev2 实例的 delivery_public 字段
+        invoice.receivable_delivery_public_amount = total_del_pub
+        invoice.receivable_delivery_other_amount = total_del_oth
+
+        # 4. 准备计算总金额所需的分项数据 (转为 Decimal 以避免浮点数精度丢失)
+        # 如果字段为 None，则默认为 0
+        total_amount_all = InvoiceItemv2.objects.filter(
+            invoice_number=invoice,
+            container_number=container,
+            invoice_type='receivable',
+        ).aggregate(total=Sum('amount'))['total'] or 0
+
+        # 6. 赋值并保存
+        invoice.receivable_total_amount = float(total_amount_all)
+        invoice.remain_offset = float(total_amount_all)
+        invoice.save()
+
 
     def _sync_update_invoice_amount(self, invoice, container):
         """更新账单总费用"""
@@ -3820,6 +3855,13 @@ class ExceptionHandling(View):
             item_category='delivery_public'
         ).aggregate(total=Sum('amount'))['total'] or 0
 
+        total_del_oth = InvoiceItemv2.objects.filter(
+            invoice_number=invoice,
+            container_number=container,
+            invoice_type='receivable',
+            item_category='delivery_other'
+        ).aggregate(total=Sum('amount'))['total'] or 0
+
         # 2. 重新计算 'combina_extra_fee' (组合费额外费用) 的总额
         total_extra = InvoiceItemv2.objects.filter(
             invoice_number=invoice,
@@ -3830,21 +3872,21 @@ class ExceptionHandling(View):
 
         # 3. 更新 Invoicev2 实例的 delivery_public 字段
         invoice.receivable_delivery_public_amount = total_del_pub
-
+        invoice.receivable_delivery_other_amount = total_del_oth
         # 4. 准备计算总金额所需的分项数据 (转为 Decimal 以避免浮点数精度丢失)
         # 如果字段为 None，则默认为 0
         preport = Decimal(str(invoice.receivable_preport_amount or 0))
         wh_pub = Decimal(str(invoice.receivable_wh_public_amount or 0))
         wh_oth = Decimal(str(invoice.receivable_wh_other_amount or 0))
-        del_oth = Decimal(str(invoice.receivable_delivery_other_amount or 0))
         
         # 当前计算出的值也要转 Decimal
         current_del_pub = Decimal(str(total_del_pub))
+        current_del_oth = Decimal(str(total_del_oth))
         current_extra = Decimal(str(total_extra))
 
         # 5. 计算最终总金额
         # 公式：港前 + 公仓 + 私仓 + 公仓派送(刚算的) + 私仓派送 + 额外费用(刚算的)
-        final_total = preport + wh_pub + wh_oth + current_del_pub + del_oth + current_extra
+        final_total = preport + wh_pub + wh_oth + current_del_pub + current_del_oth + current_extra
 
         # 6. 赋值并保存
         invoice.receivable_total_amount = float(final_total)
