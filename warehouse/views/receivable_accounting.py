@@ -5971,6 +5971,7 @@ class ReceivableAccounting(View):
                 is_niche_warehouse = True
             else:
                 is_niche_warehouse = False
+            
             #LA和其他的存储格式有点区别
             details = (
                 {"LA_AMAZON": rules}
@@ -5996,7 +5997,10 @@ class ReceivableAccounting(View):
                 need_manual_input = True
                 rate = 0
                 amount = 0
-                total_pallets = group.get("total_pallets")   
+                total_pallets = self._calculate_total_pallet(
+                    total_cbm, True, is_niche_warehouse
+                )   
+                is_niche_warehouse = True
             else:            
                 total_pallets = self._calculate_total_pallet(
                     total_cbm, True, is_niche_warehouse
@@ -6030,6 +6034,7 @@ class ReceivableAccounting(View):
     def _calculate_total_pallet(
         self, cbm: float, is_new_rule: bool, is_niche_warehouse: bool
     ) -> float:
+        
         raw_p = float(cbm) / 1.8
         integer_part = int(raw_p)
         decimal_part = raw_p - integer_part
@@ -7411,9 +7416,15 @@ class ReceivableAccounting(View):
         fee_details: dict,
         warehouse: str,
         plts_by_destination: list,
-        is_new_rule: bool,
         over_count: float,
+        vessel_etd: bool,
     ) -> str:
+        cutoff_date = date(2025, 4, 1)
+        cutoff_datetime = datetime.combine(cutoff_date, datetime_time.min).replace(
+            tzinfo=pytz.UTC
+        )
+        is_new_rule = vessel_etd >= cutoff_datetime
+        
         is_niche_warehouse = True
         if "LA" in warehouse:
             amazon_data = fee_details.get(f"{warehouse}_PUBLIC").details
@@ -7751,7 +7762,7 @@ class ReceivableAccounting(View):
         over_count = max(0, total_pallets - max_pallets)
         # 4.4、计算超板费用
         plts_by_destination = self._calculate_delivery_fee_cost(
-            fee_details, warehouse, plts_by_destination, destinations, over_count
+            fee_details, warehouse, plts_by_destination, destinations, over_count, vessel_etd
         )
         max_price = 0
         max_single_price = 0
@@ -8315,7 +8326,7 @@ class ReceivableAccounting(View):
             item["total_cbm"] = cbm_map.get(item["destination"], 0)
         
         plts_by_destination = self._calculate_delivery_fee_cost(
-            fee_details, warehouse, plts_by_destination, destinations, over_count
+            fee_details, warehouse, plts_by_destination, destinations, over_count, vessel_etd
         )
         max_price = 0
         max_single_price = 0
@@ -8390,6 +8401,7 @@ class ReceivableAccounting(View):
                     plts_by_destination_overregion,
                     destinations,
                     None,
+                    vessel_etd
                 )
 
                 sum_price = 0
