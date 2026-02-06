@@ -6050,7 +6050,8 @@ class PostNsop(View):
             x.get('is_pickup_priority', 1),                      # 第三优先级：pickup 状态
             get_pickup_date_key(x.get('ltl_follow_status', '')), # 第四优先级：状态日期
             x.get('offload_at') or '',                           # 第五优先级
-            x.get('destination') or '',                          # 第六优先级
+            x.get('container_number') or '',                          # 第六优先级
+            x.get('destination') or '',                          # 第七优先级
             x.get('shipping_marks') or x.get('shipping_mark') or ''
         ))
 

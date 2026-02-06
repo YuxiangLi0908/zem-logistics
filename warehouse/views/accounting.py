@@ -9905,6 +9905,8 @@ class Accounting(View):
         # 计算板数
         if delivery.type == "local":
             is_new_rule = False
+        
+        # 根据冷热门仓点计算板数
         total_pallet = self._calculate_total_pallet(
             delivery.total_cbm, is_new_rule, is_niche_warehouse
         )

@@ -11,7 +11,7 @@ from datetime import date, datetime, timedelta, time as datetime_time
 
 
 from django.db import transaction
-
+import pytz
 from typing import Any, Dict, List
 
 import openpyxl
@@ -5603,6 +5603,13 @@ class ReceivableAccounting(View):
         """处理组合柜区域的计费逻辑返回: (更新后的billing_items, 已处理的pallet_groups)"""
         warehouse = order.retrieval_id.retrieval_destination_area
         container_type_temp = 0 if "40" in container.container_type else 1
+
+        vessel_etd = order.vessel_id.vessel_etd
+        cutoff_date = date(2025, 4, 1)
+        cutoff_datetime = datetime.combine(cutoff_date, datetime_time.min).replace(
+            tzinfo=pytz.UTC
+        )
+        is_new_rule = vessel_etd >= cutoff_datetime
         
         # 1. 获取组合柜报价规则
         combina_key = f"{warehouse}_COMBINA"
@@ -5613,6 +5620,12 @@ class ReceivableAccounting(View):
             return (context, [])  # 返回错误，空列表
         
         rules = fee_details.get(combina_key).details
+        niche_warehouse = fee_details.get(f"{warehouse}_PUBLIC").niche_warehouse
+        niche_warehouse_fixed = {
+            self._process_destination_wlm(x)
+            for x in niche_warehouse
+            if x
+        }
 
         # 2. 筛选出属于组合区域的pallet_groups
         combina_pallet_groups = []
@@ -5805,13 +5818,18 @@ class ReceivableAccounting(View):
             else:
                 description = ""
 
+            # 根据冷热门仓点计算板数
+            is_niche_warehouse = dest_fixed in niche_warehouse_fixed
+            must_pallet = self._calculate_total_pallet(
+                group_cbm, is_new_rule, is_niche_warehouse
+            )
             item_data = {
                 "id": None,
                 "PO_ID": po_id,
                 "destination": dest_fixed,
                 "delivery_method": group.get("delivery_method", ""),
                 "delivery_category": "combine",
-                "total_pallets": group.get("total_pallets", 0),
+                "total_pallets": must_pallet,
                 "total_cbm": group_cbm,
                 "total_weight_lbs": round(group.get("total_weight_lbs", 0), 2),
                 "shipping_marks": group.get("shipping_marks", ""),
