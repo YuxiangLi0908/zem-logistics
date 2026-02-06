@@ -4115,7 +4115,7 @@ class ExceptionHandling(View):
             
             # 7. 更新 Invoicev2 的金额汇总
             # 重新计算 delivery_public 总额
-            self._sync_update_invoice_amount(inv,container)
+            self._sync_update_invoice_combine_amount(inv,container)
 
             log_entry["actions"] = "[成功]：数据已重算并保存"
             
@@ -4384,7 +4384,7 @@ class ExceptionHandling(View):
             
             if is_match:
                 all_combina_destinations.add(destination_str)
-                cbm = group.get('total_cbm', 0)
+                cbm = round(group.get('total_cbm', 0), 2)
                 cbm_ratio = round(cbm / total_container_cbm, 4) if total_container_cbm > 0 else 0
                 item_data = {
                     'container_number': container, # 外键对象
