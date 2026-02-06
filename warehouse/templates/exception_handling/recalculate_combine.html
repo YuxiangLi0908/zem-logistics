@@ -209,12 +209,32 @@
             <form method="post">
                 {% csrf_token %}
                 <input type="hidden" name="step" value="recalculate_by_containers">
+                <input type="hidden" name="region" value="all">
                 <div class="form-group mb-3">
                     <label>输入柜号（空格/逗号/换行分隔）</label>
                     <textarea name="container_list" class="custom-input textarea-input" placeholder="例如: ZEMU1234567 MSKU0987654...">{{ container_list }}</textarea>
                 </div>
                 <button type="submit" class="btn-submit btn-list">
                     <i class="fas fa-crosshairs mr-2"></i> 执行精准重算
+                </button>
+            </form>
+        </div>
+        <!-- 模式 C -->
+        <div class="mode-card list-mode">
+            <div class="card-title">
+                <i class="fas fa-keyboard"></i>
+                模式 C：按柜号列表执行，可输入container的id
+            </div>
+            <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="step" value="recalculate_combine_by_containers">
+                <input type="hidden" name="region" value="combine">
+                <div class="form-group mb-3">
+                    <label>输入柜号（空格/逗号/换行分隔）</label>
+                    <textarea name="container_list" class="custom-input textarea-input" placeholder="例如: ZEMU1234567 MSKU0987654...">{{ container_list }}</textarea>
+                </div>
+                <button type="submit" class="btn-submit btn-list">
+                    <i class="fas fa-crosshairs mr-2"></i> 仅重新计算组合柜/财务未确认
                 </button>
             </form>
         </div>
