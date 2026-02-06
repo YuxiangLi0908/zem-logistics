@@ -3237,7 +3237,8 @@ class ExceptionHandling(View):
 
         # 重新计算账单总费用
         inv = await sync_to_async(Invoicev2.objects.get)(invoice_number=invoice_number)
-        await self._async_update_invoice_amount(inv,inv.container_number)
+        container = await sync_to_async(lambda: inv.container_number)()
+        await self._async_update_invoice_amount(inv,container)
         # 重新查询
         request.POST = request.POST.copy()
         request.POST["step"] = "search_invoice_delivery"
