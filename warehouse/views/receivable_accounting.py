@@ -1513,7 +1513,6 @@ class ReceivableAccounting(View):
                         # 保留两位小数
                         return decimal_value.quantize(Decimal('0.00'))
                     except (InvalidOperation, ValueError) as e:
-                        print(f"转换错误: {v} -> {e}")
                         return Decimal('0.00')
                 # 处理数量、单价、金额等字段
 

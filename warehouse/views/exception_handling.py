@@ -3898,7 +3898,7 @@ class ExceptionHandling(View):
         
         # 使用 sync_to_async 包装 save 操作
         await sync_to_async(invoice.save)()
- 
+    
     async def handle_recalculate_by_containers(self, request):
         """
         异步处理：根据输入的柜号列表重新计算
@@ -3915,19 +3915,28 @@ class ExceptionHandling(View):
         if not container_numbers:
             return []
 
-        # 2. 异步获取这些柜号对应的已完成账单
-        # 注意：一个柜子可能有多个账单(Invoicev2)，所以用 __in 查询
-        invoices = await sync_to_async(list)(
-            Invoicev2.objects.filter(
-                container_number__container_number__in=container_numbers,
-            ).select_related('container_number').order_by('container_number__container_number')
-        )
+        all_are_numbers = all(c.isdigit() for c in container_numbers)
+        if all_are_numbers:
+            # 如果传的是柜子的id
+            invoices = await sync_to_async(list)(
+                Invoicev2.objects.filter(
+                    container_number__in=container_numbers,
+                ).select_related('container_number').order_by('container_number__container_number')
+            )
+        else:
+            # 2. 异步获取这些柜号对应的已完成账单
+            # 注意：一个柜子可能有多个账单(Invoicev2)，所以用 __in 查询
+            invoices = await sync_to_async(list)(
+                Invoicev2.objects.filter(
+                    container_number__container_number__in=container_numbers,
+                ).select_related('container_number').order_by('container_number__container_number')
+            )
 
         migration_log = []
-
+        region = request.POST.get('region')
         # 3. 调用你已有的核心处理函数 (复用逻辑)
         for inv in invoices:
-            log_entry = await self._async_process_single_invoice(inv, request.user)
+            log_entry = await self._async_process_single_invoice(inv, request.user, region)
             migration_log.append(log_entry)    
 
         context = {
@@ -3939,7 +3948,7 @@ class ExceptionHandling(View):
 
     async def handle_recalculate_combine(self,request):
         """
-        异步处理：历史数据组合柜重新计算
+        异步处理：历史数据组合柜重新计算,按ID
         """
         start_index = int(request.POST.get('start_index', 0))
         end_index = int(request.POST.get('end_index', 100))
@@ -3970,7 +3979,7 @@ class ExceptionHandling(View):
         return self.template_recaculate_combine, context  # 返回给 context 用于前端渲染
 
     @sync_to_async
-    def _async_process_single_invoice(self, inv, username):
+    def _async_process_single_invoice(self, inv, username, region=None):
         """
         同步包装：处理单个账单的 DB 事务操作
         """
@@ -3986,7 +3995,94 @@ class ExceptionHandling(View):
         }
 
         rece_a = ReceivableAccounting()
-        if 1:
+
+        if region == 'combine':
+            # 重新计算组合柜，其他的不管
+            order = Order.objects.get(container_number__container_number=container_number)
+            if not order:
+                log_entry["actions"] = "[跳过]：找不到对应订单"
+                return log_entry
+            if not rece_a._determine_is_combina(order):
+                log_entry["actions"] = "[跳过]：该柜子不是组合柜"
+                return log_entry
+            
+            container = inv.container_number
+            warehouse = order.retrieval_id.retrieval_destination_area
+            # 1. 检查是否有需要计算的 combine 项 (比率为 0 或 Null)
+            all_combine_items = InvoiceItemv2.objects.filter(
+                invoice_number=inv,
+                invoice_type='receivable',
+                delivery_type='combine'
+            )
+            
+            # --- 拆分判断逻辑 ---               
+            # A. 判断是否存在组合柜类型的账单项
+            if all_combine_items:
+                all_combine_items.delete() 
+
+            # 2. 计算整柜总 CBM
+            total_cbm_res = PackingList.objects.filter(
+                container_number=inv.container_number
+            ).aggregate(total=Sum('cbm'))
+            total_container_cbm = float(total_cbm_res['total'] or 0)
+
+            if total_container_cbm <= 0:
+                log_entry["actions"] = "错误：柜子总CBM为0"
+                return log_entry
+
+            # 5. 重新计算组合柜item
+            # 5.1 获取报价表规则
+            quotations = rece_a._get_fee_details(order, order.retrieval_id.retrieval_destination_area,order.customer_name.zem_name)
+            if isinstance(quotations, dict) and quotations.get("error_messages"):
+                log_entry["actions"] = f"获取报价表规则错误:{quotations['error_messages']}"
+                return log_entry
+
+            quotation_info = quotations['quotation']
+            log_entry["filename"] = quotation_info.filename
+            
+            fee_details = quotations['fees']
+            combina_key = f"{warehouse}_COMBINA"
+            if combina_key not in fee_details:
+                log_entry["actions"] = f"获取报价表规则错误:combina_key，仓库为{warehouse}"
+                return log_entry
+            
+            rules = fee_details.get(combina_key).details
+            
+            destinations = list(Pallet.objects.filter(container_number=container)
+                            .values_list("destination", flat=True).distinct())
+            
+            # 重新计算组合柜数据
+            new_items = []
+            # 5.1 公仓数据
+            for d_type in ['public', 'other']:
+                pallet_groups,err = self._recaculate_pallet_groups(container_number,inv.invoice_number,d_type)      
+                if err:
+                    log_entry["actions"] = f"[错误]：计算组合项异常 - {err}"
+                    return log_entry
+                    
+                items, err = self._recaculate_combine_items(pallet_groups, container, inv, order, rules, warehouse, total_container_cbm, username, destinations)
+                if err:
+                    log_entry["actions"] = f"[错误]：计算组合项异常 - {err}"
+                    return log_entry
+                new_items.extend(items)
+
+            # 6. 批量创建
+            if new_items:
+                InvoiceItemv2.objects.bulk_create([InvoiceItemv2(**item) for item in new_items])
+                log_entry["updated_count"] = len(new_items)
+            
+            # 7. 更新 Invoicev2 的金额汇总
+            # 重新计算 delivery_public 总额
+            self._sync_update_invoice_amount(inv,container)
+
+            log_entry["actions"] = "[成功]：数据已重算并保存"
+            
+            # 为了让前端展示状态列，模拟 new_data
+            log_entry["new_data"] = {
+                "finance_status": "completed",
+                "delivery_public_status": "completed"
+            }
+        else:
             with transaction.atomic():
                 # -1. 检查账单是否已确认
                 try:
@@ -4221,7 +4317,7 @@ class ExceptionHandling(View):
         combina_items = []
         all_combina_destinations = set()
         for group in pallet_groups:
-            
+            item_category = f"delivery_{group.get('delivery_type')}"
             destination_str = group.get("destination", "")
 
             #改前和改后的
@@ -4252,7 +4348,7 @@ class ExceptionHandling(View):
                     'container_number': container, # 外键对象
                     'invoice_number': inv,
                     'invoice_type': 'receivable',
-                    'item_category': 'delivery_public',
+                    'item_category': item_category,
                     'delivery_type': 'combine',
                     'PO_ID': group.get('PO_ID'),
                     'warehouse_code': destination_str,  # 对应表的 warehouse_code
