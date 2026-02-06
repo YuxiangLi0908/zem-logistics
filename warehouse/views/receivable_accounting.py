@@ -5788,6 +5788,7 @@ class ReceivableAccounting(View):
             dest_str = group.get("destination", "")
             dest_fixed = self._process_destination_wlm(dest_str)
             po_id = group.get("PO_ID")
+            group_cbm = round(group.get("total_cbm", 0), 2)
             
             tier_key = item_to_tier_map.get((po_id, dest_fixed))
             if not tier_key: continue
@@ -5812,7 +5813,7 @@ class ReceivableAccounting(View):
                 "delivery_method": group.get("delivery_method", ""),
                 "delivery_category": "combine",
                 "total_pallets": group.get("total_pallets", 0),
-                "total_cbm": round(cbm, 2),
+                "total_cbm": group_cbm,
                 "total_weight_lbs": round(group.get("total_weight_lbs", 0), 2),
                 "shipping_marks": group.get("shipping_marks", ""),
                 "pallet_ids": group.get("pallet_ids", []),
