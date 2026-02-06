@@ -6330,6 +6330,51 @@ class ReceivableAccounting(View):
                 item_dict[dict_key] = item
 
         return item_dict
+
+    def _get_existing_invoice_items_combine(
+            self,
+            invoice,
+    ) -> Dict[str, Any]:
+        """获取已存在的InvoiceItemv2记录，按PO_ID索引"""
+        items = InvoiceItemv2.objects.filter(
+            invoice_number=invoice,
+            delivery_type="combine",
+            invoice_type="receivable"
+        )
+
+        items_without_po = []
+        items_with_po = []
+        for item in items:
+            if item.PO_ID:
+                items_with_po.append(item)
+            else:
+                items_without_po.append(item)
+
+        if items_without_po:
+            items_without_po = self._supplement_po_ids(invoice, items_without_po, items_with_po)
+
+        items = InvoiceItemv2.objects.filter(
+            invoice_number=invoice,
+            delivery_type="combine",
+            invoice_type="receivable"
+        )
+
+        all_items = items_with_po + items_without_po
+        # 按PO_ID建立索引
+        item_dict = {}
+        for item in all_items:
+            if item.PO_ID:
+                if item.item_category == "delivery_other":
+                    # 对于delivery_other，使用"PO_ID-shipping_marks"作为键
+                    shipping_mark = item.shipping_marks or ""  # 处理None值
+                    dict_key = f"{item.PO_ID}-{shipping_mark}"
+                else:
+                    # 其他类别，只使用PO_ID作为键
+                    dict_key = item.PO_ID
+                
+                item_dict[dict_key] = item
+
+        return item_dict
     
     def _supplement_po_ids(self, invoice, items_without_po, items_with_po):
         """补充缺失的PO_ID"""
@@ -7641,7 +7686,7 @@ class ReceivableAccounting(View):
         
         # 2、组合柜相关信息
         pallet_groups, other_pallet_groups, ctx = self._get_pallet_groups_by_po(container_number, "public", invoice, True)
-        existing_items = self._get_existing_invoice_items(invoice, "delivery_public")
+        existing_items = self._get_existing_invoice_items_combine(invoice)
         result_existing = self._separate_existing_items(existing_items, pallet_groups)
         combina_groups = result_existing['combina_groups']
         if len(combina_groups) == 0:
