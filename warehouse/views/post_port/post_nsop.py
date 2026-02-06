@@ -6651,6 +6651,7 @@ class PostNsop(View):
             )()
             cbm_ratio = round(total_cbm / total_container_cbm_result.get('total_cbm', 0), 4)
             ltl_quote = price * cbm_ratio
+            shipping_marks=getattr(first_pallet, "shipping_mark", "")
             if existing_item:
                 existing_item.qty = qty
                 existing_item.rate = price
@@ -6665,6 +6666,7 @@ class PostNsop(View):
                 existing_item.region = match_region
                 existing_item.regionPrice = price
                 existing_item.item_category = "delivery_public"
+                existing_item.shipping_marks = shipping_marks
                 await sync_to_async(existing_item.save)()
             else:
                 item = InvoiceItemv2(
@@ -6674,7 +6676,7 @@ class PostNsop(View):
                     item_category="delivery_public",
                     description="派送费",
                     warehouse_code=destination_str,
-                    shipping_marks=getattr(first_pallet, "shipping_mark", ""),
+                    shipping_marks=shipping_marks,
                     rate=price,
                     amount=ltl_quote,
                     qty=qty,
