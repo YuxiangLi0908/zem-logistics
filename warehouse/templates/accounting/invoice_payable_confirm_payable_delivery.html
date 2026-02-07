@@ -947,7 +947,11 @@
                                                                   placeholder="搜索目的地"
                                                                   onkeyup="filterDeliveryTable('delivery-pending', this); updateDeliveryPendingSelectAllStatus()">
                                             </th>
-                                            <th class="th"></th>
+                                            <th class="th"><input type="number" class="search-input"
+                                                                  data-column-index="7" min="0"
+                                                                  placeholder="板数≥"
+                                                                  onkeyup="filterDeliveryTable('delivery-pending', this); updateDeliveryPendingSelectAllStatus()">
+                                            </th>
                                             <th class="th"></th>
                                             <th class="th"></th>
                                             <th class="th"></th>
@@ -2306,7 +2310,7 @@
             hiddenInput.value = reason;
         }
 
-        // 派送账单表格专用过滤函数（修复：仅在当前激活标签页内查找表格，避免跨标签页冲突）
+        // 派送账单表格专用过滤函数（新增板数≥数值过滤）
         function filterDeliveryTable(tableType, input) {
             const colIndex = input.dataset.columnIndex;
             const keyword = input.value.trim().toUpperCase();
@@ -2329,8 +2333,21 @@
 
                 const cell = row.querySelectorAll('td')[colIndex];
                 if (!cell) return;
-                const cellText = cell.textContent.trim().toUpperCase();
-                row.style.display = keyword ? (cellText.includes(keyword) ? '' : 'none') : row.dataset.originalDisplay;
+                const cellText = cell.textContent.trim();
+                let isMatch = true;
+
+                // 核心新增：判断是否为板数列（index=7），做数值≥比较；其他列做文本包含匹配
+                if (colIndex === '7' && keyword) {
+                    // 板数列：转数字做 ≥ 比较
+                    const cellNum = parseFloat(cellText) || 0;
+                    const keywordNum = parseFloat(keyword) || 0;
+                    isMatch = cellNum >= keywordNum;
+                } else if (keyword) {
+                    // 其他列：原文本包含匹配逻辑
+                    isMatch = cellText.toUpperCase().includes(keyword);
+                }
+
+                row.style.display = isMatch ? '' : 'none';
             });
 
             // 合并行联动：主行隐藏则子行同步隐藏（仅处理可见主行的合并）
