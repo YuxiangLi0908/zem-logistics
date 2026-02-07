@@ -7776,7 +7776,7 @@ class ReceivableAccounting(View):
         over_count = max(0, total_pallets - max_pallets)
         # 4.4、计算超板费用
         plts_by_destination = self._calculate_delivery_fee_cost(
-            fee_details, warehouse, plts_by_destination, destinations, over_count, vessel_etd
+            fee_details, warehouse, plts_by_destination, over_count, vessel_etd
         )
         max_price = 0
         max_single_price = 0
@@ -8340,7 +8340,7 @@ class ReceivableAccounting(View):
             item["total_cbm"] = cbm_map.get(item["destination"], 0)
         
         plts_by_destination = self._calculate_delivery_fee_cost(
-            fee_details, warehouse, plts_by_destination, destinations, over_count, vessel_etd
+            fee_details, warehouse, plts_by_destination, over_count, vessel_etd
         )
         max_price = 0
         max_single_price = 0
@@ -8413,7 +8413,6 @@ class ReceivableAccounting(View):
                     fee_details,
                     warehouse,
                     plts_by_destination_overregion,
-                    destinations,
                     None,
                     vessel_etd
                 )
