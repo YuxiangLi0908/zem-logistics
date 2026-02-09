@@ -4284,6 +4284,36 @@ class PostNsop(View):
             .filter(criteria)
             .order_by("shipped_at")
         )
+        for s in shipments:
+            pl_pairs = await sync_to_async(list)(
+                PackingList.objects.select_related("container_number")
+                .filter(
+                    container_number__orders__offload_id__offload_at__isnull=False,
+                    shipment_batch_number=s
+                )
+                .values("container_number__container_number", "shipping_mark")
+                .distinct()
+            )
+            plt_pairs = await sync_to_async(list)(
+                Pallet.objects.select_related("container_number")
+                .filter(
+                    container_number__orders__offload_id__offload_at__isnull=False,
+                    shipment_batch_number=s
+                )
+                .values("container_number__container_number", "shipping_mark")
+                .distinct()
+            )
+            print('先获取的柜号唛头', pl_pairs + plt_pairs)
+            print('---------------')
+            pairs_set = set()
+            for d in pl_pairs + plt_pairs:
+                cont = d.get("container_number__container_number")
+                mark = d.get("shipping_mark")
+                if cont and mark:
+                    pairs_set.add((cont, mark))
+            s.container_mark_pairs = [
+                {"container_number": c, "shipping_mark": m} for c, m in sorted(pairs_set)
+            ]
         shipment_fleet_dict = {}
         for s in shipments:
             if s.fleet_number is None:
@@ -6141,7 +6171,7 @@ class PostNsop(View):
             pl_criteria &= Q(id__in=cargo_id_list)
         
         # 获取数据
-        release_cargos = await self._ltl_unscheduled_cargo(pl_criteria, plt_criteria)
+        release_cargos,_ ,_ = await self._ltl_unscheduled_cargo(pl_criteria, plt_criteria)
         
         # 准备 Excel 数据
         excel_data = []
@@ -6422,7 +6452,6 @@ class PostNsop(View):
 
             ltl_cost = float(ltl_cost_raw) if has_ltl_cost_param else None
             ltl_quote = float(ltl_quote_raw) if has_ltl_quote_param else None
-            print('ltl_quote_raw',ltl_quote,has_ltl_quote_param)
 
             # 根据 ID 类型确定字段名
             if cargo_id.startswith('plt_'):
@@ -6532,6 +6561,7 @@ class PostNsop(View):
                     existing_item.amount = ltl_quote
                     existing_item.note = ltl_quote_note
                     existing_item.description = ltl_quote_note
+                    existing_item.item_category = "delivery_other"
                     existing_item.warehouse_code = getattr(first_pallet, "destination", "")
                     await sync_to_async(existing_item.save)()
             else:
@@ -6666,7 +6696,7 @@ class PostNsop(View):
                 existing_item.description = "派送费"
                 existing_item.region = match_region
                 existing_item.regionPrice = price
-                existing_item.item_category = "delivery_public"
+                existing_item.item_category = "delivery_other"
                 existing_item.shipping_marks = shipping_marks
                 await sync_to_async(existing_item.save)()
             else:
@@ -6674,7 +6704,7 @@ class PostNsop(View):
                     container_number=container,
                     invoice_number=invoice_record,
                     invoice_type="receivable",
-                    item_category="delivery_public",
+                    item_category="delivery_other",
                     description="派送费",
                     warehouse_code=destination_str,
                     shipping_marks=shipping_marks,
