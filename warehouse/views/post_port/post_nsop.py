@@ -513,14 +513,44 @@ class PostNsop(View):
                 if raw_id.startswith('plt_'):
                     # --- 处理打板数据 (Pallet) ---
                     pallet_ids = raw_id.replace('plt_', '').split(',')
-                    # 使用异步 aupdate 批量更新
-                    await Pallet.objects.filter(id__in=pallet_ids).aupdate(ltl_correlation_id=correlation_id)
+
+                    existing_records = await sync_to_async(list)(
+                        Pallet.objects.filter(id__in=pallet_ids).values('id', 'ltl_correlation_id')
+                    )
+                    if not existing_records:
+                        continue
+                        
+                    # 检查是否需要取消关联（如果所有选中的记录都有ltl_correlation_id值）
+                    has_correlation = any(record['ltl_correlation_id'] for record in existing_records)
+                    
+                    # 只取消已有关联的记录
+                    if has_correlation:
+                        # 找出有值的记录ID
+                        await Pallet.objects.filter(id__in=pallet_ids).aupdate(ltl_correlation_id='')
+                        context.update({'success_messages': f"成功取消一提多卸关联"})
+                    else:
+                        # 使用异步 aupdate 批量更新
+                        await Pallet.objects.filter(id__in=pallet_ids).aupdate(ltl_correlation_id=correlation_id)
+                        context.update({'success_messages':f"成功关联一提多卸"})
                 else:
                     # --- 处理未打板数据 (PackingList) ---
                     cargo_ids = raw_id.split(',')
-                    # 使用异步 aupdate 批量更新
-                    await PackingList.objects.filter(id__in=cargo_ids).aupdate(ltl_correlation_id=correlation_id)
-            context.update({'success_messages':f"成功关联一提多卸"})
+
+                    existing_records = await sync_to_async(list)(
+                        PackingList.objects.filter(id__in=cargo_ids).values('id', 'ltl_correlation_id')
+                    )
+                    if not existing_records:
+                        continue
+                    has_correlation = any(record['ltl_correlation_id'] for record in existing_records)
+                    
+                    # 如果原本有值，则设置为空（取消操作）
+                    if has_correlation:
+                        await PackingList.objects.filter(id__in=cargo_ids).aupdate(ltl_correlation_id='')
+                        context.update({'success_messages': f"成功取消一提多卸关联"})
+                    else:
+                        # 使用异步 aupdate 批量更新
+                        await PackingList.objects.filter(id__in=cargo_ids).aupdate(ltl_correlation_id=correlation_id)
+                        context.update({'success_messages':f"成功关联一提多卸"})
         return await self.handle_ltl_unscheduled_pos_post(request, context)
     
     async def handle_bol_upload_post(self, request: HttpRequest) -> HttpResponse:
@@ -4303,8 +4333,6 @@ class PostNsop(View):
                 .values("container_number__container_number", "shipping_mark")
                 .distinct()
             )
-            print('先获取的柜号唛头', pl_pairs + plt_pairs)
-            print('---------------')
             pairs_set = set()
             for d in pl_pairs + plt_pairs:
                 cont = d.get("container_number__container_number")
