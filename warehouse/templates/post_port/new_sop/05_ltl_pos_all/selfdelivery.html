@@ -549,7 +549,9 @@
                 <!-- 筛选行 -->
                 <tr class="fleet-filter-row">
                     <td class="fleet-checkbox-cell"></td>
-                    <td></td>
+                    <td>
+                        <input type="text" class="fleet-filter-input" placeholder="筛选关联组..." data-column="0" onkeyup="fleet_applyColumnFilter(this)">
+                    </td>
                     <td>
                         <input type="text" class="fleet-filter-input" placeholder="筛选跟进状态..." data-column="1" onkeyup="fleet_applyColumnFilter(this)">
                     </td>
