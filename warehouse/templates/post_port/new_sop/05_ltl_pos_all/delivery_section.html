@@ -148,6 +148,8 @@
             <th style="width:140px;">实际发车日期</th>
             <th style="width:80px;">板数</th> 
             <th style="width:80px;">件数</th> 
+            <th style="width:120px;">柜号</th>
+            <th style="width:160px;">唛头</th>
             <th style="min-width:200px;">物流跟踪</th> 
             <th>备注</th>
             <th>车次成本</th>
@@ -161,72 +163,146 @@
             <td><input type="text" class="header-search" placeholder="搜索实际发车日期" data-column="3"></td>
             <td><input type="text" class="header-search" placeholder="搜索板数" data-column="4"></td>
             <td><input type="text" class="header-search" placeholder="搜索件数" data-column="5"></td>
-            <td><input type="text" class="header-search" placeholder="搜索物流跟踪" data-column="6"></td>
-            <td><input type="text" class="header-search" placeholder="搜索备注" data-column="7"></td>
-            <td><input type="text" class="header-search" placeholder="搜索成本" data-column="8"></td>
+            <td><input type="text" class="header-search" placeholder="搜索柜号" data-column="6"></td>
+            <td><input type="text" class="header-search" placeholder="搜索唛头" data-column="7"></td>
+            <td><input type="text" class="header-search" placeholder="搜索物流跟踪" data-column="8"></td>
+            <td><input type="text" class="header-search" placeholder="搜索备注" data-column="9"></td>
+            <td><input type="text" class="header-search" placeholder="搜索成本" data-column="10"></td>
             <td></td>
             <td></td>
         </tr>
     </thead>
     <tbody>
         {% for s in delivery_data %}
-        <tr>
-            <td style="max-width: 120px; word-break: break-all;">
-                {{ s.fleet_number.fleet_number }}<br>
-                <span style="color: #7f8c8d; font-size: 0.8em;">{{ s.fleet_number.pickup_number|default_if_none:'' }}</span>
-            </td>
-            <td style="max-width: 120px; word-break: break-all;">{{ s.shipment_batch_number }}</td>
-            <td>{{ s.fleet_number.appointment_datetime|date:"M-j H:i" }}</td>
-            <td>
-                {% if s.fleet_number.arrival_status == "past_due" %}
-                <span class="status-span-red">{{ s.fleet_number.departured_at|date:"M-j H:i" }}</span>
-                {% elif s.fleet_number.arrival_status == "need_attention" %}
-                <span class="status-span-yellow">{{ s.fleet_number.departured_at|date:"M-j H:i" }}</span>
+            {% with pairs=s.container_mark_pairs %}
+                {% if pairs and pairs|length > 0 %}
+                    {% for p in pairs %}
+                    <tr data-shipment="{{ s.shipment_batch_number }}" {% if forloop.first %}data-group-first="1"{% endif %}>
+                        {% if forloop.first %}
+                        <td rowspan="{{ pairs|length }}" style="max-width: 120px; word-break: break-all;">
+                            {{ s.fleet_number.fleet_number }}<br>
+                            <span style="color: #7f8c8d; font-size: 0.8em;">{{ s.fleet_number.pickup_number|default_if_none:'' }}</span>
+                        </td>
+                        <td rowspan="{{ pairs|length }}" style="max-width: 120px; word-break: break-all;">{{ s.shipment_batch_number }}</td>
+                        <td rowspan="{{ pairs|length }}">{{ s.fleet_number.appointment_datetime|date:"M-j H:i" }}</td>
+                        <td rowspan="{{ pairs|length }}">
+                            {% if s.fleet_number.arrival_status == "past_due" %}
+                            <span class="status-span-red">{{ s.fleet_number.departured_at|date:"M-j H:i" }}</span>
+                            {% elif s.fleet_number.arrival_status == "need_attention" %}
+                            <span class="status-span-yellow">{{ s.fleet_number.departured_at|date:"M-j H:i" }}</span>
+                            {% else %}
+                            {{ s.fleet_number.departured_at|date:"M-j H:i" }}
+                            {% endif %}
+                        </td>
+                        <td rowspan="{{ pairs|length }}">{{ s.total_pallet|floatformat:0 }}</td>
+                        <td rowspan="{{ pairs|length }}">{{ s.total_pcs|default:0|floatformat:0 }}</td> 
+                        {% endif %}
+                        <td>{{ p.container_number }}</td>
+                        <td style="word-break: break-all;">{{ p.shipping_mark }}</td>
+                        {% if forloop.first %}
+                        <td rowspan="{{ pairs|length }}" style="min-width: 200px;">
+                            <form method="post" class="tracking-form" action="">
+                                {% csrf_token %}
+                                <textarea class="tracking-input" 
+                                          name="ltl_shipping_tracking" 
+                                          placeholder="输入物流跟踪信息..."
+                                          oninput="autoResizeTextarea(this)">{{ s.fleet_number.ltl_shipping_tracking|default:"" }}</textarea>
+                                <input type="hidden" name="step" value="save_shipping_tracking">
+                                <input type="hidden" name="fleet_number" value="{{ s.fleet_number.fleet_number }}">
+                                <input type="hidden" name="active_tab" value="ready">
+                                <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                                <button type="submit" class="table-btn btn-primary-small">保存跟踪</button>
+                            </form>
+                        </td>
+                        <td rowspan="{{ pairs|length }}" style="max-width: 120px; word-break: break-all;">{{ s.fleet_number.note|default_if_none:"" }}</td>
+                        <td rowspan="{{ pairs|length }}" style="max-width: 120px; word-break: break-all;">
+                            {% if s.fleet_number.fleet_cost %}
+                                {{ s.fleet_number.fleet_cost }}
+                            {% else %}
+                                <span style="color: #6c757d; font-style: italic;">未录入</span>
+                            {% endif %}
+                        </td>
+                        <td rowspan="{{ pairs|length }}">
+                            <form method="post" enctype="multipart/form-data" action="" style="display: flex; gap: 5px; align-items: center;">
+                                {% csrf_token %}
+                                <input type="datetime-local" name="arrived_at" class="table-input" style="font-size: 0.8rem;" required>
+                                <input type="hidden" name="step" value="confirm_delivery">
+                                <input type="hidden" name="fleet_number" value="{{ s.fleet_number.fleet_number }}">
+                                <input type="hidden" name="shipment_batch_number" value="{{ s.shipment_batch_number }}">
+                                <input type="hidden" name="page" value="ltl_delivery_section">
+                                <input type="hidden" name="active_tab" value="ready">
+                                <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                                <button type="submit" class="table-btn btn-success-small">确认送达</button>
+                            </form>
+                        </td>
+                        <td rowspan="{{ pairs|length }}">
+                            <button type="button" class="table-btn btn-danger-small" onclick="abnormalPopUp('{{ s.fleet_number.fleet_number }}','{{ s.shipment_batch_number }}','{{ s.fleet_number.fleet_cost }}')">异常</button>
+                        </td>
+                        {% endif %}
+                    </tr>
+                    {% endfor %}
                 {% else %}
-                {{ s.fleet_number.departured_at|date:"M-j H:i" }}
+                    <tr data-shipment="{{ s.shipment_batch_number }}" data-group-first="1">
+                        <td style="max-width: 120px; word-break: break-all;">
+                            {{ s.fleet_number.fleet_number }}<br>
+                            <span style="color: #7f8c8d; font-size: 0.8em;">{{ s.fleet_number.pickup_number|default_if_none:'' }}</span>
+                        </td>
+                        <td style="max-width: 120px; word-break: break-all;">{{ s.shipment_batch_number }}</td>
+                        <td>{{ s.fleet_number.appointment_datetime|date:"M-j H:i" }}</td>
+                        <td>
+                            {% if s.fleet_number.arrival_status == "past_due" %}
+                            <span class="status-span-red">{{ s.fleet_number.departured_at|date:"M-j H:i" }}</span>
+                            {% elif s.fleet_number.arrival_status == "need_attention" %}
+                            <span class="status-span-yellow">{{ s.fleet_number.departured_at|date:"M-j H:i" }}</span>
+                            {% else %}
+                            {{ s.fleet_number.departured_at|date:"M-j H:i" }}
+                            {% endif %}
+                        </td>
+                        <td>{{ s.total_pallet|floatformat:0 }}</td>
+                        <td>{{ s.total_pcs|default:0|floatformat:0 }}</td> 
+                        <td></td>
+                        <td></td>
+                        <td style="min-width: 200px;">
+                            <form method="post" class="tracking-form" action="">
+                                {% csrf_token %}
+                                <textarea class="tracking-input" 
+                                          name="ltl_shipping_tracking" 
+                                          placeholder="输入物流跟踪信息..."
+                                          oninput="autoResizeTextarea(this)">{{ s.fleet_number.ltl_shipping_tracking|default:"" }}</textarea>
+                                <input type="hidden" name="step" value="save_shipping_tracking">
+                                <input type="hidden" name="fleet_number" value="{{ s.fleet_number.fleet_number }}">
+                                <input type="hidden" name="active_tab" value="ready">
+                                <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                                <button type="submit" class="table-btn btn-primary-small">保存跟踪</button>
+                            </form>
+                        </td>
+                        <td style="max-width: 120px; word-break: break-all;">{{ s.fleet_number.note|default_if_none:"" }}</td>
+                        <td style="max-width: 120px; word-break: break-all;">
+                            {% if s.fleet_number.fleet_cost %}
+                                {{ s.fleet_number.fleet_cost }}
+                            {% else %}
+                                <span style="color: #6c757d; font-style: italic;">未录入</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <form method="post" enctype="multipart/form-data" action="" style="display: flex; gap: 5px; align-items: center;">
+                                {% csrf_token %}
+                                <input type="datetime-local" name="arrived_at" class="table-input" style="font-size: 0.8rem;" required>
+                                <input type="hidden" name="step" value="confirm_delivery">
+                                <input type="hidden" name="fleet_number" value="{{ s.fleet_number.fleet_number }}">
+                                <input type="hidden" name="shipment_batch_number" value="{{ s.shipment_batch_number }}">
+                                <input type="hidden" name="page" value="ltl_delivery_section">
+                                <input type="hidden" name="active_tab" value="ready">
+                                <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                                <button type="submit" class="table-btn btn-success-small">确认送达</button>
+                            </form>
+                        </td>
+                        <td>
+                            <button type="button" class="table-btn btn-danger-small" onclick="abnormalPopUp('{{ s.fleet_number.fleet_number }}','{{ s.shipment_batch_number }}','{{ s.fleet_number.fleet_cost }}')">异常</button>
+                        </td>
+                    </tr>
                 {% endif %}
-            </td>
-            <td>{{ s.total_pallet|floatformat:0 }}</td>
-            <td>{{ s.total_pcs|default:0|floatformat:0 }}</td> 
-            <td style="min-width: 200px;">
-                <form method="post" class="tracking-form" action="">
-                    {% csrf_token %}
-                    <textarea class="tracking-input" 
-                              name="ltl_shipping_tracking" 
-                              placeholder="输入物流跟踪信息..."
-                              oninput="autoResizeTextarea(this)">{{ s.fleet_number.ltl_shipping_tracking|default:"" }}</textarea>
-                    <input type="hidden" name="step" value="save_shipping_tracking">
-                    <input type="hidden" name="fleet_number" value="{{ s.fleet_number.fleet_number }}">
-                    <input type="hidden" name="active_tab" value="ready">
-                    <input type="hidden" name="warehouse" value="{{ warehouse }}">
-                    <button type="submit" class="table-btn btn-primary-small">保存跟踪</button>
-                </form>
-            </td>
-            <td style="max-width: 120px; word-break: break-all;">{{ s.fleet_number.note|default_if_none:"" }}</td>
-            <td style="max-width: 120px; word-break: break-all;">
-                {% if s.fleet_number.fleet_cost %}
-                    {{ s.fleet_number.fleet_cost }}
-                {% else %}
-                    <span style="color: #6c757d; font-style: italic;">未录入</span>
-                {% endif %}
-            </td>
-            <td>
-                <form method="post" enctype="multipart/form-data" action="" style="display: flex; gap: 5px; align-items: center;">
-                    {% csrf_token %}
-                    <input type="datetime-local" name="arrived_at" class="table-input" style="font-size: 0.8rem;" required>
-                    <input type="hidden" name="step" value="confirm_delivery">
-                    <input type="hidden" name="fleet_number" value="{{ s.fleet_number.fleet_number }}">
-                    <input type="hidden" name="shipment_batch_number" value="{{ s.shipment_batch_number }}">
-                    <input type="hidden" name="page" value="ltl_delivery_section">
-                    <input type="hidden" name="active_tab" value="ready">
-                    <input type="hidden" name="warehouse" value="{{ warehouse }}">
-                    <button type="submit" class="table-btn btn-success-small">确认送达</button>
-                </form>
-            </td>
-            <td>
-                <button type="button" class="table-btn btn-danger-small" onclick="abnormalPopUp('{{ s.fleet_number.fleet_number }}','{{ s.shipment_batch_number }}','{{ s.fleet_number.fleet_cost }}')">异常</button>
-            </td>
-        </tr>
+            {% endwith %}
         {% endfor %}
     </tbody>
 </table>
@@ -236,8 +312,10 @@
         // 为搜索框添加事件监听
         const searchInputs = document.querySelectorAll('#ready-section .header-search');
         searchInputs.forEach(input => {
-            input.addEventListener('input', function() {
-                filterDeliveryTable(this);
+            ['input', 'keyup', 'change'].forEach(evt => {
+                input.addEventListener(evt, function() {
+                    filterDeliveryTable();
+                });
             });
         });
 
@@ -254,34 +332,82 @@
         textarea.style.height = newHeight + 'px';
     }
 
-    function filterDeliveryTable(input) {
-        const filter = input.value.toUpperCase();
-        const columnIndex = parseInt(input.getAttribute('data-column'));
+    function filterDeliveryTable() {
         const table = document.querySelector('#ready-section table');
-        const rows = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
-        
-        for (let i = 0; i < rows.length; i++) {
-            const cell = rows[i].getElementsByTagName('td')[columnIndex];
-            if (cell) {
-                // 特殊处理物流跟踪列（包含textarea）
-                let txtValue = '';
-                if (columnIndex === 6) { // 物流跟踪列
-                    const textarea = cell.querySelector('.tracking-input');
-                    if (textarea) {
-                        txtValue = textarea.value.toUpperCase();
+        const tbody = table.getElementsByTagName('tbody')[0];
+        const rows = Array.from(tbody.getElementsByTagName('tr'));
+        const inputs = Array.from(document.querySelectorAll('#ready-section .header-search'));
+        function normalize(str) {
+            return (str || '').toString().toUpperCase().replace(/\s+/g, '');
+        }
+        const filters = inputs
+            .map(inp => ({ idx: parseInt(inp.getAttribute('data-column')), val: normalize(inp.value || '') }))
+            .filter(f => f.val.length > 0);
+
+        const groupMap = {};
+        rows.forEach(r => {
+            const key = r.getAttribute('data-shipment') || '';
+            if (!key) return;
+            if (!groupMap[key]) groupMap[key] = [];
+            groupMap[key].push(r);
+        });
+
+        function getFirstRow(groupRows) {
+            for (const r of groupRows) {
+                if (r.getAttribute('data-group-first') === '1') return r;
+            }
+            return groupRows[0];
+        }
+
+        function getText(row, colIdx, firstRow) {
+            if (colIdx === 8) {
+                const cell = firstRow.getElementsByTagName('td')[8];
+                if (!cell) return '';
+                const ta = cell.querySelector('.tracking-input');
+                return normalize(ta ? ta.value : (cell.textContent || ''));
+            }
+            if (colIdx === 6 || colIdx === 7) {
+                const isFirst = row === firstRow;
+                const realIdx = isFirst ? colIdx : (colIdx === 6 ? 0 : 1);
+                const cells = row.getElementsByTagName('td');
+                const cell = cells[realIdx];
+                return normalize((cell ? (cell.textContent || cell.innerText) : '') || '');
+            }
+            const cells = firstRow.getElementsByTagName('td');
+            const cell = cells[colIdx];
+            return normalize((cell ? (cell.textContent || cell.innerText) : '') || '');
+        }
+
+        Object.keys(groupMap).forEach(key => {
+            const grp = groupMap[key];
+            const firstRow = getFirstRow(grp);
+            let visible = true;
+            for (const f of filters) {
+                if (f.idx === 6 || f.idx === 7) {
+                    let anyMatch = false;
+                    for (const r of grp) {
+                        const txt = getText(r, f.idx, firstRow);
+                        if (txt.indexOf(f.val) > -1) {
+                            anyMatch = true;
+                            break;
+                        }
+                    }
+                    if (!anyMatch) {
+                        visible = false;
+                        break;
                     }
                 } else {
-                    txtValue = cell.textContent || cell.innerText;
-                    txtValue = txtValue.toUpperCase();
-                }
-                
-                if (txtValue.indexOf(filter) > -1) {
-                    rows[i].style.display = '';
-                } else {
-                    rows[i].style.display = 'none';
+                    const txt = getText(firstRow, f.idx, firstRow);
+                    if (txt.indexOf(f.val) === -1) {
+                        visible = false;
+                        break;
+                    }
                 }
             }
-        }
+            grp.forEach(r => {
+                r.style.display = visible ? '' : 'none';
+            });
+        });
     }
 
     function abnormalPopUp(fleetNumber, batchNumber,fleet_cost) {
