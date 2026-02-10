@@ -1235,9 +1235,40 @@ class PostNsop(View):
         safe_shipping_mark = sanitize_filename(shipping_mark)
         safe_destination = sanitize_filename(destination)
         if is_multi_arm_pickup:
-            safe_fleet_number = sanitize_filename(fleet_number)
+            segments = []
+            for group in arm_pickup_groups:
+                rows = group.get("rows", [])
+                if not rows:
+                    continue
+                containers = []
+                container_seen = set()
+                marks = []
+                mark_seen = set()
+                for r in rows:
+                    cn = str(r.get("container_number__container_number", "")).strip()
+                    if cn and cn.lower() != "none" and cn not in container_seen:
+                        container_seen.add(cn)
+                        containers.append(cn)
+                    sm = r.get("shipping_mark", "")
+                    for part in re.split(r"[\n,]+", str(sm)):
+                        part_str = part.strip()
+                        if (
+                            part_str
+                            and part_str.lower() != "none"
+                            and part_str not in mark_seen
+                        ):
+                            mark_seen.add(part_str)
+                            marks.append(part_str)
+                container_part = sanitize_filename(containers[0]) if containers else "NA"
+                mark_part = sanitize_filename(marks[0]) if marks else "NA"
+                segments.append(f"{container_part}-{mark_part}")
+            filename_base = "+".join(filter(None, segments))
+            filename_base = sanitize_filename(filename_base)
+            if not filename_base:
+                safe_fleet_number = sanitize_filename(fleet_number)
+                filename_base = f"{safe_fleet_number}+MULTI"
             response["Content-Disposition"] = (
-                f'attachment; filename="{safe_fleet_number}+MULTI+BOL.pdf"'
+                f'attachment; filename="{filename_base}+BOL.pdf"'
             )
         else:
             response["Content-Disposition"] = (
