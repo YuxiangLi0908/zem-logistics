@@ -8,9 +8,6 @@
         .container {
             display:flex;
             flex-direction:row;
-            {% comment %} align-items:center;
-            justify-content:center;
-            flex-wrap: nowrap; {% endcomment %}
         }
         .table {
             border-collapse:separate;
@@ -49,11 +46,16 @@
     }
 </style>
 
+{% for page in bol_pages %}
+{% if not forloop.first %}
+<div class="page-break"></div>
+{% endif %}
+
 <div style="font-size: 13px;">
     <table style="width: 100%;">
         <tr style="border-bottom: 1px solid black;">
             <td style="width: 30%;">
-                {% if carrier != "Allywork" %}
+                {% if page.carrier != "Allywork" %}
                 <img style="width:200px;" src="{% static 'img/zem_logo_small.jpg' %}">
                 {% endif %}
             </td>
@@ -67,13 +69,13 @@
         <tr>
             <td style="width: 55%; padding:5px; border-bottom: 1px solid black;"> 
                 <b class="larger-text">SHIPPER</b><br>
-                {% if "SAV-31326" == warehouse %}
+                {% if "SAV-31326" == page.warehouse %}
                 ZEM RINCON<br>1001 Trade Center Pkwy<br>Rincon,GA,31326<br>LEON &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;9342267717<br>delivery@zemlogistics.com
-                {% elif "LA-91761" == warehouse %}
+                {% elif "LA-91761" == page.warehouse %}
                 ZEM RINCON<br>5450E Francis St Ontario<br>CA,91761,United States<br>Gina &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;6264354246<br>delivery@zemlogistics.com
-                {% elif "LA-91748" == warehouse %}
+                {% elif "LA-91748" == page.warehouse %}
                 ZEM RINCON<br>19545 San Jose Ave City of Industry<br>CA,91748,United States<br>Ricko &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;626-759-3942<br>delivery@zemlogistics.com
-                {% elif "LA-91766" == warehouse %}
+                {% elif "LA-91766" == page.warehouse %}
                 1601 W Mission Blvd, Pomona<br>CA 91766<br>Allywork &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;213-510-5188-Ext 803<br>allywork.operation@gmail.com
                 {% else %}
                 <br><br><br><br>
@@ -81,8 +83,8 @@
             </td>
             <td style="width:10%;"></td>
             <td style="width: 55%; text-align:center; border-bottom: 1px solid black;">
-                <img style="width:250px; height:60px; padding-bottom:5px;" src="data:image/png;base64,{{ barcode }}">
-                <br><br><b class="larger-text">PRO#:{{arm_pro}}</b>
+                <img style="width:250px; height:60px; padding-bottom:5px;" src="data:image/png;base64,{{ page.barcode }}">
+                <br><br><b class="larger-text">PRO#:{{ page.arm_pro }}</b>
             </td>
         </tr>
     </table>
@@ -90,8 +92,8 @@
         <tr>
             <td style="width: 55%; padding:5px; border-bottom: 1px solid black;"> 
                 <b class="larger-text">CONSIGNEE</b>
-                {% if contact_flag %}
-                <br>{{ contact.company }}<br>{{ contact.Road }}<br>{{ contact.city }}<br>{{ contact.name }} &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{{ contact.phone }}
+                {% if page.contact_flag %}
+                <br>{{ page.contact.company }}<br>{{ page.contact.Road }}<br>{{ page.contact.city }}<br>{{ page.contact.name }} &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{{ page.contact.phone }}
                 {% else %}
                 <br><br><br><br>
                 {% endif %}
@@ -99,11 +101,11 @@
             <td style="width:10%;">             
             </td>
             <td style="width: 55%; text-align:center; border-bottom: 1px solid black; padding-top:5px;">
-                <img style="width:100px;height:auto;" src="{% static 'img/'|add:carrier|add:'.jpg' %}">
+                <img style="width:100px;height:auto;" src="{% static 'img/'|add:page.carrier|add:'.jpg' %}">
                 <br>
-                <b class="medium-text">carrier</b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{{ carrier }}
+                <b class="medium-text">carrier</b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{{ page.carrier }}
                 <br>
-                <b class="medium-text">Pickup date</b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{{ pickup_time }}               
+                <b class="medium-text">Pickup date</b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{{ page.pickup_time }}               
             </td>
         </tr>
     </table>
@@ -126,10 +128,10 @@
     <table style="width: 100%; padding:6px; font-size:16px;">
         <tr>
             <td style="width:20%; border:none;"></td>
-            <td style="width:30%; text-align:center; border: 1px solid black;"> Pallet:<br><b>{{ pallet }}</b></td>
-            <td style="width:30%; text-align:center; border: 1px solid black;"> Pcs:<br><b>{{ pcs }}</b></td>
-            <td style="width:60%; text-align:center; border: 1px solid black;"> containers: {{ container_number|safe }}</td>
-            <td style="width:60%; text-align:center; border: 1px solid black;"> shipping_mark: {{ shipping_mark|safe }}</td>
+            <td style="width:30%; text-align:center; border: 1px solid black;"> Pallet:<br><b>{{ page.pallet }}</b></td>
+            <td style="width:30%; text-align:center; border: 1px solid black;"> Pcs:<br><b>{{ page.pcs }}</b></td>
+            <td style="width:60%; text-align:center; border: 1px solid black;"> containers: {{ page.container_number|safe }}</td>
+            <td style="width:60%; text-align:center; border: 1px solid black;"> shipping_mark: {{ page.shipping_mark|safe }}</td>
             <td style="width:20%; border:none;"></td>
         </tr>
     </table>
@@ -194,6 +196,10 @@
     <span>ATTENTION TO CARRIERS : ZEM does not authorize any additional services (such as inside delivery, etc) that are not listed on the BOL and will not be held liable for charges of an extra services that were not authorized prior. </span>
     <span style="font-size:12px; padding-top:0;">NOTE: Liability Limitation for loss or damage in this shipment may be applicable. See 49 U.S.C. 14706(c)(1)(A) and (B)</span>
 </div>
+</div>
+</div>
+{% endfor %}
+
 <br><br>
 <b><span style="text-align:center; display:block; font-size:24px;">Pickup List</span></b>
 <table style="width: 100%; text-align:left; padding: 5px; table-layout: fixed;"> 

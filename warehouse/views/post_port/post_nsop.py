@@ -23,6 +23,7 @@ from xhtml2pdf import pisa
 from barcode.writer import ImageWriter
 from django.db.models.functions import Ceil
 from django.utils.safestring import mark_safe
+from django.utils.html import escape
 from asgiref.sync import sync_to_async
 from django.contrib.postgres.aggregates import StringAgg
 from django.db.models.functions import Round, Cast, Coalesce
@@ -103,6 +104,7 @@ class PostNsop(View):
     template_la_bol_pickup = "export_file/LA_bol_template.html"
     template_ltl_label = "export_file/ltl_label.html"
     template_ltl_bol = "export_file/ltl_bol.html"
+    template_ltl_bol_multi = "export_file/ltl_bol_multi.html"
     area_options = {"NJ": "NJ", "SAV": "SAV", "LA": "LA", "MO": "MO", "TX": "TX", "LA": "LA"}
     warehouse_options = {"":"", "NJ-07001": "NJ-07001", "SAV-31326": "SAV-31326", "LA-91761": "LA-91761", "LA-91748": "LA-91748", "LA-91766": "LA-91766",}
     load_type_options = {
@@ -851,65 +853,189 @@ class PostNsop(View):
         return response
     
     async def export_ltl_bol(self, request: HttpRequest) -> HttpResponse:
+        '''导出LTL BOL'''
         fleet_number = request.POST.get("fleet_number")
         arm_pickup_data = request.POST.get("arm_pickup_data")
         warehouse = request.POST.get("warehouse")
         contact_flag = False  # 表示地址栏空出来，客服手动P上去
         contact = {}
+        arm_pickup_groups = []
+
+        def safe_int(value, default: int = 0) -> int:
+            if value is None:
+                return default
+            if isinstance(value, int):
+                return value
+            value_str = str(value).strip()
+            if value_str == "" or value_str.lower() == "none":
+                return default
+            try:
+                return int(float(value_str))
+            except Exception:
+                return default
+
+        def parse_contact_from_address(address: str) -> dict:
+            address = re.sub("[\u4e00-\u9fff]", " ", address)
+            address = re.sub(r"\uFF0C", ",", address)
+            parts = [p.strip() for p in address.split(";")]
+            return {
+                "company": parts[0] if len(parts) > 0 else "",
+                "Road": parts[1] if len(parts) > 1 else "",
+                "city": parts[2] if len(parts) > 2 else "",
+                "name": parts[3] if len(parts) > 3 else "",
+                "phone": parts[4] if len(parts) > 4 else "",
+            }
+
+        def format_two_per_line(values: List[str]) -> str:
+            cleaned = []
+            seen = set()
+            for v in values:
+                v_str = str(v).strip()
+                if not v_str or v_str.lower() == "none":
+                    continue
+                if v_str in seen:
+                    continue
+                seen.add(v_str)
+                cleaned.append(escape(v_str))
+
+            lines = []
+            for i in range(0, len(cleaned), 2):
+                lines.append(", ".join(cleaned[i : i + 2]))
+            return mark_safe("<br>".join(lines)) if lines else ""
 
         if arm_pickup_data and arm_pickup_data != "[]":
-            arm_pickup_data = json.loads(arm_pickup_data)
-            arm_pickup = [
-                [
-                    "container_number__container_number",
-                    "destination",
-                    "shipping_mark",
-                    "shipment_batch_number__ARM_PRO",
-                    "total_pallet",
-                    "total_pcs",
-                    "shipment_batch_number__fleet_number__carrier",
-                    "shipment_batch_number__note",
-                ]
-            ]
-            for row in arm_pickup_data:
-                address = row.get("address", "")
-                if address:
-                    contact_flag = True
-                    address = re.sub("[\u4e00-\u9fff]", " ", address)
-                    address = re.sub(r"\uFF0C", ",", address)
-                    parts = [p.strip() for p in address.split(";")]
-                    contact = {
-                        "company": parts[0] if len(parts) > 0 else "",
-                        "Road":    parts[1] if len(parts) > 1 else "",
-                        "city":    parts[2] if len(parts) > 2 else "",
-                        "name":    parts[3] if len(parts) > 3 else "",
-                        "phone":   parts[4] if len(parts) > 4 else "",
-                    }
-                slot = row.get("slot", "").strip()
-                arm_pickup.append(
-                    [
-                        row.get("container_number__container_number", "").strip(),
-                        row.get("destination", "").strip(),
-                        row.get("shipping_mark", "").strip(),
-                        row.get("shipment_batch_number__ARM_PRO", "").strip(),
-                        int(row.get("total_pallet", "").strip()),
-                        int(row.get("total_pcs", "").strip()),
-                        row.get("shipment_batch_number__fleet_number__carrier", "").strip(),
-                        row.get("shipment_batch_number__note", "").strip(),
-                        (
-                            slot
-                            if slot
-                            else ""
-                        ),
+            loaded = json.loads(arm_pickup_data)
+            raw_groups = []
+            if isinstance(loaded, dict) and isinstance(loaded.get("data"), list):
+                raw_groups = [loaded.get("data", [])]
+            elif isinstance(loaded, list):
+                if loaded and all(isinstance(x, list) for x in loaded):
+                    raw_groups = loaded
+                elif loaded and all(isinstance(x, dict) for x in loaded) and any(
+                    isinstance(x.get("data"), list) for x in loaded
+                ):
+                    raw_groups = [
+                        x.get("data", []) if isinstance(x, dict) else [] for x in loaded
                     ]
-                )
+                else:
+                    raw_groups = [loaded]
 
-            keys = arm_pickup[0]
-            arm_pickup_dict_list = []
-            for row in arm_pickup[1:]:
-                row_dict = dict(zip(keys, row))
-                arm_pickup_dict_list.append(row_dict)
-            arm_pickup = arm_pickup_dict_list
+            arm_pickup = []
+            for group in raw_groups:
+                if not isinstance(group, list):
+                    continue
+                group_contact_flag = False
+                group_contact = {}
+                group_rows = []
+                for row in group:
+                    if not isinstance(row, dict):
+                        continue
+                    address = row.get("address", "")
+                    row_contact_flag = False
+                    row_contact = {}
+                    if address:
+                        row_contact_flag = True
+                        row_contact = parse_contact_from_address(address)
+                        group_contact_flag = True
+                        group_contact = row_contact
+                        contact_flag = True
+                        contact = group_contact
+                    row_dict = {
+                        "container_number__container_number": str(
+                            row.get("container_number__container_number", "")
+                        ).strip(),
+                        "destination": str(row.get("destination", "")).strip(),
+                        "shipping_mark": str(row.get("shipping_mark", "")).strip(),
+                        "shipment_batch_number__ARM_PRO": str(
+                            row.get("shipment_batch_number__ARM_PRO", "")
+                        ).strip(),
+                        "total_pallet": safe_int(row.get("total_pallet", 0)),
+                        "total_pcs": safe_int(row.get("total_pcs", 0)),
+                        "shipment_batch_number__fleet_number__carrier": str(
+                            row.get("shipment_batch_number__fleet_number__carrier", "")
+                        ).strip(),
+                        "shipment_batch_number__note": str(
+                            row.get("shipment_batch_number__note", "")
+                        ).strip(),
+                        "slot": str(row.get("slot", "")).strip(),
+                    }
+                    for possible_key in (
+                        "arm_pickup_group",
+                        "pickup_group",
+                        "group_id",
+                        "group",
+                        "pickup_number",
+                        "bol_group",
+                    ):
+                        possible_value = row.get(possible_key)
+                        if possible_value is None:
+                            continue
+                        possible_value_str = str(possible_value).strip()
+                        if possible_value_str:
+                            row_dict[possible_key] = possible_value_str
+                    if row_contact_flag:
+                        row_dict["__contact_flag"] = True
+                        row_dict["__contact"] = row_contact
+                    group_rows.append(row_dict)
+                    arm_pickup.append(row_dict)
+                if group_rows:
+                    if len(raw_groups) == 1:
+                        grouped = {}
+                        grouped_order = []
+                        for r in group_rows:
+                            group_id = ""
+                            for possible_key in (
+                                "arm_pickup_group",
+                                "pickup_group",
+                                "group_id",
+                                "group",
+                                "pickup_number",
+                                "bol_group",
+                            ):
+                                if r.get(possible_key):
+                                    group_id = str(r.get(possible_key)).strip()
+                                    break
+                            arm_pro_value = r.get("shipment_batch_number__ARM_PRO", "")
+                            if group_id:
+                                key = f"GROUP::{group_id}"
+                            elif arm_pro_value and arm_pro_value != "None":
+                                key = f"ARM_PRO::{arm_pro_value}"
+                            else:
+                                key = f"CN_DEST::{r.get('container_number__container_number','')}|{r.get('destination','')}"
+                            if key not in grouped:
+                                grouped[key] = []
+                                grouped_order.append(key)
+                            grouped[key].append(r)
+
+                        if len(grouped_order) > 1:
+                            for key in grouped_order:
+                                rows = grouped[key]
+                                first = rows[0] if rows else {}
+                                arm_pickup_groups.append(
+                                    {
+                                        "rows": rows,
+                                        "contact_flag": bool(
+                                            first.get("__contact_flag", False)
+                                        ),
+                                        "contact": first.get("__contact", {}),
+                                    }
+                                )
+                        else:
+                            arm_pickup_groups.append(
+                                {
+                                    "rows": group_rows,
+                                    "contact_flag": group_contact_flag,
+                                    "contact": group_contact,
+                                }
+                            )
+                    else:
+                        arm_pickup_groups.append(
+                            {
+                                "rows": group_rows,
+                                "contact_flag": group_contact_flag,
+                                "contact": group_contact,
+                            }
+                        )
         else:  # 没有就从数据库查
             arm_pickup = await sync_to_async(list)(
                 Pallet.objects.select_related(
@@ -936,6 +1062,10 @@ class PostNsop(View):
                     total_cbm=Sum("cbm"),
                 )
             )
+            if arm_pickup:
+                arm_pickup_groups = [
+                    {"rows": arm_pickup, "contact_flag": contact_flag, "contact": contact}
+                ]
 
         fleet = await sync_to_async(Fleet.objects.get)(fleet_number=fleet_number)
         pickup_time_str = fleet.appointment_datetime
@@ -944,16 +1074,21 @@ class PostNsop(View):
         pcs = 0
         shipping_mark = ""
         notes = set()
+        arm_pro = ""
+        carrier = ""
+        container_number = ""
+        destination = ""
         for arm in arm_pickup:
-            arm_pro = arm["shipment_batch_number__ARM_PRO"]
-            carrier = arm["shipment_batch_number__fleet_number__carrier"]
-            pallet += arm["total_pallet"]
-            pcs += int(arm["total_pcs"])
-            container_number = arm["container_number__container_number"]
-            destination = arm["destination"]
-            shipping_mark += arm["shipping_mark"]
-            notes.add(arm["shipment_batch_number__note"])
-            marks = arm["shipping_mark"]
+            arm_pro = arm.get("shipment_batch_number__ARM_PRO", "")
+            carrier = arm.get("shipment_batch_number__fleet_number__carrier", "")
+            pallet += safe_int(arm.get("total_pallet", 0))
+            pcs += safe_int(arm.get("total_pcs", 0))
+            container_number = arm.get("container_number__container_number", "")
+            destination = arm.get("destination", "")
+            shipping_mark += arm.get("shipping_mark", "")
+            notes.add(arm.get("shipment_batch_number__note", ""))
+            marks = arm.get("shipping_mark", "")
+            new_marks = ""
             if marks:
                 array = marks.split(",")
                 if len(array) > 1:
@@ -965,45 +1100,127 @@ class PostNsop(View):
                 else:
                     new_marks = marks
             arm["shipping_mark"] = new_marks
+        group_container_number = format_two_per_line(
+            [a.get("container_number__container_number", "") for a in arm_pickup]
+        )
+        all_marks = []
+        for a in arm_pickup:
+            marks_value = a.get("shipping_mark", "")
+            for part in re.split(r"[\n,]+", str(marks_value)):
+                part_str = part.strip()
+                if part_str:
+                    all_marks.append(part_str)
+        group_shipping_mark = format_two_per_line(all_marks)
         notes_str = "<br>".join(filter(None, notes))
-        # 生成条形码
-
         barcode_type = "code128"
         barcode_class = barcode.get_barcode_class(barcode_type)
-        if arm_pro == "" or arm_pro == "None" or arm_pro == None:
-            barcode_content = f"{container_number}|{destination}"
-        else:
-            barcode_content = f"{arm_pro}"
-        my_barcode = barcode_class(
-            barcode_content, writer=ImageWriter()
-        )  # 将条形码转换为图像形式
-        buffer = io.BytesIO()  # 创建缓冲区
-        my_barcode.write(buffer, options={"dpi": 600})  # 缓冲区存储图像
-        buffer.seek(0)
-        image = Image.open(buffer)
-        width, height = image.size
-        new_height = int(height * 0.7)
-        cropped_image = image.crop((0, 0, width, new_height))
-        new_buffer = io.BytesIO()
-        cropped_image.save(new_buffer, format="PNG")
 
-        barcode_base64 = base64.b64encode(new_buffer.getvalue()).decode("utf-8")
-        # 增加一个拣货单的表格
-        context = {
-            "warehouse": warehouse,
-            "arm_pro": arm_pro,
-            "carrier": carrier,
-            "pallet": pallet,
-            "pcs": pcs,
-            "barcode": barcode_base64,
-            "arm_pickup": arm_pickup,
-            "contact": contact,
-            "contact_flag": contact_flag,
-            "pickup_time": pickup_time,
-            "notes": notes_str,
-        }
-        template = get_template(self.template_ltl_bol)
-        html = template.render(context)
+        def generate_barcode_base64(content: str) -> str:
+            my_barcode = barcode_class(content, writer=ImageWriter())
+            buffer = io.BytesIO()
+            my_barcode.write(buffer, options={"dpi": 600})
+            buffer.seek(0)
+            image = Image.open(buffer)
+            width, height = image.size
+            new_height = int(height * 0.7)
+            cropped_image = image.crop((0, 0, width, new_height))
+            new_buffer = io.BytesIO()
+            cropped_image.save(new_buffer, format="PNG")
+            return base64.b64encode(new_buffer.getvalue()).decode("utf-8")
+
+        is_multi_arm_pickup = len(arm_pickup_groups) > 1
+        if is_multi_arm_pickup:
+            bol_pages = []
+            for group in arm_pickup_groups:
+                group_rows = group.get("rows", [])
+                if not group_rows:
+                    continue
+                group_arm_pro = ""
+                group_carrier = ""
+                group_container_number = ""
+                group_destination = ""
+                group_pallet = 0
+                group_pcs = 0
+                group_container_numbers = []
+                group_marks = []
+                for row in group_rows:
+                    if not group_arm_pro:
+                        group_arm_pro = row.get("shipment_batch_number__ARM_PRO", "")
+                    if not group_carrier:
+                        group_carrier = row.get(
+                            "shipment_batch_number__fleet_number__carrier", ""
+                        )
+                    if not group_container_number:
+                        group_container_number = row.get(
+                            "container_number__container_number", ""
+                        )
+                    if not group_destination:
+                        group_destination = row.get("destination", "")
+                    group_pallet += safe_int(row.get("total_pallet", 0))
+                    group_pcs += safe_int(row.get("total_pcs", 0))
+                    group_container_numbers.append(
+                        row.get("container_number__container_number", "")
+                    )
+                    row_marks_value = row.get("shipping_mark", "")
+                    for part in re.split(r"[\n,]+", str(row_marks_value)):
+                        part_str = part.strip()
+                        if part_str:
+                            group_marks.append(part_str)
+
+                if not group_arm_pro or group_arm_pro == "None":
+                    barcode_content = f"{group_container_number}|{group_destination}"
+                else:
+                    barcode_content = f"{group_arm_pro}"
+
+                bol_pages.append(
+                    {
+                        "warehouse": warehouse,
+                        "arm_pro": group_arm_pro,
+                        "carrier": group_carrier,
+                        "pallet": group_pallet,
+                        "pcs": group_pcs,
+                        "container_number": format_two_per_line(group_container_numbers),
+                        "shipping_mark": format_two_per_line(group_marks),
+                        "barcode": generate_barcode_base64(barcode_content),
+                        "contact": group.get("contact", {}),
+                        "contact_flag": group.get("contact_flag", False),
+                        "pickup_time": pickup_time,
+                    }
+                )
+
+            context = {
+                "warehouse": warehouse,
+                "bol_pages": bol_pages,
+                "arm_pickup": arm_pickup,
+                "pickup_time": pickup_time,
+                "notes": notes_str,
+            }
+            template = get_template(self.template_ltl_bol_multi)
+            html = template.render(context)
+        else:
+            if arm_pro == "" or arm_pro == "None" or arm_pro is None:
+                barcode_content = f"{container_number}|{destination}"
+            else:
+                barcode_content = f"{arm_pro}"
+            barcode_base64 = generate_barcode_base64(barcode_content)
+            context = {
+                "warehouse": warehouse,
+                "arm_pro": arm_pro,
+                "carrier": carrier,
+                "pallet": pallet,
+                "pcs": pcs,
+                "container_number": group_container_number,
+                "shipping_mark": group_shipping_mark,
+                "barcode": barcode_base64,
+                "arm_pickup": arm_pickup,
+                "contact": contact,
+                "contact_flag": contact_flag,
+                "pickup_time": pickup_time,
+                "notes": notes_str,
+            }
+            template = get_template(self.template_ltl_bol)
+            html = template.render(context)
+
         response = HttpResponse(content_type="application/pdf")
         def sanitize_filename(value: str) -> str:
             """清理文件名中的换行和非法字符"""
@@ -1017,9 +1234,15 @@ class PostNsop(View):
             return value[:100]
         safe_shipping_mark = sanitize_filename(shipping_mark)
         safe_destination = sanitize_filename(destination)
-        response["Content-Disposition"] = (
-            f'attachment; filename="{container_number}+{safe_destination}+{safe_shipping_mark}+BOL.pdf"'
-        )
+        if is_multi_arm_pickup:
+            safe_fleet_number = sanitize_filename(fleet_number)
+            response["Content-Disposition"] = (
+                f'attachment; filename="{safe_fleet_number}+MULTI+BOL.pdf"'
+            )
+        else:
+            response["Content-Disposition"] = (
+                f'attachment; filename="{container_number}+{safe_destination}+{safe_shipping_mark}+BOL.pdf"'
+            )
         pisa_status = pisa.CreatePDF(html, dest=response, link_callback=link_callback)
         if pisa_status.err:
             raise ValueError(
