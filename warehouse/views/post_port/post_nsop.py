@@ -903,6 +903,28 @@ class PostNsop(View):
                 lines.append(", ".join(cleaned[i : i + 2]))
             return mark_safe("<br>".join(lines)) if lines else ""
 
+        def extract_pickup_images(rows: List[dict]) -> List[str]:
+            images = []
+            seen = set()
+            for r in rows:
+                value = r.get("pickup_image", "")
+                if not isinstance(value, str):
+                    continue
+                value_str = value.strip()
+                if not value_str:
+                    continue
+                if not value_str.startswith("data:image/"):
+                    continue
+                if ";base64," not in value_str:
+                    continue
+                if len(value_str) > 3_000_000:
+                    continue
+                if value_str in seen:
+                    continue
+                seen.add(value_str)
+                images.append(value_str)
+            return images
+
         if arm_pickup_data and arm_pickup_data != "[]":
             loaded = json.loads(arm_pickup_data)
             raw_groups = []
@@ -958,6 +980,10 @@ class PostNsop(View):
                             row.get("shipment_batch_number__note", "")
                         ).strip(),
                         "slot": str(row.get("slot", "")).strip(),
+                        "pickup_image": str(row.get("pickup_image", "")).strip(),
+                        "pickup_image_orientation": str(
+                            row.get("pickup_image_orientation", "horizontal")
+                        ).strip(),
                     }
                     for possible_key in (
                         "arm_pickup_group",
@@ -1111,6 +1137,7 @@ class PostNsop(View):
                 if part_str:
                     all_marks.append(part_str)
         group_shipping_mark = format_two_per_line(all_marks)
+        pickup_images = extract_pickup_images(arm_pickup)
         notes_str = "<br>".join(filter(None, notes))
         barcode_type = "code128"
         barcode_class = barcode.get_barcode_class(barcode_type)
@@ -1181,6 +1208,7 @@ class PostNsop(View):
                         "pcs": group_pcs,
                         "container_number": format_two_per_line(group_container_numbers),
                         "shipping_mark": format_two_per_line(group_marks),
+                        "pickup_images": extract_pickup_images(group_rows),
                         "barcode": generate_barcode_base64(barcode_content),
                         "contact": group.get("contact", {}),
                         "contact_flag": group.get("contact_flag", False),
@@ -1192,7 +1220,6 @@ class PostNsop(View):
                 "warehouse": warehouse,
                 "bol_pages": bol_pages,
                 "arm_pickup": arm_pickup,
-                "pickup_time": pickup_time,
                 "notes": notes_str,
             }
             template = get_template(self.template_ltl_bol_multi)
@@ -1212,6 +1239,7 @@ class PostNsop(View):
                 "container_number": group_container_number,
                 "shipping_mark": group_shipping_mark,
                 "barcode": barcode_base64,
+                "pickup_images": pickup_images,
                 "arm_pickup": arm_pickup,
                 "contact": contact,
                 "contact_flag": contact_flag,

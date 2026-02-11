@@ -967,6 +967,98 @@
 
     // 存储当前编辑的拣货单数据
     let editedArmPickupData = [];
+    let armPickupDataCache = {};
+
+    function getLatestArmPickupData(fleetNumber) {
+        const savedData = localStorage.getItem(`arm_pickup_${fleetNumber}`);
+        if (savedData) {
+            try {
+                const data = JSON.parse(savedData);
+                if (data && Array.isArray(data.data)) {
+                    return data.data;
+                }
+            } catch (e) {}
+        }
+        if (armPickupDataCache[fleetNumber] && Array.isArray(armPickupDataCache[fleetNumber])) {
+            return armPickupDataCache[fleetNumber];
+        }
+        return null;
+    }
+
+    function compressImageToDataUrl(file, orientation = 'horizontal', maxWidth = 900, maxHeight = 900, quality = 0.75) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onerror = () => reject(new Error('file read failed'));
+            reader.onload = () => {
+                const img = new Image();
+                img.onerror = () => reject(new Error('image load failed'));
+                img.onload = () => {
+                    let width = img.width;
+                    let height = img.height;
+                    const ratio = Math.min(maxWidth / width, maxHeight / height, 1);
+                    width = Math.round(width * ratio);
+                    height = Math.round(height * ratio);
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+                    if (orientation === 'vertical') {
+                        canvas.width = height;
+                        canvas.height = width;
+                        ctx.translate(canvas.width / 2, canvas.height / 2);
+                        ctx.rotate(Math.PI / 2);
+                        ctx.drawImage(img, -width / 2, -height / 2, width, height);
+                    } else {
+                        canvas.width = width;
+                        canvas.height = height;
+                        ctx.drawImage(img, 0, 0, width, height);
+                    }
+                    try {
+                        const dataUrl = canvas.toDataURL('image/jpeg', quality);
+                        resolve(dataUrl);
+                    } catch (err) {
+                        reject(err);
+                    }
+                };
+                img.src = reader.result;
+            };
+            reader.readAsDataURL(file);
+        });
+    }
+
+    async function handleArmPickupImageChange(input) {
+        const row = input.closest('tr');
+        if (!row) return;
+        const statusEl = row.querySelector('.arm-image-status');
+        const orientationSelect = row.querySelector('select[data-field="pickup_image_orientation"]');
+        const orientation = orientationSelect ? orientationSelect.value : 'horizontal';
+        if (!input.files || input.files.length === 0) {
+            input.dataset.base64 = '';
+            if (statusEl) statusEl.textContent = '未上传';
+            updateArmPickupData();
+            return;
+        }
+        const file = input.files[0];
+        if (!file.type || !file.type.startsWith('image/')) {
+            alert('仅支持图片文件');
+            input.value = '';
+            input.dataset.base64 = '';
+            if (statusEl) statusEl.textContent = '未上传';
+            updateArmPickupData();
+            return;
+        }
+        try {
+            if (statusEl) statusEl.textContent = '处理中...';
+            const dataUrl = await compressImageToDataUrl(file, orientation);
+            input.dataset.base64 = dataUrl;
+            if (statusEl) statusEl.textContent = '已上传';
+            updateArmPickupData();
+        } catch (e) {
+            alert('图片处理失败');
+            input.value = '';
+            input.dataset.base64 = '';
+            if (statusEl) statusEl.textContent = '未上传';
+            updateArmPickupData();
+        }
+    }
 
     // 显示拣货单模态框
     function showArmPickupModal(fleetNumber, fleetType, armPickupData = null) {
@@ -1031,6 +1123,7 @@
                     <th style="text-align: center; border: 1px solid #ddd; padding: 8px; width: 80px;">箱数</th>   
                     <th style="text-align: center; border: 1px solid #ddd; padding: 8px; width: 120px;">Carrier</th>  
                     <th style="text-align: center; border: 1px solid #ddd; padding: 8px; width: 180px;">提货时间</th>
+                    <th style="text-align: center; border: 1px solid #ddd; padding: 8px; width: 140px;">图片</th>
                     <th style="text-align: center; border: 1px solid #ddd; padding: 8px; width: 80px;">操作</th>
                 </thead>
                 <tbody id="armPickupTableBody">
@@ -1092,6 +1185,17 @@
                             style="width: 100%; border: none; background: transparent;">
                     </td>
                     <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">
+                        <input type="file" accept="image/*" class="arm-file" data-field="pickup_image" data-base64="${(item.pickup_image || '').toString().replace(/"/g,'&quot;')}"
+                            onchange="handleArmPickupImageChange(this)"
+                            style="width: 100%;">
+                        <select class="arm-select" data-field="pickup_image_orientation"
+                            style="width: 100%; margin-top: 6px; border: 1px solid #ddd; padding: 4px; font-size: 12px; background: #fff;">
+                            <option value="horizontal" ${(item.pickup_image_orientation || 'horizontal') === 'horizontal' ? 'selected' : ''}>横向</option>
+                            <option value="vertical" ${(item.pickup_image_orientation || 'horizontal') === 'vertical' ? 'selected' : ''}>竖向</option>
+                        </select>
+                        <div class="arm-image-status" style="font-size: 12px; color: #666; padding-top: 4px;">${item.pickup_image ? '已上传' : '未上传'}</div>
+                    </td>
+                    <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">
                         <button onclick="removeArmPickupRow(${index})" 
                                 style="background: #dc3545; color: white; border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer;">
                             <i class="fas fa-trash"></i>
@@ -1133,6 +1237,7 @@
                     <th style="text-align: center; border: 1px solid #ddd; padding: 8px; width: 120px; min-width: 120px;">Phone</th>
                     <th style="text-align: center; border: 1px solid #ddd; padding: 8px; width: 150px; min-width: 150px;">备注</th>
                     <th style="text-align: center; border: 1px solid #ddd; padding: 8px; width: 100px; min-width: 100px;">库位</th>
+                    <th style="text-align: center; border: 1px solid #ddd; padding: 8px; width: 160px; min-width: 160px;">图片</th>
                     <th style="text-align: center; border: 1px solid #ddd; padding: 8px; width: 80px; min-width: 80px;">操作</th>
                 </thead>
                 <tbody id="armPickupTableBody">
@@ -1150,7 +1255,8 @@
                 carrier: (item.shipment_batch_number__fleet_number__carrier || item.carrier || '').toString().replace('None', ''),
                 address: (item.address || '').toString().replace('None', ''),
                 note: (item.shipment_batch_number__note || '').toString().replace('None', ''),
-                slot: (item.slot || '').toString().replace('None', '')
+                slot: (item.slot || '').toString().replace('None', ''),
+                pickup_image: (item.pickup_image || '').toString()
             };
             
             // 特别处理数值字段，如果是数字0就显示0
@@ -1257,6 +1363,17 @@
                             value="${cleanData.slot}" 
                             style="width: 100%; border: 1px solid #ddd; background: #fff; padding: 6px; font-size: 13px;">
                     </td>
+                    <td style="border: 1px solid #ddd; padding: 8px; width: 160px; min-width: 160px; text-align: center;">
+                        <input type="file" accept="image/*" class="arm-file" data-field="pickup_image" data-base64="${cleanData.pickup_image.replace(/"/g,'&quot;')}"
+                            onchange="handleArmPickupImageChange(this)"
+                            style="width: 100%;">
+                        <select class="arm-select" data-field="pickup_image_orientation"
+                            style="width: 100%; margin-top: 6px; border: 1px solid #ddd; padding: 4px; font-size: 12px; background: #fff;">
+                            <option value="horizontal" ${(item.pickup_image_orientation || 'horizontal') === 'horizontal' ? 'selected' : ''}>横向</option>
+                            <option value="vertical" ${(item.pickup_image_orientation || 'horizontal') === 'vertical' ? 'selected' : ''}>竖向</option>
+                        </select>
+                        <div class="arm-image-status" style="font-size: 12px; color: #666; padding-top: 4px;">${cleanData.pickup_image ? '已上传' : '未上传'}</div>
+                    </td>
                     <td style="border: 1px solid #ddd; padding: 8px; width: 80px; min-width: 80px; text-align: center;">
                         <button onclick="removeArmPickupRow(${index})" 
                                 style="background: #dc3545; color: white; border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer;">
@@ -1302,9 +1419,21 @@
     }
     // 添加事件监听器
     function addArmPickupEventListeners() {
-        const inputs = document.querySelectorAll('.arm-input, .arm-textarea');
+        const inputs = document.querySelectorAll('.arm-input, .arm-textarea, .arm-file, .arm-select');
         inputs.forEach(input => {
             input.addEventListener('change', function() {
+                if (input.classList.contains('arm-file')) {
+                    handleArmPickupImageChange(input);
+                    return;
+                }
+                if (input.classList.contains('arm-select') && input.getAttribute('data-field') === 'pickup_image_orientation') {
+                    const row = input.closest('tr');
+                    const fileInput = row ? row.querySelector('.arm-file[data-field="pickup_image"]') : null;
+                    if (fileInput && fileInput.files && fileInput.files.length > 0) {
+                        handleArmPickupImageChange(fileInput);
+                        return;
+                    }
+                }
                 updateArmPickupData();
             });
             input.addEventListener('input', function() {
@@ -1319,12 +1448,12 @@
         editedArmPickupData = [];
         
         rows.forEach((row, index) => {
-            const inputs = row.querySelectorAll('.arm-input, .arm-textarea');
+            const inputs = row.querySelectorAll('.arm-input, .arm-textarea, .arm-file, .arm-select');
             const rowData = {};
             
             inputs.forEach(input => {
                 const field = input.getAttribute('data-field');
-                const value = input.value;
+                const value = input.classList.contains('arm-file') ? (input.dataset.base64 || '') : input.value;
                 
                 // 处理地址字段
                 if (field.startsWith('address_')) {
@@ -1349,6 +1478,7 @@
             
             editedArmPickupData.push(rowData);
         });
+        armPickupDataCache[currentArmPickupData.fleet_number] = editedArmPickupData;
     }
 
     // 添加新行
@@ -1400,6 +1530,17 @@
                             data-field="shipment_batch_number__fleet_number__appointment_datetime" 
                             value="" 
                             style="width: 100%; border: 1px solid #ccc; background: #fff;">
+                    </td>
+                    <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">
+                        <input type="file" accept="image/*" class="arm-file" data-field="pickup_image" data-base64=""
+                            onchange="handleArmPickupImageChange(this)"
+                            style="width: 100%;">
+                        <select class="arm-select" data-field="pickup_image_orientation"
+                            style="width: 100%; margin-top: 6px; border: 1px solid #ddd; padding: 4px; font-size: 12px; background: #fff;">
+                            <option value="horizontal" selected>横向</option>
+                            <option value="vertical">竖向</option>
+                        </select>
+                        <div class="arm-image-status" style="font-size: 12px; color: #666; padding-top: 4px;">未上传</div>
                     </td>
                     <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">
                         <button onclick="removeArmPickupRow(${newIndex})" 
@@ -1496,6 +1637,17 @@
                             style="width: 100%; border: 1px solid #ccc; background: #fff; padding: 4px;">
                     </td>
                     <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">
+                        <input type="file" accept="image/*" class="arm-file" data-field="pickup_image" data-base64=""
+                            onchange="handleArmPickupImageChange(this)"
+                            style="width: 100%;">
+                        <select class="arm-select" data-field="pickup_image_orientation"
+                            style="width: 100%; margin-top: 6px; border: 1px solid #ddd; padding: 4px; font-size: 12px; background: #fff;">
+                            <option value="horizontal" selected>横向</option>
+                            <option value="vertical">竖向</option>
+                        </select>
+                        <div class="arm-image-status" style="font-size: 12px; color: #666; padding-top: 4px;">未上传</div>
+                    </td>
+                    <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">
                         <button onclick="removeArmPickupRow(${newIndex})" 
                                 style="background: #dc3545; color: white; border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer;">
                             <i class="fas fa-trash"></i>
@@ -1510,9 +1662,21 @@
         
         // 重新绑定事件
         const newRow = document.getElementById(`arm-row-${newIndex}`);
-        const inputs = newRow.querySelectorAll('.arm-input, .arm-textarea');
+        const inputs = newRow.querySelectorAll('.arm-input, .arm-textarea, .arm-file, .arm-select');
         inputs.forEach(input => {
             input.addEventListener('change', function() {
+                if (input.classList.contains('arm-file')) {
+                    handleArmPickupImageChange(input);
+                    return;
+                }
+                if (input.classList.contains('arm-select') && input.getAttribute('data-field') === 'pickup_image_orientation') {
+                    const row = input.closest('tr');
+                    const fileInput = row ? row.querySelector('.arm-file[data-field="pickup_image"]') : null;
+                    if (fileInput && fileInput.files && fileInput.files.length > 0) {
+                        handleArmPickupImageChange(fileInput);
+                        return;
+                    }
+                }
                 updateArmPickupData();
             });
             input.addEventListener('input', function() {
@@ -1531,7 +1695,9 @@
             shipment_batch_number__fleet_number__carrier: '',
             address: ';;;;',  // 空地址用5个分号
             shipment_batch_number__note: '',
-            slot: ''
+            slot: '',
+            pickup_image: ''
+            ,pickup_image_orientation: 'horizontal'
         };
         
         editedArmPickupData.push(emptyData);
@@ -1576,12 +1742,14 @@
         updateArmPickupData();
         
         // 保存到localStorage
-        localStorage.setItem(`arm_pickup_${currentArmPickupData.fleet_number}`, JSON.stringify({
-            fleet_number: currentArmPickupData.fleet_number,
-            fleet_type: currentArmPickupData.fleet_type,
-            data: editedArmPickupData,
-            saved_at: new Date().toISOString()
-        }));
+        try {
+            localStorage.setItem(`arm_pickup_${currentArmPickupData.fleet_number}`, JSON.stringify({
+                fleet_number: currentArmPickupData.fleet_number,
+                fleet_type: currentArmPickupData.fleet_type,
+                data: editedArmPickupData,
+                saved_at: new Date().toISOString()
+            }));
+        } catch (e) {}
         
         // 更新页面中的隐藏输入框
         const fleetElements = document.querySelectorAll(`[data-fleet-number="${currentArmPickupData.fleet_number}"]`);
@@ -1620,13 +1788,11 @@
                 const fleetNumber = this.closest('tr').querySelector('.fleet-number-cell')?.dataset?.fleetNumber;
                 
                 if (fleetNumber) {
-                    // 从localStorage获取最新的拣货单数据
-                    const savedData = localStorage.getItem(`arm_pickup_${fleetNumber}`);
-                    if (savedData) {
-                        const armPickupData = JSON.parse(savedData);
+                    const latest = getLatestArmPickupData(fleetNumber);
+                    if (latest) {
                         const armPickupInput = form.querySelector('.arm-pickup-data');
                         if (armPickupInput) {
-                            armPickupInput.value = JSON.stringify(armPickupData.data);
+                            armPickupInput.value = JSON.stringify(latest);
                         }
                     }
                 }
@@ -1642,13 +1808,11 @@
         const form = button.closest('form');
         const fileInput = form.querySelector('input[type="file"]');
         fileInput.value = '';
-        // 从localStorage获取拣货单数据
-        const savedData = localStorage.getItem(`arm_pickup_${fleetNumber}`);
-        if (savedData) {
-            const data = JSON.parse(savedData);
+        const latest = getLatestArmPickupData(fleetNumber);
+        if (latest) {
             const armPickupInput = form.querySelector('.arm-pickup-data');
             if (armPickupInput) {
-                armPickupInput.value = JSON.stringify(data.data);
+                armPickupInput.value = JSON.stringify(latest);
             }
         }
         
@@ -1683,12 +1847,11 @@
         )?.value;
 
         if (fleetNumber) {
-            const savedData = localStorage.getItem(`arm_pickup_${fleetNumber}`);
-            if (savedData) {
-                const data = JSON.parse(savedData);
+            const latest = getLatestArmPickupData(fleetNumber);
+            if (latest) {
                 const armPickupInput = form.querySelector('.arm-pickup-data');
                 if (armPickupInput) {
-                    armPickupInput.value = JSON.stringify(data.data);
+                    armPickupInput.value = JSON.stringify(latest);
                 }
             }
         }
