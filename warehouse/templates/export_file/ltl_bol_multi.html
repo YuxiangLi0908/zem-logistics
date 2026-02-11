@@ -1,6 +1,9 @@
 {% load static %}
 {% block content %}
 <style>
+    .page-break {
+        page-break-before: always;
+    }
     @media print {
         .page-break {
             page-break-before: always;
@@ -47,10 +50,6 @@
 </style>
 
 {% for page in bol_pages %}
-{% if not forloop.first %}
-<div class="page-break"></div>
-{% endif %}
-
 <div style="font-size: 13px;">
     <table style="width: 100%;">
         <tr style="border-bottom: 1px solid black;">
@@ -198,41 +197,65 @@
 </div>
 </div>
 </div>
+
+{% if page.pickup_images %}
+<div style="padding: 10px 0;">
+    {% for img in page.pickup_images %}
+    <div style="text-align:center; padding: 10px 0;">
+        <img src="{{ img }}" style="width: 700px; height: auto;">
+    </div>
+    {% endfor %}
+    <div style="padding-top: 10px; font-size: 14px;">
+        containers: <b>{{ page.container_number|safe }}</b><br>
+        shipping_mark: <b>{{ page.shipping_mark|safe }}</b>
+    </div>
+</div>
+{% endif %}
+
+{% if not forloop.last %}
+<div class="page-break"></div>
+{% endif %}
+
 {% endfor %}
 
+<div class="page-break"></div>
 <br><br>
 <b><span style="text-align:center; display:block; font-size:24px;">Pickup List</span></b>
 <table style="width: 100%; text-align:left; padding: 5px; table-layout: fixed;"> 
     <thead> 
-        <th style="width: 7%; border: none;"></th>
-        <th style="width: 14%; border:1px solid black;">container number</th>
-        <th style="width: 14%; border:1px solid black;">destination</th>
-        <th style="width: 18%; border:1px solid black;">shipping_mark</th>
-        <th style="width: 13%; border:1px solid black;">pallets</th>
-        <th style="width: 13%; border:1px solid black;">pcs</th>
-        <th style="width: 13%; border:1px solid black;">carrier</th>
-        {% if "LA-91761" == warehouse %}
-        <th style="width: 8%; border:1px solid black;">slot</th>
-        {% endif %}
-        <th style="width: 8%; border: none;"></th>
+        <tr>
+            <th style="width: 7%; border: none;"></th>
+            <th style="width: 14%; border:1px solid black;">container number</th>
+            <th style="width: 14%; border:1px solid black;">destination</th>
+            <th style="width: 18%; border:1px solid black;">shipping_mark</th>
+            <th style="width: 13%; border:1px solid black;">pallets</th>
+            <th style="width: 13%; border:1px solid black;">pcs</th>
+            <th style="width: 13%; border:1px solid black;">carrier</th>
+            {% if "LA-91761" == warehouse %}
+            <th style="width: 8%; border:1px solid black;">slot</th>
+            {% endif %}
+            <th style="width: 8%; border: none;"></th>
+        </tr>
     </thead>
-    {% for p in arm_pickup %}
-    <tr style="text-align:center;">
-        <th style="width: 7%; border: none;"></th>
-        <td style="text-align:center; border:1px solid black;">{{ p.container_number__container_number }}</td>
-        <td style="text-align:center; border:1px solid black; font-family: STSong-Light;">{{ p.destination }}</td>
-        <td style="word-break:break-all; border:1px solid black;">{{ p.shipping_mark }}</td>
-        <td style="text-align:center; border:1px solid black;">{{ p.total_pallet }}</td>
-        <td style="text-align:center; border:1px solid black;">{{ p.total_pcs }}</td>
-        <td style="text-align:center; border:1px solid black;">{{ p.shipment_batch_number__fleet_number__carrier }}</td>
-        {% if "LA-91761" == warehouse %}
-        <td style="text-align:center; border:1px solid black;">
-            {{ p.slot|default:"&nbsp;" }}
-        </td>
-        {% endif %}
-        <th style="width: 8%; border: none;"></th>
-    </tr>
-    {% endfor %}
+    <tbody>
+        {% for p in arm_pickup %}
+        <tr style="text-align:center;">
+            <th style="width: 7%; border: none;"></th>
+            <td style="text-align:center; border:1px solid black;">{{ p.container_number__container_number }}</td>
+            <td style="text-align:center; border:1px solid black; font-family: STSong-Light;">{{ p.destination }}</td>
+            <td style="word-break:break-all; border:1px solid black;">{{ p.shipping_mark }}</td>
+            <td style="text-align:center; border:1px solid black;">{{ p.total_pallet }}</td>
+            <td style="text-align:center; border:1px solid black;">{{ p.total_pcs }}</td>
+            <td style="text-align:center; border:1px solid black;">{{ p.shipment_batch_number__fleet_number__carrier }}</td>
+            {% if "LA-91761" == warehouse %}
+            <td style="text-align:center; border:1px solid black;">
+                {{ p.slot|default:"&nbsp;" }}
+            </td>
+            {% endif %}
+            <th style="width: 8%; border: none;"></th>
+        </tr>
+        {% endfor %}
+    </tbody>
 </table>
 <br/><br/>
 <div style="font-size: 18px; font-family: STSong-Light; padding-left: 80px;">
