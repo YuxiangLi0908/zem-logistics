@@ -6020,6 +6020,8 @@ class PostNsop(View):
                 len(s['cargos']) if s['cargos'] else 1
                 for s in fleet_group['shipments'].values()
             )
+            if fleet_group["total_cargos"] <= 0:
+                fleet_group["total_cargos"] = 1
             # 只有有数据的fleet才返回
             #if fleet_group['shipments']:
             grouped_data.append(fleet_group)
@@ -7806,6 +7808,7 @@ class PostNsop(View):
         unschedule_fleet = await self._ltl_unscheduled_data(request, warehouse)
         #待出库
         ready_to_ship_data = await self._ltl_ready_to_ship_data(warehouse,request.user)
+        print("ready_to_ship_data", ready_to_ship_data)
         # 待送达
         delivery_data_raw = await self._fl_delivery_get(warehouse, None, 'ltl')
         delivery_data = delivery_data_raw['shipments']

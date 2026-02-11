@@ -156,9 +156,50 @@
             {% for fleet_group in ready_to_ship_data %}
                 {% with fleet_rowspan=fleet_group.total_cargos %}
                     <tr class="group-separator">
-                        <td colspan="10" style="background: linear-gradient(90deg, #3498db, #6c8bc7); 
+                        <td colspan="11" style="background: linear-gradient(90deg, #3498db, #6c8bc7); 
                                             height: 2px; padding: 0;"></td>
                     </tr>
+                    {% if not fleet_group.shipments %}
+                        <tr>
+                            <td class="fleet-number-cell" style="vertical-align: middle; background-color: #f8f9fa;"
+                                data-fleet-number="{{ fleet_group.fleet_number }}"
+                                data-third-party-address="{{ fleet_group.third_party_address }}"
+                                data-pickup-number="{{ fleet_group.pickup_number }}"
+                                data-motor-carrier-number="{{ fleet_group.motor_carrier_number }}"
+                                data-license-plate="{{ fleet_group.license_plate }}"
+                                data-dot-number="{{ fleet_group.dot_number }}"
+                                data-appointment-datetime="{{ fleet_group.appointment_datetime }}"
+                                data-carrier="{{ fleet_group.carrier }}"
+                                data-fleet-type="{{ fleet_group.fleet_type }}"
+                                onclick="openFleetModalForReadyShip(this)">
+                                <strong style="color: #3498db; text-decoration: underline;">{{ fleet_group.fleet_number }}</strong>
+                                <br>
+                                <span style="color: #7f8c8d; font-size: 0.85em;">{{ fleet_group.pickup_number|default_if_none:'' }}</span>
+                                {% if fleet_group.is_virtual %}
+                                    <br><small style="color:#7f8c8d;font-size:10px;">虚拟车次待编辑</small>
+                                {% endif %}
+                            </td>
+                            <td style="vertical-align: middle; background-color: #f8f9fa;">
+                                {{ fleet_group.appointment_datetime|date:"Y-m-d" }}
+                            </td>
+                            <td style="vertical-align: middle; background-color: #f8f9fa;">-</td>
+                            <td style="vertical-align: middle; background-color: #f8f9fa;">-</td>
+                            <td colspan="4" style="text-align:center; color:#aaa;">无可出库货物</td>
+                            <td colspan="3" style="vertical-align: middle;">
+                                <form method="post" action="" class="notify-customer-form" style="display: inline-block;">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="fleet_number" value="{{ fleet_group.fleet_number }}">
+                                    <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                                    <input type="hidden" name="step" value="cancel_fleet">
+                                    <input type="hidden" name="active_tab" value="readyShip">
+                                    <input type="hidden" name="page" value="ltl_readyShip">
+                                    <button type="submit" class="btn btn-danger btn-sm">
+                                        删除车次
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                    {% endif %}
                     {% for shipment_batch_number, shipment in fleet_group.shipments.items %}
                         {% with shipment_rowspan=shipment.cargos|length|default:0 %}
                             {% with is_first_shipment=forloop.first %}
@@ -198,7 +239,7 @@
                                         <td colspan="4" style="text-align:center; color:#aaa;">无可出库货物</td>
 
                                         {% if is_first_shipment %}
-                                            <td rowspan="{{ fleet_rowspan }}" colspan="2">
+                                            <td rowspan="{{ fleet_rowspan }}" colspan="3" style="vertical-align: middle;">
                                                 <form method="post" action="" class="notify-customer-form" style="display: inline-block;">
                                                     {% csrf_token %}
                                                     <input type="hidden" name="fleet_number" value="{{ fleet_group.fleet_number }}">
@@ -388,7 +429,7 @@
                 {% endwith %}
             {% empty %}
                 <tr>
-                    <td colspan="10" style="text-align:center; padding:20px;">暂无待出库货物</td>
+                    <td colspan="11" style="text-align:center; padding:20px;">暂无待出库货物</td>
                 </tr>
             {% endfor %}
         </tbody>
