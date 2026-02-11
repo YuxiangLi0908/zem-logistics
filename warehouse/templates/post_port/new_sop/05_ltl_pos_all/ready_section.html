@@ -1030,31 +1030,79 @@
         const statusEl = row.querySelector('.arm-image-status');
         const orientationSelect = row.querySelector('select[data-field="pickup_image_orientation"]');
         const orientation = orientationSelect ? orientationSelect.value : 'horizontal';
+        const fileContentEl = row.querySelector('textarea[data-field="pickup_file_content"]');
         if (!input.files || input.files.length === 0) {
             input.dataset.base64 = '';
+            if (fileContentEl) fileContentEl.value = '';
+            if (orientationSelect) orientationSelect.disabled = false;
             if (statusEl) statusEl.textContent = '未上传';
             updateArmPickupData();
             return;
         }
         const file = input.files[0];
-        if (!file.type || !file.type.startsWith('image/')) {
-            alert('仅支持图片文件');
-            input.value = '';
-            input.dataset.base64 = '';
-            if (statusEl) statusEl.textContent = '未上传';
-            updateArmPickupData();
-            return;
-        }
         try {
             if (statusEl) statusEl.textContent = '处理中...';
-            const dataUrl = await compressImageToDataUrl(file, orientation);
-            input.dataset.base64 = dataUrl;
-            if (statusEl) statusEl.textContent = '已上传';
-            updateArmPickupData();
+            if (file.type && file.type.startsWith('image/')) {
+                if (orientationSelect) orientationSelect.disabled = false;
+                const dataUrl = await compressImageToDataUrl(file, orientation);
+                input.dataset.base64 = dataUrl;
+                if (fileContentEl) fileContentEl.value = '';
+                if (statusEl) statusEl.textContent = '已上传(图片)';
+                updateArmPickupData();
+            } else {
+                if (orientationSelect) {
+                    orientationSelect.value = 'horizontal';
+                    orientationSelect.disabled = true;
+                }
+                const isPdf = file.type === 'application/pdf' || (file.name || '').toLowerCase().endsWith('.pdf');
+                if (isPdf) {
+                    if (file.size > 3 * 1024 * 1024) {
+                        alert('PDF太大（>3MB），请压缩后再上传');
+                        input.value = '';
+                        input.dataset.base64 = '';
+                        if (fileContentEl) fileContentEl.value = '';
+                        if (statusEl) statusEl.textContent = '未上传';
+                        updateArmPickupData();
+                        return;
+                    }
+                    const dataUrl = await new Promise((resolve, reject) => {
+                        const reader = new FileReader();
+                        reader.onerror = () => reject(new Error('file read failed'));
+                        reader.onload = () => resolve(reader.result || '');
+                        reader.readAsDataURL(file);
+                    });
+                    input.dataset.base64 = '';
+                    if (fileContentEl) fileContentEl.value = String(dataUrl || '');
+                    if (statusEl) statusEl.textContent = '已上传(PDF)';
+                    updateArmPickupData();
+                } else {
+                    if (file.size > 200 * 1024) {
+                        alert('文件太大（>200KB），请缩小后再上传');
+                        input.value = '';
+                        input.dataset.base64 = '';
+                        if (fileContentEl) fileContentEl.value = '';
+                        if (statusEl) statusEl.textContent = '未上传';
+                        updateArmPickupData();
+                        return;
+                    }
+                    const text = await new Promise((resolve, reject) => {
+                        const reader = new FileReader();
+                        reader.onerror = () => reject(new Error('file read failed'));
+                        reader.onload = () => resolve(reader.result || '');
+                        reader.readAsText(file);
+                    });
+                    input.dataset.base64 = '';
+                    if (fileContentEl) fileContentEl.value = String(text || '');
+                    if (statusEl) statusEl.textContent = '已上传(文件)';
+                    updateArmPickupData();
+                }
+            }
         } catch (e) {
-            alert('图片处理失败');
+            alert('文件处理失败');
             input.value = '';
             input.dataset.base64 = '';
+            if (fileContentEl) fileContentEl.value = '';
+            if (orientationSelect) orientationSelect.disabled = false;
             if (statusEl) statusEl.textContent = '未上传';
             updateArmPickupData();
         }
@@ -1185,7 +1233,7 @@
                             style="width: 100%; border: none; background: transparent;">
                     </td>
                     <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">
-                        <input type="file" accept="image/*" class="arm-file" data-field="pickup_image" data-base64="${(item.pickup_image || '').toString().replace(/"/g,'&quot;')}"
+                        <input type="file" accept="image/*,application/pdf,.pdf,.txt,.csv,.log,.json" class="arm-file" data-field="pickup_image" data-base64="${(item.pickup_image || '').toString().replace(/"/g,'&quot;')}"
                             onchange="handleArmPickupImageChange(this)"
                             style="width: 100%;">
                         <select class="arm-select" data-field="pickup_image_orientation"
@@ -1193,7 +1241,8 @@
                             <option value="horizontal" ${(item.pickup_image_orientation || 'horizontal') === 'horizontal' ? 'selected' : ''}>横向</option>
                             <option value="vertical" ${(item.pickup_image_orientation || 'horizontal') === 'vertical' ? 'selected' : ''}>竖向</option>
                         </select>
-                        <div class="arm-image-status" style="font-size: 12px; color: #666; padding-top: 4px;">${item.pickup_image ? '已上传' : '未上传'}</div>
+                        <textarea class="arm-textarea" data-field="pickup_file_content" style="display:none;">${(item.pickup_file_content || '').toString()}</textarea>
+                        <div class="arm-image-status" style="font-size: 12px; color: #666; padding-top: 4px;">${(item.pickup_file_content || '').toString().startsWith('data:application/pdf') ? '已上传(PDF)' : (item.pickup_file_content ? '已上传(文件)' : (item.pickup_image ? '已上传(图片)' : '未上传'))}</div>
                     </td>
                     <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">
                         <button onclick="removeArmPickupRow(${index})" 
@@ -1364,7 +1413,7 @@
                             style="width: 100%; border: 1px solid #ddd; background: #fff; padding: 6px; font-size: 13px;">
                     </td>
                     <td style="border: 1px solid #ddd; padding: 8px; width: 160px; min-width: 160px; text-align: center;">
-                        <input type="file" accept="image/*" class="arm-file" data-field="pickup_image" data-base64="${cleanData.pickup_image.replace(/"/g,'&quot;')}"
+                        <input type="file" accept="image/*,application/pdf,.pdf,.txt,.csv,.log,.json" class="arm-file" data-field="pickup_image" data-base64="${cleanData.pickup_image.replace(/"/g,'&quot;')}"
                             onchange="handleArmPickupImageChange(this)"
                             style="width: 100%;">
                         <select class="arm-select" data-field="pickup_image_orientation"
@@ -1372,7 +1421,8 @@
                             <option value="horizontal" ${(item.pickup_image_orientation || 'horizontal') === 'horizontal' ? 'selected' : ''}>横向</option>
                             <option value="vertical" ${(item.pickup_image_orientation || 'horizontal') === 'vertical' ? 'selected' : ''}>竖向</option>
                         </select>
-                        <div class="arm-image-status" style="font-size: 12px; color: #666; padding-top: 4px;">${cleanData.pickup_image ? '已上传' : '未上传'}</div>
+                        <textarea class="arm-textarea" data-field="pickup_file_content" style="display:none;">${(item.pickup_file_content || '').toString()}</textarea>
+                        <div class="arm-image-status" style="font-size: 12px; color: #666; padding-top: 4px;">${(item.pickup_file_content || '').toString().startsWith('data:application/pdf') ? '已上传(PDF)' : (item.pickup_file_content ? '已上传(文件)' : (cleanData.pickup_image ? '已上传(图片)' : '未上传'))}</div>
                     </td>
                     <td style="border: 1px solid #ddd; padding: 8px; width: 80px; min-width: 80px; text-align: center;">
                         <button onclick="removeArmPickupRow(${index})" 
@@ -1532,7 +1582,7 @@
                             style="width: 100%; border: 1px solid #ccc; background: #fff;">
                     </td>
                     <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">
-                        <input type="file" accept="image/*" class="arm-file" data-field="pickup_image" data-base64=""
+                        <input type="file" accept="image/*,application/pdf,.pdf,.txt,.csv,.log,.json" class="arm-file" data-field="pickup_image" data-base64=""
                             onchange="handleArmPickupImageChange(this)"
                             style="width: 100%;">
                         <select class="arm-select" data-field="pickup_image_orientation"
@@ -1540,6 +1590,7 @@
                             <option value="horizontal" selected>横向</option>
                             <option value="vertical">竖向</option>
                         </select>
+                        <textarea class="arm-textarea" data-field="pickup_file_content" style="display:none;"></textarea>
                         <div class="arm-image-status" style="font-size: 12px; color: #666; padding-top: 4px;">未上传</div>
                     </td>
                     <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">
@@ -1637,7 +1688,7 @@
                             style="width: 100%; border: 1px solid #ccc; background: #fff; padding: 4px;">
                     </td>
                     <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">
-                        <input type="file" accept="image/*" class="arm-file" data-field="pickup_image" data-base64=""
+                        <input type="file" accept="image/*,application/pdf,.pdf,.txt,.csv,.log,.json" class="arm-file" data-field="pickup_image" data-base64=""
                             onchange="handleArmPickupImageChange(this)"
                             style="width: 100%;">
                         <select class="arm-select" data-field="pickup_image_orientation"
@@ -1645,6 +1696,7 @@
                             <option value="horizontal" selected>横向</option>
                             <option value="vertical">竖向</option>
                         </select>
+                        <textarea class="arm-textarea" data-field="pickup_file_content" style="display:none;"></textarea>
                         <div class="arm-image-status" style="font-size: 12px; color: #666; padding-top: 4px;">未上传</div>
                     </td>
                     <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">
@@ -1698,6 +1750,7 @@
             slot: '',
             pickup_image: ''
             ,pickup_image_orientation: 'horizontal'
+            ,pickup_file_content: ''
         };
         
         editedArmPickupData.push(emptyData);

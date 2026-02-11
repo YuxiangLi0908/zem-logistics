@@ -197,12 +197,18 @@
     <span>ATTENTION TO CARRIERS : ZEM does not authorize any additional services (such as inside delivery, etc) that are not listed on the BOL and will not be held liable for charges of an extra services that were not authorized prior. </span>
     <span style="font-size:12px; padding-top:0;">NOTE: Liability Limitation for loss or damage in this shipment may be applicable. See 49 U.S.C. 14706(c)(1)(A) and (B)</span>
 </div>
-{% if pickup_images %}
+{% if pickup_attachments %}
 <div style="padding: 10px 0;">
-    {% for img in pickup_images %}
-    <div style="text-align:center; padding: 10px 0;">
-        <img src="{{ img }}" style="width: 700px; height: auto;">
-    </div>
+    {% for att in pickup_attachments %}
+        {% if att.kind == "image" %}
+        <div style="text-align:center; padding: 10px 0;">
+            <img src="{{ att.src }}" style="width: 700px; height: auto;">
+        </div>
+        {% else %}
+        <div style="border: 1px solid #000; padding: 8px; font-size: 12px; white-space: normal;">
+            {{ att.html|safe }}
+        </div>
+        {% endif %}
     {% endfor %}
     <div style="padding-top: 10px; font-size: 14px;">
         containers: <b>{{ container_number|safe }}</b><br>
