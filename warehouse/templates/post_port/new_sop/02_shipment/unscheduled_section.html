@@ -140,6 +140,20 @@
     .query-quotation-btn i {
         font-size: 0.9rem;
     }
+
+    .destination-tag.selected {
+        background: linear-gradient(135deg, #e74c3c 0%, #ff7675 100%) !important;
+        border-color: #c0392b !important;
+        color: #fff !important;
+        font-weight: 700;
+        transform: translateY(-1px);
+        box-shadow: 0 6px 14px rgba(231, 76, 60, 0.35);
+    }
+
+    .destination-tag:hover {
+        background: #fdcb6e !important;
+        transform: translateY(-1px);
+    }
 </style>
 <!-- 未排约标签页 -->
 <div class="content-section" id="unscheduled-section">
@@ -167,6 +181,37 @@
         </div>
     </div>
 
+    {% if destination_list %}
+    <div class="destination-filter-section" style="margin-top: 15px; padding: 15px; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #e74c3c;">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 15px; flex-wrap: nowrap;">
+            <div style="flex: 1; min-width: 0;">
+                <div style="display: flex; align-items: flex-start; gap: 8px;">
+                    <strong style="color: #2c3e50; white-space: nowrap; flex-shrink: 0; margin-top: 2px;">
+                        <i class="fas fa-map-marker-alt"></i> 目的地列表 (点击筛选):
+                    </strong>
+                    <div id="destinationList" style="display: flex; gap: 8px; flex-wrap: wrap; flex: 1;">
+                        {% for item in destination_list %}
+                        <span class="destination-tag" data-destination="{{ item.destination }}"
+                            style="background: #ffeaa7; padding: 4px 12px; border-radius: 16px; font-size: 0.85rem; 
+                                    border: 1px solid #fdcb6e; cursor: pointer; transition: all 0.3s; flex-shrink: 0;"
+                            onclick="toggleDestinationFilter('{{ item.destination }}')">
+                            {{ item.destination }} ({{ item.total_cbm|floatformat:1 }} CBM)
+                        </span>
+                        {% empty %}
+                        <span style="color: #666; font-style: italic;">暂无目的地数据</span>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            <div style="flex-shrink: 0; display: flex; align-items: center; gap: 8px; margin-left: 20px;">
+                <button id="clearDestinationFilter" class="action-btn btn-warning" style="padding: 8px 12px; flex-shrink: 0;" onclick="clearDestinationFilter()">
+                    <i class="fas fa-times"></i> 清除目的地
+                </button>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
     <!-- 智能匹配建议表格 -->
     {% if matching_suggestions %}
     <div style="margin-top: 20px;">
@@ -175,7 +220,7 @@
         </h4>
         
         <div class="table-container">
-            <table class="data-table">
+            <table class="data-table" id="unscheduledSuggestionTable">
                 <thead>
                     <tr>
                         <th>仓点</th>
@@ -213,13 +258,14 @@
                     {% for suggestion in matching_suggestions %}
                         {% if suggestion.primary_group.matched_shipment %}
                         <!-- 添加组间隔行 - 每个组都添加 -->
-                        <tr class="group-separator">
+                        <tr class="group-separator" data-suggestion-id="{{ suggestion.suggestion_id }}" data-destination="{{ suggestion.primary_group.destination }}">
                             <td colspan="12" style="background: linear-gradient(90deg, #3498db, #6c8bc7); 
                                                 height: 2px; padding: 0;"></td>
                         </tr>
                         
                         {% for cargo in suggestion.cargos %}
                         <tr data-suggestion-id="{{ suggestion.suggestion_id }}"
+                            data-destination="{{ suggestion.primary_group.destination }}"
                             data-cargo-id="{{ cargo.ids|default:'' }}"
                             data-plt-id="{{ cargo.plt_ids|default:'' }}">
                             <!-- 仓点列 -->
@@ -396,12 +442,13 @@
                     {% for suggestion in matching_suggestions %}
                         {% if not suggestion.primary_group.matched_shipment %}
                         <!-- 添加组间隔行 -->
-                        <tr class="group-separator">
+                        <tr class="group-separator" data-suggestion-id="{{ suggestion.suggestion_id }}" data-destination="{{ suggestion.primary_group.destination }}">
                             <td colspan="11" style="background: linear-gradient(90deg, #f39c12, #e67e22); 
                                                 height: 2px; padding: 0;"></td>
                         </tr>
                         {% for cargo in suggestion.cargos %}
                         <tr data-suggestion-id="{{ suggestion.suggestion_id }}"
+                            data-destination="{{ suggestion.primary_group.destination }}"
                             data-cargo-id="{{ cargo.ids|default:'' }}"
                             data-plt-id="{{ cargo.plt_ids|default:'' }}">
                             <!-- 仓点列 -->
@@ -612,6 +659,28 @@
     let searchState = {};
     let searchTimer;
 
+    let selectedDestinations = new Set();
+
+    function toggleDestinationFilter(destination) {
+        const destinationKey = destination.trim().toLowerCase();
+        const destinationTag = document.querySelector(`.destination-tag[data-destination="${destination}"]`);
+        if (selectedDestinations.has(destinationKey)) {
+            selectedDestinations.delete(destinationKey);
+            if (destinationTag) destinationTag.classList.remove('selected');
+        } else {
+            selectedDestinations.add(destinationKey);
+            if (destinationTag) destinationTag.classList.add('selected');
+        }
+        applyMultiFilterUnscheduledSection();
+    }
+
+    function clearDestinationFilter() {
+        const destinationTags = document.querySelectorAll('#unscheduled-section .destination-tag');
+        selectedDestinations.clear();
+        destinationTags.forEach(tag => tag.classList.remove('selected'));
+        applyMultiFilterUnscheduledSection();
+    }
+
     // 搜索功能工具函数
     function escapeRegExp(string) {
         return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -807,6 +876,18 @@
 
         const searchInputs = document.querySelectorAll('#unscheduled-section .header-search');
         const rows = document.querySelectorAll('#unscheduled-section tbody tr');
+
+        const destinationFilterActive = selectedDestinations && selectedDestinations.size > 0;
+        rows.forEach(r => {
+            if (r.classList.contains('group-separator')) return;
+            if (!destinationFilterActive) {
+                r.style.display = '';
+                return;
+            }
+            const rowDestination = (r.dataset.destination || '').trim().toLowerCase();
+            r.style.display = selectedDestinations.has(rowDestination) ? '' : 'none';
+        });
+        updateGroupSeparators();
         
         // 收集搜索条件
         searchState = {};
@@ -822,13 +903,8 @@
 
         const searchTerms = Object.values(searchState);
 
-        // 没有搜索条件时显示所有行和分隔线
+        // 没有搜索条件时仅展示目的地筛选后的结果
         if (searchTerms.length === 0) {
-            rows.forEach(r => {
-                if (!r.classList.contains('group-separator')) {
-                    r.style.display = '';
-                }
-            });
             updateGroupSeparators();
             return;
         }
@@ -837,7 +913,11 @@
         // 应用AND搜索逻辑
         for (let term of searchTerms) {
             if (firstRound) {
-                handleUnscheduledSearch(rows, term);
+                if (destinationFilterActive) {
+                    handleUnscheduledSearchForVisible(rows, term);
+                } else {
+                    handleUnscheduledSearch(rows, term);
+                }
                 firstRound = false;
             } else {
                 handleUnscheduledSearchForVisible(rows, term);
