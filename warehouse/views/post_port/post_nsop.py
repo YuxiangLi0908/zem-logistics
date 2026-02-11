@@ -4856,7 +4856,13 @@ class PostNsop(View):
 
         # 获取三类数据：未排约、已排约、待出库
         if not matching_suggestions:
-            matching_suggestions = await self.sp_unscheduled_data(warehouse, st_type, max_cbm, max_pallet,request.user)  
+            sp_result = await self.sp_unscheduled_data(
+                warehouse, st_type, max_cbm, max_pallet, request.user
+            )
+            matching_suggestions = sp_result.get("matching_suggestions", [])
+            destination_list = sp_result.get("destination_list", [])
+        else:
+            destination_list = []
 
         if not context:
             context = {}
@@ -4868,6 +4874,7 @@ class PostNsop(View):
             'warehouse': warehouse,
             'st_type': st_type,
             'matching_suggestions': matching_suggestions,
+            'destination_list': destination_list,
             'max_cbm': max_cbm,
             'max_pallet': max_pallet,
             'warehouse_options': self.warehouse_options,
@@ -5213,7 +5220,13 @@ class PostNsop(View):
         
         # 获取三类数据：未排约、已排约、待出库
         if not matching_suggestions:
-            matching_suggestions = await self.sp_unscheduled_data(warehouse, st_type, 1000, 1000,request.user)
+            sp_result = await self.sp_unscheduled_data(
+                warehouse, st_type, 1000, 1000, request.user
+            )
+            matching_suggestions = sp_result.get("matching_suggestions", [])
+            destination_list = sp_result.get("destination_list", [])
+        else:
+            destination_list = []
         #已排约
         scheduled_data = await self.sp_scheduled_data(warehouse, request.user)
 
@@ -5239,6 +5252,7 @@ class PostNsop(View):
             'warehouse': warehouse,
             'st_type': st_type,
             'matching_suggestions': matching_suggestions,
+            'destination_list': destination_list,
             'scheduled_data': scheduled_data,
             'unschedule_fleet': unschedule_fleet_data,
             'fleet_list': schedule_fleet_data,   #已排车
@@ -5258,7 +5272,7 @@ class PostNsop(View):
         context["warehouse_json"] = json.dumps(warehouse, cls=DjangoJSONEncoder)
         return self.template_td_shipment, context
     
-    async def sp_unscheduled_data(self, warehouse: str, st_type: str, max_cbm, max_pallet, user) -> list:
+    async def sp_unscheduled_data(self, warehouse: str, st_type: str, max_cbm, max_pallet, user) -> dict:
         """获取未排约数据"""
         delivery_method_filter = (
             ~models.Q(delivery_method__icontains='暂扣') &
@@ -5298,8 +5312,29 @@ class PostNsop(View):
         # 生成智能匹配建议
         matching_suggestions = await self._generate_matching_suggestions(unshipment_pos, shipments, warehouse, max_cbm, max_pallet,st_type, user)
         
-        # 只返回匹配建议，不返回原始未排约数据
-        return matching_suggestions
+        destination_totals = {}
+        for suggestion in matching_suggestions:
+            primary_group = suggestion.get("primary_group", {})
+            dest = (primary_group.get("destination") or "").strip()
+            if not dest:
+                continue
+            cbm_value = primary_group.get("total_cbm", 0) or 0
+            try:
+                cbm_float = float(cbm_value)
+            except Exception:
+                cbm_float = 0.0
+            destination_totals[dest] = destination_totals.get(dest, 0.0) + cbm_float
+
+        destination_list = [
+            {"destination": dest, "total_cbm": round(total, 2)}
+            for dest, total in destination_totals.items()
+        ]
+        destination_list.sort(key=lambda x: x.get("total_cbm", 0), reverse=True)
+
+        return {
+            "matching_suggestions": matching_suggestions,
+            "destination_list": destination_list,
+        }
 
     async def _get_available_shipments(self, warehouse: str):
         """获取可用的shipment记录"""
