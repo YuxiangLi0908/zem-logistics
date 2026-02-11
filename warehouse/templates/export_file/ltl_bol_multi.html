@@ -198,12 +198,18 @@
 </div>
 </div>
 
-{% if page.pickup_images %}
+{% if page.pickup_attachments %}
 <div style="padding: 10px 0;">
-    {% for img in page.pickup_images %}
-    <div style="text-align:center; padding: 10px 0;">
-        <img src="{{ img }}" style="width: 700px; height: auto;">
-    </div>
+    {% for att in page.pickup_attachments %}
+        {% if att.kind == "image" %}
+        <div style="text-align:center; padding: 10px 0;">
+            <img src="{{ att.src }}" style="width: 700px; height: auto;">
+        </div>
+        {% else %}
+        <div style="border: 1px solid #000; padding: 8px; font-size: 12px; white-space: normal;">
+            {{ att.html|safe }}
+        </div>
+        {% endif %}
     {% endfor %}
     <div style="padding-top: 10px; font-size: 14px;">
         containers: <b>{{ page.container_number|safe }}</b><br>

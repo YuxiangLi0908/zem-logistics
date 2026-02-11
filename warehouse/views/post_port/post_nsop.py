@@ -903,27 +903,59 @@ class PostNsop(View):
                 lines.append(", ".join(cleaned[i : i + 2]))
             return mark_safe("<br>".join(lines)) if lines else ""
 
-        def extract_pickup_images(rows: List[dict]) -> List[str]:
-            images = []
+        def extract_pickup_attachments(rows: List[dict]) -> List[dict]:
+            attachments = []
             seen = set()
             for r in rows:
-                value = r.get("pickup_image", "")
-                if not isinstance(value, str):
-                    continue
-                value_str = value.strip()
-                if not value_str:
-                    continue
-                if not value_str.startswith("data:image/"):
-                    continue
-                if ";base64," not in value_str:
-                    continue
-                if len(value_str) > 3_000_000:
-                    continue
-                if value_str in seen:
-                    continue
-                seen.add(value_str)
-                images.append(value_str)
-            return images
+                image_value = r.get("pickup_image", "")
+                if isinstance(image_value, str):
+                    image_value_str = image_value.strip()
+                    if (
+                        image_value_str
+                        and image_value_str.startswith("data:image/")
+                        and ";base64," in image_value_str
+                        and len(image_value_str) <= 3_000_000
+                        and image_value_str not in seen
+                    ):
+                        seen.add(image_value_str)
+                        attachments.append({"kind": "image", "src": image_value_str})
+
+                file_value = r.get("pickup_file_content", "")
+                if isinstance(file_value, str):
+                    file_value_str = file_value.strip()
+                    if file_value_str:
+                        if file_value_str.startswith("data:application/pdf;base64,"):
+                            base64_part = file_value_str.split(",", 1)[1] if "," in file_value_str else ""
+                            if base64_part and len(base64_part) <= 4_500_000:
+                                try:
+                                    pdf_bytes = base64.b64decode(base64_part, validate=False)
+                                    reader = PdfReader(io.BytesIO(pdf_bytes))
+                                    extracted = []
+                                    for page in reader.pages:
+                                        page_text = page.extract_text() or ""
+                                        if page_text:
+                                            extracted.append(page_text)
+                                    extracted_text = "\n\n".join(extracted).strip()
+                                    if extracted_text:
+                                        file_value_str = extracted_text
+                                except Exception:
+                                    file_value_str = "[PDF parse failed]"
+                        if len(file_value_str) > 30_000:
+                            file_value_str = file_value_str[:30_000] + "\n...[truncated]"
+                        safe_html = escape(file_value_str).replace("\r\n", "\n").replace(
+                            "\n", "<br>"
+                        )
+                        dedupe_key = f"FILE::{safe_html}"
+                        if dedupe_key in seen:
+                            continue
+                        seen.add(dedupe_key)
+                        attachments.append(
+                            {
+                                "kind": "file",
+                                "html": mark_safe(safe_html),
+                            }
+                        )
+            return attachments
 
         if arm_pickup_data and arm_pickup_data != "[]":
             loaded = json.loads(arm_pickup_data)
@@ -984,6 +1016,9 @@ class PostNsop(View):
                         "pickup_image_orientation": str(
                             row.get("pickup_image_orientation", "horizontal")
                         ).strip(),
+                        "pickup_file_content": str(
+                            row.get("pickup_file_content", "")
+                        ),
                     }
                     for possible_key in (
                         "arm_pickup_group",
@@ -1137,7 +1172,7 @@ class PostNsop(View):
                 if part_str:
                     all_marks.append(part_str)
         group_shipping_mark = format_two_per_line(all_marks)
-        pickup_images = extract_pickup_images(arm_pickup)
+        pickup_attachments = extract_pickup_attachments(arm_pickup)
         notes_str = "<br>".join(filter(None, notes))
         barcode_type = "code128"
         barcode_class = barcode.get_barcode_class(barcode_type)
@@ -1208,7 +1243,7 @@ class PostNsop(View):
                         "pcs": group_pcs,
                         "container_number": format_two_per_line(group_container_numbers),
                         "shipping_mark": format_two_per_line(group_marks),
-                        "pickup_images": extract_pickup_images(group_rows),
+                        "pickup_attachments": extract_pickup_attachments(group_rows),
                         "barcode": generate_barcode_base64(barcode_content),
                         "contact": group.get("contact", {}),
                         "contact_flag": group.get("contact_flag", False),
@@ -1239,7 +1274,7 @@ class PostNsop(View):
                 "container_number": group_container_number,
                 "shipping_mark": group_shipping_mark,
                 "barcode": barcode_base64,
-                "pickup_images": pickup_images,
+                "pickup_attachments": pickup_attachments,
                 "arm_pickup": arm_pickup,
                 "contact": contact,
                 "contact_flag": contact_flag,
