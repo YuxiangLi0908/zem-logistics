@@ -2398,3 +2398,38 @@ PSP3:
   location: Desert Hot Springs
   state: CA
   zipcode: '92240'
+BNA1n:
+  city: Lebanon
+  location: 1015 Hixson Blvd
+  state: TN
+  zipcode: '37090'
+BNA1N:
+  city: Lebanon
+  location: 1015 Hixson Blvd
+  state: TN
+  zipcode: '37090'
+Walmart-BNA1n:
+  city: Pedricktown
+  location: 3 Sorbello Rd
+  state: NJ
+  zipcode: '08067'
+沃尔玛-BNA1n:
+  city: Pedricktown
+  location: 3 Sorbello Rd
+  state: NJ
+  zipcode: '08067'
+沃尔玛BNA1n:
+  city: Pedricktown
+  location: 3 Sorbello Rd
+  state: NJ
+  zipcode: '08067'
+WMMBNA1n:
+  city: Pedricktown
+  location: 3 Sorbello Rd
+  state: NJ
+  zipcode: '08067'
+WMM-BNA1n:
+  city: Pedricktown
+  location: 3 Sorbello Rd
+  state: NJ
+  zipcode: '08067'

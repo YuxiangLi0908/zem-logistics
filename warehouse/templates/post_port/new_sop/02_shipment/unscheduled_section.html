@@ -258,7 +258,7 @@
                     {% for suggestion in matching_suggestions %}
                         {% if suggestion.primary_group.matched_shipment %}
                         <!-- 添加组间隔行 - 每个组都添加 -->
-                        <tr class="group-separator" data-suggestion-id="{{ suggestion.suggestion_id }}" data-destination="{{ suggestion.primary_group.destination }}">
+                        <tr class="group-separator">
                             <td colspan="12" style="background: linear-gradient(90deg, #3498db, #6c8bc7); 
                                                 height: 2px; padding: 0;"></td>
                         </tr>
@@ -442,7 +442,7 @@
                     {% for suggestion in matching_suggestions %}
                         {% if not suggestion.primary_group.matched_shipment %}
                         <!-- 添加组间隔行 -->
-                        <tr class="group-separator" data-suggestion-id="{{ suggestion.suggestion_id }}" data-destination="{{ suggestion.primary_group.destination }}">
+                        <tr class="group-separator">
                             <td colspan="11" style="background: linear-gradient(90deg, #f39c12, #e67e22); 
                                                 height: 2px; padding: 0;"></td>
                         </tr>
