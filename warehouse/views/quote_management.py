@@ -1312,6 +1312,16 @@ class QuoteManagement(View):
             cutoff_date = datetime.strptime("2025-07-15", "%Y-%m-%d").date()
             if effective_date_obj >= cutoff_date:
                 la_combina_handler = self.process_la_combina_new_sheet
+
+            def normalize_sheet_name(name: str) -> str:
+                if not name:
+                    return ""
+                cleaned = str(name).strip()
+                aliases = {
+                    "SAV亚马逊派送费": "SAV亚马逊派送表",
+                }
+                return aliases.get(cleaned, cleaned)
+
             SHEET_HANDLERS = {
                 "码头费用说明": self.process_preport_sheet,  # 已验证
                 "仓库库内操作费": self.process_warehouse_sheet,  # 已验证
@@ -1327,17 +1337,22 @@ class QuoteManagement(View):
                 # "LA本地派送": self.process_la_local_sheet,
             }
             #查看是否有表缺失
-            excel_sheets = set(excel_file.sheet_names)
+            excel_sheets = {normalize_sheet_name(n) for n in excel_file.sheet_names}
             required_sheets = set(SHEET_HANDLERS.keys())
             missing_sheets = required_sheets - excel_sheets
 
             if missing_sheets:
                 missing_sheet_list = ", ".join(sorted(missing_sheets))
                 raise ValueError(f"警告：Excel文件缺少以下工作表: {missing_sheet_list}")
+            processed_sheet_keys = set()
             for sheet_name in excel_file.sheet_names:
-                df = excel_file.parse(sheet_name)
-                if sheet_name in SHEET_HANDLERS:
-                    handler = SHEET_HANDLERS[sheet_name]
+                sheet_key = normalize_sheet_name(sheet_name)
+                if sheet_key in processed_sheet_keys:
+                    continue
+                processed_sheet_keys.add(sheet_key)
+                if sheet_key in SHEET_HANDLERS:
+                    df = excel_file.parse(sheet_name)
+                    handler = SHEET_HANDLERS[sheet_key]
                     handler(df, file, quote)
         quotes = QuotationMaster.objects.filter(quote_type="receivable")
         context = {"quotes": quotes}
