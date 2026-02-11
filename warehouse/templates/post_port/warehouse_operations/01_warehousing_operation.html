@@ -54,7 +54,8 @@
             }
 
             .fixed-width-cell {
-                min-width: 180px;
+                min-width: 120px;
+                max-width: 160px;
             }
             
             .search-input {
@@ -235,10 +236,30 @@
                 margin-right: 6px;
                 font-size: 16px;
             }
+
+            .warehouse-op-wrap {
+                width: 100%;
+                max-width: 100vw;
+                overflow-x: hidden;
+                box-sizing: border-box;
+            }
+
+            .warehouse-op-table {
+                table-layout: fixed;
+                width: 100%;
+            }
+
+            .warehouse-op-table th,
+            .warehouse-op-table td {
+                overflow-wrap: anywhere;
+                word-break: break-word;
+                padding-left: 8px;
+                padding-right: 8px;
+            }
         }
     </style>
 
-    <div class="bg-gray-50 font-inter text-textDark p-4 md:p-6" style="margin-top: 85px; position: relative; width: 115%;margin-left: -18px;">
+    <div class="bg-gray-50 font-inter text-textDark p-4 md:p-6 warehouse-op-wrap" style="margin-top: 85px; position: relative;">
         <!-- 更新后的顶部导航栏 -->
         <div class="warehouse-header">
             <div class="warehouse-title">
@@ -289,23 +310,23 @@
             </div>
         </div>
 
-        <div class="overflow-x-auto overflow-y-auto rounded-lg table-shadow bg-white" style="position: relative">
-            <table class="w-full border-collapse">
+        <div class="overflow-y-auto rounded-lg table-shadow bg-white" style="position: relative; overflow-x: hidden;">
+            <table class="w-full border-collapse warehouse-op-table">
                 <thead>
                 <tr class="header-gradient text-white">
                     <th class="px-4 py-2.5 text-left text-sm font-bold tracking-wide" style="font-size: 12px">柜号</th>
                     <th class="px-4 py-2.5 text-left text-sm font-bold tracking-wide" style="font-size: 12px">优先级</th>
                     <th class="px-4 py-2.5 text-left text-sm font-bold tracking-wide" style="font-size: 12px">到仓位置</th>
                     <th class="px-4 py-2.5 text-left text-sm font-bold tracking-wide" style="font-size: 12px">拆柜状态</th>
-                    <th class="px-4 py-2.5 text-left text-sm font-bold tracking-wide" style="font-size: 12px;width: 400px;">大方广提柜时间</th>
-                    <th class="px-4 py-2.5 text-left text-sm font-bold tracking-wide" style="font-size: 12px;width: 400px;">实际提柜时间</th>
-                    <th class="px-4 py-2.5 text-left text-sm font-bold tracking-wide" style="font-size: 12px;width: 400px;">拆柜开始时间</th>
-                    <th class="px-4 py-2.5 text-left text-sm font-bold tracking-wide" style="font-size: 12px;width: 400px;">拆柜完成时间</th>
+                    <th class="px-4 py-2.5 text-left text-sm font-bold tracking-wide" style="font-size: 12px">大方广提柜时间</th>
+                    <th class="px-4 py-2.5 text-left text-sm font-bold tracking-wide" style="font-size: 12px">实际提柜时间</th>
+                    <th class="px-4 py-2.5 text-left text-sm font-bold tracking-wide" style="font-size: 12px">拆柜开始时间</th>
+                    <th class="px-4 py-2.5 text-left text-sm font-bold tracking-wide" style="font-size: 12px">拆柜完成时间</th>
                     <th class="px-4 py-2.5 text-left text-sm font-bold tracking-wide" style="font-size: 12px">导出</th>
                     <th class="px-4 py-2.5 text-left text-sm font-bold tracking-wide" style="font-size: 12px">操作</th>
                     <th class="px-4 py-2.5 text-left text-sm font-bold tracking-wide" style="font-size: 12px">回传拆柜数据</th>
-                    <th class="px-4 py-2.5 text-left text-sm font-bold tracking-wide" style="font-size: 12px;width: 400px;">回传拆柜备注</th>
-                    <th class="px-4 py-2.5 text-left text-sm font-bold tracking-wide" style="font-size: 12px;width: 400px;">回传时间</th>
+                    <th class="px-4 py-2.5 text-left text-sm font-bold tracking-wide" style="font-size: 12px">回传拆柜备注</th>
+                    <th class="px-4 py-2.5 text-left text-sm font-bold tracking-wide" style="font-size: 12px">回传时间</th>
                 </tr>
                 <!-- 搜索行 -->
                 <tr class="bg-gray-50 border-b border-gray-200">

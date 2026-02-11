@@ -18,6 +18,8 @@
                 </label>
                 <div style="margin: 5px 0; display: none;" id="user_selection">
                     <b style="margin-right: 5px;">客户:</b>
+                    <input type="text" id="customerQuickSearch" placeholder="输入关键字筛选客户..." autocomplete="off"
+                           style="padding: 6px; border: 1px solid #ddd; font-size: 12px; border-radius: 4px; width: 220px; margin-right: 6px;">
                     {{ order_form.customer_name }}
                 </div>
             </div>
@@ -144,11 +146,56 @@
         if (this.checked) {
             userSelection.style.display = 'block';
             userSelection.querySelector('select').setAttribute('required', 'required');
+            const customerSearch = document.getElementById('customerQuickSearch');
+            if (customerSearch) {
+                customerSearch.focus();
+                customerSearch.select();
+            }
         } else {
             userSelection.style.display = 'none';
             userSelection.querySelector('select').removeAttribute('required');
         }
     });
+
+    (function initCustomerSearch() {
+        const userSelection = document.getElementById('user_selection');
+        const searchInput = document.getElementById('customerQuickSearch');
+        if (!userSelection || !searchInput) return;
+        const select = userSelection.querySelector('select');
+        if (!select) return;
+
+        const originalOptions = Array.from(select.options).map(opt => ({
+            value: opt.value,
+            text: opt.text
+        }));
+
+        function applyCustomerFilter() {
+            const query = (searchInput.value || '').trim().toLowerCase();
+            const selectedValue = select.value;
+            select.innerHTML = '';
+            originalOptions.forEach(opt => {
+                if (!query || (opt.text || '').toLowerCase().includes(query)) {
+                    const o = document.createElement('option');
+                    o.value = opt.value;
+                    o.text = opt.text;
+                    select.appendChild(o);
+                }
+            });
+            const hasSelected = Array.from(select.options).some(o => o.value === selectedValue);
+            if (hasSelected) {
+                select.value = selectedValue;
+            }
+        }
+
+        searchInput.addEventListener('input', applyCustomerFilter);
+        searchInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                searchInput.value = '';
+                applyCustomerFilter();
+                e.preventDefault();
+            }
+        });
+    })();
     let currentSortColumn = -1;
     let currentSortDirection = 1; // 1: 升序, -1: 降序
 
