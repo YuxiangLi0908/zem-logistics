@@ -2428,7 +2428,8 @@ class ReceivableAccounting(View):
             if delivery_category == "hold":
                 note = f"暂扣, {note}"
             elif delivery_category == "combine":
-                note = region
+                if not note:
+                    note = region
             if not po_id:
                 error_messages.append(f"第{row_index + 1}行: PO号不能为空")
                 continue                 
@@ -4282,12 +4283,16 @@ class ReceivableAccounting(View):
                         elif s_status in ["completed", "rejected"]:
                             dl_self_recorded_orders.append(item)
         
-         # --- 8. 排序 ---
+        # --- 8. 排序 ---
         dl_public_to_record_orders.sort(key=lambda x: x.get('completion_ratio', 0), reverse=True)
+        dl_public_to_record_orders.sort(key=lambda x: not x.get('is_hold', False))
         dl_self_to_record_orders.sort(key=lambda x: x.get('completion_ratio', 0), reverse=True)
+        dl_self_to_record_orders.sort(key=lambda x: not x.get('is_hold', False))
 
         #已录入的，驳回优先显示
+        dl_public_recorded_orders.sort(key=lambda x: not x.get('is_hold', False))
         dl_public_recorded_orders.sort(key=lambda x: x.get('public_status') != 'rejected')
+        dl_self_recorded_orders.sort(key=lambda x: not x.get('is_hold', False))
         dl_self_recorded_orders.sort(key=lambda x: x.get('self_status') != 'rejected')
         
         # 判断用户权限，决定默认标签页
