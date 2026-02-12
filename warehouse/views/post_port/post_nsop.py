@@ -858,12 +858,13 @@ class PostNsop(View):
 
                 file_name = file.name
 
-        response = HttpResponse(output_buf.getvalue(), content_type="application/pdf")
+        response = HttpResponse(output_buf.getvalue(), content_type="application/octet-stream")
         def sanitize_filename_component(value: str) -> str:
             value_str = str(value or "").strip()
             value_str = re.sub(r"\s+", "", value_str)
             value_str = re.sub(r'[\\/:*?"<>|]+', "_", value_str)
             value_str = re.sub(r"\++", "+", value_str)
+            value_str = re.sub(r"[^A-Za-z0-9._+\-]+", "_", value_str)
             return value_str
 
         container_no = ""
@@ -888,6 +889,7 @@ class PostNsop(View):
         response["Content-Disposition"] = (
             f'attachment; filename="{output_filename}"'
         )
+        response["X-Content-Type-Options"] = "nosniff"
         return response
     
     async def export_ltl_bol(self, request: HttpRequest) -> HttpResponse:
