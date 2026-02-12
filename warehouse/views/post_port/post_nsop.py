@@ -1263,6 +1263,8 @@ class PostNsop(View):
             html = template.render(context)
         else:
             if arm_pro == "" or arm_pro == "None" or arm_pro is None:
+                if '自提' in destination:
+                    destination = 'client pickup'
                 barcode_content = f"{container_number}|{destination}"
             else:
                 barcode_content = f"{arm_pro}"
