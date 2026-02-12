@@ -1235,7 +1235,8 @@ class PostNsop(View):
                     barcode_content = f"{group_container_number}|{group_destination}"
                 else:
                     barcode_content = f"{group_arm_pro}"
-
+                if not group_carrier or group_carrier == "None" or group_carrier == "":
+                    group_carrier = "nocarrier"
                 bol_pages.append(
                     {
                         "warehouse": warehouse,
@@ -1269,6 +1270,9 @@ class PostNsop(View):
             else:
                 barcode_content = f"{arm_pro}"
             barcode_base64 = generate_barcode_base64(barcode_content)
+
+            if not carrier or carrier == "None" or carrier == "":
+                carrier = "nocarrier"
             context = {
                 "warehouse": warehouse,
                 "arm_pro": arm_pro,
