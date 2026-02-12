@@ -1230,6 +1230,8 @@ class PostNsop(View):
                             group_marks.append(part_str)
 
                 if not group_arm_pro or group_arm_pro == "None":
+                    if '自提' in group_destination:
+                        group_destination = 'client pickup'
                     barcode_content = f"{group_container_number}|{group_destination}"
                 else:
                     barcode_content = f"{group_arm_pro}"
