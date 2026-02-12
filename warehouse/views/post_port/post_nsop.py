@@ -561,6 +561,7 @@ class PostNsop(View):
         customerInfo = request.POST.get("arm_pickup_data")
         notes = ""
         pickup_number = ""
+        shipment_batch_number = ""
 
         # 如果在界面输入了，就用界面添加后的值
         if customerInfo and customerInfo != "[]":
@@ -585,6 +586,12 @@ class PostNsop(View):
 
                 destination_raw = row.get('zipcode', '').strip()
                 destination = re.sub(r"[\u4e00-\u9fff]", " ", destination_raw)
+                if not shipment_batch_number:
+                    shipment_batch_number = (
+                        row.get("shipment_batch_number__shipment_batch_number")
+                        or row.get("shipment_batch_number")
+                        or ""
+                    ).strip()
                 arm_pickup.append(
                     [
                         row.get('container_number', '').strip(),
@@ -608,6 +615,7 @@ class PostNsop(View):
                     "container_number__container_number",
                     "destination",
                     "shipping_mark",
+                    "shipment_batch_number__shipment_batch_number",
                     "shipment_batch_number__fleet_number__fleet_type",
                     "shipment_batch_number__fleet_number__carrier",
                     "shipment_batch_number__fleet_number__appointment_datetime",
@@ -624,6 +632,10 @@ class PostNsop(View):
                 for p in arm_pickup:
                     # 保存pickup_number（从数据库提取）
                     pickup_number = p["shipment_batch_number__fleet_number__pickup_number"] or ""
+                    if not shipment_batch_number:
+                        shipment_batch_number = (
+                            p.get("shipment_batch_number__shipment_batch_number") or ""
+                        )
                     p_time = p["shipment_batch_number__fleet_number__appointment_datetime"]
 
                     # 提取年、月、日
@@ -847,8 +859,34 @@ class PostNsop(View):
                 file_name = file.name
 
         response = HttpResponse(output_buf.getvalue(), content_type="application/pdf")
+        def sanitize_filename_component(value: str) -> str:
+            value_str = str(value or "").strip()
+            value_str = re.sub(r"\s+", "", value_str)
+            value_str = re.sub(r'[\\/:*?"<>|]+', "_", value_str)
+            value_str = re.sub(r"\++", "+", value_str)
+            return value_str
+
+        container_no = ""
+        destination_name = ""
+        shipping_mark = ""
+        if isinstance(arm_pickup, list) and len(arm_pickup) > 1 and isinstance(arm_pickup[1], list):
+            container_no = arm_pickup[1][0] if len(arm_pickup[1]) > 0 else ""
+            destination_name = arm_pickup[1][1] if len(arm_pickup[1]) > 1 else ""
+            shipping_mark = arm_pickup[1][2] if len(arm_pickup[1]) > 2 else ""
+
+        filename_parts = [
+            sanitize_filename_component(new_string),
+            sanitize_filename_component(container_no),
+            sanitize_filename_component(destination_name),
+            sanitize_filename_component(shipping_mark),
+            "BOL",
+            sanitize_filename_component(shipment_batch_number),
+            "LTL",
+        ]
+        filename_parts = [p for p in filename_parts if p]
+        output_filename = "+".join(filename_parts) + ".pdf"
         response["Content-Disposition"] = (
-            f'attachment; filename="{new_string}-{file_name}.pdf"'
+            f'attachment; filename="{output_filename}"'
         )
         return response
     
