@@ -1371,7 +1371,7 @@ class ShippingManagement(View):
                     < timezone.now()
                 ):
                     raise RuntimeError(
-                        f"ISA {appointment_id} 预约时间小于当前时间，已过期!"
+                        f"ISA {appointment_id} 预约时间是{existed_appointment.shipment_appointment}小于当前时间，已过期!"
                     )
                 elif existed_appointment.destination.replace("Walmart", "").replace(
                     "WALMART", ""
