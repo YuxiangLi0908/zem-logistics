@@ -1964,7 +1964,10 @@ class FleetManagement(View):
             )
             pallet += plt
             pallet.sort(
-                key=lambda x: x.get("shipment_batch_number__shipment_appointment", ""),
+                key=lambda x: (
+                    x.get("shipment_batch_number__shipment_appointment", ""),
+                    x.get("destination", ""),
+                ),
                 reverse=True,
             )
             shipments = await sync_to_async(list)(
