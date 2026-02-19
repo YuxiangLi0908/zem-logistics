@@ -1936,7 +1936,8 @@ class FleetManagement(View):
                 .order_by("-shipment_batch_number__shipment_appointment")
             )
             for s in pallet:
-                s["total_n_pallet"] = f"预 {round(s['total_cbm'] / 2)}"
+                n = round(s['total_cbm'] / 2) if round(s['total_cbm'] / 2) else 1
+                s["total_n_pallet"] = f"预 {n}"
                 s["slot"] = ""
             plt = await sync_to_async(list)(
                 Pallet.objects.select_related(
