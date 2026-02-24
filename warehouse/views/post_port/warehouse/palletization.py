@@ -1222,6 +1222,8 @@ class Palletization(View):
                             new_marks = new_marks + str("TTT") + str(newline_count)
                         else:
                             new_marks = shipping_marks + str("TTT") + str(1)
+                elif is_hold == "是":
+                    new_marks = shipping_marks
                 else:
                     destination = destination.replace("Walmart", "WMT-")
                     destination = destination.replace("沃尔玛", "WMT-")
