@@ -7733,7 +7733,7 @@ class PostNsop(View):
         # 未给定时间时，自动查询过去三个月的
         current_date = datetime.now().date()
         start_date = (
-            (current_date + timedelta(days=-60)).strftime("%Y-%m-%d")
+            (current_date + timedelta(days=-30)).strftime("%Y-%m-%d")
             if not start_date
             else start_date
         )
