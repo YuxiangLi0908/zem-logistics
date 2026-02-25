@@ -175,6 +175,8 @@ class WarehouseOperations(View):
             return render(request, template, context)
         elif step =="export_bol":
             return await self.handle_bol_post(request)
+        elif step =="export_picking_list":
+            return await self.handle_packing_list_post(request)
         elif step == "counting_pallet_warehouse":
             template, context = await self.handle_counting_pallet_post(request)
             return await sync_to_async(render)(request, template, context)
@@ -265,6 +267,7 @@ class WarehouseOperations(View):
         )
 
         def sync_get_retrieval_and_count():
+            MAX_VALID_DATETIME = datetime(2050, 12, 31, 23, 59, 59)
             # 1. 订单查询：增加“超时阈值”和“是否超时未拆”的注解
             order_queryset = (
                 Order.objects.select_related(
@@ -304,7 +307,7 @@ class WarehouseOperations(View):
                             then=F("retrieval_id__actual_retrieval_timestamp") + timedelta(hours=48)
                         ),
                         # 无实际提柜时间时，阈值设为无穷大（不触发超时）
-                        default=Value(timezone.make_aware(datetime.max)),
+                        default=Value(timezone.make_aware(MAX_VALID_DATETIME)),
                         output_field=DateTimeField()
                     ),
                     # 注解3：标记“是否超时未拆”（1=超时未拆，0=正常）
@@ -505,6 +508,39 @@ class WarehouseOperations(View):
             else:
                 mutable_post["shipment_batch_number"] = shipment[0].shipment_batch_number
             return await fm.handle_export_bol_post(request)
+        else:
+            raise ValueError('出库类型异常！')
+
+    async def handle_packing_list_post(self, request: HttpRequest) -> HttpResponse:
+        """拣货单PDF版"""
+        #准备参数
+        mutable_post = request.POST.copy()
+        fleet_number = request.POST.get("fleet_number")
+        mutable_post["customerInfo"] = None
+        mutable_post["pickupList"] = None
+
+        request.POST = mutable_post
+        fm = FleetManagement()
+
+        fleet = await sync_to_async(Fleet.objects.get)(fleet_number=fleet_number)
+
+        if fleet.fleet_type == 'FTL':
+            shipment = await sync_to_async(list)(Shipment.objects.filter(fleet_number=fleet))
+            if len(shipment) > 1:
+                zip_buffer = BytesIO()
+                with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
+                    for s in shipment:
+                        s_number = s.shipment_batch_number
+                        mutable_post["shipment_batch_number"] = s_number
+                        pdf_response = await fm.handle_export_bol_packing_list_post(request)
+                        zip_file.writestr(f"拣货单_{s_number}.pdf", pdf_response.content)
+                response = HttpResponse(zip_buffer.getvalue(), content_type="application/zip")
+                response["Content-Disposition"] = 'attachment; filename="orders.zip"'
+                zip_buffer.close()
+                return response
+            else:
+                mutable_post["shipment_batch_number"] = shipment[0].shipment_batch_number
+            return await fm.handle_export_bol_packing_list_post(request)
         else:
             raise ValueError('出库类型异常！')
 

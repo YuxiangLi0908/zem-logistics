@@ -1,20 +1,19 @@
 {% extends 'base.html' %}
+{% load static custom_filters %}
 {% block content %}
 
-
-{% load static custom_filters %}
-    <form method="post" style="width: 100%;">
+    <form method="post" style="width: 100%;" id="palletForm">  <!-- 表单ID -->
         {% csrf_token %}
         <div class="container mt-3" style="max-width: 100%;">
             <h4 class="mb-4">拆柜录入</h4>
             {% if status == 'non_palletized' %}
             <div class="text-right">
                 {% if warehouse == "LA-91761" %}
-                <button type="button" class="btn btn-secondary" style="width: 130px; height: 35px; margin-right: 10px;" 
+                <button type="button" class="btn btn-secondary" style="width: 130px; height: 35px; margin-right: 10px;"
                         onclick="showBatchLocationDialog()">批量设置库位</button>
                 {% endif %}
                 <button id="addRowButton" type="button" class="btn btn-primary" style="width: 100px; height: 35px;" onclick="addRowBelow()">添加行</button>
-                <button id="addRowButton" type="button" class="btn btn-primary" style="width: 100px; height: 35px;" onclick="rmLastRow()">删除行</button>            
+                <button id="addRowButton" type="button" class="btn btn-primary" style="width: 100px; height: 35px;" onclick="rmLastRow()">删除行</button>
             </div>
             {% endif %}
             <div style="overflow-x: auto; max-width: 100%; overflow-y: auto; max-height: 800px;">
@@ -43,9 +42,9 @@
                             <th class="th">备注</th>
                         </tr>
                     </thead>
-                    <tbody id="palletization-container">                       
+                    <tbody id="palletization-container">
                         {% for pl, pl_form in order_packing_list %}
-                        <tr id="palletization-row"> 
+                        <tr id="palletization-row">
                             <td class="td">{{ pl.container_number__container_number }}</td>
                             {% if status == 'non_palletized' %}
                             <td class="td">{{ pl.destination }}</td>
@@ -91,19 +90,28 @@
                             <td class="td">{{ pl.pcs }}</td>
                             <td class="td"><input type="number" step="1" name="pcs_actul" style="width:50px;" value="{{ pl.pcs }}" required></td>
                             {% else %}
-                            <td class="td">{{ pl.pcs }}</td> 
+                            <td class="td">{{ pl.pcs }}</td>
                             {% endif %}
                             <td class="td">{{ pl.cbm|floatformat:2 }}</td>
                             {% if status == 'palletized' %}
-                            <td class="td">{{ pl.n_pallet }}</td> 
+                            <td class="td">{{ pl.n_pallet }}</td>
                             {% else %}
-                            <td class="td">{{ pl_form.n_pallet }}</td> 
+                                <td class="td">
+                                    <div style="position: relative;">
+                                        {{ pl_form.n_pallet }}
+                                        <!-- 改为空容器，由JS动态填充 -->
+                                        <div class="pallet-tip" data-cbm="{{ pl.cbm|floatformat:2 }}"
+                                             style="font-size: 9px; color: #666; margin-top: 2px;">
+                                            建议范围：计算中...
+                                        </div>
+                                    </div>
+                                </td>
                             {% endif %}
                             <td class="td">{{ pl.PO_ID }}</td>
                             {% if warehouse == "LA-91761" %}
                                 {% if status == 'non_palletized' %}
                                 <td class="td">
-                                    <input type="text" name="slots" value="{{ pl.slot|default_if_none:'' }}" 
+                                    <input type="text" name="slots" value="{{ pl.slot|default_if_none:'' }}"
                                         style="width: 80px; font-size: 11px;">
                                 </td>
                                 {% else %}
@@ -183,11 +191,25 @@
                 {% else %}
                     <input type="hidden" name="step" value="palletize">
                     <input type="datetime-local" name="offload_time" class="form-input" style="height: 35px; padding: 0 8px;">
-                    <button type="submit" class="btn btn-primary" style="width: 100px; height: 35px;" onclick="processForm()">确认</button>
+                    <!-- 修改：按钮为type=button，触发processForm -->
+                    <button type="button" class="btn btn-primary" style="width: 100px; height: 35px;" onclick="processForm()">确认</button>
                 {% endif %}
             </div>
         </div>
     </form>
+
+    <!-- 新增：违规确认弹窗（仅打板数超范围时显示） -->
+    <div id="palletWarningDialog" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 25px; border: 1px solid #ddd; border-radius: 12px; z-index: 1000; box-shadow: 0 5px 20px rgba(0,0,0,0.15); width: 400px; text-align: center;">
+        <h3 style="margin-top: 0; margin-bottom: 20px; font-size: 16px; color: #dc3545;">打板数超出合理范围</h3>
+        <p style="font-size: 14px; line-height: 1.5; margin-bottom: 20px;">部分打板数超出合理范围！请参考每行的建议范围修改（基于系统CBM计算）。</p>
+        <div style="display: flex; justify-content: center; gap: 15px;">
+            <button type="button" onclick="forceSubmitPalletForm()" style="padding: 10px 25px; background: #4CAF50; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px;">确认无误完成打板</button>
+            <button type="button" onclick="closeWarningDialog()" style="padding: 10px 25px; background: #6c757d; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px;">再次核查打板数</button>
+        </div>
+    </div>
+    <!-- 弹窗遮罩层 -->
+    <div id="dialogOverlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 999;"></div>
+
     <div id="batchLocationDialog" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 25px; border: 1px solid #ddd; border-radius: 12px; z-index: 1000; box-shadow: 0 5px 20px rgba(0,0,0,0.15); width: 320px;">
         <h3 style="margin-top: 0; margin-bottom: 20px; font-size: 18px; color: #333;">批量设置库位</h3>
         <input type="text" id="batchLocationValue" placeholder="输入库位，如: NJS-3" style="width: 100%; padding: 12px; margin-bottom: 20px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px; box-sizing: border-box;">
@@ -200,8 +222,7 @@
         {% csrf_token %}
         <div class="popup-editPallet" style="display: none; z-index:999; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background-color: white; border: 1px solid gray; padding: 20px; max-height: 50%; overflow-y: scroll;">
             <div style="display: flex; align-items: center; margin-top:10px; margin: 20px 0;">
-                <!-- 新添加的靠左按钮 -->    
-                <div style="flex-grow: 1;"></div>          
+                <div style="flex-grow: 1;"></div>
                 <div style="display: flex;">
                     <input type="hidden" name="step" value="edit_pallet">
                     <input type="hidden" name="warehouse" value="{{ warehouse }}">
@@ -209,22 +230,22 @@
                     <input type="hidden" name="pk" value="{{ pk }}">
                     <button type="submit" class="btn btn-primary" onclick="edit_add_payload(this)" style="font-size: 13px; margin-right: 5px;">确认添加</button>
                     <button id="editButton" type="button" class="btn btn-danger" onclick="showPallet(this)" style="font-size: 13px;">返回</button>
-                </div>   
+                </div>
             </div>
-            
+
             <table id="edit-pallet-table" class="table" style="font-size: 11px; max-height: 50%;">
                 <thead>
                     <tr style="position: sticky; top: 0px;">
                         <th class="th" style="text-align: center; border: 1px solid #141414">pallet_id</th>
-                        <th class="th" style="text-align: center; border: 1px solid #141414">板号</th>                      
+                        <th class="th" style="text-align: center; border: 1px solid #141414">板号</th>
                         <th class="th" style="text-align: center; border: 1px solid #141414">长</th>
                         <th class="th" style="text-align: center; border: 1px solid #141414">宽</th>
-                        <th class="th" style="text-align: center; border: 1px solid #141414">高</th>  
-                        <th class="th" style="text-align: center; border: 1px solid #141414">箱数</th>  
-                        <th class="th" style="text-align: center; border: 1px solid #141414">重量</th>  
+                        <th class="th" style="text-align: center; border: 1px solid #141414">高</th>
+                        <th class="th" style="text-align: center; border: 1px solid #141414">箱数</th>
+                        <th class="th" style="text-align: center; border: 1px solid #141414">重量</th>
                     </tr>
                 </thead>
-                <tbody>                  
+                <tbody>
                     <tr>
                         <td><input type="number" name="id" value=''></td>
                         <td><input type="text" name="number" value=''></td>
@@ -239,9 +260,66 @@
     </form>
 
 <script>
-    function showPalletFromLink(el) {
-        const d = el.dataset;
-        const payload = {
+// 标记：是否强制提交（用户确认忽略违规）
+let forceSubmit = false;
+// 新增：记录超范围的打板数输入框，避免关闭弹窗后样式丢失
+let invalidPalletInputs = [];
+
+document.addEventListener('DOMContentLoaded', function() {
+    initPalletTips();
+});
+
+// 初始化原有行的打板数提示（仅显示建议范围，不标红）
+function initPalletTips() {
+    const rows = document.querySelectorAll('#palletization-container tr:not(.abnormal-palletization-row)');
+    rows.forEach(row => {
+        const tipElement = row.querySelector('.pallet-tip');
+        const cbm = parseFloat(tipElement?.dataset.cbm) || 0;
+        const deliveryMethod = row.querySelector('input[name="delivery_method"]')?.value || '';
+
+        if (deliveryMethod.includes('直送')) {
+            if (tipElement) tipElement.style.display = 'none';
+            return;
+        }
+
+        if (cbm > 0 && tipElement) {
+            const minPallet = Math.ceil(cbm / 2.5);
+            const maxPallet = Math.ceil(cbm / 1.5);
+            tipElement.textContent = `建议范围：${minPallet} - ${maxPallet}`;
+        } else if (tipElement) {
+            tipElement.textContent = '建议范围：无CBM数据';
+        }
+    });
+}
+
+// 打开违规提示弹窗
+function openWarningDialog() {
+    document.getElementById('palletWarningDialog').style.display = 'block';
+    document.getElementById('dialogOverlay').style.display = 'block';
+}
+
+// 关闭违规提示弹窗（核心：保留超范围输入框的红色边框）
+function closeWarningDialog() {
+    document.getElementById('palletWarningDialog').style.display = 'none';
+    document.getElementById('dialogOverlay').style.display = 'none';
+    forceSubmit = false;
+
+    // 重新给超范围的输入框标红（确保样式不丢失）
+    invalidPalletInputs.forEach(input => {
+        if (input) input.style.border = '2px solid #dc3545';
+    });
+}
+
+// 强制提交（用户确认忽略违规）
+function forceSubmitPalletForm() {
+    forceSubmit = true;
+    closeWarningDialog();
+    document.getElementById('palletForm').submit();
+}
+
+function showPalletFromLink(el) {
+    const d = el.dataset;
+    const payload = {
         destination: d.destination || '',
         ids: d.ids || '',
         length: d.length || '',
@@ -250,177 +328,196 @@
         n_pcs: d.npcs || '',
         number: d.number || '',
         weight: d.weight || ''
-        };
-        showPallet(payload);
+    };
+    showPallet(payload);
+}
+
+function edit_add_payload(button){
+    var tbody = document.getElementById('edit-pallet-table').getElementsByTagName('tbody')[0];
+    var rows = tbody.getElementsByTagName('tr');
+    var idArray = [];
+    if (tbody.rows[0].cells.length === 7){
+        var numberArray = [];
     }
-    function edit_add_payload(button){  //这里不知道为啥改个名就执行不了
-        var tbody = document.getElementById('edit-pallet-table').getElementsByTagName('tbody')[0];
-        var rows = tbody.getElementsByTagName('tr');
-        var idArray = [];
+    for (var i = 0; i < rows.length; i++) {
+        var cells = rows[i].getElementsByTagName('td');
+        var inputElement1 = cells[0].getElementsByTagName('input')[0];
+        idArray.push(inputElement1.value);
         if (tbody.rows[0].cells.length === 7){
-            var numberArray = [];
-        }
-        for (var i = 0; i < rows.length; i++) {
-            var cells = rows[i].getElementsByTagName('td');
-            var inputElement1 = cells[0].getElementsByTagName('input')[0];
-            idArray.push(inputElement1.value);
-            if (tbody.rows[0].cells.length === 7){
-                var inputElement2 = cells[1].getElementsByTagName('input')[0];
-                numberArray.push(inputElement2.value);
+            var inputElement2 = cells[1].getElementsByTagName('input')[0];
+            numberArray.push(inputElement2.value);
+        };
+        for (var j = 0; j < cells.length; j++) {
+            var input = cells[j].getElementsByTagName('input')[0];
+            if (input.value === '') {
+                input.focus();
+                event.preventDefault();
+                alert('不能为空！');
+                return true;
             };
-            for (var j = 0; j < cells.length; j++) {
-                var input = cells[j].getElementsByTagName('input')[0];
-                if (input.value === '') {
+            if (input.name === 'weight') {
+                var value = parseFloat(input.value);
+                if (isNaN(value)) {
                     input.focus();
                     event.preventDefault();
-                    alert('不能为空！');
+                    alert('请输入有效的数字');
                     return true;
-                };
-                if (input.name === 'weight') {
-                    var value = parseFloat(input.value);
-                    if (isNaN(value)) {
-                        input.focus();
-                        event.preventDefault();
-                        alert('请输入有效的数字');
-                        return true;
-                    }
-                };
+                }
             };
-        };
-        var form = button.closest('form');
-        var hiddenInput = document.createElement('input');
-        hiddenInput.type = 'hidden';
-        hiddenInput.name = 'id';
-        hiddenInput.value = idArray;
-        form.appendChild(hiddenInput); 
-        if (tbody.rows[0].cells.length === 6){
-            var hiddenInput2 = document.createElement('input');
-            hiddenInput2.type = 'hidden';
-            hiddenInput2.name = 'number';
-            hiddenInput2.value = numberArray;
-            form.appendChild(hiddenInput2); 
         };
     };
+    var form = button.closest('form');
+    var hiddenInput = document.createElement('input');
+    hiddenInput.type = 'hidden';
+    hiddenInput.name = 'id';
+    hiddenInput.value = idArray;
+    form.appendChild(hiddenInput);
+    if (tbody.rows[0].cells.length === 6){
+        var hiddenInput2 = document.createElement('input');
+        hiddenInput2.type = 'hidden';
+        hiddenInput2.name = 'number';
+        hiddenInput2.value = numberArray;
+        form.appendChild(hiddenInput2);
+    };
+};
 
-    function showPallet(button) {   //用户要编辑BOL中的表时，弹出表格框
-        var popup = document.querySelector('.popup-editPallet');
-        if (popup.style.display === 'none') {
-            popup.style.display = 'block';
-        } else {
-            popup.style.display = 'none';
-        }
-        const plt_ids = button.ids;
-        const lengths = button.length;
-        const width = button.width;
-        var idsArray = plt_ids.split(',');
-        var lengthArray = lengths.split(',');
-        var widthArray = width.split(',');
-        var heightArray = button.height.split(',');
-        
-        var pcsArray = button.n_pcs.split(',');
-        var weightArray = button.weight.split(',');
-        
-        var tableBody = document.getElementById('edit-pallet-table').getElementsByTagName('tbody')[0];
-        tableBody.innerHTML = '';
-        if (button.destination.includes('自提')) {
-            var theadTr = document.getElementById('edit-pallet-table').getElementsByTagName('thead')[0].getElementsByTagName('tr')[0];
-            var secondTh = theadTr.getElementsByTagName('th')[1];
-            secondTh.style.display = 'none';
-            for (var i = 0; i < idsArray.length; i++) {
-                var row = document.createElement('tr');
-                for (var j = 0; j < 6; j++) {
-                    var cell = document.createElement('td');
-                    var input = document.createElement('input');
-                    input.type = 'number';                
-                    input.name = ['id','length','width','height','pcs','weight'][j];
-                    if ( j === 0 ) {
-                        input.value = idsArray[i];
-                        input.disabled = true;
-                    }else if (j === 1) {
-                        input.value = lengthArray[i];
-                    }else if (j === 2){
-                        input.value = widthArray[i];
-                    }else if (j === 3){
-                        input.value = heightArray[i];
-                    }else if (j === 4){
-                        input.value = pcsArray[i];      
-                    }else if (j === 5){
-                        input.type = 'text'; 
-                        input.value = parseFloat(weightArray[i]).toFixed(2);     
-                    }           
-                    cell.appendChild(input);
-                    row.appendChild(cell);
+function showPallet(button) {
+    var popup = document.querySelector('.popup-editPallet');
+    if (popup.style.display === 'none') {
+        popup.style.display = 'block';
+    } else {
+        popup.style.display = 'none';
+    }
+    const plt_ids = button.ids;
+    const lengths = button.length;
+    const width = button.width;
+    var idsArray = plt_ids.split(',');
+    var lengthArray = lengths.split(',');
+    var widthArray = width.split(',');
+    var heightArray = button.height.split(',');
+
+    var pcsArray = button.n_pcs.split(',');
+    var weightArray = button.weight.split(',');
+
+    var tableBody = document.getElementById('edit-pallet-table').getElementsByTagName('tbody')[0];
+    tableBody.innerHTML = '';
+    if (button.destination.includes('自提')) {
+        var theadTr = document.getElementById('edit-pallet-table').getElementsByTagName('thead')[0].getElementsByTagName('tr')[0];
+        var secondTh = theadTr.getElementsByTagName('th')[1];
+        secondTh.style.display = 'none';
+        for (var i = 0; i < idsArray.length; i++) {
+            var row = document.createElement('tr');
+            for (var j = 0; j < 6; j++) {
+                var cell = document.createElement('td');
+                var input = document.createElement('input');
+                input.type = 'number';
+                input.name = ['id','length','width','height','pcs','weight'][j];
+                if ( j === 0 ) {
+                    input.value = idsArray[i];
+                    input.disabled = true;
+                }else if (j === 1) {
+                    input.value = lengthArray[i];
+                }else if (j === 2){
+                    input.value = widthArray[i];
+                }else if (j === 3){
+                    input.value = heightArray[i];
+                }else if (j === 4){
+                    input.value = pcsArray[i];
+                }else if (j === 5){
+                    input.type = 'text';
+                    input.value = parseFloat(weightArray[i]).toFixed(2);
                 }
-                tableBody.appendChild(row);
-            };
-            
-        }else{
-            const form = document.getElementById('exportPallet-add');
-            const newInput = document.createElement('input');
-            newInput.type = 'hidden';
-            newInput.name = 'destination';
-            newInput.value = button.destination;
-            form.appendChild(newInput);
-            var numberArray = button.number.split(',');
-            if (numberArray.length === 1){
-                numberArray = [];
-                for (var i = 0; i < idsArray.length; i++) {
-                    numberArray.push(i + 1);
-                }   
+                cell.appendChild(input);
+                row.appendChild(cell);
             }
-            var theadTr = document.getElementById('edit-pallet-table').getElementsByTagName('thead')[0].getElementsByTagName('tr')[0];
-            var secondTh = theadTr.getElementsByTagName('th')[1];
-            secondTh.style.display = '';
-            for (var i = 0; i < idsArray.length; i++) {
-                var row = document.createElement('tr');
-                for (var j = 0; j < 7; j++) {
-                    var cell = document.createElement('td');
-                    var input = document.createElement('input');
-                    input.type = 'number';
-                    input.name = ['id','number','length','width','height','pcs','weight'][j];
-                    if ( j === 0 ) {
-                        input.value = idsArray[i];
-                        input.disabled = true;
-                    }else if (j === 1) {
-                        input.value = numberArray[i];
-                        input.disabled = true;
-                    }else if (j === 2) {
-                        input.value = lengthArray[i];
-                    }else if (j === 3){
-                        input.value = widthArray[i];
-                    }else if (j === 4){
-                        input.value = heightArray[i];
-                    }else if (j === 5){
-                        input.value = pcsArray[i];                      
-                    }else if (j === 6){
-                        input.type = 'text'; 
-                        input.value = parseFloat(weightArray[i]).toFixed(2);                      
-                    }          
-                    cell.appendChild(input);
-                    row.appendChild(cell);
-                }
-                tableBody.appendChild(row);
-            };
-        }
-    };
-
-    function addRowBelow(){
-        var table = document.getElementById('palletization-container');
-        var newRow = document.querySelector('#palletization-row-empty').cloneNode(true);
-        newRow.style.display = '';
-        newRow.id = 'palletization-row';
-        table.appendChild(newRow);
-    };
-
-    function rmLastRow() {
-        var table = document.getElementById('palletization-container');
-        var rows = document.querySelectorAll('tr.abnormal-palletization-row');
-        if (rows.length > 1) {
-            table.removeChild(rows[rows.length - 1]);
+            tableBody.appendChild(row);
         };
-    };
 
-    function processForm() {
+    }else{
+        const form = document.getElementById('exportPallet-add');
+        const newInput = document.createElement('input');
+        newInput.type = 'hidden';
+        newInput.name = 'destination';
+        newInput.value = button.destination;
+        form.appendChild(newInput);
+        var numberArray = button.number.split(',');
+        if (numberArray.length === 1){
+            numberArray = [];
+            for (var i = 0; i < idsArray.length; i++) {
+                numberArray.push(i + 1);
+            }
+        }
+        var theadTr = document.getElementById('edit-pallet-table').getElementsByTagName('thead')[0].getElementsByTagName('tr')[0];
+        var secondTh = theadTr.getElementsByTagName('th')[1];
+        secondTh.style.display = '';
+        for (var i = 0; i < idsArray.length; i++) {
+            var row = document.createElement('tr');
+            for (var j = 0; j < 7; j++) {
+                var cell = document.createElement('td');
+                var input = document.createElement('input');
+                input.type = 'number';
+                input.name = ['id','number','length','width','height','pcs','weight'][j];
+                if ( j === 0 ) {
+                    input.value = idsArray[i];
+                    input.disabled = true;
+                }else if (j === 1) {
+                    input.value = numberArray[i];
+                    input.disabled = true;
+                }else if (j === 2) {
+                    input.value = lengthArray[i];
+                }else if (j === 3){
+                    input.value = widthArray[i];
+                }else if (j === 4){
+                    input.value = heightArray[i];
+                }else if (j === 5){
+                    input.value = pcsArray[i];
+                }else if (j === 6){
+                    input.type = 'text';
+                    input.value = parseFloat(weightArray[i]).toFixed(2);
+                }
+                cell.appendChild(input);
+                row.appendChild(cell);
+            }
+            tableBody.appendChild(row);
+        };
+    }
+};
+
+function addRowBelow(){
+    var table = document.getElementById('palletization-container');
+    var newRow = document.querySelector('#palletization-row-empty').cloneNode(true);
+    newRow.style.display = '';
+    newRow.id = 'palletization-row';
+    table.appendChild(newRow);
+    const deliveryMethodSelect = newRow.querySelector('select[name="new_delivery_method"]');
+    const tipElement = newRow.querySelector('.pallet-tip');
+    if (deliveryMethodSelect && tipElement) {
+        deliveryMethodSelect.addEventListener('change', function () {
+            if (this.value.includes('直送')) {
+                tipElement.style.display = 'none';
+            } else {
+                tipElement.style.display = 'block';
+                tipElement.textContent = '建议范围：无CBM数据（新增行需后端补充）';
+            }
+        });
+    }
+};
+
+function rmLastRow() {
+    var table = document.getElementById('palletization-container');
+    var rows = document.querySelectorAll('tr.abnormal-palletization-row');
+    if (rows.length > 1) {
+        table.removeChild(rows[rows.length - 1]);
+    };
+};
+
+function processForm() {
+    event.preventDefault();
+    forceSubmit = false;
+    // 清空之前记录的超范围输入框
+    invalidPalletInputs = [];
+
+    // 1. 处理空行
     var firstEmptyRow = document.getElementById('palletization-row-empty');
     if (firstEmptyRow && firstEmptyRow.style.display === 'none') {
         var inputs = firstEmptyRow.querySelectorAll('input, select');
@@ -431,6 +528,8 @@
             input.disabled = true;
         });
     };
+
+    // 2. 校验派送方式
     var deliveryMethodSelects = document.querySelectorAll('select.new-delivery-method');
     var isValid = true;
     deliveryMethodSelects.forEach(function(select) {
@@ -444,66 +543,104 @@
         };
     });
     if (!isValid) {
-        event.preventDefault();
         alert("请选择'派送方式'!");
+        return;
     };
 
-    // ========== 核心修改：打板数校验新增派送方式判断 ==========
+    // 3. 校验打板数范围（核心）
+    var allRows = document.querySelectorAll('#palletization-container tr');
+    var palletRangeValid = true;
+
+    allRows.forEach(row => {
+        if (row.id === 'palletization-row-empty' && row.style.display === 'none') return;
+
+        const cbm = parseFloat(row.querySelector('input[name="cbms"]')?.value) || 0;
+        const palletInput = row.querySelector('input[name="n_pallet"]') || row.querySelector('input[name="new_pallets"]');
+        const deliveryMethod = row.querySelector('input[name="delivery_method"]')?.value || row.querySelector('select[name="new_delivery_method"]')?.value || '';
+        const pcsInput = row.querySelector('input[name="pcs_actul"]') || row.querySelector('input[name="new_pcs_actul"]');
+        const pcsValue = parseInt(pcsInput?.value) || 0;
+        const palletValue = parseInt(palletInput?.value) || 0;
+
+        if (deliveryMethod.includes('直送') || pcsValue === 0 || cbm === 0) {
+            if (palletInput) palletInput.style.border = '';
+            return;
+        }
+
+        const minPallet = Math.ceil(cbm / 2.5);
+        const maxPallet = Math.ceil(cbm / 1.5);
+
+        if (palletValue < minPallet || palletValue > maxPallet) {
+            palletInput.style.border = '2px solid #dc3545';
+            palletRangeValid = false;
+            palletInput.title = `打板数应在${minPallet}-${maxPallet}之间（基于系统CBM=${cbm}）`;
+            // 记录超范围的输入框
+            invalidPalletInputs.push(palletInput);
+        } else {
+            palletInput.style.border = '';
+            palletInput.title = '';
+        }
+    });
+
+    // 4. 校验打板数非空
     var palletCount = document.querySelectorAll('input[name="n_pallet"]');
     var pcsCount = document.querySelectorAll('input[name="pcs_actul"]');
-    // 新增：获取所有派送方式（包含原有隐藏项和新增行的下拉框）
     var deliveryMethods = document.querySelectorAll('input[name="delivery_method"], select[name="new_delivery_method"]');
     var palletValid = true;
 
     for (var i = 0; i < palletCount.length; i++){
         const p = palletCount[i].value;
         const pcs = pcsCount[i].value;
-        // 新增：获取当前行的派送方式（兼容原有行和新增行）
         let deliveryMethod = '';
         if (deliveryMethods[i]) {
             deliveryMethod = deliveryMethods[i].value || '';
         }
 
-        // 核心判断：仅当派送方式不包含"直送"时，才校验打板数
         if (!deliveryMethod.includes('直送')) {
             if (p == 0 && pcs != 0) {
                 palletCount[i].style.border = '2px solid red';
                 palletValid = false;
+                // 记录空值的输入框
+                invalidPalletInputs.push(palletCount[i]);
             } else {
                 palletCount[i].style.border = '';
             };
         } else {
-            // 派送方式包含"直送"：清除红色边框，跳过校验
             palletCount[i].style.border = '';
         };
     };
-    // ========== 核心修改结束 ==========
 
     if (!palletValid) {
         alert("请核对打板数!");
-        event.preventDefault();
-        return
+        return;
     };
+
+    // 5. 核心逻辑：根据打板数是否合规决定流程
+    if (!palletRangeValid) {
+        openWarningDialog();
+    } else {
+        document.getElementById('palletForm').submit();
+    }
 };
-    function showBatchLocationDialog() {
-        document.getElementById('batchLocationDialog').style.display = 'block';
+
+function showBatchLocationDialog() {
+    document.getElementById('batchLocationDialog').style.display = 'block';
+}
+
+function closeBatchDialog(dialogId) {
+    document.getElementById(dialogId).style.display = 'none';
+}
+
+function applyBatchLocation() {
+    var slotValue = document.getElementById('batchLocationValue').value;
+    if (slotValue) {
+        var slotInputs = document.querySelectorAll('input[name="slots"], input[name="new_slots"]');
+        slotInputs.forEach(function(input) {
+            input.value = slotValue;
+        });
+        closeBatchDialog('batchLocationDialog');
+    } else {
+        alert('请输入库位信息');
     }
-    function closeBatchDialog(dialogId) {
-        document.getElementById(dialogId).style.display = 'none';
-    }
-    
-    function applyBatchLocation() {
-        var slotValue = document.getElementById('batchLocationValue').value;
-        if (slotValue) {
-            var slotInputs = document.querySelectorAll('input[name="slots"], input[name="new_slots"]');
-            slotInputs.forEach(function(input) {
-                input.value = slotValue;
-            });
-            closeBatchDialog('batchLocationDialog');
-        } else {
-            alert('请输入库位信息');
-        }
-    }
-    
+}
 </script>
 {% endblock %}
