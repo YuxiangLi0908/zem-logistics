@@ -381,6 +381,7 @@
     /* FTL下载按钮 */
     .ftl-download-btn {
         margin-bottom: 8px;
+        display: inline-block;
     }
     .shipment-table td {
         padding: 10px 8px;
@@ -974,6 +975,19 @@
                                     <input type="hidden" name="fleet_number" value="{{ fleet.fleet_number }}">
                                     <button type="submit" class="action-btn btn-primary">
                                         <i class="fas fa-download"></i> BOL
+                                    </button>
+                                </form>
+                            </div>
+                            <div class="ftl-download-btn">
+                                <form method="post" class="action-form" target="_blank">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="step" value="export_picking_list">
+                                    <input type="hidden" name="file_type" value="picking_list">
+                                    <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                                    <input type="hidden" name="shipment_type_filter" id="shipmentTypeHidden">
+                                    <input type="hidden" name="fleet_number" value="{{ fleet.fleet_number }}">
+                                    <button type="submit" class="action-btn btn-primary">
+                                        <i class="fas fa-download"></i> 拣货单
                                     </button>
                                 </form>
                             </div>

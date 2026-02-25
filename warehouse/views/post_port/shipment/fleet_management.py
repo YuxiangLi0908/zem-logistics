@@ -100,7 +100,9 @@ class FleetManagement(View):
     template_fleet_cost_record = "post_port/shipment/fleet_cost_record.html"
     template_bol = "export_file/bol_base_template.html"
     template_bol_pickup = "export_file/bol_template.html"
+    template_bol_pickup_alone = "export_file/bol_template_alone.html"
     template_la_bol_pickup = "export_file/LA_bol_template.html"
+    template_la_bol_pickup_alone = "export_file/LA_bol_template_alone.html"
     template_ltl_label = "export_file/ltl_label.html"
     template_ltl_bol = "export_file/ltl_bol.html"
     template_abnormal_fleet_warehouse_search = (
@@ -1886,6 +1888,128 @@ class FleetManagement(View):
                 content_type="text/plain",
             )
         return response
+
+    async def handle_export_bol_packing_list_post(self, request: HttpRequest) -> HttpResponse:
+        batch_number = request.POST.get("shipment_batch_number")
+        warehouse = request.POST.get("warehouse")
+        customerInfo = request.POST.get("customerInfo")
+        pickupList = request.POST.get("pickupList")
+        fleet_number = request.POST.get("fleet_number")
+
+        # 进行判断，如果在前端进行了表的修改，就用修改后的表，如果没有修改，就用packing_list直接查询的
+        if customerInfo:
+            customer_info = json.loads(customerInfo)
+            packing_list = []
+            for row in customer_info:
+                packing_list.append(
+                    {
+                        "container_number": row[0].strip(),
+                        "shipping_mark": row[1].strip(),
+                        "fba_id": row[2].strip(),
+                        "ref_id": row[3].strip(),
+                        "pcs": row[4].strip(),
+                    }
+                )
+        else:
+            packing_list = await sync_to_async(list)(
+                PackingList.objects.select_related("container_number").filter(
+                    shipment_batch_number__shipment_batch_number=batch_number,
+                )
+            )
+            for pl in packing_list:
+                if pl.shipping_mark:
+                    pl.shipping_mark = pl.shipping_mark.replace("/", "\n")
+
+                if pl.fba_id:
+                    pl.fba_id = pl.fba_id.replace("/", "\n")
+
+                if pl.ref_id:
+                    pl.ref_id = pl.ref_id.replace("/", "\n")
+        warehouse_obj = (
+            await sync_to_async(ZemWarehouse.objects.get)(name=warehouse)
+            if warehouse
+            else None
+        )
+        shipment = await sync_to_async(
+            Shipment.objects.select_related("fleet_number").get
+        )(shipment_batch_number=batch_number)
+        try:
+            address_chinese_char = False if shipment.address.isascii() else True
+        except:
+            address_chinese_char = True
+        destination_chinese_char = False if shipment.destination.isascii() else True
+        try:
+            note_chinese_char = False if shipment.note.isascii() else True
+        except:
+            note_chinese_char = False
+        is_private_warehouse = (
+            True
+            if re.search(r"([A-Z]{2})[-,\s]?(\d{5})", shipment.destination.upper())
+            else False
+        )
+        # 最后一页加上拣货单:
+        pallet = await self.pickupList_get(pickupList, fleet_number, warehouse)
+        if not shipment.fleet_number:
+            raise ValueError("该约未排车")
+        # 判断一下是不是NJ私仓的，因为NJ私仓的要多加一列板数
+        is_NJ_private = False
+        pallet_count = 0
+
+        if "NJ" in shipment.origin and shipment.shipment_type == "LTL":
+            is_NJ_private = True
+            # 查找板数，因为私仓都是一票一个约，所以就查这个约里有几个板子，就是板数
+            pallet_count = await sync_to_async(
+                Pallet.objects.filter(
+                    shipment_batch_number__shipment_batch_number=batch_number
+                ).count
+            )()
+        pickup_time = shipment.pickup_time
+        # 如果目的地没有沃尔玛，预约账户是沃尔玛的，导出地址加上沃尔玛前缀
+        if "walmart" in shipment.shipment_account.lower():
+            destination = shipment.destination
+            if destination and "walmart" not in destination.lower():
+                shipment.destination = f"walmart-{destination}"
+            # 如果 destination 为空，也加上 walmart 前缀
+            elif not destination:
+                shipment.destination = "walmart"
+        context = {
+            "warehouse_obj": warehouse_obj.address,
+            "warehouse": warehouse,
+            "batch_number": batch_number,
+            "pickup_number": (
+                shipment.fleet_number.pickup_number
+                if shipment.fleet_number and shipment.fleet_number.pickup_number
+                else None
+            ),
+            "pickup_time": shipment.pickup_time,
+            "fleet_number": shipment.fleet_number.fleet_number,
+            "shipment": shipment,
+            "packing_list": packing_list,
+            "is_NJ_private": is_NJ_private,
+            "pallet_count": pallet_count,
+            "pallet": pallet,
+            "address_chinese_char": address_chinese_char,
+            "destination_chinese_char": destination_chinese_char,
+            "note_chinese_char": note_chinese_char,
+            "is_private_warehouse": is_private_warehouse,
+        }
+        if warehouse == "LA-91761":
+            template = get_template(self.template_la_bol_pickup_alone)
+        else:  # 因为目前没有库位信息，所以BOL先不加这个信息
+            template = get_template(self.template_bol_pickup_alone)
+        html = template.render(context)
+        response = HttpResponse(content_type="application/pdf")
+        response["Content-Disposition"] = (
+            f'inline; filename="拣货单_{batch_number}.pdf"'
+        )
+        pisa_status = pisa.CreatePDF(html, dest=response)
+        if pisa_status.err:
+            raise ValueError(
+                "Error during PDF generation: %s" % pisa_status.err,
+                content_type="text/plain",
+            )
+        return response
+
 
     async def pickupList_get(
         self, pickupList: Any, fleet_number: str, warehouse: str

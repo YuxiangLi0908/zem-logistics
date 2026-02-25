@@ -38,7 +38,7 @@
                 align-items: center;
                 padding: 0.125rem 0.5rem; /* py-0.5 px-2 */
                 border-radius: 9999px; /* rounded-full */
-                font-size: 10px;
+                font-size: 11px; /* 增大字体 */
                 font-weight: 500; /* medium */
                 box-shadow: 0 1px 2px rgba(0,0,0,0.1); /* tag-shadow */
             }
@@ -46,24 +46,25 @@
             .compact-btn {
                 display: inline-flex;
                 align-items: center;
-                padding: 0.25rem 0.5rem; /* py-1 px-2 */
+                padding: 0.375rem 0.75rem; /* 增大内边距 */
                 font-size: 12px;
                 border-radius: 0.5rem; /* rounded-lg */
                 font-weight: 500;
                 transition: color 0.2s, background-color 0.2s;
+                white-space: nowrap; /* 防止按钮文字换行 */
             }
 
             .fixed-width-cell {
-                min-width: 120px;
-                max-width: 160px;
+                min-width: 150px; /* 增大最小宽度 */
+                max-width: 200px; /* 增大最大宽度 */
             }
-            
+
             .search-input {
                 width: 100%;
-                padding: 0.25rem 0.5rem; /* py-1 px-2 */
+                padding: 0.375rem 0.75rem; /* 增大内边距 */
                 border: 1px solid #d1d5db; /* gray-300 */
                 border-radius: 0.25rem; /* rounded */
-                font-size: 0.75rem; /* text-xs */
+                font-size: 0.875rem; /* 增大字体 */
                 outline: none;
             }
             .search-input:focus {
@@ -71,7 +72,7 @@
                 border-color: #165DFF; /* 你的 primary 色 */
                 box-shadow: 0 0 0 1px #165DFF; /* focus:ring */
             }
-            
+
             /* 超时记录样式：红色背景+文字，hover时加深 */
             .bg-red-50 {
                 background-color: #fff2f0;
@@ -86,7 +87,7 @@
             .bg-red-50:hover {
                 background-color: #ffebe6;
             }
-            
+
             .warehouse-header {
                 background: linear-gradient(135deg, var(--secondary-color), #4a6491);
                 color: white;
@@ -98,19 +99,19 @@
                 align-items: center;
                 flex-wrap: wrap;
             }
-            
+
             .warehouse-title {
                 display: flex;
                 align-items: center;
                 font-size: 1.25rem;
                 font-weight: bold;
             }
-            
+
             .warehouse-title i {
                 margin-right: 10px;
                 font-size: 1.5rem;
             }
-            
+
             .filter-container {
                 display: flex;
                 align-items: center;
@@ -119,13 +120,13 @@
                 padding: 10px 16px;
                 border-radius: 6px;
             }
-            
+
             .filter-container label {
                 font-weight: 600;
                 font-size: 0.9rem;
                 white-space: nowrap;
             }
-            
+
             .filter-container select {
                 padding: 6px 12px;
                 border: none;
@@ -135,7 +136,7 @@
                 min-width: 160px;
                 color: #000;
             }
-            
+
             .filter-container button {
                 padding: 6px 14px;
                 background: var(--success-color);
@@ -148,11 +149,11 @@
                 display: flex;
                 align-items: center;
             }
-            
+
             .filter-container button:hover {
                 background: #218838;
             }
-            
+
             .filter-container button i {
                 margin-right: 5px;
             }
@@ -170,12 +171,12 @@
                 margin-bottom: 20px;
                 transition: all 0.3s ease;
             }
-            
+
             .record-stats:hover {
                 box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
                 transform: translateY(-1px);
             }
-            
+
             .stats-icon {
                 display: flex;
                 align-items: center;
@@ -188,49 +189,49 @@
                 margin-right: 12px;
                 font-size: 18px;
             }
-            
+
             .stats-content {
                 display: flex;
                 flex-direction: column;
             }
-            
+
             .stats-main {
                 display: flex;
                 align-items: baseline;
                 margin-bottom: 4px;
                 margin-left: 8px;
             }
-            
+
             .stats-label {
                 font-size: 14px;
                 color: #6b7280;
                 margin-right: 8px;
             }
-            
+
             .stats-count {
                 font-size: 20px;
                 font-weight: 700;
                 color: var(--primary-color);
                 margin-right: 8px;
             }
-            
+
             .stats-unit {
                 font-size: 14px;
                 color: #6b7280;
             }
-            
+
             .stats-filtered {
                 font-size: 13px;
                 color: #9ca3af;
                 display: flex;
                 align-items: center;
             }
-            
+
             .stats-filtered.active {
                 color: var(--success-color);
                 font-weight: 500;
             }
-            
+
             .stats-filtered::before {
                 content: "•";
                 margin-right: 6px;
@@ -240,21 +241,103 @@
             .warehouse-op-wrap {
                 width: 100%;
                 max-width: 100vw;
-                overflow-x: hidden;
                 box-sizing: border-box;
+                padding-bottom: 20px;
+            }
+
+            /* 核心：表格容器 - 固定高度 + 同时开启横向/纵向滚动 + 强制显示滚动条 */
+            .table-container {
+                height: 600px; /* 固定高度，可自定义 */
+                width: 100%;
+                overflow-y: auto; /* 纵向滚动 */
+                overflow-x: auto; /* 横向滚动 - 始终开启 */
+                border-radius: 8px;
+                box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.08);
+                position: relative;
+                /* 强制显示横向滚动条（关键） */
+                scrollbar-width: auto; /* Firefox */
+            }
+
+            /* Webkit浏览器（Chrome/Safari）强制显示滚动条 */
+            .table-container::-webkit-scrollbar {
+                height: 8px; /* 横向滚动条高度 */
+                width: 8px; /* 纵向滚动条宽度 */
+                display: block; /* 强制显示 */
+            }
+
+            /* 横向滚动条样式 */
+            .table-container::-webkit-scrollbar-track {
+                background: #f1f1f1;
+                border-radius: 4px;
+            }
+            .table-container::-webkit-scrollbar-thumb {
+                background: #c1c1c1;
+                border-radius: 4px;
+            }
+            .table-container::-webkit-scrollbar-thumb:hover {
+                background: #a8a8a8;
             }
 
             .warehouse-op-table {
-                table-layout: fixed;
+                table-layout: auto;
                 width: 100%;
+                min-width: 1800px; /* 增大最小宽度，确保横向滚动条必然出现 */
+                border-collapse: collapse;
+                background: white;
+            }
+
+            /* 固定表头 - 横向滚动时跟随，纵向滚动时固定 */
+            .warehouse-op-table thead {
+                position: sticky;
+                top: 0;
+                z-index: 10;
             }
 
             .warehouse-op-table th,
             .warehouse-op-table td {
                 overflow-wrap: anywhere;
                 word-break: break-word;
-                padding-left: 8px;
-                padding-right: 8px;
+                padding-left: 12px;
+                padding-right: 12px;
+                padding-top: 10px;
+                padding-bottom: 10px;
+                font-size: 13px;
+                line-height: 1.5;
+            }
+
+            /* 给关键列设置最小宽度，确保表格宽度足够触发横向滚动 */
+            .warehouse-op-table th:nth-child(1), /* 柜号 */
+            .warehouse-op-table td:nth-child(1) { min-width: 100px; }
+            .warehouse-op-table th:nth-child(2), /* 优先级 */
+            .warehouse-op-table td:nth-child(2) { min-width: 100px; }
+            .warehouse-op-table th:nth-child(5), /* 大方广提柜时间 */
+            .warehouse-op-table td:nth-child(5) { min-width: 180px; }
+            .warehouse-op-table td:nth-child(6) { min-width: 180px; }
+            .warehouse-op-table th:nth-child(7), /* 拆柜开始时间 */
+            .warehouse-op-table td:nth-child(7) { min-width: 180px; }
+            .warehouse-op-table th:nth-child(8), /* 拆柜完成时间 */
+            .warehouse-op-table td:nth-child(8) { min-width: 180px; }
+            .warehouse-op-table th:nth-child(9), /* 导出 */
+            .warehouse-op-table td:nth-child(9) { min-width: 280px; }
+            .warehouse-op-table th:nth-child(10), /* 操作 */
+            .warehouse-op-table td:nth-child(10) { min-width: 100px; }
+            .warehouse-op-table th:nth-child(11), /* 回传拆柜数据 */
+            .warehouse-op-table td:nth-child(11) { min-width: 200px; }
+            .warehouse-op-table th:nth-child(12), /* 回传备注 */
+            .warehouse-op-table td:nth-child(12) { min-width: 150px; }
+            .warehouse-op-table th:nth-child(13), /* 回传时间 */
+            .warehouse-op-table td:nth-child(13) { min-width: 180px; }
+
+            /* 表头行样式增强 */
+            .warehouse-op-table thead tr:first-child {
+                background: linear-gradient(135deg, var(--secondary-color), #4a6491);
+                color: white;
+            }
+
+            /* 搜索行样式 */
+            .warehouse-op-table thead tr:nth-child(2) {
+                background: #f9fafb;
+                border-bottom: 1px solid #e5e7eb;
             }
         }
     </style>
@@ -266,7 +349,7 @@
                 <i class="fas fa-warehouse"></i>
                 <span>仓库入库管理</span>
             </div>
-            
+
             <form action="" method="post" class="filter-container">
                 {% csrf_token %}
                 <label for="warehouse_filter">选择仓点区域:</label>
@@ -283,7 +366,7 @@
                     <i class="fas fa-check"></i>确认
                 </button>
             </form>
-            
+
         </div>
 
         <div class="record-stats">
@@ -310,53 +393,55 @@
             </div>
         </div>
 
-        <div class="overflow-y-auto rounded-lg table-shadow bg-white" style="position: relative; overflow-x: hidden;">
-            <table class="w-full border-collapse warehouse-op-table">
+        <!-- 核心修改：单一容器 - 固定高度 + 同时显示横向/纵向滚动条 -->
+        <div class="table-container">
+            <table class="warehouse-op-table">
                 <thead>
-                <tr class="header-gradient text-white">
-                    <th class="px-4 py-2.5 text-left text-sm font-bold tracking-wide" style="font-size: 12px">柜号</th>
-                    <th class="px-4 py-2.5 text-left text-sm font-bold tracking-wide" style="font-size: 12px">优先级</th>
-                    <th class="px-4 py-2.5 text-left text-sm font-bold tracking-wide" style="font-size: 12px">到仓位置</th>
-                    <th class="px-4 py-2.5 text-left text-sm font-bold tracking-wide" style="font-size: 12px">拆柜状态</th>
-                    <th class="px-4 py-2.5 text-left text-sm font-bold tracking-wide" style="font-size: 12px">大方广提柜时间</th>
-                    <th class="px-4 py-2.5 text-left text-sm font-bold tracking-wide" style="font-size: 12px">实际提柜时间</th>
-                    <th class="px-4 py-2.5 text-left text-sm font-bold tracking-wide" style="font-size: 12px">拆柜开始时间</th>
-                    <th class="px-4 py-2.5 text-left text-sm font-bold tracking-wide" style="font-size: 12px">拆柜完成时间</th>
-                    <th class="px-4 py-2.5 text-left text-sm font-bold tracking-wide" style="font-size: 12px">导出</th>
-                    <th class="px-4 py-2.5 text-left text-sm font-bold tracking-wide" style="font-size: 12px">操作</th>
-                    <th class="px-4 py-2.5 text-left text-sm font-bold tracking-wide" style="font-size: 12px">回传拆柜数据</th>
-                    <th class="px-4 py-2.5 text-left text-sm font-bold tracking-wide" style="font-size: 12px">回传拆柜备注</th>
-                    <th class="px-4 py-2.5 text-left text-sm font-bold tracking-wide" style="font-size: 12px">回传时间</th>
+                <tr>
+                    <th class="px-4 py-3 text-left text-sm font-bold tracking-wide" style="font-size: 13px">柜号</th>
+                    <th class="px-4 py-3 text-left text-sm font-bold tracking-wide" style="font-size: 13px">优先级</th>
+                    <th class="px-4 py-3 text-left text-sm font-bold tracking-wide" style="font-size: 13px">到仓位置</th>
+                    <th class="px-4 py-3 text-left text-sm font-bold tracking-wide" style="font-size: 13px">拆柜状态</th>
+                    <th class="px-4 py-3 text-left text-sm font-bold tracking-wide" style="font-size: 13px">大方广提柜时间</th>
+                    <th class="px-4 py-3 text-left text-sm font-bold tracking-wide" style="font-size: 13px">实际提柜时间</th>
+                    <th class="px-4 py-3 text-left text-sm font-bold tracking-wide" style="font-size: 13px">拆柜开始时间</th>
+                    <th class="px-4 py-3 text-left text-sm font-bold tracking-wide" style="font-size: 13px">拆柜完成时间</th>
+                    <th class="px-4 py-3 text-left text-sm font-bold tracking-wide" style="font-size: 13px">导出</th>
+                    <th class="px-4 py-3 text-left text-sm font-bold tracking-wide" style="font-size: 13px">操作</th>
+                    <th class="px-4 py-3 text-left text-sm font-bold tracking-wide" style="font-size: 13px">回传拆柜数据</th>
+                    <th class="px-4 py-3 text-left text-sm font-bold tracking-wide" style="font-size: 13px">回传拆柜备注</th>
+                    <th class="px-4 py-3 text-left text-sm font-bold tracking-wide" style="font-size: 13px">回传时间</th>
                 </tr>
                 <!-- 搜索行 -->
-                <tr class="bg-gray-50 border-b border-gray-200">
-                    <th class="px-4 py-2">
+                <tr>
+                    <th class="px-4 py-3">
                         <input type="text"
                                id="container-search"
                                placeholder="搜索柜号..."
                                class="search-input"
                                autocomplete="off">
                     </th>
-                    <th class="px-4 py-2"></th>
-                    <th class="px-4 py-2">
+                    <th class="px-4 py-3"></th>
+                    <th class="px-4 py-3">
                         <input type="text"
                                id="location-search"
                                placeholder="搜索到仓位置..."
                                class="search-input"
                                autocomplete="off">
                     </th>
-                    <th class="px-4 py-2"></th>
-                    <th class="px-4 py-2"></th>
-                    <th class="px-4 py-2"></th>
-                    <th class="px-4 py-2"></th>
-                    <th class="px-4 py-2"></th>
-                    <th class="px-4 py-2"></th>
-                    <th class="px-4 py-2"></th>
-                    <th class="px-4 py-2"></th>
-                    <th class="px-4 py-2"></th>
+                    <th class="px-4 py-3"></th>
+                    <th class="px-4 py-3"></th>
+                    <th class="px-4 py-3"></th>
+                    <th class="px-4 py-3"></th>
+                    <th class="px-4 py-3"></th>
+                    <th class="px-4 py-3"></th>
+                    <th class="px-4 py-3"></th>
+                    <th class="px-4 py-3"></th>
+                    <th class="px-4 py-3"></th>
+                    <th class="px-4 py-3"></th>
                 </tr>
                 </thead>
-                <tbody class="divide-y divide-gray-200" id="table-body" style="font-size: 12px;">
+                <tbody class="divide-y divide-gray-200" id="table-body" style="font-size: 13px; line-height: 1.6;">
                 {% for ret in retrieval %}
                     {% for order in ret.filtered_orders %}
                         {% with record_id="ret_"|add:ret.id|stringformat:"i" %}
@@ -367,35 +452,35 @@
                                 data-location="{{ ret.arrival_location|default:''|upper }}"
                                 data-is-overtime="{{ order.is_overtime_unpacked }}">
                                 <!-- 1. 柜号 -->
-                                <td class="px-4 py-2 text-xs text-gray-700">
+                                <td class="px-4 py-3 text-sm text-gray-700">
                                     {{ order.container_number|default:"-" }}
                                 </td>
 
                                 <!-- 2. 优先级 -->
-                                <td class="px-4 py-2">
+                                <td class="px-4 py-3">
                                     {% with priority=order.unpacking_priority|default:0 %}
                                         {% if priority == "P1" %}
                                             <span class="compact-tag bg-red-50 text-red-700">
-                                            <i class="bi bi-exclamation-circle mr-0.5 text-[10px]"></i>P1
+                                            <i class="bi bi-exclamation-circle mr-0.5 text-[11px]"></i>P1
                                         </span>
                                         {% elif priority == "P2" %}
                                             <span class="compact-tag bg-yellow-50 text-yellow-700">
-                                            <i class="bi bi-info-circle mr-0.5 text-[10px]"></i>P2
+                                            <i class="bi bi-info-circle mr-0.5 text-[11px]"></i>P2
                                         </span>
                                         {% elif priority == "P3" %}
                                             <span class="compact-tag bg-green-50 text-green-700">
-                                            <i class="bi bi-check-circle mr-0.5 text-[10px]"></i>P3
+                                            <i class="bi bi-check-circle-fill mr-0.5 text-[11px]"></i>P3
                                         </span>
                                         {% else %}
                                             <span class="compact-tag bg-gray-50 text-gray-600">
-                                            <i class="bi bi-dash-circle mr-0.5 text-[10px]"></i>P4
+                                            <i class="bi bi-dash-circle mr-0.5 text-[11px]"></i>P4
                                         </span>
                                         {% endif %}
                                     {% endwith %}
                                 </td>
 
                                 <!-- 3. 到仓位置 -->
-                                <td class="px-4 py-2 fixed-width-cell">
+                                <td class="px-4 py-3 fixed-width-cell">
                                     {% if order.offload_id.unpacking_status != "1" %}
                                         <input type="text"
                                                id="arrival_location_{{ record_id }}"
@@ -404,15 +489,15 @@
                                                         // 更新数据属性用于搜索
                                                         this.closest('tr').setAttribute('data-location', this.value.toUpperCase())"
                                                placeholder="请输入到仓位置"
-                                               >
+                                               style="width: 100%; padding: 6px 8px; font-size: 13px;">
                                     {% else %}
-                                        <span class="text-xs text-gray-500">{{ ret.arrival_location|upper }}</span>
+                                        <span class="text-sm text-gray-500">{{ ret.arrival_location|upper }}</span>
                                     {% endif %}
                                 </td>
 
 
                                 <!-- 4. 拆柜状态 -->
-                                <td class="px-4 py-2">
+                                <td class="px-4 py-3">
                                     <div class="flex items-center space-x-3" id="status_group_{{ record_id }}">
                                         <!-- 已拆柜 -->
                                         <div class="flex items-center">
@@ -421,9 +506,9 @@
                                                    name="unpacking_status_{{ record_id }}"
                                                    value="1"
                                                    {% if ret.unpacking_status|stringformat:"s" == "1" %}checked{% endif %}
-                                                   class="h-3.5 w-3.5 text-primary border-gray-300 rounded focus:ring-primary/50">
-                                            <label for="unpack_1_{{ record_id }}" class="ml-1 inline-flex items-center px-1.5 py-0.5 rounded-lg text-xs font-medium bg-green-50 text-success tag-shadow cursor-pointer">
-                                                <i class="bi bi-check-circle-fill mr-0.5 text-[10px]"></i>已拆
+                                                   class="h-4 w-4 text-primary border-gray-300 rounded focus:ring-primary/50">
+                                            <label for="unpack_1_{{ record_id }}" class="ml-1 inline-flex items-center px-2 py-1 rounded-lg text-xs font-medium bg-green-50 text-success tag-shadow cursor-pointer">
+                                                <i class="bi bi-check-circle-fill mr-0.5 text-[11px]"></i>已拆
                                             </label>
                                         </div>
                                         <!-- 未拆柜 -->
@@ -434,9 +519,9 @@
                                                    value="0"
                                                    {% if ret.unpacking_status|stringformat:"s" == "1" %}disabled{% endif %}
                                                    {% if ret.unpacking_status|stringformat:"s" == "0" or not ret.unpacking_status %}checked{% endif %}
-                                                   class="h-3.5 w-3.5 text-primary border-gray-300 rounded focus:ring-primary/50">
-                                            <label for="unpack_0_{{ record_id }}" class="ml-1 inline-flex items-center px-1.5 py-0.5 rounded-lg text-xs font-medium bg-gray-50 text-neutral tag-shadow cursor-pointer">
-                                                <i class="bi bi-check-circle-fill mr-0.5 text-[10px]"></i>未拆
+                                                   class="h-4 w-4 text-primary border-gray-300 rounded focus:ring-primary/50">
+                                            <label for="unpack_0_{{ record_id }}" class="ml-1 inline-flex items-center px-2 py-1 rounded-lg text-xs font-medium bg-gray-50 text-neutral tag-shadow cursor-pointer">
+                                                <i class="bi bi-check-circle-fill mr-0.5 text-[11px]"></i>未拆
                                             </label>
                                         </div>
                                         <!-- 拆柜中 -->
@@ -447,16 +532,16 @@
                                                    value="2"
                                                    {% if ret.unpacking_status|stringformat:"s" == "1" %}disabled{% endif %}
                                                    {% if ret.unpacking_status|stringformat:"s" == "2" %}checked{% endif %}
-                                                   class="h-3.5 w-3.5 text-primary border-gray-300 rounded focus:ring-primary/50">
-                                            <label for="unpack_2_{{ record_id }}" class="ml-1 inline-flex items-center px-1.5 py-0.5 rounded-lg text-xs font-medium bg-blue-50 text-blue-600 tag-shadow cursor-pointer">
-                                                <i class="bi bi-check-circle-fill mr-0.5 text-[10px]"></i>拆中
+                                                   class="h-4 w-4 text-primary border-gray-300 rounded focus:ring-primary/50">
+                                            <label for="unpack_2_{{ record_id }}" class="ml-1 inline-flex items-center px-2 py-1 rounded-lg text-xs font-medium bg-blue-50 text-blue-600 tag-shadow cursor-pointer">
+                                                <i class="bi bi-check-circle-fill mr-0.5 text-[11px]"></i>拆中
                                             </label>
                                         </div>
                                     </div>
                                 </td>
 
                                 <!-- 大方广提柜实际-->
-                                <td class="px-4 py-2">
+                                <td class="px-4 py-3">
                                     {% if order.retrieval_id.generous_and_wide_target_retrieval_timestamp %}
                                         {{ order.retrieval_id.generous_and_wide_target_retrieval_timestamp |date:"Y-m-d H:i:s" }}
                                     {% else %}
@@ -465,7 +550,7 @@
                                 </td>
 
                                 <!-- 实际提柜实际-->
-                                <td class="px-4 py-2">
+                                <td class="px-4 py-3">
                                     {% if order.retrieval_id.actual_retrieval_timestamp %}
                                         {{ order.retrieval_id.actual_retrieval_timestamp |date:"Y-m-d H:i:s" }}
                                     {% else %}
@@ -474,7 +559,7 @@
                                 </td>
 
                                 <!-- 拆柜开始时间 -->
-                                <td class="px-4 py-2">
+                                <td class="px-4 py-3">
                                     {% with unpacking_time=order.offload_id.warehouse_unpacking_time %}
                                         {% if unpacking_time and order.offload_id.unpacking_status == "2" %}
                                             <span class="unpacking-time"
@@ -489,14 +574,14 @@
                                 </td>
 
                                 <!-- 拆柜完成时间-->
-                                <td class="px-4 py-2">
+                                <td class="px-4 py-3">
                                     {{ order.offload_id.warehouse_unpacked_time|date:"Y-m-d H:i:s"|default:"-" }}
                                 </td>
 
                                 <!-- 5. 导出功能 -->
-                                <td class="px-4 py-2 text-xs">
-                                    <div class="flex space-x-1">
-                                        <form method="post" action="" style="display: inline-block; width: 68px;"
+                                <td class="px-4 py-3 text-sm">
+                                    <div class="flex space-x-2">
+                                        <form method="post" action="" style="display: inline-block; min-width: 80px;"
                                               class="download-form" onsubmit="return handleDownloadAndUpdate(this)">
                                             {% csrf_token %}
                                             <input type="hidden" name="step" value="export_palletization_list">
@@ -515,13 +600,13 @@
                                             <input type="hidden" name="action_type" value="export">
 
                                             <button type="submit"
-                                                    class="compact-btn bg-success text-white hover:bg-success/90"
+                                                    class="compact-btn bg-success text-white hover:bg-success/90 w-full"
                                                     {% if not order.container_number %}disabled
                                                     title="柜号为空"{% endif %}>
                                                 <i class="bi bi-cloud-arrow-down-fill mr-0.5 text-[11px]"></i>拆柜单
                                             </button>
                                         </form>
-                                        <form method="post" action="" style="display: inline-block; width: 87px;"
+                                        <form method="post" action="" style="display: inline-block; min-width: 95px;"
                                               class="download-form" onsubmit="return handleDownloadAndUpdate(this)">
                                             {% csrf_token %}
                                             <input type="hidden" name="step" value="export_palletization_list">
@@ -540,19 +625,19 @@
                                             <input type="hidden" name="action_type" value="new_export">
 
                                             <button type="submit"
-                                                    class="compact-btn bg-success text-white hover:bg-success/90"
+                                                    class="compact-btn bg-success text-white hover:bg-success/90 w-full"
                                                     {% if not order.container_number %}disabled
                                                     title="柜号为空"{% endif %}>
                                                 <i class="bi bi-cloud-arrow-down-fill mr-0.5 text-[11px]"></i>(新)拆柜单
                                             </button>
                                         </form>
-                                        <form method="post" action="" style="display: inline-block; width: 68px;">
+                                        <form method="post" action="" style="display: inline-block; min-width: 80px;">
                                             {% csrf_token %}
                                             <input type="hidden" name="step" value="export_pallet_label">
                                             <input type="hidden" name="status" value="palletized">
                                             <input type="hidden" name="customer_name" value="{{ order.customer_name.zem_code|default:'' }}">
                                             <input type="hidden" name="container_number" value="{{ order.container_number|default:'' }}">
-                                            <button type="submit" class="compact-btn bg-primary text-white hover:bg-primary/90" {% if not order.container_number or not order.customer_name.zem_code %}disabled title="信息不全"{% endif %}>
+                                            <button type="submit" class="compact-btn bg-primary text-white hover:bg-primary/90 w-full" {% if not order.container_number or not order.customer_name.zem_code %}disabled title="信息不全"{% endif %}>
                                                 <i class="bi bi-cloud-arrow-down-fill mr-0.5 text-[11px]"></i>托盘标
                                             </button>
                                         </form>
@@ -560,7 +645,7 @@
                                 </td>
 
                                 <!-- 6. 操作 -->
-                                <td class="px-4 py-2">
+                                <td class="px-4 py-3">
                                     <form method="post" action="" class="update-single-form" data-record-id="{{ record_id }}">
                                         {% csrf_token %}
                                         <input type="hidden" name="step" value="update_warehouse">
@@ -568,15 +653,15 @@
                                         <input type="hidden" name="offload_id" value="{{ ret.offload_id }}">
                                         <input type="hidden" name="arrival_location" id="arrival_location_hidden_{{ record_id }}">
                                         <input type="hidden" name="unpacking_status" id="unpacking_status_hidden_{{ record_id }}">
-                                        <button type="submit" class="btn btn-outline-primary px-3 py-1 text-[12px] bg-white hover:bg-gray-50">
+                                        <button type="submit" class="btn btn-outline-primary px-4 py-2 text-[13px] bg-white hover:bg-gray-50">
                                             更新
                                         </button>
                                     </form>
                                 </td>
 
                                 <!-- 7. 回传拆柜数据 -->
-                                <td class="px-4 py-2">
-                                    <form method="post" action="">
+                                <td class="px-4 py-3">
+                                    <form method="post" action="" style="display: flex; flex-direction: column; gap: 6px;">
                                         {% csrf_token %}
                                         <input type="hidden" name="step" value="warehousing_complete_loading">
                                         <input type="hidden" name="offload_id" value="{{ ret.offload_id }}">
@@ -584,21 +669,21 @@
                                         <input type="file"
                                                id="unpacking_data_{{ record_id }}"
                                                name="unpacking_data"
-                                               class="text-[12px] w-full">
-                                        <input type="text" name="offload_note" value="{{ ret.offload_id.offload_note }}" placeholder="请输入回传拆柜备注">
-                                            <button type="submit" class="btn btn-outline-primary px-3 py-1 text-[12px] bg-white hover:bg-gray-50">
-                                                确认提交
-                                            </button>
+                                               class="text-[13px] w-full">
+                                        <input type="text" name="offload_note" value="{{ ret.offload_id.offload_note }}" placeholder="请输入回传拆柜备注" style="padding: 6px 8px; font-size: 13px;">
+                                        <button type="submit" class="btn btn-outline-primary px-4 py-2 text-[13px] bg-white hover:bg-gray-50 mt-2">
+                                            确认提交
+                                        </button>
                                     </form>
                                 </td>
 
                                 <!-- 回传拆柜数据备注 -->
-                                <td class="px-4 py-2">
+                                <td class="px-4 py-3">
                                     {{ order.offload_id.offload_note|default:"-" }}
                                 </td>
 
                                 <!-- 回传拆柜数据的时间 -->
-                                <td class="px-4 py-2">
+                                <td class="px-4 py-3">
                                     {% if order.offload_id.uploaded_at  %}
                                         {{ order.offload_id.uploaded_at|date:"Y-m-d H:i:s" }}
                                     {% else %}
@@ -612,7 +697,7 @@
                 {% endfor %}
                 <!-- 无搜索结果提示行 -->
                 <tr id="no-results" class="hidden">
-                    <td colspan="9" class="px-4 py-8 text-center text-gray-500 text-sm">
+                    <td colspan="13" class="px-4 py-8 text-center text-gray-500 text-sm">
                         <i class="bi bi-search mr-1"></i>没有找到匹配的记录
                     </td>
                 </tr>
@@ -675,7 +760,7 @@
         function initSearchFunctionality() {
             const containerInput = document.getElementById('container-search');
             const locationInput = document.getElementById('location-search');
-            const rows = Array.from(document.querySelectorAll('#table-body tr[data-record-id]')); // 转为数组，便于排序
+            const rows = Array.from(document.querySelectorAll('#table-body tr[data-record-id]'));
             const noResultsRow = document.getElementById('no-results');
             const filteredCountEl = document.getElementById('filtered-records');
             const totalRecords = parseInt(document.getElementById('total-records').textContent) || 0;
@@ -690,13 +775,13 @@
                 rows.forEach(row => {
                     const container = row.getAttribute('data-container') || '';
                     const location = row.getAttribute('data-location') || '';
-                    const isOvertime = row.getAttribute('data-is-overtime') === '1'; // 获取超时状态
+                    const isOvertime = row.getAttribute('data-is-overtime') === '1';
 
                     const matchesContainer = container.includes(containerQuery);
                     const matchesLocation = location.includes(locationQuery);
 
                     if (matchesContainer && matchesLocation) {
-                        visibleRows.push({row, isOvertime}); // 存储行和超时状态
+                        visibleRows.push({row, isOvertime});
                         row.style.display = '';
                     } else {
                         row.style.display = 'none';
@@ -705,15 +790,15 @@
 
                 // 2. 对匹配的行排序：先按"是否超时"（true在前），再按原顺序
                 visibleRows.sort((a, b) => {
-                    if (a.isOvertime && !b.isOvertime) return -1; // 超时的在前
+                    if (a.isOvertime && !b.isOvertime) return -1;
                     if (!a.isOvertime && b.isOvertime) return 1;
-                    return 0; // 非超时行保持原顺序
+                    return 0;
                 });
 
-                // 3. 重新排列DOM，确保超时行置顶
+                // 3. 重新排列DOM
                 const tableBody = document.getElementById('table-body');
                 visibleRows.forEach(item => {
-                    tableBody.appendChild(item.row); // 追加到末尾=移动到当前排序位置
+                    tableBody.appendChild(item.row);
                 });
 
                 // 4. 显示无结果提示
@@ -727,15 +812,14 @@
                 }
             }
 
-            // 原有事件监听保留...
+            // 原有事件监听保留
             containerInput.addEventListener('input', handleSearch);
             locationInput.addEventListener('input', handleSearch);
             containerInput.addEventListener('keyup', e => e.key === 'Enter' && e.target.blur());
             locationInput.addEventListener('keyup', e => e.key === 'Enter' && e.target.blur());
         }
-        // 1. 处理拆柜开始时间显示和超时警告
+        // 1. 处理拆柜时间显示和超时警告
         function handleUnpackingTimeDisplay() {
-            // 使用DocumentFragment减少DOM重绘
             const fragment = document.createDocumentFragment();
 
             document.querySelectorAll('.unpacking-time').forEach(element => {
@@ -759,7 +843,6 @@
 
                 if (daysDiff > 2) {
                     element.classList.add('text-red-600', 'font-medium');
-                    // 创建警告元素并添加到片段
                     const warningSpan = document.createElement('span');
                     warningSpan.className = 'ml-1 text-xs bg-red-100 px-1 rounded';
                     warningSpan.textContent = '(已超2天)';
@@ -769,7 +852,7 @@
             });
         }
 
-        // 2. Checkbox互斥逻辑（事件委托 - 只绑定一个事件监听器）
+        // 2. Checkbox互斥逻辑
         function initCheckboxLogic() {
             document.addEventListener('change', function(e) {
                 if (e.target.type === 'checkbox' && e.target.name.startsWith('unpacking_status_')) {
@@ -794,7 +877,7 @@
             });
         }
 
-        // 3. 表单提交处理（事件委托 - 只绑定一个事件监听器）
+        // 3. 表单提交处理
         function initFormSubmission() {
             document.addEventListener('submit', function(e) {
                 if (e.target.classList.contains('update-single-form')) {
@@ -823,7 +906,6 @@
 
         // 4. 初始化下载表单
         function initDownloadForms() {
-            // 使用事件委托代替循环绑定
             document.addEventListener('click', function(e) {
                 const submitButton = e.target.closest('.download-form button[type="submit"]');
                 if (!submitButton) return;
@@ -872,7 +954,6 @@
                 timeInput.value = new Date().toISOString();
             }
 
-            // 使用requestIdleCallback延迟非关键操作
             requestIdleCallback(() => {
                 performDownload(form, containerNumber);
             }, { timeout: 1000 });
@@ -880,7 +961,7 @@
             return false;
         }
 
-        // 分离下载逻辑，便于优化
+        // 分离下载逻辑
         function performDownload(form, containerNumber) {
             fetch(form.action, {
                 method: form.method,
@@ -904,13 +985,11 @@
                 document.body.appendChild(a);
                 a.click();
 
-                // 延迟清理以确保下载完成
                 setTimeout(() => {
                     window.URL.revokeObjectURL(url);
                     document.body.removeChild(a);
                 }, 100);
 
-                // 发送更新请求
                 const formData = new FormData(form);
                 formData.set('action_type', 'render');
 
