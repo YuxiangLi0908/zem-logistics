@@ -4626,6 +4626,26 @@ class Accounting(View):
                     total=Sum("rate", default=0)
                 )["total"] or 0
 
+                # 入库拆柜费
+                arrive_fee = container.invoice_itemv2.filter(description="入库拆柜费").aggregate(
+                    total=Sum("rate", default=0)
+                )["total"] or 0
+
+                # 直送固定报价
+                direct_basic_fee = container.invoice_itemv2.filter(description="固定报价").aggregate(
+                    total=Sum("rate", default=0)
+                )["total"] or 0
+
+                # 直送车架费
+                direct_frame_fee_sum = container.invoice_itemv2.filter(description="直送车架费").aggregate(
+                    total=Sum("rate", default=0)
+                )["total"] or 0
+
+                # 直送等待费用
+                chassis_fee = container.invoice_itemv2.filter(description="等待费用").aggregate(
+                    total=Sum("rate", default=0)
+                )["total"] or 0
+
                 # 总费用
                 total_fee = container.invoice_itemv2.aggregate(
                     total=Sum("rate", default=0)
@@ -4640,10 +4660,10 @@ class Accounting(View):
                     container_number,  # 货柜号
                     f"${pickup_fee:.2f}",  # 提柜费
                     f"${unload_fee:.2f}",  # 拆柜费
-                    # f"${unload_fee:.2f}",  # 入库拆柜费
-                    # f"${unload_fee:.2f}",  # 直送固定报价
-                    # f"${unload_fee:.2f}",  # 直送等待费用
-                    # f"${unload_fee:.2f}",  # 直送车架费用
+                    f"${arrive_fee:.2f}",  # 入库拆柜费
+                    f"${direct_basic_fee:.2f}",  # 直送固定报价
+                    f"${direct_frame_fee_sum:.2f}",  # 直送车架费
+                    f"${chassis_fee:.2f}",  # 直送等待费用
                     f"${over_weight_fee:.2f}",  # 超重费
                     f"${demurrage_fee:.2f}",  # 滞港费
                     f"${per_diem_fee:.2f}",  # 滞箱费
@@ -4656,9 +4676,9 @@ class Accounting(View):
             df = pd.DataFrame(
                 excel_data,
                 columns=[
-                    "客户", "仓点", "提柜供应商", "卸柜供应商", "货柜号",
-                    "提柜费", "拆柜费", "超重费", "滞港费", "滞箱费",
-                    "车架费", "其他费用", "总费用"
+                    "客户", "仓点", "提柜供应商", "卸柜供应商", "货柜号", "提柜费", "拆柜费", "入库拆柜费",
+                    "直送固定报价", "直送车架费", "直送等待费用", "超重费", "滞港费", "滞箱费", "车架费", "其他费用",
+                    "总费用"
                 ]
             )
 
@@ -4736,7 +4756,11 @@ class Accounting(View):
                 "港内滞港费": "demurrage_fee",
                 "港外滞箱费": "per_diem_fee",
                 "车架费用": "chassis_fee",
-                "其他费用": "other_fee"
+                "其他费用": "other_fee",
+                "入库拆柜费": "arrive_fee",
+                "固定报价": "direct_basic_fee",
+                "直送车架费": "direct_frame_fee_sum",
+                "等待费用": "chassis_fee"
             }
             excel_data = []
 
@@ -4769,17 +4793,18 @@ class Accounting(View):
 
                 total_fee = sum(fee_data.values())
                 excel_data.append([
-                    customer_name, warehouse, pickup_carrier, unload_carrier, container_number,
-                    fee_data["pickup_fee"], fee_data["unload_fee"], fee_data["over_weight_fee"],
-                    fee_data["demurrage_fee"], fee_data["per_diem_fee"], fee_data["chassis_fee"],
-                    fee_data["other_fee"], total_fee
+                    customer_name, warehouse, pickup_carrier, unload_carrier, container_number, fee_data["pickup_fee"],
+                    fee_data["unload_fee"], fee_data["arrive_fee"], fee_data["direct_basic_fee"],
+                    fee_data["direct_frame_fee_sum"], fee_data["chassis_fee"], fee_data["over_weight_fee"],
+                    fee_data["demurrage_fee"], fee_data["per_diem_fee"], fee_data["chassis_fee"], fee_data["other_fee"],
+                    total_fee
                 ])
 
             df = pd.DataFrame(
                 excel_data,
-                columns=["客户", "仓点", "提柜供应商", "卸柜供应商", "货柜号",
-                         "提柜费", "拆柜费", "超重费", "滞港费", "滞箱费",
-                         "车架费", "其他费用", "总费用"]
+                columns=["客户", "仓点", "提柜供应商", "卸柜供应商", "货柜号", "提柜费", "拆柜费", "入库拆柜费",
+                         "直送固定报价", "直送车架费", "直送等待费用", "超重费", "滞港费", "滞箱费", "车架费", "其他费用",
+                         "总费用"]
             )
 
             response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')

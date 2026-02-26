@@ -1051,7 +1051,7 @@
                                                 {% for fee in c.container_number.invoice_itemv2.all %}
                                                     {% if fee.description == "直送车架费" %}
                                                         {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
-                                                            <span class="pickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
+                                                            <span class="pickup-fee-amount">${{ fee.amount|default:0.00|floatformat:2 }}</span>
                                                         {% endif %}
                                                     {% endif %}
                                                 {% endfor %}
@@ -1397,7 +1397,7 @@
                                             {% for fee in c.container_number.invoice_itemv2.all %}
                                                 {% if fee.description == "直送车架费" %}
                                                     {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
-                                                        <span class="pickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
+                                                        <span class="pickup-fee-amount">${{ fee.amount|default:0.00|floatformat:2 }}</span>
                                                     {% endif %}
                                                 {% endif %}
                                             {% endfor %}
@@ -1624,7 +1624,7 @@
                                             {% for fee in c.container_number.invoice_itemv2.all %}
                                                 {% if fee.description == "直送车架费" %}
                                                     {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
-                                                        <span class="pickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
+                                                        <span class="pickup-fee-amount">${{ fee.amount|default:0.00|floatformat:2 }}</span>
                                                     {% endif %}
                                                 {% endif %}
                                             {% endfor %}
@@ -2008,7 +2008,7 @@
                                             {% for fee in c.container_number.invoice_itemv2.all %}
                                                 {% if fee.description == "直送车架费" %}
                                                     {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
-                                                        <span class="pickup-fee-amount">${{ fee.rate|default:0.00|floatformat:2 }}</span>
+                                                        <span class="pickup-fee-amount">${{ fee.amount|default:0.00|floatformat:2 }}</span>
                                                     {% endif %}
                                                 {% endif %}
                                             {% endfor %}
