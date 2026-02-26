@@ -2777,7 +2777,7 @@ class Accounting(View):
         ).select_related("retrieval_id", "vessel_id", "customer_name")
 
         # 提柜
-        t_item = ['提柜费用', '固定报价', '等待费用', '超重费用', '港内滞港费', '港外滞箱费', '车架费用']
+        t_item = ['提柜费用', '固定报价', '直送车架费', '等待费用', '超重费用', '港内滞港费', '港外滞箱费', '车架费用']
         # 卸柜
         x_item = ['拆柜费用','入库拆柜费']
 
@@ -4640,6 +4640,10 @@ class Accounting(View):
                     container_number,  # 货柜号
                     f"${pickup_fee:.2f}",  # 提柜费
                     f"${unload_fee:.2f}",  # 拆柜费
+                    # f"${unload_fee:.2f}",  # 入库拆柜费
+                    # f"${unload_fee:.2f}",  # 直送固定报价
+                    # f"${unload_fee:.2f}",  # 直送等待费用
+                    # f"${unload_fee:.2f}",  # 直送车架费用
                     f"${over_weight_fee:.2f}",  # 超重费
                     f"${demurrage_fee:.2f}",  # 滞港费
                     f"${per_diem_fee:.2f}",  # 滞箱费
@@ -6233,6 +6237,31 @@ class Accounting(View):
                 invoice_item.rate = data.get("direct_basic_fee")
                 invoice_item.save()
                 pt_amount += float(data.get("direct_basic_fee"))
+        # 直送车架费
+        if data.get("direct_frame_fee_sum"):
+            try:
+                invoice_item = InvoiceItemv2.objects.filter(
+                    container_number=container,
+                    invoice_number=invoice,
+                    invoice_type="payable_direct",
+                    description="直送车架费",
+                ).get()
+                invoice_item.rate = data.get("direct_frame_fee")
+                invoice_item.qty = data.get("direct_frame_days")
+                invoice_item.amount = data.get("direct_frame_fee_sum")
+                invoice_item.save()
+                pt_amount += float(data.get("direct_frame_fee_sum"))
+            except InvoiceItemv2.DoesNotExist:
+                invoice_item = InvoiceItemv2(
+                    **{"container_number": container, "invoice_number": invoice,
+                       "invoice_type": "payable_direct"}
+                )
+                invoice_item.description = "直送车架费"
+                invoice_item.rate = data.get("direct_frame_fee")
+                invoice_item.qty = data.get("direct_frame_days")
+                invoice_item.amount = data.get("direct_frame_fee_sum")
+                invoice_item.save()
+                pt_amount += float(data.get("direct_frame_fee_sum"))
         # 直送等待费用
         if data.get("chassis_fee"):
             try:
@@ -11357,6 +11386,9 @@ class Accounting(View):
         direct_basic_fee = 0
         chassis_fee = 0
         chassis_comment = "无相关信息"
+        direct_frame_fee_sum = 0
+        direct_frame_fee = 0
+        direct_frame_days = 0
         # 如果已保存且不是驳回状态，从数据库读取
         if context["is_save_invoice"] and not context["is_rejected"]:
             invoice_items = InvoiceItemv2.objects.filter(
@@ -11368,7 +11400,20 @@ class Accounting(View):
                 elif invoice_item.description == "等待费用":
                     chassis_fee = invoice_item.rate
                     chassis_comment = invoice_item.note
-            context.update({"invoice_items": invoice_items})
+                elif invoice_item.description == "直送车架费":
+                    direct_frame_fee_sum = invoice_item.amount
+                    direct_frame_fee = invoice_item.rate
+                    direct_frame_days = int(invoice_item.qty)
+
+            context.update({
+                "invoice_items": invoice_items,
+                "direct_basic_fee": direct_basic_fee,
+                "chassis_comment": chassis_comment,
+                "chassis_fee": chassis_fee,
+                "direct_frame_fee_sum": direct_frame_fee_sum,
+                "direct_frame_fee": direct_frame_fee,
+                "direct_frame_days": direct_frame_days,
+            })
         else:
             # 从报价表获取
             DETAILS = self._get_feetail(vessel_etd, "PAYABLE_DIRECT")
@@ -11385,13 +11430,17 @@ class Accounting(View):
             if result:
                 direct_basic_fee = result["price"]
                 chassis_comment = result.get("chassis", "")
-        context.update(
-            {
-                "direct_basic_fee": direct_basic_fee,
-                "chassis_comment": chassis_comment,
-                "chassis_fee": chassis_fee,
-            }
-        )
+                direct_frame_fee = result.get("direct_frame_fee", "")
+                direct_frame_fee_sum = 0
+            context.update(
+                {
+                    "direct_basic_fee": direct_basic_fee,
+                    "chassis_comment": chassis_comment,
+                    "chassis_fee": chassis_fee,
+                    "direct_frame_fee": direct_frame_fee,
+                    "direct_frame_fee_sum": direct_frame_fee_sum,
+                }
+            )
 
         return self.template_invoice_payable_direct_edit_v1, context
 
@@ -11699,7 +11748,7 @@ class Accounting(View):
                 warehouse_precise = "LA 91761"
             if warehouse_precise == "LA 91789":
                 warehouse_precise = "LA 91761"
-            if pick_subkey == 40:
+            if pick_subkey == 40 and warehouse:
                 try:
                     pickup_fee = fee_detail[warehouse][warehouse_precise][preport_carrier]["basic_40"]
                 except KeyError:
