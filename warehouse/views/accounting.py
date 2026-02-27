@@ -11757,7 +11757,6 @@ class Accounting(View):
 
         return self.template_invoice_payable_edit, context
 
-
     def handle_container_preport_post_payable(self, context: dict | None = None) -> Dict[str, Any]:
         """处理柜号点击进入港前账单编辑页面"""
         if not context:
@@ -11776,16 +11775,27 @@ class Accounting(View):
         order = context["order"]
 
         # 查看仓库和柜型，计算提拆费
-        warehouse = order.retrieval_id.retrieval_destination_area
-        container_type = order.container_number.container_type
+        warehouse = order.retrieval_id.retrieval_destination_area if order.retrieval_id else ""
+        container_type = order.container_number.container_type if order.container_number else ""
         # 供应商
-        retrieval_carrier = order.retrieval_id.retrieval_carrier
+        retrieval_carrier = order.retrieval_id.retrieval_carrier if order.retrieval_id else ""
 
-        # 查找报价表
-        quotation, quotation_error = self._get_quotation_for_order(order, 'payable')
-        if quotation_error:
-            context.update({"error_messages": quotation_error})
-            return self.template_invoice_payable_edit_v1, context
+        # ========== 新增：标记LA+转运+Eric订单，跳过报价表逻辑 ==========
+        is_eric_la_transfer = (
+                warehouse == "LA"
+                and order.order_type == "转运"
+                and retrieval_carrier == "Eric"
+        )
+
+        # 查找报价表（仅非Eric订单执行）
+        quotation = None
+        quotation_error = None
+        if not is_eric_la_transfer:
+            quotation, quotation_error = self._get_quotation_for_order(order, 'payable')
+            if quotation_error:
+                context.update({"error_messages": quotation_error})
+                return self.template_invoice_payable_edit_v1, context
+        # =================================================================
 
         order_type = order.order_type
         non_combina_reason = None
@@ -11800,11 +11810,8 @@ class Accounting(View):
             elif container.manually_order_type == "转运组合":
                 iscombina = True
 
-        act_pick_time = order.retrieval_id.actual_retrieval_timestamp
-        fee_detail = self._get_feetail(act_pick_time, "PAYABLE")
-
-        # 计算提拆费
-        match = re.match(r"\d+", container_type)
+        act_pick_time = order.retrieval_id.actual_retrieval_timestamp if order.retrieval_id else None
+        fee_detail = {}
         pickup_fee = 0
         actual_day = None
         pallet_details = None
@@ -11814,90 +11821,123 @@ class Accounting(View):
         chassis_fee = None
         demurrage_fee = None
         per_diem_fee = None
-        overweight = None
-        FS = {}
-        if match:
-            pick_subkey = int(match.group())
-            if warehouse_precise == "LA 91748":
-                warehouse_precise = "LA 91761"
-            if warehouse_precise == "LA 91789":
-                warehouse_precise = "LA 91761"
-            if warehouse == "LA" and order_type == "转运" and retrieval_carrier == "Eric":
-                pickup_fee = 0
-                context.update({"error_messages": f"在报价表中找不到{warehouse}仓库{pick_subkey}柜型的提拆费"})
-            elif pick_subkey == 40 and warehouse:
-                try:
-                    pickup_fee = fee_detail[warehouse][warehouse_precise][preport_carrier]["basic_40"]
-                except KeyError:
-                    pickup_fee = 0
-                    context.update({"error_messages": f"在报价表中找不到{warehouse}仓库{pick_subkey}柜型的提拆费"})
-                    return self.template_invoice_payable_edit_v1, context
-            else:
-                try:
-                    pickup_fee = fee_detail[warehouse][warehouse_precise][preport_carrier]["basic_45"]
-                except KeyError:
-                    pickup_fee = 0
-                    context.update({"error_messages": f"在报价表中找不到{warehouse}仓库{pick_subkey}柜型的提拆费"})
-                    return self.template_invoice_payable_edit_v1, context
-
-        basic_fee = "N/A"
-        if fee_detail[warehouse][warehouse_precise][preport_carrier].get('basic_40'):
-            basic_fee = fee_detail[warehouse][warehouse_precise][preport_carrier].get('basic_40')
-        elif fee_detail[warehouse][warehouse_precise][preport_carrier].get('basic_45'):
-            basic_fee = fee_detail[warehouse][warehouse_precise][preport_carrier].get('basic_45')
-        # 超重费
         overweight = 0
-        if float(order.container_number.weight_lbs) > 42000:
-            overweight = fee_detail[warehouse][warehouse_precise][preport_carrier].get('overweight')
-            if isinstance(overweight, str):
-                overweight = overweight.replace("\n", ";")
+        FS = {}
 
-        # 入库费
-        arrive_fee = fee_detail[warehouse][warehouse_precise][preport_carrier].get('arrive_warehouse')
-        if arrive_fee == "/":
-            arrive_fee = arrive_fee.replace("/", "")
+        # ========== 修改：仅非Eric订单读取报价表费用 ==========
+        if not is_eric_la_transfer:
+            fee_detail = self._get_feetail(act_pick_time, "PAYABLE")
 
-        # 1. 初始化包含默认空选项的字典（键值可根据你的需求调整，比如 ""/"请选择"）
-        pallet_details = {"": ""}  # 第一个默认键值对为空
+            # 计算提拆费
+            match = re.match(r"\d+", container_type)
+            if match:
+                pick_subkey = int(match.group())
+                if warehouse_precise == "LA 91748":
+                    warehouse_precise = "LA 91761"
+                if warehouse_precise == "LA 91789":
+                    warehouse_precise = "LA 91761"
+                # 移除Eric相关的报错逻辑（因为已经提前过滤）
+                if pick_subkey == 40 and warehouse:
+                    try:
+                        pickup_fee = fee_detail[warehouse][warehouse_precise][preport_carrier]["basic_40"]
+                    except KeyError:
+                        pickup_fee = 0
+                        context.update({"error_messages": f"在报价表中找不到{warehouse}仓库{pick_subkey}柜型的提拆费"})
+                        return self.template_invoice_payable_edit_v1, context
+                else:
+                    try:
+                        pickup_fee = fee_detail[warehouse][warehouse_precise][preport_carrier]["basic_45"]
+                    except KeyError:
+                        pickup_fee = 0
+                        context.update({"error_messages": f"在报价表中找不到{warehouse}仓库{pick_subkey}柜型的提拆费"})
+                        return self.template_invoice_payable_edit_v1, context
 
-        # 2. 原有逻辑：筛选拆柜供应商选项（用临时字典存储，避免覆盖默认值）
-        temp_pallet_details = {
-            carrier: value
-            for carrier, details in fee_detail[warehouse][warehouse_precise].items()
-            for key in ["palletization", "arrive_warehouse"]
-            if (value := details.get(key)) is not None and value != "/"
-        }
+            # 读取报价表中的各项费用
+            basic_fee = "N/A"
+            if fee_detail.get(warehouse, {}).get(warehouse_precise, {}).get(preport_carrier, {}).get('basic_40'):
+                basic_fee = fee_detail[warehouse][warehouse_precise][preport_carrier]["basic_40"]
+            elif fee_detail.get(warehouse, {}).get(warehouse_precise, {}).get(preport_carrier, {}).get('basic_45'):
+                basic_fee = fee_detail[warehouse][warehouse_precise][preport_carrier]["basic_45"]
 
-        # 3. 将筛选后的选项更新到包含默认值的字典中（保留默认值在第一位）
-        pallet_details.update(temp_pallet_details)
+            # 超重费
+            if float(order.container_number.weight_lbs) > 42000:
+                overweight = fee_detail.get(warehouse, {}).get(warehouse_precise, {}).get(preport_carrier, {}).get(
+                    'overweight', 0)
+                if isinstance(overweight, str):
+                    overweight = overweight.replace("\n", ";")
 
-        palletization_carrier = fee_detail[warehouse][warehouse_precise][preport_carrier]
+            # 入库费
+            arrive_fee = fee_detail.get(warehouse, {}).get(warehouse_precise, {}).get(preport_carrier, {}).get(
+                'arrive_warehouse', "")
+            if arrive_fee == "/":
+                arrive_fee = ""
 
-        # 计算车架费
-        context["chassis_fee"] = 0
-        actual_day = None
-        chassis_fee = None
-        cutoff_date = timezone.datetime(2025, 9, 1, tzinfo=timezone.utc)
-        if act_pick_time and act_pick_time < cutoff_date:
-            data = self._calculate_chassis_fee(context, fee_detail[warehouse][warehouse_precise][preport_carrier], order)
-            chassis_fee = data["chassis_fee"]
-            actual_day = data["actual_day"]
+            # 1. 初始化包含默认空选项的字典
+            pallet_details = {"": ""}
+
+            # 2. 筛选拆柜供应商选项
+            temp_pallet_details = {
+                carrier: value
+                for carrier, details in fee_detail.get(warehouse, {}).get(warehouse_precise, {}).items()
+                for key in ["palletization", "arrive_warehouse"]
+                if (value := details.get(key)) is not None and value != "/"
+            }
+            pallet_details.update(temp_pallet_details)
+
+            palletization_carrier = fee_detail.get(warehouse, {}).get(warehouse_precise, {}).get(preport_carrier, {})
+
+            # 计算车架费
+            cutoff_date = timezone.datetime(2025, 9, 1, tzinfo=timezone.utc)
+            if act_pick_time and act_pick_time < cutoff_date:
+                data = self._calculate_chassis_fee(context, fee_detail[warehouse][warehouse_precise][preport_carrier],
+                                                   order)
+                chassis_fee = data["chassis_fee"]
+                actual_day = data["actual_day"]
+            else:
+                data = self._calculate_chassis_fee_91(context,
+                                                      fee_detail[warehouse][warehouse_precise][preport_carrier], order)
+                chassis_fee = data["chassis_fee"]
+                actual_day = data["actual_day"]
+
+            demurrage_fee = fee_detail[warehouse][warehouse_precise][preport_carrier].get('demurrage')
+            per_diem_fee = fee_detail[warehouse][warehouse_precise][preport_carrier].get('per_diem')
+
+            # 构建费用提示信息
+            FS = {
+                "提柜费用": f"{basic_fee}",
+                "拆柜费用": f"{fee_detail[warehouse][warehouse_precise][preport_carrier].get('palletization')}",
+                "入库拆柜费": f"{arrive_fee}",
+                "超重费用": f"{overweight}",
+                "车架费用": f"{fee_detail[warehouse][warehouse_precise][preport_carrier].get('chassis')}",
+                "港内滞港费": f"{fee_detail[warehouse][warehouse_precise][preport_carrier].get('demurrage')}",
+                "港外滞箱费": f"{fee_detail[warehouse][warehouse_precise][preport_carrier].get('per_diem')}",
+            }
         else:
-            data = self._calculate_chassis_fee_91(context, fee_detail[warehouse][warehouse_precise][preport_carrier], order)
-            chassis_fee = data["chassis_fee"]
-            actual_day = data["actual_day"]
-        demurrage_fee = fee_detail[warehouse][warehouse_precise][preport_carrier].get('demurrage')
-        per_diem_fee = fee_detail[warehouse][warehouse_precise][preport_carrier].get('per_diem')
-        # 构建费用提示信息
-        FS = {
-            "提柜费用": f"{basic_fee}",
-            "拆柜费用": f"{fee_detail[warehouse][warehouse_precise][preport_carrier].get('palletization')}",
-            "入库拆柜费": f"{fee_detail[warehouse][warehouse_precise][preport_carrier].get('arrive_warehouse')}",
-            "超重费用": f"{overweight}",
-            "车架费用": f"{fee_detail[warehouse][warehouse_precise][preport_carrier].get('chassis')}",
-            "港内滞港费": f"{fee_detail[warehouse][warehouse_precise][preport_carrier].get('demurrage')}",
-            "港外滞箱费": f"{fee_detail[warehouse][warehouse_precise][preport_carrier].get('per_diem')}",
-        }
+            # ========== Eric订单：强制设置所有费用为0，仅保留入库费逻辑 ==========
+            pickup_fee = 0  # 提拆费强制为0
+            basic_fee = 0
+            overweight = 0
+            arrive_fee = 0
+            chassis_fee = 0
+            demurrage_fee = 0
+            per_diem_fee = 0
+            pallet_details = {"": ""}  # 空的拆柜供应商选项
+            palletization_carrier = {}
+            # 清空费用提示信息（避免读取报价表）
+            FS = {
+                "提柜费用": "0",
+                "拆柜费用": "0",
+                "入库拆柜费": "0",
+                "超重费用": "0",
+                "车架费用": "0",
+                "港内滞港费": "0",
+                "港外滞箱费": "0",
+            }
+            # 移除Eric订单的报错提示（因为不需要报价表）
+            if "error_messages" in context:
+                del context["error_messages"]
+
+        # =================================================================
 
         # 新增：费用名称分割函数（提取-后面的名称）
         def split_fee_name(description):
@@ -11945,39 +11985,44 @@ class Accounting(View):
                 "carrier": item.carrier or '',
             })
 
-        # 如果是第一次录入且没有费用记录，添加提拆费作为默认
-        if not existing_items.exists() and invoice_status.preport_status == 'unstarted' and pickup_fee > 0:
-            for fee_name in standard_fee_items:
-                if fee_name == '提柜费用':
-                    # 提拆费特殊处理
-                    pickup_qty = 0 if iscombina else 1
-                    pickup_amount = pickup_fee * pickup_qty
-                    fee_data.append({
-                        'id': None,
-                        'description': fee_name,
-                        'qty': pickup_qty,
-                        'rate': pickup_fee,
-                        'surcharges': 0,
-                        'amount': pickup_amount,
-                        'note': '',
-                    })
-                else:
-                    ref_price = FS.get(fee_name, 0)
-                    numeric_price = self._extract_number(ref_price)
-                    # 其他费用默认显示，但数量和金额为0
-                    fee_data.append({
-                        'id': None,
-                        'description': fee_name,
-                        'qty': 0,
-                        'rate': numeric_price,
-                        'surcharges': 0,
-                        'amount': 0,
-                        'note': '',
-                    })
+        # 如果是第一次录入且没有费用记录，添加费用默认值
+        if not existing_items.exists() and invoice_status.preport_status == 'unstarted':
+            # Eric订单：仅添加入库费，其他费用不添加
+            if is_eric_la_transfer:
+                pass  # 跳过默认费用添加，后面单独处理入库费
+            else:
+                # 非Eric订单：保留原有默认费用添加逻辑
+                if pickup_fee > 0:
+                    for fee_name in standard_fee_items:
+                        if fee_name == '提柜费用':
+                            # 提拆费特殊处理
+                            pickup_qty = 0 if iscombina else 1
+                            pickup_amount = pickup_fee * pickup_qty
+                            fee_data.append({
+                                'id': None,
+                                'description': fee_name,
+                                'qty': pickup_qty,
+                                'rate': pickup_fee,
+                                'surcharges': 0,
+                                'amount': pickup_amount,
+                                'note': '',
+                            })
+                        else:
+                            ref_price = FS.get(fee_name, 0)
+                            numeric_price = self._extract_number(ref_price)
+                            # 其他费用默认显示，但数量和金额为0
+                            fee_data.append({
+                                'id': None,
+                                'description': fee_name,
+                                'qty': 0,
+                                'rate': numeric_price,
+                                'surcharges': 0,
+                                'amount': 0,
+                                'note': '',
+                            })
 
-        # ===================== 新增逻辑：LA+转运+Eric 自动添加拆柜其他费用入库费 =====================
-        # 条件：仓库=LA、订单类型=转运、提柜供应商=Eric
-        if warehouse == "LA" and order_type == "转运" and retrieval_carrier == "Eric":
+        # ===================== 优化：LA+转运+Eric 自动添加拆柜其他费用入库费 =====================
+        if is_eric_la_transfer:
             # 定义要添加的费用名称（适配前端拆柜其他费用的格式）
             target_fee_name = "入库费"
             full_description = f"拆柜其他费用-{target_fee_name}"
@@ -11989,7 +12034,7 @@ class Accounting(View):
             )
 
             if not fee_exists:
-                # 添加拆柜其他费用入库费，金额固定900
+                # 添加拆柜其他费用入库费，金额固定900（完全不依赖报价表）
                 fee_data.append({
                     'id': None,  # 新费用无ID
                     'split_desc': target_fee_name,  # 前端显示的名称
@@ -11998,7 +12043,7 @@ class Accounting(View):
                     'rate': 900.00,  # 金额固定900
                     'surcharges': 0,
                     'amount': 900.00,  # 总金额=数量*单价
-                    'note': 'LA转运Eric自动添加的入库费',  # 备注说明来源
+                    'note': 'LA转运Eric自动添加的入库费（无报价表配置）',  # 备注说明来源
                     "carrier": "大方广",  # 关联供应商
                 })
         # ======================================================================================
@@ -12008,12 +12053,12 @@ class Accounting(View):
             "actual_day": actual_day,
             "pallet_details": pallet_details,
             "palletization_carrier": palletization_carrier,
-            "overweight_fee": overweight,
+            "overweight_fee": overweight_fee,
             "arrive_fee": arrive_fee,
             "chassis_fee": chassis_fee,
             "demurrage_fee": demurrage_fee,
             "per_diem_fee": per_diem_fee,
-            "actual_weight": order.container_number.weight_lbs,
+            "actual_weight": order.container_number.weight_lbs if order.container_number else 0,
             "warehouse": warehouse,
             "order_type": order_type,
             "container_type": container_type,
@@ -12027,20 +12072,20 @@ class Accounting(View):
                 "customer_name": customer_id  # 把筛选的customer传给表单的customer_name字段
             }),
             "FS": FS,
-            "receivable_is_locked": invoice.receivable_is_locked,
+            "receivable_is_locked": invoice.receivable_is_locked if invoice else False,
             "invoice_type": "receivable",
             "non_combina_reason": non_combina_reason,
             "fee_data": fee_data,
-            "invoice_number": invoice.invoice_number,
+            "invoice_number": invoice.invoice_number if invoice else "",
             "invoice": invoice,  # 传递整个invoice对象
             "quotation_info": {
-                "quotation_id": quotation.quotation_id,
-                "version": quotation.version,
-                "effective_date": quotation.effective_date,
-                "is_user_exclusive": quotation.is_user_exclusive,
-                "exclusive_user": quotation.exclusive_user,
-                "filename": quotation.filename,  # 添加文件名
-            },
+                "quotation_id": quotation.quotation_id if quotation else "",
+                "version": quotation.version if quotation else "",
+                "effective_date": quotation.effective_date if quotation else "",
+                "is_user_exclusive": quotation.is_user_exclusive if quotation else False,
+                "exclusive_user": quotation.exclusive_user if quotation else "",
+                "filename": quotation.filename if quotation else "",  # 添加文件名
+            } if not is_eric_la_transfer else {},  # Eric订单清空报价表信息
             "pickup_fee": pickup_fee,
             "standard_fee_items": standard_fee_items,
             "existing_descriptions": existing_descriptions,  # 用于前端过滤
