@@ -7642,6 +7642,8 @@ class Accounting(View):
             carrier_match = False
             if select_carrier in ["BBR", "KNO", "JOHN", "unload"]:
                 carrier_match = any(item.carrier == select_carrier for item in invoice_items)
+            elif order.retrieval_id.retrieval_destination_area == "LA" and order.order_type == "转运" and order.retrieval_id.retrieval_carrier == "Eric":
+                carrier_match = True
             else:
                 s_carrier = {
                     "ARM": "大方广",
@@ -7677,12 +7679,40 @@ class Accounting(View):
                 "拆柜其他费用": {},
             }
 
+            # ========== 新增核心逻辑：判断是否为LA+转运+Eric订单 ==========
+            is_eric_la_transfer = (
+                    order.retrieval_id and
+                    order.retrieval_id.retrieval_destination_area == "LA" and
+                    order.order_type == "转运" and
+                    order.retrieval_id.retrieval_carrier == "Eric"
+            )
+
             # 5.4 遍历费用明细，计算各项费用
             total_amount = 0.0
             for item in invoice_items:
                 rate = float(item.rate) if item.rate else 0.0
                 description = item.description or ""
 
+                # ========== 规则0：LA+转运+Eric订单仅处理拆柜其他费用-入库费 ==========
+                if is_eric_la_transfer:
+                    # 仅保留拆柜其他费用-入库费，其余费用项直接跳过
+                    if description != "拆柜其他费用-入库费":
+                        continue
+                    # 处理入库费
+                    try:
+                        fee_name = description.split("-")[1]  # 提取"入库费"
+                        row_data["拆柜其他费用"][fee_name] = rate
+                        total_amount += rate
+                        # 更新列值统计
+                        if fee_name not in column_values["拆柜其他费用"]:
+                            column_values["拆柜其他费用"][fee_name] = []
+                        column_values["拆柜其他费用"][fee_name].append(rate)
+                    except IndexError:
+                        pass
+                    # 处理完入库费后直接跳出循环，不处理其他费用
+                    break
+
+                # ========== 原有费用处理逻辑（非LA+转运+Eric订单执行） ==========
                 # ========== 规则1：排除指定供应商的提柜其他费用 ==========
                 if is_exclude_pickup_other and "提柜其他费用" in description:
                     continue  # 直接跳过，不收集该费用数据
@@ -11748,6 +11778,8 @@ class Accounting(View):
         # 查看仓库和柜型，计算提拆费
         warehouse = order.retrieval_id.retrieval_destination_area
         container_type = order.container_number.container_type
+        # 供应商
+        retrieval_carrier = order.retrieval_id.retrieval_carrier
 
         # 查找报价表
         quotation, quotation_error = self._get_quotation_for_order(order, 'payable')
@@ -11790,7 +11822,10 @@ class Accounting(View):
                 warehouse_precise = "LA 91761"
             if warehouse_precise == "LA 91789":
                 warehouse_precise = "LA 91761"
-            if pick_subkey == 40 and warehouse:
+            if warehouse == "LA" and order_type == "转运" and retrieval_carrier == "Eric":
+                pickup_fee = 0
+                context.update({"error_messages": f"在报价表中找不到{warehouse}仓库{pick_subkey}柜型的提拆费"})
+            elif pick_subkey == 40 and warehouse:
                 try:
                     pickup_fee = fee_detail[warehouse][warehouse_precise][preport_carrier]["basic_40"]
                 except KeyError:
@@ -11939,6 +11974,35 @@ class Accounting(View):
                         'amount': 0,
                         'note': '',
                     })
+
+        # ===================== 新增逻辑：LA+转运+Eric 自动添加拆柜其他费用入库费 =====================
+        # 条件：仓库=LA、订单类型=转运、提柜供应商=Eric
+        if warehouse == "LA" and order_type == "转运" and retrieval_carrier == "Eric":
+            # 定义要添加的费用名称（适配前端拆柜其他费用的格式）
+            target_fee_name = "入库费"
+            full_description = f"拆柜其他费用-{target_fee_name}"
+
+            # 检查是否已存在该费用，避免重复添加
+            fee_exists = any(
+                item.get('description') == full_description
+                for item in fee_data
+            )
+
+            if not fee_exists:
+                # 添加拆柜其他费用入库费，金额固定900
+                fee_data.append({
+                    'id': None,  # 新费用无ID
+                    'split_desc': target_fee_name,  # 前端显示的名称
+                    'description': full_description,  # 完整描述（适配原有分割逻辑）
+                    'qty': 1,  # 数量默认1
+                    'rate': 900.00,  # 金额固定900
+                    'surcharges': 0,
+                    'amount': 900.00,  # 总金额=数量*单价
+                    'note': 'LA转运Eric自动添加的入库费',  # 备注说明来源
+                    "carrier": "大方广",  # 关联供应商
+                })
+        # ======================================================================================
+
         groups = context["groups"]
         context.update({
             "actual_day": actual_day,
