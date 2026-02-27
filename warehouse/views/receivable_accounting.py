@@ -2571,13 +2571,16 @@ class ReceivableAccounting(View):
             context = {"error_messages": "信息不全无法操作"}
             return self.handle_container_delivery_post(request, context)
 
-        delivery_method = delivery_method.upper()
+        shipping_mark = request.POST.get("shipping_mark")
         # 更新托盘状态，移除暂扣标记
-        qs = Pallet.objects.filter(
-            container_number__container_number=container_number,
-            PO_ID=po_id
-        )
-
+        filter_kwargs = {
+            "container_number__container_number": container_number,
+            "PO_ID": po_id
+        }
+        if shipping_mark:
+            filter_kwargs["shipping_mark"] = shipping_mark
+        
+        qs = Pallet.objects.filter(**filter_kwargs)
         updated = qs.update(delivery_method=delivery_method)
         
         # 构造新的 GET 查询参数
