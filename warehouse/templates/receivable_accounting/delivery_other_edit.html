@@ -1011,7 +1011,7 @@
                                     {% if item.delivery_category == "hold" %}
                                     <!-- 解扣按钮 -->
                                     <button type="button" class="action-btn btn-release"
-                                            onclick="releaseHoldItem('{{ container_number }}', '{{ item.PO_ID|default:'' }}', '{{ item.pallet_ids|join:','|default:'' }}', '{{ forloop.counter0 }}')">
+                                            onclick="releaseHoldItem('{{ container_number }}', '{{ item.PO_ID|default:'' }}', '{{ item.pallet_ids|join:','|default:'' }}', '{{ forloop.counter0 }}', '{{ item.shipping_marks|default:''|escapejs }}')">
                                         <i class="fas fa-unlock"></i>
                                         解扣
                                     </button>
@@ -1203,6 +1203,7 @@
                 <input type="hidden" name="invoice_id" value="{{ invoice_id }}">
                 <input type="hidden" name="delivery_type" value="other">
                 <input type="hidden" id="release-pallet-ids" name="pallet_ids" value="">
+                <input type="hidden" id="release-shipping-marks" name="shipping_mark" value="">
                 
                 <div class="modal-body">
 
@@ -1540,11 +1541,12 @@ $(document).ready(function() {
         }
     }
 });
-    function releaseHoldItem(containerNumber, poId, palletIds, rowIndex) {
+    function releaseHoldItem(containerNumber, poId, palletIds, rowIndex, shippingMarks) {
         // 填充模态框数据
         $('#release-container-number').val(containerNumber);
         $('#release-po-id').val(poId);
         $('#release-pallet-ids').val(palletIds);
+        $('#release-shipping-marks').val(shippingMarks);
         
         // 显示模态框
         const modal = new bootstrap.Modal(document.getElementById('releaseModal'));
