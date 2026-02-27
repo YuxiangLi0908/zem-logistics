@@ -7625,12 +7625,14 @@ class Accounting(View):
                 invoice = Invoicev2.objects.filter(
                     container_number=order.container_number.id
                 ).order_by('-created_at').first()
+                if not invoice:
+                    continue
                 invoice_statusv2 = InvoiceStatusv2.objects.filter(
                     models.Q(invoice_type="payable") | models.Q(invoice_type="payable_direct"),
                     invoice_id=invoice.id,
                     preport_status='completed'
                 )
-                if not invoice and not invoice_statusv2:
+                if not invoice_statusv2:
                     continue
                 invoice_items = InvoiceItemv2.objects.filter(
                     models.Q(invoice_type="payable") | models.Q(invoice_type="payable_direct"),
