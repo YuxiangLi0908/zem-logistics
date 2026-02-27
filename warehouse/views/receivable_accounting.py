@@ -2519,7 +2519,6 @@ class ReceivableAccounting(View):
 
         container = Container.objects.get(container_number=container_number)
         invoice = Invoicev2.objects.get(id=invoice_id)
-
         item_data = [{
             "item_id": request.POST.get("item_id"),
             "container": container,
@@ -2559,6 +2558,20 @@ class ReceivableAccounting(View):
         po_id = request.POST.get("po_id")
         container_number = request.POST.get("container_number")
         delivery_method = request.POST.get("delivery_method")
+        delivery_type = request.POST.get("delivery_type")
+        invoice_id = request.POST.get("invoice_id")
+
+        if not delivery_method or not delivery_type:
+            get_params = QueryDict(mutable=True)
+            get_params["container_number"] = container_number
+            if delivery_type:
+                get_params["delivery_type"] = delivery_type
+            get_params["invoice_id"] = invoice_id
+            request.GET = get_params
+            context = {"error_messages": "信息不全无法操作"}
+            return self.handle_container_delivery_post(request, context)
+
+        delivery_method = delivery_method.upper()
         # 更新托盘状态，移除暂扣标记
         qs = Pallet.objects.filter(
             container_number__container_number=container_number,
@@ -2566,10 +2579,7 @@ class ReceivableAccounting(View):
         )
 
         updated = qs.update(delivery_method=delivery_method)
-
-        delivery_type = request.POST.get("delivery_type")
-        invoice_id = request.POST.get("invoice_id")
-
+        
         # 构造新的 GET 查询参数
         get_params = QueryDict(mutable=True)
         get_params["container_number"] = container_number

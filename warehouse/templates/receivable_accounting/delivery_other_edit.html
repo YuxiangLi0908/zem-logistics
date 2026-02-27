@@ -978,7 +978,7 @@
                                     <input type="text" 
                                         name="note_{{ forloop.counter0 }}" 
                                         class="input-control input-note"
-                                        value="{{ item.description|default:'' }}"
+                                        value="{{ item.note|default:'' }}"
                                         form="row-form-{{ forloop.counter0 }}"
                                         placeholder="备注"
                                         {% if item.delivery_category == "hold" %}disabled{% endif %}>
