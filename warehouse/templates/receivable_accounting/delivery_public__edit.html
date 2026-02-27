@@ -1753,7 +1753,7 @@
                                 <td class="cell-action">
                                     {% if item.delivery_category == "hold" %}
                                     <button type="button" class="action-btn btn-release"
-                                            onclick="releaseHoldItem('{{ container_number }}', '{{ item.PO_ID|default:'' }}', '{{ item.pallet_ids|join:','|default:'' }}', '{{ forloop.counter0 }}')">
+                                            onclick="releaseHoldItem('{{ container_number }}', '{{ item.PO_ID|default:'' }}', '{{ item.pallet_ids|join:','|default:'' }}', '{{ forloop.counter0 }}', '{{ item.destination|default:'' }}')">
                                         <i class="fas fa-unlock"></i>解扣
                                     </button>
                                     {% else %}
@@ -2018,6 +2018,43 @@
                 <button type="button" class="btn btn-green" onclick="addSelectedActivationItems()">
                     <i class="fas fa-plus"></i> 添加选中项
                 </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 解扣确认模态框 -->
+<div class="modal fade" id="releaseHoldModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content" style="border-radius: 20px; overflow: hidden;">
+            <div class="modal-header green-modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-unlock me-2"></i>解扣确认
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>正在对 <strong id="release-destination" style="color: var(--primary-color); font-size: 1.1rem;"></strong> 进行解扣操作。</p>
+                <div class="mb-3">
+                    <label for="release-delivery-method" class="form-label">请选择派送方式：</label>
+                    <select class="form-select" id="release-delivery-method">
+                        <option value="truck">卡车派送</option>
+                        <option value="customer_pickup">客户自提</option>
+                        <option value="ups">UPS</option>
+                        <option value="fedex">FEDEX</option>
+                        <option value="dhl">DHL</option>
+                        <option value="dpd">DPD</option>
+                        <option value="tnt">TNT</option>
+                    </select>
+                </div>
+                <input type="hidden" id="release-container-number">
+                <input type="hidden" id="release-po-id-hidden">
+                <input type="hidden" id="release-pallet-ids">
+                <input type="hidden" id="release-row-index">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-success" onclick="confirmReleaseHold()">确认解扣</button>
             </div>
         </div>
     </div>
@@ -2425,47 +2462,89 @@
     }
 
     // ================ 解扣 ================
-    function releaseHoldItem(containerNumber, poId, palletIds, rowIndex) {
-        // 这里使用模态框，但为了简洁我简化了
-        // 你可以用另一个独立的form来提交
-        if (confirm(`确定要解除PO ${poId} 的暂扣状态吗？`)) {
-            // 创建临时form提交
-            const form = document.createElement('form');
-            form.method = 'post';
-            form.style.display = 'none';
-            
-            const csrf = document.createElement('input');
-            csrf.type = 'hidden';
-            csrf.name = 'csrfmiddlewaretoken';
-            csrf.value = document.querySelector('[name=csrfmiddlewaretoken]').value;
-            form.appendChild(csrf);
-            
-            const step = document.createElement('input');
-            step.type = 'hidden';
-            step.name = 'step';
-            step.value = 'release_hold';
-            form.appendChild(step);
-            
-            const container = document.createElement('input');
-            container.type = 'hidden';
-            container.name = 'container_number';
-            container.value = containerNumber;
-            form.appendChild(container);
-            
-            const po = document.createElement('input');
-            po.type = 'hidden';
-            po.name = 'po_id';
-            po.value = poId;
-            form.appendChild(po);
-            
-            const pallets = document.createElement('input');
-            pallets.type = 'hidden';
-            pallets.name = 'pallet_ids';
-            pallets.value = palletIds;
-            form.appendChild(pallets);
-            
-            document.body.appendChild(form);
-            form.submit();
+    function releaseHoldItem(containerNumber, poId, palletIds, rowIndex, destination) {
+        // 设置模态框数据
+        $('#release-container-number').val(containerNumber);
+        $('#release-po-id-hidden').val(poId);
+        $('#release-pallet-ids').val(palletIds);
+        $('#release-row-index').val(rowIndex);
+        $('#release-destination').text(destination);
+        
+        // 显示模态框
+        const modal = new bootstrap.Modal(document.getElementById('releaseHoldModal'));
+        modal.show();
+    }
+
+    // ================ 确认解扣 ================
+    function confirmReleaseHold() {
+        const containerNumber = $('#release-container-number').val();
+        const poId = $('#release-po-id-hidden').val();
+        const palletIds = $('#release-pallet-ids').val();
+        const rowIndex = $('#release-row-index').val();
+        const deliveryMethod = $('#release-delivery-method').val();
+        
+        if (!deliveryMethod) {
+            alert('请选择派送方式');
+            return;
+        }
+
+        // 创建临时form提交
+        const form = document.createElement('form');
+        form.method = 'post';
+        form.style.display = 'none';
+        
+        const csrf = document.createElement('input');
+        csrf.type = 'hidden';
+        csrf.name = 'csrfmiddlewaretoken';
+        csrf.value = document.querySelector('[name=csrfmiddlewaretoken]').value;
+        form.appendChild(csrf);
+        
+        const step = document.createElement('input');
+        step.type = 'hidden';
+        step.name = 'step';
+        step.value = 'release_hold';
+        form.appendChild(step);
+        
+        const container = document.createElement('input');
+        container.type = 'hidden';
+        container.name = 'container_number';
+        container.value = containerNumber;
+        form.appendChild(container);
+        
+        const po = document.createElement('input');
+        po.type = 'hidden';
+        po.name = 'po_id';
+        po.value = poId;
+        form.appendChild(po);
+        
+        const pallets = document.createElement('input');
+        pallets.type = 'hidden';
+        pallets.name = 'pallet_ids';
+        pallets.value = palletIds;
+        form.appendChild(pallets);
+
+        // delivery_type = public
+        const deliveryType = document.createElement('input');
+        deliveryType.type = 'hidden';
+        deliveryType.name = 'delivery_type';
+        deliveryType.value = 'public';
+        form.appendChild(deliveryType);
+
+        // delivery_method
+        const deliveryMethodInput = document.createElement('input');
+        deliveryMethodInput.type = 'hidden';
+        deliveryMethodInput.name = 'delivery_method';
+        deliveryMethodInput.value = deliveryMethod;
+        form.appendChild(deliveryMethodInput);
+        
+        document.body.appendChild(form);
+        form.submit();
+        
+        // 关闭模态框
+        const modalEl = document.getElementById('releaseHoldModal');
+        const modal = bootstrap.Modal.getInstance(modalEl);
+        if (modal) {
+            modal.hide();
         }
     }
 
