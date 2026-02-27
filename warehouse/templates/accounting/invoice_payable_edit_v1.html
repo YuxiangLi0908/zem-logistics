@@ -452,7 +452,7 @@
         <div class="header-main">
             <h1 class="header-title">应付费用账单 - {{ container_number }}</h1>
             <div class="header-badges">
-                <button onclick="window.history.back()" style="background: linear-gradient(135deg, #9ca3af, #6b7280);
+                <button type="submit" onclick="window.history.back()" style="background: linear-gradient(135deg, #9ca3af, #6b7280);
                            border: 1px solid rgba(255,255,255,0.3);
                            color: white;
                            padding: 10px 20px;
@@ -529,12 +529,15 @@
             <input type="hidden" name="step" value="payable_save_v1">
             <input type="hidden" name="save_type" id="save_type" value="">
             <input type="hidden" name="container_number" value="{{ container_number }}">
-            <input type="hidden" name="start_date" value="{{ start_date }}">
-            <input type="hidden" name="end_date" value="{{ end_date }}">
+            <input type="hidden" name="start_date_confirm" value="{{ start_date_confirm }}">
+            <input type="hidden" name="end_date_confirm" value="{{ end_date_confirm }}">
             <input type="hidden" name="warehouse_filter" value="{{ warehouse_filter }}">
             <input type="hidden" name="invoice_number" value="{{ invoice_number }}">
             <input type="hidden" name="preport_carrier" value="{{ preport_carrier }}">
+            <input type="hidden" name="customer" value="{{ customer }}">
             <input type="hidden" id="total_amount_input" name="total_amount" value="0">
+            <input type="hidden" name="customer_name" value="{{ selected_customer_id|default:'' }}">
+
 
             <!-- 费用明细区域 -->
             <div class="fee-section">

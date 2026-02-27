@@ -1001,7 +1001,7 @@
                                                 {% endfor %}
                                             </td>
                                             <td class="td">
-                                                <a href="/accounting/?step=container_payable_pending_review&container_number={{ c.container_number.container_number }}&start_date={{ start_date }}&end_date={{ end_date }}&warehouse_filter={{ warehouse_filter }}"
+                                                <a href="/accounting/?step=container_payable_pending_review&container_number={{ c.container_number.container_number }}&start_date_confirm={{ start_date_confirm }}&end_date_confirm={{ end_date_confirm }}&customer={{ customer }}&warehouse_filter={{ warehouse_filter }}"
                                                    class="container-link"
                                                    title="点击查看详情">{{ c.container_number.container_number }}</a>
                                             </td>
@@ -1345,7 +1345,7 @@
                                             {% endfor %}
                                         </td>
                                         <td class="td">
-                                            <a href="/accounting/?step=container_payable&container_number={{ c.container_number.container_number }}&start_date={{ start_date }}&end_date={{ end_date }}&warehouse_filter={{ warehouse_filter }}"
+                                            <a href="/accounting/?step=container_payable&container_number={{ c.container_number.container_number }}&start_date={{ start_date }}&end_date={{ end_date }}&customer={{ customer }}&warehouse_filter={{ warehouse_filter }}"
                                                class="container-link"
                                                title="点击查看详情">{{ c.container_number.container_number }}</a>
                                         </td>
@@ -1594,7 +1594,7 @@
                                         <td class="td">{% for order in c.container_number.orders.all %}
                                             {{ order.retrieval_id.retrieval_carrier|default:"-" }}{% endfor %}</td>
                                         <td class="td">
-                                            <a href="/accounting/?step=container_payable&container_number={{ c.container_number.container_number }}&start_date={{ start_date }}&end_date={{ end_date }}&warehouse_filter={{ warehouse_filter }}"
+                                            <a href="/accounting/?step=container_payable&container_number={{ c.container_number.container_number }}&start_date={{ start_date }}&end_date={{ end_date }}&customer={{ customer }}&warehouse_filter={{ warehouse_filter }}"
                                                class="container-link"
                                                title="点击查看详情">{{ c.container_number.container_number }}</a>
                                         </td>
@@ -1832,7 +1832,7 @@
                                         <td class="td">{% for order in c.container_number.orders.all %}
                                             {{ order.retrieval_id.retrieval_carrier|default:"-" }}{% endfor %}</td>
                                         <td class="td">
-                                            <a href="/accounting/?step=container_payable&container_number={{ c.container_number.container_number }}&start_date={{ start_date }}&end_date={{ end_date }}&warehouse_filter={{ warehouse_filter }}"
+                                            <a href="/accounting/?step=container_payable&container_number={{ c.container_number.container_number }}&start_date={{ start_date }}&end_date={{ end_date }}&customer={{ customer }}&warehouse_filter={{ warehouse_filter }}"
                                                class="container-link"
                                                title="点击查看详情">{{ c.container_number.container_number }}</a>
                                         </td>
@@ -1978,7 +1978,7 @@
                                         <td class="td">{% for order in c.container_number.orders.all %}
                                             {{ order.retrieval_id.retrieval_carrier|default:"-" }}{% endfor %}</td>
                                         <td class="td">
-                                            <a href="/accounting/?step=container_payable&container_number={{ c.container_number.container_number }}&start_date={{ start_date }}&end_date={{ end_date }}&warehouse_filter={{ warehouse_filter }}"
+                                            <a href="/accounting/?step=container_payable&container_number={{ c.container_number.container_number }}&start_date={{ start_date }}&end_date={{ end_date }}&customer={{ customer }}&warehouse_filter={{ warehouse_filter }}"
                                                class="container-link"
                                                title="点击查看详情">{{ c.container_number.container_number }}</a>
                                         </td>
@@ -2177,7 +2177,7 @@
                                         <td class="td">{% for order in c.container_number.orders.all %}
                                             {{ order.retrieval_id.retrieval_carrier|default:"-" }}{% endfor %}</td>
                                         <td class="td">
-                                            <a href="/accounting/?step=container_payable&container_number={{ c.container_number.container_number }}&start_date={{ start_date }}&end_date={{ end_date }}&warehouse_filter={{ warehouse_filter }}"
+                                            <a href="/accounting/?step=container_payable&container_number={{ c.container_number.container_number }}&start_date={{ start_date }}&end_date={{ end_date }}&customer={{ customer }}&warehouse_filter={{ warehouse_filter }}"
                                                class="container-link"
                                                title="点击查看详情">{{ c.container_number.container_number }}</a>
                                         </td>

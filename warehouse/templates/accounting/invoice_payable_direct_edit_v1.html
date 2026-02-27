@@ -343,13 +343,15 @@
     <input type="hidden" name="order_type" value="payable_direct">
     <input type="hidden" name="save_type" id="save_type" value="">
     <input type="hidden" name="container_number" value="{{ container_number }}">
-    <input type="hidden" name="start_date" value="{{ start_date }}">
-    <input type="hidden" name="end_date" value="{{ end_date }}">
     <input type="hidden" name="warehouse_filter" value="{{ warehouse_filter }}">
     <input type="hidden" name="invoice_number" value="{{ invoice_number }}">
     <input type="hidden" name="preport_carrier" value="{{ preport_carrier }}">
     <input type="hidden" name="chassis_comment" value="{{ chassis_comment }}">
     <input type="hidden" id="total_amount_input" name="total_amount" value="0">
+    <input type="hidden" name="start_date_confirm" value="{{ start_date_confirm }}">
+    <input type="hidden" name="end_date_confirm" value="{{ end_date_confirm }}">
+    <input type="hidden" name="customer_name" value="{{ selected_customer_id|default:'' }}">
+    <input type="hidden" name="customer" value="{{ customer}}">
 
 {% if reason %}
     <div class="alert alert-danger">
@@ -402,12 +404,12 @@
                         </div>
                     </div>
                 {% endif %}
-            {% else %}
+            {% elif is_save_invoice and is_finance %}
                 {% if user_is_leader %}
                     <div class="d-flex align-items-stretch" style="gap: 1rem;">
                         <div class="d-flex align-items-center position-relative">
-                            <button type="submit" class="action-btn btn-danger me-3" onclick="modifyStatus('reject_check')">
-                                <i class="bi bi-x-circle me-1"></i>初级审核驳回
+                            <button type="submit" class="action-btn btn-danger me-3" onclick="modifyStatus('reject')">
+                                <i class="bi bi-x-circle me-1"></i>财务审核驳回
                             </button>
 
                             <div class="me-3">
@@ -417,10 +419,26 @@
 
                             <div class="vr me-3" style="height: 30px;"></div>
 
-                            <button type="submit" class="action-btn btn-success" onclick="modifyStatus('check_confirm')">
-                                <i class="bi bi-check-circle me-1"></i>初级审核通过
+                            <button type="submit" class="action-btn btn-success" onclick="modifyStatus('confirmed_finance')">
+                                <i class="bi bi-check-circle me-1"></i>财务审核通过
                             </button>
                         </div>
+                    </div>
+                {% endif %}
+            {% else %}
+                {% if user_is_leader %}
+                    <!-- 待审核页面（组长看到的审核按钮） -->
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <button type="submit" class="btn btn-danger" onclick="modifyStatus('reject_check')">
+                            <i class="bi bi-x-circle"></i> 初级审核驳回
+                        </button>
+
+                        <input type="text" class="reject-reason-input"
+                            placeholder="请输入驳回原因" name="reject_reason">
+
+                        <button type="submit" class="btn btn-success" onclick="modifyStatus('check_confirm')">
+                            <i class="bi bi-check-circle"></i> 初级审核通过
+                        </button>
                     </div>
                 {% endif %}
             {% endif %}
