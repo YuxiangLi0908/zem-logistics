@@ -7565,9 +7565,6 @@ class Accounting(View):
             retrieval_id__actual_retrieval_timestamp__year=year,
             retrieval_id__actual_retrieval_timestamp__month=month,
             invoice_id__isnull=False,
-        ).exclude(
-            payable_status__stage="unstarted",
-            payable_status__isnull=False
         ).order_by(
             "warehouse", "retrieval_id__actual_retrieval_timestamp"
         )
@@ -7629,7 +7626,12 @@ class Accounting(View):
                 invoice = Invoicev2.objects.filter(
                     container_number__container_number=order.container_number
                 ).order_by('-created_at').first()
-                if not invoice:
+                invoice_statusv2 = InvoiceStatusv2.object.filter(
+                    models.Q(invoice_type="payable") | models.Q(invoice_type="payable_direct"),
+                    invoice_id=invoice.id,
+                    preport_status='completed'
+                )
+                if not invoice and not invoice_statusv2:
                     continue
                 invoice_items = InvoiceItemv2.objects.filter(
                     models.Q(invoice_type="payable") | models.Q(invoice_type="payable_direct"),
