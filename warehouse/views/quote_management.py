@@ -607,6 +607,27 @@ class QuoteManagement(View):
         fee_detail = FeeDetail(**fee_detail_data)
         fee_detail.save()
 
+    def get_direct_frame_fee(self, frame_fee_col_idx, row):
+        direct_frame_fee = 0  # 默认值为0
+        # 第一步：校验索引是否为有效整数
+        if isinstance(frame_fee_col_idx, int) and 0 <= frame_fee_col_idx < len(row):
+            try:
+                # 第二步：取值并处理空值
+                fee_value = row.iloc[frame_fee_col_idx]
+                # 排除pandas的NaN/NaT空值
+                if not pd.isna(fee_value):
+                    # 第三步：转字符串去空格，尝试转数字
+                    fee_str = str(fee_value).strip()
+                    if fee_str:  # 非空字符串才转换
+                        direct_frame_fee = float(fee_str)
+            except (ValueError, TypeError):
+                # 无法转数字（如"备注"），保留0
+                direct_frame_fee = 0
+            except Exception:
+                # 其他意外报错，兜底保留0
+                direct_frame_fee = 0
+        return direct_frame_fee
+
     def process_payable_direct_sheet(self, df, file, quote):
         header_row_idx = None
         for idx, row in df.iterrows():
@@ -630,6 +651,7 @@ class QuoteManagement(View):
             "carrier": None,  # 供应商
             "price": None,  # 报价
             "chassis": None,  # 等候费
+            "direct_frame_fee": None,  # 直送车架费/每天
         }
         for col_idx, cell in enumerate(df.iloc[header_row_idx]):
             if col_idx > max_col:
@@ -645,6 +667,9 @@ class QuoteManagement(View):
                 col_mapping["price"] = col_idx
             elif cell_value == "托架费/等候费/存储费":
                 col_mapping["chassis"] = col_idx
+            elif cell_value == "车架费/每天":
+                col_mapping["direct_frame_fee"] = col_idx
+
         result = defaultdict(lambda: defaultdict(dict))
 
         # 处理数据行
@@ -658,8 +683,9 @@ class QuoteManagement(View):
             carrier = str(row.iloc[col_mapping["carrier"]]).strip()
             price = str(row.iloc[col_mapping["price"]]).strip()
             chassis = str(row.iloc[col_mapping["chassis"]]).strip()
+            frame_fee_col_idx = col_mapping.get("direct_frame_fee")
+            direct_frame_fee = self.get_direct_frame_fee(frame_fee_col_idx, row)
 
-            # 构建记录
             if "NJ" in warehouse or "NY" in warehouse:
                 warehouse = "NJ"
             warehouse_precise = warehouse_precise.replace(" ", "")
@@ -681,11 +707,13 @@ class QuoteManagement(View):
                     result[warehouse][wh][carrier] = {
                         "price": float(price),
                         "chassis": chassis,
+                        "direct_frame_fee": float(direct_frame_fee)
                     }
             else:
                 result[warehouse][warehouse_precise][carrier] = {
                     "price": float(price),
                     "chassis": chassis,
+                    "direct_frame_fee": float(direct_frame_fee)
                 }
         # 创建 FeeDetail 记录
         fee_detail_data = {

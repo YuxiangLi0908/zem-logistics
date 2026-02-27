@@ -343,13 +343,15 @@
     <input type="hidden" name="order_type" value="payable_direct">
     <input type="hidden" name="save_type" id="save_type" value="">
     <input type="hidden" name="container_number" value="{{ container_number }}">
-    <input type="hidden" name="start_date" value="{{ start_date }}">
-    <input type="hidden" name="end_date" value="{{ end_date }}">
     <input type="hidden" name="warehouse_filter" value="{{ warehouse_filter }}">
     <input type="hidden" name="invoice_number" value="{{ invoice_number }}">
     <input type="hidden" name="preport_carrier" value="{{ preport_carrier }}">
     <input type="hidden" name="chassis_comment" value="{{ chassis_comment }}">
     <input type="hidden" id="total_amount_input" name="total_amount" value="0">
+    <input type="hidden" name="start_date_confirm" value="{{ start_date_confirm }}">
+    <input type="hidden" name="end_date_confirm" value="{{ end_date_confirm }}">
+    <input type="hidden" name="customer_name" value="{{ selected_customer_id|default:'' }}">
+    <input type="hidden" name="customer" value="{{ customer}}">
 
 {% if reason %}
     <div class="alert alert-danger">
@@ -381,13 +383,14 @@
                     <i class="bi bi-arrow-left-circle me-1"></i>返回
                 </button>
             {% elif not is_save_invoice %}
+                <!-- 未保存账单 -->
                 <div class="d-flex align-items-center">
                     <button type="submit" class="action-btn btn-success me-2" onclick="modifyStatus('complete_direct')">
                         <i class="bi bi-check-circle me-1"></i>确认账单
                     </button>
                 </div>
             {% elif is_save_invoice and is_rejected%}
-                <!--客服看到的-->
+                <!--客服看到的已保存但驳回-跟未保存账单是一样的-->
                 <button type="submit" class="action-btn btn-success" onclick="modifyStatus('complete_direct')">
                     <i class="bi bi-check-circle me-1"></i>确认账单
                 </button>
@@ -401,12 +404,12 @@
                         </div>
                     </div>
                 {% endif %}
-            {% else %}
+            {% elif is_save_invoice and is_finance %}
                 {% if user_is_leader %}
                     <div class="d-flex align-items-stretch" style="gap: 1rem;">
                         <div class="d-flex align-items-center position-relative">
-                            <button type="submit" class="action-btn btn-danger me-3" onclick="modifyStatus('reject_check')">
-                                <i class="bi bi-x-circle me-1"></i>初级审核驳回
+                            <button type="submit" class="action-btn btn-danger me-3" onclick="modifyStatus('reject')">
+                                <i class="bi bi-x-circle me-1"></i>财务审核驳回
                             </button>
 
                             <div class="me-3">
@@ -416,10 +419,26 @@
 
                             <div class="vr me-3" style="height: 30px;"></div>
 
-                            <button type="submit" class="action-btn btn-success" onclick="modifyStatus('check_confirm')">
-                                <i class="bi bi-check-circle me-1"></i>初级审核通过
+                            <button type="submit" class="action-btn btn-success" onclick="modifyStatus('confirmed_finance')">
+                                <i class="bi bi-check-circle me-1"></i>财务审核通过
                             </button>
                         </div>
+                    </div>
+                {% endif %}
+            {% else %}
+                {% if user_is_leader %}
+                    <!-- 待审核页面（组长看到的审核按钮） -->
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <button type="submit" class="btn btn-danger" onclick="modifyStatus('reject_check')">
+                            <i class="bi bi-x-circle"></i> 初级审核驳回
+                        </button>
+
+                        <input type="text" class="reject-reason-input"
+                            placeholder="请输入驳回原因" name="reject_reason">
+
+                        <button type="submit" class="btn btn-success" onclick="modifyStatus('check_confirm')">
+                            <i class="bi bi-check-circle"></i> 初级审核通过
+                        </button>
                     </div>
                 {% endif %}
             {% endif %}
@@ -503,6 +522,52 @@
                                 {% endif %}
                             </td>
                         </tr>
+                        <tr>
+                            <td>
+                                <div class="fee-item">
+                                    <div class="fee-icon-container" style="background-color: #fff8e1;">
+                                        <i class="bi bi-truck-flatbed fee-icon" style="color: #f39c12;"></i>
+                                    </div>
+                                    <span>直送车架费</span>
+                                </div>
+                            </td>
+                            <td>
+                                {% if not is_editable %}
+                                    <small class="fee-detail">车架费/每天 {{ direct_frame_fee }}
+                                        × {{ direct_frame_days|default:0 }} 天</small>
+                                {% else %}
+                                    <div class="d-flex align-items-center gap-2">
+                                        <div class="input-group" style="width: 180px;">
+                                            <span class="input-group-text">每天</span>
+                                            <input type="number" step="0.01" class="form-control text-end"
+                                                   name="direct_frame_fee" value="{{ direct_frame_fee }}"
+                                                   oninput="calculateFrameFee()" style="width: 80px;">
+                                        </div>
+                                        <span>×</span>
+                                        <div class="input-group" style="width: 120px;">
+                                            <span class="input-group-text">天数</span>
+                                            <input type="number" step="1" min="0" class="form-control text-end"
+                                                   id="direct_frame_days" name="direct_frame_days"
+                                                   value="{{ direct_frame_days|default:0 }}"
+                                                   oninput="calculateFrameFee()" style="width: 60px;">
+                                        </div>
+                                    </div>
+                                {% endif %}
+                            </td>
+                            <td class="text-end fee-amount">
+                                {% if not is_editable %}
+                                    <span class="readonly-amount">{{ direct_frame_fee_sum|floatformat:2 }}</span>
+                                {% else %}
+                                    <!-- 显示计算后的车架费总价，不可编辑 -->
+                                    <span id="direct_frame_fee_sum_display" class="readonly-amount">
+                                     {{ direct_frame_fee_sum|floatformat:2 }}
+                                    </span>
+                                    <!-- 隐藏输入框存储总价，提交给后端 -->
+                                    <input type="hidden" id="direct_frame_fee_sum" name="direct_frame_fee_sum"
+                                           value="{{ direct_frame_fee_sum|floatformat:2 }}">
+                                {% endif %}
+                            </td>
+                        </tr>
                     </tbody>
                 </table>
             </div>
@@ -577,117 +642,146 @@
 
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-        // 1. 处理已有费用项的名称拆分
-        initFeeNameInput();
-        // 2. 初始化总额计算
-        calculateTotal();
+    // 1. 处理已有费用项的名称拆分
+    initFeeNameInput();
+    // 2. 初始化总额计算
+    calculateTotal();
+});
+
+// 初始化费用名称输入框（拆分 description）
+function initFeeNameInput() {
+    // 获取所有费用名称输入框
+    const nameInputs = document.querySelectorAll('.fee-name-input');
+    nameInputs.forEach(input => {
+        // 获取原始 description（从 data 属性）
+        const originalDesc = input.getAttribute('data-original-desc') || '';
+        // 前端拆分：按 '-' 分割，取第二个值
+        const descParts = originalDesc.split('-');
+        let displayName = originalDesc; // 兜底值
+        if (descParts.length >= 2) {
+            displayName = descParts[1]; // 取第二个值（索引1）
+        }
+        // 赋值到输入框
+        input.value = displayName;
+    });
+}
+
+function setSaveType(type) {
+    document.getElementById('save_type').value = type;
+}
+
+function addFeeGroup() {
+    // 1. 获取容器和模板（确认 ID 匹配）
+    const container = document.getElementById('additional-fees-container');
+    const template = document.getElementById('new-fee-template');
+
+    // 2. 调试：打印容器/模板是否找到（F12 控制台查看）
+    console.log('容器是否找到：', !!container);
+    console.log('模板是否找到：', !!template);
+
+    // 3. 边界判断：防止容器/模板不存在
+    if (!container || !template) {
+        alert('添加费用失败：未找到容器或模板，请检查页面代码！');
+        return;
+    }
+
+    // 4. 修复：克隆普通 div 模板（不用 .content）
+    const newGroup = template.cloneNode(true); // 克隆整个模板 div
+    newGroup.removeAttribute('id'); // 移除模板的 id，避免重复
+    newGroup.style.display = 'block'; // 显示新增的费用项
+
+    // 5. 插入到容器末尾
+    container.appendChild(newGroup);
+
+    // 6. 重新计算总额
+    calculateTotal();
+
+    // 调试：确认新增成功
+    console.log('新增费用项成功，当前容器内费用项数量：', container.querySelectorAll('.fee-group').length);
+}
+
+function removeFeeGroup(button) {
+    if (confirm('确定要删除此费用吗？')) {
+        const group = button.closest('.fee-group');
+        if (group) {
+            group.remove();
+            calculateTotal(); // 删除后重新计算总额
+        }
+    }
+}
+
+function updateUnloadingFee(select) {
+    const selectedOption = select.options[select.selectedIndex];
+    const feeValue = selectedOption.value;
+    const feeDisplay = document.getElementById('unloading_fee_display');
+    const feeInput = document.getElementById('unloading_fee');
+
+    feeDisplay.textContent = parseFloat(feeValue).toFixed(2);
+    feeInput.value = feeValue;
+
+    calculateTotal();
+
+    plt_carrier = select.options[select.selectedIndex].dataset.name;
+    document.getElementById('palletization_carrier').value = plt_carrier;
+}
+
+// 核心修复：实现车架费计算函数
+function calculateFrameFee() {
+    // 1. 获取车架费单价和天数输入框
+    const frameFeeInput = document.querySelector('input[name="direct_frame_fee"]');
+    const frameDaysInput = document.getElementById('direct_frame_days');
+    // 2. 获取显示总价的元素和隐藏输入框
+    const frameFeeSumDisplay = document.getElementById('direct_frame_fee_sum_display');
+    const frameFeeSumInput = document.getElementById('direct_frame_fee_sum');
+
+    // 3. 容错处理：防止输入框不存在或值为空
+    const frameFee = parseFloat(frameFeeInput.value) || 0;
+    const frameDays = parseInt(frameDaysInput.value) || 0;
+    // 4. 计算车架费总价
+    const frameFeeSum = frameFee * frameDays;
+    // 5. 更新显示和隐藏输入框（保留2位小数）
+    frameFeeSumDisplay.textContent = frameFeeSum.toFixed(2);
+    frameFeeSumInput.value = frameFeeSum.toFixed(2);
+    // 6. 触发总额重新计算
+    calculateTotal();
+}
+
+function calculateTotal() {
+    let total = 0;
+
+    const feeFields = [
+        'direct_basic_fee',
+        'chassis_fee',
+    ];
+
+    // 1. 计算基础费用、等待费
+    feeFields.forEach(field => {
+        const input = document.querySelector(`input[name="${field}"]`);
+        if (input) {
+            total += parseFloat(input.value) || 0;
+        }
     });
 
-    // 初始化费用名称输入框（拆分 description）
-    function initFeeNameInput() {
-        // 获取所有费用名称输入框
-        const nameInputs = document.querySelectorAll('.fee-name-input');
-        nameInputs.forEach(input => {
-            // 获取原始 description（从 data 属性）
-            const originalDesc = input.getAttribute('data-original-desc') || '';
-            // 前端拆分：按 '-' 分割，取第二个值
-            const descParts = originalDesc.split('-');
-            let displayName = originalDesc; // 兜底值
-            if (descParts.length >= 2) {
-                displayName = descParts[1]; // 取第二个值（索引1）
-            }
-            // 赋值到输入框
-            input.value = displayName;
-        });
+    // 2. 核心修复：加入车架费总价（之前漏掉了）
+    const frameFeeSumInput = document.getElementById('direct_frame_fee_sum');
+    if (frameFeeSumInput) {
+        total += parseFloat(frameFeeSumInput.value) || 0;
     }
 
+    // 3. 计算其他费用
+    document.querySelectorAll('input[name="direct_other_fee_amount[]"]').forEach(input => {
+        total += parseFloat(input.value) || 0;
+    });
 
-    function setSaveType(type) {
-        document.getElementById('save_type').value = type;
-    }
+    // 4. 更新总额显示和隐藏输入框
+    document.getElementById('totalAmountDisplay').textContent = total.toFixed(2);
+    document.getElementById('total_amount_input').value = total.toFixed(2);
+}
 
-    function addFeeGroup() {
-        // 1. 获取容器和模板（确认 ID 匹配）
-        const container = document.getElementById('additional-fees-container');
-        const template = document.getElementById('new-fee-template');
-
-        // 2. 调试：打印容器/模板是否找到（F12 控制台查看）
-        console.log('容器是否找到：', !!container);
-        console.log('模板是否找到：', !!template);
-
-        // 3. 边界判断：防止容器/模板不存在
-        if (!container || !template) {
-            alert('添加费用失败：未找到容器或模板，请检查页面代码！');
-            return;
-        }
-
-        // 4. 修复：克隆普通 div 模板（不用 .content）
-        const newGroup = template.cloneNode(true); // 克隆整个模板 div
-        newGroup.removeAttribute('id'); // 移除模板的 id，避免重复
-        newGroup.style.display = 'block'; // 显示新增的费用项
-
-        // 5. 插入到容器末尾
-        container.appendChild(newGroup);
-
-        // 6. 重新计算总额
-        calculateTotal();
-
-        // 调试：确认新增成功
-        console.log('新增费用项成功，当前容器内费用项数量：', container.querySelectorAll('.fee-group').length);
-    }
-
-    function removeFeeGroup(button) {
-        if (confirm('确定要删除此费用吗？')) {
-            const group = button.closest('.fee-group');
-            if (group) {
-                group.remove();
-                calculateTotal(); // 删除后重新计算总额
-            }
-        }
-    }
-
-    function updateUnloadingFee(select) {
-        const selectedOption = select.options[select.selectedIndex];
-        const feeValue = selectedOption.value;
-        const feeDisplay = document.getElementById('unloading_fee_display');
-        const feeInput = document.getElementById('unloading_fee');
-
-        feeDisplay.textContent = parseFloat(feeValue).toFixed(2);
-        feeInput.value = feeValue;
-
-        calculateTotal();
-
-        plt_carrier = select.options[select.selectedIndex].dataset.name;
-        document.getElementById('palletization_carrier').value = plt_carrier;
-    }
-
-    function calculateTotal() {
-        let total = 0;
-
-        const feeFields = [
-            'direct_basic_fee',
-            'chassis_fee',
-        ];
-
-        feeFields.forEach(field => {
-            const input = document.querySelector(`input[name="${field}"]`);
-            if (input) {
-                total += parseFloat(input.value) || 0;
-            }
-        });
-
-        document.querySelectorAll('input[name="direct_other_fee_amount[]"]').forEach(input => {
-            total += parseFloat(input.value) || 0;
-        });
-
-        document.getElementById('totalAmountDisplay').textContent = total.toFixed(2);
-        document.getElementById('total_amount_input').value = total.toFixed(2);
-    }
-
-    function modifyStatus(type) {
-        const saveTypeInput = document.getElementById('save_type');
-        saveTypeInput.value = type;
-    }
+function modifyStatus(type) {
+    const saveTypeInput = document.getElementById('save_type');
+    saveTypeInput.value = type;
+}
 </script>
 
 {% endblock %}

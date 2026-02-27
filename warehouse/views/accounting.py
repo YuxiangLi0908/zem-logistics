@@ -2730,6 +2730,7 @@ class Accounting(View):
     ) -> tuple[Any, Any]:
         """财务待确认-已确认-提柜待核销-拆柜已核销"""
         current_date = datetime.now().date()
+        customer_id = Customer.objects.filter(zem_name=customer).values_list('id', flat=True).first()
         start_date_confirm = (
             (current_date + timedelta(days=-60)).strftime("%Y-%m-%d")
             if not start_date_confirm
@@ -2753,7 +2754,7 @@ class Accounting(View):
             criteria &= models.Q(customer_name__zem_name=customer)
 
         # 待确认账单应付
-        selected_customer_id = request.POST.get("customer_name", "")
+        selected_customer_id = request.POST.get("customer_name", "") or customer_id
         order_form = OrderForm(
             initial={
                 "customer_name": selected_customer_id
@@ -2777,7 +2778,7 @@ class Accounting(View):
         ).select_related("retrieval_id", "vessel_id", "customer_name")
 
         # 提柜
-        t_item = ['提柜费用', '固定报价', '等待费用', '超重费用', '港内滞港费', '港外滞箱费', '车架费用']
+        t_item = ['提柜费用', '固定报价', '直送车架费', '等待费用', '超重费用', '港内滞港费', '港外滞箱费', '车架费用']
         # 卸柜
         x_item = ['拆柜费用','入库拆柜费']
 
@@ -3083,6 +3084,7 @@ class Accounting(View):
             "selected_customer_id": selected_customer_id,
             "start_date_confirm": start_date_confirm,
             "end_date_confirm": end_date_confirm,
+            "customer": customer,
             "start_date_export": start_date_export,
             "end_date_export": end_date_export,
             "invoice_type_filter": "payable",
@@ -3792,6 +3794,7 @@ class Accounting(View):
             "selected_customer_id": selected_customer_id,
             "start_date_confirm": start_date_confirm,
             "end_date_confirm": end_date_confirm,
+            "customer": customer,
             "start_date_export": start_date_export,
             "end_date_export": end_date_export,
             "invoice_type_filter": "payable",
@@ -4626,6 +4629,26 @@ class Accounting(View):
                     total=Sum("rate", default=0)
                 )["total"] or 0
 
+                # 入库拆柜费
+                arrive_fee = container.invoice_itemv2.filter(description="入库拆柜费").aggregate(
+                    total=Sum("rate", default=0)
+                )["total"] or 0
+
+                # 直送固定报价
+                direct_basic_fee = container.invoice_itemv2.filter(description="固定报价").aggregate(
+                    total=Sum("rate", default=0)
+                )["total"] or 0
+
+                # 直送车架费
+                direct_frame_fee_sum = container.invoice_itemv2.filter(description="直送车架费").aggregate(
+                    total=Sum("rate", default=0)
+                )["total"] or 0
+
+                # 直送等待费用
+                chassis_fee = container.invoice_itemv2.filter(description="等待费用").aggregate(
+                    total=Sum("rate", default=0)
+                )["total"] or 0
+
                 # 总费用
                 total_fee = container.invoice_itemv2.aggregate(
                     total=Sum("rate", default=0)
@@ -4640,6 +4663,10 @@ class Accounting(View):
                     container_number,  # 货柜号
                     f"${pickup_fee:.2f}",  # 提柜费
                     f"${unload_fee:.2f}",  # 拆柜费
+                    f"${arrive_fee:.2f}",  # 入库拆柜费
+                    f"${direct_basic_fee:.2f}",  # 直送固定报价
+                    f"${direct_frame_fee_sum:.2f}",  # 直送车架费
+                    f"${chassis_fee:.2f}",  # 直送等待费用
                     f"${over_weight_fee:.2f}",  # 超重费
                     f"${demurrage_fee:.2f}",  # 滞港费
                     f"${per_diem_fee:.2f}",  # 滞箱费
@@ -4652,9 +4679,9 @@ class Accounting(View):
             df = pd.DataFrame(
                 excel_data,
                 columns=[
-                    "客户", "仓点", "提柜供应商", "卸柜供应商", "货柜号",
-                    "提柜费", "拆柜费", "超重费", "滞港费", "滞箱费",
-                    "车架费", "其他费用", "总费用"
+                    "客户", "仓点", "提柜供应商", "卸柜供应商", "货柜号", "提柜费", "拆柜费", "入库拆柜费",
+                    "直送固定报价", "直送车架费", "直送等待费用", "超重费", "滞港费", "滞箱费", "车架费", "其他费用",
+                    "总费用"
                 ]
             )
 
@@ -4732,7 +4759,11 @@ class Accounting(View):
                 "港内滞港费": "demurrage_fee",
                 "港外滞箱费": "per_diem_fee",
                 "车架费用": "chassis_fee",
-                "其他费用": "other_fee"
+                "其他费用": "other_fee",
+                "入库拆柜费": "arrive_fee",
+                "固定报价": "direct_basic_fee",
+                "直送车架费": "direct_frame_fee_sum",
+                "等待费用": "chassis_fee"
             }
             excel_data = []
 
@@ -4765,17 +4796,18 @@ class Accounting(View):
 
                 total_fee = sum(fee_data.values())
                 excel_data.append([
-                    customer_name, warehouse, pickup_carrier, unload_carrier, container_number,
-                    fee_data["pickup_fee"], fee_data["unload_fee"], fee_data["over_weight_fee"],
-                    fee_data["demurrage_fee"], fee_data["per_diem_fee"], fee_data["chassis_fee"],
-                    fee_data["other_fee"], total_fee
+                    customer_name, warehouse, pickup_carrier, unload_carrier, container_number, fee_data["pickup_fee"],
+                    fee_data["unload_fee"], fee_data["arrive_fee"], fee_data["direct_basic_fee"],
+                    fee_data["direct_frame_fee_sum"], fee_data["chassis_fee"], fee_data["over_weight_fee"],
+                    fee_data["demurrage_fee"], fee_data["per_diem_fee"], fee_data["chassis_fee"], fee_data["other_fee"],
+                    total_fee
                 ])
 
             df = pd.DataFrame(
                 excel_data,
-                columns=["客户", "仓点", "提柜供应商", "卸柜供应商", "货柜号",
-                         "提柜费", "拆柜费", "超重费", "滞港费", "滞箱费",
-                         "车架费", "其他费用", "总费用"]
+                columns=["客户", "仓点", "提柜供应商", "卸柜供应商", "货柜号", "提柜费", "拆柜费", "入库拆柜费",
+                         "直送固定报价", "直送车架费", "直送等待费用", "超重费", "滞港费", "滞箱费", "车架费", "其他费用",
+                         "总费用"]
             )
 
             response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
@@ -6111,10 +6143,10 @@ class Accounting(View):
                     invoice_status.finance_status = "unstarted"
                     invoice_status.delivery_other_reason = data.get("reject_reason")
                 invoice_status.save()
-            return self.handle_invoice_confirm_get_v1(request, start_date_confirm, end_date_confirm)
+            return self.handle_invoice_confirm_get_v1(request, start_date_confirm, end_date_confirm, data.get("customer"))
         # 财务审核通过
         elif save_type == "confirmed_finance":
-            container_numbers = data.getlist("containers")
+            container_numbers = data.getlist("containers") or data.getlist("container_number")
             for container_number in container_numbers:
                 invoice_status = InvoiceStatusv2.objects.get(
                     models.Q(invoice_type='payable') | models.Q(invoice_type='payable_direct'),
@@ -6124,7 +6156,7 @@ class Accounting(View):
                 current_time = timezone.now()
                 invoice_status.payable_date = current_time
                 invoice_status.save()
-            return self.handle_invoice_confirm_get_v1(request, start_date_confirm, end_date_confirm)
+            return self.handle_invoice_confirm_get_v1(request, start_date_confirm, end_date_confirm, data.get("customer"))
         else:
             container_number = data.get("container_number")
             return self.handle_invoice_payable_save_post_v1_item(request, data, save_type, container_number)
@@ -6136,9 +6168,9 @@ class Accounting(View):
         if save_type == "return":  # 返回不需要保存数据
             return self.handle_invoice_payable_get_v1(
                 request,
-                data.get("start_date"),
-                data.get("end_date"),
-                None,
+                data.get("start_date_confirm"),
+                data.get("end_date_confirm"),
+                data.get("customer"),
                 data.get("warehouse_filter"),
             )
         elif save_type == "reject_check":  # 初级审核驳回，驳回不改数据
@@ -6160,9 +6192,9 @@ class Accounting(View):
             invoice_status.save()
             return self.handle_invoice_payable_get_v1(
                 request,
-                data.get("start_date"),
-                data.get("end_date"),
-                None,
+                data.get("start_date_confirm"),
+                data.get("end_date_confirm"),
+                data.get("customer"),
                 data.get("warehouse_filter"),
             )
         elif save_type == "check_confirm_without_data":  # 列表中确认通过，不需要改数据，已审核
@@ -6173,9 +6205,9 @@ class Accounting(View):
             invoice_status.save()
             return self.handle_invoice_payable_get_v1(
                 request,
-                data.get("start_date"),
-                data.get("end_date"),
-                None,
+                data.get("start_date_confirm"),
+                data.get("end_date_confirm"),
+                data.get("customer"),
                 data.get("warehouse_filter"),
             )
 
@@ -6233,6 +6265,31 @@ class Accounting(View):
                 invoice_item.rate = data.get("direct_basic_fee")
                 invoice_item.save()
                 pt_amount += float(data.get("direct_basic_fee"))
+        # 直送车架费
+        if data.get("direct_frame_fee_sum"):
+            try:
+                invoice_item = InvoiceItemv2.objects.filter(
+                    container_number=container,
+                    invoice_number=invoice,
+                    invoice_type="payable_direct",
+                    description="直送车架费",
+                ).get()
+                invoice_item.rate = data.get("direct_frame_fee")
+                invoice_item.qty = data.get("direct_frame_days")
+                invoice_item.amount = data.get("direct_frame_fee_sum")
+                invoice_item.save()
+                pt_amount += float(data.get("direct_frame_fee_sum"))
+            except InvoiceItemv2.DoesNotExist:
+                invoice_item = InvoiceItemv2(
+                    **{"container_number": container, "invoice_number": invoice,
+                       "invoice_type": "payable_direct"}
+                )
+                invoice_item.description = "直送车架费"
+                invoice_item.rate = data.get("direct_frame_fee")
+                invoice_item.qty = data.get("direct_frame_days")
+                invoice_item.amount = data.get("direct_frame_fee_sum")
+                invoice_item.save()
+                pt_amount += float(data.get("direct_frame_fee_sum"))
         # 直送等待费用
         if data.get("chassis_fee"):
             try:
@@ -6585,9 +6642,9 @@ class Accounting(View):
             invoice_status.save()
             return self.handle_invoice_payable_get_v1(
                 request,
-                data.get("start_date"),
-                data.get("end_date"),
-                None,
+                data.get("start_date_confirm"),
+                data.get("end_date_confirm"),
+                data.get("customer"),
                 data.get("warehouse_filter"),
             )
         # 如果确认，就改变状态
@@ -6607,9 +6664,9 @@ class Accounting(View):
         invoice_status.save()
         return self.handle_invoice_payable_get_v1(
             request,
-            data.get("start_date"),
-            data.get("end_date"),
-            None,
+            data.get("start_date_confirm"),
+            data.get("end_date_confirm"),
+            data.get("customer"),
             data.get("warehouse_filter"),
         )
 
@@ -8972,9 +9029,12 @@ class Accounting(View):
             "JOHN": "JOHN",
             "unload": "unload"
         }
+        customer_id = Customer.objects.filter(zem_name=customer).values_list('id', flat=True).first()
         context = {
             "orders": orders,
-            "order_form": OrderForm(),
+            "order_form": OrderForm(initial={
+                "customer_name": customer_id  # 把筛选的customer传给表单的customer_name字段
+            }),
             "previous_order": previous_order,
             "order_pending": order_pending,
             "pre_order_pending": pre_order_pending,
@@ -11314,8 +11374,9 @@ class Accounting(View):
 
         # 构建基础上下文
         context = {
-            "start_date": request.GET.get("start_date"),
-            "end_date": request.GET.get("end_date"),
+            "start_date_confirm": request.GET.get("start_date_confirm"),
+            "end_date_confirm": request.GET.get("end_date_confirm"),
+            "customer": request.GET.get("customer"),
             "warehouse_filter": request.GET.get("warehouse_filter"),
             "is_editable": is_editable,
             "is_confirm": is_confirm,
@@ -11357,6 +11418,11 @@ class Accounting(View):
         direct_basic_fee = 0
         chassis_fee = 0
         chassis_comment = "无相关信息"
+        direct_frame_fee_sum = 0
+        direct_frame_fee = 0
+        direct_frame_days = 0
+        customer = context["customer"]
+        customer_id = Customer.objects.filter(zem_name=customer).values_list('id', flat=True).first()
         # 如果已保存且不是驳回状态，从数据库读取
         if context["is_save_invoice"] and not context["is_rejected"]:
             invoice_items = InvoiceItemv2.objects.filter(
@@ -11368,7 +11434,23 @@ class Accounting(View):
                 elif invoice_item.description == "等待费用":
                     chassis_fee = invoice_item.rate
                     chassis_comment = invoice_item.note
-            context.update({"invoice_items": invoice_items})
+                elif invoice_item.description == "直送车架费":
+                    direct_frame_fee_sum = invoice_item.amount
+                    direct_frame_fee = invoice_item.rate
+                    direct_frame_days = int(invoice_item.qty)
+
+            context.update({
+                "invoice_items": invoice_items,
+                "direct_basic_fee": direct_basic_fee,
+                "chassis_comment": chassis_comment,
+                "chassis_fee": chassis_fee,
+                "direct_frame_fee_sum": direct_frame_fee_sum,
+                "direct_frame_fee": direct_frame_fee,
+                "direct_frame_days": direct_frame_days,
+                "order_form": OrderForm(initial={
+                    "customer_name": customer_id  # 把筛选的customer传给表单的customer_name字段
+                }),
+            })
         else:
             # 从报价表获取
             DETAILS = self._get_feetail(vessel_etd, "PAYABLE_DIRECT")
@@ -11385,13 +11467,20 @@ class Accounting(View):
             if result:
                 direct_basic_fee = result["price"]
                 chassis_comment = result.get("chassis", "")
-        context.update(
-            {
-                "direct_basic_fee": direct_basic_fee,
-                "chassis_comment": chassis_comment,
-                "chassis_fee": chassis_fee,
-            }
-        )
+                direct_frame_fee = result.get("direct_frame_fee", "")
+                direct_frame_fee_sum = 0
+            context.update(
+                {
+                    "direct_basic_fee": direct_basic_fee,
+                    "chassis_comment": chassis_comment,
+                    "chassis_fee": chassis_fee,
+                    "direct_frame_fee": direct_frame_fee,
+                    "direct_frame_fee_sum": direct_frame_fee_sum,
+                    "order_form": OrderForm(initial={
+                        "customer_name": customer_id  # 把筛选的customer传给表单的customer_name字段
+                    }),
+                }
+            )
 
         return self.template_invoice_payable_direct_edit_v1, context
 
@@ -11643,8 +11732,10 @@ class Accounting(View):
         """处理柜号点击进入港前账单编辑页面"""
         if not context:
             context = {}
-        start_date = context["start_date"]
-        end_date = context["end_date"]
+        start_date_confirm = context["start_date_confirm"]
+        end_date_confirm = context["end_date_confirm"]
+        customer = context["customer"]
+        customer_id = Customer.objects.filter(zem_name=customer).values_list('id', flat=True).first()
 
         container_number = context["container_number"]
         invoice = context["invoice"]
@@ -11699,7 +11790,7 @@ class Accounting(View):
                 warehouse_precise = "LA 91761"
             if warehouse_precise == "LA 91789":
                 warehouse_precise = "LA 91761"
-            if pick_subkey == 40:
+            if pick_subkey == 40 and warehouse:
                 try:
                     pickup_fee = fee_detail[warehouse][warehouse_precise][preport_carrier]["basic_40"]
                 except KeyError:
@@ -11865,8 +11956,12 @@ class Accounting(View):
             "reject_reason": order.invoice_reject_reason,
             "container_number": container_number,
             "groups": groups,
-            "start_date": start_date,
-            "end_date": end_date,
+            "start_date_confirm": start_date_confirm,
+            "end_date_confirm": end_date_confirm,
+            "customer": customer,
+            "order_form": OrderForm(initial={
+                "customer_name": customer_id  # 把筛选的customer传给表单的customer_name字段
+            }),
             "FS": FS,
             "receivable_is_locked": invoice.receivable_is_locked,
             "invoice_type": "receivable",
