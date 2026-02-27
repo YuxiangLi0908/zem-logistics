@@ -7623,7 +7623,7 @@ class Accounting(View):
             # 5.1 查询该订单对应的发票和费用明细
             try:
                 invoice = Invoicev2.objects.filter(
-                    container_number__container_number=order.container_number
+                    container_number=order.container_number.id
                 ).order_by('-created_at').first()
                 invoice_statusv2 = InvoiceStatusv2.objects.filter(
                     models.Q(invoice_type="payable") | models.Q(invoice_type="payable_direct"),
