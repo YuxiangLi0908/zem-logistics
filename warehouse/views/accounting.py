@@ -7616,7 +7616,7 @@ class Accounting(View):
             "入库拆柜费": [],
             "总费用": [],
             "提柜其他费用": {},  # 格式：{fee_name: [values...]}
-            "拆柜其他费用": {},  # 格式：{fee_name: [values...]}
+            "拆柜其他费用": {},  # 仅临时存储，不用于表头
         }
 
         for order in order_list:
@@ -7690,6 +7690,9 @@ class Accounting(View):
                     order.retrieval_id.retrieval_carrier == "Eric"
             )
 
+            # 临时存储Eric订单的入库费金额
+            eric_unload_fee = 0.0
+
             # 5.4 遍历费用明细，计算各项费用
             total_amount = 0.0
             for item in invoice_items:
@@ -7701,18 +7704,9 @@ class Accounting(View):
                     # 仅保留拆柜其他费用-入库费，其余费用项直接跳过
                     if description != "拆柜其他费用-入库费":
                         continue
-                    # 处理入库费
-                    try:
-                        fee_name = description.split("-")[1]  # 提取"入库费"
-                        row_data["拆柜其他费用"][fee_name] = rate
-                        total_amount += rate
-                        # 更新列值统计
-                        if fee_name not in column_values["拆柜其他费用"]:
-                            column_values["拆柜其他费用"][fee_name] = []
-                        column_values["拆柜其他费用"][fee_name].append(rate)
-                    except IndexError:
-                        pass
-                    # 处理完入库费后直接跳出循环，不处理其他费用
+                    # 记录入库费金额（不存储到拆柜其他费用，仅赋值给入库拆柜费）
+                    eric_unload_fee = rate
+                    total_amount += rate
                     break
 
                 # ========== 原有费用处理逻辑（非LA+转运+Eric订单执行） ==========
@@ -7761,6 +7755,11 @@ class Accounting(View):
                     except IndexError:
                         pass
 
+            # ========== 关键修改：Eric订单将入库拆柜费赋值为拆柜其他费用-入库费的金额 ==========
+            if is_eric_la_transfer and eric_unload_fee > 0:
+                row_data["入库拆柜费"] = eric_unload_fee  # 替换入库拆柜费为900
+                total_amount = eric_unload_fee  # 总费用=入库拆柜费
+
             # 5.5 赋值总费用
             row_data["总费用"] = total_amount
 
@@ -7769,12 +7768,12 @@ class Accounting(View):
                 if fee_type not in row_data:
                     row_data[fee_type] = 0.0
 
-            # 5.7 记录固定费用列的数值
+            # 5.7 记录固定费用列的数值（仅统计固定费用，不统计拆柜其他费用）
             column_values["基本费用"].append(row_data["基本费用"])
             column_values["超重费"].append(row_data["超重费"])
             column_values["车架费"].append(row_data["车架费"])
             column_values["拆柜费用"].append(row_data["拆柜费用"])
-            column_values["入库拆柜费"].append(row_data["入库拆柜费"])
+            column_values["入库拆柜费"].append(row_data["入库拆柜费"])  # 同步Eric订单的900
             column_values["总费用"].append(row_data["总费用"])
 
             rows.append(row_data)
