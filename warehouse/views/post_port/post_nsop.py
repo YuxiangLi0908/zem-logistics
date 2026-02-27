@@ -48,6 +48,8 @@ from django.db.models import (
     When,
 )
 import asyncio
+import aiohttp
+from django.http import JsonResponse
 from io import BytesIO
 from django.core.exceptions import MultipleObjectsReturned
 from django.db.models.functions import Cast, Concat
@@ -295,6 +297,8 @@ class PostNsop(View):
                 template, context = await self.handle_fleet_schedule_post(request)
             context.update({"success_messages": 'POD上传成功!'})           
             return render(request, template, context)
+        elif step == "get_maersk_quote":
+            return await self.handle_get_maersk_quote(request)
         elif step == "bind_group_shipment":
             template, context = await self.handle_appointment_post(request)
             return render(request, template, context) 
@@ -555,6 +559,96 @@ class PostNsop(View):
                         context.update({'success_messages':f"成功关联一提多卸"})
         return await self.handle_ltl_unscheduled_pos_post(request, context)
     
+    async def handle_get_maersk_quote(self, request: HttpRequest) -> JsonResponse:
+        """调用Maersk API获取报价"""
+        try:
+            origin_zip = request.POST.get('origin_zip')
+            dest_zip = request.POST.get('dest_zip')
+            ship_date = request.POST.get('ship_date')
+            cargo_details = request.POST.get('cargo_details')
+            total_weight = request.POST.get('total_weight')
+
+            if not all([origin_zip, dest_zip, ship_date, cargo_details]):
+                return JsonResponse({'success': False, 'message': '参数不完整'}, status=400)
+
+            # 解析货物详情
+            # 格式: 32*35*60*3板 或 32*35*60
+            # API需要: pieces, height, length, width, weight
+            line_items = []
+            
+            # 如果有多个尺寸行，按换行符分割
+            detail_lines = [line.strip() for line in cargo_details.split('\n') if line.strip()]
+            
+            # 计算总板数用于分摊重量
+            total_pallets = 0
+            parsed_details = []
+            
+            for line in detail_lines:
+                # 匹配 L*W*H*Count 或 L*W*H
+                match = re.match(r'(\d+)\*(\d+)\*(\d+)(?:\*(\d+))?', line)
+                if match:
+                    l, w, h, count = match.groups()
+                    count = int(count) if count else 1
+                    total_pallets += count
+                    parsed_details.append({'l': int(l), 'w': int(w), 'h': int(h), 'count': count})
+            
+            if total_pallets == 0:
+                return JsonResponse({'success': False, 'message': '无法解析托盘尺寸信息'}, status=400)
+
+            # 分摊重量
+            try:
+                weight_val = float(total_weight) if total_weight else 0
+            except ValueError:
+                weight_val = 0
+                
+            weight_per_pallet = int(weight_val / total_pallets) if total_pallets > 0 else 0
+            
+            for item in parsed_details:
+                # 对于每一种尺寸，生成对应数量的LineItem
+                # 用户要求: 每个板子的长宽高都单独写一行
+                for _ in range(item['count']):
+                    line_items.append({
+                        "description": "Pallet",
+                        "pieces": 1,
+                        "length": item['l'],
+                        "width": item['w'],
+                        "height": item['h'],
+                        "weight": weight_per_pallet
+                    })
+
+            payload = {
+                "shipDate": ship_date,
+                "origin_zip": origin_zip,
+                "dest_zip": dest_zip,
+                "lineItems": line_items,
+                "declaredValue": None,
+                "insuranceValue": None,
+                "debrisRemoval": None
+            }
+
+            api_url = "https://zem-maersk-gateway.kindmoss-a5050a64.eastus.azurecontainerapps.io/rating"
+            api_key = os.environ.get("MAERSK_API_KEY")
+            
+            if not api_key:
+                 return JsonResponse({'success': False, 'message': '未配置API Key'}, status=500)
+
+            headers = {
+                "Content-Type": "application/json",
+                "x-api-key": api_key
+            }
+
+            async with aiohttp.ClientSession() as session:
+                async with session.post(api_url, json=payload, headers=headers) as response:
+                    if response.status == 200:
+                        data = await response.json()
+                        return JsonResponse({'success': True, 'data': data})
+                    else:
+                        text = await response.text()
+                        return JsonResponse({'success': False, 'message': f'API调用失败: {response.status} - {text}'}, status=response.status)
+
+        except Exception as e:
+            return JsonResponse({'success': False, 'message': str(e)}, status=500)
+
     async def handle_bol_upload_post(self, request: HttpRequest) -> HttpResponse:
         '''客户自提的BOL文件下载'''
         fleet_number = request.POST.get("fleet_number")
