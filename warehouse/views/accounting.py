@@ -8887,6 +8887,8 @@ class Accounting(View):
                 criteria &= models.Q(retrieval_id__retrieval_destination_precise=warehouse)
 
         # 可选筛选条件：客户
+        if customer == 'None':
+            customer = None
         if customer:
             criteria &= models.Q(customer_name__zem_name=customer)
 
