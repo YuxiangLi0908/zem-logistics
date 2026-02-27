@@ -1742,8 +1742,7 @@
                 
                 <!-- 结果展示区 -->
                 <div id="quote_result_area" class="mt-4 border-top pt-3" style="display:none;">
-                    <h6 class="text-success"><i class="fas fa-check-circle me-1"></i>询价结果:</h6>
-                    <pre id="quote_result_content" style="background: #f1f8e9; padding: 15px; border-radius: 6px; max-height: 300px; overflow: auto; font-size: 0.85rem; border: 1px solid #c8e6c9;"></pre>
+                    <div id="quote_result_content"></div>
                 </div>
                 
                 <!-- 错误提示区 -->
@@ -1799,13 +1798,176 @@
         
         // 清空之前的结果
         document.getElementById('quote_result_area').style.display = 'none';
-        document.getElementById('quote_result_content').textContent = '';
+        document.getElementById('quote_result_content').innerHTML = '';
         document.getElementById('quote_error_msg').style.display = 'none';
 
         // 显示模态框
         const modalEl = document.getElementById('fleet_quoteModal');
         const modal = new bootstrap.Modal(modalEl);
         modal.show();
+    }
+
+    function fleet_renderQuoteResults(data) {
+        const resultContainer = document.getElementById('quote_result_content');
+        if (!data || !data.rating) {
+            resultContainer.innerHTML = '<div class="alert alert-warning">未获取到有效的报价信息</div>';
+            return;
+        }
+
+        const rating = data.rating;
+        const shipper = data.shipper || {};
+        const consignee = data.consignee || {};
+        const lineItems = data.lineItems || [];
+        const quotes = data.quotes || [];
+
+        // 1. 基本运输信息（摘要卡片）
+        let totalPieces = 0;
+        let totalWeight = 0;
+        const dimensions = [];
+        
+        lineItems.forEach(item => {
+            totalPieces += (item.Pieces || 0);
+            totalWeight += (item.Weight || 0);
+            dimensions.push(`${item.Length}×${item.Width}×${item.Height}`);
+        });
+
+        // 去重尺寸显示
+        const uniqueDims = [...new Set(dimensions)];
+        const dimStr = uniqueDims.join(', ');
+
+        const summaryHtml = `
+            <div class="card mb-3 border-0 bg-light">
+                <div class="card-body py-3">
+                    <div class="row g-2 text-secondary" style="font-size: 0.9rem;">
+                        <div class="col-md-12 mb-2">
+                            <i class="fas fa-route me-2 text-primary"></i>
+                            <strong>运输路线：</strong> 
+                            ${shipper.Zipcode || '-'} (${shipper.State || '-'}) 
+                            <i class="fas fa-long-arrow-alt-right mx-2 text-muted"></i> 
+                            ${consignee.Zipcode || '-'} (${consignee.State || '-'})
+                        </div>
+                        <div class="col-md-6">
+                            <i class="far fa-calendar-alt me-2 text-primary"></i>
+                            <strong>发货日期：</strong> ${rating.ShipDate || '-'}
+                        </div>
+                        <div class="col-md-6">
+                            <i class="fas fa-box-open me-2 text-primary"></i>
+                            <strong>货物信息：</strong> ${totalPieces} 托盘 / ${totalWeight} lbs / ${dimStr} 英寸
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        // 2. 报价方案列表
+        // 排序：价格从低到高
+        quotes.sort((a, b) => (a.TotalQuote || 0) - (b.TotalQuote || 0));
+
+        let quotesHtml = '';
+        quotes.forEach((quote, index) => {
+            const isBestValue = index === 0; // 最低价为推荐
+            const borderClass = isBestValue ? 'border-success' : 'border-light';
+            const badgeHtml = isBestValue ? '<span class="badge bg-success ms-2">推荐方案</span>' : '';
+            
+            // 费用名称映射
+            const chargeNameMap = {
+                'FREIGHT CHARGES': '基础运费',
+                'FUEL SURCHARGE': '燃油附加费',
+                'ADDTL LABOR': '额外人工费',
+                'LIFTGATE PICKUP': '提货升降机费',
+                'LIFTGATE DELIVERY': '送货升降机费',
+                'LIMITED ACCESS PICKUP': '受限区域提货费',
+                'LIMITED ACCESS DELIVERY': '受限区域送货费',
+                'RESIDENTIAL PICKUP': '住宅提货费',
+                'RESIDENTIAL DELIVERY': '住宅送货费'
+            };
+
+            let breakdownsHtml = '';
+            if (quote.Breakdowns && quote.Breakdowns.length > 0) {
+                breakdownsHtml = '<div class="mt-3 pt-3 border-top">';
+                breakdownsHtml += '<div class="mb-2 text-muted small">费用明细：</div>';
+                quote.Breakdowns.forEach(bd => {
+                    const cnName = chargeNameMap[bd.BillCodeName] || bd.BillCodeName;
+                    breakdownsHtml += `
+                        <div class="d-flex justify-content-between mb-1 small text-secondary">
+                            <span>${cnName}</span>
+                            <span>$${(bd.Charge || 0).toFixed(2)}</span>
+                        </div>
+                    `;
+                });
+                breakdownsHtml += '</div>';
+            }
+
+            // 预留的下单参数
+            const orderParams = JSON.stringify({
+                quoteId: rating.QuoteID,
+                service: quote.Service,
+                locationId: rating.LocationID,
+                carrier: quote.DisplayService,
+                price: quote.TotalQuote
+            });
+
+            quotesHtml += `
+                <div class="card mb-3 ${borderClass} shadow-sm">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start mb-3">
+                            <div>
+                                <h6 class="card-title mb-1 fw-bold text-dark">
+                                    ${quote.DisplayService} 
+                                    ${badgeHtml}
+                                </h6>
+                                <small class="text-muted">服务代码：${quote.Service}</small>
+                            </div>
+                            <div class="text-end">
+                                <h4 class="text-danger fw-bold mb-0">$${(quote.TotalQuote || 0).toFixed(2)}</h4>
+                            </div>
+                        </div>
+
+                        <div class="row g-3 mb-3" style="font-size: 0.9rem;">
+                            <div class="col-6">
+                                <span class="text-muted d-block">预计送达</span>
+                                <strong>${quote.DeliveryDate || '-'}</strong>
+                            </div>
+                            <div class="col-6">
+                                <span class="text-muted d-block">计费重量</span>
+                                <strong>${quote.ChargeWeight || '-'} lbs</strong>
+                            </div>
+                        </div>
+
+                        <!-- 折叠区域 -->
+                        <div class="collapse" id="collapseDetail_${index}">
+                            ${breakdownsHtml}
+                        </div>
+
+                        <div class="d-flex justify-content-between align-items-center mt-3 pt-2">
+                            <button class="btn btn-link btn-sm text-decoration-none p-0" type="button" data-bs-toggle="collapse" data-bs-target="#collapseDetail_${index}">
+                                查看费用明细 <i class="fas fa-chevron-down ms-1"></i>
+                            </button>
+                            <button class="btn btn-primary btn-sm px-4" onclick='fleet_placeOrder(${orderParams})'>
+                                立即下单
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+
+        resultContainer.innerHTML = summaryHtml + '<div class="quote-list">' + quotesHtml + '</div>' + `
+            <div class="mt-4 pt-3 border-top">
+                <button class="btn btn-outline-secondary btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#debugJsonArea">
+                    <i class="fas fa-code me-1"></i> 显示原始数据
+                </button>
+                <div class="collapse mt-2" id="debugJsonArea">
+                    <pre style="background: #f1f8e9; padding: 15px; border-radius: 6px; max-height: 200px; overflow: auto; font-size: 0.8rem; border: 1px solid #c8e6c9;">${JSON.stringify(data, null, 2)}</pre>
+                </div>
+            </div>
+        `;
+    }
+
+    // 预留的下单函数
+    function fleet_placeOrder(params) {
+        console.log("下单参数:", params);
+        alert(`已选择方案：${params.carrier}\n总运费：$${params.price}\n(下单功能开发中...)`);
     }
 
     function fleet_submitQuote() {
@@ -1851,9 +2013,8 @@
                 document.getElementById('quote_result_area').style.display = 'block';
                 document.getElementById('quote_error_msg').style.display = 'none';
                 
-                // 格式化展示结果
-                const resultText = JSON.stringify(data.data, null, 2);
-                document.getElementById('quote_result_content').textContent = resultText;
+                // 使用新的渲染函数
+                fleet_renderQuoteResults(data.data);
             } else {
                 document.getElementById('quote_result_area').style.display = 'none';
                 const errorDiv = document.getElementById('quote_error_msg');
