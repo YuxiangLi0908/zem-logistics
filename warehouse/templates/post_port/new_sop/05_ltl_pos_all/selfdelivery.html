@@ -845,9 +845,12 @@
                             rows="1">{{ cargo.ltl_pro_num|default:'' }}</textarea>
                     </td>
                     <td class="fleet-action-col">
-                        <div class="fleet-action-buttons">
+                        <div class="fleet-action-buttons" style="display: flex; gap: 5px; flex-wrap: wrap; justify-content: center;">
                             <button class="fleet-action-btn fleet-btn-success fleet-small-btn" onclick="fleet_saveRowData(this)">
                                 <i class="fas fa-save"></i> 保存
+                            </button>
+                            <button class="fleet-action-btn fleet-btn-warning fleet-small-btn" onclick="fleet_openQuoteModal(this)" style="background-color: #ff9800 !important; color: white;">
+                                <i class="fas fa-calculator"></i> 询价
                             </button>
                         </div>
                     </td>
@@ -1689,4 +1692,185 @@
         window.fleet_batchUpdateDeliveryMethod = fleet_batchUpdateDeliveryMethod;
         window.fleet_batchOnePickMultiDrop = fleet_batchOnePickMultiDrop;
     })();
+</script>
+
+<!-- 询价模态框 -->
+<div class="modal fade" id="fleet_quoteModal" tabindex="-1" aria-hidden="true" style="z-index: 1060;">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-light">
+                <h5 class="modal-title"><i class="fas fa-calculator me-2"></i>Maersk 询价</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="fleet_quoteForm">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">起始邮编 <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="quote_origin_zip" required>
+                            <div class="form-text text-muted">从当前仓库自动提取</div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">目的邮编 <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="quote_dest_zip" required>
+                            <div class="form-text text-muted">从目的地自动提取</div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">发货日期 <span class="text-danger">*</span></label>
+                        <input type="date" class="form-control" id="quote_ship_date" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">货物明细 <span class="text-danger">*</span></label>
+                        <textarea class="form-control" id="quote_cargo_details" rows="4" required style="font-family: monospace;"></textarea>
+                        <div class="form-text">
+                            格式示例：<br>
+                            <code>32*35*60*3板</code> (长*宽*高*数量)<br>
+                            <code>32*35*60</code> (默认为1板)<br>
+                            每行一种尺寸，后端会自动解析并拆分为单板发送。
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">总重量 (lbs)</label>
+                        <input type="number" class="form-control" id="quote_total_weight" step="0.01">
+                        <div class="form-text">API要求提供重量，系统将自动分摊到每个托盘</div>
+                    </div>
+                </form>
+                
+                <!-- 结果展示区 -->
+                <div id="quote_result_area" class="mt-4 border-top pt-3" style="display:none;">
+                    <h6 class="text-success"><i class="fas fa-check-circle me-1"></i>询价结果:</h6>
+                    <pre id="quote_result_content" style="background: #f1f8e9; padding: 15px; border-radius: 6px; max-height: 300px; overflow: auto; font-size: 0.85rem; border: 1px solid #c8e6c9;"></pre>
+                </div>
+                
+                <!-- 错误提示区 -->
+                <div id="quote_error_msg" class="alert alert-danger mt-3" style="display:none;"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+                <button type="button" class="btn btn-primary" id="btn_start_quote" onclick="fleet_submitQuote()">
+                    <i class="fas fa-paper-plane me-1"></i> 开始询价
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // 询价相关函数
+    function fleet_openQuoteModal(btn) {
+        const row = btn.closest('tr');
+        
+        // 1. 获取并处理起始邮编
+        // 逻辑：以-分组取最后一组里面的数字
+        const warehouseRaw = "{{ warehouse }}"; 
+        const whParts = warehouseRaw.split('-');
+        let originZip = '';
+        if (whParts.length > 0) {
+            const lastPart = whParts[whParts.length - 1];
+            // 提取数字
+            originZip = lastPart.replace(/\D/g, '');
+        }
+
+        // 2. 获取并处理目的邮编
+        // 逻辑：取纯数字部分
+        const destinationRaw = row.dataset.destination || '';
+        const destZip = destinationRaw.replace(/\D/g, '');
+
+        // 3. 获取货物明细
+        // 逻辑：取托盘尺寸里面的值
+        const palletSizeInput = row.querySelector('.fleet-pallet-size-input');
+        const cargoDetails = palletSizeInput ? palletSizeInput.value.trim() : '';
+
+        // 4. 获取总重量 (用于分摊)
+        const totalWeight = row.dataset.weightLbs || '0';
+
+        // 填充模态框
+        document.getElementById('quote_origin_zip').value = originZip;
+        document.getElementById('quote_dest_zip').value = destZip;
+        // 默认今天
+        const today = new Date().toISOString().split('T')[0];
+        document.getElementById('quote_ship_date').value = today;
+        document.getElementById('quote_cargo_details').value = cargoDetails;
+        document.getElementById('quote_total_weight').value = totalWeight;
+        
+        // 清空之前的结果
+        document.getElementById('quote_result_area').style.display = 'none';
+        document.getElementById('quote_result_content').textContent = '';
+        document.getElementById('quote_error_msg').style.display = 'none';
+
+        // 显示模态框
+        const modalEl = document.getElementById('fleet_quoteModal');
+        const modal = new bootstrap.Modal(modalEl);
+        modal.show();
+    }
+
+    function fleet_submitQuote() {
+        const originZip = document.getElementById('quote_origin_zip').value.trim();
+        const destZip = document.getElementById('quote_dest_zip').value.trim();
+        const shipDate = document.getElementById('quote_ship_date').value;
+        const cargoDetails = document.getElementById('quote_cargo_details').value.trim();
+        const totalWeight = document.getElementById('quote_total_weight').value.trim();
+
+        if (!originZip || !destZip || !shipDate || !cargoDetails) {
+            alert('请填写所有必填字段');
+            return;
+        }
+
+        const btn = document.getElementById('btn_start_quote');
+        const originalText = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 询价中...';
+
+        // 准备FormData
+        const formData = new FormData();
+        formData.append('step', 'get_maersk_quote');
+        formData.append('origin_zip', originZip);
+        formData.append('dest_zip', destZip);
+        formData.append('ship_date', shipDate);
+        formData.append('cargo_details', cargoDetails);
+        formData.append('total_weight', totalWeight);
+        // 获取CSRF token
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+        formData.append('csrfmiddlewaretoken', csrfToken);
+
+        // 发送请求
+        fetch(window.location.href, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                document.getElementById('quote_result_area').style.display = 'block';
+                document.getElementById('quote_error_msg').style.display = 'none';
+                
+                // 格式化展示结果
+                const resultText = JSON.stringify(data.data, null, 2);
+                document.getElementById('quote_result_content').textContent = resultText;
+            } else {
+                document.getElementById('quote_result_area').style.display = 'none';
+                const errorDiv = document.getElementById('quote_error_msg');
+                errorDiv.style.display = 'block';
+                errorDiv.textContent = '询价失败: ' + (data.message || '未知错误');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            document.getElementById('quote_result_area').style.display = 'none';
+            const errorDiv = document.getElementById('quote_error_msg');
+            errorDiv.style.display = 'block';
+            errorDiv.textContent = '请求出错，请检查网络或重试';
+        })
+        .finally(() => {
+            btn.disabled = false;
+            btn.innerHTML = originalText;
+        });
+    }
 </script>
