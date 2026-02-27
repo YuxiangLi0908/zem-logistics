@@ -7625,7 +7625,7 @@ class Accounting(View):
                 invoice = Invoicev2.objects.filter(
                     container_number__container_number=order.container_number
                 ).order_by('-created_at').first()
-                invoice_statusv2 = InvoiceStatusv2.object.filter(
+                invoice_statusv2 = InvoiceStatusv2.objects.filter(
                     models.Q(invoice_type="payable") | models.Q(invoice_type="payable_direct"),
                     invoice_id=invoice.id,
                     preport_status='completed'
