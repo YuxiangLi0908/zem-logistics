@@ -517,11 +517,19 @@
                 if (activeTab === 'unscheduledFleet' && typeof initializeUnscheduledFleetSection === 'function') {
                     setTimeout(initializeUnscheduledFleetSection, 100);
                 }
-                if (activeTab === 'readyShip' && typeof initializeReadyShipSection === 'function') {
-                    setTimeout(initializeReadyShipSection, 100);
+                if (activeTab === 'readyShip') {
+                    if (typeof initializeReadyShipSection === 'function') {
+                        setTimeout(initializeReadyShipSection, 100);
+                    } else if (typeof initReadyShipSearch === 'function') {
+                        setTimeout(initReadyShipSearch, 100);
+                    }
                 }
-                if (activeTab === 'ready' && typeof initializeReadySection === 'function') {
-                    setTimeout(initializeReadySection, 100);
+                if (activeTab === 'ready') {
+                    if (typeof initializeDeliverySection === 'function') {
+                        setTimeout(initializeDeliverySection, 100);
+                    } else if (typeof initializeReadySection === 'function') {
+                        setTimeout(initializeReadySection, 100);
+                    }
                 }
                 if (activeTab === 'pod' && typeof initializePodSection === 'function') {
                     setTimeout(initializePodSection, 100);
@@ -568,9 +576,17 @@
                     }
                     if (tabName === 'readyShip' && typeof initializeReadyShipSection === 'function') {
                         setTimeout(initializeReadyShipSection, 50);
+                    } else if (tabName === 'readyShip' && typeof initReadyShipSearch === 'function') {
+                        // 如果旧的初始化函数不存在，尝试调用新的搜索初始化
+                        setTimeout(initReadyShipSearch, 50);
                     }
-                    if (tabName === 'ready' && typeof initializeReadySection === 'function') {
-                        setTimeout(initializeReadySection, 50);
+                    
+                    if (tabName === 'ready') {
+                        if (typeof initializeDeliverySection === 'function') {
+                            setTimeout(initializeDeliverySection, 50);
+                        } else if (typeof initializeReadySection === 'function') {
+                            setTimeout(initializeReadySection, 50);
+                        }
                     }
                     if (tabName === 'pod' && typeof initializePodSection === 'function') {
                         setTimeout(initializePodSection, 50);
