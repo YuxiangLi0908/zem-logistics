@@ -588,7 +588,7 @@ class PostNsop(View):
                             "length": int(item.get('length', 0)),
                             "width": int(item.get('width', 0)),
                             "height": int(item.get('height', 0)),
-                            "weight": float(item.get('weight', 0))
+                            "weight": int(float(item.get('weight', 0)))
                         })
                 except json.JSONDecodeError:
                     return JsonResponse({'success': False, 'message': '货物明细数据格式错误'}, status=400)
