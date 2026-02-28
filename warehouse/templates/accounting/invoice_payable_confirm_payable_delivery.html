@@ -273,15 +273,25 @@
             flex: 1;
             background: #fafbfc;
             max-height: 600px;
+            /* 新增：强制容器宽度占满父元素 */
+            width: 100%;
+            /* 新增：最小宽度固定，防止收缩 */
+            min-width: 100%;
+            /* 新增：盒模型约束，避免内边距影响宽度 */
+            box-sizing: border-box;
         }
 
         .table {
-            width: 100%;
+            width: 100% !important; /* 强制占满容器宽度，加!important防止被覆盖 */
             border-collapse: separate;
             border-spacing: 0;
             font-size: 14px;
             background: white;
             table-layout: fixed;
+            /* 新增：强制表格最小宽度等于容器，防止收缩 */
+            min-width: 100%;
+            /* 新增：禁止表格收缩 */
+            box-sizing: border-box;
         }
 
         .th {
@@ -2310,7 +2320,7 @@
             hiddenInput.value = reason;
         }
 
-        // 派送账单表格专用过滤函数（新增板数≥数值过滤）
+        // 派送账单表格专用过滤函数（新增板数≥数值过滤 + ISA列模糊搜索）
         function filterDeliveryTable(tableType, input) {
             const colIndex = input.dataset.columnIndex;
             const keyword = input.value.trim().toUpperCase();
@@ -2333,18 +2343,23 @@
 
                 const cell = row.querySelectorAll('td')[colIndex];
                 if (!cell) return;
-                const cellText = cell.textContent.trim();
+                const cellText = cell.textContent.trim().toUpperCase(); // 统一转大写，避免大小写问题
                 let isMatch = true;
 
-                // 核心新增：判断是否为板数列（index=7），做数值≥比较；其他列做文本包含匹配
-                if (colIndex === '7' && keyword) {
-                    // 板数列：转数字做 ≥ 比较
+                // ========== 核心修改：ISA列（index=4）做模糊搜索 ==========
+                if (colIndex === '4' && keyword) {
+                    // ISA列：纯模糊匹配（包含关键词即匹配）
+                    isMatch = cellText.includes(keyword);
+                }
+                // 板数列（index=7）：数值≥匹配
+                else if (colIndex === '7' && keyword) {
                     const cellNum = parseFloat(cellText) || 0;
                     const keywordNum = parseFloat(keyword) || 0;
                     isMatch = cellNum >= keywordNum;
-                } else if (keyword) {
-                    // 其他列：原文本包含匹配逻辑
-                    isMatch = cellText.toUpperCase().includes(keyword);
+                }
+                // 其他列：文本包含匹配（原有逻辑）
+                else if (keyword) {
+                    isMatch = cellText.includes(keyword);
                 }
 
                 row.style.display = isMatch ? '' : 'none';
@@ -2378,6 +2393,17 @@
                     delete mainRow.dataset.mergedHidden;
                 }
             });
+
+            // 过滤后强制重置表格宽度，防止收缩
+            table.style.width = '100%';
+            table.offsetHeight; // 触发重绘
+
+            // 同步全选状态（根据表格类型更新）
+            if (tableType === 'delivery-pending') {
+                updateDeliveryPendingSelectAllStatus();
+            } else if (tableType === 'delivery-confirm') {
+                updateDeliverySelectAllStatus();
+            }
         }
 
         // 待确认账单：过滤后更新全选状态+选中数量（仅作用于可见行）
