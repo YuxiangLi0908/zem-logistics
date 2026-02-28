@@ -266,32 +266,57 @@
             font-weight: 600;
         }
 
-        /* 表格样式 */
+        /* 核心修复：彻底锁定表格宽度，防止合并行导致的收缩 */
         .table-container {
-            overflow-x: auto;
-            overflow-y: auto;
-            flex: 1;
-            background: #fafbfc;
-            max-height: 600px;
-            /* 新增：强制容器宽度占满父元素 */
-            width: 100%;
-            /* 新增：最小宽度固定，防止收缩 */
-            min-width: 100%;
-            /* 新增：盒模型约束，避免内边距影响宽度 */
-            box-sizing: border-box;
+            overflow-x: auto !important;
+            width: 100% !important;
+            min-width: 100% !important;
+            box-sizing: border-box !important;
+            padding: 0 !important;
+            margin: 0 !important;
         }
 
+        /* 强制表格宽度占满容器，禁用自动列宽调整 */
         .table {
-            width: 100% !important; /* 强制占满容器宽度，加!important防止被覆盖 */
-            border-collapse: separate;
-            border-spacing: 0;
-            font-size: 14px;
-            background: white;
-            table-layout: fixed;
-            /* 新增：强制表格最小宽度等于容器，防止收缩 */
-            min-width: 100%;
-            /* 新增：禁止表格收缩 */
-            box-sizing: border-box;
+            width: 100% !important;
+            min-width: 100% !important;
+            table-layout: fixed !important; /* 关键：固定表格布局，避免列宽自动收缩 */
+            border-collapse: separate !important;
+            border-spacing: 0 !important;
+            box-sizing: border-box !important;
+        }
+
+        /* 给每一列设置最小宽度，防止收缩 */
+        .table th, .table td {
+            min-width: 100px !important; /* 根据你的列内容调整，比如ISA列可以设为120px */
+            width: auto !important;
+            box-sizing: border-box !important;
+            word-wrap: break-word !important; /* 内容过长时换行，不挤压列宽 */
+        }
+
+        /* 特殊列单独设置最小宽度 */
+        .export-checkbox-col {
+            min-width: 50px !important;
+            width: 50px !important;
+        }
+
+        .table th[data-column-index="1"], .table td:nth-child(2) { /* 车次列 */
+            min-width: 120px !important;
+        }
+
+        .table th[data-column-index="4"], .table td:nth-child(5) { /* ISA列 */
+            min-width: 120px !important;
+        }
+
+        .table th[data-column-index="5"], .table td:nth-child(6) { /* 柜号列 */
+            min-width: 120px !important;
+        }
+
+        /* 过滤后强制保持容器尺寸 */
+        .tab-content.active {
+            width: 100% !important;
+            min-width: 100% !important;
+            box-sizing: border-box !important;
         }
 
         .th {
