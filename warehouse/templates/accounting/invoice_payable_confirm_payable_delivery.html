@@ -266,126 +266,59 @@
             font-weight: 600;
         }
 
-        /* 核心修复：彻底锁定表格宽度，防止合并行导致的收缩 */
+        /* 彻底锁定表格容器宽度，禁止任何收缩/扩展 */
         .table-container {
-            overflow-x: auto !important;
             width: 100% !important;
             min-width: 100% !important;
+            max-width: 100% !important;
+            overflow-x: auto !important;
             box-sizing: border-box !important;
-            padding: 0 !important;
-            margin: 0 !important;
+            flex: none !important; /* 关键：取消flex自适应，固定宽度 */
+            position: relative !important;
+            transition: none !important;
         }
 
-        /* 强制表格宽度占满容器，禁用自动列宽调整 */
+        /* 强制表格宽度与容器完全一致，列宽由<th>的width属性决定 */
         .table {
             width: 100% !important;
             min-width: 100% !important;
-            table-layout: fixed !important; /* 关键：固定表格布局，避免列宽自动收缩 */
+            max-width: 100% !important; /* 改为100%，禁止超出/收缩 */
+            table-layout: fixed !important;
             border-collapse: separate !important;
             border-spacing: 0 !important;
             box-sizing: border-box !important;
+            transition: none !important;
+            table-layout: fixed !important;
         }
 
-        /* 给每一列设置最小宽度，防止收缩 */
-        .table th, .table td {
-            min-width: 100px !important; /* 根据你的列内容调整，比如ISA列可以设为120px */
-            width: auto !important;
+        /* 给表头<th>明确设置宽度，避免自动计算 */
+        .table th {
+            width: auto !important; /* 改为auto，配合fixed布局，由<th>的style宽度决定 */
+            min-width: 80px !important; /* 给每个表头设置最小宽度，防止收缩 */
             box-sizing: border-box !important;
-            word-wrap: break-word !important; /* 内容过长时换行，不挤压列宽 */
         }
 
-        /* 特殊列单独设置最小宽度 */
-        .export-checkbox-col {
-            min-width: 50px !important;
-            width: 50px !important;
+        /* 合并行单元格强制继承列宽，禁止干扰布局 */
+        .table td[rowspan], .table th[rowspan],
+        .table td[colspan], .table th[colspan] {
+            width: 100% !important; /* 改为100%，继承列宽 */
+            min-width: inherit !important;
+            max-width: inherit !important;
+            box-sizing: border-box !important;
+            white-space: nowrap !important; /* 禁止单元格内容换行导致宽度变化 */
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
         }
 
-        .table th[data-column-index="1"], .table td:nth-child(2) { /* 车次列 */
-            min-width: 120px !important;
-        }
-
-        .table th[data-column-index="4"], .table td:nth-child(5) { /* ISA列 */
-            min-width: 120px !important;
-        }
-
-        .table th[data-column-index="5"], .table td:nth-child(6) { /* 柜号列 */
-            min-width: 120px !important;
-        }
-
-        /* 过滤后强制保持容器尺寸 */
-        .tab-content.active {
+        /* 搜索行的输入框禁止影响列宽 */
+        .search-row input {
             width: 100% !important;
-            min-width: 100% !important;
+            min-width: 0 !important;
             box-sizing: border-box !important;
+            border: 1px solid #eee !important;
+            padding: 4px !important;
         }
 
-        .th {
-            background: linear-gradient(135deg, #f8f9fa, #e9ecef);
-            padding: 18px 14px 18px 20px;
-            text-align: center;
-            font-weight: 700;
-            border-bottom: 2px solid #dee2e6;
-            position: sticky;
-            top: 0;
-            z-index: 10;
-            color: var(--secondary-color);
-            font-size: 0.95rem;
-            border-right: 1px solid #e9ecef;
-            height: 50px;
-        }
-
-        .th:last-child {
-            border-right: none;
-        }
-
-        .td {
-            padding: 18px 14px 18px 20px;
-            border-bottom: 1px solid #f0f0f0;
-            vertical-align: middle;
-            transition: all 0.2s ease;
-            border-right: 1px solid #f5f5f5;
-            font-size: 14px;
-            height: 60px;
-            line-height: 1.5;
-            text-align: center;
-        }
-
-        .td:last-child {
-            border-right: none;
-        }
-
-        .table tbody tr {
-            transition: all 0.2s ease;
-            height: 60px;
-        }
-
-        .table tbody tr:hover {
-            background: linear-gradient(135deg, #f8f9fa, #f0f4f8);
-            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
-            transform: translateY(-1px);
-        }
-
-        /* 搜索行样式 */
-        .search-row .th {
-            background: #e9ecef;
-            position: sticky;
-            top: 50px;
-            z-index: 9;
-            padding: 4px 14px 4px 20px !important;
-            height: 30px;
-        }
-
-        .search-input {
-            width: 100%;
-            padding: 4px 8px;
-            border: 1px solid #ced4da;
-            border-radius: 4px;
-            font-size: 12px;
-            box-sizing: border-box;
-            transition: all 0.3s ease;
-            background: white;
-            height: 26px;
-        }
 
         .search-input:focus {
             outline: none;
@@ -958,34 +891,48 @@
                                         </thead>
                                         <tr class="search-row">
                                             <th class="th export-checkbox-col"></th>
-                                            <th class="th"><input type="text" class="search-input" data-column-index="1"
-                                                                  placeholder="搜索车次"
-                                                                  onkeyup="filterDeliveryTable('delivery-pending', this); updateDeliveryPendingSelectAllStatus()">
+                                            <th class="th">
+                                                <input type="text" class="search-input"
+                                                       data-column-index="1"
+                                                       placeholder="搜索车次"
+                                                       data-column-name="车次">
                                             </th>
-                                            <th class="th"><input type="text" class="search-input" data-column-index="2"
-                                                                  placeholder="搜索Carrier"
-                                                                  onkeyup="filterDeliveryTable('delivery-pending', this); updateDeliveryPendingSelectAllStatus()">
+                                            <th class="th">
+                                                <input type="text" class="search-input"
+                                                       data-column-index="2"
+                                                       placeholder="搜索Carrier"
+                                                       data-column-name="Carrier">
                                             </th>
-                                            <th class="th"><input type="text" class="search-input" data-column-index="3"
-                                                                  placeholder="搜索Pickup Number"
-                                                                  onkeyup="filterDeliveryTable('delivery-pending', this); updateDeliveryPendingSelectAllStatus()">
+                                            <th class="th">
+                                                <input type="text" class="search-input"
+                                                       data-column-index="3"
+                                                       placeholder="搜索Pickup Number"
+                                                       data-column-name="Pickup Number">
                                             </th>
-                                            <th class="th"><input type="text" class="search-input" data-column-index="4"
-                                                                  placeholder="搜索ISA"
-                                                                  onkeyup="filterDeliveryTable('delivery-pending', this); updateDeliveryPendingSelectAllStatus()">
+                                            <th class="th">
+                                                <input type="text" class="search-input"
+                                                       data-column-index="4"
+                                                       placeholder="搜索ISA"
+                                                       data-column-name="ISA"> <!-- 关键：添加列名 -->
                                             </th>
-                                            <th class="th"><input type="text" class="search-input" data-column-index="5"
-                                                                  placeholder="搜索柜号"
-                                                                  onkeyup="filterDeliveryTable('delivery-pending', this); updateDeliveryPendingSelectAllStatus()">
+                                            <th class="th">
+                                                <input type="text" class="search-input"
+                                                       data-column-index="5"
+                                                       placeholder="搜索柜号"
+                                                       data-column-name="柜号"> <!-- 关键：添加列名 -->
                                             </th>
-                                            <th class="th"><input type="text" class="search-input" data-column-index="6"
-                                                                  placeholder="搜索目的地"
-                                                                  onkeyup="filterDeliveryTable('delivery-pending', this); updateDeliveryPendingSelectAllStatus()">
+                                            <th class="th">
+                                                <input type="text" class="search-input"
+                                                       data-column-index="6"
+                                                       placeholder="搜索目的地"
+                                                       data-column-name="目的地"> <!-- 关键：添加列名 -->
                                             </th>
-                                            <th class="th"><input type="number" class="search-input"
-                                                                  data-column-index="7" min="0"
-                                                                  placeholder="板数≥"
-                                                                  onkeyup="filterDeliveryTable('delivery-pending', this); updateDeliveryPendingSelectAllStatus()">
+                                            <th class="th">
+                                                <input type="number" class="search-input"
+                                                       data-column-index="7"
+                                                       min="0"
+                                                       placeholder="板数≥"
+                                                       data-column-name="板数"> <!-- 关键：添加列名 -->
                                             </th>
                                             <th class="th"></th>
                                             <th class="th"></th>
@@ -1227,32 +1174,49 @@
                                         </thead>
                                         <tr class="search-row">
                                             <th class="th export-checkbox-col"></th>
-                                            <th class="th"><input type="text" class="search-input" data-column-index="1"
-                                                                  placeholder="搜索车次"
-                                                                  onkeyup="filterDeliveryTable('delivery-confirm', this)">
+                                            <th class="th">
+                                                <input type="text" class="search-input"
+                                                       data-column-index="1"
+                                                       placeholder="搜索车次"
+                                                       data-column-name="车次">
                                             </th>
-                                            <th class="th"><input type="text" class="search-input" data-column-index="2"
-                                                                  placeholder="搜索Carrier"
-                                                                  onkeyup="filterDeliveryTable('delivery-confirm', this)">
+                                            <th class="th">
+                                                <input type="text" class="search-input"
+                                                       data-column-index="2"
+                                                       placeholder="搜索Carrier"
+                                                       data-column-name="Carrier">
                                             </th>
-                                            <th class="th"><input type="text" class="search-input" data-column-index="3"
-                                                                  placeholder="搜索Pickup Number"
-                                                                  onkeyup="filterDeliveryTable('delivery-confirm', this)">
+                                            <th class="th">
+                                                <input type="text" class="search-input"
+                                                       data-column-index="3"
+                                                       placeholder="搜索Pickup Number"
+                                                       data-column-name="Pickup Number">
                                             </th>
-                                            <th class="th"><input type="text" class="search-input" data-column-index="4"
-                                                                  placeholder="搜索ISA"
-                                                                  onkeyup="filterDeliveryTable('delivery-confirm', this)">
+                                            <th class="th">
+                                                <input type="text" class="search-input"
+                                                       data-column-index="4"
+                                                       placeholder="搜索ISA"
+                                                       data-column-name="ISA"> <!-- 关键：添加列名 -->
                                             </th>
-                                            <th class="th"><input type="text" class="search-input" data-column-index="5"
-                                                                  placeholder="搜索柜号"
-                                                                  onkeyup="filterDeliveryTable('delivery-confirm', this)">
+                                            <th class="th">
+                                                <input type="text" class="search-input"
+                                                       data-column-index="5"
+                                                       placeholder="搜索柜号"
+                                                       data-column-name="柜号"> <!-- 关键：添加列名 -->
                                             </th>
-                                            <th class="th"><input type="text" class="search-input" data-column-index="6"
-                                                                  placeholder="搜索目的地"
-                                                                  onkeyup="filterDeliveryTable('delivery-confirm', this)">
+                                            <th class="th">
+                                                <input type="text" class="search-input"
+                                                       data-column-index="6"
+                                                       placeholder="搜索目的地"
+                                                       data-column-name="目的地"> <!-- 关键：添加列名 -->
                                             </th>
-                                            <th class="th"></th>
-                                            <th class="th"></th>
+                                            <th class="th">
+                                                <input type="number" class="search-input"
+                                                       data-column-index="7"
+                                                       min="0"
+                                                       placeholder="板数≥"
+                                                       data-column-name="板数"> <!-- 关键：添加列名 -->
+                                            </th>
                                             <th class="th"></th>
                                             <th class="th"></th>
                                             <th class="th"></th>
@@ -1358,1126 +1322,414 @@
     <!-- 引入字体图标（用于直达底部按钮） -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script>
-        // 页面初始化总入口（唯一的DOMContentLoaded事件，整合所有初始化逻辑）
+        // 页面加载完成后初始化
         document.addEventListener('DOMContentLoaded', function () {
-            // 1. 初始化费用计算
-            calculateAllFees();
+            // 初始化标签页切换
+            initTabs();
 
-            // 2. 初始化供应商列表显示（根据后端传的 supplier_type）
-            const supplierType = "{{ supplier_type|default:'pickup_carrier' }}";
-            const pickupList = document.getElementById("pickup_carrier_list");
-            const unloadList = document.getElementById("unload_carrier_list");
-            if (pickupList && unloadList) {
-                if (supplierType === "pickup_carrier") {
-                    pickupList.style.display = "inline-block";
-                    unloadList.style.display = "none";
-                } else {
-                    pickupList.style.display = "none";
-                    unloadList.style.display = "inline-block";
-                }
-            }
+            // 初始化全选功能
+            initSelectAll();
 
-            // 3. 初始化全选功能（包含待核销表格）
-            initSelectAllFunctions();
+            // 绑定所有搜索框事件（核心：替换内联事件）
+            bindSearchEvents();
 
-            // ========== 核心修复：主动激活派送账单主标签 + 强制显示子标签 ==========
-            // 3.1 强制激活派送账单主标签（添加active类）
-            const deliveryTab = document.querySelector('.content-tab[data-tab="delivery"]');
-            if (deliveryTab) {
-                // 先移除所有主标签的active类，再给派送账单添加
-                document.querySelectorAll('.content-tab').forEach(t => t.classList.remove('active'));
-                deliveryTab.classList.add('active');
+            // 初始化导出收集功能
+            initExportCollect();
 
-                // 3.2 强制显示派送账单主内容
-                document.querySelectorAll('.tab-content').forEach(content => {
-                    content.classList.remove('active');
-                });
-                const deliveryContent = document.getElementById('delivery-content');
-                if (deliveryContent) {
-                    deliveryContent.classList.add('active');
+            // 预加载所有组合行映射关系（一次加载，永久使用）
+            preloadCombinedRowsMap();
+        });
 
-                    // 3.3 强制激活第一个子标签（待确认）并显示其内容
-                    const firstSubTab = deliveryContent.querySelector('.sub-content-tab');
-                    if (firstSubTab) {
-                        // 先移除所有子标签的active类
-                        deliveryContent.querySelectorAll('.sub-content-tab').forEach(t => t.classList.remove('active'));
-                        firstSubTab.classList.add('active');
+        // 全局变量：存储每个行对应的组合行列表
+        let combinedRowsMap = {
+            'delivery-pending': new Map(), // 待确认账单：行元素 → 组合行数组
+            'delivery-confirm': new Map()  // 已确认账单：行元素 → 组合行数组
+        };
 
-                        // 强制显示第一个子标签的内容
-                        const firstSubTabName = firstSubTab.getAttribute('data-subtab');
-                        if (firstSubTabName) {
-                            deliveryContent.querySelectorAll('.tab-content').forEach(content => {
-                                content.classList.remove('active');
-                            });
-                            const firstSubContent = document.getElementById(firstSubTabName);
-                            if (firstSubContent) {
-                                firstSubContent.classList.add('active');
+        // ========== 核心：预加载组合行映射（解决子行关联主行问题） ==========
+        function preloadCombinedRowsMap() {
+            // 处理待确认账单
+            buildCombinedRowsMap('delivery-pending');
+            // 处理已确认账单
+            buildCombinedRowsMap('delivery-confirm');
+        }
 
-                                // 子标签显示后重新初始化相关功能
-                                setTimeout(() => {
-                                    calculateAllFees(firstSubTabName + '-table');
-                                    bindWriteOffCheckboxEvents();
-                                    initSingleWriteOff();
-                                    initDeliverySelectAll(); // 初始化派送账单全选
-                                    // 新增：初始化待确认派送账单全选功能
-                                    initDeliveryPendingSelectAll();
-                                }, 100);
-                            }
-                        }
-                    }
-                }
-            }
+        function buildCombinedRowsMap(tableType) {
+            const tabContent = document.getElementById(tableType);
+            if (!tabContent) return;
 
-            // ========== 保留原有的标签点击事件逻辑（用于手动切换） ==========
-            // 4. 主标签页切换逻辑（修复定位+稳定性）
-            const mainTabs = document.querySelectorAll('.content-tab');
-            mainTabs.forEach(tab => {
-                tab.addEventListener('click', function () {
-                    const tabName = this.getAttribute('data-tab');
-                    if (!tabName) return;
+            const table = tabContent.querySelector('.table');
+            const allRows = Array.from(table.querySelectorAll('tr')).filter(row =>
+                !row.querySelector('th') && !row.classList.contains('search-row')
+            );
 
-                    // 移除所有主标签激活状态
-                    mainTabs.forEach(t => t.classList.remove('active'));
-                    this.classList.add('active');
+            // 第一步：找出所有主行及其覆盖的行范围
+            const mainRowsInfo = [];
+            let currentRow = 0;
 
-                    // 切换主内容显示
-                    document.querySelectorAll('.tab-content').forEach(content => {
-                        content.classList.remove('active');
+            while (currentRow < allRows.length) {
+                const row = allRows[currentRow];
+                const rowspanCells = row.querySelectorAll('td[rowspan]');
+
+                if (rowspanCells.length > 0) {
+                    // 主行：获取最大rowspan值
+                    const maxRowspan = Math.max(...Array.from(rowspanCells).map(cell => parseInt(cell.getAttribute('rowspan')) || 1));
+                    // 记录主行覆盖的行范围
+                    mainRowsInfo.push({
+                        mainRowIndex: currentRow,
+                        start: currentRow,
+                        end: currentRow + maxRowspan - 1,
+                        rows: allRows.slice(currentRow, currentRow + maxRowspan)
                     });
-                    const targetMainContent = document.getElementById(tabName + '-content');
-                    if (targetMainContent) {
-                        targetMainContent.classList.add('active');
+                    // 跳过已覆盖的行
+                    currentRow += maxRowspan;
+                } else {
+                    // 非主行：单独作为一组
+                    mainRowsInfo.push({
+                        mainRowIndex: currentRow,
+                        start: currentRow,
+                        end: currentRow,
+                        rows: [row]
+                    });
+                    currentRow++;
+                }
+            }
 
-                        // 强制激活第一个子标签页
-                        const firstSubTab = targetMainContent.querySelector('.sub-content-tab');
-                        if (firstSubTab) {
-                            setTimeout(() => {
-                                targetMainContent.querySelectorAll('.sub-content-tab').forEach(t => t.classList.remove('active'));
-                                firstSubTab.classList.add('active');
-                                firstSubTab.click(); // 触发子标签点击
-                            }, 50);
-                        }
-                    }
+            // 第二步：为每个行建立映射（子行→主行的所有组合行）
+            const map = new Map();
+            mainRowsInfo.forEach(info => {
+                info.rows.forEach(row => {
+                    map.set(row, info.rows);
                 });
             });
 
-            // 5. 子标签页切换逻辑（重构+防错）
-            const subTabs = document.querySelectorAll('.sub-content-tab');
-            subTabs.forEach(tab => {
-                tab.addEventListener('click', function () {
-                    // 获取子标签容器，移除同级别激活状态
-                    const subTabContainer = this.closest('.sub-content-tabs');
-                    if (!subTabContainer) return;
-                    subTabContainer.querySelectorAll('.sub-content-tab').forEach(t => t.classList.remove('active'));
-                    this.classList.add('active');
+            // 保存映射
+            combinedRowsMap[tableType] = map;
+        }
 
-                    // 获取子内容ID，切换显示
-                    const subTabName = this.getAttribute('data-subtab');
-                    if (!subTabName) return;
-                    const parentContent = this.closest('.tab-content');
-                    if (parentContent) {
-                        parentContent.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
-                        const targetSubContent = document.getElementById(subTabName);
-                        if (targetSubContent) {
-                            targetSubContent.classList.add('active');
-                            // 切换后重新计算费用 + 重新绑定勾选事件
-                            setTimeout(() => {
-                                calculateAllFees(subTabName + '-table');
-                                bindWriteOffCheckboxEvents(); // 切换标签后重新绑定
-                                initSingleWriteOff(); // 重新绑定单个核销事件
-                            }, 100);
-                        }
-                    }
+        // ========== 核心修复：区分待确认/已确认的列索引映射 ==========
+        function filterCombinedRows(tableType, input) {
+            // 获取搜索列名和全局索引
+            const colName = input.dataset.columnName || '';
+            const globalColIndex = parseInt(input.dataset.columnIndex);
+            const keyword = input.value.trim().toLowerCase();
+            const tabContent = document.getElementById(tableType);
+
+            if (!tabContent || isNaN(globalColIndex)) return;
+
+            // 1. 获取所有数据行
+            const table = tabContent.querySelector('.table');
+            const allRows = Array.from(table.querySelectorAll('tr')).filter(row =>
+                !row.querySelector('th') && !row.classList.contains('search-row')
+            );
+
+            // 2. 无关键词：显示所有行 + 清理新增的空白列
+            if (keyword === '') {
+                allRows.forEach(row => {
+                    row.style.display = '';
+                    // 移除之前添加的空白单元格
+                    const addedCells = row.querySelectorAll('.added-empty-cell');
+                    addedCells.forEach(cell => cell.remove());
                 });
+                updateSelectAllStatus(tableType);
+                return;
+            }
+
+            // 3. 先隐藏所有行 + 清理空白列
+            allRows.forEach(row => {
+                row.style.display = 'none';
+                const addedCells = row.querySelectorAll('.added-empty-cell');
+                addedCells.forEach(cell => cell.remove());
             });
 
-            // 6. 表单控件样式优化
-            document.querySelectorAll('select, input[type="date"], input[type="text"], textarea').forEach(el => {
-                if (!el.classList.contains('form-control')) {
-                    el.classList.add('form-control', 'form-control-sm');
+            // 4. 区分待确认/已确认的列索引映射
+            // 定义列名映射：全局列名 → {main: 主行索引, sub: 子行索引}
+            const columnConfig = {
+                // 待确认账单（14列）
+                'delivery-pending': {
+                    '车次': {main: 1, sub: -1},
+                    'Carrier': {main: 2, sub: -1},
+                    'Pickup Number': {main: 3, sub: -1},
+                    'ISA': {main: 4, sub: 0},
+                    '柜号': {main: 5, sub: 1},
+                    '目的地': {main: 6, sub: 2},
+                    '板数': {main: 7, sub: 3},
+                    '价格': {main: 8, sub: 4}, // 修正：待确认价格是第8列（原代码写错为9）
+                    '单板成本': {main: 9, sub: 5} // 修正：待确认单板成本是第9列（原代码写错为10）
+                },
+                // 已确认账单（15列，多核销时间）
+                'delivery-confirm': {
+                    '车次': {main: 1, sub: -1},
+                    'Carrier': {main: 2, sub: -1},
+                    'Pickup Number': {main: 3, sub: -1},
+                    'ISA': {main: 4, sub: 0},
+                    '柜号': {main: 5, sub: 1},
+                    '目的地': {main: 6, sub: 2},
+                    '板数': {main: 7, sub: 3},
+                    '价格': {main: 8, sub: 4},
+                    '单板成本': {main: 9, sub: 5}
+                }
+            };
+
+            // 获取当前表格类型的列映射
+            const columnMap = columnConfig[tableType] || columnConfig['delivery-pending'];
+            // 获取当前表格主行列数（用于判断是否为主行）
+            const mainRowCellCount = tableType === 'delivery-pending' ? 14 : 15;
+
+            // 5. 找出所有匹配的行
+            const rowsToShow = new Set();
+            const map = combinedRowsMap[tableType];
+
+            allRows.forEach((row) => {
+                const cells = row.querySelectorAll('td');
+                const isMainRow = cells.length === mainRowCellCount; // 区分待确认/已确认主行
+                let cellValue = '';
+                let isMatch = false;
+
+                // 根据行类型匹配对应索引
+                if (isMainRow) {
+                    // 主行：用全局索引
+                    if (cells.length > globalColIndex) {
+                        cellValue = cells[globalColIndex].textContent.trim().toLowerCase();
+                        isMatch = cellValue.includes(keyword);
+                    }
+                } else {
+                    // 子行：用列名找子行本地索引
+                    const colConfig = columnMap[colName];
+                    if (colConfig && colConfig.sub !== -1 && cells.length > colConfig.sub) {
+                        cellValue = cells[colConfig.sub].textContent.trim().toLowerCase();
+                        isMatch = cellValue.includes(keyword);
+                    }
+                }
+
+                // 板数列特殊处理（≥ 匹配）
+                if (colName === '板数') {
+                    const numValue = parseFloat(cellValue) || 0;
+                    const keywordNum = parseFloat(keyword) || 0;
+                    isMatch = numValue >= keywordNum;
+                }
+
+                // 匹配成功则添加整个组合行
+                if (isMatch) {
+                    const combinedRows = map.get(row) || [row];
+                    combinedRows.forEach(r => {
+                        rowsToShow.add(r);
+                        // 给子行补充空白列（保持表格结构完整）
+                        const rCells = r.querySelectorAll('td');
+                        if (rCells.length !== mainRowCellCount) {
+                            // 补充前4列空白单元格（复选框、车次、Carrier、Pickup Number）
+                            // 1. 复选框列
+                            const checkboxCell = document.createElement('td');
+                            checkboxCell.className = 'td export-checkbox-col added-empty-cell';
+                            checkboxCell.style.verticalAlign = 'middle';
+                            checkboxCell.style.textAlign = 'center';
+                            r.insertBefore(checkboxCell, r.firstChild);
+
+                            // 2. 车次列
+                            const fleetCell = document.createElement('td');
+                            fleetCell.className = 'td added-empty-cell';
+                            fleetCell.style.verticalAlign = 'middle';
+                            r.insertBefore(fleetCell, r.children[1]);
+
+                            // 3. Carrier列
+                            const carrierCell = document.createElement('td');
+                            carrierCell.className = 'td added-empty-cell';
+                            carrierCell.style.verticalAlign = 'middle';
+                            r.insertBefore(carrierCell, r.children[2]);
+
+                            // 4. Pickup Number列
+                            const pickupCell = document.createElement('td');
+                            pickupCell.className = 'td added-empty-cell';
+                            pickupCell.style.verticalAlign = 'middle';
+                            r.insertBefore(pickupCell, r.children[3]);
+                        }
+                    });
                 }
             });
 
-            // 7. 初始化表格（包含导出功能的核心表格）
-            initTable("pick-confirmed-table");
-            // 初始化待核销表格
-            initTable("pick-t-waited-table");
-            initTable("pick-x-waited-table");
+            // 6. 显示匹配的组合行
+            rowsToShow.forEach(row => row.style.display = '');
 
-            // 8. 初始化核销勾选框事件（核心修复：独立函数，支持重复绑定）
-            bindWriteOffCheckboxEvents();
+            // 7. 更新全选状态
+            updateSelectAllStatus(tableType);
+        }
 
-            // 9. 初始化单个核销事件（提柜+卸柜都适配）
-            initSingleWriteOff();
+        // ========== 标签页切换初始化 ==========
+        function initTabs() {
+            // 主标签
+            document.querySelectorAll('.content-tab').forEach(tab => {
+                tab.addEventListener('click', function () {
+                    document.querySelectorAll('.content-tab').forEach(t => t.classList.remove('active'));
+                    this.classList.add('active');
+                    const tabName = this.dataset.tab;
+                    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                    document.getElementById(`${tabName}-content`).classList.add('active');
 
-            // 10. 暴露批量核销函数到全局
-            window.batchWriteOff = batchWriteOff;   // 提柜批量核销
-            window.batchWriteOffX = batchWriteOffX; // 卸柜批量核销
-            // 初始化派送账单全选功能（已整合到主标签激活逻辑中，这里可保留兜底）
-            initDeliverySelectAll();
-            // 新增：派送账单搜索框回车触发搜索
+                    // 激活第一个子标签
+                    const firstSubTab = document.querySelector(`#${tabName}-content .sub-content-tab`);
+                    if (firstSubTab) firstSubTab.click();
+                });
+            });
+
+            // 子标签
+            document.querySelectorAll('.sub-content-tab').forEach(tab => {
+                tab.addEventListener('click', function () {
+                    const parent = this.closest('.sub-content-tabs');
+                    parent.querySelectorAll('.sub-content-tab').forEach(t => t.classList.remove('active'));
+                    this.classList.add('active');
+                    const subTabName = this.dataset.subtab;
+                    const parentContent = this.closest('.tab-content');
+                    parentContent.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                    document.getElementById(subTabName).classList.add('active');
+
+                    // 切换标签后重新加载组合行映射
+                    setTimeout(() => {
+                        preloadCombinedRowsMap();
+                    }, 100);
+                });
+            });
+
+            // 默认激活派送账单标签
+            document.querySelector('.content-tab[data-tab="delivery"]').click();
+        }
+
+        // ========== 全选功能 ==========
+        function initSelectAll() {
+            // 待确认账单全选
+            bindSelectAll('delivery-pending-select-all', 'delivery-pending-select-all-header', 'delivery-pending-checkbox', 'delivery-pending');
+            // 已确认账单全选
+            bindSelectAll('delivery-select-all', 'delivery-select-all-header', 'delivery-export-checkbox', 'delivery-confirm');
+        }
+
+        function bindSelectAll(selectAllId, headerId, checkboxClass, tableType) {
+            const selectAll = document.getElementById(selectAllId);
+            const headerSelectAll = document.getElementById(headerId);
+            if (!selectAll || !headerSelectAll) return;
+
+            // 同步两个全选框
+            const syncCheckboxes = (checked) => {
+                const checkboxes = document.querySelectorAll(`.${checkboxClass}`);
+                checkboxes.forEach(checkbox => {
+                    const tr = checkbox.closest('tr');
+                    if (tr && tr.style.display !== 'none') {
+                        checkbox.checked = checked;
+                    }
+                });
+                updateSelectedCount(checkboxClass, tableType);
+            };
+
+            selectAll.addEventListener('click', function () {
+                headerSelectAll.checked = this.checked;
+                syncCheckboxes(this.checked);
+            });
+
+            headerSelectAll.addEventListener('click', function () {
+                selectAll.checked = this.checked;
+                syncCheckboxes(this.checked);
+            });
+
+            // 单个复选框变化
+            document.querySelectorAll(`.${checkboxClass}`).forEach(checkbox => {
+                checkbox.addEventListener('change', function () {
+                    updateSelectAllStatus(tableType);
+                });
+            });
+
+            updateSelectedCount(checkboxClass, tableType);
+        }
+
+        function updateSelectAllStatus(tableType) {
+            let checkboxClass, selectAllId, headerId;
+            if (tableType === 'delivery-pending') {
+                checkboxClass = 'delivery-pending-checkbox';
+                selectAllId = 'delivery-pending-select-all';
+                headerId = 'delivery-pending-select-all-header';
+            } else {
+                checkboxClass = 'delivery-export-checkbox';
+                selectAllId = 'delivery-select-all';
+                headerId = 'delivery-select-all-header';
+            }
+
+            const checkboxes = document.querySelectorAll(`.${checkboxClass}`);
+            let visibleCount = 0, checkedCount = 0;
+
+            checkboxes.forEach(checkbox => {
+                const tr = checkbox.closest('tr');
+                if (tr && tr.style.display !== 'none') {
+                    visibleCount++;
+                    if (checkbox.checked) checkedCount++;
+                }
+            });
+
+            const isAllChecked = visibleCount > 0 && checkedCount === visibleCount;
+            document.getElementById(selectAllId).checked = isAllChecked;
+            document.getElementById(headerId).checked = isAllChecked;
+            updateSelectedCount(checkboxClass, tableType);
+        }
+
+        function updateSelectedCount(checkboxClass, tableType) {
+            const count = document.querySelectorAll(`.${checkboxClass}:checked`).length;
+            const countId = tableType === 'delivery-pending' ? 'delivery-pending-selected-count' : 'delivery-selected-count';
+            document.getElementById(countId).textContent = `已选：${count} 条`;
+        }
+
+        // ========== 绑定搜索框事件 ==========
+        function bindSearchEvents() {
             document.querySelectorAll('.search-input').forEach(input => {
+                // 移除原有内联事件
+                input.removeAttribute('onkeyup');
+
+                // 绑定输入/回车事件
+                input.addEventListener('input', function () {
+                    const tableType = this.closest('.tab-content').id;
+                    filterCombinedRows(tableType, this);
+                });
+
                 input.addEventListener('keydown', function (e) {
                     if (e.key === 'Enter') {
-                        const tableType = this.closest('.tab-content').id; // 获取当前标签页ID
-                        if (tableType === 'delivery-pending' || tableType === 'delivery-confirm') {
-                            filterDeliveryTable(tableType, this);
-                            // 同步对应全选状态
-                            tableType === 'delivery-pending'
-                                ? updateDeliveryPendingSelectAllStatus()
-                                : updateDeliverySelectAllStatus();
-                        }
+                        const tableType = this.closest('.tab-content').id;
+                        filterCombinedRows(tableType, this);
                     }
                 });
             });
-        });
-
-        // 初始化派送账单全选功能
-
-        // 重写待确认账单全选点击逻辑（仅勾选可见行）
-        function initDeliveryPendingSelectAll() {
-            const pendingSelectAll = document.getElementById('delivery-pending-select-all');
-            const pendingSelectAllHeader = document.getElementById('delivery-pending-select-all-header');
-            const pendingCheckboxes = document.querySelectorAll('.delivery-pending-checkbox');
-
-            // 同步两个全选框状态 + 仅勾选可见行
-            if (pendingSelectAll && pendingSelectAllHeader) {
-                pendingSelectAll.addEventListener('click', function () {
-                    pendingSelectAllHeader.checked = this.checked;
-                    pendingCheckboxes.forEach(checkbox => {
-                        const tr = checkbox.closest('tr');
-                        // 仅操作可见、非合并子行的复选框
-                        if (tr && tr.style.display !== 'none' && !tr.dataset.mergedHidden) {
-                            checkbox.checked = this.checked;
-                        }
-                    });
-                    updateDeliveryPendingSelectedCount();
-                });
-
-                pendingSelectAllHeader.addEventListener('click', function () {
-                    pendingSelectAll.checked = this.checked;
-                    pendingCheckboxes.forEach(checkbox => {
-                        const tr = checkbox.closest('tr');
-                        if (tr && tr.style.display !== 'none' && !tr.dataset.mergedHidden) {
-                            checkbox.checked = this.checked;
-                        }
-                    });
-                    updateDeliveryPendingSelectedCount();
-                });
-            }
-
-            // 单个复选框变化：仅统计可见行
-            pendingCheckboxes.forEach(checkbox => {
-                checkbox.addEventListener('change', function () {
-                    updateDeliveryPendingSelectAllStatus(); // 替换为新的状态同步
-                });
-            });
-
-            updateDeliveryPendingSelectedCount();
         }
 
-        // 重写已确认账单全选点击逻辑（仅勾选可见行）
-        function initDeliverySelectAll() {
-            const deliverySelectAll = document.getElementById('delivery-select-all');
-            const deliverySelectAllHeader = document.getElementById('delivery-select-all-header');
-            const deliveryCheckboxes = document.querySelectorAll('.delivery-export-checkbox');
-
-            // 同步两个全选框状态 + 仅勾选可见行
-            if (deliverySelectAll && deliverySelectAllHeader) {
-                deliverySelectAll.addEventListener('click', function () {
-                    deliverySelectAllHeader.checked = this.checked;
-                    deliveryCheckboxes.forEach(checkbox => {
-                        const tr = checkbox.closest('tr');
-                        if (tr && tr.style.display !== 'none' && !tr.dataset.mergedHidden) {
-                            checkbox.checked = this.checked;
-                        }
-                    });
-                    updateDeliverySelectedCount();
-                });
-
-                deliverySelectAllHeader.addEventListener('click', function () {
-                    deliverySelectAll.checked = this.checked;
-                    deliveryCheckboxes.forEach(checkbox => {
-                        const tr = checkbox.closest('tr');
-                        if (tr && tr.style.display !== 'none' && !tr.dataset.mergedHidden) {
-                            checkbox.checked = this.checked;
-                        }
-                    });
-                    updateDeliverySelectedCount();
-                });
-            }
-
-            // 单个复选框变化：仅统计可见行
-            deliveryCheckboxes.forEach(checkbox => {
-                checkbox.addEventListener('change', function () {
-                    updateDeliverySelectAllStatus(); // 替换为新的状态同步
-                });
-            });
-
-            updateDeliverySelectedCount();
-        }
-
-        // 更新待确认派送账单选中数量
-        function updateDeliveryPendingSelectedCount() {
-            const checkboxes = document.querySelectorAll('.delivery-pending-checkbox:checked');
-            const countElement = document.getElementById('delivery-pending-selected-count');
-            if (countElement) {
-                countElement.textContent = `已选：${checkboxes.length} 条`;
-            }
-        }
-
-        // 待确认派送账单 - 收集选中的fleet_number（优化后）
-        function collectSelectedPendingFleetIds() {
-            const checkedCheckboxes = document.querySelectorAll('.delivery-pending-checkbox:checked');
-            const fleetNumbers = new Set(); // Set自动去重
-
-            // 1. 过滤空值，收集有效车次编号
-            checkedCheckboxes.forEach(checkbox => {
-                const fleetNum = (checkbox.getAttribute('data-fleet-id') || '').trim();
-                if (fleetNum) { // 仅收集非空的有效车次
-                    fleetNumbers.add(fleetNum);
-                }
-            });
-
-            // 2. 校验：无有效车次直接提示
-            if (fleetNumbers.size === 0) {
-                alert('请勾选包含有效车次编号的记录后再导出！');
-                return false;
-            }
-
-            // 3. 赋值给隐藏字段（逗号分隔，后端可直接分割）
-            document.getElementById('selected_pending_fleet_ids').value = Array.from(fleetNumbers).join(',');
-            return true;
-        }
-
-        // 更新派送账单选中数量
-        function updateDeliverySelectedCount() {
-            const checkboxes = document.querySelectorAll('.delivery-export-checkbox:checked');
-            const countElement = document.getElementById('delivery-selected-count');
-            if (countElement) {
-                countElement.textContent = `已选：${checkboxes.length} 条`;
-            }
-        }
-
-        // 已确认派送账单 - 收集选中的fleet_number（优化后，移除冗余全选判断）
-        function collectSelectedFleetIds() {
-            const checkedCheckboxes = document.querySelectorAll('.delivery-export-checkbox:checked');
-            console.log('当前勾选的复选框数量：', checkedCheckboxes.length); // 调试日志1
-            const fleetNumbers = new Set(); // Set自动去重
-
-            // 1. 过滤空值，收集有效车次编号
-            checkedCheckboxes.forEach(checkbox => {
-                const fleetNum = (checkbox.getAttribute('data-fleet-id') || '').trim();
-                if (fleetNum) { // 仅收集非空的有效车次
-                    fleetNumbers.add(fleetNum);
-                }
-            });
-            console.log('最终收集的有效车次编号：', Array.from(fleetNumbers));
-
-            // 2. 校验：无有效车次直接提示
-            if (fleetNumbers.size === 0) {
-                alert('请勾选包含有效车次编号的记录后再导出！');
-                return false;
-            }
-
-            // 3. 赋值给隐藏字段（逗号分隔，后端可直接分割）
-            document.getElementById('selected_fleet_ids').value = Array.from(fleetNumbers).join(',');
-            return true;
-        }
-
-        // ===================== 核心修复：核销勾选框事件绑定（独立函数） =====================
-        function bindWriteOffCheckboxEvents() {
-            // 移除旧事件（避免重复绑定）
-            const allCheckboxes = document.querySelectorAll('.pick-t-writeoff, .pick-x-writeoff');
-            allCheckboxes.forEach(checkbox => {
-                // 重置事件监听（简单方案：克隆节点替换）
-                const newCheckbox = checkbox.cloneNode(true);
-                checkbox.parentNode.replaceChild(newCheckbox, checkbox);
-            });
-
-            // 重新绑定提柜待核销勾选框
-            const pickTCheckboxes = document.querySelectorAll('.pick-t-writeoff');
-            pickTCheckboxes.forEach(checkbox => {
-                checkbox.addEventListener('change', function () {
-                    updateSelectedCount('pick-t');
-                    // 同步全选状态
-                    updateSelectAllStatusFiltered('pick-confirmed-select-all', 'pick-t-writeoff', 'pick-t-waited-table');
-                });
-            });
-
-            // 重新绑定卸柜待核销勾选框
-            const pickXCheckboxes = document.querySelectorAll('.pick-x-writeoff');
-            pickXCheckboxes.forEach(checkbox => {
-                checkbox.addEventListener('change', function () {
-                    updateSelectedCount('pick-x');
-                    // 同步全选状态
-                    updateSelectAllStatusFiltered('pick-x-select-all', 'pick-x-writeoff', 'pick-x-waited-table');
-                });
-            });
-
-            // 初始化选中数量
-            updateSelectedCount('pick-t');
-            updateSelectedCount('pick-x');
-        }
-
-        // ===================== 核心功能函数：全选（新增过滤表格的全选逻辑） =====================
-        function initSelectAllFunctions() {
-            // 待确认表格全选
-            const pickSelectAll = document.getElementById('pick-select-all');
-            if (pickSelectAll) {
-                pickSelectAll.addEventListener('click', function () {
-                    toggleSelectAll('pick-select-all', 'pick-orders');
-                });
-                updateSelectAllStatus('pick-select-all', 'pick-orders');
-            }
-
-            // 已确认表格全选（导出功能依赖）
-            const pickConfirmSelectAll = document.getElementById('pick-confirm-select-all');
-            if (pickConfirmSelectAll) {
-                pickConfirmSelectAll.addEventListener('click', function () {
-                    toggleSelectAll('pick-confirm-select-all', 'export-record-checkbox');
-                });
-                updateSelectAllStatus('pick-confirm-select-all', 'export-record-checkbox');
-            }
-
-            // 提柜待核销全选（核心新增）
-            const pickTSelectAll = document.getElementById('pick-confirmed-select-all');
-            if (pickTSelectAll) {
-                pickTSelectAll.addEventListener('click', function () {
-                    toggleSelectAllFiltered('pick-confirmed-select-all', 'pick-t-writeoff', 'pick-t-waited-table');
-                });
-                updateSelectAllStatusFiltered('pick-confirmed-select-all', 'pick-t-writeoff', 'pick-t-waited-table');
-            }
-
-            // 卸柜待核销全选（核心新增）
-            const pickXSelectAll = document.getElementById('pick-x-select-all');
-            if (pickXSelectAll) {
-                pickXSelectAll.addEventListener('click', function () {
-                    toggleSelectAllFiltered('pick-x-select-all', 'pick-x-writeoff', 'pick-x-waited-table');
-                });
-                updateSelectAllStatusFiltered('pick-x-select-all', 'pick-x-writeoff', 'pick-x-waited-table');
-            }
-        }
-
-        // 适配表格过滤的全选函数（核心修复）
-        function toggleSelectAllFiltered(selectAllId, checkboxClass, tableId) {
-            const selectAll = document.getElementById(selectAllId);
-            if (!selectAll) return;
-
-            const table = document.getElementById(tableId);
-            if (!table) return;
-
-            const checkboxes = table.querySelectorAll('.' + checkboxClass);
-            let visibleCount = 0;
-            let checkedVisibleCount = 0;
-
-            // 仅操作可见行的复选框
-            checkboxes.forEach(checkbox => {
-                const tr = checkbox.closest('tr');
-                if (tr && tr.style.display !== 'none') {
-                    visibleCount++;
-                    checkbox.checked = selectAll.checked;
-                    if (checkbox.checked) checkedVisibleCount++;
-                }
-            });
-
-            // 更新选中数量
-            if (checkboxClass === 'pick-t-writeoff') {
-                updateSelectedCount('pick-t');
-            } else if (checkboxClass === 'pick-x-writeoff') {
-                updateSelectedCount('pick-x');
-            }
-        }
-
-        // 适配表格过滤的全选状态更新（核心修复）
-        function updateSelectAllStatusFiltered(selectAllId, checkboxClass, tableId) {
-            const selectAll = document.getElementById(selectAllId);
-            if (!selectAll) return;
-
-            const table = document.getElementById(tableId);
-            if (!table) return;
-
-            const checkboxes = table.querySelectorAll('.' + checkboxClass);
-            let visibleCount = 0;
-            let checkedVisibleCount = 0;
-
-            checkboxes.forEach(checkbox => {
-                const tr = checkbox.closest('tr');
-                if (tr && tr.style.display !== 'none') {
-                    visibleCount++;
-                    if (checkbox.checked) checkedVisibleCount++;
-                }
-            });
-
-            // 更新全选框状态
-            selectAll.checked = (visibleCount > 0 && checkedVisibleCount === visibleCount);
-        }
-
-        function toggleSelectAll(selectAllId, checkboxClass) {
-            const selectAll = document.getElementById(selectAllId);
-            if (!selectAll) return;
-
-            const checkboxes = document.getElementsByClassName(checkboxClass);
-            let visibleCount = 0;
-            let checkedVisibleCount = 0;
-
-            // 仅操作可见行的复选框
-            for (let checkbox of checkboxes) {
-                const tr = checkbox.closest('tr');
-                if (tr && tr.style.display !== 'none') {
-                    visibleCount++;
-                    checkbox.checked = selectAll.checked;
-                    if (checkbox.checked) checkedVisibleCount++;
-                }
-            }
-
-            // 监听单个复选框变化，同步全选状态
-            for (let checkbox of checkboxes) {
-                checkbox.addEventListener('change', function () {
-                    updateSelectAllStatus(selectAllId, checkboxClass);
-                });
-            }
-        }
-
-        function updateSelectAllStatus(selectAllId, checkboxClass) {
-            const selectAll = document.getElementById(selectAllId);
-            if (!selectAll) return;
-
-            const checkboxes = document.getElementsByClassName(checkboxClass);
-            let visibleCount = 0;
-            let checkedVisibleCount = 0;
-
-            for (let checkbox of checkboxes) {
-                const tr = checkbox.closest('tr');
-                if (tr && tr.style.display !== 'none') {
-                    visibleCount++;
-                    if (checkbox.checked) checkedVisibleCount++;
-                }
-            }
-
-            selectAll.checked = (visibleCount > 0 && checkedVisibleCount === visibleCount);
-        }
-
-        // ===================== 核心功能函数：费用计算 =====================
-        function calculateAllFees(tableId) {
-            // 1. 计算单元格内的费用合计（其他费用/总费用）
-            document.querySelectorAll('.td_fee_other, .td_fee_total').forEach(cell => {
-                const feesStr = cell.getAttribute('data-fees') || '';
-                const fees = feesStr
-                    .split(',')
-                    .filter(fee => fee.trim() !== '' && !isNaN(fee.trim()))
-                    .map(fee => Number(fee.trim()));
-
-                const total = fees.reduce((sum, fee) => sum + (isNaN(fee) ? 0 : fee), 0);
-                const totalElement = cell.querySelector('.total-amount');
-                if (totalElement) {
-                    totalElement.textContent = `$${total.toFixed(2)}`;
-                }
-            });
-
-            // 2. 处理重复的费用span显示
-            document.querySelectorAll('.td_fee').forEach(cell => {
-                const spans = cell.querySelectorAll('.pickup-fee-amount, .unpickup-fee-amount');
-                if (spans.length > 1) {
-                    spans.forEach((span, index) => {
-                        span.style.display = index === spans.length - 1 ? 'inline-block' : 'none';
-                    });
-                }
-            });
-
-            // 3. 按表格ID计算显示行的总费用
-            if (tableId) {
-                const table = document.getElementById(tableId);
-                if (!table) return;
-
-                let totalFee = 0;
-                const tr = table.getElementsByTagName("tr");
-                for (let i = 2; i < tr.length; i++) {
-                    if (tr[i].style.display !== "none") {
-                        const tdList = tr[i].getElementsByTagName("td");
-                        const feeText = tdList[13]?.textContent || "0"; // 总费用列索引修正
-                        const fee = parseFloat(feeText.replace(/[^0-9.]/g, "")) || 0;
-                        totalFee += fee;
-                    }
-                }
-
-                const totalElement = document.getElementById(`total-fee-${tableId}`);
-                if (totalElement) {
-                    totalElement.textContent = `$${totalFee.toFixed(2)}`;
-                }
-            }
-        }
-
-        // ===================== 核心功能函数：表格过滤 =====================
-        function filterTable(tableId, columnIndex) {
-            const table = document.getElementById(tableId);
-            if (!table) return;
-
-            const inputEvent = event || window.event;
-            let inputValue = inputEvent.target.value.trim();
-            const searchTerms = inputValue.split(/\s+/).filter(term => term.length > 0);
-            const tr = table.getElementsByTagName("tr");
-
-            // 过滤数据行（跳过表头/搜索行）
-            for (let i = 2; i < tr.length; i++) {
-                let found = false;
-                const td = tr[i].getElementsByTagName("td");
-
-                if (td[columnIndex]) {
-                    const cellText = td[columnIndex].textContent.toUpperCase();
-                    if (searchTerms.length === 0) {
-                        found = true;
-                    } else {
-                        found = searchTerms.some(term => cellText.includes(term.toUpperCase()));
-                    }
-                }
-
-                tr[i].style.display = found ? "" : "none";
-            }
-
-            // 过滤后重新计算费用+同步全选状态
-            calculateAllFees(tableId);
-            if (tableId === 'pick-pending-table') {
-                updateSelectAllStatus('pick-select-all', 'pick-orders');
-            } else if (tableId === 'pick-confirmed-table') {
-                updateSelectAllStatus('pick-confirm-select-all', 'export-record-checkbox');
-            } else if (tableId === 'pick-t-waited-table') {
-                updateSelectAllStatusFiltered('pick-confirmed-select-all', 'pick-t-writeoff', 'pick-t-waited-table');
-                updateSelectedCount('pick-t');
-            } else if (tableId === 'pick-x-waited-table') {
-                updateSelectAllStatusFiltered('pick-x-select-all', 'pick-x-writeoff', 'pick-x-waited-table');
-                updateSelectedCount('pick-x');
-            }
-        }
-
-        // ===================== 核心功能函数：表格初始化（含导出依赖） =====================
-        function initTable(tableId) {
-            const table = document.getElementById(tableId);
-            if (!table) return;
-
-            // 初始化表格总费用
-            calculateAllFees(tableId);
-
-            // 搜索框回车事件
-            const searchInputs = table.parentNode.querySelectorAll(".search-input");
-            searchInputs.forEach(input => {
-                input.addEventListener("keydown", function (e) {
-                    if (e.key === "Enter") {
-                        const colIndex = this.dataset.columnIndex || this.getAttribute('data-column-index');
-                        if (colIndex) filterTable(tableId, colIndex);
-                    }
-                });
-            });
-
-            // 重置过滤按钮
-            const resetBtn = table.parentNode.querySelector(".reset-filter");
-            if (resetBtn) {
-                resetBtn.addEventListener("click", function () {
-                    searchInputs.forEach(input => input.value = "");
-                    const tr = table.getElementsByTagName("tr");
-                    for (let i = 2; i < tr.length; i++) {
-                        tr[i].style.display = "";
-                    }
-                    calculateAllFees(tableId);
-                });
-            }
-        }
-
-        // ===================== 核心功能函数：导出勾选记录（完整保留） =====================
-        function collectSelectedContainers() {
-            // 1. 校验是否勾选记录
-            const checkboxes = document.querySelectorAll('.export-record-checkbox:checked');
-            if (checkboxes.length === 0) {
-                alert('请至少勾选一个集装箱！');
-                return false;
-            }
-
-            // 2. 收集勾选的集装箱ID
-            const selectedIds = [];
-            checkboxes.forEach(checkbox => {
-                selectedIds.push(checkbox.value);
-            });
-
-            // 3. 填充到隐藏字段（导出接口依赖）
-            const hiddenInput = document.getElementById('selected_container_ids');
-            if (hiddenInput) {
-                hiddenInput.value = JSON.stringify(selectedIds);
-            }
-
-            // 4. 填充供应商筛选条件
-            const supplierType = document.getElementById('supplier_type')?.value;
-            const exportSupplierTypeInput = document.getElementById('export_supplier_type');
-            if (supplierType && exportSupplierTypeInput) {
-                exportSupplierTypeInput.value = supplierType;
-            }
-
-            const carrierSelect = supplierType === 'pickup_carrier'
-                ? document.getElementById('pickup_carrier_list')
-                : document.getElementById('unload_carrier_list');
-            const exportCarrierInput = document.getElementById('export_carrier');
-            if (carrierSelect && exportCarrierInput) {
-                exportCarrierInput.value = carrierSelect.value;
-            }
-
-            return true;
-        }
-
-        // ===================== 辅助功能函数：供应商切换 =====================
-        function switchCarrierList() {
-            const type = document.getElementById('supplier_type')?.value;
-            const pickupList = document.getElementById("pickup_carrier_list");
-            const unloadList = document.getElementById("unload_carrier_list");
-
-            if (!type || !pickupList || !unloadList) return;
-
-            if (type === "pickup_carrier") {
-                pickupList.style.display = "inline-block";
-                unloadList.style.display = "none";
-            } else {
-                pickupList.style.display = "none";
-                unloadList.style.display = "inline-block";
-            }
-        }
-
-        // ===================== 辅助功能函数：核销相关（修复更新逻辑） =====================
-        function updateSelectedCount(type) {
-            // 直接执行更新，不再返回函数（修复事件绑定问题）
-            const checkboxes = document.querySelectorAll(`.${type}-writeoff:checked`);
-            const countElement = document.getElementById(`${type}-selected-count`);
-            if (countElement) {
-                countElement.textContent = `已选：${checkboxes.length} 条`;
-            }
-        }
-
-        // ===================== 单个核销函数（适配提柜+卸柜） =====================
-        function initSingleWriteOff() {
-            // 先移除旧的事件绑定（避免重复）
-            document.querySelectorAll('.single-writeoff-form').forEach(form => {
-                const newForm = form.cloneNode(true);
-                form.parentNode.replaceChild(newForm, form);
-            });
-
-            // 只给核销金额的表单绑定校验逻辑（.single-writeoff-form）
-            const singleWriteOffForms = document.querySelectorAll('.single-writeoff-form');
-            singleWriteOffForms.forEach(form => {
-                form.addEventListener('submit', function (e) {
-                    // 1. 阻止默认提交，先做校验
+        // ========== 导出收集选中的车次ID ==========
+        function initExportCollect() {
+            // 待确认导出
+            document.getElementById('delivery-pending-export-form').addEventListener('submit', function (e) {
+                const checked = document.querySelectorAll('.delivery-pending-checkbox:checked');
+                const fleetIds = Array.from(checked).map(c => c.dataset.fleetId).filter(id => id);
+                if (fleetIds.length === 0) {
+                    alert('请勾选至少一条记录！');
                     e.preventDefault();
-
-                    // 2. 获取当前表单对应的container_id和核销金额输入框
-                    const containerId = this.querySelector('input[name="container_id"]').value;
-                    const amountInput = document.querySelector(`.write-off-amount[data-container-id="${containerId}"]`);
-
-                    // 3. 校验金额输入框是否存在
-                    if (!amountInput) {
-                        alert('未找到对应的核销金额输入框！');
-                        return;
-                    }
-
-                    // 4. 校验金额有效性
-                    const writeOffAmount = parseFloat(amountInput.value) || 0;
-                    if (writeOffAmount <= 0) {
-                        alert('请输入有效的核销金额（大于0）！');
-                        amountInput.focus(); // 聚焦到输入框，方便用户修改
-                        return;
-                    }
-
-                    // 5. 给表单添加核销金额的隐藏字段（因为输入框不在表单内，需要手动传）
-                    let amountField = this.querySelector('input[name="write_off_amount"]');
-                    if (!amountField) {
-                        amountField = document.createElement('input');
-                        amountField.type = 'hidden';
-                        amountField.name = 'write_off_amount';
-                        this.appendChild(amountField);
-                    }
-                    amountField.value = writeOffAmount;
-
-                    // 6. 确认提交（可选：增加确认提示）
-                    if (confirm(`确认核销柜号ID【${containerId}】的金额：$${writeOffAmount.toFixed(2)}？`)) {
-                        this.submit(); // 提交表单
-                    }
-                });
-            });
-
-            // 给备注表单单独绑定逻辑（修复：直接通过表单相邻元素查找输入框）
-            const noteSubmitForms = document.querySelectorAll('.note-submit-form');
-            noteSubmitForms.forEach(form => {
-                form.addEventListener('submit', function (e) {
-                    // 1. 阻止默认提交
-                    e.preventDefault();
-
-                    // 2. 修复：不再通过data-container-id查找，直接找当前行的备注输入框
-                    // 找到当前表单所在的单元格，然后找前面的备注输入框
-                    const tdElement = this.closest('td');
-                    if (!tdElement) {
-                        alert('无法定位到备注输入框！');
-                        return;
-                    }
-
-                    // 直接查找当前单元格内的备注输入框（最可靠的方式）
-                    let noteInput = tdElement.querySelector('.write-off-amount-note');
-                    if (!noteInput) {
-                        // 备用方案：查找上一个兄弟td中的输入框
-                        const prevTd = tdElement.previousElementSibling;
-                        if (prevTd) {
-                            noteInput = prevTd.querySelector('.write-off-amount-note');
-                        }
-                    }
-
-                    // 3. 校验输入框是否存在
-                    if (!noteInput) {
-                        alert('未找到备注输入框，请刷新页面重试！');
-                        return;
-                    }
-
-                    // 4. 校验备注内容
-                    const noteText = noteInput.value.trim();
-                    if (!noteText) {
-                        alert('请输入备注内容！');
-                        noteInput.focus();
-                        return;
-                    }
-
-                    // 5. 添加备注到表单隐藏字段
-                    let noteField = this.querySelector('input[name="note"]');
-                    if (!noteField) {
-                        noteField = document.createElement('input');
-                        noteField.type = 'hidden';
-                        noteField.name = 'note';
-                        this.appendChild(noteField);
-                    }
-                    noteField.value = noteText;
-
-                    // 6. 提交表单
-                    this.submit();
-                });
-            });
-        }
-
-        // ===================== 批量核销函数 - 提柜（pick-t） =====================
-        function batchWriteOff(type) {
-            const batchAmountInput = document.getElementById(`${type}-batch-amount`);
-            if (!batchAmountInput) {
-                console.error('批量核销金额输入框不存在：', `${type}-batch-amount`);
-                return;
-            }
-
-            const batchAmount = parseFloat(batchAmountInput.value) || 0;
-            if (batchAmount <= 0) {
-                alert('请输入有效的核销金额！');
-                return;
-            }
-
-            // 1. 获取勾选的复选框
-            const checkboxes = document.querySelectorAll(`.${type}-writeoff:checked`);
-            if (checkboxes.length === 0) {
-                alert('请至少勾选一条记录！');
-                return;
-            }
-
-            // 2. 批量填写金额到输入框（保留原有逻辑）
-            checkboxes.forEach(checkbox => {
-                const containerId = checkbox.getAttribute('data-container-id');
-                const amountInput = document.querySelector(`.write-off-amount[data-container-id="${containerId}"]`);
-                if (amountInput) {
-                    amountInput.value = batchAmount;
-                }
-            });
-
-            // 3. 收集container_number_id（替换itemv2_id，过滤空值）
-            const containerIds = [];
-            const emptyIdIndexes = [];
-            checkboxes.forEach((checkbox, index) => {
-                // 核心：获取data-container-id（即container_number_id）
-                const containerId = checkbox.getAttribute('data-container-id')?.trim() || '';
-                console.log(`勾选框${index + 1}的container_number_id：`, containerId);
-                if (containerId) {
-                    containerIds.push(containerId);
-                } else {
-                    emptyIdIndexes.push(index + 1);
-                    console.warn(`勾选框${index + 1}的data-container-id为空`);
-                }
-            });
-
-            // 提示空ID（保留原有逻辑）
-            if (emptyIdIndexes.length > 0) {
-                const confirmContinue = confirm(`注意：勾选框${emptyIdIndexes.join(',')}无有效集装箱ID，是否继续处理其他记录？`);
-                if (!confirmContinue) {
                     return;
                 }
-            }
-            if (containerIds.length === 0) {
-                alert('所有勾选的记录都没有有效集装箱ID，无法执行批量核销！');
-                return;
-            }
-
-            // 4. 给隐藏form赋值（核心：替换为container_number_ids）
-            const batchForm = document.getElementById('batch-writeoff-form');
-            document.getElementById('batch-writeoff-type').value = type;
-            document.getElementById('batch-writeoff-amount').value = batchAmount;
-            document.getElementById('batch-writeoff-container-ids').value = containerIds.join(','); // 多个集装箱ID用逗号分隔
-
-            // 5. 提交form表单（自动携带CSRF Token）
-            batchForm.submit();
-        }
-
-        // ===================== 批量核销函数 - 卸柜（pick-x） =====================
-        function batchWriteOffX(type) {
-            const batchAmountInput = document.getElementById(`${type}-batch-amount`);
-            if (!batchAmountInput) {
-                console.error('批量核销金额输入框不存在：', `${type}-batch-amount`);
-                return;
-            }
-
-            const batchAmount = parseFloat(batchAmountInput.value) || 0;
-            if (batchAmount <= 0) {
-                alert('请输入有效的核销金额！');
-                return;
-            }
-
-            // 1. 获取勾选的复选框
-            const checkboxes = document.querySelectorAll(`.${type}-writeoff:checked`);
-            if (checkboxes.length === 0) {
-                alert('请至少勾选一条记录！');
-                return;
-            }
-
-            // 2. 批量填写金额到输入框（保留原有逻辑）
-            checkboxes.forEach(checkbox => {
-                const containerId = checkbox.getAttribute('data-container-id');
-                const amountInput = document.querySelector(`.write-off-amount[data-container-id="${containerId}"]`);
-                if (amountInput) {
-                    amountInput.value = batchAmount;
-                }
+                document.getElementById('selected_pending_fleet_ids').value = fleetIds.join(',');
             });
 
-            // 3. 收集container_number_id（替换itemv2_id，过滤空值）
-            const containerIds = [];
-            const emptyIdIndexes = [];
-            checkboxes.forEach((checkbox, index) => {
-                // 核心：获取data-container-id（即container_number_id）
-                const containerId = checkbox.getAttribute('data-container-id')?.trim() || '';
-                console.log(`勾选框${index + 1}的container_number_id：`, containerId);
-                if (containerId) {
-                    containerIds.push(containerId);
-                } else {
-                    emptyIdIndexes.push(index + 1);
-                    console.warn(`勾选框${index + 1}的data-container-id为空`);
-                }
-            });
-
-            // 提示空ID（保留原有逻辑）
-            if (emptyIdIndexes.length > 0) {
-                const confirmContinue = confirm(`注意：勾选框${emptyIdIndexes.join(',')}无有效集装箱ID，是否继续处理其他记录？`);
-                if (!confirmContinue) {
+            // 已确认导出
+            document.getElementById('delivery-export-form').addEventListener('submit', function (e) {
+                const checked = document.querySelectorAll('.delivery-export-checkbox:checked');
+                const fleetIds = Array.from(checked).map(c => c.dataset.fleetId).filter(id => id);
+                if (fleetIds.length === 0) {
+                    alert('请勾选至少一条记录！');
+                    e.preventDefault();
                     return;
                 }
-            }
-            if (containerIds.length === 0) {
-                alert('所有勾选的记录都没有有效集装箱ID，无法执行批量核销！');
-                return;
-            }
-
-            // 4. 给卸柜隐藏form赋值（核心：替换为container_number_ids）
-            const batchForm = document.getElementById('batch-writeoff-form-x');
-            document.getElementById('batch-writeoff-type-x').value = type;
-            document.getElementById('batch-writeoff-amount-x').value = batchAmount;
-            document.getElementById('batch-writeoff-container-ids-x').value = containerIds.join(','); // 多个集装箱ID用逗号分隔
-
-            // 5. 提交form表单（自动携带CSRF Token）
-            batchForm.submit();
-        }
-
-        // ===================== 辅助功能函数：通用 =====================
-        // 客户下拉框选中状态修复
-        window.addEventListener('load', function () {
-            const customerSelect = document.getElementById('id_customer_name');
-            const selectedCustomerId = "{{ selected_customer_id|default:'' }}";
-            if (selectedCustomerId && customerSelect) {
-                customerSelect.value = selectedCustomerId;
-            }
-        });
-
-        // 模态框外部点击关闭
-        window.onclick = function (event) {
-            const modals = document.querySelectorAll('.modal');
-            modals.forEach(modal => {
-                if (event.target === modal) {
-                    modal.style.display = "none";
-                }
+                document.getElementById('selected_fleet_ids').value = fleetIds.join(',');
             });
         }
 
-        // 滚动到页面底部
+        // ========== 保留原有必要函数 ==========
         function scrollToBottom() {
-            window.scrollTo({
-                top: document.body.scrollHeight,
-                behavior: 'smooth'
+            window.scrollTo({top: document.body.scrollHeight, behavior: 'smooth'});
+        }
+
+        window.onclick = function (event) {
+            document.querySelectorAll('.modal').forEach(modal => {
+                if (event.target === modal) modal.style.display = 'none';
             });
-        }
-
-        // 驳回模态框相关
-        function showRejectModal(type) {
-            const checkboxes = document.querySelectorAll('.' + type + '-orders:checked');
-            if (checkboxes.length === 0) {
-                alert('请至少选择一条记录');
-                return;
-            }
-            const modal = document.getElementById(type + '-rejectModal');
-            if (modal) modal.style.display = 'block';
-        }
-
-        function hideRejectModal(type) {
-            const modal = document.getElementById(type + '-rejectModal');
-            if (modal) modal.style.display = 'none';
-        }
-
-        function setRejectReason(type) {
-            const reasonInput = document.getElementById(type + '-rejectReason');
-            const hiddenInput = document.getElementById(type + '-rejectReasonInput');
-            if (!reasonInput || !hiddenInput) return;
-
-            const reason = reasonInput.value.trim();
-            if (!reason) {
-                alert('请输入驳回原因');
-                return;
-            }
-            hiddenInput.value = reason;
-        }
-
-        // 派送账单表格专用过滤函数（新增板数≥数值过滤 + ISA列模糊搜索）
-        function filterDeliveryTable(tableType, input) {
-            const colIndex = input.dataset.columnIndex;
-            const keyword = input.value.trim().toUpperCase();
-            // 关键修复：从当前激活的tab-content中查找表格，而非全局查找
-            const activeTabContent = document.getElementById(tableType);
-            if (!activeTabContent) return;
-            const table = activeTabContent.querySelector('.table');
-            if (!table) return;
-
-            // 仅过滤数据行，跳过表头/搜索行
-            const rows = table.querySelectorAll('tbody tr');
-            rows.forEach(row => {
-                // 只处理原始显示的行（避免过滤后再过滤导致的合并行错乱）
-                if (row.dataset.originalDisplay === undefined) {
-                    row.dataset.originalDisplay = row.style.display || '';
-                }
-                // 恢复原始显示状态，再重新过滤
-                row.style.display = row.dataset.originalDisplay;
-                if (row.style.display === 'none') return;
-
-                const cell = row.querySelectorAll('td')[colIndex];
-                if (!cell) return;
-                const cellText = cell.textContent.trim().toUpperCase(); // 统一转大写，避免大小写问题
-                let isMatch = true;
-
-                // ========== 核心修改：ISA列（index=4）做模糊搜索 ==========
-                if (colIndex === '4' && keyword) {
-                    // ISA列：纯模糊匹配（包含关键词即匹配）
-                    isMatch = cellText.includes(keyword);
-                }
-                // 板数列（index=7）：数值≥匹配
-                else if (colIndex === '7' && keyword) {
-                    const cellNum = parseFloat(cellText) || 0;
-                    const keywordNum = parseFloat(keyword) || 0;
-                    isMatch = cellNum >= keywordNum;
-                }
-                // 其他列：文本包含匹配（原有逻辑）
-                else if (keyword) {
-                    isMatch = cellText.includes(keyword);
-                }
-
-                row.style.display = isMatch ? '' : 'none';
-            });
-
-            // 合并行联动：主行隐藏则子行同步隐藏（仅处理可见主行的合并）
-            const mergedRows = table.querySelectorAll('td[rowspan]');
-            mergedRows.forEach(td => {
-                const mainRow = td.closest('tr');
-                if (mainRow.style.display === 'none' && !mainRow.dataset.mergedHidden) {
-                    const rowspan = parseInt(td.getAttribute('rowspan'));
-                    let currentRow = mainRow;
-                    for (let i = 1; i < rowspan; i++) {
-                        currentRow = currentRow.nextElementSibling;
-                        if (currentRow) {
-                            currentRow.dataset.mergedHidden = 'true'; // 标记合并隐藏
-                            currentRow.style.display = 'none';
-                        }
-                    }
-                } else if (mainRow.style.display !== 'none' && mainRow.dataset.mergedHidden) {
-                    // 主行显示，恢复合并子行
-                    const rowspan = parseInt(td.getAttribute('rowspan'));
-                    let currentRow = mainRow;
-                    for (let i = 1; i < rowspan; i++) {
-                        currentRow = currentRow.nextElementSibling;
-                        if (currentRow) {
-                            delete currentRow.dataset.mergedHidden;
-                            currentRow.style.display = currentRow.dataset.originalDisplay || '';
-                        }
-                    }
-                    delete mainRow.dataset.mergedHidden;
-                }
-            });
-
-            // 过滤后强制重置表格宽度，防止收缩
-            table.style.width = '100%';
-            table.offsetHeight; // 触发重绘
-
-            // 同步全选状态（根据表格类型更新）
-            if (tableType === 'delivery-pending') {
-                updateDeliveryPendingSelectAllStatus();
-            } else if (tableType === 'delivery-confirm') {
-                updateDeliverySelectAllStatus();
-            }
-        }
-
-        // 待确认账单：过滤后更新全选状态+选中数量（仅作用于可见行）
-        function updateDeliveryPendingSelectAllStatus() {
-            const pendingCheckboxes = document.querySelectorAll('.delivery-pending-checkbox');
-            const pendingSelectAll = document.getElementById('delivery-pending-select-all');
-            const pendingSelectAllHeader = document.getElementById('delivery-pending-select-all-header');
-
-            let visibleCount = 0; // 可见行数量
-            let checkedVisibleCount = 0; // 可见行中已勾选数量
-
-            pendingCheckboxes.forEach(checkbox => {
-                const tr = checkbox.closest('tr');
-                // 仅统计未隐藏、非合并子行的复选框
-                if (tr && tr.style.display !== 'none' && !tr.dataset.mergedHidden) {
-                    visibleCount++;
-                    if (checkbox.checked) checkedVisibleCount++;
-                }
-            });
-
-            // 更新全选框状态：可见行全部勾选则选中，否则取消
-            if (pendingSelectAll) pendingSelectAll.checked = (visibleCount > 0 && checkedVisibleCount === visibleCount);
-            if (pendingSelectAllHeader) pendingSelectAllHeader.checked = (visibleCount > 0 && checkedVisibleCount === visibleCount);
-            // 更新选中数量
-            updateDeliveryPendingSelectedCount();
-        }
-
-        // 已确认账单：过滤后更新全选状态+选中数量（仅作用于可见行）
-        function updateDeliverySelectAllStatus() {
-            const deliveryCheckboxes = document.querySelectorAll('.delivery-export-checkbox');
-            const deliverySelectAll = document.getElementById('delivery-select-all');
-            const deliverySelectAllHeader = document.getElementById('delivery-select-all-header');
-
-            let visibleCount = 0;
-            let checkedVisibleCount = 0;
-
-            deliveryCheckboxes.forEach(checkbox => {
-                const tr = checkbox.closest('tr');
-                if (tr && tr.style.display !== 'none' && !tr.dataset.mergedHidden) {
-                    visibleCount++;
-                    if (checkbox.checked) checkedVisibleCount++;
-                }
-            });
-
-            // 更新全选框状态
-            if (deliverySelectAll) deliverySelectAll.checked = (visibleCount > 0 && checkedVisibleCount === visibleCount);
-            if (deliverySelectAllHeader) deliverySelectAllHeader.checked = (visibleCount > 0 && checkedVisibleCount === visibleCount);
-            // 更新选中数量
-            updateDeliverySelectedCount();
-        }
+        };
     </script>
 {% endblock %}
