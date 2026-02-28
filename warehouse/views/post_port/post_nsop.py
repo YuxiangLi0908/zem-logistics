@@ -299,6 +299,8 @@ class PostNsop(View):
             return render(request, template, context)
         elif step == "get_maersk_quote":
             return await self.handle_get_maersk_quote(request)
+        elif step == 'maersk_schedule_post':
+            return await self.handle_maersk_schedule_post(request)
         elif step == "bind_group_shipment":
             template, context = await self.handle_appointment_post(request)
             return render(request, template, context) 
@@ -559,6 +561,237 @@ class PostNsop(View):
                         context.update({'success_messages':f"成功关联一提多卸"})
         return await self.handle_ltl_unscheduled_pos_post(request, context)
     
+    async def handle_maersk_schedule_post(self, request: HttpRequest) -> JsonResponse:
+        """处理Maersk预约下单"""
+        try:
+            from warehouse.utils.config import app_config
+            
+            # 1. 提取参数
+            cargo_ids = request.POST.get('cargo_ids')
+            plt_ids = request.POST.get('plt_ids')
+            quote_id = request.POST.get('quote_id')
+            service_code = request.POST.get('service_code')
+            consignee_json = request.POST.get('consignee_json')
+            line_items_json = request.POST.get('line_items_json')
+            schedule_json = request.POST.get('schedule_json')
+            warehouse = request.session.get('warehouse') or request.POST.get('warehouse')
+
+            if not all([quote_id, service_code, consignee_json, line_items_json, schedule_json]):
+                return JsonResponse({'success': False, 'message': '必要参数缺失'}, status=400)
+
+            consignee = json.loads(consignee_json)
+            line_items_raw = json.loads(line_items_json)
+            schedule = json.loads(schedule_json)
+
+            # 2. 构造 Shipper 信息 (符合 ShipmentAddress 定义)
+            shipper_config = app_config.WAREHOUSE_ADDRESS.get(warehouse, {})
+            if not shipper_config:
+                 # 默认使用 LA-91761 如果找不到
+                 shipper_config = app_config.WAREHOUSE_ADDRESS.get('LA-91761', {})
+            
+            shipper_address = {
+                "name": shipper_config.get('name'),
+                "address1": shipper_config.get('address1'),
+                "city": shipper_config.get('city'),
+                "regionCode": shipper_config.get('regionCode'),
+                "postalCode": shipper_config.get('postalCode'),
+                "countryCode": shipper_config.get('countryCode', 'US'),
+                "phone": "909-320-8774" # 默认或从配置获取
+            }
+
+            # 3. 构造 LineItems (格式化)
+            line_items = []
+            for item in line_items_raw:
+                line_items.append({
+                    "description": item.get('description') or 'Pallet',
+                    "pieces": int(item.get('pieces') or item.get('Pieces') or 1),
+                    "length": int(item.get('length') or item.get('Length') or 0),
+                    "width": int(item.get('width') or item.get('Width') or 0),
+                    "height": int(item.get('height') or item.get('Height') or 0),
+                    "weight": int(float(item.get('weight') or item.get('Weight') or 0)),
+                    # 补充必填字段，如果有默认值的话
+                    "packaging": "Pallet", # 假设默认为 Pallet
+                    "weightUnit": "lb",
+                    "dimensionalUnit": "in"
+                })
+
+            # 4. 调用 Maersk 下单 API
+            # 构造 Consignee Address (符合 ShipmentAddress 定义)
+            consignee_address = {
+                "name": consignee.get('company') or consignee.get('name'), # 公司名为 name
+                "contact": consignee.get('name'), # 联系人为 contact
+                "address1": consignee.get('address1'),
+                "city": consignee.get('city'),
+                "regionCode": consignee.get('state'),
+                "postalCode": consignee.get('zipcode'),
+                "countryCode": "US",
+                "phone": consignee.get('phone'),
+                "email": consignee.get('email')
+            }
+            
+            # 处理 Consignee References (目的地处理)
+            warehouse_type = request.POST.get('warehouse_type', 'public')
+            destination = schedule.get('destination', '')
+            destination_name = destination
+            
+            # 生成 batch_number 用于作为 references
+            batch_number_ref = ""
+            if warehouse_type == 'private' and len(destination) > 8:
+                destination_name = destination[:8]
+            else:
+                destination_name = destination
+                
+            batch_number_ref = await self.generate_unique_batch_number(destination_name)
+            if not batch_number_ref:
+                return JsonResponse({'success': False, 'message': '批次号生成失败'}, status=400)
+
+            payload = {
+                "quoteId": int(quote_id),
+                "serviceCode": service_code,
+                "shipper": {
+                    "address": shipper_address,
+                    "references": [schedule.get('bol')] if schedule.get('bol') else []
+                },
+                "consignee": {
+                    "address": consignee_address,
+                    "references": [batch_number_ref]
+                },
+                "lineItems": line_items,
+                "shipDate": schedule.get('pickup_time'), # 必填
+                "shipReadyTime": "09:00:00", # 默认值
+                "shipCloseTime": "17:00:00", # 默认值
+                "accessorials": [] 
+            }
+
+            api_url = "https://zem-maersk-gateway.kindmoss-a5050a64.eastus.azurecontainerapps.io/shipment"
+            #api_key = '2Tdtqrj4dqnooXIJi4ReCVrMGW3ehJnC'
+            api_key = os.environ.get("MAERSK_API_KEY")
+            headers = {
+                "Content-Type": "application/json",
+                "x-api-key": api_key
+            }
+
+            pro_number = None
+            async with aiohttp.ClientSession() as session:
+                async with session.post(api_url, json=payload, headers=headers) as response:
+                    if response.status == 200:
+                        res_data = await response.json()
+                        pro_number = res_data.get('ProNumber')
+                    else:
+                        text = await response.text()
+                        return JsonResponse({'success': False, 'message': f'Maersk API下单失败: {response.status} - {text}'}, status=response.status)
+
+            if not pro_number:
+                return JsonResponse({'success': False, 'message': '下单成功但未获取到PRO号'}, status=500)
+
+            # 5. 根据仓库类型分发处理
+            warehouse_type = request.POST.get('warehouse_type', 'public')
+            
+            if warehouse_type == 'private':  
+                # --- 私仓预约出库逻辑 (调用 handle_ltl_bind_group_shipment) ---
+                post_data = request.POST.copy()
+                post_data['destination'] = schedule.get('destination')
+                post_data['address'] = f"{consignee.get('address1')}, {consignee.get('city')}, {consignee.get('state')} {consignee.get('zipcode')}"
+                post_data['carrier'] = 'Maersk'
+                post_data['shipment_appointment'] = schedule.get('pickup_time')
+                post_data['arm_bol'] = schedule.get('bol', '')
+                post_data['arm_pro'] = pro_number
+                post_data['shipment_type'] = schedule.get('shipment_type', 'LTL')
+                # 私仓 auto_fleet 接收 'true'/'false' 字符串
+                post_data['auto_fleet'] = 'true' if schedule.get('auto_schedule') == '是' else 'false'
+                post_data['fleet_cost'] = schedule.get('cost', 0)
+                # 传递已生成的 batch_number 
+                post_data['maersk_batch_number'] = batch_number_ref
+                # 传递备注
+                post_data['note'] = schedule.get('note', '')
+                
+                # 确保 cargo_ids 和 plt_ids 存在 (已在 request.POST 中)
+                
+                request.POST = post_data
+                
+                # 调用私仓绑定逻辑
+                template_name, context = await self.handle_ltl_bind_group_shipment(request)
+                
+                if 'error_messages' in context:
+                    return JsonResponse({'success': False, 'message': f"私仓预约失败: {context['error_messages']}"}, status=400)
+                
+                return JsonResponse({
+                    'success': True, 
+                    'pro_number': pro_number, 
+                    'batch_number': '', # 私仓逻辑暂不返回 batch_number 给前端弹窗显示
+                    'message': '下单及私仓预约成功'
+                })
+                
+            else:
+                # --- 公仓逻辑 (调用 handle_appointment_post) ---
+                # 构造 request.POST
+                # 生成唯一的 appointment_id
+                appointment_id = f"M-{pro_number}"
+                
+                # 准备参数
+                post_data = request.POST.copy()
+                post_data['shipment_type'] = schedule.get('shipment_type', 'LTL')
+                post_data['appointment_id'] = appointment_id
+                post_data['destination'] = schedule.get('destination')
+                post_data['address'] = f"{consignee.get('address1')}, {consignee.get('city')}, {consignee.get('state')} {consignee.get('zipcode')}"
+                post_data['pickup_time'] = schedule.get('pickup_time') # 提货时间
+                post_data['shipment_appointment'] = schedule.get('pickup_time') # 也是预约时间
+                post_data['note'] = schedule.get('note', '')
+                post_data['maersk_batch_number'] = batch_number_ref
+                # cargo_ids 和 plt_ids 已经存在于 post_data 中
+                
+                # 替换 request.POST
+                request.POST = post_data
+                
+                # 调用 handle_appointment_post
+                template_name, context = await self.handle_appointment_post(request)
+                
+                if 'error_messages' in context:
+                    return JsonResponse({'success': False, 'message': f"预约保存失败: {context['error_messages']}"}, status=400)
+                
+                success_msg = context.get('success_messages', '')
+                # 提取生成的 batch_number (通常在 success_messages 中 "绑定成功，批次号是XXX")
+                batch_number = ''
+                if '批次号是' in success_msg:
+                    batch_number = success_msg.split('批次号是')[1].split(',')[0].strip()
+
+                # 6. 更新 PRO 号到 Pallet
+                # 根据 batch_number 或 appointment_id 查找 Shipment
+                try:
+                    shipment = await sync_to_async(Shipment.objects.get)(appointment_id=appointment_id)
+                    
+                    # 更新 Pallet 的 ltl_pro_num
+                    # 注意：Pallet 关联的是 shipment_batch_number (Shipment 对象)
+                    await sync_to_async(Pallet.objects.filter(shipment_batch_number=shipment).update)(
+                        ltl_pro_num=pro_number
+                    )
+                    
+                    # 7. 自动排车 (如果需要)
+                    if schedule.get('auto_schedule') == '是':
+                        # 调用 _add_appointments_to_fleet
+                        fleet_number = await self._add_appointments_to_fleet([appointment_id])
+                        
+                        # 更新 Fleet 信息 (比如 carrier, pro)
+                        fleet = await sync_to_async(Fleet.objects.get)(fleet_number=fleet_number)
+                        fleet.carrier = 'Maersk'
+                        await sync_to_async(fleet.save)()
+                        
+                except Exception as e:
+                    # 记录警告但不中断流程，因为下单已成功
+                    print(f"更新PRO或排车失败: {e}")
+
+                return JsonResponse({
+                    'success': True, 
+                    'pro_number': pro_number, 
+                    'batch_number': batch_number,
+                    'message': '下单及预约成功'
+                })
+
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            return JsonResponse({'success': False, 'message': f'系统异常: {str(e)}'}, status=500)
+
     async def handle_get_maersk_quote(self, request: HttpRequest) -> JsonResponse:
         """调用Maersk API获取报价"""
         try:
@@ -649,7 +882,7 @@ class PostNsop(View):
 
             api_url = "https://zem-maersk-gateway.kindmoss-a5050a64.eastus.azurecontainerapps.io/rating"
             api_key = os.environ.get("MAERSK_API_KEY")
-            
+            #api_key = '2Tdtqrj4dqnooXIJi4ReCVrMGW3ehJnC'
             
             if not api_key:
                  return JsonResponse({'success': False, 'message': '未配置API Key'}, status=500)
@@ -663,6 +896,8 @@ class PostNsop(View):
                 async with session.post(api_url, json=payload, headers=headers) as response:
                     if response.status == 200:
                         data = await response.json()
+                        # 将请求参数中的 lineItems 注入到响应数据中，以便前端使用
+                        data['lineItems'] = line_items
                         return JsonResponse({'success': True, 'data': data})
                     else:
                         text = await response.text()
@@ -3642,6 +3877,7 @@ class PostNsop(View):
         warehouse = request.POST.get('warehouse')
         auto_fleet = request.POST.get('auto_fleet', 'true').strip()
         auto_fleet_bool = auto_fleet.lower() == 'true'
+        note = request.POST.get('note', '').strip()
 
         nj_shipped = False
         if shipment_type == "客户自提" and "NJ" in warehouse: 
@@ -3708,12 +3944,16 @@ class PostNsop(View):
                 fleet.departured_at = shipment_appointment
                 fleet.arrived_at = shipment_appointment
             await sync_to_async(fleet.save)()
-        
-        if len(destination) > 8:
-            destination_name = destination[:8]
+
+        maersk_batch_number = request.POST.get('maersk_batch_number')
+        if maersk_batch_number:
+             batch_number = maersk_batch_number
         else:
-            destination_name = destination
-        batch_number = await self.generate_unique_batch_number(destination_name)
+            if len(destination) > 8:
+                destination_name = destination[:8]
+            else:
+                destination_name = destination
+            batch_number = await self.generate_unique_batch_number(destination_name)
 
         shipment_appointment_tz = self._parse_datetime(shipment_appointment)
         tzinfo = self._parse_tzinfo(warehouse)
@@ -3739,6 +3979,7 @@ class PostNsop(View):
             'total_pallet': total_pallet,
             'total_pcs': total_pcs,
             'origin': warehouse,
+            'note': note,
         }
         if auto_fleet_bool:
             shipment_data['fleet_number'] = fleet

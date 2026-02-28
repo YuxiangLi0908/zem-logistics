@@ -12,6 +12,19 @@
         border: 1px solid #e9ecef;
         flex-wrap: wrap;
     }
+
+    /* 模态框背景虚化 - 毛玻璃效果 */
+    .modal-backdrop {
+        background-color: transparent !important;
+    }
+
+    .modal-backdrop.show {
+        opacity: 1 !important;
+        backdrop-filter: blur(10px) !important;
+        -webkit-backdrop-filter: blur(10px) !important;
+        background-color: rgba(255, 255, 255, 0.1) !important; /* 极淡的遮罩，避免黑色 */
+    }
+
     .fleet-mark-col {
         min-width: 140px;
         max-width: 160px;
@@ -1701,9 +1714,11 @@
 <div class="modal fade" id="fleet_quoteModal" tabindex="-1" aria-hidden="true" style="z-index: 1060;">
     <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content">
-            <div class="modal-header bg-light">
+            <div class="modal-header bg-primary text-white">
                 <h5 class="modal-title"><i class="fas fa-calculator me-2"></i>Maersk 询价</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                <button type="button" class="btn btn-link text-white text-decoration-none" data-bs-dismiss="modal" aria-label="Close" style="font-size: 1.5rem; padding: 0; opacity: 0.9;">
+                    <i class="fas fa-times"></i>
+                </button>
             </div>
             <div class="modal-body">
                 <form id="fleet_quoteForm">
@@ -1777,11 +1792,9 @@
                 </button>
             </div>
         </div>
-    </div>
-</div>
+    {% include 'post_port/new_sop/05_ltl_pos_all/modal/maersk_schedule_modal.html' %}
 
 <script>
-    // 全局变量存储当前报价数据
     let currentQuoteData = null;
 
     // 询价相关函数
@@ -2054,6 +2067,9 @@
                             <button class="btn btn-link btn-sm text-decoration-none p-0" type="button" data-bs-toggle="collapse" data-bs-target="#collapseDetail_${index}">
                                 查看费用明细 <i class="fas fa-chevron-down ms-1"></i>
                             </button>
+                            <button class="btn btn-primary btn-sm px-4" onclick='fleet_openMaerskScheduleModal(${index}, "private")'>
+                                排约排车
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -2127,6 +2143,9 @@
         .then(response => response.json())
         .then(data => {
             if (data.success) {
+                // 注入请求时的发货日期，确保后续排约排车能使用正确的格式 (YYYY-MM-DD)
+                data.data.requestShipDate = shipDate;
+                
                 document.getElementById('quote_result_area').style.display = 'block';
                 document.getElementById('quote_error_msg').style.display = 'none';
                 fleet_renderQuoteResults(data.data);
