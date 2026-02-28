@@ -565,56 +565,77 @@ class PostNsop(View):
             origin_zip = request.POST.get('origin_zip')
             dest_zip = request.POST.get('dest_zip')
             ship_date = request.POST.get('ship_date')
+            
+            # 新增参数：结构化的货物明细
+            line_items_json = request.POST.get('line_items_json')
+            
+            # 旧参数（保留兼容）
             cargo_details = request.POST.get('cargo_details')
             total_weight = request.POST.get('total_weight')
 
-            if not all([origin_zip, dest_zip, ship_date, cargo_details]):
-                return JsonResponse({'success': False, 'message': '参数不完整'}, status=400)
+            if not all([origin_zip, dest_zip, ship_date]):
+                return JsonResponse({'success': False, 'message': '基础参数不完整'}, status=400)
 
-            # 解析货物详情
-            # 格式: 32*35*60*3板 或 32*35*60
-            # API需要: pieces, height, length, width, weight
             line_items = []
             
-            # 如果有多个尺寸行，按换行符分割
-            detail_lines = [line.strip() for line in cargo_details.split('\n') if line.strip()]
-            
-            # 计算总板数用于分摊重量
-            total_pallets = 0
-            parsed_details = []
-            
-            for line in detail_lines:
-                # 匹配 L*W*H*Count 或 L*W*H
-                match = re.match(r'(\d+)\*(\d+)\*(\d+)(?:\*(\d+))?', line)
-                if match:
-                    l, w, h, count = match.groups()
-                    count = int(count) if count else 1
-                    total_pallets += count
-                    parsed_details.append({'l': int(l), 'w': int(w), 'h': int(h), 'count': count})
-            
-            if total_pallets == 0:
-                return JsonResponse({'success': False, 'message': '无法解析托盘尺寸信息'}, status=400)
-
-            # 分摊重量
-            try:
-                weight_val = float(total_weight) if total_weight else 0
-            except ValueError:
-                weight_val = 0
+            if line_items_json:
+                try:
+                    parsed_items = json.loads(line_items_json)
+                    for item in parsed_items:
+                        line_items.append({
+                            "description": item.get('description') or 'Pallet',
+                            "pieces": int(item.get('pieces', 1)),
+                            "length": int(item.get('length', 0)),
+                            "width": int(item.get('width', 0)),
+                            "height": int(item.get('height', 0)),
+                            "weight": float(item.get('weight', 0))
+                        })
+                except json.JSONDecodeError:
+                    return JsonResponse({'success': False, 'message': '货物明细数据格式错误'}, status=400)
+            elif cargo_details:
+                # 解析货物详情 (旧逻辑)
+                # 格式: 32*35*60*3板 或 32*35*60
                 
-            weight_per_pallet = int(weight_val / total_pallets) if total_pallets > 0 else 0
-            
-            for item in parsed_details:
-                # 对于每一种尺寸，生成对应数量的LineItem
-                # 用户要求: 每个板子的长宽高都单独写一行
-                for _ in range(item['count']):
-                    line_items.append({
-                        "description": "Pallet",
-                        "pieces": 1,
-                        "length": item['l'],
-                        "width": item['w'],
-                        "height": item['h'],
-                        "weight": weight_per_pallet
-                    })
+                # 如果有多个尺寸行，按换行符分割
+                detail_lines = [line.strip() for line in cargo_details.split('\n') if line.strip()]
+                
+                # 计算总板数用于分摊重量
+                total_pallets = 0
+                parsed_details = []
+                
+                for line in detail_lines:
+                    # 匹配 L*W*H*Count 或 L*W*H
+                    match = re.match(r'(\d+)\*(\d+)\*(\d+)(?:\*(\d+))?', line)
+                    if match:
+                        l, w, h, count = match.groups()
+                        count = int(count) if count else 1
+                        total_pallets += count
+                        parsed_details.append({'l': int(l), 'w': int(w), 'h': int(h), 'count': count})
+                
+                if total_pallets == 0:
+                    return JsonResponse({'success': False, 'message': '无法解析托盘尺寸信息'}, status=400)
+
+                # 分摊重量
+                try:
+                    weight_val = float(total_weight) if total_weight else 0
+                except ValueError:
+                    weight_val = 0
+                    
+                weight_per_pallet = int(weight_val / total_pallets) if total_pallets > 0 else 0
+                
+                for item in parsed_details:
+                    # 对于每一种尺寸，生成对应数量的LineItem
+                    for _ in range(item['count']):
+                        line_items.append({
+                            "description": "Pallet",
+                            "pieces": 1,
+                            "length": item['l'],
+                            "width": item['w'],
+                            "height": item['h'],
+                            "weight": weight_per_pallet
+                        })
+            else:
+                 return JsonResponse({'success': False, 'message': '缺少货物明细'}, status=400)
 
             payload = {
                 "shipDate": ship_date,
@@ -6418,10 +6439,54 @@ class PostNsop(View):
             )
 
             # 处理托盘尺寸信息
+            
+            # 收集涉及的所有 pallet ID
+            all_pallet_ids = []
+            for cargo in pal_list:
+                if cargo.get('plt_ids'):
+                    # plt_ids is a comma separated string of IDs
+                    ids = str(cargo['plt_ids']).split(',')
+                    all_pallet_ids.extend(ids)
+            
+            # 批量查询托盘详情
+            pallet_details_map = {}
+            if all_pallet_ids:
+                # 去重
+                unique_ids = list(set(all_pallet_ids))
+                
+                # 异步查询 Pallet
+                pallets_qs = Pallet.objects.filter(id__in=unique_ids).values(
+                    'id', 'length', 'width', 'height', 'pcs', 'weight_lbs'
+                )
+                pallets_data = await sync_to_async(list)(pallets_qs)
+                
+                for p in pallets_data:
+                    pallet_details_map[str(p['id'])] = p
+
             processed_pal_list = []
 
             for cargo in pal_list:
                 cargo['pallet_size_formatted'] = cargo['ltl_plt_size_note']
+                
+                # 构建 pallet_items 列表
+                pallet_items = []
+                if cargo.get('plt_ids'):
+                    p_ids = str(cargo['plt_ids']).split(',')
+                    for p_id in p_ids:
+                        detail = pallet_details_map.get(p_id)
+                        if detail:
+                            pallet_items.append({
+                                'length': detail['length'],
+                                'width': detail['width'],
+                                'height': detail['height'],
+                                'pieces': detail['pcs'],
+                                'weight': detail['weight_lbs'],
+                                'description': ''  # 默认为空，前端可编辑
+                            })
+                
+                # 转为 JSON 字符串，供前端直接使用
+                cargo['pallet_items_json'] = json.dumps(pallet_items)
+                
                 processed_pal_list.append(cargo)
 
             data += processed_pal_list
@@ -6441,21 +6506,6 @@ class PostNsop(View):
                 )
                 .filter(pl_criteria)
                 .annotate(
-                    custom_delivery_method=Case(
-                        When(
-                            Q(delivery_method="暂扣留仓(HOLD)")
-                            | Q(delivery_method="暂扣留仓"),
-                            then=Concat(
-                                "delivery_method",
-                                Value("-"),
-                                "fba_id",
-                                Value("-"),
-                                "id",
-                            ),
-                        ),
-                        default=F("delivery_method"),
-                        output_field=CharField(),
-                    ),
                     str_container_number=Cast("container_number__container_number", CharField()),
                     str_id=Cast("id", CharField()),
                     str_shipping_mark=Cast("shipping_mark", CharField()),
@@ -6475,7 +6525,7 @@ class PostNsop(View):
                 )
                 .values(
                     "destination",
-                    "custom_delivery_method",
+                    "delivery_method",
                     "delivery_window_start",
                     "delivery_window_end",
                     "note",
@@ -7950,7 +8000,6 @@ class PostNsop(View):
         unschedule_fleet = await self._ltl_unscheduled_data(request, warehouse)
         #待出库
         ready_to_ship_data = await self._ltl_ready_to_ship_data(warehouse,request.user)
-        print("ready_to_ship_data", ready_to_ship_data)
         # 待送达
         delivery_data_raw = await self._fl_delivery_get(warehouse, None, 'ltl')
         delivery_data = delivery_data_raw['shipments']

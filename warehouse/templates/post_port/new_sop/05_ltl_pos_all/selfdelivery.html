@@ -710,6 +710,9 @@
                             <option value="DHL" {% if cargo.delivery_method == "DHL" %}selected{% endif %}>DHL</option>
                             <option value="DPD" {% if cargo.delivery_method == "DPD" %}selected{% endif %}>DPD</option>
                             <option value="TNT" {% if cargo.delivery_method == "TNT" %}selected{% endif %}>TNT</option>
+                            {% if cargo.delivery_method and cargo.delivery_method != "卡车派送" and cargo.delivery_method != "客户自提" and cargo.delivery_method != "暂扣留仓(HOLD)" and cargo.delivery_method != "整柜直送" and cargo.delivery_method != "UPS" and cargo.delivery_method != "FEDEX" and cargo.delivery_method != "DHL" and cargo.delivery_method != "DPD" and cargo.delivery_method != "TNT" %}
+                                <option value="{{ cargo.delivery_method }}" selected>{{ cargo.delivery_method }}</option>
+                            {% endif %}
                         </select>
                     </td>
                     <td class="fleet-container-col" title="{{ cargo.container_numbers|default:'' }}">
@@ -1704,6 +1707,7 @@
             </div>
             <div class="modal-body">
                 <form id="fleet_quoteForm">
+                    <input type="hidden" id="quote_current_cargo_id">
                     <div class="row mb-3">
                         <div class="col-md-6">
                             <label class="form-label">起始邮编 <span class="text-danger">*</span></label>
@@ -1724,19 +1728,37 @@
                     
                     <div class="mb-3">
                         <label class="form-label">货物明细 <span class="text-danger">*</span></label>
-                        <textarea class="form-control" id="quote_cargo_details" rows="4" required style="font-family: monospace;"></textarea>
-                        <div class="form-text">
-                            格式示例：<br>
-                            <code>32*35*60*3板</code> (长*宽*高*数量)<br>
-                            <code>32*35*60</code> (默认为1板)<br>
-                            每行一种尺寸，后端会自动解析并拆分为单板发送。
+                        <div class="table-responsive" style="max-height: 300px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 4px;">
+                            <table class="table table-bordered table-sm mb-0" id="quote_items_table">
+                                <thead class="table-light" style="position: sticky; top: 0; z-index: 1;">
+                                    <tr>
+                                        <th style="width: 15%">长 (in)</th>
+                                        <th style="width: 15%">宽 (in)</th>
+                                        <th style="width: 15%">高 (in)</th>
+                                        <th style="width: 12%">件数</th>
+                                        <th style="width: 18%">重量 (lbs)</th>
+                                        <th>描述 (选填)</th>
+                                        <th style="width: 50px;"></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="quote_items_tbody">
+                                    <!-- 动态生成 -->
+                                </tbody>
+                            </table>
                         </div>
+                        <button type="button" class="btn btn-sm btn-outline-primary mt-2" onclick="fleet_addQuoteItemRow()">
+                            <i class="fas fa-plus"></i> 添加一行
+                        </button>
                     </div>
                     
                     <div class="mb-3">
-                        <label class="form-label">总重量 (lbs)</label>
-                        <input type="number" class="form-control" id="quote_total_weight" step="0.01">
-                        <div class="form-text">API要求提供重量，系统将自动分摊到每个托盘</div>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <label class="form-label mb-0">总重量 (lbs): <span id="quote_total_weight_display" class="fw-bold text-primary">0</span></label>
+                            <small class="text-muted">根据明细自动计算</small>
+                        </div>
+                        <input type="hidden" id="quote_total_weight">
+                        <!-- 旧字段隐藏保留，防止JS报错 -->
+                        <textarea id="quote_cargo_details" style="display:none;"></textarea>
                     </div>
                 </form>
                 
@@ -1759,52 +1781,147 @@
 </div>
 
 <script>
+    // 全局变量存储当前报价数据
+    let currentQuoteData = null;
+
     // 询价相关函数
     function fleet_openQuoteModal(btn) {
         const row = btn.closest('tr');
         
+        // 保存当前操作的货物ID
+        const checkbox = row.querySelector('.fleet-cargo-checkbox');
+        if (checkbox) {
+            document.getElementById('quote_current_cargo_id').value = checkbox.value;
+        }
+
         // 1. 获取并处理起始邮编
-        // 逻辑：以-分组取最后一组里面的数字
         const warehouseRaw = "{{ warehouse }}"; 
         const whParts = warehouseRaw.split('-');
         let originZip = '';
         if (whParts.length > 0) {
             const lastPart = whParts[whParts.length - 1];
-            // 提取数字
             originZip = lastPart.replace(/\D/g, '');
         }
 
         // 2. 获取并处理目的邮编
-        // 逻辑：取纯数字部分
         const destinationRaw = row.dataset.destination || '';
         const destZip = destinationRaw.replace(/\D/g, '');
 
-        // 3. 获取货物明细
-        // 逻辑：取托盘尺寸里面的值
-        const palletSizeInput = row.querySelector('.fleet-pallet-size-input');
-        const cargoDetails = palletSizeInput ? palletSizeInput.value.trim() : '';
+        // 3. 获取货物明细 (优先使用 JSON 数据)
+        const palletItemsRaw = row.getAttribute('data-pallet-items');
+        let palletItems = [];
+        try {
+            if (palletItemsRaw) {
+                palletItems = JSON.parse(palletItemsRaw);
+            }
+        } catch (e) {
+            console.error('解析 pallet items 失败', e);
+        }
 
-        // 4. 获取总重量 (用于分摊)
+        // 4. 获取总重量 (仅作参考)
         const totalWeight = row.dataset.weightLbs || '0';
 
         // 填充模态框
         document.getElementById('quote_origin_zip').value = originZip;
         document.getElementById('quote_dest_zip').value = destZip;
-        // 默认今天
         const today = new Date().toISOString().split('T')[0];
         document.getElementById('quote_ship_date').value = today;
-        document.getElementById('quote_cargo_details').value = cargoDetails;
-        document.getElementById('quote_total_weight').value = totalWeight;
         
+        // 填充表格
+        const tbody = document.getElementById('quote_items_tbody');
+        tbody.innerHTML = ''; // 清空
+        
+        if (palletItems.length > 0) {
+            palletItems.forEach(item => {
+                fleet_addQuoteItemRow({
+                    length: item.length,
+                    width: item.width,
+                    height: item.height,
+                    pieces: 1, // 默认为 1 (每个托盘记录一行)
+                    weight: item.weight,
+                    description: item.description || ''
+                });
+            });
+        } else {
+            // 如果没有 JSON 数据，尝试解析旧格式或添加空行
+            const palletSizeInput = row.querySelector('.fleet-pallet-size-input');
+            const cargoDetails = palletSizeInput ? palletSizeInput.value.trim() : '';
+            
+            if (cargoDetails) {
+                 // 简单的解析尝试：32*35*60*3板
+                 const lines = cargoDetails.split('\n');
+                 lines.forEach(line => {
+                     const match = line.match(/(\d+)\*(\d+)\*(\d+)(?:\*(\d+))?/);
+                     if (match) {
+                         const count = match[4] ? parseInt(match[4]) : 1;
+                         fleet_addQuoteItemRow({
+                             length: match[1],
+                             width: match[2],
+                             height: match[3],
+                             pieces: count,
+                             weight: 0, 
+                             description: ''
+                         });
+                     }
+                 });
+                 if (tbody.children.length === 0) fleet_addQuoteItemRow();
+            } else {
+                fleet_addQuoteItemRow();
+            }
+        }
+        
+        fleet_updateQuoteTotalWeight();
+
         // 清空之前的结果
         document.getElementById('quote_result_area').style.display = 'none';
         document.getElementById('quote_result_content').innerHTML = '';
         document.getElementById('quote_error_msg').style.display = 'none';
+        
+        currentQuoteData = null;
 
-        // 显示模态框
         const modalEl = document.getElementById('fleet_quoteModal');
         const modal = new bootstrap.Modal(modalEl);
         modal.show();
+    }
+
+    // 添加报价明细行
+    function fleet_addQuoteItemRow(data = {}) {
+        const tbody = document.getElementById('quote_items_tbody');
+        const tr = document.createElement('tr');
+        
+        const l = data.length || '';
+        const w = data.width || '';
+        const h = data.height || '';
+        const pcs = data.pieces || 1;
+        const weight = data.weight || '';
+        const desc = data.description || '';
+        
+        tr.innerHTML = `
+            <td><input type="number" class="form-control form-control-sm item-length" value="${l}" oninput="fleet_updateQuoteTotalWeight()" required></td>
+            <td><input type="number" class="form-control form-control-sm item-width" value="${w}" required></td>
+            <td><input type="number" class="form-control form-control-sm item-height" value="${h}" required></td>
+            <td><input type="number" class="form-control form-control-sm item-pieces" value="${pcs}" min="1" oninput="fleet_updateQuoteTotalWeight()" required></td>
+            <td><input type="number" class="form-control form-control-sm item-weight" value="${weight}" oninput="fleet_updateQuoteTotalWeight()" required></td>
+            <td><input type="text" class="form-control form-control-sm item-desc" value="${desc}" placeholder="Pallet"></td>
+            <td class="text-center">
+                <button type="button" class="btn btn-sm btn-link text-danger p-0" onclick="this.closest('tr').remove(); fleet_updateQuoteTotalWeight()">
+                    <i class="fas fa-trash-alt"></i>
+                </button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+        fleet_updateQuoteTotalWeight();
+    }
+
+    // 更新总重量显示
+    function fleet_updateQuoteTotalWeight() {
+        let total = 0;
+        document.querySelectorAll('#quote_items_tbody tr').forEach(tr => {
+            const weight = parseFloat(tr.querySelector('.item-weight').value) || 0;
+            total += weight; 
+        });
+        document.getElementById('quote_total_weight_display').textContent = total.toFixed(2);
+        document.getElementById('quote_total_weight').value = total.toFixed(2);
     }
 
     function fleet_renderQuoteResults(data) {
@@ -1813,6 +1930,9 @@
             resultContainer.innerHTML = '<div class="alert alert-warning">未获取到有效的报价信息</div>';
             return;
         }
+
+        // 保存到全局变量
+        currentQuoteData = data;
 
         const rating = data.rating;
         const shipper = data.shipper || {};
@@ -1898,17 +2018,8 @@
                 breakdownsHtml += '</div>';
             }
 
-            // 预留的下单参数
-            const orderParams = JSON.stringify({
-                quoteId: rating.QuoteID,
-                service: quote.Service,
-                locationId: rating.LocationID,
-                carrier: quote.DisplayService,
-                price: quote.TotalQuote
-            });
-
             quotesHtml += `
-                <div class="card mb-3 ${borderClass} shadow-sm">
+                <div class="card mb-3 ${borderClass} shadow-sm" id="quote_card_${index}">
                     <div class="card-body">
                         <div class="d-flex justify-content-between align-items-start mb-3">
                             <div>
@@ -1943,9 +2054,6 @@
                             <button class="btn btn-link btn-sm text-decoration-none p-0" type="button" data-bs-toggle="collapse" data-bs-target="#collapseDetail_${index}">
                                 查看费用明细 <i class="fas fa-chevron-down ms-1"></i>
                             </button>
-                            <button class="btn btn-primary btn-sm px-4" onclick='fleet_placeOrder(${orderParams})'>
-                                立即下单
-                            </button>
                         </div>
                     </div>
                 </div>
@@ -1964,21 +2072,32 @@
         `;
     }
 
-    // 预留的下单函数
-    function fleet_placeOrder(params) {
-        console.log("下单参数:", params);
-        alert(`已选择方案：${params.carrier}\n总运费：$${params.price}\n(下单功能开发中...)`);
-    }
-
     function fleet_submitQuote() {
         const originZip = document.getElementById('quote_origin_zip').value.trim();
         const destZip = document.getElementById('quote_dest_zip').value.trim();
         const shipDate = document.getElementById('quote_ship_date').value;
-        const cargoDetails = document.getElementById('quote_cargo_details').value.trim();
         const totalWeight = document.getElementById('quote_total_weight').value.trim();
 
-        if (!originZip || !destZip || !shipDate || !cargoDetails) {
+        if (!originZip || !destZip || !shipDate) {
             alert('请填写所有必填字段');
+            return;
+        }
+
+        // 收集表格数据
+        const lineItems = [];
+        document.querySelectorAll('#quote_items_tbody tr').forEach(tr => {
+            lineItems.push({
+                length: tr.querySelector('.item-length').value,
+                width: tr.querySelector('.item-width').value,
+                height: tr.querySelector('.item-height').value,
+                pieces: tr.querySelector('.item-pieces').value,
+                weight: tr.querySelector('.item-weight').value,
+                description: tr.querySelector('.item-desc').value
+            });
+        });
+
+        if (lineItems.length === 0) {
+            alert('请至少添加一行货物明细');
             return;
         }
 
@@ -1987,19 +2106,17 @@
         btn.disabled = true;
         btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 询价中...';
 
-        // 准备FormData
         const formData = new FormData();
         formData.append('step', 'get_maersk_quote');
         formData.append('origin_zip', originZip);
         formData.append('dest_zip', destZip);
         formData.append('ship_date', shipDate);
-        formData.append('cargo_details', cargoDetails);
         formData.append('total_weight', totalWeight);
-        // 获取CSRF token
+        formData.append('line_items_json', JSON.stringify(lineItems));
+        
         const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
         formData.append('csrfmiddlewaretoken', csrfToken);
 
-        // 发送请求
         fetch(window.location.href, {
             method: 'POST',
             body: formData,
@@ -2012,8 +2129,6 @@
             if (data.success) {
                 document.getElementById('quote_result_area').style.display = 'block';
                 document.getElementById('quote_error_msg').style.display = 'none';
-                
-                // 使用新的渲染函数
                 fleet_renderQuoteResults(data.data);
             } else {
                 document.getElementById('quote_result_area').style.display = 'none';
