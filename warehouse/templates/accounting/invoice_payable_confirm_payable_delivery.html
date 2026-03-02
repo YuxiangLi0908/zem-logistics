@@ -273,29 +273,198 @@
             max-width: 100% !important;
             overflow-x: auto !important;
             box-sizing: border-box !important;
-            flex: none !important; /* 关键：取消flex自适应，固定宽度 */
+            flex: none !important;
             position: relative !important;
             transition: none !important;
         }
 
-        /* 强制表格宽度与容器完全一致，列宽由<th>的width属性决定 */
+        /* 强制表格固定布局，列宽仅由<th>决定 */
         .table {
             width: 100% !important;
             min-width: 100% !important;
-            max-width: 100% !important; /* 改为100%，禁止超出/收缩 */
-            table-layout: fixed !important;
+            max-width: 100% !important;
+            table-layout: fixed !important; /* 固定布局核心 */
             border-collapse: separate !important;
             border-spacing: 0 !important;
             box-sizing: border-box !important;
             transition: none !important;
-            table-layout: fixed !important;
         }
 
-        /* 给表头<th>明确设置宽度，避免自动计算 */
+        /* 给每个表头设置固定像素宽度，禁止自动计算 */
         .table th {
-            width: auto !important; /* 改为auto，配合fixed布局，由<th>的style宽度决定 */
-            min-width: 80px !important; /* 给每个表头设置最小宽度，防止收缩 */
             box-sizing: border-box !important;
+            padding: 8px !important;
+            white-space: nowrap !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+            vertical-align: middle !important;
+        }
+
+        /* 待确认账单列宽（14列） */
+        #delivery-pending .table th:nth-child(1) {
+            width: 50px !important;
+        }
+
+        /* 复选框 */
+        #delivery-pending .table th:nth-child(2) {
+            width: 100px !important;
+        }
+
+        /* 车次 */
+        #delivery-pending .table th:nth-child(3) {
+            width: 120px !important;
+        }
+
+        /* Carrier */
+        #delivery-pending .table th:nth-child(4) {
+            width: 150px !important;
+        }
+
+        /* Pickup Number */
+        #delivery-pending .table th:nth-child(5) {
+            width: 80px !important;
+        }
+
+        /* ISA */
+        #delivery-pending .table th:nth-child(6) {
+            width: 100px !important;
+        }
+
+        /* 柜号 */
+        #delivery-pending .table th:nth-child(7) {
+            width: 120px !important;
+        }
+
+        /* 目的地 */
+        #delivery-pending .table th:nth-child(8) {
+            width: 80px !important;
+        }
+
+        /* 板数 */
+        #delivery-pending .table th:nth-child(9) {
+            width: 80px !important;
+        }
+
+        /* 价格 */
+        #delivery-pending .table th:nth-child(10) {
+            width: 80px !important;
+        }
+
+        /* 单板成本 */
+        #delivery-pending .table th:nth-child(11) {
+            width: 80px !important;
+        }
+
+        /* 车次总板数 */
+        #delivery-pending .table th:nth-child(12) {
+            width: 100px !important;
+        }
+
+        /* 车次总成本 */
+        #delivery-pending .table th:nth-child(13) {
+            width: 100px !important;
+        }
+
+        /* 核销金额 */
+        #delivery-pending .table th:nth-child(14) {
+            width: 150px !important;
+        }
+
+        /* 备注 */
+
+        /* 已确认账单列宽（15列，多核销时间） */
+        #delivery-confirm .table th:nth-child(1) {
+            width: 50px !important;
+        }
+
+        /* 复选框 */
+        #delivery-confirm .table th:nth-child(2) {
+            width: 100px !important;
+        }
+
+        /* 车次 */
+        #delivery-confirm .table th:nth-child(3) {
+            width: 120px !important;
+        }
+
+        /* Carrier */
+        #delivery-confirm .table th:nth-child(4) {
+            width: 150px !important;
+        }
+
+        /* Pickup Number */
+        #delivery-confirm .table th:nth-child(5) {
+            width: 80px !important;
+        }
+
+        /* ISA */
+        #delivery-confirm .table th:nth-child(6) {
+            width: 100px !important;
+        }
+
+        /* 柜号 */
+        #delivery-confirm .table th:nth-child(7) {
+            width: 120px !important;
+        }
+
+        /* 目的地 */
+        #delivery-confirm .table th:nth-child(8) {
+            width: 80px !important;
+        }
+
+        /* 板数 */
+        #delivery-confirm .table th:nth-child(9) {
+            width: 80px !important;
+        }
+
+        /* 价格 */
+        #delivery-confirm .table th:nth-child(10) {
+            width: 80px !important;
+        }
+
+        /* 单板成本 */
+        #delivery-confirm .table th:nth-child(11) {
+            width: 80px !important;
+        }
+
+        /* 车次总板数 */
+        #delivery-confirm .table th:nth-child(12) {
+            width: 100px !important;
+        }
+
+        /* 车次总成本 */
+        #delivery-confirm .table th:nth-child(13) {
+            width: 100px !important;
+        }
+
+        /* 核销金额 */
+        #delivery-confirm .table th:nth-child(14) {
+            width: 100px !important;
+        }
+
+        /* 核销时间 */
+        #delivery-confirm .table th:nth-child(15) {
+            width: 150px !important;
+        }
+
+        /* 备注 */
+
+        /* 表格单元格统一样式，禁止溢出 */
+        .table td {
+            box-sizing: border-box !important;
+            white-space: nowrap !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+            vertical-align: middle !important;
+        }
+
+        /* 禁止动态添加的单元格影响布局 */
+        .added-empty-cell {
+            width: inherit !important;
+            min-width: inherit !important;
+            max-width: inherit !important;
+            padding: 0 !important;
+            border: none !important;
         }
 
         /* 合并行单元格强制继承列宽，禁止干扰布局 */
@@ -1407,7 +1576,7 @@
             combinedRowsMap[tableType] = map;
         }
 
-        // ========== 核心修复：区分待确认/已确认的列索引映射 ==========
+        // ========== 核心修复：不添加空白单元格，避免表格宽度变化 ==========
         function filterCombinedRows(tableType, input) {
             // 获取搜索列名和全局索引
             const colName = input.dataset.columnName || '';
@@ -1427,7 +1596,7 @@
             if (keyword === '') {
                 allRows.forEach(row => {
                     row.style.display = '';
-                    // 移除之前添加的空白单元格
+                    // 移除之前添加的空白单元格（彻底清理）
                     const addedCells = row.querySelectorAll('.added-empty-cell');
                     addedCells.forEach(cell => cell.remove());
                 });
@@ -1443,9 +1612,7 @@
             });
 
             // 4. 区分待确认/已确认的列索引映射
-            // 定义列名映射：全局列名 → {main: 主行索引, sub: 子行索引}
             const columnConfig = {
-                // 待确认账单（14列）
                 'delivery-pending': {
                     '车次': {main: 1, sub: -1},
                     'Carrier': {main: 2, sub: -1},
@@ -1454,10 +1621,9 @@
                     '柜号': {main: 5, sub: 1},
                     '目的地': {main: 6, sub: 2},
                     '板数': {main: 7, sub: 3},
-                    '价格': {main: 8, sub: 4}, // 修正：待确认价格是第8列（原代码写错为9）
-                    '单板成本': {main: 9, sub: 5} // 修正：待确认单板成本是第9列（原代码写错为10）
+                    '价格': {main: 8, sub: 4},
+                    '单板成本': {main: 9, sub: 5}
                 },
-                // 已确认账单（15列，多核销时间）
                 'delivery-confirm': {
                     '车次': {main: 1, sub: -1},
                     'Carrier': {main: 2, sub: -1},
@@ -1476,13 +1642,13 @@
             // 获取当前表格主行列数（用于判断是否为主行）
             const mainRowCellCount = tableType === 'delivery-pending' ? 14 : 15;
 
-            // 5. 找出所有匹配的行
+            // 5. 找出所有匹配的行（核心：不添加单元格，只显示/隐藏）
             const rowsToShow = new Set();
             const map = combinedRowsMap[tableType];
 
             allRows.forEach((row) => {
                 const cells = row.querySelectorAll('td');
-                const isMainRow = cells.length === mainRowCellCount; // 区分待确认/已确认主行
+                const isMainRow = cells.length === mainRowCellCount;
                 let cellValue = '';
                 let isMatch = false;
 
@@ -1509,45 +1675,14 @@
                     isMatch = numValue >= keywordNum;
                 }
 
-                // 匹配成功则添加整个组合行
+                // 匹配成功则添加整个组合行（不修改DOM结构）
                 if (isMatch) {
                     const combinedRows = map.get(row) || [row];
-                    combinedRows.forEach(r => {
-                        rowsToShow.add(r);
-                        // 给子行补充空白列（保持表格结构完整）
-                        const rCells = r.querySelectorAll('td');
-                        if (rCells.length !== mainRowCellCount) {
-                            // 补充前4列空白单元格（复选框、车次、Carrier、Pickup Number）
-                            // 1. 复选框列
-                            const checkboxCell = document.createElement('td');
-                            checkboxCell.className = 'td export-checkbox-col added-empty-cell';
-                            checkboxCell.style.verticalAlign = 'middle';
-                            checkboxCell.style.textAlign = 'center';
-                            r.insertBefore(checkboxCell, r.firstChild);
-
-                            // 2. 车次列
-                            const fleetCell = document.createElement('td');
-                            fleetCell.className = 'td added-empty-cell';
-                            fleetCell.style.verticalAlign = 'middle';
-                            r.insertBefore(fleetCell, r.children[1]);
-
-                            // 3. Carrier列
-                            const carrierCell = document.createElement('td');
-                            carrierCell.className = 'td added-empty-cell';
-                            carrierCell.style.verticalAlign = 'middle';
-                            r.insertBefore(carrierCell, r.children[2]);
-
-                            // 4. Pickup Number列
-                            const pickupCell = document.createElement('td');
-                            pickupCell.className = 'td added-empty-cell';
-                            pickupCell.style.verticalAlign = 'middle';
-                            r.insertBefore(pickupCell, r.children[3]);
-                        }
-                    });
+                    combinedRows.forEach(r => rowsToShow.add(r));
                 }
             });
 
-            // 6. 显示匹配的组合行
+            // 6. 显示匹配的组合行（仅修改display，不修改DOM）
             rowsToShow.forEach(row => row.style.display = '');
 
             // 7. 更新全选状态
