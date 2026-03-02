@@ -1,5 +1,5 @@
 <!-- Maersk 预约出库模态框 -->
-<div class="modal fade" id="fleet_maerskScheduleModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+<div class="modal fade" id="fleet_maerskScheduleModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" style="z-index: 1080;">
     <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content">
             <div class="modal-header bg-primary text-white">
@@ -169,9 +169,65 @@
     </div>
 </div>
 
+<!-- Maersk 下单成功模态框 -->
+<div class="modal fade" id="fleet_maerskSuccessModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" style="z-index: 1090;">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title"><i class="fas fa-check-circle me-2"></i>下单成功</h5>
+            </div>
+            <div class="modal-body text-center py-4">
+                <div class="mb-3">
+                    <i class="fas fa-check-circle text-success" style="font-size: 4rem;"></i>
+                </div>
+                <h4 class="mb-4">预约及下单已完成！</h4>
+                
+                <div class="card bg-light border-0">
+                    <div class="card-body text-start">
+                        <div class="row mb-2">
+                            <div class="col-5 text-muted">PRO 号码:</div>
+                            <div class="col-7 fw-bold" id="maersk_success_pro"></div>
+                        </div>
+                        <div class="row mb-2">
+                            <div class="col-5 text-muted">批次号:</div>
+                            <div class="col-7 fw-bold" id="maersk_success_batch"></div>
+                        </div>
+                        <div class="row">
+                            <div class="col-5 text-muted">预估费用:</div>
+                            <div class="col-7 fw-bold text-danger" id="maersk_success_cost"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer justify-content-center">
+                <button type="button" class="btn btn-success px-5" onclick="window.location.reload()">确定</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // 将模态框移动到 body 标签下
+        const modal = document.getElementById('fleet_maerskScheduleModal');
+        const successModal = document.getElementById('fleet_maerskSuccessModal');
+        if (document.body) {
+            if (modal) document.body.appendChild(modal);
+            if (successModal) document.body.appendChild(successModal);
+        }
+    });
+
     // 打开 Maersk 预约出库模态框
     function fleet_openMaerskScheduleModal(index, warehouseType = 'public') {
+        // 尝试关闭询价模态框 (如果有)
+        const quoteModalEl = document.getElementById('fleet_quoteModal');
+        if (quoteModalEl) {
+            const quoteModal = bootstrap.Modal.getInstance(quoteModalEl);
+            if (quoteModal) {
+                quoteModal.hide();
+            }
+        }
+
         if (!currentQuoteData || !currentQuoteData.quotes || !currentQuoteData.quotes[index]) {
             alert('报价数据失效，请重新询价');
             return;
@@ -384,14 +440,26 @@
 
         const formData = new FormData();
         formData.append('step', 'maersk_schedule_post');
-        formData.append('cargo_ids', cargoId); // 兼容 handle_appointment_post
-        formData.append('plt_ids', cargoId.startsWith('plt_') ? cargoId.replace('plt_', '') : ''); // 如果是 plt ID
+        
+        // 区分 cargo_ids 和 plt_ids
+        if (cargoId.startsWith('plt_')) {
+            formData.append('plt_ids', cargoId.replace('plt_', ''));
+            formData.append('cargo_ids', ''); // 清空 cargo_ids 以避免混淆
+        } else {
+            formData.append('cargo_ids', cargoId);
+            formData.append('plt_ids', ''); // 清空 plt_ids
+        }
+        
         formData.append('quote_id', rating.QuoteID);
         formData.append('service_code', quote.Service);
         formData.append('consignee_json', JSON.stringify(consignee));
         formData.append('line_items_json', JSON.stringify(currentQuoteData.lineItems));
         formData.append('schedule_json', JSON.stringify(schedule));
         formData.append('warehouse_type', warehouseType);
+        
+        // 传递当前主页面的 warehouse 参数
+        const mainWarehouse = "{{ warehouse }}"; 
+        formData.append('warehouse', mainWarehouse);
         
         const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
         formData.append('csrfmiddlewaretoken', csrfToken);
@@ -406,16 +474,25 @@
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                // 回填 PRO
-                document.getElementById('maersk_pro').value = data.pro_number || 'N/A';
-                
-                alert('下单并预约成功！\nPRO: ' + (data.pro_number || 'N/A') + '\n批次号: ' + (data.batch_number || 'N/A'));
-                
-                // 关闭模态框并刷新页面
+                // 关闭下单模态框
                 const modalEl = document.getElementById('fleet_maerskScheduleModal');
                 const modal = bootstrap.Modal.getInstance(modalEl);
                 modal.hide();
-                window.location.reload();
+
+                // 填充成功信息
+                document.getElementById('maersk_success_pro').innerText = data.pro_number || 'N/A';
+                document.getElementById('maersk_success_batch').innerText = data.batch_number || 'N/A';
+                
+                // 格式化费用
+                let costDisplay = 'N/A';
+                if (data.cost !== undefined && data.cost !== null) {
+                     costDisplay = '$' + parseFloat(data.cost).toFixed(2);
+                }
+                document.getElementById('maersk_success_cost').innerText = costDisplay;
+
+                // 显示成功模态框
+                const successModal = new bootstrap.Modal(document.getElementById('fleet_maerskSuccessModal'));
+                successModal.show();
             } else {
                 alert('操作失败: ' + (data.message || '未知错误'));
             }

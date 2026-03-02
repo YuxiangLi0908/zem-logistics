@@ -47,6 +47,7 @@ from django.db.models import (
     Value,
     When,
 )
+from warehouse.utils.config import app_config
 import asyncio
 import aiohttp
 from django.http import JsonResponse
@@ -563,19 +564,14 @@ class PostNsop(View):
     
     async def handle_maersk_schedule_post(self, request: HttpRequest) -> JsonResponse:
         """处理Maersk预约下单"""
-        try:
-            from warehouse.utils.config import app_config
-            
+        try:     
             # 1. 提取参数
-            cargo_ids = request.POST.get('cargo_ids')
-            plt_ids = request.POST.get('plt_ids')
             quote_id = request.POST.get('quote_id')
             service_code = request.POST.get('service_code')
             consignee_json = request.POST.get('consignee_json')
             line_items_json = request.POST.get('line_items_json')
             schedule_json = request.POST.get('schedule_json')
             warehouse = request.session.get('warehouse') or request.POST.get('warehouse')
-
             if not all([quote_id, service_code, consignee_json, line_items_json, schedule_json]):
                 return JsonResponse({'success': False, 'message': '必要参数缺失'}, status=400)
 
@@ -650,11 +646,10 @@ class PostNsop(View):
                 "serviceCode": service_code,
                 "shipper": {
                     "address": shipper_address,
-                    "references": [schedule.get('bol')] if schedule.get('bol') else []
+                    "references": [batch_number_ref]
                 },
                 "consignee": {
-                    "address": consignee_address,
-                    "references": [batch_number_ref]
+                    "address": consignee_address,                
                 },
                 "lineItems": line_items,
                 "shipDate": schedule.get('pickup_time'), # 必填
@@ -672,11 +667,13 @@ class PostNsop(View):
             }
 
             pro_number = None
+            actual_fee = None
             async with aiohttp.ClientSession() as session:
                 async with session.post(api_url, json=payload, headers=headers) as response:
                     if response.status == 200:
                         res_data = await response.json()
-                        pro_number = res_data.get('ProNumber')
+                        pro_number = res_data.get('housebill')
+                        actual_fee = res_data.get('rate').get('totalAmount')
                     else:
                         text = await response.text()
                         return JsonResponse({'success': False, 'message': f'Maersk API下单失败: {response.status} - {text}'}, status=response.status)
@@ -699,16 +696,14 @@ class PostNsop(View):
                 post_data['shipment_type'] = schedule.get('shipment_type', 'LTL')
                 # 私仓 auto_fleet 接收 'true'/'false' 字符串
                 post_data['auto_fleet'] = 'true' if schedule.get('auto_schedule') == '是' else 'false'
-                post_data['fleet_cost'] = schedule.get('cost', 0)
+                post_data['fleet_cost'] = actual_fee
                 # 传递已生成的 batch_number 
                 post_data['maersk_batch_number'] = batch_number_ref
                 # 传递备注
                 post_data['note'] = schedule.get('note', '')
-                
-                # 确保 cargo_ids 和 plt_ids 存在 (已在 request.POST 中)
-                
+                post_data['warehouse'] = warehouse
+
                 request.POST = post_data
-                
                 # 调用私仓绑定逻辑
                 template_name, context = await self.handle_ltl_bind_group_shipment(request)
                 
@@ -718,7 +713,8 @@ class PostNsop(View):
                 return JsonResponse({
                     'success': True, 
                     'pro_number': pro_number, 
-                    'batch_number': '', # 私仓逻辑暂不返回 batch_number 给前端弹窗显示
+                    'batch_number': batch_number_ref, # 私仓逻辑暂不返回 batch_number 给前端弹窗显示
+                    'cost': actual_fee,
                     'message': '下单及私仓预约成功'
                 })
                 
@@ -751,9 +747,6 @@ class PostNsop(View):
                 
                 success_msg = context.get('success_messages', '')
                 # 提取生成的 batch_number (通常在 success_messages 中 "绑定成功，批次号是XXX")
-                batch_number = ''
-                if '批次号是' in success_msg:
-                    batch_number = success_msg.split('批次号是')[1].split(',')[0].strip()
 
                 # 6. 更新 PRO 号到 Pallet
                 # 根据 batch_number 或 appointment_id 查找 Shipment
@@ -774,6 +767,7 @@ class PostNsop(View):
                         # 更新 Fleet 信息 (比如 carrier, pro)
                         fleet = await sync_to_async(Fleet.objects.get)(fleet_number=fleet_number)
                         fleet.carrier = 'Maersk'
+                        fleet.fleet_cost = actual_fee
                         await sync_to_async(fleet.save)()
                         
                 except Exception as e:
@@ -783,7 +777,8 @@ class PostNsop(View):
                 return JsonResponse({
                     'success': True, 
                     'pro_number': pro_number, 
-                    'batch_number': batch_number,
+                    'batch_number': batch_number_ref,
+                    'cost': actual_fee,
                     'message': '下单及预约成功'
                 })
 
@@ -3914,6 +3909,7 @@ class PostNsop(View):
                 month_day = shipment_appointment_dt.strftime("%m%d")
             except:
                 month_day = current_time.strftime("%m%d")
+            print('warehouse',warehouse)
             pickupNumber = "ZEM" + "-" + warehouse + "-" + "" + month_day + carrier + destination
 
             fleet_cost = (request.POST.get("fleet_cost", ""))
