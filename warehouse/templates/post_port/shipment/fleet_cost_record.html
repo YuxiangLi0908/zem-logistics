@@ -63,10 +63,10 @@
     </div>
 
     <div style="background: white; border-radius: 8px; padding: 15px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-        <div style="display: flex; justify-content: space-between; margin-bottom: 15px;">
+        <div style="display: flex; justify-content: space-between; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
             <h3 style="margin: 0; font-size: 16px;">
                 <i class="bi bi-list-check" style="font-size: 18px; color: #ff4d4f;"></i>
-                <span style="font-size: 20px; font-weight: 700; 
+                <span style="font-size: 20px; font-weight: 700;
                         text-shadow: 1px 1px 0 #fff, 2px 2px 0 rgba(255,77,79,0.3);
                         color: #ff4d4f;">
                     派送成本录入-{{ shipment_type }}
@@ -83,24 +83,60 @@
                     box-shadow: 0 1px 3px rgba(0,0,0,0.1);
                 ">{{ fleet|length }}条</span>
             </h3>
-            <form method="post" enctype="multipart/form-data" style="font-size:11px;float: right;">
-                {% csrf_token %}
-                <input type="file" name="file">
-                <input type="hidden" name="step" value="upload_fleet_cost">
-                <input type="hidden" name="area" value="{{ area }}">
-                <button type="submit" class="btn btn-success" style="height: 30px; margin-left: 20px; font-size: 13px;">
-                    批量上传成本
-                </button>
-                <small style="color: #666; margin-left: 0px;">（每行的PickUp Number、出库批次和预约批次填一个就行）</small>
-            </form>
-            <form method="post" enctype="multipart/form-data" style="font - size:11px;float: right;">   
-                {% csrf_token %}
-                <input type="hidden" name="step" value="download_fleet_cost_template">
-                <button type="submit" class="btn btn-success" style="height: 30px; margin-left: 20px; font-size: 13px;">
-                    下载模版
-                </button>
-            </form>
+
+            <!-- ========== 核心修改：固定宽度容器 + 左对齐内部元素 ========== -->
+            <div style="display: flex; flex-direction: column; gap: 10px; align-items: flex-end; min-width: 600px;">
+                <!-- 第一行：原有批量上传 + 下载模版 -->
+                <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap; width: 100%;">
+                    <!-- 原有批量上传成本 -->
+                    <form method="post" enctype="multipart/form-data" style="font-size:11px; display: inline-flex; align-items: center;">
+                        {% csrf_token %}
+                        <input type="file" name="file" style="margin-right: 5px;">
+                        <input type="hidden" name="step" value="upload_fleet_cost">
+                        <input type="hidden" name="area" value="{{ area }}">
+                        <button type="submit" class="btn btn-success" style="height: 30px; font-size: 13px;">
+                            批量上传成本
+                        </button>
+                        <small style="color: #666; margin-left: 5px;">（每行的PickUp Number、出库批次和预约批次填一个就行）</small>
+                    </form>
+
+                    <!-- 原有下载模版 -->
+                    <form method="post" enctype="multipart/form-data" style="font-size:11px; display: inline-flex; align-items: center; margin-left: 20px;">
+                        {% csrf_token %}
+                        <input type="hidden" name="step" value="download_fleet_cost_template">
+                        <button type="submit" class="btn btn-primary" style="height: 30px; font-size: 13px;">
+                            下载模版
+                        </button>
+                    </form>
+                </div>
+
+                <!-- 第二行：LTL批量上传 + 下载LTL模版 -->
+                <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap; width: 100%;">
+                    <!-- 新增LTL批量上传成本 -->
+                    <form method="post" enctype="multipart/form-data" style="font-size:11px; display: inline-flex; align-items: center;">
+                        {% csrf_token %}
+                        <input type="file" name="ltl_file" style="margin-right: 5px;">
+                        <input type="hidden" name="step" value="upload_ltl_cost">
+                        <input type="hidden" name="area" value="{{ area }}">
+                        <button type="submit" class="btn btn-warning" style="height: 30px; font-size: 13px;">
+                            LTL批量上传成本
+                        </button>
+                        <small style="color: #666; margin-left: 5px;">（按LTL模板格式上传）</small>
+                    </form>
+
+                    <!-- 新增下载LTL模版 -->
+                    <form method="post" enctype="multipart/form-data" style="font-size:11px; display: inline-flex; align-items: center; margin-left: 20px;">
+                        {% csrf_token %}
+                        <input type="hidden" name="step" value="download_ltl_cost_template">
+                        <button type="submit" class="btn btn-info" style="height: 30px; font-size: 13px;">
+                            下载LTL模版
+                        </button>
+                    </form>
+                </div>
+            </div>
+            <!-- ========== 上传按钮区域修改结束 ========== -->
         </div>
+
         <div style="max-height: 65vh; overflow-y: auto;">
             <table id="shipment-table" class="table" style="font-size: 11px; max-height: 95%; overflow-y: scroll;">
                 <thead>
@@ -116,7 +152,7 @@
                         <th class="th">总重lbs</th>
                         <th class="th">总CBM</th>
                         <th class="th">总卡板数</th>
-                        <th class="th">备注</th>                      
+                        <th class="th">备注</th>
                         {% if shipment_type == '已录入内容' %}
                             <th class="th">退回费用</th>
                         {% endif %}
@@ -130,7 +166,7 @@
                         <th class="th"><input type="text" placeholder="搜索预约批次..." size="13" style="font-size: 11px;"></th>
                         <th class="th"><input type="text" placeholder="搜索ISA..." size="13" style="font-size: 11px;"></th>
                         <th class="th"><input type="text" placeholder="搜索carrier..." size="13" style="font-size: 11px;"></th>
-                        <th class="th"></th>                      
+                        <th class="th"></th>
                         <th class="th"></th>
                         <th class="th"></th>
                         <th class="th"></th>
@@ -145,7 +181,7 @@
                 </thead>
                 <tbody>
                     {% for f in fleet %}
-                    <form id="pod-form" method="post" enctype="multipart/form-data" action="" style="overflow-x: auto; max-width: 100%; max-height: 98%; overflow-y: scroll;">
+                    <form id="pod-form-{{ forloop.counter }}" method="post" enctype="multipart/form-data" action="" style="overflow-x: auto; max-width: 100%; max-height: 98%; overflow-y: scroll;">
                         {% csrf_token %}
                         <tr>
                             <td class="td" style="max-width: 120px; word-break: break-all;">{{ f.fleet_number.pickup_number }}</td>
@@ -210,24 +246,24 @@
         border: 1px solid transparent;
         border-radius: 4px;
     }
-    
+
     .alert-danger {
         color: #a94442;
         background-color: #f2dede;
         border-color: #ebccd1;
     }
-    
+
     .alert-success {
         color: #3c763d;
         background-color: #dff0d8;
         border-color: #d6e9c6;
     }
-    
+
     .alert .close {
         color: #000;
         opacity: 0.2;
     }
-    
+
     .alert .close:hover {
         opacity: 0.5;
     }
@@ -237,7 +273,7 @@
         font-size: 13px;
         color: #555;
     }
-    
+
     .form-input, .form-select {
         width: 100%;
         padding: 8px 12px;
@@ -245,7 +281,7 @@
         border-radius: 4px;
         font-size: 13px;
     }
-    
+
     .search-btn {
         background: #1890ff;
         color: white;
@@ -254,7 +290,7 @@
         border-radius: 4px;
         cursor: pointer;
     }
-    
+
     .primary-btn {
         background: #28a745;
         color: white;
@@ -265,7 +301,7 @@
         align-items: center;
         gap: 5px;
     }
-    
+
     .file-upload-btn {
         border: 1px dashed #ccc;
         padding: 5px 10px;
@@ -276,13 +312,13 @@
         gap: 5px;
         font-size: 12px;
     }
-    
+
     .data-table {
         width: 100%;
         border-collapse: collapse;
         font-size: 12px;
     }
-    
+
     .data-table th {
         background: #f5f7fa;
         position: sticky;
@@ -290,29 +326,57 @@
         padding: 10px;
         text-align: left;
     }
-    
+
     .data-table td {
         padding: 8px 10px;
         border-bottom: 1px solid #eee;
     }
-    
+
     .data-row:hover {
         background-color: #f9f9f9;
     }
-    
+
     .status-span-red {
         color: #f5222d;
         font-weight: bold;
     }
-    
+
     .status-span-yellow {
         color: #faad14;
         font-weight: bold;
     }
+
+    /* 新增：加载动画样式（原有代码缺失） */
+    #loading-bar {
+        display: none;
+        text-align: center;
+        padding: 20px;
+        margin: 10px 0;
+    }
+
+    .spinner {
+        border: 4px solid #f3f3f3;
+        border-top: 4px solid #1890ff;
+        border-radius: 50%;
+        width: 30px;
+        height: 30px;
+        animation: spin 1s linear infinite;
+        margin: 0 auto 10px;
+    }
+
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+
+    /* 新增：表单行内对齐样式 */
+    form[enctype="multipart/form-data"] {
+        margin: 0;
+        padding: 0;
+    }
 </style>
 
 <script>
-
     function showLoadingBar() {
         document.getElementById('loading-bar').style.display = 'block';
     }
@@ -323,9 +387,26 @@
     };
 
     document.addEventListener('DOMContentLoaded', function() {
-        const form = document.getElementById('pod-form');
-        if (form) {
+        // 修复：原有form id重复问题，改为遍历绑定
+        const forms = document.querySelectorAll('form[id^="pod-form-"]');
+        forms.forEach(form => {
             form.addEventListener('submit', function() {
+                showLoadingBar();
+            });
+        });
+
+        // 给LTL上传表单也绑定加载动画
+        const ltlUploadForm = document.querySelector('form[name="ltl_file"]');
+        if (ltlUploadForm) {
+            ltlUploadForm.addEventListener('submit', function() {
+                showLoadingBar();
+            });
+        }
+
+        // 给原有上传表单也绑定加载动画（补充）
+        const normalUploadForm = document.querySelector('form[name="file"]');
+        if (normalUploadForm) {
+            normalUploadForm.addEventListener('submit', function() {
                 showLoadingBar();
             });
         }

@@ -10,7 +10,7 @@ from datetime import datetime, timedelta
 from decimal import Decimal, ROUND_HALF_UP
 from typing import Any
 import os
-
+import logging
 from django.core.exceptions import ObjectDoesNotExist
 from numpy.core.records import record
 from reportlab.lib.pagesizes import A4
@@ -254,6 +254,11 @@ class FleetManagement(View):
             return render(request, template, context)
         elif step == "download_fleet_cost_template":
             return await self.handle_fleet_cost_export(request)
+        elif step == "download_ltl_cost_template":
+            return await self.handle_download_ltl_template(request)
+        elif step == "upload_ltl_cost":
+            template, context = await self.handle_upload_ltl_cost(request)
+            return render(request, template, context)
         else:
             return await self.get(request)
 
@@ -1376,6 +1381,254 @@ class FleetManagement(View):
             "arrived_at": arrived_at,
         }
         return self.template_pod_upload, context
+
+    async def handle_download_ltl_template(self, request: HttpRequest):
+        """ltl下载模板"""
+        # 创建LTL模板，表头为：柜号、目的地、唛头、成本
+        df = pd.DataFrame(columns=['柜号', '目的地', '唛头', '成本'])
+        output = io.BytesIO()
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            df.to_excel(writer, sheet_name='LTL成本模板', index=False)
+        # 重置指针
+        output.seek(0)
+        response = HttpResponse(output,
+                                content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        response['Content-Disposition'] = 'attachment; filename="LTL成本录入模板.xlsx"'
+        return response
+
+
+    async def handle_upload_ltl_cost(self, request: HttpRequest):
+        """LTL批量上传成本Excel（最终版：同步更新Fleet表的fleet_cost字段）"""
+        logger = logging.getLogger(__name__)
+        # 1. 校验文件是否存在
+        if not request.FILES.get('ltl_file'):
+            error_messages = ['未上传文件']
+            success_count = 0
+            return await self.handle_fleet_cost_record_get(request, error_messages, success_count)
+
+        file = request.FILES['ltl_file']
+
+        try:
+            # 2. 读取Excel文件（处理常见格式问题）
+            df = pd.read_excel(file, dtype={'柜号': str, '成本': str})  # 先以字符串读取，避免自动转换
+            df = df.fillna('')  # 空值替换为空字符串
+
+            # 3. 校验表头
+            required_columns = ['柜号', '目的地', '唛头', '成本']
+            missing_cols = [col for col in required_columns if col not in df.columns]
+            if missing_cols:
+                error_messages = [
+                    f'上传文件表头错误，缺少字段：{", ".join(missing_cols)}（必须包含：柜号、目的地、唛头、成本）'
+                ]
+                return await self.handle_fleet_cost_record_get(request, error_messages, 0)
+
+            success_count = 0
+            error_messages = []
+            processed_container_numbers = set()  # 记录已处理的柜号，避免重复处理
+
+            # 4. 批量提取有效数据（先过滤无效行）
+            valid_rows = []
+            for idx, row in df.iterrows():
+                row_num = idx + 2  # Excel行号（从2开始）
+                container_number = str(row['柜号']).strip()
+                fleet_cost_str = str(row['成本']).strip()
+                destination = str(row['目的地']).strip()
+                shipping_mark = str(row['唛头']).strip()
+
+                # 4.1 校验必填字段
+                if not container_number:
+                    error_messages.append(f'第{row_num}行：柜号不能为空')
+                    continue
+
+                if not fleet_cost_str:
+                    error_messages.append(f'第{row_num}行：成本不能为空')
+                    continue
+
+                # 4.2 校验成本格式（数字/非负数）
+                try:
+                    fleet_cost = float(fleet_cost_str)
+                    if fleet_cost < 0:
+                        error_messages.append(f'第{row_num}行：成本不能为负数（当前值：{fleet_cost_str}）')
+                        continue
+                except ValueError:
+                    error_messages.append(f'第{row_num}行：成本格式错误，必须为数字（当前值：{fleet_cost_str}）')
+                    continue
+
+                # 4.3 去重（同一柜号只保留最后一行）
+                if container_number in processed_container_numbers:
+                    logger.warning(f'第{row_num}行：柜号{container_number}重复，已跳过')
+                    continue
+                processed_container_numbers.add(container_number)
+
+                valid_rows.append({
+                    'row_num': row_num,
+                    'container_number': container_number,
+                    'fleet_cost': fleet_cost,
+                    'destination': destination,
+                    'shipping_mark': shipping_mark
+                })
+
+            if not valid_rows:
+                error_messages = error_messages or ['无有效数据可处理']
+                return await self.handle_fleet_cost_record_get(request, error_messages, 0)
+
+            # 5. 批量查询数据库（减少数据库交互）
+            container_numbers = [row['container_number'] for row in valid_rows]
+
+            # 异步查询：Pallet → shipment_batch_number → fleet_id（Fleet表的ID）
+            @sync_to_async
+            def get_fleet_id_mapping(container_nums):
+                """批量获取柜号对应的Fleet表ID"""
+                fleet_mapping = {}
+                # 关联查询Pallet表，获取柜号对应的Fleet ID
+                queryset = Pallet.objects.select_related('container_number', 'shipment_batch_number') \
+                    .filter(container_number__container_number__in=container_nums) \
+                    .values(
+                    'container_number__container_number',
+                    'shipment_batch_number__fleet_number'  # 这里是Fleet表的ID
+                )
+
+                for item in queryset:
+                    container_num = item['container_number__container_number']
+                    fleet_id = item['shipment_batch_number__fleet_number']
+
+                    # 仅当Fleet ID存在时才记录（避免空值）
+                    if fleet_id and container_num not in fleet_mapping:
+                        fleet_mapping[container_num] = fleet_id
+                return fleet_mapping
+
+            # 获取柜号→Fleet ID的映射
+            fleet_id_mapping = await get_fleet_id_mapping(container_numbers)
+
+            # 批量查询所有需要的Fleet数据（避免循环内查库）
+            @sync_to_async
+            def get_fleet_info_by_ids(fleet_ids):
+                """批量查询Fleet表，获取ID→车次号的映射"""
+                fleet_info = {}
+                if not fleet_ids:
+                    return fleet_info
+                # 确保ID是整数类型
+                try:
+                    fleet_ids_int = [int(fid) for fid in fleet_ids]
+                except ValueError:
+                    return fleet_info
+                queryset = Fleet.objects.filter(id__in=fleet_ids_int).values('id', 'fleet_number')
+                for item in queryset:
+                    fleet_info[item['id']] = item['fleet_number']
+                return fleet_info
+
+            # 提取所有Fleet ID并批量查询车次号
+            fleet_ids = list(fleet_id_mapping.values())
+            fleet_info = await get_fleet_info_by_ids(fleet_ids) if fleet_ids else {}
+
+            # ========== 核心新增：定义更新Fleet表fleet_cost字段的函数 ==========
+            @sync_to_async
+            def update_fleet_cost_field(fleet_id, cost):
+                """更新Fleet表的fleet_cost字段"""
+                try:
+                    fleet_obj = Fleet.objects.filter(id=fleet_id).first()
+                    if not fleet_obj:
+                        return False, f'Fleet ID {fleet_id} 不存在'
+
+                    # 更新fleet_cost字段
+                    fleet_obj.fleet_cost = cost
+                    fleet_obj.save(update_fields=['fleet_cost'])  # 只更新指定字段，提升性能
+                    return True, ''
+                except Exception as e:
+                    return False, f'更新Fleet表失败：{str(e)[:50]}'
+
+            # 6. 批量处理数据（事务控制 + 异步兼容）
+            async def batch_update_fleet_cost(rows, fleet_id_map, fleet_info_map):
+                """批量录入成本（异步+事务兼容版）"""
+                nonlocal success_count
+
+                # 同步事务内处理数据校验和基础逻辑
+                @sync_to_async
+                def process_in_transaction():
+                    nonlocal success_count
+                    process_errors = []
+                    valid_fleet_data = []  # 存储校验通过的车次号+成本数据
+
+                    with transaction.atomic():  # 事务：要么全成功，要么全失败
+                        for row in rows:
+                            container_num = row['container_number']
+                            fleet_cost = row['fleet_cost']
+                            row_num = row['row_num']
+
+                            # 检查柜号是否关联了Fleet ID
+                            if container_num not in fleet_id_map:
+                                process_errors.append(f'第{row_num}行：柜号{container_num}不存在/未关联车次')
+                                continue
+
+                            fleet_id = fleet_id_map[container_num]
+                            # 检查Fleet ID是否能查到车次号
+                            if fleet_id not in fleet_info_map:
+                                process_errors.append(
+                                    f'第{row_num}行：柜号{container_num}关联的车次ID({fleet_id})不存在')
+                                continue
+
+                            fleet_number = fleet_info_map[fleet_id]
+                            if not fleet_number:
+                                process_errors.append(
+                                    f'第{row_num}行：柜号{container_num}关联的车次ID({fleet_id})无车次号')
+                                continue
+
+                            # 校验通过，记录待录入的数据（新增fleet_id）
+                            valid_fleet_data.append({
+                                'row_num': row_num,
+                                'container_num': container_num,
+                                'fleet_id': fleet_id,  # 新增：保存Fleet ID
+                                'fleet_number': fleet_number,
+                                'fleet_cost': fleet_cost
+                            })
+                            success_count += 1  # 累加成功计数
+
+                    return process_errors, valid_fleet_data
+
+                # 执行同步事务处理
+                process_errors, valid_fleet_data = await process_in_transaction()
+                error_messages.extend(process_errors)
+
+                # 异步调用成本录入方法（处理每个校验通过的数据）
+                for data in valid_fleet_data:
+                    try:
+                        # 步骤1：调用原有成本录入方法
+                        await self.insert_fleet_shipment_pallet_fleet_cost(
+                            request, data['fleet_number'], data['fleet_cost']
+                        )
+
+                        # 步骤2：核心新增：更新Fleet表的fleet_cost字段
+                        update_success, update_msg = await update_fleet_cost_field(
+                            data['fleet_id'], data['fleet_cost']
+                        )
+
+                        if not update_success:
+                            # 更新Fleet表失败，抛出异常触发后续回滚
+                            raise Exception(update_msg)
+
+                        logger.info(
+                            f'第{data["row_num"]}行：柜号{data["container_num"]}（车次{data["fleet_number"]}）成本录入成功，金额：{data["fleet_cost"]}'
+                        )
+                    except Exception as e:
+                        logger.error(
+                            f'第{data["row_num"]}行：柜号{data["container_num"]}（车次{data["fleet_number"]}）录入异常',
+                            exc_info=True
+                        )
+                        error_messages.append(
+                            f'第{data["row_num"]}行：柜号{data["container_num"]}处理失败：{str(e)[:100]}')
+                        success_count -= 1  # 录入失败，回滚计数
+
+            # 执行批量录入
+            await batch_update_fleet_cost(valid_rows, fleet_id_mapping, fleet_info)
+
+            # 7. 返回结果
+            return await self.handle_fleet_cost_record_get(request, error_messages, success_count)
+
+        except Exception as e:
+            # 捕获全局异常
+            logger.error('LTL批量上传成本整体异常', exc_info=True)
+            error_messages = [f'文件处理失败：{str(e)[:200]}']
+            return await self.handle_fleet_cost_record_get(request, error_messages, 0)
 
     async def handle_fleet_warehouse_search_post(
         self, request: HttpRequest
