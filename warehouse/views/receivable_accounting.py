@@ -6668,7 +6668,10 @@ class ReceivableAccounting(View):
 
         preport_amount = to_decimal(invoice.receivable_preport_amount)
         # 更新总金额
-        invoice.receivable_total_amount = preport_amount + warehouse_total + delivery_total      
+        invoice.receivable_total_amount = preport_amount + warehouse_total + delivery_total 
+        remain_offset = to_decimal(invoice.remain_offset)
+        if remain_offset == 0.0:
+            invoice.remain_offset = preport_amount + warehouse_total + delivery_total 
         invoice.save()
 
     def handle_invoice_preport_save(self, request:HttpRequest) -> Dict[str, Any]:
@@ -8595,7 +8598,6 @@ class ReceivableAccounting(View):
         self, request: HttpRequest
     ) -> tuple[Any, Any]:
         '''组合柜账单，财务保存'''
-
         container_number = request.POST.get("container_number")
         invoice_number = request.POST.get("invoice_number")
         invoice = Invoicev2.objects.get(invoice_number=invoice_number)
@@ -8778,6 +8780,9 @@ class ReceivableAccounting(View):
             InvoiceItemv2(**inv_itm_data) for inv_itm_data in invoice_item_data
         ]
         bulk_create_with_history(invoice_item_instances, InvoiceItemv2)
+
+        # 重新计算总费用
+        self._calculate_invoice_total_amount(invoice)
 
         order = Order.objects.get(container_number__container_number=container_number)
 
