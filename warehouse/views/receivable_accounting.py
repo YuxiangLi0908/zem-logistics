@@ -8793,8 +8793,8 @@ class ReceivableAccounting(View):
         invoice.invoice_link = invoice_data["invoice_link"]
 
         #再计算一遍总数
-        invoice.receivable_total_amount = total_fee
-        invoice.remain_offset = total_fee
+        #invoice.receivable_total_amount = total_fee
+        #invoice.remain_offset = total_fee
         invoice.save()
         status_obj = InvoiceStatusv2.objects.get(
             invoice=invoice,
