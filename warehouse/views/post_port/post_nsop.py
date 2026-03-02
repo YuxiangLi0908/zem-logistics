@@ -245,6 +245,8 @@ class PostNsop(View):
         elif step == "fleet_confirmation":
             template, context = await self.handle_fleet_confirmation_post(request)
             return render(request, template, context) 
+        elif step == "cancel_maersk_shipment":
+            return await self.handle_cancel_maersk_shipment(request)
         elif step == "cancel_fleet":
             fm = FleetManagement()
             context = await fm.handle_cancel_fleet_post(request,'post_nsop')
@@ -659,8 +661,8 @@ class PostNsop(View):
             }
 
             api_url = "https://zem-maersk-gateway.kindmoss-a5050a64.eastus.azurecontainerapps.io/shipment"
-            #api_key = '2Tdtqrj4dqnooXIJi4ReCVrMGW3ehJnC'
-            api_key = os.environ.get("MAERSK_API_KEY")
+            api_key = '2Tdtqrj4dqnooXIJi4ReCVrMGW3ehJnC'
+            #api_key = os.environ.get("MAERSK_API_KEY")
             headers = {
                 "Content-Type": "application/json",
                 "x-api-key": api_key
@@ -787,6 +789,79 @@ class PostNsop(View):
             traceback.print_exc()
             return JsonResponse({'success': False, 'message': f'系统异常: {str(e)}'}, status=500)
 
+    async def handle_cancel_maersk_shipment(self, request: HttpRequest) -> JsonResponse:
+        """取消Maersk下单"""
+        try:
+            fleet_number = request.POST.get('fleet_number')
+            if not fleet_number:
+                return JsonResponse({'success': False, 'message': '未提供车次号'}, status=400)
+
+            # 1. 查找 Fleet 和 Shipment
+            try:
+                fleet = await sync_to_async(Fleet.objects.get)(fleet_number=fleet_number)
+            except Fleet.DoesNotExist:
+                return JsonResponse({'success': False, 'message': '找不到该车次'}, status=404)
+
+            # 获取关联的 shipments
+            shipments = await sync_to_async(list)(
+                Shipment.objects.filter(fleet_number=fleet)
+            )
+            
+            # 获取 PRO 号
+            pro_number = None
+            if shipments:
+                for s in shipments:
+                    if s.ARM_PRO:
+                        pro_number = s.ARM_PRO
+                        break
+            
+            if not pro_number:
+                return JsonResponse({'success': False, 'message': '缺少 PRO 号码，无法取消 Maersk 订单'}, status=400)
+
+            # 2. 调用 Maersk API 取消
+            api_url = "https://zem-maersk-gateway.kindmoss-a5050a64.eastus.azurecontainerapps.io/shipment/void"
+            #api_key = os.environ.get("MAERSK_API_KEY")
+            api_key = '2Tdtqrj4dqnooXIJi4ReCVrMGW3ehJnC'
+            
+            params = {
+                "pro_number": pro_number,
+                "control_station": "GOP"
+            }
+            headers = {
+                "x-api-key": api_key
+            }
+
+            async with aiohttp.ClientSession() as session:
+                async with session.post(api_url, params=params, headers=headers) as response:
+                    if response.status == 200:
+                        # 3. 本地取消
+                        await self._cancel_maersk_fleet(fleet_number)
+                        return JsonResponse({
+                            'success': True, 
+                            'pro_number': pro_number,
+                            'message': 'Maersk 订单已取消'
+                        })
+                    else:
+                        text = await response.text()
+                        return JsonResponse({'success': False, 'message': f'API请求失败: {response.status} - {text}'}, status=response.status)
+
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            return JsonResponse({'success': False, 'message': f'系统异常: {str(e)}'}, status=500)
+
+    async def _cancel_maersk_fleet(self, fleet_number):
+        """本地取消车次逻辑"""
+        shipment = await sync_to_async(Shipment.objects.get)(fleet_number__fleet_number=fleet_number)
+        await sync_to_async(shipment.delete)()
+
+        fleet = await sync_to_async(Fleet.objects.get)(fleet_number=fleet_number)
+        if fleet.departured_at is not None:
+            raise RuntimeError(
+                f"Shipment with batch number {fleet_number} has been shipped!"
+            )
+        await sync_to_async(fleet.delete)()
+
     async def handle_get_maersk_quote(self, request: HttpRequest) -> JsonResponse:
         """调用Maersk API获取报价"""
         try:
@@ -876,8 +951,8 @@ class PostNsop(View):
             }
 
             api_url = "https://zem-maersk-gateway.kindmoss-a5050a64.eastus.azurecontainerapps.io/rating"
-            api_key = os.environ.get("MAERSK_API_KEY")
-            #api_key = '2Tdtqrj4dqnooXIJi4ReCVrMGW3ehJnC'
+            #api_key = os.environ.get("MAERSK_API_KEY")
+            api_key = '2Tdtqrj4dqnooXIJi4ReCVrMGW3ehJnC'
             
             if not api_key:
                  return JsonResponse({'success': False, 'message': '未配置API Key'}, status=500)
@@ -3909,7 +3984,6 @@ class PostNsop(View):
                 month_day = shipment_appointment_dt.strftime("%m%d")
             except:
                 month_day = current_time.strftime("%m%d")
-            print('warehouse',warehouse)
             pickupNumber = "ZEM" + "-" + warehouse + "-" + "" + month_day + carrier + destination
 
             fleet_cost = (request.POST.get("fleet_cost", ""))

@@ -1571,12 +1571,17 @@ class FleetManagement(View):
         self, request: HttpRequest, name: str | None = None
     ) -> tuple[str, dict[str, Any]]:
         fleet_number = request.POST.get("fleet_number")
+
+        shipment = await sync_to_async(Shipment.objects.get)(fleet_number__fleet_number=fleet_number)
+        await sync_to_async(shipment.delete)()
+
         fleet = await sync_to_async(Fleet.objects.get)(fleet_number=fleet_number)
         if fleet.departured_at is not None:
             raise RuntimeError(
                 f"Shipment with batch number {fleet_number} has been shipped!"
             )
         await sync_to_async(fleet.delete)()
+        
         warehouse = request.POST.get("warehouse")
         mutable_post = request.POST.copy()
         mutable_post["name"] = warehouse

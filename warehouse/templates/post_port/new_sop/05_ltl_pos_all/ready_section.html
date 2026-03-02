@@ -130,6 +130,7 @@
                 <th>出库</th>
                 <th>拣货单</th> 
                 <th>下载</th>
+                <th style="min-width: 100px;">操作</th>
             </tr>
             <tr class="search-row">
                 <td><input type="text" class="header-search" placeholder="搜索车次号" data-column="0"></td>
@@ -147,6 +148,7 @@
                 <td><input type="text" class="header-search" placeholder="搜索唛头" data-column="5"></td>
                 <td><input type="text" class="header-search" placeholder="搜索板数" data-column="6"></td>
                 <td><input type="text" class="header-search" placeholder="搜索件数" data-column="7"></td>
+                <td></td>
                 <td></td>
                 <td></td>
                 <td></td>
@@ -185,18 +187,25 @@
                             <td style="vertical-align: middle; background-color: #f8f9fa;">-</td>
                             <td style="vertical-align: middle; background-color: #f8f9fa;">-</td>
                             <td colspan="4" style="text-align:center; color:#aaa;">无可出库货物</td>
-                            <td colspan="3" style="vertical-align: middle;">
-                                <form method="post" action="" class="notify-customer-form" style="display: inline-block;">
-                                    {% csrf_token %}
-                                    <input type="hidden" name="fleet_number" value="{{ fleet_group.fleet_number }}">
-                                    <input type="hidden" name="warehouse" value="{{ warehouse }}">
-                                    <input type="hidden" name="step" value="cancel_fleet">
-                                    <input type="hidden" name="active_tab" value="readyShip">
-                                    <input type="hidden" name="page" value="ltl_readyShip">
-                                    <button type="submit" class="btn btn-danger btn-sm">
-                                        删除车次
+                            <td colspan="3"></td> <!-- 占位：出库、拣货单、下载 -->
+                            <td style="vertical-align: middle;">
+                                {% if fleet_group.carrier == 'Maersk' %}
+                                    <button type="button" class="btn btn-danger btn-sm" onclick="cancelMaerskShipment('{{ fleet_group.fleet_number }}', this)">
+                                        取消下单
                                     </button>
-                                </form>
+                                {% else %}
+                                    <form method="post" action="" class="notify-customer-form" style="display: inline-block;">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="fleet_number" value="{{ fleet_group.fleet_number }}">
+                                        <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                                        <input type="hidden" name="step" value="cancel_fleet">
+                                        <input type="hidden" name="active_tab" value="readyShip">
+                                        <input type="hidden" name="page" value="ltl_readyShip">
+                                        <button type="submit" class="btn btn-danger btn-sm">
+                                            删除车次
+                                        </button>
+                                    </form>
+                                {% endif %}
                             </td>
                         </tr>
                     {% endif %}
@@ -239,18 +248,25 @@
                                         <td colspan="4" style="text-align:center; color:#aaa;">无可出库货物</td>
 
                                         {% if is_first_shipment %}
-                                            <td rowspan="{{ fleet_rowspan }}" colspan="3" style="vertical-align: middle;">
-                                                <form method="post" action="" class="notify-customer-form" style="display: inline-block;">
-                                                    {% csrf_token %}
-                                                    <input type="hidden" name="fleet_number" value="{{ fleet_group.fleet_number }}">
-                                                    <input type="hidden" name="warehouse" value="{{ warehouse }}">
-                                                    <input type="hidden" name="step" value="cancel_fleet">
-                                                    <input type="hidden" name="active_tab" value="readyShip">
-                                                    <input type="hidden" name="page" value="ltl_readyShip">
-                                                    <button type="submit" class="btn btn-danger btn-sm">
-                                                        删除车次
+                                            <td rowspan="{{ fleet_rowspan }}" colspan="3"></td> <!-- 占位：出库、拣货单、下载 -->
+                                            <td rowspan="{{ fleet_rowspan }}" style="vertical-align: middle;">
+                                                {% if fleet_group.carrier == 'Maersk' %}
+                                                    <button type="button" class="btn btn-danger btn-sm" onclick="cancelMaerskShipment('{{ fleet_group.fleet_number }}', this)">
+                                                        取消下单
                                                     </button>
-                                                </form>
+                                                {% else %}
+                                                    <form method="post" action="" class="notify-customer-form" style="display: inline-block;">
+                                                        {% csrf_token %}
+                                                        <input type="hidden" name="fleet_number" value="{{ fleet_group.fleet_number }}">
+                                                        <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                                                        <input type="hidden" name="step" value="cancel_fleet">
+                                                        <input type="hidden" name="active_tab" value="readyShip">
+                                                        <input type="hidden" name="page" value="ltl_readyShip">
+                                                        <button type="submit" class="btn btn-danger btn-sm">
+                                                            删除车次
+                                                        </button>
+                                                    </form>
+                                                {% endif %}
                                             </td>
                                         {% endif %}
                                     </tr>
@@ -419,6 +435,25 @@
                                                         </div>
                                                     {% endif %}
                                                 </td>
+                                                <td rowspan="{{ fleet_rowspan }}" style="vertical-align: middle;">
+                                                    {% if fleet_group.carrier == 'Maersk' %}
+                                                        <button type="button" class="btn btn-danger btn-sm" onclick="cancelMaerskShipment('{{ fleet_group.fleet_number }}', this)">
+                                                            取消下单
+                                                        </button>
+                                                    {% else %}
+                                                        <form method="post" action="" class="notify-customer-form" style="display: inline-block;">
+                                                            {% csrf_token %}
+                                                            <input type="hidden" name="fleet_number" value="{{ fleet_group.fleet_number }}">
+                                                            <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                                                            <input type="hidden" name="step" value="cancel_fleet">
+                                                            <input type="hidden" name="active_tab" value="readyShip">
+                                                            <input type="hidden" name="page" value="ltl_readyShip">
+                                                            <button type="submit" class="btn btn-danger btn-sm">
+                                                                删除车次
+                                                            </button>
+                                                        </form>
+                                                    {% endif %}
+                                                </td>
                                             {% endif %}
                                         </tr>
                                     {% endfor %}
@@ -458,7 +493,83 @@
     </div>
 </div>
 
+<!-- Maersk 取消下单成功模态框 -->
+<div class="modal fade" id="fleet_maerskCancelSuccessModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" style="z-index: 1090;">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title"><i class="fas fa-check-circle me-2"></i>取消成功</h5>
+            </div>
+            <div class="modal-body text-center py-4">
+                <div class="mb-3">
+                    <i class="fas fa-check-circle text-success" style="font-size: 4rem;"></i>
+                </div>
+                <h4 class="mb-4">Maersk 订单已取消！</h4>
+                
+                <div class="card bg-light border-0">
+                    <div class="card-body text-start">
+                        <div class="row mb-2">
+                            <div class="col-5 text-muted">PRO 号码:</div>
+                            <div class="col-7 fw-bold" id="maersk_cancel_pro"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer justify-content-center">
+                <button type="button" class="btn btn-success px-5" onclick="window.location.reload()">确定</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
+    // Maersk 取消下单函数
+    function cancelMaerskShipment(fleetNumber, btnElement) {
+        if (!confirm('确定要取消该 Maersk 下单吗？\n这将调用 API 取消订单并删除本地车次。')) {
+            return;
+        }
+
+        // 显示加载状态
+        const originalText = btnElement.innerHTML;
+        btnElement.disabled = true;
+        btnElement.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 取消中...';
+
+        const formData = new FormData();
+        formData.append('step', 'cancel_maersk_shipment');
+        formData.append('fleet_number', fleetNumber);
+        formData.append('warehouse', '{{ warehouse }}');
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+        formData.append('csrfmiddlewaretoken', csrfToken);
+
+        fetch(window.location.href, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                document.getElementById('maersk_cancel_pro').innerText = data.pro_number || 'N/A';
+                const modal = new bootstrap.Modal(document.getElementById('fleet_maerskCancelSuccessModal'));
+                modal.show();
+            } else {
+                alert('取消失败: ' + (data.message || '未知错误'));
+                // 恢复按钮状态
+                btnElement.disabled = false;
+                btnElement.innerHTML = originalText;
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('请求出错，请检查网络');
+            // 恢复按钮状态
+            btnElement.disabled = false;
+            btnElement.innerHTML = originalText;
+        });
+    }
+
     // 首先定义collectFleetData函数
     function collectFleetData(fleetNumber) {
         const fleetCell = document.querySelector(`#readyShip-section td.fleet-number-cell[data-fleet-number="${fleetNumber}"]`);
@@ -1213,7 +1324,7 @@
                     <th style="text-align: center; border: 1px solid #ddd; padding: 8px; width: 120px;">Carrier</th>  
                     <th style="text-align: center; border: 1px solid #ddd; padding: 8px; width: 180px;">提货时间</th>
                     <th style="text-align: center; border: 1px solid #ddd; padding: 8px; width: 140px;">图片</th>
-                    <th style="text-align: center; border: 1px solid #ddd; padding: 8px; width: 80px;">操作</th>
+                    <th style="text-align: center; border: 1px solid #ddd; padding: 8px; width: 100px;">操作</th>
                 </thead>
                 <tbody id="armPickupTableBody">
         `;
@@ -1328,7 +1439,7 @@
                     <th style="text-align: center; border: 1px solid #ddd; padding: 8px; width: 150px; min-width: 150px;">备注</th>
                     <th style="text-align: center; border: 1px solid #ddd; padding: 8px; width: 100px; min-width: 100px;">库位</th>
                     <th style="text-align: center; border: 1px solid #ddd; padding: 8px; width: 160px; min-width: 160px;">图片</th>
-                    <th style="text-align: center; border: 1px solid #ddd; padding: 8px; width: 80px; min-width: 80px;">操作</th>
+                    <th style="text-align: center; border: 1px solid #ddd; padding: 8px; width: 100px; min-width: 100px;">操作</th>
                 </thead>
                 <tbody id="armPickupTableBody">
         `;
