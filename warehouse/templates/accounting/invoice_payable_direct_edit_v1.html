@@ -514,10 +514,10 @@
                             </td>
                             <td class="text-end fee-amount">
                                 {% if not is_editable %}
-                                    <span class="readonly-amount">{{ chassis_fee|floatformat:2 }}</span>
+                                    <span class="readonly-amount">{{ direct_chassis_fee|floatformat:2 }}</span>
                                 {% else %}
                                     <input type="number" step="0.01" class="form-control text-end"
-                                           name="chassis_fee" value="{{ chassis_fee }}"
+                                           name="direct_chassis_fee" value="{{ direct_chassis_fee }}"
                                            oninput="calculateTotal()" style="width: 120px;">
                                 {% endif %}
                             </td>
@@ -751,7 +751,7 @@ function calculateTotal() {
 
     const feeFields = [
         'direct_basic_fee',
-        'chassis_fee',
+        'direct_chassis_fee',
     ];
 
     // 1. 计算基础费用、等待费
