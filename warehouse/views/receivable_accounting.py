@@ -150,6 +150,7 @@ class ReceivableAccounting(View):
         # if not self._validate_user_group(request.user):
         #     return HttpResponseForbidden("You are not authenticated to access this page!")
         step = request.GET.get("step", None)
+        print('GET step',step)
         if step == "invoice_search":  #账单进度
             template, context = self.handle_invoice_search_get(request)
             return render(request, template, context)
@@ -5737,6 +5738,7 @@ class ReceivableAccounting(View):
 
             else:
                 group_cbm_ratios[key] = 0.0
+        print('柜子总cbm',total_container_cbm)
         # 判断下如果所有仓点都是组合柜区域内，那就要保证总和为1
         unique_poids = set(poid_list)
         prefixes = {po_id.split('_')[0] for po_id in unique_poids if '_' in po_id}
@@ -5745,7 +5747,7 @@ class ReceivableAccounting(View):
         missing_records = PackingList.objects.filter(container_number=container).exclude(PO_ID__in=poid_list)
 
         has_missing = missing_records.exists()
-        
+        print("第一遍group_cbm_ratios:", group_cbm_ratios)
         if not has_missing:
             #修正比例：保证总和 = 1.0000, 现在不按组合柜占比为1了，和其他仓点不好算
             ratio_sum = round(sum(group_cbm_ratios.values()), 4)
@@ -5766,6 +5768,7 @@ class ReceivableAccounting(View):
                 )
                 group_cbm_ratios[max_key] = round(group_cbm_ratios[max_key] + diff, 4)
 
+        print("group_cbm_ratios:", group_cbm_ratios)
         for key, ratio in group_cbm_ratios.items():
             if ratio <= 0:
                 po_id, dest = key
@@ -7739,11 +7742,6 @@ class ReceivableAccounting(View):
             .values("destination")
             .annotate(total_cbm=Sum("cbm"))
         )
-        destinations = (
-            Pallet.objects.filter(container_number__container_number=container_number)
-            .values_list("destination", flat=True)
-            .distinct()
-        )
         
         # 2、组合柜相关信息
         pallet_groups, other_pallet_groups, ctx = self._get_pallet_groups_by_po(container_number, "public", invoice, True)
@@ -7753,7 +7751,7 @@ class ReceivableAccounting(View):
         if len(combina_groups) == 0:
             raise ValueError("该柜子满足组合柜条件，但是没有找到任何组合柜的已录入项目，请联系公仓派送相关人员录入。")
         base_fee = result_existing['combina_info']['base_fee']        
-        combina_total_cbm = result_existing['combina_info']['total_cbm']
+        combina_total_cbm = sum(item['total_cbm'] for item in plts_by_destination)
         combina_total_cbm_ratio = result_existing['combina_info']['total_cbm_ratio']
         combina_total_weight = result_existing['combina_info']['total_weight']
         combina_total_pallets = result_existing['combina_info']['total_pallets']
