@@ -7849,8 +7849,16 @@ class ReceivableAccounting(View):
                         "max_points": 99,
                         "add_fee": 0.0,
                     }
+        # 看实际录入，多少仓点归入到组合柜
+        combine_warehouse_points = list(
+            base_queryset
+            .filter(delivery_type='combine')
+            .values_list('warehouse_code', flat=True)
+            .distinct()
+        )
+
         if "tiered_pricing" in stipulate:
-            region_count = plts_by_destination.count()
+            region_count = len(combine_warehouse_points)
             if warehouse in stipulate["tiered_pricing"]:
                 for rule in stipulate["tiered_pricing"][warehouse]:
                     min_points = rule.get("min_points")
@@ -8447,7 +8455,7 @@ class ReceivableAccounting(View):
         # 超仓点的加收费用
         addition_fee = 0
         if "tiered_pricing" in stipulate:
-            region_count = combina_region_count + non_combina_region_count
+            region_count = combina_region_count
             if warehouse in stipulate["tiered_pricing"]:
                 for rule in stipulate["tiered_pricing"][warehouse]:
                     min_points = rule.get("min_points")
