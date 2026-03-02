@@ -5738,7 +5738,6 @@ class ReceivableAccounting(View):
 
             else:
                 group_cbm_ratios[key] = 0.0
-        print('柜子总cbm',total_container_cbm)
         # 判断下如果所有仓点都是组合柜区域内，那就要保证总和为1
         unique_poids = set(poid_list)
         prefixes = {po_id.split('_')[0] for po_id in unique_poids if '_' in po_id}
@@ -5747,7 +5746,6 @@ class ReceivableAccounting(View):
         missing_records = PackingList.objects.filter(container_number=container).exclude(PO_ID__in=poid_list)
 
         has_missing = missing_records.exists()
-        print("第一遍group_cbm_ratios:", group_cbm_ratios)
         if not has_missing:
             #修正比例：保证总和 = 1.0000, 现在不按组合柜占比为1了，和其他仓点不好算
             ratio_sum = round(sum(group_cbm_ratios.values()), 4)
@@ -5768,7 +5766,6 @@ class ReceivableAccounting(View):
                 )
                 group_cbm_ratios[max_key] = round(group_cbm_ratios[max_key] + diff, 4)
 
-        print("group_cbm_ratios:", group_cbm_ratios)
         for key, ratio in group_cbm_ratios.items():
             if ratio <= 0:
                 po_id, dest = key
