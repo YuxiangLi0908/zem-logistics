@@ -6160,6 +6160,7 @@ class Accounting(View):
         else:
             container_number = data.get("container_number")
             return self.handle_invoice_payable_save_post_v1_item(request, data, save_type, container_number)
+
     def handle_invoice_payable_save_post_v1_item(self, request: HttpRequest, data, save_type, container_number) -> tuple[Any, Any]:
         invoice_status = InvoiceStatusv2.objects.get(
             models.Q(invoice_type='payable') | models.Q(invoice_type='payable_direct'),
@@ -6291,7 +6292,7 @@ class Accounting(View):
                 invoice_item.save()
                 pt_amount += float(data.get("direct_frame_fee_sum"))
         # 直送等待费用
-        if data.get("chassis_fee"):
+        if data.get("direct_chassis_fee"):
             try:
                 invoice_item = InvoiceItemv2.objects.filter(
                     container_number=container,
@@ -6299,19 +6300,19 @@ class Accounting(View):
                     invoice_type="payable_direct",
                     description="等待费用",
                 ).get()
-                invoice_item.rate = data.get("chassis_fee")
+                invoice_item.rate = data.get("direct_chassis_fee")
                 invoice_item.save()
-                pt_amount += float(data.get("chassis_fee"))
+                pt_amount += float(data.get("direct_chassis_fee"))
             except InvoiceItemv2.DoesNotExist:
                 invoice_item = InvoiceItemv2(
                     **{"container_number": container, "invoice_number": invoice,
                        "invoice_type": "payable_direct"}
                 )
                 invoice_item.description = "等待费用"
-                invoice_item.rate = data.get("chassis_fee")
+                invoice_item.rate = data.get("direct_chassis_fee")
                 invoice_item.note = data.get("chassis_comment")
                 invoice_item.save()
-                pt_amount += float(data.get("chassis_fee"))
+                pt_amount += float(data.get("direct_chassis_fee"))
         # 拆柜费用
         if data.get("palletization_fee"):
             try:
@@ -11450,7 +11451,7 @@ class Accounting(View):
         vessel_etd = context["order"].vessel_id.vessel_etd
         carrier = context["order"].retrieval_id.retrieval_carrier
         direct_basic_fee = 0
-        chassis_fee = 0
+        direct_chassis_fee = 0
         chassis_comment = "无相关信息"
         direct_frame_fee_sum = 0
         direct_frame_fee = 0
@@ -11466,7 +11467,7 @@ class Accounting(View):
                 if invoice_item.description == "固定报价":
                     direct_basic_fee = invoice_item.rate
                 elif invoice_item.description == "等待费用":
-                    chassis_fee = invoice_item.rate
+                    direct_chassis_fee = invoice_item.rate
                     chassis_comment = invoice_item.note
                 elif invoice_item.description == "直送车架费":
                     direct_frame_fee_sum = invoice_item.amount
@@ -11477,7 +11478,7 @@ class Accounting(View):
                 "invoice_items": invoice_items,
                 "direct_basic_fee": direct_basic_fee,
                 "chassis_comment": chassis_comment,
-                "chassis_fee": chassis_fee,
+                "direct_chassis_fee": direct_chassis_fee,
                 "direct_frame_fee_sum": direct_frame_fee_sum,
                 "direct_frame_fee": direct_frame_fee,
                 "direct_frame_days": direct_frame_days,
@@ -11507,7 +11508,7 @@ class Accounting(View):
                 {
                     "direct_basic_fee": direct_basic_fee,
                     "chassis_comment": chassis_comment,
-                    "chassis_fee": chassis_fee,
+                    "direct_chassis_fee": direct_chassis_fee,
                     "direct_frame_fee": direct_frame_fee,
                     "direct_frame_fee_sum": direct_frame_fee_sum,
                     "order_form": OrderForm(initial={
