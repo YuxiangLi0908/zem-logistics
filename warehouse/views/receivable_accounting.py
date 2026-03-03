@@ -1664,7 +1664,7 @@ class ReceivableAccounting(View):
                 return 5
             if "提拆费" in d:
                 return 4
-            if "派送费" in d:
+            if "派送费" in d and c == "delivery_other":
                 return 3
             return 1
         indexed = list(enumerate(items))
@@ -1676,7 +1676,12 @@ class ReceivableAccounting(View):
                 note.append(item.region)
             else:
                 qty.append(item.qty)
-                note.append(item.note)
+                d = (item.description or "")
+                c = (item.item_category or "")
+                n = item.note or ""
+                if ("派送费" in d) and (c == "delivery_other"):
+                    n = n.replace("派送费", "")
+                note.append(n)
             description.append(item.description)
             warehouse_code.append(item.warehouse_code)
             cbm.append(item.cbm)
