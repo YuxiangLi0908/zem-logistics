@@ -154,6 +154,7 @@
                                         <th>高 (in)</th>
                                         <th>件数</th>
                                         <th>重量 (lbs)</th>
+                                        <th>包装</th>
                                         <th>描述</th>
                                     </tr>
                                 </thead>
@@ -345,12 +346,21 @@
         tbody.innerHTML = '';
         currentQuoteData.lineItems.forEach(item => {
             const tr = document.createElement('tr');
+            const selectedPkg = (item.packaging || item.Packaging || 'Pallet');
+            const options = [
+                'Bundle','Bin','Box','Basket','Case','Crate','Cartons','Container','Drum','Eaches','Envelope','Letter','Pails','Pieces','Pallet','Roll','Skid','Tube','ToolBox','Tote','Truckload'
+            ].map(v => `<option ${selectedPkg===v?'selected':''}>${v}</option>`).join('');
             tr.innerHTML = `
                 <td>${item.length || item.Length}</td>
                 <td>${item.width || item.Width}</td>
                 <td>${item.height || item.Height}</td>
                 <td>${item.pieces || item.Pieces}</td>
                 <td>${item.weight || item.Weight}</td>
+                <td>
+                    <select class="form-select form-select-sm msk-item-packaging">
+                        ${options}
+                    </select>
+                </td>
                 <td>${item.description || 'Pallet'}</td>
             `;
             tbody.appendChild(tr);
@@ -561,7 +571,22 @@
         formData.append('quote_id', rating.QuoteID);
         formData.append('service_code', quote.Service);
         formData.append('consignee_json', JSON.stringify(consignee));
-        formData.append('line_items_json', JSON.stringify(currentQuoteData.lineItems));
+        // 从预览表采集行项目（包含包装）
+        const previewItems = [];
+        document.querySelectorAll('#maersk_cargo_tbody tr').forEach(tr => {
+            const tds = tr.querySelectorAll('td');
+            const length = parseInt(tds[0].textContent.trim()) || 0;
+            const width = parseInt(tds[1].textContent.trim()) || 0;
+            const height = parseInt(tds[2].textContent.trim()) || 0;
+            const pieces = parseInt(tds[3].textContent.trim()) || 1;
+            const weight = parseFloat(tds[4].textContent.trim()) || 0;
+            const packaging = tr.querySelector('.msk-item-packaging')?.value || 'Pallet';
+            const description = (tds[6]?.textContent || '').trim() || 'Pallet';
+            previewItems.push({
+                length, width, height, pieces, weight, description, packaging
+            });
+        });
+        formData.append('line_items_json', JSON.stringify(previewItems));
         formData.append('schedule_json', JSON.stringify(schedule));
         formData.append('warehouse_type', warehouseType);
         
