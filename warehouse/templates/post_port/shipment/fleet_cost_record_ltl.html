@@ -1,0 +1,475 @@
+{% extends 'base.html' %}
+{% block content %}
+<div style="max-width: 98%; margin: 0 auto; padding: 15px;">
+    {% if error_messages %}
+    <div id="error-alert" class="alert alert-danger" style="margin-bottom: 15px; max-height: 800px; overflow-y: auto;">
+        <button type="button" class="close" onclick="document.getElementById('error-alert').style.display='none'" style="float: right; background: none; border: none; font-size: 20px; cursor: pointer;">×</button>
+        <h4 style="margin-top: 0; color: #a94442;">
+            <i class="bi bi-exclamation-triangle"></i> 批量上传结果
+        </h4>
+        {% if success_count > 0 %}
+        <div class="alert alert-success" style="margin-bottom: 10px;">
+            <strong>成功:</strong> {{ success_count }} 条记录已更新
+        </div>
+        {% endif %}
+        <strong>错误信息 ({{ error_messages|length }} 条):</strong>
+        <ul style="margin-bottom: 0;">
+            {% for error in error_messages %}
+            <li>{{ error }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+    <div class="search-card"
+         style="background: white; border-radius: 8px; padding: 15px; margin-bottom: 15px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+        <form method="post" action="">
+            {% csrf_token %}
+            <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                <!-- 提柜时间 -->
+                <div style="display: flex; align-items: center; gap: 8px; white-space: nowrap;">
+                    <label class="filter-label" style="margin:0;"><b>提柜时间</b></label>
+                    <input type="date" name="start_time" value="{{ start_time }}" class="form-input"
+                           style="width: 180px; padding:6px; flex: none;">
+                    <span style="color:#666;">~</span>
+                    <input type="date" name="end_time" value="{{ end_time }}" class="form-input"
+                           style="width: 180px; padding:6px; flex: none;">
+                </div>
+
+                <!-- 查询按钮（紧凑小按钮） -->
+                <div style="display: flex; gap: 6px; margin-left: auto;">
+                    <button type="submit" name="status" value="record" class="search-btn"
+                            style="background: #1890ff; color: white; border: none; padding: 6px 10px; font-size:12px; min-width: unset; border-radius: 4px; cursor: pointer;">
+                        未录查询
+                    </button>
+                    <button type="submit" name="status" value="unrecord" class="search-btn"
+                            style="background: #28a745; color: white; border: none; padding: 6px 10px; font-size:12px; min-width: unset; border-radius: 4px; cursor: pointer;">
+                        已录查询
+                    </button>
+                </div>
+            </div>
+            <input type="hidden" name="step" value="fleet_cost_record_ltl">
+        </form>
+    </div>
+
+    <div id="loading-bar">
+        <div class="spinner"></div>
+        <p>Loading, please wait...</p>
+    </div>
+
+    <div style="background: white; border-radius: 8px; padding: 15px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+        <div style="display: flex; justify-content: space-between; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
+            <h3 style="margin: 0; font-size: 16px;">
+                <i class="bi bi-list-check" style="font-size: 18px; color: #ff4d4f;"></i>
+                <span style="font-size: 20px; font-weight: 700;
+                        text-shadow: 1px 1px 0 #fff, 2px 2px 0 rgba(255,77,79,0.3);
+                        color: #ff4d4f;">
+                    派送成本录入-{{ shipment_type }}
+                </span>
+                <span class="badge" style="
+                    display: inline-block;
+                    padding: 3px 8px;
+                    background-color: #1890ff;
+                    color: white;
+                    border-radius: 12px;
+                    font-size: 12px;
+                    font-weight: 500;
+                    margin-left: 8px;
+                    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+                ">{{ fleet|length }}条</span>
+            </h3>
+
+            <!-- 优化：降低最小宽度，适配小屏幕 -->
+            <div style="display: flex; flex-direction: column; gap: 10px; align-items: flex-end; min-width: 300px;">
+                <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap; width: 100%;">
+                    <!-- 新增LTL批量上传成本 -->
+                    <form method="post" enctype="multipart/form-data" style="font-size:11px; display: inline-flex; align-items: center;">
+                        {% csrf_token %}
+                        <input type="file" name="ltl_file" style="margin-right: 5px;">
+                        <input type="hidden" name="step" value="upload_ltl_cost">
+                        <input type="hidden" name="area" value="{{ area }}">
+                        <button type="submit" class="btn btn-warning" style="height: 30px; font-size: 13px; border: none; border-radius: 4px; background: #ffc107; color: #212529; cursor: pointer;" onclick="showLoadingBar()">
+                            LTL批量上传成本
+                        </button>
+                        <small style="color: #666; margin-left: 5px;">（按LTL模板格式上传）</small>
+                    </form>
+
+                    <!-- 新增下载LTL模版 -->
+                    <form method="post" enctype="multipart/form-data" style="font-size:11px; display: inline-flex; align-items: center; margin-left: 20px;">
+                        {% csrf_token %}
+                        <input type="hidden" name="step" value="download_ltl_cost_template">
+                        <button type="submit" class="btn btn-info" style="height: 30px; font-size: 13px; border: none; border-radius: 4px; background: #17a2b8; color: white; cursor: pointer;" onclick="showLoadingBar()">
+                            下载LTL模版
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div style="max-height: 65vh; overflow-y: auto;">
+            <table id="shipment-table" class="table" style="font-size: 11px; width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr style="position: sticky; top: 0; background: #f5f7fa;">
+                        <th class="th" style="padding: 8px; text-align: left; border: 1px solid #eee; width: 8%;">柜号</th>
+                        <th class="th" style="padding: 8px; text-align: left; border: 1px solid #eee; width: 8%;">目的地</th>
+                        <th class="th" style="padding: 8px; text-align: left; border: 1px solid #eee; width: 8%;">唛头</th>
+                        <th class="th" style="padding: 8px; text-align: left; border: 1px solid #eee; width: 10%;">实际出库时间</th>
+                        <th class="th" style="padding: 8px; text-align: left; border: 1px solid #eee; width: 10%;">提柜时间</th>
+                        <th class="th" style="padding: 8px; text-align: left; border: 1px solid #eee; width: 6%;">总件数</th>
+                        <th class="th" style="padding: 8px; text-align: left; border: 1px solid #eee; width: 6%;">总卡板数</th>
+                        <th class="th" style="padding: 8px; text-align: left; border: 1px solid #eee; width: 10%;">费用</th>
+                        <th class="th" style="padding: 8px; text-align: left; border: 1px solid #eee; width: 8%;">出库批次</th>
+                        <th class="th" style="padding: 8px; text-align: left; border: 1px solid #eee; width: 8%;">预约批次</th>
+                        <th class="th" style="padding: 8px; text-align: left; border: 1px solid #eee; width: 8%;">Carrier</th>
+                        <th class="th" style="padding: 8px; text-align: left; border: 1px solid #eee; width: 8%;">备注</th>
+                        {% if shipment_type == '已录入内容' %}
+                            <th class="th" style="padding: 8px; text-align: left; border: 1px solid #eee; width: 10%;">退回费用</th>
+                        {% endif %}
+                        <th class="th" style="padding: 8px; text-align: left; border: 1px solid #eee; width: 8%;">录入时间</th>
+                        <th class="th" style="padding: 8px; text-align: left; border: 1px solid #eee; width: 8%;">操作人</th>
+                    </tr>
+                    <tr style="position: sticky; top: 40px; background: #f9f9f9;" id="fleet-table-filter">
+                        <th class="th" style="padding: 8px; border: 1px solid #eee;"><input type="text" placeholder="搜索柜号..." class="filter-input" style="font-size: 11px; width: 100%;"></th>
+                        <th class="th" style="padding: 8px; border: 1px solid #eee;"><input type="text" placeholder="搜索目的地..." class="filter-input" style="font-size: 11px; width: 100%;"></th>
+                        <th class="th" style="padding: 8px; border: 1px solid #eee;"><input type="text" placeholder="搜索唛头..." class="filter-input" style="font-size: 11px; width: 100%;"></th>
+                        <th class="th" style="padding: 8px; border: 1px solid #eee;"><input type="text" placeholder="搜索出库时间..." class="filter-input" style="font-size: 11px; width: 100%;"></th>
+                        <th class="th" style="padding: 8px; border: 1px solid #eee;"><input type="text" placeholder="搜索提柜时间..." class="filter-input" style="font-size: 11px; width: 100%;"></th>
+                        <th class="th" style="padding: 8px; border: 1px solid #eee;"></th>
+                        <th class="th" style="padding: 8px; border: 1px solid #eee;"></th>
+                        <th class="th" style="padding: 8px; border: 1px solid #eee;"></th>
+                        <th class="th" style="padding: 8px; border: 1px solid #eee;"><input type="text" placeholder="搜索出库批次..." class="filter-input" style="font-size: 11px; width: 100%;"></th>
+                        <th class="th" style="padding: 8px; border: 1px solid #eee;"><input type="text" placeholder="搜索预约批次..." class="filter-input" style="font-size: 11px; width: 100%;"></th>
+                        <th class="th" style="padding: 8px; border: 1px solid #eee;"><input type="text" placeholder="搜索Carrier..." class="filter-input" style="font-size: 11px; width: 100%;"></th>
+                        <th class="th" style="padding: 8px; border: 1px solid #eee;"></th>
+                        {% if shipment_type == '已录入内容' %}
+                            <th class="th" style="padding: 8px; border: 1px solid #eee;"></th>
+                        {% endif %}
+                        <th class="th" style="padding: 8px; border: 1px solid #eee;"></th>
+                        <th class="th" style="padding: 8px; border: 1px solid #eee;"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for f in fleet %}
+                    <tr class="data-row" style="border-bottom: 1px solid #eee;">
+                        <!-- 1. 柜号（从Pallet表读取） -->
+                        <td class="td" style="padding: 8px; border: 1px solid #eee; word-break: break-all;">
+                            {{ f.container_number|default_if_none:"-" }}
+                        </td>
+                        <td class="td" style="padding: 8px; border: 1px solid #eee;">
+                            {{ f.destination|default_if_none:"-" }}
+                        </td>
+                        <!-- 3. 唛头（从Pallet表读取） -->
+                        <td class="td" style="padding: 8px; border: 1px solid #eee; word-break: break-all;">
+                            {{ f.shipping_mark|default_if_none:"-" }}
+                        </td>
+                        <td class="td" style="padding: 8px; border: 1px solid #eee;">
+                            {{ f.shipped_at|default_if_none:"-"|date:"Y-m-d H:i" }}
+                        </td>
+                        <!-- 2. 提柜时间（Pallet->Order->Retrieval） -->
+                        <td class="td" style="padding: 8px; border: 1px solid #eee;">
+                            {{ f.actual_retrieval_timestamp|default_if_none:"-"|date:"Y-m-d H:i" }}
+                        </td>
+                        <td class="td" style="padding: 8px; border: 1px solid #eee; text-align: center;">
+                            {{ f.shipped_pcs|default_if_none:0|floatformat:0 }}
+                        </td>
+                        <!-- 14. 总卡板数 -->
+                        <td class="td" style="padding: 8px; border: 1px solid #eee; text-align: center;">
+                            {{ f.shipped_pallet|default_if_none:0|floatformat:0 }}
+                        </td>
+                        <!-- 5. 费用（成本录入框） -->
+                        <td class="td" style="padding: 8px; border: 1px solid #eee;">
+                            <form action="" method="post" style="margin: 0; display: flex; gap: 4px; align-items: center;">
+                                {% csrf_token %}
+                                <input type="number" step="0.01" name="fleet_cost" value="{{ f.fleet_number.fleet_cost|default_if_none:0 }}" style="width: 80px; font-size: 11px; padding: 4px; border: 1px solid #ddd; border-radius: 4px;">
+                                <input type="hidden" name="fleet_number" value="{{ f.fleet_number_code|default_if_none:'' }}">
+                                <input type="hidden" name="step" value="fleet_cost_confirm_ltl">
+                                <input type="hidden" name="area" value="{{ area }}">
+                                <button type="submit" class="btn btn-success" style="font-size: 11px; padding: 4px 8px; border: none; border-radius: 4px; background: #28a745; color: white; cursor: pointer;" onclick="showLoadingBar()">
+                                    确认
+                                </button>
+                            </form>
+                        </td>
+                        <!-- 6. 出库批次 -->
+                        <td class="td" style="padding: 8px; border: 1px solid #eee;">
+                            {{ f.shipment_batch_number|default_if_none:"-" }}
+                        </td>
+                        <!-- 7. 预约批次 -->
+                        <td class="td" style="padding: 8px; border: 1px solid #eee;">
+                            {{ f.fleet_number.fleet_number|default_if_none:"-" }}
+                        </td>
+                        <!-- 9. Carrier -->
+                        <td class="td" style="padding: 8px; border: 1px solid #eee;">
+                            {{ f.carrier|default_if_none:"-" }}
+                        </td>
+                        <!-- 15. 备注 -->
+                        <td class="td" style="padding: 8px; border: 1px solid #eee; word-break: break-all;">
+                            {{ f.note|default_if_none:"-" }}
+                        </td>
+                        <!-- 16. 退回费用（仅已录入显示） -->
+                        {% if shipment_type == '已录入内容' %}
+                        <td class="td" style="padding: 8px; border: 1px solid #eee;">
+                            <form action="" method="post" style="margin: 0; display: flex; gap: 4px; align-items: center;">
+                                {% csrf_token %}
+                                <input type="number" step="0.01" name="fleet_cost_back" value="{{ f.fleet_number.fleet_cost_back|default_if_none:0 }}" style="width: 80px; font-size: 11px; padding: 4px; border: 1px solid #ddd; border-radius: 4px;">
+                                <input type="hidden" name="fleet_number" value="{{ f.fleet_number_code|default_if_none:'' }}">
+                                <input type="hidden" name="step" value="fleet_cost_confirm_back_ltl">
+                                <button type="submit" class="btn btn-success" style="font-size: 11px; padding: 4px 8px; border: none; border-radius: 4px; background: #28a745; color: white; cursor: pointer;" onclick="showLoadingBar()">
+                                    确定
+                                </button>
+                            </form>
+                        </td>
+                        {% endif %}
+                        <!-- 17. 录入时间 -->
+                        <td class="td" style="padding: 8px; border: 1px solid #eee;">
+                            {{ f.pallet_cost_input_time|default_if_none:"-"|date:"Y-m-d" }}
+                        </td>
+                        <!-- 18. 操作人 -->
+                        <td class="td" style="padding: 8px; border: 1px solid #eee;">
+                            {{ f.pallet_operator_name|default_if_none:"-" }}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr class="empty-row">
+                        <td colspan="{% if shipment_type == '已录入内容' %}14{% else %}13{% endif %}" style="padding: 20px; text-align: center; color: #999; border: 1px solid #eee;">
+                            暂无数据
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<style>
+    /* 基础样式重置 */
+    * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+    }
+
+    /* 提示框样式 */
+    .alert {
+        padding: 15px;
+        margin-bottom: 20px;
+        border: 1px solid transparent;
+        border-radius: 4px;
+    }
+
+    .alert-danger {
+        color: #a94442;
+        background-color: #f2dede;
+        border-color: #ebccd1;
+    }
+
+    .alert-success {
+        color: #3c763d;
+        background-color: #dff0d8;
+        border-color: #d6e9c6;
+    }
+
+    .alert .close {
+        color: #000;
+        opacity: 0.2;
+    }
+
+    .alert .close:hover {
+        opacity: 0.5;
+    }
+
+    /* 过滤标签样式 */
+    .filter-label {
+        display: block;
+        font-size: 13px;
+        color: #555;
+        white-space: nowrap; /* 防止标签换行 */
+    }
+
+    /* 输入框样式 */
+    .form-input, .form-select {
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 13px;
+    }
+
+    /* 表格样式优化 */
+    #shipment-table {
+        table-layout: fixed;
+        width: 100%;
+        border: 1px solid #eee;
+    }
+
+    #shipment-table th, #shipment-table td {
+        font-size: 11px;
+        vertical-align: middle;
+        border: 1px solid #eee;
+    }
+
+    #shipment-table th {
+        font-weight: 600;
+        color: #333;
+    }
+
+    .data-row:hover {
+        background-color: #f9f9f9;
+    }
+
+    .empty-row td {
+        text-align: center;
+        color: #999;
+        padding: 20px !important;
+    }
+
+    /* 过滤输入框样式 */
+    .filter-input {
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        padding: 4px 6px;
+        font-size: 11px;
+        width: 100%;
+    }
+
+    /* 加载动画样式 */
+    #loading-bar {
+        display: none;
+        text-align: center;
+        padding: 20px;
+        margin: 10px 0;
+    }
+
+    .spinner {
+        border: 4px solid #f3f3f3;
+        border-top: 4px solid #1890ff;
+        border-radius: 50%;
+        width: 30px;
+        height: 30px;
+        animation: spin 1s linear infinite;
+        margin: 0 auto 10px;
+    }
+
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+
+    /* 响应式适配 */
+    @media (max-width: 768px) {
+        .search-card .form-input {
+            width: 140px !important;
+        }
+
+        .search-card {
+            padding: 10px !important;
+        }
+
+        #shipment-table th:nth-child(6),
+        #shipment-table th:nth-child(7),
+        #shipment-table td:nth-child(6),
+        #shipment-table td:nth-child(7) {
+            min-width: 50px;
+        }
+
+        .data-row form {
+            flex-wrap: wrap;
+        }
+    }
+
+    @media (max-width: 576px) {
+        .search-card > form > div {
+            flex-direction: column;
+            align-items: flex-start !important;
+        }
+
+        .search-card > form > div > div:last-child {
+            margin-left: 0 !important;
+            margin-top: 10px;
+            width: 100%;
+            justify-content: flex-start;
+        }
+
+        #shipment-table {
+            font-size: 10px !important;
+        }
+
+        #shipment-table th, #shipment-table td {
+            padding: 4px !important;
+        }
+    }
+</style>
+
+<script>
+    // 显示加载动画
+    function showLoadingBar() {
+        document.getElementById('loading-bar').style.display = 'block';
+    }
+
+    // 页面加载完成后隐藏加载动画
+    window.onload = function() {
+        document.getElementById('loading-bar').style.display = 'none';
+    };
+
+    // 绑定所有提交按钮的加载动画
+    document.addEventListener('DOMContentLoaded', function() {
+        // 提交按钮加载动画
+        const submitButtons = document.querySelectorAll('button[type="submit"]');
+        submitButtons.forEach(btn => {
+            btn.addEventListener('click', showLoadingBar);
+        });
+
+        // 表格过滤功能
+        function filterTable() {
+            const table = document.getElementById('shipment-table');
+            const filterInputs = table.querySelectorAll('.filter-input');
+            const rows = table.querySelectorAll('tbody tr.data-row');
+
+            const filters = [];
+
+            // 收集所有过滤条件
+            filterInputs.forEach((input, index) => {
+                const value = input.value.trim().toUpperCase();
+                if (value) {
+                    // 找到输入框对应的列索引
+                    const th = input.closest('th');
+                    const headerRow = th.closest('#fleet-table-filter');
+                    const colIndex = Array.from(headerRow.children).indexOf(th);
+                    filters.push({
+                        value: value,
+                        colIndex: colIndex
+                    });
+                }
+            });
+
+            // 应用过滤条件
+            rows.forEach(row => {
+                let shouldShow = true;
+
+                for (const filter of filters) {
+                    const cell = row.querySelector(`td:nth-child(${filter.colIndex + 1})`);
+                    if (!cell) {
+                        shouldShow = false;
+                        break;
+                    }
+
+                    const cellText = (cell.textContent || cell.innerText || '').trim().toUpperCase();
+                    if (cellText.indexOf(filter.value) === -1) {
+                        shouldShow = false;
+                        break;
+                    }
+                }
+
+                row.style.display = shouldShow ? '' : 'none';
+            });
+        }
+
+        // 绑定过滤输入框事件
+        const filterInputs = document.querySelectorAll('.filter-input');
+        filterInputs.forEach(input => {
+            input.addEventListener('input', filterTable);
+            input.addEventListener('keyup', filterTable);
+        });
+        
+        // 初始执行一次过滤
+        filterTable();
+    });
+</script>
+{% endblock %}
