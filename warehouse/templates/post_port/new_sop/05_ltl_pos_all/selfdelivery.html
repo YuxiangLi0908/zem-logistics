@@ -1817,12 +1817,14 @@
         let originZip = '';
         if (whParts.length > 0) {
             const lastPart = whParts[whParts.length - 1];
-            originZip = lastPart.replace(/\D/g, '');
+            const digits = (lastPart || '').replace(/\D/g, '');
+            originZip = digits.length >= 5 ? digits.slice(-5) : digits;
         }
 
         // 2. 获取并处理目的邮编
         const destinationRaw = row.dataset.destination || '';
-        const destZip = destinationRaw.replace(/\D/g, '');
+        let destZip = destinationRaw.replace(/\D/g, '');
+        destZip = destZip.length >= 5 ? destZip.slice(-5) : destZip;
 
         // 3. 获取货物明细 (优先使用 JSON 数据)
         const palletItemsRaw = row.getAttribute('data-pallet-items');
@@ -2096,6 +2098,12 @@
 
         if (!originZip || !destZip || !shipDate) {
             alert('请填写所有必填字段');
+            return;
+        }
+
+        const zip5 = /^\d{5}$/;
+        if (!zip5.test(originZip) || !zip5.test(destZip)) {
+            alert('请确认起始和目的邮编为5位数字');
             return;
         }
 
