@@ -11848,7 +11848,7 @@ class Accounting(View):
         FS = {}
 
         # ========== 修改：仅非Eric订单读取报价表费用 ==========
-        if not is_eric_la_transfer:
+        if not is_eric_la_transfer and retrieval_carrier != "Eric":
             fee_detail = self._get_feetail(act_pick_time, "PAYABLE")
 
             # 计算提拆费
