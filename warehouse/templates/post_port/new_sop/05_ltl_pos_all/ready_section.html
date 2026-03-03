@@ -381,14 +381,8 @@
                                                         </div>
                                                     {% else %}
                                                         <div style="margin-top: 5px;">
-                                                            <form method="post" action="" class="notify-customer-form" style="display: inline-block;">
-                                                                {% csrf_token %}
-                                                                <input type="hidden" name="fleet_number" value="{{ fleet_group.fleet_number }}">                                        
-                                                                <input type="hidden" name="warehouse" value="{{ warehouse }}">
-                                                                <input type="hidden" name="step" value="export_ltl_label">
-                                                                <input type="hidden" name="active_tab" value="readyShip"> 
-                                                                <input type="hidden" name="arm_pickup_data" class="arm-pickup-data">
-                                                                <button class="action-btn" style="
+                                                            {% if fleet_group.carrier == 'Maersk' %}
+                                                                <button type="button" class="action-btn" style="
                                                                     background: linear-gradient(135deg, #28a745, #1e7e34);
                                                                     border: none;
                                                                     color: white;
@@ -401,37 +395,89 @@
                                                                     display: flex;
                                                                     align-items: center;
                                                                     gap: 5px;
-                                                                ">
-                                                                    <i class="fas fa-file-word" style="font-size: 0.9rem; color: white;"></i>
+                                                                " onclick="openMaerskLabelModal('{{ fleet_group.fleet_number }}')">
+                                                                    <i class="fas fa-file-pdf" style="font-size: 0.9rem; color: white;"></i>
                                                                     LABEL下载
                                                                 </button>
-                                                            </form>
+                                                            {% else %}
+                                                                <form method="post" action="" class="notify-customer-form" style="display: inline-block;">
+                                                                    {% csrf_token %}
+                                                                    <input type="hidden" name="fleet_number" value="{{ fleet_group.fleet_number }}">                                        
+                                                                    <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                                                                    <input type="hidden" name="step" value="export_ltl_label">
+                                                                    <input type="hidden" name="active_tab" value="readyShip"> 
+                                                                    <input type="hidden" name="arm_pickup_data" class="arm-pickup-data">
+                                                                    <button class="action-btn" style="
+                                                                        background: linear-gradient(135deg, #28a745, #1e7e34);
+                                                                        border: none;
+                                                                        color: white;
+                                                                        padding: 6px 12px;
+                                                                        border-radius: 6px;
+                                                                        font-size: 0.8rem;
+                                                                        cursor: pointer;
+                                                                        transition: all 0.3s ease;
+                                                                        box-shadow: 0 2px 4px rgba(40, 167, 69, 0.3);
+                                                                        display: flex;
+                                                                        align-items: center;
+                                                                        gap: 5px;
+                                                                    ">
+                                                                        <i class="fas fa-file-word" style="font-size: 0.9rem; color: white;"></i>
+                                                                        LABEL下载
+                                                                    </button>
+                                                                </form>
+                                                            {% endif %}
                                                         <div style="margin-top: 5px;">
-                                                            <form method="post" action="" class="notify-customer-form" style="display: inline-block;">
-                                                                {% csrf_token %}
-                                                                <input type="hidden" name="fleet_number" value="{{ fleet_group.fleet_number }}">                                  
-                                                                <input type="hidden" name="warehouse" value="{{ warehouse }}">
-                                                                <input type="hidden" name="step" value="export_ltl_bol">
-                                                                <input type="hidden" name="active_tab" value="readyShip"> 
-                                                                <input type="hidden" name="arm_pickup_data" class="arm-pickup-data">
-                                                                <button class="action-btn" style="
-                                                                    background: linear-gradient(135deg, #3498db, #2980b9);
-                                                                    border: none;
-                                                                    color: white;
-                                                                    padding: 6px 12px;
-                                                                    border-radius: 6px;
-                                                                    font-size: 0.8rem;
-                                                                    cursor: pointer;
-                                                                    transition: all 0.3s ease;
-                                                                    box-shadow: 0 2px 4px rgba(52, 152, 219, 0.3);
-                                                                    display: flex;
-                                                                    align-items: center;
-                                                                    gap: 5px;
-                                                                ">
-                                                                    <i class="fas fa-file-word" style="font-size: 0.9rem;"></i>
-                                                                    BOL下载
-                                                                </button>
-                                                            </form>
+                                                            {% if fleet_group.carrier == 'Maersk' %}
+                                                                <form method="post" action="" class="notify-customer-form" style="display: inline-block;">
+                                                                    {% csrf_token %}
+                                                                    <input type="hidden" name="fleet_number" value="{{ fleet_group.fleet_number }}">                                  
+                                                                    <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                                                                    <input type="hidden" name="step" value="export_maersk_bol">
+                                                                    <button class="action-btn" style="
+                                                                        background: linear-gradient(135deg, #3498db, #2980b9);
+                                                                        border: none;
+                                                                        color: white;
+                                                                        padding: 6px 12px;
+                                                                        border-radius: 6px;
+                                                                        font-size: 0.8rem;
+                                                                        cursor: pointer;
+                                                                        transition: all 0.3s ease;
+                                                                        box-shadow: 0 2px 4px rgba(52, 152, 219, 0.3);
+                                                                        display: flex;
+                                                                        align-items: center;
+                                                                        gap: 5px;
+                                                                    ">
+                                                                        <i class="fas fa-file-pdf" style="font-size: 0.9rem;"></i>
+                                                                        BOL下载
+                                                                    </button>
+                                                                </form>
+                                                            {% else %}
+                                                                <form method="post" action="" class="notify-customer-form" style="display: inline-block;">
+                                                                    {% csrf_token %}
+                                                                    <input type="hidden" name="fleet_number" value="{{ fleet_group.fleet_number }}">                                  
+                                                                    <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                                                                    <input type="hidden" name="step" value="export_ltl_bol">
+                                                                    <input type="hidden" name="active_tab" value="readyShip"> 
+                                                                    <input type="hidden" name="arm_pickup_data" class="arm-pickup-data">
+                                                                    <button class="action-btn" style="
+                                                                        background: linear-gradient(135deg, #3498db, #2980b9);
+                                                                        border: none;
+                                                                        color: white;
+                                                                        padding: 6px 12px;
+                                                                        border-radius: 6px;
+                                                                        font-size: 0.8rem;
+                                                                        cursor: pointer;
+                                                                        transition: all 0.3s ease;
+                                                                        box-shadow: 0 2px 4px rgba(52, 152, 219, 0.3);
+                                                                        display: flex;
+                                                                        align-items: center;
+                                                                        gap: 5px;
+                                                                    ">
+                                                                        <i class="fas fa-file-word" style="font-size: 0.9rem;"></i>
+                                                                        BOL下载
+                                                                    </button>
+                                                                </form>
+                                                            {% endif %}
                                                         </div>
                                                     {% endif %}
                                                 </td>
@@ -522,7 +568,56 @@
     </div>
 </div>
 
+<!-- Maersk Label Download Modal -->
+<div class="modal fade" id="maerskLabelModal" tabindex="-1" aria-hidden="true" style="z-index: 1090;">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title"><i class="fas fa-file-pdf me-2"></i>选择 Label 规格</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="maerskLabelForm" method="post" action="">
+                    {% csrf_token %}
+                    <input type="hidden" name="step" value="export_maersk_label">
+                    <input type="hidden" name="fleet_number" id="maerskLabelFleetNumber">
+                    <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                    
+                    <div class="mb-3">
+                        <label for="eLabelType" class="form-label">规格</label>
+                        <select class="form-select" id="eLabelType" name="eLabelType">
+                            <option value="Label4x6" selected>4x6 (默认)</option>
+                            <option value="Label2x4">2x4</option>
+                            <option value="Label4x6Doctab">4x6 Doctab</option>
+                            <option value="Label8x11">8x11</option>
+                        </select>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" onclick="submitMaerskLabelForm()">下载</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
+    function openMaerskLabelModal(fleetNumber) {
+        document.getElementById('maerskLabelFleetNumber').value = fleetNumber;
+        const modal = new bootstrap.Modal(document.getElementById('maerskLabelModal'));
+        modal.show();
+    }
+
+    function submitMaerskLabelForm() {
+        document.getElementById('maerskLabelForm').submit();
+        // Close modal
+        const modalEl = document.getElementById('maerskLabelModal');
+        const modal = bootstrap.Modal.getInstance(modalEl);
+        if (modal) {
+            modal.hide();
+        }
+    }
     // Maersk 取消下单函数
     function cancelMaerskShipment(fleetNumber, btnElement) {
         if (!confirm('确定要取消该 Maersk 下单吗？\n这将调用 API 取消订单并删除本地车次。')) {
