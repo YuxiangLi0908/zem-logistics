@@ -444,6 +444,10 @@ class PostNsop(View):
         elif step == "query_quotation":
             template, context = await self.handle_query_quotation(request)
             return render(request, template, context) 
+        elif step == "export_maersk_label":
+            return await self.handle_export_maersk_label(request)
+        elif step == "export_maersk_bol":
+            return await self.handle_export_maersk_bol(request)
         elif step == "po_invalid_save":
             template, context = await self.handle_po_invalid_save(request)
             return render(request, template, context) 
@@ -1814,6 +1818,144 @@ class PostNsop(View):
             )
         return response
     
+    async def handle_export_maersk_label(self, request: HttpRequest) -> HttpResponse:
+        fleet_number = request.POST.get("fleet_number")
+        e_label_type = request.POST.get("eLabelType", "Label4x6")
+        
+        # Get Shipment info
+        shipment_data = await sync_to_async(list)(
+            Shipment.objects.filter(fleet_number__fleet_number=fleet_number).values('ARM_PRO', 'destination')
+        )
+        
+        if not shipment_data:
+            return JsonResponse({'success': False, 'message': '未找到该车次的Shipment记录'}, status=400)
+            
+        shipment = shipment_data[0]
+        arm_pro = shipment.get('ARM_PRO')
+        destination = shipment.get('destination')
+        
+        if not arm_pro:
+             return JsonResponse({'success': False, 'message': '缺少PRO号码 (ARM_PRO)'}, status=400)
+             
+        # Extract zip from destination (digits only)
+        szip = "".join(filter(str.isdigit, destination or ""))
+        if not szip:
+             return JsonResponse({'success': False, 'message': '无法从目的地提取邮编 (szip)'}, status=400)
+             
+        # Call Maersk Gateway API
+        api_url = "https://zem-maersk-gateway.kindmoss-a5050a64.eastus.azurecontainerapps.io/label"
+        api_key = '2Tdtqrj4dqnooXIJi4ReCVrMGW3ehJnC'
+        
+        params = {
+            "shawb": arm_pro,
+            "eLabelType": e_label_type,
+            "szip": szip
+        }
+        
+        headers = {
+            "Content-Type": "application/json",
+            "x-api-key": api_key
+        }
+        
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.post(api_url, json=params, headers=headers) as response:
+                    if response.status == 200:
+                        content = await response.read()
+                        response_obj = HttpResponse(content, content_type='application/pdf')
+                        response_obj['Content-Disposition'] = f'attachment; filename="Maersk_Label_{arm_pro}.pdf"'
+                        return response_obj
+                    else:
+                        text = await response.text()
+                        try:
+                            error_json = json.loads(text)
+                            error_msg = error_json.get('detail', text)
+                        except:
+                            error_msg = text
+                        # return JsonResponse({'success': False, 'message': f'API调用失败: {response.status} - {error_msg}'}, status=response.status)
+                        return HttpResponse(
+                            f"<script>alert('API调用失败: {response.status} - {error_msg}');history.back();</script>", 
+                            content_type="text/html"
+                        )
+        except Exception as e:
+            # return JsonResponse({'success': False, 'message': f'系统错误: {str(e)}'}, status=500)
+            return HttpResponse(
+                f"<script>alert('系统错误: {str(e)}');history.back();</script>", 
+                content_type="text/html"
+            )
+
+    async def handle_export_maersk_bol(self, request: HttpRequest) -> HttpResponse:
+        fleet_number = request.POST.get("fleet_number")
+        
+        # Get Shipment info
+        shipment_data = await sync_to_async(list)(
+            Shipment.objects.filter(fleet_number__fleet_number=fleet_number).values('ARM_PRO', 'destination')
+        )
+        
+        if not shipment_data:
+            return HttpResponse(
+                "<script>alert('未找到该车次的Shipment记录');history.back();</script>", 
+                content_type="text/html"
+            )
+            
+        shipment = shipment_data[0]
+        arm_pro = shipment.get('ARM_PRO')
+        destination = shipment.get('destination')
+        
+        if not arm_pro:
+             return HttpResponse(
+                "<script>alert('缺少PRO号码 (ARM_PRO)');history.back();</script>", 
+                content_type="text/html"
+            )
+             
+        # Extract zip from destination (digits only)
+        szip = "".join(filter(str.isdigit, destination or ""))
+        if not szip:
+             return HttpResponse(
+                "<script>alert('无法从目的地提取邮编 (szip)');history.back();</script>", 
+                content_type="text/html"
+            )
+             
+        # Call Maersk Gateway API
+        api_url = "https://zem-maersk-gateway.kindmoss-a5050a64.eastus.azurecontainerapps.io/bol"
+        # api_url = "http://127.0.0.1:8000/bol"
+        api_key = '2Tdtqrj4dqnooXIJi4ReCVrMGW3ehJnC'
+        
+        params = {
+            "shawb": arm_pro,
+            "szip": szip
+        }
+        
+        headers = {
+            "Content-Type": "application/json",
+            "x-api-key": api_key
+        }
+        
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.post(api_url, json=params, headers=headers) as response:
+                    if response.status == 200:
+                        content = await response.read()
+                        response_obj = HttpResponse(content, content_type='application/pdf')
+                        response_obj['Content-Disposition'] = f'attachment; filename="Maersk_BOL_{arm_pro}.pdf"'
+                        return response_obj
+                    else:
+                        text = await response.text()
+                        try:
+                            error_json = json.loads(text)
+                            error_msg = error_json.get('detail', text)
+                        except:
+                            error_msg = text
+                        return HttpResponse(
+                            f"<script>alert('API调用失败: {response.status} - {error_msg}');history.back();</script>", 
+                            content_type="text/html"
+                        )
+        except Exception as e:
+            return HttpResponse(
+                f"<script>alert('系统错误: {str(e)}');history.back();</script>", 
+                content_type="text/html"
+            )
+
     async def export_ltl_label(self, request: HttpRequest) -> HttpResponse:
         '''新功能LTL的LABEL文件下载'''
         fleet_number = request.POST.get("fleet_number")
