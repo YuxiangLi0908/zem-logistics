@@ -1825,9 +1825,6 @@ class FleetManagement(View):
     ) -> tuple[str, dict[str, Any]]:
         fleet_number = request.POST.get("fleet_number")
 
-        shipment = await sync_to_async(Shipment.objects.get)(fleet_number__fleet_number=fleet_number)
-        await sync_to_async(shipment.delete)()
-
         fleet = await sync_to_async(Fleet.objects.get)(fleet_number=fleet_number)
         if fleet.departured_at is not None:
             raise RuntimeError(
