@@ -993,22 +993,26 @@
                         </div>
                     </div>
                 {% elif is_save_invoice and is_finance %}
-                    <!-- 待审核 -->
-                    {% if user_is_leader %}
-                        <!-- 待审核页面（组长看到的审核按钮） -->
-                        <div style="display: flex; align-items: center; gap: 10px;">
-                            <button type="submit" class="btn btn-danger" onclick="modifyStatus('reject')">
-                                <i class="bi bi-x-circle"></i> 财务审核驳回
-                            </button>
+                    <!-- 待审核页面（组长看到的审核按钮） -->
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <button type="submit" class="btn btn-danger" onclick="modifyStatus('reject')">
+                            <i class="bi bi-x-circle"></i> 财务审核驳回
+                        </button>
 
-                            <input type="text" class="reject-reason-input"
-                                placeholder="请输入驳回原因" name="reject_reason">
+                        <input type="text" class="reject-reason-input"
+                            placeholder="请输入驳回原因" name="reject_reason">
 
-                            <button type="submit" class="btn btn-success" onclick="modifyStatus('confirmed_finance')">
-                                <i class="bi bi-check-circle"></i> 财务审核通过
-                            </button>
-                        </div>
-                    {% endif %}
+                        <button type="submit" class="btn btn-success" onclick="modifyStatus('confirmed_finance')">
+                            <i class="bi bi-check-circle"></i> 财务审核通过
+                        </button>
+                    </div>
+                {% elif is_save_invoice and is_reviewed %}
+                    <!-- 已审核页面（组长看到的审核按钮） -->
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <button type="submit" class="btn btn-danger" onclick="modifyStatus('reject_reviewed')">
+                            <i class="bi bi-x-circle"></i> 财务已审核驳回到待审核阶段
+                        </button>
+                    </div>
                 {% else %}
                     <!-- 待录入页面 -->
                     {% if user_is_leader %}

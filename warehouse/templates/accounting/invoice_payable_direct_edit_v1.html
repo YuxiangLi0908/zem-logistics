@@ -405,6 +405,7 @@
                     </div>
                 {% endif %}
             {% elif is_save_invoice and is_finance %}
+                <!-- 直送财务待审核 -->
                 {% if user_is_leader %}
                     <div class="d-flex align-items-stretch" style="gap: 1rem;">
                         <div class="d-flex align-items-center position-relative">
@@ -425,6 +426,13 @@
                         </div>
                     </div>
                 {% endif %}
+            {% elif is_save_invoice and is_reviewed %}
+                <!-- 已审核页面（组长看到的审核按钮） -->
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <button type="submit" class="btn btn-danger" onclick="modifyStatus('reject_reviewed')">
+                        <i class="bi bi-x-circle"></i> 财务已审核驳回到待审核阶段
+                    </button>
+                </div>
             {% else %}
                 {% if user_is_leader %}
                     <!-- 待审核页面（组长看到的审核按钮） -->

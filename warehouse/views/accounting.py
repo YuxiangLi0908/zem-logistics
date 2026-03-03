@@ -2750,6 +2750,8 @@ class Accounting(View):
                 criteria &= models.Q(
                     retrieval_id__retrieval_destination_precise=warehouse
                 )
+        if customer == 'None':
+            customer = None
         if customer:
             criteria &= models.Q(customer_name__zem_name=customer)
 
@@ -6114,9 +6116,9 @@ class Accounting(View):
         save_type = data.get("save_type")
         start_date_confirm = request.POST.get("start_date_confirm")
         end_date_confirm = request.POST.get("end_date_confirm")
-        # 财务驳回
+        # 财务待审核驳回到客服阶段
         if save_type == "reject":
-            container_numbers = data.getlist("containers")
+            container_numbers = data.getlist("containers") or data.getlist("container_number")
             for container_number in container_numbers:
                 invoice_status = InvoiceStatusv2.objects.get(
                     models.Q(invoice_type='payable') | models.Q(invoice_type='payable_direct'),
@@ -6142,6 +6144,18 @@ class Accounting(View):
                     invoice_status.delivery_other_status = "rejected"
                     invoice_status.finance_status = "unstarted"
                     invoice_status.delivery_other_reason = data.get("reject_reason")
+                invoice_status.save()
+            return self.handle_invoice_confirm_get_v1(request, start_date_confirm, end_date_confirm, data.get("customer"))
+        # 财务已审核驳回到待审核阶段
+        elif save_type == "reject_reviewed":
+            container_numbers = data.getlist("containers") or data.getlist("container_number")
+            for container_number in container_numbers:
+                invoice_status = InvoiceStatusv2.objects.get(
+                    models.Q(invoice_type='payable') | models.Q(invoice_type='payable_direct'),
+                    container_number__container_number=container_number
+                )
+                if invoice_status.finance_status == "completed":
+                    invoice_status.finance_status = "tobeconfirmed"
                 invoice_status.save()
             return self.handle_invoice_confirm_get_v1(request, start_date_confirm, end_date_confirm, data.get("customer"))
         # 财务审核通过
@@ -11319,6 +11333,7 @@ class Accounting(View):
         self, request: HttpRequest, account_confirm, is_confirm, is_save_invoice
     ) -> tuple[Any, Any]:
         container_number = request.GET.get("container_number")
+        is_reviewed = False
         order = Order.objects.select_related(
             "retrieval_id", "container_number", "warehouse"
         ).get(container_number__container_number=container_number)
@@ -11384,6 +11399,8 @@ class Accounting(View):
         )
         # 是否为财务审核状态
         is_finance = invoice_status.finance_status == "tobeconfirmed"
+        # 财务已审核状态
+        is_reviewed = invoice_status.finance_status == "completed"
 
         groups = [group.name for group in request.user.groups.all()]
         if request.user.is_staff:
@@ -11432,6 +11449,7 @@ class Accounting(View):
             "warehouse_precise": order.retrieval_id.retrieval_destination_precise,
             "payable_total_amount": invoice.payable_total_amount,
             "is_finance": is_finance,
+            "is_reviewed": is_reviewed,
         }
 
         preport_carrier = order.retrieval_id.retrieval_carrier
