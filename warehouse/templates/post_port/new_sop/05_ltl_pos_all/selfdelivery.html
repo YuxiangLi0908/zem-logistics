@@ -1753,7 +1753,8 @@
                                         <th style="width: 15%">宽 (in)</th>
                                         <th style="width: 15%">高 (in)</th>
                                         <th style="width: 12%">件数</th>
-                                        <th style="width: 18%">重量 (lbs)</th>
+                                        <th style="width: 14%">重量 (lbs)</th>
+                                        <th style="width: 18%">包装</th>
                                         <th>描述 (选填)</th>
                                         <th style="width: 50px;"></th>
                                     </tr>
@@ -1914,6 +1915,7 @@
         const pcs = data.pieces || 1;
         const weight = data.weight || '';
         const desc = data.description || '';
+        const packaging = data.packaging || 'Pallet';
         
         tr.innerHTML = `
             <td><input type="number" class="form-control form-control-sm item-length" value="${l}" oninput="fleet_updateQuoteTotalWeight()" required></td>
@@ -1921,6 +1923,31 @@
             <td><input type="number" class="form-control form-control-sm item-height" value="${h}" required></td>
             <td><input type="number" class="form-control form-control-sm item-pieces" value="${pcs}" min="1" oninput="fleet_updateQuoteTotalWeight()" required></td>
             <td><input type="number" class="form-control form-control-sm item-weight" value="${weight}" oninput="fleet_updateQuoteTotalWeight()" required></td>
+            <td>
+                <select class="form-select form-select-sm item-packaging">
+                    <option ${packaging==='Bundle'?'selected':''}>Bundle</option>
+                    <option ${packaging==='Bin'?'selected':''}>Bin</option>
+                    <option ${packaging==='Box'?'selected':''}>Box</option>
+                    <option ${packaging==='Basket'?'selected':''}>Basket</option>
+                    <option ${packaging==='Case'?'selected':''}>Case</option>
+                    <option ${packaging==='Crate'?'selected':''}>Crate</option>
+                    <option ${packaging==='Cartons'?'selected':''}>Cartons</option>
+                    <option ${packaging==='Container'?'selected':''}>Container</option>
+                    <option ${packaging==='Drum'?'selected':''}>Drum</option>
+                    <option ${packaging==='Eaches'?'selected':''}>Eaches</option>
+                    <option ${packaging==='Envelope'?'selected':''}>Envelope</option>
+                    <option ${packaging==='Letter'?'selected':''}>Letter</option>
+                    <option ${packaging==='Pails'?'selected':''}>Pails</option>
+                    <option ${packaging==='Pieces'?'selected':''}>Pieces</option>
+                    <option ${packaging==='Pallet'?'selected':''}>Pallet</option>
+                    <option ${packaging==='Roll'?'selected':''}>Roll</option>
+                    <option ${packaging==='Skid'?'selected':''}>Skid</option>
+                    <option ${packaging==='Tube'?'selected':''}>Tube</option>
+                    <option ${packaging==='ToolBox'?'selected':''}>ToolBox</option>
+                    <option ${packaging==='Tote'?'selected':''}>Tote</option>
+                    <option ${packaging==='Truckload'?'selected':''}>Truckload</option>
+                </select>
+            </td>
             <td><input type="text" class="form-control form-control-sm item-desc" value="${desc}" placeholder="Pallet"></td>
             <td class="text-center">
                 <button type="button" class="btn btn-sm btn-link text-danger p-0" onclick="this.closest('tr').remove(); fleet_updateQuoteTotalWeight()">
@@ -2116,7 +2143,8 @@
                 height: tr.querySelector('.item-height').value,
                 pieces: tr.querySelector('.item-pieces').value,
                 weight: tr.querySelector('.item-weight').value,
-                description: tr.querySelector('.item-desc').value
+                description: tr.querySelector('.item-desc').value,
+                packaging: tr.querySelector('.item-packaging')?.value || 'Pallet'
             });
         });
 

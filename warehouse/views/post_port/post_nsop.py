@@ -611,12 +611,12 @@ class PostNsop(View):
                     "width": int(item.get('width') or item.get('Width') or 0),
                     "height": int(item.get('height') or item.get('Height') or 0),
                     "weight": int(float(item.get('weight') or item.get('Weight') or 0)),
-                    # 补充必填字段，如果有默认值的话
-                    "packaging": "Pallet", # 假设默认为 Pallet
+                    # 使用前端传入的包装方式，默认 Pallet
+                    "packaging": item.get('packaging') or item.get('Packaging') or "Pallet", 
                     "weightUnit": "lb",
                     "dimensionalUnit": "in"
                 })
-
+            print(line_items)
             # 4. 调用 Maersk 下单 API
             # 构造 Consignee Address (符合 ShipmentAddress 定义)
             consignee_address = {
@@ -707,7 +707,7 @@ class PostNsop(View):
                     if response.status == 200:
                         res_data = await response.json()
                         pro_number = res_data.get('housebill')
-                        actual_fee = res_data.get('rate').get('totalAmount')
+                        actual_fee = res_data.get('rate').get('baseAmount')
                     else:
                         text = await response.text()
                         return JsonResponse({'success': False, 'message': f'Maersk API下单失败: {response.status} - {text}'}, status=response.status)
@@ -923,7 +923,8 @@ class PostNsop(View):
                             "length": int(item.get('length', 0)),
                             "width": int(item.get('width', 0)),
                             "height": int(item.get('height', 0)),
-                            "weight": int(float(item.get('weight', 0)))
+                            "weight": int(float(item.get('weight', 0))),
+                            "packaging": (item.get('packaging') or 'Pallet')
                         })
                 except json.JSONDecodeError:
                     return JsonResponse({'success': False, 'message': '货物明细数据格式错误'}, status=400)
@@ -967,7 +968,8 @@ class PostNsop(View):
                             "length": item['l'],
                             "width": item['w'],
                             "height": item['h'],
-                            "weight": weight_per_pallet
+                            "weight": weight_per_pallet,
+                            "packaging": "Pallet"
                         })
             else:
                  return JsonResponse({'success': False, 'message': '缺少货物明细'}, status=400)
@@ -981,11 +983,24 @@ class PostNsop(View):
             except Exception:
                 ship_date_formatted = ship_date
 
+            # 构建仅含计价字段的列表，避免下游验证失败
+            rating_items = [
+                {
+                    "description": it["description"],
+                    "pieces": it["pieces"],
+                    "length": it["length"],
+                    "width": it["width"],
+                    "height": it["height"],
+                    "weight": it["weight"],
+                }
+                for it in line_items
+            ]
+
             payload = {
                 "shipDate": ship_date_formatted,
                 "origin_zip": origin_zip,
                 "dest_zip": dest_zip,
-                "lineItems": line_items,
+                "lineItems": rating_items,
                 "declaredValue": None,
                 "insuranceValue": None,
                 "debrisRemoval": None
