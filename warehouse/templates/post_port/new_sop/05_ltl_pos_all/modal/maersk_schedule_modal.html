@@ -1,3 +1,9 @@
+<style>
+    #fleet_maerskScheduleModal .modal-body{
+        max-height: calc(100vh - 220px);
+        overflow-y: auto;
+    }
+</style>
 <!-- Maersk 预约出库模态框 -->
 <div class="modal fade" id="fleet_maerskScheduleModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" style="z-index: 1080;">
     <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
@@ -16,7 +22,7 @@
                     
                     <!-- 1. 预约基础信息 -->
                     <div class="card mb-3 shadow-sm">
-                        <div class="card-header bg-white fw-bold">
+                    <div class="card-header bg-white fw-bold text-primary">
                             <i class="fas fa-calendar-check text-primary me-2"></i>预约信息
                         </div>
                         <div class="card-body">
@@ -102,8 +108,8 @@
                                     <input type="text" class="form-control form-control-sm" id="maersk_consignee_name" required>
                                 </div>
                                 <div class="col-md-3">
-                                    <label class="form-label small fw-bold">电话 (Phone) <span class="text-danger">*</span></label>
-                                    <input type="text" class="form-control form-control-sm" id="maersk_consignee_phone" required>
+                                    <label class="form-label small fw-bold">电话 (Phone)</label>
+                                    <input type="text" class="form-control form-control-sm" id="maersk_consignee_phone">
                                 </div>
                                 <div class="col-md-3">
                                     <label class="form-label small fw-bold">邮箱 (Email)</label>
@@ -135,8 +141,8 @@
                     </div>
 
                     <!-- 3. 货物信息预览 -->
-                    <div class="card shadow-sm">
-                        <div class="card-header bg-white fw-bold">
+                    <div class="card mb-3 shadow-sm">
+                        <div class="card-header bg-white fw-bold text-primary">
                             <i class="fas fa-boxes me-2 text-primary"></i>货物信息预览
                         </div>
                         <div class="card-body p-0">
@@ -155,6 +161,51 @@
                                     <!-- 动态生成 -->
                                 </tbody>
                             </table>
+                        </div>
+                    </div>
+
+                    <!-- 4. 特殊服务 -->
+                    <div class="card shadow-sm border-warning">
+                    <div class="card-header bg-white fw-bold text-primary">
+                            <i class="fas fa-star me-2"></i>特殊服务 & 附加选项
+                        </div>
+                        <div class="card-body">
+                            <div class="row g-3 align-items-center">
+                                <!-- 服务类型提示 -->
+                                <div class="col-12 mb-2">
+                                    <div class="alert alert-info py-2 px-3 mb-0 small" id="maersk_service_info">
+                                        <i class="fas fa-info-circle me-1"></i> 请先选择报价方案
+                                    </div>
+                                </div>
+
+                                <!-- Liftgate -->
+                                <div class="col-md-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="maersk_liftgate">
+                                        <label class="form-check-label small fw-bold" for="maersk_liftgate">
+                                            Liftgate Service
+                                        </label>
+                                    </div>
+                                </div>
+
+                                <!-- Insurance -->
+                                <div class="col-md-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="maersk_insurance" onchange="fleet_toggleInsuranceInput()">
+                                        <label class="form-check-label small fw-bold" for="maersk_insurance">
+                                            购买保险 (Insurance)
+                                        </label>
+                                    </div>
+                                </div>
+
+                                <!-- Insurance Amount -->
+                                <div class="col-md-4">
+                                    <div class="input-group input-group-sm" id="div_maersk_insurance_amount" style="display: none;">
+                                        <span class="input-group-text">$</span>
+                                        <input type="number" class="form-control" id="maersk_insurance_amount" placeholder="保险金额" step="0.01">
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </form>
@@ -305,9 +356,48 @@
             tbody.appendChild(tr);
         });
 
+        // 4. 更新特殊服务提示
+        const serviceCode = quote.Service; // 72, E0, BR, BA
+        const serviceInfoEl = document.getElementById('maersk_service_info');
+        let serviceText = '';
+        
+        switch (serviceCode) {
+            case 'BR':
+                serviceText = '当前服务: B2C (无需签收)';
+                break;
+            case 'BA':
+                serviceText = '当前服务: B2C (需签收)';
+                break;
+            case '72':
+                serviceText = '当前服务: B2B (无需预约)';
+                break;
+            case 'E0':
+                serviceText = '当前服务: B2B (需预约)';
+                break;
+            default:
+                serviceText = `当前服务代码: ${serviceCode}`;
+        }
+        serviceInfoEl.innerHTML = `<i class="fas fa-info-circle me-1"></i> ${serviceText}`;
+
+        // 重置复选框
+        document.getElementById('maersk_liftgate').checked = false;
+        document.getElementById('maersk_insurance').checked = false;
+        document.getElementById('maersk_insurance_amount').value = '';
+        document.getElementById('div_maersk_insurance_amount').style.display = 'none';
+
         // 显示模态框
         const modal = new bootstrap.Modal(document.getElementById('fleet_maerskScheduleModal'));
         modal.show();
+    }
+
+    // 切换保险金额输入框显示
+    function fleet_toggleInsuranceInput() {
+        const isChecked = document.getElementById('maersk_insurance').checked;
+        const div = document.getElementById('div_maersk_insurance_amount');
+        div.style.display = isChecked ? 'flex' : 'none';
+        if (!isChecked) {
+            document.getElementById('maersk_insurance_amount').value = '';
+        }
     }
 
     // 地址解析函数
@@ -360,17 +450,23 @@
                 // 2. 可选的冒号 [:：]?
                 // 3. 可选的空白 \s*
                 // 4. 捕获内容 (.*?)
-                // 5. Lookahead: 遇到其他关键字或字符串结尾停止
+                // 5. Lookahead: 遇到其他关键字、换行、句末符号或字符串结尾停止
                 
                 let keyPattern = key;
                 if (!/[\u4e00-\u9fa5]/.test(key)) {
                     keyPattern = `\\b${key}`; 
                 }
-                
-                const pattern = new RegExp(`${keyPattern}[:：]?\\s*([\\s\\S]*?)(?=${lookaheadPattern}|$)`, 'i');
+                // 遇到下一个关键字 | 行结束 | 文本结尾 | 分隔符（；;。,.）
+                const stopPattern = `(?:${lookaheadPattern}|\\r?\\n|[；;。,.]|$)`;
+                const pattern = new RegExp(`${keyPattern}[:：]?\\s*([\\s\\S]*?)(?=${stopPattern})`, 'i');
                 const match = text.match(pattern);
                 if (match && match[1].trim()) {
-                    return match[1].trim();
+                    let val = match[1].trim();
+                    // 截断到首个换行前
+                    val = val.split(/\\r?\\n/)[0].trim();
+                    // 去掉尾部分隔符
+                    val = val.replace(/[；;。,.]+$/, '').trim();
+                    return val;
                 }
             }
             return null;
@@ -422,6 +518,14 @@
         };
 
         // 收集 Schedule 信息
+        const isInsurance = document.getElementById('maersk_insurance').checked;
+        const insuranceAmount = document.getElementById('maersk_insurance_amount').value;
+        
+        if (isInsurance && (!insuranceAmount || parseFloat(insuranceAmount) <= 0)) {
+            alert('请输入有效的保险金额');
+            return;
+        }
+
         const schedule = {
             pickup_time: document.getElementById('maersk_pickup_time').value,
             cost: document.getElementById('maersk_cost').value,
@@ -430,7 +534,11 @@
             shipment_type: document.getElementById('maersk_shipment_type').value,
             auto_schedule: document.getElementById('maersk_auto_schedule').value,
             destination: document.getElementById('maersk_destination').value,
-            note: document.getElementById('maersk_note').value.trim()
+            note: document.getElementById('maersk_note').value.trim(),
+            // 特殊服务
+            is_liftgate: document.getElementById('maersk_liftgate').checked,
+            is_insurance: isInsurance,
+            insurance_amount: insuranceAmount
         };
 
         const btn = document.getElementById('btn_maersk_submit');

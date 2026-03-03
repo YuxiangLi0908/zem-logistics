@@ -647,6 +647,24 @@ class PostNsop(View):
             if not batch_number_ref:
                 return JsonResponse({'success': False, 'message': '批次号生成失败'}, status=400)
 
+            # --- 处理特殊服务 ---
+            # 1. Liftgate (从 schedule 提取 is_liftgate)
+            consignee_accessorials = []
+            if schedule.get('is_liftgate'):
+                consignee_accessorials.append("Liftgate")
+            
+            # 2. Insurance (从 schedule 提取 is_insurance 和 insurance_amount)
+            shipment_monetary = None
+            if schedule.get('is_insurance'):
+                try:
+                    declared_value = float(schedule.get('insurance_amount', 0))
+                    shipment_monetary = {
+                        "isDeclaredValueInsurance": True,
+                        "declaredValue": declared_value
+                    }
+                except (ValueError, TypeError):
+                    pass # 如果金额无效，忽略保险选项
+
             payload = {
                 "quoteId": int(quote_id),
                 "serviceCode": service_code,
@@ -655,7 +673,8 @@ class PostNsop(View):
                     "references": [batch_number_ref]
                 },
                 "consignee": {
-                    "address": consignee_address,                
+                    "address": consignee_address,
+                    "accessorials": consignee_accessorials  # 增加 consignee accessorials
                 },
                 "lineItems": line_items,
                 "shipDate": schedule.get('pickup_time'), # 必填
@@ -663,6 +682,15 @@ class PostNsop(View):
                 "shipCloseTime": "17:00:00", # 默认值
                 "accessorials": [] 
             }
+
+            # 3. 添加 Insurance 到 payload
+            if shipment_monetary:
+                payload["ShipmentMonetary"] = shipment_monetary
+
+            # 4. E0 服务需要预约时间 (传入 SpecialInstructions)
+            if service_code == 'E0':
+                # 预约时间以字符串形式传入
+                payload["SpecialInstructions"] = schedule.get('pickup_time')
 
             api_url = "https://zem-maersk-gateway.kindmoss-a5050a64.eastus.azurecontainerapps.io/shipment"
             api_key = '2Tdtqrj4dqnooXIJi4ReCVrMGW3ehJnC'
@@ -944,8 +972,17 @@ class PostNsop(View):
             else:
                  return JsonResponse({'success': False, 'message': '缺少货物明细'}, status=400)
 
+            ship_date_formatted = ship_date
+            try:
+                if ship_date and '-' in ship_date:
+                    parts = ship_date.split('-')
+                    if len(parts) == 3:
+                        ship_date_formatted = f"{parts[1].zfill(2)}/{parts[2].zfill(2)}/{parts[0]}"
+            except Exception:
+                ship_date_formatted = ship_date
+
             payload = {
-                "shipDate": ship_date,
+                "shipDate": ship_date_formatted,
                 "origin_zip": origin_zip,
                 "dest_zip": dest_zip,
                 "lineItems": line_items,
@@ -1844,6 +1881,7 @@ class PostNsop(View):
              
         # Call Maersk Gateway API
         api_url = "https://zem-maersk-gateway.kindmoss-a5050a64.eastus.azurecontainerapps.io/label"
+        #api_key = os.environ.get("MAERSK_API_KEY")
         api_key = '2Tdtqrj4dqnooXIJi4ReCVrMGW3ehJnC'
         
         params = {
