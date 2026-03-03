@@ -1648,19 +1648,40 @@ class ReceivableAccounting(View):
         amount = []
         note = []
 
-        invoice_item = InvoiceItemv2.objects.filter(
+        invoice_item_qs = InvoiceItemv2.objects.filter(
             container_number=order.container_number,
             invoice_number=invoice,
             invoice_type="receivable"
         )
 
-        for item in invoice_item:
+        items = list(invoice_item_qs)
+        def _prio(it):
+            d = (it.description or "")
+            c = (it.item_category or "")
+            if "打托缠膜" in d:
+                return 0
+            if "派送费" in d and c == "delivery_public":
+                return 5
+            if "提拆费" in d:
+                return 4
+            if "派送费" in d and c == "delivery_other":
+                return 3
+            return 1
+        indexed = list(enumerate(items))
+        indexed.sort(key=lambda t: (_prio(t[1]), t[0]))
+
+        for _, item in indexed:
             if item.delivery_type == "combine":
                 qty.append(item.cbm_ratio)
                 note.append(item.region)
             else:
                 qty.append(item.qty)
-                note.append(item.note)
+                d = (item.description or "")
+                c = (item.item_category or "")
+                n = item.note or ""
+                if ("派送费" in d) and (c == "delivery_other"):
+                    n = n.replace("派送费", "")
+                note.append(n)
             description.append(item.description)
             warehouse_code.append(item.warehouse_code)
             cbm.append(item.cbm)
