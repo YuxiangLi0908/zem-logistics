@@ -1455,10 +1455,9 @@ class FleetManagement(View):
 
         # ========== 核心修复1：初始化criteria为Q()，避免覆盖 ==========
         criteria = models.Q(
-            pod_uploaded_at__isnull=False,
             shipped_at__isnull=False,
             arrived_at__isnull=False,
-            shipment_schduled_at__gte="2025-05-01",
+            shipment_schduled_at__gte="2025-12-01",
             fleet_number__fleet_type='LTL'
         )
 
