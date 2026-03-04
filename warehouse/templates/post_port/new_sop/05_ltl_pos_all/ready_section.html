@@ -1411,6 +1411,7 @@
                 cellpadding="8" 
                 id="armPickupTable">
                 <thead style="background:#f6f8fa; font-weight:600; position: sticky; top: 0;">                       
+                    <th style="text-align: center; border: 1px solid #ddd; padding: 8px; width: 80px;">顺序</th>
                     <th style="text-align: center; border: 1px solid #ddd; padding: 8px; width: 150px;">柜号</th>
                     <th style="text-align: center; border: 1px solid #ddd; padding: 8px; width: 100px;">邮编</th>
                     <th style="text-align: center; border: 1px solid #ddd; padding: 8px; width: 250px;">唛头</th>
@@ -1438,6 +1439,19 @@
             if (cleanData.total_pcs === 0) cleanData.total_pcs = 0;
             html += `
                 <tr id="arm-row-${index}" style="border-bottom: 1px solid #eee;">
+                    <td style="border: 1px solid #ddd; padding: 8px; text-align: center; width: 80px;">
+                        <div class="arm-order-number" style="font-weight: 600; margin-bottom: 6px;">${index + 1}</div>
+                        <div style="display: flex; justify-content: center; gap: 6px;">
+                            <button type="button" class="arm-move-btn" onclick="moveArmPickupRow(this, -1)"
+                                style="background: #f1f3f5; border: 1px solid #ddd; border-radius: 3px; padding: 2px 6px; cursor: pointer;">
+                                <i class="fas fa-arrow-up"></i>
+                            </button>
+                            <button type="button" class="arm-move-btn" onclick="moveArmPickupRow(this, 1)"
+                                style="background: #f1f3f5; border: 1px solid #ddd; border-radius: 3px; padding: 2px 6px; cursor: pointer;">
+                                <i class="fas fa-arrow-down"></i>
+                            </button>
+                        </div>
+                    </td>
                     <td style="border: 1px solid #ddd; padding: 8px;">
                         <input type="text" class="arm-input" 
                             data-field="container_number" 
@@ -1492,7 +1506,7 @@
                         <div class="arm-image-status" style="font-size: 12px; color: #666; padding-top: 4px;">${(item.pickup_file_content || '').toString().startsWith('data:application/pdf') ? '已上传(PDF)' : (item.pickup_file_content ? '已上传(文件)' : (item.pickup_image ? '已上传(图片)' : '未上传'))}</div>
                     </td>
                     <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">
-                        <button onclick="removeArmPickupRow(${index})" 
+                        <button class="arm-delete-btn" onclick="removeArmPickupRow(${index})" 
                                 style="background: #dc3545; color: white; border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer;">
                             <i class="fas fa-trash"></i>
                         </button>
@@ -1507,6 +1521,7 @@
         // 添加事件监听
         addArmPickupEventListeners();
         editedArmPickupData = [...data];
+        syncArmPickupRowIndices();
     }
 
     // 渲染LTL表格
@@ -1519,6 +1534,7 @@
                 cellpadding="6" 
                 id="armPickupTable">
                 <thead style="background:#f6f8fa; font-weight:600; position: sticky; top: 0;">                       
+                    <th style="text-align: center; border: 1px solid #ddd; padding: 8px; width: 80px; min-width: 80px;">顺序</th>
                     <th style="text-align: center; border: 1px solid #ddd; padding: 8px; width: 150px; min-width: 150px;">柜号</th>
                     <th style="text-align: center; border: 1px solid #ddd; padding: 8px; width: 200px; min-width: 200px;">目的地</th>
                     <th style="text-align: center; border: 1px solid #ddd; padding: 8px; width: 300px; min-width: 300px;">唛头</th>
@@ -1577,6 +1593,19 @@
             
             html += `
                 <tr id="arm-row-${index}" style="border-bottom: 1px solid #eee;">
+                    <td style="border: 1px solid #ddd; padding: 8px; text-align: center; width: 80px; min-width: 80px;">
+                        <div class="arm-order-number" style="font-weight: 600; margin-bottom: 6px;">${index + 1}</div>
+                        <div style="display: flex; justify-content: center; gap: 6px;">
+                            <button type="button" class="arm-move-btn" onclick="moveArmPickupRow(this, -1)"
+                                style="background: #f1f3f5; border: 1px solid #ddd; border-radius: 3px; padding: 2px 6px; cursor: pointer;">
+                                <i class="fas fa-arrow-up"></i>
+                            </button>
+                            <button type="button" class="arm-move-btn" onclick="moveArmPickupRow(this, 1)"
+                                style="background: #f1f3f5; border: 1px solid #ddd; border-radius: 3px; padding: 2px 6px; cursor: pointer;">
+                                <i class="fas fa-arrow-down"></i>
+                            </button>
+                        </div>
+                    </td>
                     <td style="border: 1px solid #ddd; padding: 8px; width: 150px; min-width: 150px;">
                         <input type="text" class="arm-input" 
                             data-field="container_number__container_number" 
@@ -1672,7 +1701,7 @@
                         <div class="arm-image-status" style="font-size: 12px; color: #666; padding-top: 4px;">${(item.pickup_file_content || '').toString().startsWith('data:application/pdf') ? '已上传(PDF)' : (item.pickup_file_content ? '已上传(文件)' : (cleanData.pickup_image ? '已上传(图片)' : '未上传'))}</div>
                     </td>
                     <td style="border: 1px solid #ddd; padding: 8px; width: 80px; min-width: 80px; text-align: center;">
-                        <button onclick="removeArmPickupRow(${index})" 
+                        <button class="arm-delete-btn" onclick="removeArmPickupRow(${index})" 
                                 style="background: #dc3545; color: white; border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer;">
                             <i class="fas fa-trash"></i>
                         </button>
@@ -1691,6 +1720,7 @@
         
         addArmPickupEventListeners();
         editedArmPickupData = [...data];
+        syncArmPickupRowIndices();
     }
 
     function cleanDataValue(value) {
@@ -1778,6 +1808,35 @@
         armPickupDataCache[currentArmPickupData.fleet_number] = editedArmPickupData;
     }
 
+    function syncArmPickupRowIndices() {
+        const rows = document.querySelectorAll('#armPickupTable tbody tr[id^="arm-row-"]');
+        rows.forEach((row, newIndex) => {
+            row.id = `arm-row-${newIndex}`;
+            const orderEl = row.querySelector('.arm-order-number');
+            if (orderEl) orderEl.textContent = String(newIndex + 1);
+            const deleteBtn = row.querySelector('.arm-delete-btn');
+            if (deleteBtn) deleteBtn.setAttribute('onclick', `removeArmPickupRow(${newIndex})`);
+        });
+    }
+
+    function moveArmPickupRow(btn, delta) {
+        const row = btn.closest('tr');
+        if (!row) return;
+        const tbody = row.parentElement;
+        if (!tbody) return;
+
+        if (delta < 0) {
+            const prev = row.previousElementSibling;
+            if (prev) tbody.insertBefore(row, prev);
+        } else {
+            const next = row.nextElementSibling;
+            if (next) tbody.insertBefore(next, row);
+        }
+
+        syncArmPickupRowIndices();
+        updateArmPickupData();
+    }
+
     // 添加新行
     document.getElementById('addArmPickupRow').addEventListener('click', function() {
         const tbody = document.getElementById('armPickupTableBody');
@@ -1787,6 +1846,19 @@
         if (currentArmPickupData.fleet_type === '客户自提') {
             newRowHtml = `
                 <tr id="arm-row-${newIndex}" style="border-bottom: 1px solid #eee;">
+                    <td style="border: 1px solid #ddd; padding: 8px; text-align: center; width: 80px;">
+                        <div class="arm-order-number" style="font-weight: 600; margin-bottom: 6px;">${newIndex + 1}</div>
+                        <div style="display: flex; justify-content: center; gap: 6px;">
+                            <button type="button" class="arm-move-btn" onclick="moveArmPickupRow(this, -1)"
+                                style="background: #f1f3f5; border: 1px solid #ddd; border-radius: 3px; padding: 2px 6px; cursor: pointer;">
+                                <i class="fas fa-arrow-up"></i>
+                            </button>
+                            <button type="button" class="arm-move-btn" onclick="moveArmPickupRow(this, 1)"
+                                style="background: #f1f3f5; border: 1px solid #ddd; border-radius: 3px; padding: 2px 6px; cursor: pointer;">
+                                <i class="fas fa-arrow-down"></i>
+                            </button>
+                        </div>
+                    </td>
                     <td style="border: 1px solid #ddd; padding: 8px;">
                         <input type="text" class="arm-input" 
                             data-field="container_number__container_number" 
@@ -1841,7 +1913,7 @@
                         <div class="arm-image-status" style="font-size: 12px; color: #666; padding-top: 4px;">未上传</div>
                     </td>
                     <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">
-                        <button onclick="removeArmPickupRow(${newIndex})" 
+                        <button class="arm-delete-btn" onclick="removeArmPickupRow(${newIndex})" 
                                 style="background: #dc3545; color: white; border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer;">
                             <i class="fas fa-trash"></i>
                         </button>
@@ -1852,6 +1924,19 @@
             // LTL类型的新行
             newRowHtml = `
                 <tr id="arm-row-${newIndex}" style="border-bottom: 1px solid #eee;">
+                    <td style="border: 1px solid #ddd; padding: 8px; text-align: center; width: 80px; min-width: 80px;">
+                        <div class="arm-order-number" style="font-weight: 600; margin-bottom: 6px;">${newIndex + 1}</div>
+                        <div style="display: flex; justify-content: center; gap: 6px;">
+                            <button type="button" class="arm-move-btn" onclick="moveArmPickupRow(this, -1)"
+                                style="background: #f1f3f5; border: 1px solid #ddd; border-radius: 3px; padding: 2px 6px; cursor: pointer;">
+                                <i class="fas fa-arrow-up"></i>
+                            </button>
+                            <button type="button" class="arm-move-btn" onclick="moveArmPickupRow(this, 1)"
+                                style="background: #f1f3f5; border: 1px solid #ddd; border-radius: 3px; padding: 2px 6px; cursor: pointer;">
+                                <i class="fas fa-arrow-down"></i>
+                            </button>
+                        </div>
+                    </td>
                     <td style="border: 1px solid #ddd; padding: 8px;">
                         <input type="text" class="arm-input" 
                             data-field="container_number__container_number" 
@@ -1947,7 +2032,7 @@
                         <div class="arm-image-status" style="font-size: 12px; color: #666; padding-top: 4px;">未上传</div>
                     </td>
                     <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">
-                        <button onclick="removeArmPickupRow(${newIndex})" 
+                        <button class="arm-delete-btn" onclick="removeArmPickupRow(${newIndex})" 
                                 style="background: #dc3545; color: white; border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer;">
                             <i class="fas fa-trash"></i>
                         </button>
@@ -2001,6 +2086,8 @@
         };
         
         editedArmPickupData.push(emptyData);
+        syncArmPickupRowIndices();
+        updateArmPickupData();
     });
 
     // 删除行
@@ -2013,14 +2100,8 @@
             editedArmPickupData.splice(index, 1);
             
             // 重新索引所有行
-            const rows = document.querySelectorAll('#armPickupTable tbody tr[id^="arm-row-"]');
-            rows.forEach((row, newIndex) => {
-                row.id = `arm-row-${newIndex}`;
-                const deleteBtn = row.querySelector('button');
-                if (deleteBtn) {
-                    deleteBtn.setAttribute('onclick', `removeArmPickupRow(${newIndex})`);
-                }
-            });
+            syncArmPickupRowIndices();
+            updateArmPickupData();
         }
     }
     function handleArmPickupClick(btn) {
