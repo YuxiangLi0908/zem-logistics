@@ -1752,6 +1752,10 @@ class FleetManagement(View):
                     error_messages.append(f'第{row_num}行：成本不能为空')
                     continue
 
+                if not shipping_mark:
+                    error_messages.append(f'第{row_num}行：唛头不能为空')
+                    continue
+
                 # 4.2 校验成本格式（数字/非负数）
                 try:
                     fleet_cost = float(fleet_cost_str)
@@ -1782,15 +1786,16 @@ class FleetManagement(View):
 
             # 5. 批量查询数据库（减少数据库交互）
             container_numbers = [row['container_number'] for row in valid_rows]
+            shipping_marks = [row['shipping_mark'] for row in valid_rows]
 
             # 异步查询：Pallet → shipment_batch_number → fleet_id（Fleet表的ID）
             @sync_to_async
-            def get_fleet_id_mapping(container_nums):
+            def get_fleet_id_mapping(container_nums, shipping_marks):
                 """批量获取柜号对应的Fleet表ID"""
                 fleet_mapping = {}
                 # 关联查询Pallet表，获取柜号对应的Fleet ID
                 queryset = Pallet.objects.select_related('container_number', 'shipment_batch_number') \
-                    .filter(container_number__container_number__in=container_nums) \
+                    .filter(container_number__container_number__in=container_nums, shipping_mark__in=shipping_marks) \
                     .values(
                     'container_number__container_number',
                     'shipment_batch_number__fleet_number'  # 这里是Fleet表的ID
@@ -1806,7 +1811,7 @@ class FleetManagement(View):
                 return fleet_mapping
 
             # 获取柜号→Fleet ID的映射
-            fleet_id_mapping = await get_fleet_id_mapping(container_numbers)
+            fleet_id_mapping = await get_fleet_id_mapping(container_numbers, shipping_marks)
 
             # 批量查询所有需要的Fleet数据（避免循环内查库）
             @sync_to_async
