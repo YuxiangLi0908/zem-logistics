@@ -1486,12 +1486,12 @@ class FleetManagement(View):
                 end_datetime = datetime.strptime(end_time, "%Y-%m-%d") + timedelta(
                     days=1) - timedelta(seconds=1)
 
-            # 2. 过滤Order（提柜时间），兼容NULL值
+            # 2. 过滤Order（拆柜时间），兼容NULL值
             order_filter = models.Q()
             if start_datetime:
-                order_filter &= models.Q(retrieval_id__actual_retrieval_timestamp__gte=start_datetime)
+                order_filter &= models.Q(offload_id__offload_at__gte=start_datetime)
             if end_datetime:
-                order_filter &= models.Q(retrieval_id__actual_retrieval_timestamp__lte=end_datetime)
+                order_filter &= models.Q(offload_id__offload_at__lte=end_datetime)
 
             # 3. 获取符合条件的Container ID（包含空值处理）
             container_ids = await sync_to_async(list)(
@@ -1579,7 +1579,7 @@ class FleetManagement(View):
                         # 查询所有关联的Order，并按Container ID分组
                         orders = Order.objects.filter(
                             container_number_id__in=container_ids  # 反向关联核心：Order的container_number外键
-                        ).select_related("retrieval_id")  # Order→Retrieval（提柜时间）
+                        ).select_related("offload_id")  # 拆柜时间
 
                         for order in orders:
                             # 按Container ID存入字典，方便后续匹配
@@ -1590,17 +1590,17 @@ class FleetManagement(View):
                         # 匹配当前Pallet的Container对应的Order
                         pallet.related_order = order_map.get(
                             pallet.container_number_id) if pallet.container_number_id else None
-                        # 提取提柜时间
+                        # 提取拆柜时间
                         pallet.retrieval_time = None
-                        if pallet.related_order and pallet.related_order.retrieval_id:
-                            pallet.retrieval_time = pallet.related_order.retrieval_id.actual_retrieval_timestamp
+                        if pallet.related_order and pallet.related_order.offload_id:
+                            pallet.retrieval_time = pallet.related_order.offload_id.offload_at
 
                     return pallets
 
                 # 获取关联数据
                 s.related_pallet = await get_related_data(s.id)
-                # 提取柜号、提柜时间、唛头（挂载到Shipment对象）
-                s.actual_retrieval_timestamp = None
+                # 提取柜号、拆柜时间、唛头（挂载到Shipment对象）
+                s.offload_at = None
                 s.container_number = "-"
                 s.shipping_mark = "-"
 
@@ -1614,7 +1614,7 @@ class FleetManagement(View):
                         s.shipping_mark = first_pallet.shipping_mark
                     # 3. 提柜时间（反向关联的Order→Retrieval）
                     if hasattr(first_pallet, 'retrieval_time') and first_pallet.retrieval_time:
-                        s.actual_retrieval_timestamp = first_pallet.retrieval_time
+                        s.offload_at = first_pallet.retrieval_time
 
                 # ========== 新增：显式挂载车次号到Shipment对象 ==========
                 # 确保车次号字段存在且可访问
