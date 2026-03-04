@@ -100,13 +100,12 @@
         </div>
 
         <div style="width: 100%; overflow-x: auto; overflow-y: auto; max-height: 65vh;">
-            <!-- 核心修改：表格改回自动布局，宽度100% -->
             <table id="shipment-table" class="table" style="font-size: 14px; width: 100%; border-collapse: collapse; table-layout: auto;">
                 <thead>
                     <tr style="position: sticky; top: 0; background: #f5f7fa;">
                         <th class="th" style="padding: 10px 12px; text-align: left; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 110px;">柜号</th>
                         <th class="th" style="padding: 10px 12px; text-align: left; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 130px;">目的地</th>
-                        <!-- 唛头列：强制固定200px宽度，其他列自适应 -->
+                        <!-- 唛头列：200px固定宽度 + 换行 -->
                         <th class="th" style="padding: 10px 12px; text-align: left; border: 1px solid #eee; font-size:14px; width: 200px !important; min-width: 200px; max-width: 200px; white-space: normal; word-wrap: break-word;">唛头</th>
                         <th class="th" style="padding: 10px 12px; text-align: left; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 170px;">实际出库时间</th>
                         <th class="th" style="padding: 10px 12px; text-align: left; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 170px;">拆柜时间</th>
@@ -116,7 +115,8 @@
                         <th class="th" style="padding: 10px 12px; text-align: left; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 140px;">出库批次</th>
                         <th class="th" style="padding: 10px 12px; text-align: left; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 140px;">预约批次</th>
                         <th class="th" style="padding: 10px 12px; text-align: left; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 130px;">Carrier</th>
-                        <th class="th" style="padding: 10px 12px; text-align: left; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 160px;">备注</th>
+                        <!-- 备注列：200px固定宽度 + 换行 -->
+                        <th class="th" style="padding: 10px 12px; text-align: left; border: 1px solid #eee; font-size:14px; width: 200px !important; min-width: 200px; max-width: 200px; white-space: normal; word-wrap: break-word;">备注</th>
                         {% if shipment_type == '已录入内容' %}
                             <th class="th" style="padding: 10px 12px; text-align: left; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 190px;">退回费用</th>
                         {% endif %}
@@ -124,7 +124,7 @@
                     <tr style="position: sticky; top: 40px; background: #f9f9f9;" id="fleet-table-filter">
                         <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 110px;"><input type="text" placeholder="搜索柜号..." class="filter-input" style="font-size: 14px; width: 100%;"></th>
                         <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 130px;"><input type="text" placeholder="搜索目的地..." class="filter-input" style="font-size: 14px; width: 100%;"></th>
-                        <!-- 唛头筛选列同步固定200px -->
+                        <!-- 唛头筛选列：200px固定宽度 -->
                         <th class="th" style="padding: 8px 12px; border: 1px solid #eee; width: 200px !important; min-width: 200px; max-width: 200px;"><input type="text" placeholder="搜索唛头..." class="filter-input" style="font-size: 14px; width: 100%;"></th>
                         <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 170px;"><input type="text" placeholder="搜索出库时间..." class="filter-input" style="font-size: 14px; width: 100%;"></th>
                         <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 170px;"><input type="text" placeholder="搜索拆柜时间..." class="filter-input" style="font-size: 14px; width: 100%;"></th>
@@ -134,7 +134,8 @@
                         <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 140px;"><input type="text" placeholder="搜索出库批次..." class="filter-input" style="font-size: 14px; width: 100%;"></th>
                         <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 140px;"><input type="text" placeholder="搜索预约批次..." class="filter-input" style="font-size: 14px; width: 100%;"></th>
                         <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 130px;"><input type="text" placeholder="搜索Carrier..." class="filter-input" style="font-size: 14px; width: 100%;"></th>
-                        <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 160px;"></th>
+                        <!-- 备注筛选列：200px固定宽度 -->
+                        <th class="th" style="padding: 8px 12px; border: 1px solid #eee; width: 200px !important; min-width: 200px; max-width: 200px;"><input type="text" placeholder="搜索备注..." class="filter-input" style="font-size: 14px; width: 100%;"></th>
                         {% if shipment_type == '已录入内容' %}
                             <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 190px;"></th>
                         {% endif %}
@@ -149,7 +150,7 @@
                         <td class="td" style="padding: 10px 12px; border: 1px solid #eee; white-space: nowrap; font-size:14px;">
                             {{ f.destination|default_if_none:"-" }}
                         </td>
-                        <!-- 唛头单元格：强制固定200px，换行显示 -->
+                        <!-- 唛头单元格：200px固定宽度 + 换行 -->
                         <td class="td" style="padding: 10px 12px; border: 1px solid #eee; width: 200px !important; min-width: 200px; max-width: 200px; font-size:14px; white-space: normal; word-wrap: break-word; line-height: 1.2;">
                             {{ f.shipping_mark|default_if_none:"-" }}
                         </td>
@@ -186,7 +187,8 @@
                         <td class="td" style="padding: 10px 12px; border: 1px solid #eee; white-space: nowrap; font-size:14px;">
                             {{ f.carrier|default_if_none:"-" }}
                         </td>
-                        <td class="td" style="padding: 10px 12px; border: 1px solid #eee; white-space: nowrap; font-size:14px;">
+                        <!-- 备注单元格：200px固定宽度 + 换行 -->
+                        <td class="td" style="padding: 10px 12px; border: 1px solid #eee; width: 200px !important; min-width: 200px; max-width: 200px; font-size:14px; white-space: normal; word-wrap: break-word; line-height: 1.2;">
                             {{ f.note|default_if_none:"-" }}
                         </td>
                         {% if shipment_type == '已录入内容' %}
@@ -246,7 +248,6 @@
     }
     #shipment-table {
         border: 1px solid #eee;
-        /* 表格自动布局，其他列随内容自适应 */
         table-layout: auto !important;
     }
     #shipment-table th, #shipment-table td {
@@ -254,9 +255,9 @@
         border: 1px solid #eee;
         line-height: 1.2 !important;
     }
-    /* 仅限制非唛头列不换行，内容自适应宽度 */
-    #shipment-table th:not(:nth-child(3)),
-    #shipment-table td:not(:nth-child(3)) {
+    /* 仅限制非唛头、非备注列不换行 */
+    #shipment-table th:not(:nth-child(3)):not(:nth-child(12)),
+    #shipment-table td:not(:nth-child(3)):not(:nth-child(12)) {
         white-space: nowrap !important;
     }
     #shipment-table th {
