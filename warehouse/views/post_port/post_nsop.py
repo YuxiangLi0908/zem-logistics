@@ -7,6 +7,7 @@ import json
 import uuid
 import pytz
 import os
+import xml.etree.ElementTree as ET
 import platform
 import matplotlib.pyplot as plt
 import matplotlib.font_manager as fm
@@ -616,7 +617,6 @@ class PostNsop(View):
                     "weightUnit": "lb",
                     "dimensionalUnit": "in"
                 })
-            print(line_items)
             # 4. 调用 Maersk 下单 API
             # 构造 Consignee Address (符合 ShipmentAddress 定义)
             consignee_address = {
@@ -693,8 +693,8 @@ class PostNsop(View):
                 payload["SpecialInstructions"] = schedule.get('pickup_time')
 
             api_url = "https://zem-maersk-gateway.kindmoss-a5050a64.eastus.azurecontainerapps.io/shipment"
-            api_key = '2Tdtqrj4dqnooXIJi4ReCVrMGW3ehJnC'
-            #api_key = os.environ.get("MAERSK_API_KEY")
+            #api_key = '2Tdtqrj4dqnooXIJi4ReCVrMGW3ehJnC'
+            api_key = os.environ.get("MAERSK_API_KEY")
             headers = {
                 "Content-Type": "application/json",
                 "x-api-key": api_key
@@ -852,8 +852,8 @@ class PostNsop(View):
 
             # 2. 调用 Maersk API 取消
             api_url = "https://zem-maersk-gateway.kindmoss-a5050a64.eastus.azurecontainerapps.io/shipment/void"
-            #api_key = os.environ.get("MAERSK_API_KEY")
-            api_key = '2Tdtqrj4dqnooXIJi4ReCVrMGW3ehJnC'
+            api_key = os.environ.get("MAERSK_API_KEY")
+            #api_key = '2Tdtqrj4dqnooXIJi4ReCVrMGW3ehJnC'
             
             params = {
                 "pro_number": pro_number,
@@ -1007,8 +1007,8 @@ class PostNsop(View):
             }
 
             api_url = "https://zem-maersk-gateway.kindmoss-a5050a64.eastus.azurecontainerapps.io/rating"
-            #api_key = os.environ.get("MAERSK_API_KEY")
-            api_key = '2Tdtqrj4dqnooXIJi4ReCVrMGW3ehJnC'
+            api_key = os.environ.get("MAERSK_API_KEY")
+            #api_key = '2Tdtqrj4dqnooXIJi4ReCVrMGW3ehJnC'
             
             if not api_key:
                  return JsonResponse({'success': False, 'message': '未配置API Key'}, status=500)
@@ -1871,12 +1871,13 @@ class PostNsop(View):
         return response
     
     async def handle_export_maersk_label(self, request: HttpRequest) -> HttpResponse:
+        '''Maersk Label获取'''
         fleet_number = request.POST.get("fleet_number")
         e_label_type = request.POST.get("eLabelType", "Label4x6")
         
         # Get Shipment info
         shipment_data = await sync_to_async(list)(
-            Shipment.objects.filter(fleet_number__fleet_number=fleet_number).values('ARM_PRO', 'destination')
+            Shipment.objects.filter(fleet_number__fleet_number=fleet_number).values('ARM_PRO', 'destination','origin')
         )
         
         if not shipment_data:
@@ -1884,27 +1885,26 @@ class PostNsop(View):
             
         shipment = shipment_data[0]
         arm_pro = shipment.get('ARM_PRO')
-        destination = shipment.get('destination')
+        origin = shipment.get('origin')
         
         if not arm_pro:
              return JsonResponse({'success': False, 'message': '缺少PRO号码 (ARM_PRO)'}, status=400)
              
         # Extract zip from destination (digits only)
-        szip = "".join(filter(str.isdigit, destination or ""))
+        szip = "".join(filter(str.isdigit, origin or ""))
         if not szip:
-             return JsonResponse({'success': False, 'message': '无法从目的地提取邮编 (szip)'}, status=400)
+             return JsonResponse({'success': False, 'message': '无法从仓库提取邮编 (szip)'}, status=400)
              
         # Call Maersk Gateway API
         api_url = "https://zem-maersk-gateway.kindmoss-a5050a64.eastus.azurecontainerapps.io/label"
-        #api_key = os.environ.get("MAERSK_API_KEY")
-        api_key = '2Tdtqrj4dqnooXIJi4ReCVrMGW3ehJnC'
-        
+        api_key = os.environ.get("MAERSK_API_KEY")
+        #api_key = '2Tdtqrj4dqnooXIJi4ReCVrMGW3ehJnC'
+
         params = {
             "shawb": arm_pro,
             "eLabelType": e_label_type,
             "szip": szip
         }
-        
         headers = {
             "Content-Type": "application/json",
             "x-api-key": api_key
@@ -1914,10 +1914,60 @@ class PostNsop(View):
             async with aiohttp.ClientSession() as session:
                 async with session.post(api_url, json=params, headers=headers) as response:
                     if response.status == 200:
-                        content = await response.read()
-                        response_obj = HttpResponse(content, content_type='application/pdf')
-                        response_obj['Content-Disposition'] = f'attachment; filename="Maersk_Label_{arm_pro}.pdf"'
-                        return response_obj
+
+                        # 1️⃣ 读取接口返回内容
+                        text = await response.text()
+
+                        # 2️⃣ 如果是被包裹的字符串，先反序列化
+                        if text.startswith('"'):
+                            text = json.loads(text)
+
+                        try:
+                            # 3️⃣ 解析 XML
+                            root = ET.fromstring(text)
+
+                            count = 0
+                            for elem in root.iter():
+                                count += 1
+                                if count >= 20:
+                                    break
+
+                            # 4️⃣ 忽略 namespace 强制查找 DataStream_Byte
+                            data_node = None
+                            for elem in root.iter():
+                                if elem.tag.endswith("DataStream_Byte"):
+                                    data_node = elem
+                                    break
+
+                            if data_node is not None and data_node.text:
+
+                                base64_str = data_node.text.strip()
+
+                                # 5️⃣ Base64 解码
+                                decoded_bytes = base64.b64decode(base64_str)
+
+                                if not decoded_bytes.startswith(b'%PDF'):
+                                    print("⚠️ 警告：文件头不是 %PDF，可能不是PDF文件")
+
+                                # 6️⃣ 保存调试文件
+                                with open("debug_label.pdf", "wb") as f:
+                                    f.write(decoded_bytes)
+
+                                # 7️⃣ 返回给浏览器
+                                response_obj = HttpResponse(decoded_bytes, content_type='application/pdf')
+                                response_obj['Content-Disposition'] = f'attachment; filename="Maersk_Label_{arm_pro}.pdf"'
+                                return response_obj
+
+                            else:
+                                return HttpResponse(
+                                    "<script>alert('未找到PDF文件内容');history.back();</script>"
+                                )
+
+                        except Exception as e:
+                            return HttpResponse(
+                                f"<script>alert('XML解析失败: {str(e)}');history.back();</script>"
+                            )
+
                     else:
                         text = await response.text()
                         try:
@@ -1925,24 +1975,23 @@ class PostNsop(View):
                             error_msg = error_json.get('detail', text)
                         except:
                             error_msg = text
-                        # return JsonResponse({'success': False, 'message': f'API调用失败: {response.status} - {error_msg}'}, status=response.status)
+
                         return HttpResponse(
-                            f"<script>alert('API调用失败: {response.status} - {error_msg}');history.back();</script>", 
-                            content_type="text/html"
+                            f"<script>alert('API调用失败: {response.status} - {error_msg}');history.back();</script>"
                         )
         except Exception as e:
             # return JsonResponse({'success': False, 'message': f'系统错误: {str(e)}'}, status=500)
             return HttpResponse(
                 f"<script>alert('系统错误: {str(e)}');history.back();</script>", 
-                content_type="text/html"
             )
 
     async def handle_export_maersk_bol(self, request: HttpRequest) -> HttpResponse:
+        '''Maersk BOL获取'''
         fleet_number = request.POST.get("fleet_number")
         
         # Get Shipment info
         shipment_data = await sync_to_async(list)(
-            Shipment.objects.filter(fleet_number__fleet_number=fleet_number).values('ARM_PRO', 'destination')
+            Shipment.objects.filter(fleet_number__fleet_number=fleet_number).values('ARM_PRO', 'destination','origin')
         )
         
         if not shipment_data:
@@ -1953,7 +2002,7 @@ class PostNsop(View):
             
         shipment = shipment_data[0]
         arm_pro = shipment.get('ARM_PRO')
-        destination = shipment.get('destination')
+        origin = shipment.get('origin')
         
         if not arm_pro:
              return HttpResponse(
@@ -1962,17 +2011,16 @@ class PostNsop(View):
             )
              
         # Extract zip from destination (digits only)
-        szip = "".join(filter(str.isdigit, destination or ""))
+        szip = "".join(filter(str.isdigit, origin or ""))
         if not szip:
              return HttpResponse(
-                "<script>alert('无法从目的地提取邮编 (szip)');history.back();</script>", 
-                content_type="text/html"
+                "<script>alert('无法从仓库提取邮编 (szip)');history.back();</script>", 
             )
              
         # Call Maersk Gateway API
         api_url = "https://zem-maersk-gateway.kindmoss-a5050a64.eastus.azurecontainerapps.io/bol"
-        # api_url = "http://127.0.0.1:8000/bol"
-        api_key = '2Tdtqrj4dqnooXIJi4ReCVrMGW3ehJnC'
+        api_key = os.environ.get("MAERSK_API_KEY")
+        #api_key = '2Tdtqrj4dqnooXIJi4ReCVrMGW3ehJnC'
         
         params = {
             "shawb": arm_pro,
@@ -1988,10 +2036,61 @@ class PostNsop(View):
             async with aiohttp.ClientSession() as session:
                 async with session.post(api_url, json=params, headers=headers) as response:
                     if response.status == 200:
-                        content = await response.read()
-                        response_obj = HttpResponse(content, content_type='application/pdf')
-                        response_obj['Content-Disposition'] = f'attachment; filename="Maersk_BOL_{arm_pro}.pdf"'
-                        return response_obj
+
+                        # 1️⃣ 读取接口返回内容
+                        text = await response.text()
+
+                        # 2️⃣ 如果是被包裹的字符串，先反序列化
+                        if text.startswith('"'):
+                            text = json.loads(text)
+
+                        try:
+                            # 3️⃣ 解析 XML
+                            root = ET.fromstring(text)
+
+                            count = 0
+                            for elem in root.iter():
+                                print(elem.tag)
+                                count += 1
+                                if count >= 20:
+                                    break
+
+                            # 4️⃣ 忽略 namespace 强制查找 DataStream_Byte
+                            data_node = None
+                            for elem in root.iter():
+                                if elem.tag.endswith("DataStream_Byte"):
+                                    data_node = elem
+                                    break
+
+                            if data_node is not None and data_node.text:
+
+                                base64_str = data_node.text.strip()
+
+                                # 5️⃣ Base64 解码
+                                decoded_bytes = base64.b64decode(base64_str)
+
+                                if not decoded_bytes.startswith(b'%PDF'):
+                                    print("⚠️ 警告：文件头不是 %PDF，可能不是PDF文件")
+
+                                # 6️⃣ 保存调试文件
+                                with open("debug_label.pdf", "wb") as f:
+                                    f.write(decoded_bytes)
+
+                                # 7️⃣ 返回给浏览器
+                                response_obj = HttpResponse(decoded_bytes, content_type='application/pdf')
+                                response_obj['Content-Disposition'] = f'attachment; filename="Maersk_Label_{arm_pro}.pdf"'
+                                return response_obj
+
+                            else:
+                                return HttpResponse(
+                                    "<script>alert('未找到PDF文件内容');history.back();</script>"
+                                )
+
+                        except Exception as e:
+                            return HttpResponse(
+                                f"<script>alert('XML解析失败: {str(e)}');history.back();</script>"
+                            )
+
                     else:
                         text = await response.text()
                         try:
@@ -1999,14 +2098,13 @@ class PostNsop(View):
                             error_msg = error_json.get('detail', text)
                         except:
                             error_msg = text
+
                         return HttpResponse(
-                            f"<script>alert('API调用失败: {response.status} - {error_msg}');history.back();</script>", 
-                            content_type="text/html"
+                            f"<script>alert('API调用失败: {response.status} - {error_msg}');history.back();</script>"
                         )
         except Exception as e:
             return HttpResponse(
                 f"<script>alert('系统错误: {str(e)}');history.back();</script>", 
-                content_type="text/html"
             )
 
     async def export_ltl_label(self, request: HttpRequest) -> HttpResponse:
