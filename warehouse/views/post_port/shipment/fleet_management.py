@@ -1711,7 +1711,7 @@ class FleetManagement(View):
         if not request.FILES.get('ltl_file'):
             error_messages = ['未上传文件']
             success_count = 0
-            return await self.handle_fleet_cost_record_get(request, error_messages, success_count)
+            return await self.handle_fleet_cost_record_get_ltl(request, error_messages, success_count)
 
         file = request.FILES['ltl_file']
 
@@ -1727,7 +1727,7 @@ class FleetManagement(View):
                 error_messages = [
                     f'上传文件表头错误，缺少字段：{", ".join(missing_cols)}（必须包含：柜号、目的地、唛头、成本）'
                 ]
-                return await self.handle_fleet_cost_record_get(request, error_messages, 0)
+                return await self.handle_fleet_cost_record_get_ltl(request, error_messages, 0)
 
             success_count = 0
             error_messages = []
@@ -1781,7 +1781,7 @@ class FleetManagement(View):
 
             if not valid_rows:
                 error_messages = error_messages or ['无有效数据可处理']
-                return await self.handle_fleet_cost_record_get(request, error_messages, 0)
+                return await self.handle_fleet_cost_record_get_ltl(request, error_messages, 0)
 
             # 5. 批量查询数据库（减少数据库交互）
             container_numbers = [row['container_number'] for row in valid_rows]
@@ -1934,13 +1934,13 @@ class FleetManagement(View):
             await batch_update_fleet_cost(valid_rows, fleet_id_mapping, fleet_info)
 
             # 7. 返回结果
-            return await self.handle_fleet_cost_record_get(request, error_messages, success_count)
+            return await self.handle_fleet_cost_record_get_ltl(request, error_messages, success_count)
 
         except Exception as e:
             # 捕获全局异常
             logger.error('LTL批量上传成本整体异常', exc_info=True)
             error_messages = [f'文件处理失败：{str(e)[:200]}']
-            return await self.handle_fleet_cost_record_get(request, error_messages, 0)
+            return await self.handle_fleet_cost_record_get_ltl(request, error_messages, 0)
 
     async def handle_fleet_warehouse_search_post(
         self, request: HttpRequest
