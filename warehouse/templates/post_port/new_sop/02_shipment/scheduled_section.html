@@ -202,25 +202,32 @@
                             <button class="action-btn btn-warning open-bind-modal"
                                     data-has-appointment="1"
                                     data-appointment-id="{{ shipment_group.appointment_id }}"
+                                    data-shipment-type="{{ shipment_group.shipment_type }}"
+                                    data-shipment-batch-number="{{ shipment_group.shipment_batch_number }}"
                                     data-load-type="{{ shipment_group.load_type }}"
                                     data-destination="{{ shipment_group.destination }}"
-                                    data-delivery-method="{{ shipment_group.load_type }}"
                                     data-scheduled-time="{{ shipment_group.shipment_appointment|date:'Y-m-d H:i' }}"
                                     data-shipment-account="{{ shipment_group.shipment_account }}"
                                     data-origin="{{ warehouse }}"
-                                    data-note=""
+                                    data-note="{{ shipment_group.note }}"
+                                    data-carrier="{{ shipment_group.carrier }}"
                                     data-address-detail="{{ shipment_group.address_detail }}"
                                     data-operation-type="remove_po"
                                     data-pickup-time="{{ shipment_group.pickup_time|date:'Y-m-d H:i' }}"
-                                    data-pickup-number="{{ shipment_group.pickup_number }}">
+                                    data-pickup-number="{{ shipment_group.pickup_number }}"
+                                    data-ARM-BOL="{{ shipment_group.ARM_BOL }}">
                                 <i class="fas fa-square-minus"></i> 删除PO
                             </button>
                             <button class="action-btn btn-primary open-edit-modal"
                                     data-appointment-id="{{ shipment_group.appointment_id }}"
+                                    data-shipment-type="{{ shipment_group.shipment_type }}"
+                                    data-shipment-batch-number="{{ shipment_group.shipment_batch_number }}"
                                     data-destination="{{ shipment_group.destination }}"
                                     data-scheduled-time="{{ shipment_group.shipment_appointment|date:'Y-m-d H:i' }}"
                                     data-load-type="{{ shipment_group.load_type }}"
+                                    data-carrier="{{ shipment_group.carrier }}"
                                     data-origin="{{ warehouse }}"
+                                    data-note="{{ shipment_group.note }}"
                                     data-pickup-time="{{ shipment_group.pickup_time|date:'Y-m-d H:i' }}"
                                     data-pickup-number="{{ shipment_group.pickup_number }}"
                                     data-shipment-id="{{ shipment_group.shipment_cargo_id }}">
@@ -293,6 +300,7 @@
                         </form>
                         <button class="action-btn btn-primary open-edit-modal"
                                 data-appointment-id="{{ shipment_group.appointment_id }}"
+                                data-shipment-batch-number="{{ shipment_group.shipment_batch_number }}"
                                 data-destination="{{ shipment_group.destination }}"
                                 data-scheduled-time="{{ shipment_group.shipment_appointment|date:'Y-m-d H:i' }}"
                                 data-load-type="{{ shipment_group.load_type }}"
@@ -319,7 +327,7 @@
 <div id="editAppointmentModal" class="modal">
     <div class="modal-content" style="width: 600px; max-width: 90%;">
         <div class="modal-header">
-            <h3><i class="fas fa-edit"></i> 修改预约</h3>
+            <h3><i class="fas fa-edit"></i> 修改预约 <span id="editModalShipmentBatchLabel" style="margin-left: 8px; font-size: 0.9em; opacity: 0.9;"></span></h3>
             <span class="close" onclick="closeEditModal()">&times;</span>
         </div>
         <div class="modal-body">
@@ -327,6 +335,7 @@
                 {% csrf_token %}
                 <input type="hidden" name="step" value="edit_appointment">
                 <input type="hidden" name="appointment_id" id="editModalAppointmentId">
+                <input type="hidden" name="shipment_batch_number" id="editModalShipmentBatchNumber">
                 <input type="hidden" name="warehouse" value="{{ warehouse }}">
                 <input type="hidden" name="st_type" value="{{ st_type }}">
 
@@ -582,6 +591,7 @@
     document.querySelectorAll('.open-edit-modal').forEach(btn => {
         btn.addEventListener('click', function() {
             const appointmentId = this.dataset.appointmentId;
+            const shipmentBatchNumber = this.dataset.shipmentBatchNumber || '';
             const scheduledTime = this.dataset.scheduledTime.replace(' ', 'T');
             const pickupTime = this.dataset.pickupTime ? this.dataset.pickupTime.replace(' ', 'T') : '';
             const pickupNumber = this.dataset.pickupNumber || '';
@@ -592,6 +602,7 @@
 
             document.getElementById('editModalAppointmentId').value = appointmentId;
             document.getElementById('editModalAppointmentInput').value = appointmentId;
+            document.getElementById('editModalShipmentBatchNumber').value = shipmentBatchNumber;
             document.getElementById('editModalScheduledTime').value = scheduledTime;
             document.getElementById('editModalPickupTime').value = pickupTime;
             document.getElementById('editModalPickupNumber').value = pickupNumber;          
@@ -601,6 +612,10 @@
             document.getElementById('editModalLoadType').value = loadType;
             document.getElementById('editModalOrigin').value = origin;
 
+            const label = document.getElementById('editModalShipmentBatchLabel');
+            if (label) {
+                label.textContent = shipmentBatchNumber ? shipmentBatchNumber : '';
+            }
             document.getElementById('editAppointmentModal').style.display = 'block';
         });
     });
