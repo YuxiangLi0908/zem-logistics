@@ -633,6 +633,7 @@ class PostNsop(View):
             
             # 处理 Consignee References (目的地处理)
             warehouse_type = request.POST.get('warehouse_type', 'public')
+            fleet_cost = schedule.get('cost', '')
             destination = schedule.get('destination', '')
             destination_name = destination
             
@@ -701,13 +702,11 @@ class PostNsop(View):
             }
 
             pro_number = None
-            actual_fee = None
             async with aiohttp.ClientSession() as session:
                 async with session.post(api_url, json=payload, headers=headers) as response:
                     if response.status == 200:
                         res_data = await response.json()
                         pro_number = res_data.get('housebill')
-                        actual_fee = res_data.get('rate').get('baseAmount')
                     else:
                         text = await response.text()
                         return JsonResponse({'success': False, 'message': f'Maersk API下单失败: {response.status} - {text}'}, status=response.status)
@@ -730,7 +729,7 @@ class PostNsop(View):
                 post_data['shipment_type'] = schedule.get('shipment_type', 'LTL')
                 # 私仓 auto_fleet 接收 'true'/'false' 字符串
                 post_data['auto_fleet'] = 'true' if schedule.get('auto_schedule') == '是' else 'false'
-                post_data['fleet_cost'] = actual_fee
+                post_data['fleet_cost'] = fleet_cost
                 # 传递已生成的 batch_number 
                 post_data['maersk_batch_number'] = batch_number_ref
                 # 传递备注
@@ -748,7 +747,7 @@ class PostNsop(View):
                     'success': True, 
                     'pro_number': pro_number, 
                     'batch_number': batch_number_ref, # 私仓逻辑暂不返回 batch_number 给前端弹窗显示
-                    'cost': actual_fee,
+                    'cost': fleet_cost,
                     'message': '下单及私仓预约成功'
                 })
                 
@@ -801,7 +800,7 @@ class PostNsop(View):
                         # 更新 Fleet 信息 (比如 carrier, pro)
                         fleet = await sync_to_async(Fleet.objects.get)(fleet_number=fleet_number)
                         fleet.carrier = 'Maersk'
-                        fleet.fleet_cost = actual_fee
+                        fleet.fleet_cost = fleet_cost
                         await sync_to_async(fleet.save)()
                         
                 except Exception as e:
@@ -812,7 +811,7 @@ class PostNsop(View):
                     'success': True, 
                     'pro_number': pro_number, 
                     'batch_number': batch_number_ref,
-                    'cost': actual_fee,
+                    'cost': fleet_cost,
                     'message': '下单及预约成功'
                 })
 
