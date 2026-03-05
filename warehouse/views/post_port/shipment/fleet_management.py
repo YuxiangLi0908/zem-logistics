@@ -1449,15 +1449,27 @@ class FleetManagement(View):
     async def handle_fleet_cost_record_get_ltl(
             self, request: HttpRequest, error_messages=None, success_count=0
     ) -> tuple[str, dict[str, Any]]:
-        start_time = request.POST.get("start_time", "")
-        end_time = request.POST.get("end_time", "")
+        # 获取当前时间（带时区）
+        now = timezone.now()
+        # 最近一个月的起始时间
+        default_start_time = now - timedelta(days=30)
+        start_time = request.POST.get("start_time", default_start_time.strftime("%Y-%m-%d"))
+        end_time = request.POST.get("end_time", now.strftime("%Y-%m-%d"))
+
         status = request.POST.get("status", "")
+
+        # ========== 核心修复2：时区感知的datetime对象（解决RuntimeWarning） ==========
+        # 转换固定时间为带时区的对象
+        tz_2026_01_01 = timezone.make_aware(
+            datetime(2026, 1, 1, 0, 0, 0),
+            timezone.get_current_timezone()
+        )
 
         # ========== 核心修复1：初始化criteria为Q()，避免覆盖 ==========
         criteria = models.Q(
-            shipped_at__isnull=False,
             arrived_at__isnull=False,
-            shipment_schduled_at__gte="2025-12-01",
+            shipped_at__gte=tz_2026_01_01,  # 带时区的datetime
+            shipment_schduled_at__gte=tz_2026_01_01,  # 带时区的datetime
             fleet_number__fleet_type='LTL'
         )
 
@@ -1471,19 +1483,20 @@ class FleetManagement(View):
             criteria &= models.Q(fleet_number__fleet_cost__isnull=True)
             shipment_type = '未录入内容'
 
-        # ========== 修复：提柜时间过滤（核心生效逻辑） ==========
+        # ========== 修复：提柜时间过滤（核心生效逻辑 + 时区处理） ==========
         if start_time or end_time:
-            # 1. 时间格式转换：将前端日期转为datetime（处理边界）
             start_datetime = None
             end_datetime = None
 
             if start_time:
-                # 转成：2025-03-03 00:00:00
-                start_datetime = datetime.strptime(start_time, "%Y-%m-%d")
+                # 转成：2025-03-03 00:00:00（带时区）
+                naive_start = datetime.strptime(start_time, "%Y-%m-%d")
+                start_datetime = timezone.make_aware(naive_start, timezone.get_current_timezone())
+
             if end_time:
-                # 转成：2025-03-03 23:59:59（关键：包含当天所有时间）
-                end_datetime = datetime.strptime(end_time, "%Y-%m-%d") + timedelta(
-                    days=1) - timedelta(seconds=1)
+                # 转成：2025-03-03 23:59:59（带时区，包含当天所有时间）
+                naive_end = datetime.strptime(end_time, "%Y-%m-%d") + timedelta(days=1) - timedelta(seconds=1)
+                end_datetime = timezone.make_aware(naive_end, timezone.get_current_timezone())
 
             # 2. 过滤Order（拆柜时间），兼容NULL值
             order_filter = models.Q()
@@ -1529,12 +1542,6 @@ class FleetManagement(View):
         shipment = await sync_to_async(list)(
             Shipment.objects
             .select_related("fleet_number")  # 预加载车次号关联对象
-            .prefetch_related(
-                Prefetch(
-                    "fleetshipmentpallets",
-                    queryset=FleetShipmentPallet.objects.select_related("operator")
-                )
-            )
             .filter(criteria)
             .order_by("shipped_at")
         )
@@ -1618,7 +1625,7 @@ class FleetManagement(View):
                 # ========== 新增：显式挂载车次号到Shipment对象 ==========
                 # 确保车次号字段存在且可访问
                 s.fleet_number_code = s.fleet_number.fleet_number if (
-                            s.fleet_number and s.fleet_number.fleet_number) else "-"
+                        s.fleet_number and s.fleet_number.fleet_number) else "-"
 
                 processed.append(s)
             return processed
@@ -1629,8 +1636,8 @@ class FleetManagement(View):
         # 构建上下文
         context = {
             "shipment_type": shipment_type,
-            "start_time": start_time,
-            "end_time": end_time,
+            "start_time": start_time,  # 带默认值的起始时间
+            "end_time": end_time,  # 带默认值的结束时间
             "fleet": shipment,
             "upload_file_form": UploadFileForm(required=True),
             "warehouse_options": self.warehouse_options,
