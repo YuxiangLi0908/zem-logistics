@@ -1007,7 +1007,6 @@ class PostNsop(View):
 
             api_url = "https://zem-maersk-gateway.kindmoss-a5050a64.eastus.azurecontainerapps.io/rating"
             api_key = os.environ.get("MAERSK_API_KEY")
-            #api_key = '2Tdtqrj4dqnooXIJi4ReCVrMGW3ehJnC'
             
             if not api_key:
                  return JsonResponse({'success': False, 'message': '未配置API Key'}, status=500)

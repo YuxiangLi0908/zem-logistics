@@ -1755,7 +1755,7 @@
                                         <th style="width: 12%">件数</th>
                                         <th style="width: 14%">重量 (lbs)</th>
                                         <th style="width: 18%">包装</th>
-                                        <th>描述 (选填)</th>
+                                        <th>商品名/类目</th>
                                         <th style="width: 50px;"></th>
                                     </tr>
                                 </thead>
@@ -1802,6 +1802,47 @@
 <script>
     let currentQuoteData = null;
 
+    function fleet_formatDateYMD(date) {
+        const y = date.getFullYear();
+        const m = String(date.getMonth() + 1).padStart(2, '0');
+        const d = String(date.getDate()).padStart(2, '0');
+        return `${y}-${m}-${d}`;
+    }
+
+    function fleet_getTomorrowYMD() {
+        const dt = new Date();
+        dt.setDate(dt.getDate() + 1);
+        return fleet_formatDateYMD(dt);
+    }
+
+    function fleet_roundIntField(input) {
+        if (!input) return;
+        const raw = String(input.value ?? '').trim();
+        if (!raw) return;
+        const n = Number(raw);
+        if (!Number.isFinite(n)) return;
+        input.value = String(Math.ceil(n));
+    }
+
+    function fleet_ceilOrEmpty(v) {
+        if (v === undefined || v === null) return '';
+        const s = String(v).trim();
+        if (!s) return '';
+        const n = Number(s);
+        if (!Number.isFinite(n)) return '';
+        return String(Math.ceil(n));
+    }
+
+    function fleet_normalizeQuoteItemsIntegers() {
+        document.querySelectorAll('#quote_items_tbody tr').forEach(tr => {
+            fleet_roundIntField(tr.querySelector('.item-length'));
+            fleet_roundIntField(tr.querySelector('.item-width'));
+            fleet_roundIntField(tr.querySelector('.item-height'));
+            fleet_roundIntField(tr.querySelector('.item-weight'));
+        });
+        fleet_updateQuoteTotalWeight();
+    }
+
     // 询价相关函数
     function fleet_openQuoteModal(btn) {
         const row = btn.closest('tr');
@@ -1844,8 +1885,10 @@
         // 填充模态框
         document.getElementById('quote_origin_zip').value = originZip;
         document.getElementById('quote_dest_zip').value = destZip;
-        const today = new Date().toISOString().split('T')[0];
-        document.getElementById('quote_ship_date').value = today;
+        const tomorrow = fleet_getTomorrowYMD();
+        const shipDateEl = document.getElementById('quote_ship_date');
+        shipDateEl.min = tomorrow;
+        shipDateEl.value = tomorrow;
         
         // 填充表格
         const tbody = document.getElementById('quote_items_tbody');
@@ -1890,7 +1933,7 @@
             }
         }
         
-        fleet_updateQuoteTotalWeight();
+        fleet_normalizeQuoteItemsIntegers();
 
         // 清空之前的结果
         document.getElementById('quote_result_area').style.display = 'none';
@@ -1909,20 +1952,20 @@
         const tbody = document.getElementById('quote_items_tbody');
         const tr = document.createElement('tr');
         
-        const l = data.length || '';
-        const w = data.width || '';
-        const h = data.height || '';
+        const l = fleet_ceilOrEmpty(data.length);
+        const w = fleet_ceilOrEmpty(data.width);
+        const h = fleet_ceilOrEmpty(data.height);
         const pcs = data.pieces || 1;
-        const weight = data.weight || '';
+        const weight = fleet_ceilOrEmpty(data.weight);
         const desc = data.description || '';
         const packaging = data.packaging || 'Pallet';
         
         tr.innerHTML = `
-            <td><input type="number" class="form-control form-control-sm item-length" value="${l}" oninput="fleet_updateQuoteTotalWeight()" required></td>
-            <td><input type="number" class="form-control form-control-sm item-width" value="${w}" required></td>
-            <td><input type="number" class="form-control form-control-sm item-height" value="${h}" required></td>
+            <td><input type="number" step="1" class="form-control form-control-sm item-length" value="${l}" onblur="fleet_roundIntField(this)" required></td>
+            <td><input type="number" step="1" class="form-control form-control-sm item-width" value="${w}" onblur="fleet_roundIntField(this)" required></td>
+            <td><input type="number" step="1" class="form-control form-control-sm item-height" value="${h}" onblur="fleet_roundIntField(this)" required></td>
             <td><input type="number" class="form-control form-control-sm item-pieces" value="${pcs}" min="1" oninput="fleet_updateQuoteTotalWeight()" required></td>
-            <td><input type="number" class="form-control form-control-sm item-weight" value="${weight}" oninput="fleet_updateQuoteTotalWeight()" required></td>
+            <td><input type="number" step="1" class="form-control form-control-sm item-weight" value="${weight}" onblur="fleet_roundIntField(this); fleet_updateQuoteTotalWeight()" oninput="fleet_updateQuoteTotalWeight()" required></td>
             <td>
                 <select class="form-select form-select-sm item-packaging">
                     <option ${packaging==='Bundle'?'selected':''}>Bundle</option>
@@ -1948,7 +1991,7 @@
                     <option ${packaging==='Truckload'?'selected':''}>Truckload</option>
                 </select>
             </td>
-            <td><input type="text" class="form-control form-control-sm item-desc" value="${desc}" placeholder="Pallet"></td>
+            <td><input type="text" class="form-control form-control-sm item-desc" value="${desc}" placeholder="商品名/类目"></td>
             <td class="text-center">
                 <button type="button" class="btn btn-sm btn-link text-danger p-0" onclick="this.closest('tr').remove(); fleet_updateQuoteTotalWeight()">
                     <i class="fas fa-trash-alt"></i>
@@ -1964,10 +2007,10 @@
         let total = 0;
         document.querySelectorAll('#quote_items_tbody tr').forEach(tr => {
             const weight = parseFloat(tr.querySelector('.item-weight').value) || 0;
-            total += weight; 
+            total += Math.ceil(weight); 
         });
-        document.getElementById('quote_total_weight_display').textContent = total.toFixed(2);
-        document.getElementById('quote_total_weight').value = total.toFixed(2);
+        document.getElementById('quote_total_weight_display').textContent = total.toFixed(0);
+        document.getElementById('quote_total_weight').value = total.toFixed(0);
     }
 
     function fleet_renderQuoteResults(data) {
@@ -2134,15 +2177,30 @@
             return;
         }
 
+        const tomorrow = fleet_getTomorrowYMD();
+        if (shipDate < tomorrow) {
+            alert('发货日期不能早于明天');
+            return;
+        }
+
         // 收集表格数据
         const lineItems = [];
         document.querySelectorAll('#quote_items_tbody tr').forEach(tr => {
+            const lengthEl = tr.querySelector('.item-length');
+            const widthEl = tr.querySelector('.item-width');
+            const heightEl = tr.querySelector('.item-height');
+            const weightEl = tr.querySelector('.item-weight');
+            fleet_roundIntField(lengthEl);
+            fleet_roundIntField(widthEl);
+            fleet_roundIntField(heightEl);
+            fleet_roundIntField(weightEl);
+
             lineItems.push({
-                length: tr.querySelector('.item-length').value,
-                width: tr.querySelector('.item-width').value,
-                height: tr.querySelector('.item-height').value,
-                pieces: tr.querySelector('.item-pieces').value,
-                weight: tr.querySelector('.item-weight').value,
+                length: Math.ceil(parseFloat(lengthEl.value) || 0),
+                width: Math.ceil(parseFloat(widthEl.value) || 0),
+                height: Math.ceil(parseFloat(heightEl.value) || 0),
+                pieces: Math.max(1, parseInt(tr.querySelector('.item-pieces').value, 10) || 1),
+                weight: Math.ceil(parseFloat(weightEl.value) || 0),
                 description: tr.querySelector('.item-desc').value,
                 packaging: tr.querySelector('.item-packaging')?.value || 'Pallet'
             });
