@@ -5042,7 +5042,23 @@ class ReceivableAccounting(View):
         # 查看是不是组合柜
         is_combina = False
         if delivery_type == "public":
-            activation_table = pallet_groups
+            activation_table = list(
+                Pallet.objects.filter(
+                    container_number__container_number=container_number
+                )
+                .exclude(PO_ID__isnull=True)
+                .exclude(PO_ID="")
+                .values("PO_ID", "destination", "zipcode", "delivery_method", "location", "delivery_type")
+                .annotate(
+                    total_pallets=models.Count("pallet_id"),
+                    total_cbm=models.Sum("cbm"),
+                    total_weight_lbs=models.Sum("weight_lbs"),
+                    pallet_ids=ArrayAgg("pallet_id"),
+                    shipping_marks=StringAgg("shipping_mark", delimiter=", ", distinct=True),
+                )
+                .order_by("PO_ID")
+            )
+            #activation_table = pallet_groups
             is_combina = self._determine_is_combina(order)
 
         # 获取本次账单已录入的激活费项
