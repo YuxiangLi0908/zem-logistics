@@ -250,7 +250,9 @@ class FleetManagement(View):
         elif step == "fleet_cost_record_ltl":
             template, context = await self.handle_fleet_cost_record_get_ltl(request)
             return render(request, template, context)
-
+        elif step == "batch_allocate_ltl_cost":
+            template, context = await self.handle_batch_allocate_ltl_cost(request)
+            return render(request, template, context)
         elif step == "fleet_cost_confirm":
             template, context = await self.handle_fleet_cost_confirm_get(request)
             return render(request, template, context)
@@ -1445,61 +1447,68 @@ class FleetManagement(View):
         }
         return self.template_fleet_cost_record, context
 
-
     async def handle_fleet_cost_record_get_ltl(
             self, request: HttpRequest, error_messages=None, success_count=0
     ) -> tuple[str, dict[str, Any]]:
-        start_time = request.POST.get("start_time", "")
-        end_time = request.POST.get("end_time", "")
+        # 获取当前时间（带时区）
+        now = timezone.now()
+        # 最近一个月的起始时间
+        default_start_time = now - timedelta(days=30)
+        start_time = request.POST.get("start_time", default_start_time.strftime("%Y-%m-%d"))
+        end_time = request.POST.get("end_time", now.strftime("%Y-%m-%d"))
+
         status = request.POST.get("status", "")
 
-        # ========== 核心修复1：初始化criteria为Q()，避免覆盖 ==========
+        # 时区感知的datetime对象
+        tz_2026_01_01 = timezone.make_aware(
+            datetime(2026, 1, 1, 0, 0, 0),
+            timezone.get_current_timezone()
+        )
+
+        # 初始化查询条件
         criteria = models.Q(
-            shipped_at__isnull=False,
             arrived_at__isnull=False,
-            shipment_schduled_at__gte="2025-12-01",
+            shipped_at__gte=tz_2026_01_01,
+            shipment_schduled_at__gte=tz_2026_01_01,
             fleet_number__fleet_type='LTL'
         )
 
         # 已录入/未录入筛选
         if status != "record":
-            # 已录入
             criteria &= models.Q(fleet_number__fleet_cost__isnull=False)
             shipment_type = '已录入内容'
         else:
-            # 未录入
             criteria &= models.Q(fleet_number__fleet_cost__isnull=True)
             shipment_type = '未录入内容'
 
-        # ========== 修复：提柜时间过滤（核心生效逻辑） ==========
+        # 提柜时间过滤逻辑（保留原有）
         if start_time or end_time:
-            # 1. 时间格式转换：将前端日期转为datetime（处理边界）
             start_datetime = None
             end_datetime = None
 
             if start_time:
-                # 转成：2025-03-03 00:00:00
-                start_datetime = datetime.strptime(start_time, "%Y-%m-%d")
-            if end_time:
-                # 转成：2025-03-03 23:59:59（关键：包含当天所有时间）
-                end_datetime = datetime.strptime(end_time, "%Y-%m-%d") + timedelta(
-                    days=1) - timedelta(seconds=1)
+                naive_start = datetime.strptime(start_time, "%Y-%m-%d")
+                start_datetime = timezone.make_aware(naive_start, timezone.get_current_timezone())
 
-            # 2. 过滤Order（拆柜时间），兼容NULL值
+            if end_time:
+                naive_end = datetime.strptime(end_time, "%Y-%m-%d") + timedelta(days=1) - timedelta(seconds=1)
+                end_datetime = timezone.make_aware(naive_end, timezone.get_current_timezone())
+
+            # 过滤Order
             order_filter = models.Q()
             if start_datetime:
                 order_filter &= models.Q(offload_id__offload_at__gte=start_datetime)
             if end_datetime:
                 order_filter &= models.Q(offload_id__offload_at__lte=end_datetime)
 
-            # 3. 获取符合条件的Container ID（包含空值处理）
+            # 获取Container ID
             container_ids = await sync_to_async(list)(
                 Order.objects.filter(order_filter)
                 .values_list('container_number_id', flat=True)
                 .distinct()
             )
 
-            # 4. 获取符合条件的Pallet ID
+            # 获取Pallet ID
             pallet_ids = []
             if container_ids:
                 pallet_ids = await sync_to_async(list)(
@@ -1508,7 +1517,7 @@ class FleetManagement(View):
                     .distinct()
                 )
 
-            # 5. 获取符合条件的Shipment ID（核心：Pallet→Shipment的关联）
+            # 获取Shipment ID
             shipment_ids = []
             if pallet_ids:
                 shipment_ids = await sync_to_async(list)(
@@ -1517,33 +1526,26 @@ class FleetManagement(View):
                     .distinct()
                 )
 
-            # ========== 核心修复2：强制筛选，无匹配则返回空 ==========
-            if start_time or end_time:  # 只要传了时间，就必须筛选
+            # 强制筛选
+            if start_time or end_time:
                 if shipment_ids:
                     criteria &= models.Q(id__in=shipment_ids)
                 else:
-                    # 无匹配的Shipment，直接置空（避免返回所有数据）
                     criteria &= models.Q(id__in=[])
 
-        # ========== 查询Shipment：只预加载必要字段 ==========
+        # ========== 核心修改1：查询Shipment时明确包含total_pallet、total_pcs字段 ==========
         shipment = await sync_to_async(list)(
             Shipment.objects
-            .select_related("fleet_number")  # 预加载车次号关联对象
-            .prefetch_related(
-                Prefetch(
-                    "fleetshipmentpallets",
-                    queryset=FleetShipmentPallet.objects.select_related("operator")
-                )
-            )
+            .select_related("fleet_number")
             .filter(criteria)
             .order_by("shipped_at")
         )
 
-        # ========== 处理数据：核心适配反向关联（Container←Order） ==========
+        # ========== 处理数据：简化逻辑，直接读取Shipment原生字段 ==========
         async def process_shipment_data(shipment_list):
             processed = []
             for s in shipment_list:
-                # 1. 原有逻辑：获取最新的fleetshipmentpallets记录
+                # 原有逻辑：获取fleetshipmentpallets记录
                 latest_pallet = await sync_to_async(
                     lambda: s.fleetshipmentpallets.order_by("-cost_input_time", "-id").first()
                 )()
@@ -1555,75 +1557,65 @@ class FleetManagement(View):
                     s.pallet_cost_input_time = None
                     s.pallet_operator_name = None
 
-                # ========== 核心修复：反向关联查询（Container←Order） ==========
+                # ========== 核心修改2：反向关联查询（仅保留柜号/拆柜时间/唛头逻辑） ==========
                 @sync_to_async
                 def get_related_data(shipment_id):
-                    """
-                    分步查询（适配反向关联）：
-                    1. Shipment→Pallet→Container（正向）
-                    2. Container←Order（反向：通过Order的container_number外键查）
-                    3. Order→Retrieval（正向）
-                    """
-                    # 第一步：查Pallet + Container（正向关联）
+                    """仅查询柜号、拆柜时间、唛头，不再计算件数/板数（直接用Shipment原生字段）"""
                     pallets = list(Pallet.objects.filter(
                         shipment_batch_number=shipment_id
-                    ).select_related("container_number"))  # Pallet→Container（柜号）
+                    ).select_related("container_number"))
 
-                    # 提取所有Container ID，用于反向查Order
+                    # 提取Container ID用于查Order
                     container_ids = [p.container_number_id for p in pallets if p.container_number_id]
-
-                    # 第二步：反向查Order（Order→Container的外键匹配Container ID）
                     order_map = {}
                     if container_ids:
-                        # 查询所有关联的Order，并按Container ID分组
                         orders = Order.objects.filter(
-                            container_number_id__in=container_ids  # 反向关联核心：Order的container_number外键
-                        ).select_related("offload_id")  # 拆柜时间
-
+                            container_number_id__in=container_ids
+                        ).select_related("offload_id")
                         for order in orders:
-                            # 按Container ID存入字典，方便后续匹配
                             order_map[order.container_number_id] = order
 
-                    # 第三步：给每个Pallet补充Order和提柜时间
+                    # 补充Order和提柜时间
                     for pallet in pallets:
-                        # 匹配当前Pallet的Container对应的Order
                         pallet.related_order = order_map.get(
                             pallet.container_number_id) if pallet.container_number_id else None
-                        # 提取拆柜时间
                         pallet.retrieval_time = None
                         if pallet.related_order and pallet.related_order.offload_id:
                             pallet.retrieval_time = pallet.related_order.offload_id.offload_at
 
                     return pallets
 
-                # 获取关联数据
+                # 获取关联数据（仅柜号/拆柜时间/唛头）
                 s.related_pallet = await get_related_data(s.id)
-                # 提取柜号、拆柜时间、唛头（挂载到Shipment对象）
+
+                # ========== 核心修改3：直接挂载Shipment原生的总件数/总板数 ==========
+                # 挂载总件数（兼容空值，默认0）
+                s.shipped_pcs = s.total_pcs or 0
+                # 挂载总板数（兼容空值，默认0）
+                s.shipped_pallet = s.total_pallet or 0
+
+                # 提取柜号、拆柜时间、唛头（保留原有逻辑）
                 s.offload_at = None
                 s.container_number = "-"
                 s.shipping_mark = "-"
 
                 if s.related_pallet:
                     first_pallet = s.related_pallet[0]
-                    # 1. 柜号（Pallet→Container）
                     if first_pallet.container_number:
                         s.container_number = first_pallet.container_number.container_number
-                    # 2. 唛头（Pallet本身）
                     if first_pallet.shipping_mark:
                         s.shipping_mark = first_pallet.shipping_mark
-                    # 3. 提柜时间（反向关联的Order→Retrieval）
                     if hasattr(first_pallet, 'retrieval_time') and first_pallet.retrieval_time:
                         s.offload_at = first_pallet.retrieval_time
 
-                # ========== 新增：显式挂载车次号到Shipment对象 ==========
-                # 确保车次号字段存在且可访问
+                # 挂载车次号
                 s.fleet_number_code = s.fleet_number.fleet_number if (
-                            s.fleet_number and s.fleet_number.fleet_number) else "-"
+                        s.fleet_number and s.fleet_number.fleet_number) else "-"
 
                 processed.append(s)
             return processed
 
-        # 处理数据（包含柜号、提柜时间、唛头、车次号）
+        # 处理数据
         shipment = await process_shipment_data(shipment)
 
         # 构建上下文
@@ -1638,6 +1630,211 @@ class FleetManagement(View):
             "success_count": success_count,
         }
         return self.template_fleet_cost_record_ltl, context
+
+
+    async def handle_batch_allocate_ltl_cost(self, request: HttpRequest):
+        """
+        LTL批量分摊成本核心逻辑（最终完整版）：
+        1. 总成本按选中记录的总板数分摊到每个车次（每车次成本 = 总成本/总板数 × 该车次板数）
+        2. 更新Fleet表的fleet_cost字段为分摊后的成本
+        3. 调用已有insert_fleet_shipment_pallet_fleet_cost方法，完成车次成本的二次分摊
+        """
+        error_messages = []
+        success_count = 0
+        logger = logging.getLogger(__name__)
+
+        try:
+            # 1. 获取前端参数
+            total_batch_cost = request.POST.get('total_batch_cost')
+            selected_fleet_numbers = request.POST.get('selected_fleet_numbers', '').split(',')
+            area = request.POST.get('area', '')
+
+            # 2. 基础参数校验
+            if not total_batch_cost:
+                error_messages.append('请输入总成本总值')
+                return await self.handle_fleet_cost_record_get_ltl(request, error_messages, success_count)
+
+            try:
+                total_batch_cost = float(total_batch_cost)
+                if total_batch_cost <= 0:
+                    error_messages.append('总成本必须大于0')
+                    return await self.handle_fleet_cost_record_get_ltl(request, error_messages, success_count)
+            except ValueError:
+                error_messages.append('总成本格式错误，必须为数字')
+                return await self.handle_fleet_cost_record_get_ltl(request, error_messages, success_count)
+
+            # 过滤空值
+            selected_fleet_numbers = [fleet_num.strip() for fleet_num in selected_fleet_numbers if fleet_num.strip()]
+            if not selected_fleet_numbers:
+                error_messages.append('请至少选择一条记录进行分摊')
+                return await self.handle_fleet_cost_record_get_ltl(request, error_messages, success_count)
+
+            # 3. 批量查询选中记录的板数和车次信息（正确关联路径）
+            @sync_to_async
+            def get_selected_fleet_data(fleet_numbers):
+                """
+                获取选中车次的总板数（按车次分组）
+                关联路径：Pallet → Shipment(shipment_batch_number) → Fleet(fleet_number)
+                总板数逻辑：每条Pallet记录=1个板，总板数=Pallet记录条数
+                """
+                fleet_data = []
+
+                # Step1: 先查询符合条件的Shipment（关联Fleet车次号）
+                shipments = Shipment.objects.filter(
+                    fleet_number__fleet_number__in=fleet_numbers
+                ).values_list('id', 'fleet_number__fleet_number')
+                shipment_fleet_map = {shipment_id: fleet_num for shipment_id, fleet_num in shipments}
+
+                if not shipment_fleet_map:
+                    return fleet_data
+
+                # Step2: 查询这些Shipment关联的所有Pallet
+                pallets = Pallet.objects.filter(
+                    shipment_batch_number__in=shipment_fleet_map.keys()
+                ).select_related('container_number')
+
+                # Step3: 按车次号分组，计算每个车次的总板数
+                fleet_group = {}
+                for pallet in pallets:
+                    fleet_num = shipment_fleet_map.get(pallet.shipment_batch_number_id)
+                    if not fleet_num:
+                        continue
+
+                    container_num = pallet.container_number.container_number if pallet.container_number else '未知柜号'
+
+                    if fleet_num not in fleet_group:
+                        fleet_group[fleet_num] = {
+                            'fleet_number': fleet_num,
+                            'total_pallet': 0,
+                            'container_numbers': set()
+                        }
+
+                    fleet_group[fleet_num]['total_pallet'] += 1
+                    fleet_group[fleet_num]['container_numbers'].add(container_num)
+
+                # 转换为列表
+                for fleet_num, data in fleet_group.items():
+                    fleet_data.append({
+                        'fleet_number': fleet_num,
+                        'total_pallet': data['total_pallet'],
+                        'container_numbers': ', '.join(data['container_numbers'])
+                    })
+                return fleet_data
+
+            fleet_data = await get_selected_fleet_data(selected_fleet_numbers)
+            if not fleet_data:
+                error_messages.append('未找到选中的车次数据')
+                return await self.handle_fleet_cost_record_get_ltl(request, error_messages, success_count)
+
+            # 4. 计算所有选中车次的总板数
+            total_pallets = sum([item['total_pallet'] for item in fleet_data])
+            if total_pallets <= 0:
+                error_messages.append('选中记录的总卡板数为0，无法分摊成本')
+                return await self.handle_fleet_cost_record_get_ltl(request, error_messages, success_count)
+
+            # 5. 计算每板基础成本
+            cost_per_pallet = round(total_batch_cost / total_pallets, 2)
+
+            # ========== 核心新增：更新Fleet表fleet_cost字段 + 修复事务逻辑 ==========
+            # 6. 批量处理：更新Fleet表 + 调用insert方法
+            async def batch_call_insert_method(fleet_data, cost_per_pallet, request):
+                """异步批量处理：更新Fleet.fleet_cost + 调用insert方法"""
+                processed_count = 0
+                errors = []
+
+                # 同步函数：更新Fleet表fleet_cost字段 + 收集任务参数
+                @sync_to_async
+                def update_fleet_cost_sync(fleet_data, cost_per_pallet):
+                    """
+                    同步更新Fleet表的fleet_cost字段
+                    并收集后续insert方法需要的任务参数
+                    """
+                    tasks = []
+                    with transaction.atomic():  # 保证Fleet表更新的原子性
+                        for item in fleet_data:
+                            fleet_number = item['fleet_number']
+                            fleet_pallet_count = item['total_pallet']
+                            container_numbers = item['container_numbers']
+
+                            if fleet_pallet_count <= 0:
+                                errors.append(f'车次{fleet_number}（柜号：{container_numbers}）板数为0，跳过处理')
+                                continue
+
+                            # 计算该车次应分摊的总成本
+                            fleet_total_cost = round(cost_per_pallet * fleet_pallet_count, 2)
+
+                            try:
+                                # ========== 核心新增：更新Fleet表的fleet_cost字段 ==========
+                                fleet_obj = Fleet.objects.get(fleet_number=fleet_number)
+                                # 方式1：直接覆盖fleet_cost字段
+                                fleet_obj.fleet_cost = fleet_total_cost
+                                # 方式2（可选）：累加成本（如果需要保留历史成本，改为 +=）
+                                # fleet_obj.fleet_cost = (fleet_obj.fleet_cost or 0) + fleet_total_cost
+                                fleet_obj.save(update_fields=['fleet_cost'])  # 只更新fleet_cost字段，性能更优
+
+                                logger.info(f'车次{fleet_number}的fleet_cost字段已更新为：{fleet_total_cost}元')
+
+                                # 收集insert方法的任务参数
+                                tasks.append({
+                                    'fleet_number': fleet_number,
+                                    'fleet_total_cost': fleet_total_cost,
+                                    'container_numbers': container_numbers,
+                                    'pallet_count': fleet_pallet_count
+                                })
+                            except ObjectDoesNotExist:
+                                errors.append(f'车次{fleet_number}（柜号：{container_numbers}）不存在，无法更新fleet_cost')
+                            except Exception as e:
+                                errors.append(
+                                    f'车次{fleet_number}（柜号：{container_numbers}）更新fleet_cost失败：{str(e)[:50]}')
+                    return tasks
+
+                # 第一步：更新Fleet表fleet_cost字段，获取任务列表
+                tasks = await update_fleet_cost_sync(fleet_data, cost_per_pallet)
+
+                # 第二步：逐个调用insert方法（二次分摊）
+                for task in tasks:
+                    try:
+                        # 调用已有insert方法（异步/同步兼容）
+                        # 如果insert是同步方法，替换为：await sync_to_async(self.insert_fleet_shipment_pallet_fleet_cost)(...)
+                        await self.insert_fleet_shipment_pallet_fleet_cost(
+                            request=request,
+                            fleet_number=task['fleet_number'],
+                            fleet_cost=task['fleet_total_cost']
+                        )
+
+                        processed_count += 1
+                        logger.info(
+                            f'车次{task["fleet_number"]}（柜号：{task["container_numbers"]}）分摊完成：'
+                            f'fleet_cost已更新为{task["fleet_total_cost"]}元，二次分摊也已完成'
+                        )
+                    except ObjectDoesNotExist as e:
+                        errors.append(f'车次{task["fleet_number"]}二次分摊失败：{str(e)}')
+                    except ValueError as e:
+                        errors.append(f'车次{task["fleet_number"]}二次分摊失败：{str(e)}')
+                    except Exception as e:
+                        errors.append(f'车次{task["fleet_number"]}二次分摊失败：{str(e)[:50]}')
+
+                return processed_count, errors
+
+            # 执行批量处理
+            success_count, process_errors = await batch_call_insert_method(
+                fleet_data, cost_per_pallet, request
+            )
+            error_messages.extend(process_errors)
+
+            # 7. 日志记录整体结果
+            logger.info(
+                f'LTL批量分摊成本完成：'
+                f'总投入成本{total_batch_cost}元，总板数{total_pallets}，每板成本{cost_per_pallet}元，'
+                f'成功处理{success_count}个车次（已更新Fleet.fleet_cost），失败{len(process_errors)}个车次'
+            )
+
+        except Exception as e:
+            logger.error('LTL批量分摊成本整体异常', exc_info=True)
+            error_messages.append(f'批量分摊整体失败：{str(e)[:200]}')
+
+        # 8. 返回结果页面
+        return await self.handle_fleet_cost_record_get_ltl(request, error_messages, success_count)
 
     async def handle_pod_upload_get(
         self, request: HttpRequest
