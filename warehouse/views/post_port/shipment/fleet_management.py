@@ -1705,7 +1705,7 @@ class FleetManagement(View):
 
 
     async def handle_upload_ltl_cost(self, request: HttpRequest):
-        """LTL批量上传成本Excel（最终版：同步更新Fleet表的fleet_cost字段）"""
+        """LTL批量上传成本Excel（修复：支持同柜号不同唛头独立上传）"""
         logger = logging.getLogger(__name__)
         # 1. 校验文件是否存在
         if not request.FILES.get('ltl_file'):
@@ -1731,7 +1731,8 @@ class FleetManagement(View):
 
             success_count = 0
             error_messages = []
-            processed_container_numbers = set()  # 记录已处理的柜号，避免重复处理
+            # ========== 修复1：去重逻辑改为「柜号+唛头」联合去重 ==========
+            processed_container_mark = set()  # 记录已处理的（柜号+唛头）组合
 
             # 4. 批量提取有效数据（先过滤无效行）
             valid_rows = []
@@ -1765,11 +1766,12 @@ class FleetManagement(View):
                     error_messages.append(f'第{row_num}行：成本格式错误，必须为数字（当前值：{fleet_cost_str}）')
                     continue
 
-                # 4.3 去重（同一柜号只保留最后一行）
-                if container_number in processed_container_numbers:
-                    logger.warning(f'第{row_num}行：柜号{container_number}重复，已跳过')
+                # ========== 修复1核心：按「柜号+唛头」去重 ==========
+                container_mark_key = f"{container_number}_{shipping_mark}"
+                if container_mark_key in processed_container_mark:
+                    logger.warning(f'第{row_num}行：柜号{container_number} + 唛头{shipping_mark} 重复，已跳过')
                     continue
-                processed_container_numbers.add(container_number)
+                processed_container_mark.add(container_mark_key)
 
                 valid_rows.append({
                     'row_num': row_num,
@@ -1784,32 +1786,40 @@ class FleetManagement(View):
                 return await self.handle_fleet_cost_record_get_ltl(request, error_messages, 0)
 
             # 5. 批量查询数据库（减少数据库交互）
+            # 提取所有柜号和唛头
             container_numbers = [row['container_number'] for row in valid_rows]
             shipping_marks = [row['shipping_mark'] for row in valid_rows]
 
-            # 异步查询：Pallet → shipment_batch_number → fleet_id（Fleet表的ID）
+            # ========== 修复2：重构映射逻辑，按「柜号+唛头」获取Fleet ID ==========
             @sync_to_async
             def get_fleet_id_mapping(container_nums, shipping_marks):
-                """批量获取柜号对应的Fleet表ID"""
-                fleet_mapping = {}
-                # 关联查询Pallet表，获取柜号对应的Fleet ID
+                """批量获取（柜号+唛头）对应的Fleet表ID"""
+                fleet_mapping = {}  # key: 柜号+唛头, value: fleet_id
+                # 关联查询Pallet表，获取（柜号+唛头）对应的Fleet ID
                 queryset = Pallet.objects.select_related('container_number', 'shipment_batch_number') \
-                    .filter(container_number__container_number__in=container_nums, shipping_mark__in=shipping_marks) \
+                    .filter(
+                    container_number__container_number__in=container_nums,
+                    shipping_mark__in=shipping_marks
+                ) \
                     .values(
                     'container_number__container_number',
-                    'shipment_batch_number__fleet_number'  # 这里是Fleet表的ID
+                    'shipping_mark',
+                    'shipment_batch_number__fleet_number'  # Fleet表的ID
                 )
 
                 for item in queryset:
                     container_num = item['container_number__container_number']
+                    shipping_mark = item['shipping_mark']
                     fleet_id = item['shipment_batch_number__fleet_number']
 
-                    # 仅当Fleet ID存在时才记录（避免空值）
-                    if fleet_id and container_num not in fleet_mapping:
-                        fleet_mapping[container_num] = fleet_id
+                    # 按「柜号+唛头」作为key存储，确保不同唛头有独立映射
+                    key = f"{container_num}_{shipping_mark}"
+                    # 仅当Fleet ID存在时才记录
+                    if fleet_id and key not in fleet_mapping:
+                        fleet_mapping[key] = fleet_id
                 return fleet_mapping
 
-            # 获取柜号→Fleet ID的映射
+            # 获取（柜号+唛头）→Fleet ID的映射
             fleet_id_mapping = await get_fleet_id_mapping(container_numbers, shipping_marks)
 
             # 批量查询所有需要的Fleet数据（避免循环内查库）
@@ -1821,7 +1831,7 @@ class FleetManagement(View):
                     return fleet_info
                 # 确保ID是整数类型
                 try:
-                    fleet_ids_int = [int(fid) for fid in fleet_ids]
+                    fleet_ids_int = [int(fid) for fid in fleet_ids if fid]
                 except ValueError:
                     return fleet_info
                 queryset = Fleet.objects.filter(id__in=fleet_ids_int).values('id', 'fleet_number')
@@ -1833,7 +1843,7 @@ class FleetManagement(View):
             fleet_ids = list(fleet_id_mapping.values())
             fleet_info = await get_fleet_info_by_ids(fleet_ids) if fleet_ids else {}
 
-            # ========== 核心新增：定义更新Fleet表fleet_cost字段的函数 ==========
+            # ========== 核心：定义更新Fleet表fleet_cost字段的函数 ==========
             @sync_to_async
             def update_fleet_cost_field(fleet_id, cost):
                 """更新Fleet表的fleet_cost字段"""
@@ -1864,32 +1874,40 @@ class FleetManagement(View):
                     with transaction.atomic():  # 事务：要么全成功，要么全失败
                         for row in rows:
                             container_num = row['container_number']
+                            shipping_mark = row['shipping_mark']
                             fleet_cost = row['fleet_cost']
                             row_num = row['row_num']
 
-                            # 检查柜号是否关联了Fleet ID
-                            if container_num not in fleet_id_map:
-                                process_errors.append(f'第{row_num}行：柜号{container_num}不存在/未关联车次')
+                            # ========== 修复3：按「柜号+唛头」查找Fleet ID ==========
+                            key = f"{container_num}_{shipping_mark}"
+                            # 检查（柜号+唛头）是否关联了Fleet ID
+                            if key not in fleet_id_map:
+                                process_errors.append(
+                                    f'第{row_num}行：柜号{container_num}+唛头{shipping_mark} 不存在/未关联车次'
+                                )
                                 continue
 
-                            fleet_id = fleet_id_map[container_num]
+                            fleet_id = fleet_id_map[key]
                             # 检查Fleet ID是否能查到车次号
                             if fleet_id not in fleet_info_map:
                                 process_errors.append(
-                                    f'第{row_num}行：柜号{container_num}关联的车次ID({fleet_id})不存在')
+                                    f'第{row_num}行：柜号{container_num}+唛头{shipping_mark} 关联的车次ID({fleet_id})不存在'
+                                )
                                 continue
 
                             fleet_number = fleet_info_map[fleet_id]
                             if not fleet_number:
                                 process_errors.append(
-                                    f'第{row_num}行：柜号{container_num}关联的车次ID({fleet_id})无车次号')
+                                    f'第{row_num}行：柜号{container_num}+唛头{shipping_mark} 关联的车次ID({fleet_id})无车次号'
+                                )
                                 continue
 
-                            # 校验通过，记录待录入的数据（新增fleet_id）
+                            # 校验通过，记录待录入的数据
                             valid_fleet_data.append({
                                 'row_num': row_num,
                                 'container_num': container_num,
-                                'fleet_id': fleet_id,  # 新增：保存Fleet ID
+                                'shipping_mark': shipping_mark,
+                                'fleet_id': fleet_id,
                                 'fleet_number': fleet_number,
                                 'fleet_cost': fleet_cost
                             })
@@ -1904,12 +1922,12 @@ class FleetManagement(View):
                 # 异步调用成本录入方法（处理每个校验通过的数据）
                 for data in valid_fleet_data:
                     try:
-                        # 步骤1：调用原有成本录入方法
+                        # 步骤1：调用原有成本录入方法（建议也改为按柜号+唛头录入）
                         await self.insert_fleet_shipment_pallet_fleet_cost(
                             request, data['fleet_number'], data['fleet_cost']
                         )
 
-                        # 步骤2：核心新增：更新Fleet表的fleet_cost字段
+                        # 步骤2：更新Fleet表的fleet_cost字段
                         update_success, update_msg = await update_fleet_cost_field(
                             data['fleet_id'], data['fleet_cost']
                         )
@@ -1919,15 +1937,15 @@ class FleetManagement(View):
                             raise Exception(update_msg)
 
                         logger.info(
-                            f'第{data["row_num"]}行：柜号{data["container_num"]}（车次{data["fleet_number"]}）成本录入成功，金额：{data["fleet_cost"]}'
+                            f'第{data["row_num"]}行：柜号{data["container_num"]}+唛头{data["shipping_mark"]}（车次{data["fleet_number"]}）成本录入成功，金额：{data["fleet_cost"]}'
                         )
                     except Exception as e:
                         logger.error(
-                            f'第{data["row_num"]}行：柜号{data["container_num"]}（车次{data["fleet_number"]}）录入异常',
+                            f'第{data["row_num"]}行：柜号{data["container_num"]}+唛头{data["shipping_mark"]}（车次{data["fleet_number"]}）录入异常',
                             exc_info=True
                         )
                         error_messages.append(
-                            f'第{data["row_num"]}行：柜号{data["container_num"]}处理失败：{str(e)[:100]}')
+                            f'第{data["row_num"]}行：柜号{data["container_num"]}+唛头{data["shipping_mark"]} 处理失败：{str(e)[:100]}')
                         success_count -= 1  # 录入失败，回滚计数
 
             # 执行批量录入
