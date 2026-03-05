@@ -12,6 +12,7 @@
                 <input type="hidden" name="suggestion_id" id="modalSuggestionId">
                 <input type="hidden" name="cargo_ids" id="modalCargoIds">
                 <input type="hidden" name="plt_ids" id="modalPltIds">
+                <input type="hidden" name="shipment_batch_number" id="modalShipmentBatchNumber">
                 <input type="hidden" name="warehouse" value="{{ warehouse }}">
                 <input type="hidden" name="st_type" value="{{ st_type }}">
                 <input type="hidden" name="operation_type" id="operationType" value="bind">
@@ -53,7 +54,7 @@
                                 </td>
                                 
                                 <td>
-                                    <input type="text" name="appointment_id" id="appointment_id" class="form-input" required>
+                                    <input type="text" name="appointment_id" id="appointment_id" class="form-input">
                                 </td>
                                 <!-- 时间段: shipment_appointment -->
                                 <td class="ftl-field">
@@ -391,6 +392,7 @@
         // 获取 Scheduled Time 的表头文字，动态修改它
         const timeHeader = document.getElementById('time-header-label');
         const scheduledInput = document.getElementById('scheduled-time-input');
+        const appointmentInput = document.getElementById('appointment_id');
 
         if (selectedText.includes('外配')) {
             // --- 外配模式 ---
@@ -401,8 +403,7 @@
             if (scheduledInput) {
                 scheduledInput.required = false; 
             }
-            // 隐藏不必要的必填验证（可选）
-            document.getElementById('appointment_id').required = true; // 预约号外配也需要
+            if (appointmentInput) appointmentInput.required = false;
         } else {
             // --- FTL 模式 ---
             ftlFields.forEach(el => el.style.display = ''); // 显示FTL专用
@@ -412,6 +413,7 @@
             if (scheduledInput) {
                 scheduledInput.required = true;
             }
+            if (appointmentInput) appointmentInput.required = true;
         }
     }
     // 绑定预约模态框的JavaScript
@@ -423,6 +425,7 @@
                 const hasAppointment = this.dataset.hasAppointment === '1';
                 const appointmentId = this.dataset.appointmentId || '';
                 const shipmentType = this.dataset.shipmentType || '';
+                const shipmentBatchNumber = this.dataset.shipmentBatchNumber || '';
                 const loadType = this.dataset.loadType || '';
                 const destination = this.dataset.destination || '';
                 const deliveryMethod = this.dataset.deliveryMethod || '';
@@ -432,10 +435,12 @@
                 const shipmentAccount = this.dataset.shipmentAccount || '';
                 const origin = this.dataset.origin || '';
                 const note = this.dataset.note || '';
+                const carrier = this.dataset.carrier || '';
+                const arm_bol = this.dataset.armBol || '';
                 const addressDetail = this.dataset.addressDetail || '';
                 const shipmentCargoId = this.dataset.shipmentCargoId || '';
+                
                 const operationType = this.dataset.operationType || 'bind';
-
                 let groupRows;
                 if (suggestionId) {
                     groupRows = document.querySelectorAll(`tr[data-suggestion-id="${suggestionId}"]`);
@@ -468,6 +473,7 @@
                     cargos,
                     hasAppointment,
                     appointmentId,
+                    shipmentBatchNumber,
                     loadType,
                     destination,
                     deliveryMethod,
@@ -480,7 +486,10 @@
                     shipmentType,
                     addressDetail,
                     shipmentCargoId,
-                    operationType
+                    carrier,
+                    arm_bol,
+                    operationType,
+                    
                 });
                 setTimeout(() => {
                     if (!pickupNumber || pickupNumber === 'None' || pickupNumber === 'none') {
@@ -585,23 +594,25 @@
             suggestionId, cargos, hasAppointment,
             appointmentId, loadType, destination, deliveryMethod,
             scheduledTime, pickupTime, pickupNumber, shipmentAccount, 
-            origin, note, addressDetail,shipmentCargoId,shipmentType,
+            origin, note, addressDetail,shipmentCargoId,shipmentType, carrier, arm_bol,
+            shipmentBatchNumber,
             operationType = 'bind'
         } = data;
         
         document.getElementById('modalSuggestionId').value = suggestionId || '';
         document.getElementById('operationType').value = operationType;
+        document.getElementById('modalShipmentBatchNumber').value = shipmentBatchNumber || '';
 
         const modalHeader = document.querySelector('#bindShipmentModal .modal-header h3');
         const submitButton = document.querySelector('#bindShipmentModal .modal-btn-success');
         const cargoSelectionTitle = document.querySelector('#cargoSelectionArea h4');
         
         if (operationType === 'remove_po') {
-            modalHeader.innerHTML = '<i class="fas fa-minus-circle"></i> 删除PO';
+            modalHeader.innerHTML = `<i class="fas fa-minus-circle"></i> 删除PO${shipmentBatchNumber ? ` <span style="margin-left: 8px; font-size: 0.9em; opacity: 0.9;">${shipmentBatchNumber}</span>` : ''}`;
             submitButton.innerHTML = '<i class="fas fa-check"></i> 确认减掉';
             cargoSelectionTitle.innerHTML = '<i class="fas fa-box"></i> 选择要删除的PO'; 
         } else {
-            modalHeader.innerHTML = '<i class="fas fa-link"></i> 绑定预约信息';
+            modalHeader.innerHTML = `<i class="fas fa-link"></i> 绑定预约信息${shipmentBatchNumber ? ` <span style="margin-left: 8px; font-size: 0.9em; opacity: 0.9;">${shipmentBatchNumber}</span>` : ''}`;
             submitButton.innerHTML = '<i class="fas fa-check"></i> 确认绑定';
             cargoSelectionTitle.innerHTML = '<i class="fas fa-box"></i> 选择要绑定/预约的PO';
         }
@@ -616,6 +627,9 @@
         document.getElementById('shipment_cargo_id').value = shipmentCargoId;
         document.getElementById('note').value = note === 'None' ? '' : note;
         document.getElementById('origin-select-1').value = origin;
+        document.getElementById('carrier').value = carrier;
+        document.getElementById('arm_bol').value = arm_bol;
+
 
         if (loadType) {
             document.getElementById('load-type-select').value = loadType;

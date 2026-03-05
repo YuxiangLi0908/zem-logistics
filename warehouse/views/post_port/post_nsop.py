@@ -4005,14 +4005,24 @@ class PostNsop(View):
             appointment_id_new = request.POST.get('appointment_id', '').strip()
         else:
             appointment_id_old = request.POST.get('appointment_id', '').strip()
-            old_shipments = await sync_to_async(list)(
-                Shipment.objects.filter(appointment_id=appointment_id_old)
-            )      
+            shipment_batch_number = request.POST.get('shipment_batch_number', '').strip()
+            if appointment_id_old:
+                old_shipments = await sync_to_async(list)(
+                    Shipment.objects.filter(appointment_id=appointment_id_old)
+                )
+            elif shipment_batch_number:
+                old_shipments = await sync_to_async(list)(
+                    Shipment.objects.filter(shipment_batch_number=shipment_batch_number)
+                )
+            else:
+                old_shipments = []
             appointment_id_new = request.POST.get('appointment_id_input', '').strip()
         if not old_shipments:
-            context.update({'error_messages':f"未找到 ISA={appointment_id_old}!"})     
+            key = appointment_id_old or shipment_batch_number
+            context.update({'error_messages':f"未找到 ISA={key}!"})     
         if len(old_shipments) > 1:
-            context.update({'error_messages':f"找到多条相同 ISA={appointment_id_old}的记录，请检查数据!"})   
+            key = appointment_id_old or shipment_batch_number
+            context.update({'error_messages':f"找到多条相同 ISA={key}的记录，请检查数据!"})   
         
         old_shipment = old_shipments[0]
         if name == "fleet_departure":
@@ -4429,6 +4439,7 @@ class PostNsop(View):
         else:
             pickup_number = None
         appointment_id = request.POST.get('appointment_id')
+        shipment_batch_number_in = (request.POST.get('shipment_batch_number') or '').strip()
         ids = request.POST.get("cargo_ids")
         plt_ids = request.POST.get("plt_ids")
         selected = [int(i) for i in ids.split(",") if i]
@@ -4444,9 +4455,18 @@ class PostNsop(View):
         shipment_cargo_id = request.POST.get('shipment_cargo_id')
         
         if operation_type == "remove_po":            
-            shipment = await sync_to_async(Shipment.objects.get)(
-                appointment_id=appointment_id
-            )
+            try:
+                if appointment_id:
+                    shipment = await sync_to_async(Shipment.objects.get)(appointment_id=appointment_id)
+                elif shipment_batch_number_in:
+                    shipment = await sync_to_async(Shipment.objects.get)(shipment_batch_number=shipment_batch_number_in)
+                else:
+                    raise ObjectDoesNotExist
+            except ObjectDoesNotExist:
+                context.update({"error_messages": "未找到对应预约记录"})
+                if page == "arm_appointment":
+                    return await self.handle_unscheduled_pos_post(request, context)
+                return await self.handle_td_shipment_post(request, context)
 
             shipment_batch_number = shipment.shipment_batch_number
             
@@ -4497,9 +4517,12 @@ class PostNsop(View):
             
             #先去查询一下shipment表，有没有这个记录，就是第一次预约出库，如果有就是修改
             try:
-                shipment = await sync_to_async(Shipment.objects.get)(
-                    appointment_id=appointment_id
-                )
+                if appointment_id:
+                    shipment = await sync_to_async(Shipment.objects.get)(appointment_id=appointment_id)
+                elif shipment_batch_number_in:
+                    shipment = await sync_to_async(Shipment.objects.get)(shipment_batch_number=shipment_batch_number_in)
+                else:
+                    raise ObjectDoesNotExist
                 if shipment.shipment_batch_number:  #已经有批次号了，说明这是修改PO的
                     shipment_batch_number = shipment.shipment_batch_number
                 else:
@@ -6632,6 +6655,9 @@ class PostNsop(View):
                     'pickup_time': shipment.pickup_time,
                     'pickup_number': shipment.pickup_number,
                     'is_notified_customer': shipment.is_notified_customer,
+                    'carrier': shipment.carrier,
+                    'note': shipment.note,
+                    'ARM_BOL':shipment.ARM_BOL,
                 }
                 processed_batch_numbers.add(batch_number)
             grouped_data[batch_number]['cargos'].append(item)
