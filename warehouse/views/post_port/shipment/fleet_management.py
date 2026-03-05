@@ -1,5 +1,6 @@
 import ast
 import base64
+import copy
 import io
 import json
 import os
@@ -1540,7 +1541,7 @@ class FleetManagement(View):
             .order_by("shipped_at")
         )
 
-        # 处理数据：核心修改 - 从Pallet表累加计算总pcs和总pallet数
+        # 处理数据：核心修改 - 按柜号+唛头分组，每个分组作为独立条目
         async def process_shipment_data(shipment_list):
             processed = []
             for s in shipment_list:
@@ -1550,24 +1551,20 @@ class FleetManagement(View):
                 )()
 
                 if latest_pallet:
-                    s.pallet_cost_input_time = latest_pallet.cost_input_time
-                    s.pallet_operator_name = latest_pallet.operator.username if latest_pallet.operator else None
+                    pallet_cost_input_time = latest_pallet.cost_input_time
+                    pallet_operator_name = latest_pallet.operator.username if latest_pallet.operator else None
                 else:
-                    s.pallet_cost_input_time = None
-                    s.pallet_operator_name = None
+                    pallet_cost_input_time = None
+                    pallet_operator_name = None
 
-                # 核心修改：查询当前shipment关联的所有pallet，并累加计算总数
+                # 核心修改1：查询当前shipment关联的所有pallet
                 @sync_to_async
-                def get_related_data(shipment_id):
-                    """查询关联的pallet数据，并计算总pallet数和总pcs数"""
+                def get_related_pallets(shipment_id):
+                    """查询关联的pallet数据，并按柜号+唛头分组"""
                     # 查询当前发货单关联的所有pallet
                     pallets = list(Pallet.objects.filter(
                         shipment_batch_number=shipment_id
                     ).select_related("container_number"))
-
-                    # 初始化总数
-                    total_pallet_count = 0  # 总pallet数（每个pallet算1个）
-                    total_pcs_count = 0  # 总pcs数（累加每个pallet的pcs字段）
 
                     # 提取Container ID用于查Order
                     container_ids = [p.container_number_id for p in pallets if p.container_number_id]
@@ -1579,48 +1576,86 @@ class FleetManagement(View):
                         for order in orders:
                             order_map[order.container_number_id] = order
 
-                    # 补充Order和提柜时间，并累加数量
+                    # 按 柜号 + 唛头 分组
+                    group_key = lambda p: (
+                        p.container_number.container_number if p.container_number else "",
+                        p.shipping_mark or ""
+                    )
+
+                    # 初始化分组字典
+                    pallet_groups = {}
+
                     for pallet in pallets:
-                        # 累加pallet数（每个pallet计1）
-                        total_pallet_count += 1
-                        # 累加pcs数（兼容空值，空则计0）
-                        total_pcs_count += pallet.pcs or 0
+                        key = group_key(pallet)
+                        if key not in pallet_groups:
+                            pallet_groups[key] = {
+                                'pallets': [],
+                                'total_pallet_count': 0,
+                                'total_pcs_count': 0,
+                                'container_number': key[0] or "-",
+                                'shipping_mark': key[1] or "-",
+                                'offload_at': None,
+                                'retrieval_time': None
+                            }
 
-                        pallet.related_order = order_map.get(
-                            pallet.container_number_id) if pallet.container_number_id else None
-                        pallet.retrieval_time = None
-                        if pallet.related_order and pallet.related_order.offload_id:
-                            pallet.retrieval_time = pallet.related_order.offload_id.offload_at
+                        # 累加数量
+                        pallet_groups[key]['total_pallet_count'] += 1
+                        pallet_groups[key]['total_pcs_count'] += pallet.pcs or 0
+                        pallet_groups[key]['pallets'].append(pallet)
 
-                    # 返回：pallet列表、总pallet数、总pcs数
-                    return pallets, total_pallet_count, total_pcs_count
+                        # 补充提柜时间（取第一个有效时间）
+                        if pallet.container_number_id and not pallet_groups[key]['offload_at']:
+                            order = order_map.get(pallet.container_number_id)
+                            if order and order.offload_id:
+                                pallet_groups[key]['offload_at'] = order.offload_id.offload_at
+                                pallet_groups[key]['retrieval_time'] = order.offload_id.offload_at
 
-                # 获取关联数据和总数
-                s.related_pallet, total_pallet, total_pcs = await get_related_data(s.id)
+                    return pallet_groups
 
-                # 挂载计算后的总数量（兼容空值，默认0）
-                s.shipped_pcs = total_pcs or 0
-                s.shipped_pallet = total_pallet or 0
+                # 获取按柜号+唛头分组的pallet数据
+                pallet_groups = await get_related_pallets(s.id)
 
-                # 提取柜号、拆柜时间、唛头（保留原有逻辑）
-                s.offload_at = None
-                s.container_number = "-"
-                s.shipping_mark = "-"
+                # 核心修改2：每个分组生成独立的发货单条目
+                for group_key, group_data in pallet_groups.items():
+                    # 复制原shipment对象（避免引用同一对象）
+                    shipment_copy = copy.deepcopy(s)
 
-                if s.related_pallet:
-                    first_pallet = s.related_pallet[0]
-                    if first_pallet.container_number:
-                        s.container_number = first_pallet.container_number.container_number
-                    if first_pallet.shipping_mark:
-                        s.shipping_mark = first_pallet.shipping_mark
-                    if hasattr(first_pallet, 'retrieval_time') and first_pallet.retrieval_time:
-                        s.offload_at = first_pallet.retrieval_time
+                    # 挂载分组相关数据
+                    shipment_copy.related_pallet = group_data['pallets']
+                    shipment_copy.shipped_pcs = group_data['total_pcs_count'] or 0
+                    shipment_copy.shipped_pallet = group_data['total_pallet_count'] or 0
+                    shipment_copy.container_number = group_data['container_number']
+                    shipment_copy.shipping_mark = group_data['shipping_mark']
+                    shipment_copy.offload_at = group_data['offload_at']
+                    shipment_copy.retrieval_time = group_data['retrieval_time']
 
-                # 挂载车次号
-                s.fleet_number_code = s.fleet_number.fleet_number if (
-                        s.fleet_number and s.fleet_number.fleet_number) else "-"
+                    # 挂载成本录入信息
+                    shipment_copy.pallet_cost_input_time = pallet_cost_input_time
+                    shipment_copy.pallet_operator_name = pallet_operator_name
 
-                processed.append(s)
+                    # 挂载车次号
+                    shipment_copy.fleet_number_code = shipment_copy.fleet_number.fleet_number if (
+                            shipment_copy.fleet_number and shipment_copy.fleet_number.fleet_number) else "-"
+
+                    processed.append(shipment_copy)
+
+                # 兼容没有pallet的情况
+                if not pallet_groups:
+                    # 创建空条目
+                    shipment_copy = copy.deepcopy(s)
+                    shipment_copy.related_pallet = []
+                    shipment_copy.shipped_pcs = 0
+                    shipment_copy.shipped_pallet = 0
+                    shipment_copy.container_number = "-"
+                    shipment_copy.shipping_mark = "-"
+                    shipment_copy.offload_at = None
+                    shipment_copy.retrieval_time = None
+                    shipment_copy.pallet_cost_input_time = pallet_cost_input_time
+                    shipment_copy.pallet_operator_name = pallet_operator_name
+                    shipment_copy.fleet_number_code = shipment_copy.fleet_number.fleet_number if (
+                            shipment_copy.fleet_number and shipment_copy.fleet_number.fleet_number) else "-"
+                    processed.append(shipment_copy)
+
             return processed
 
         # 处理数据
