@@ -1533,7 +1533,6 @@ class FleetManagement(View):
                 else:
                     criteria &= models.Q(id__in=[])
 
-        # ========== 核心修改1：查询Shipment时明确包含total_pallet、total_pcs字段 ==========
         shipment = await sync_to_async(list)(
             Shipment.objects
             .select_related("fleet_number")
@@ -1541,7 +1540,7 @@ class FleetManagement(View):
             .order_by("shipped_at")
         )
 
-        # ========== 处理数据：简化逻辑，直接读取Shipment原生字段 ==========
+        # 处理数据：核心修改 - 从Pallet表累加计算总pcs和总pallet数
         async def process_shipment_data(shipment_list):
             processed = []
             for s in shipment_list:
@@ -1557,13 +1556,18 @@ class FleetManagement(View):
                     s.pallet_cost_input_time = None
                     s.pallet_operator_name = None
 
-                # ========== 核心修改2：反向关联查询（仅保留柜号/拆柜时间/唛头逻辑） ==========
+                # 核心修改：查询当前shipment关联的所有pallet，并累加计算总数
                 @sync_to_async
                 def get_related_data(shipment_id):
-                    """仅查询柜号、拆柜时间、唛头，不再计算件数/板数（直接用Shipment原生字段）"""
+                    """查询关联的pallet数据，并计算总pallet数和总pcs数"""
+                    # 查询当前发货单关联的所有pallet
                     pallets = list(Pallet.objects.filter(
                         shipment_batch_number=shipment_id
                     ).select_related("container_number"))
+
+                    # 初始化总数
+                    total_pallet_count = 0  # 总pallet数（每个pallet算1个）
+                    total_pcs_count = 0  # 总pcs数（累加每个pallet的pcs字段）
 
                     # 提取Container ID用于查Order
                     container_ids = [p.container_number_id for p in pallets if p.container_number_id]
@@ -1575,24 +1579,28 @@ class FleetManagement(View):
                         for order in orders:
                             order_map[order.container_number_id] = order
 
-                    # 补充Order和提柜时间
+                    # 补充Order和提柜时间，并累加数量
                     for pallet in pallets:
+                        # 累加pallet数（每个pallet计1）
+                        total_pallet_count += 1
+                        # 累加pcs数（兼容空值，空则计0）
+                        total_pcs_count += pallet.pcs or 0
+
                         pallet.related_order = order_map.get(
                             pallet.container_number_id) if pallet.container_number_id else None
                         pallet.retrieval_time = None
                         if pallet.related_order and pallet.related_order.offload_id:
                             pallet.retrieval_time = pallet.related_order.offload_id.offload_at
 
-                    return pallets
+                    # 返回：pallet列表、总pallet数、总pcs数
+                    return pallets, total_pallet_count, total_pcs_count
 
-                # 获取关联数据（仅柜号/拆柜时间/唛头）
-                s.related_pallet = await get_related_data(s.id)
+                # 获取关联数据和总数
+                s.related_pallet, total_pallet, total_pcs = await get_related_data(s.id)
 
-                # ========== 核心修改3：直接挂载Shipment原生的总件数/总板数 ==========
-                # 挂载总件数（兼容空值，默认0）
-                s.shipped_pcs = s.total_pcs or 0
-                # 挂载总板数（兼容空值，默认0）
-                s.shipped_pallet = s.total_pallet or 0
+                # 挂载计算后的总数量（兼容空值，默认0）
+                s.shipped_pcs = total_pcs or 0
+                s.shipped_pallet = total_pallet or 0
 
                 # 提取柜号、拆柜时间、唛头（保留原有逻辑）
                 s.offload_at = None
