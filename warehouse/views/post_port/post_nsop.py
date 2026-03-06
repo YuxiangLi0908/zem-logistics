@@ -655,11 +655,11 @@ class PostNsop(View):
                 consignee_accessorials.append("Liftgate")
             
             # 2. Insurance (从 schedule 提取 is_insurance 和 insurance_amount)
-            shipment_monetary = None
+            monetary = None
             if schedule.get('is_insurance'):
                 try:
                     declared_value = float(schedule.get('insurance_amount', 0))
-                    shipment_monetary = {
+                    monetary = {
                         "isDeclaredValueInsurance": True,
                         "declaredValue": declared_value
                     }
@@ -685,8 +685,8 @@ class PostNsop(View):
             }
 
             # 3. 添加 Insurance 到 payload
-            if shipment_monetary:
-                payload["ShipmentMonetary"] = shipment_monetary
+            if monetary:
+                payload["monetary"] = monetary
 
             # 4. E0 服务需要预约时间 (传入 SpecialInstructions)
             if service_code == 'E0':
