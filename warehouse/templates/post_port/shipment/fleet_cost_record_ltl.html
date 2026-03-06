@@ -136,6 +136,7 @@
                         </th>
                         {% endif %}
                         <th class="th" style="padding: 10px 12px; text-align: left; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 110px;">柜号</th>
+                        <th class="th" style="padding: 10px 12px; text-align: left; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 110px;">目的仓库</th>
                         <th class="th" style="padding: 10px 12px; text-align: left; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 130px;">目的地</th>
                         <th class="th" style="padding: 10px 12px; text-align: left; border: 1px solid #eee; font-size:14px; width: 200px !important; min-width: 200px; max-width: 200px; white-space: normal; word-wrap: break-word;">唛头</th>
                         <th class="th" style="padding: 10px 12px; text-align: left; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 170px;">实际出库时间</th>
@@ -156,6 +157,7 @@
                         <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 60px;"></th>
                         {% endif %}
                         <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 110px;"><input type="text" placeholder="搜索柜号..." class="filter-input" style="font-size: 14px; width: 100%;"></th>
+                        <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 110px;"><input type="text" placeholder="搜索目的仓库..." class="filter-input" style="font-size: 14px; width: 100%;"></th>
                         <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 130px;"><input type="text" placeholder="搜索目的地..." class="filter-input" style="font-size: 14px; width: 100%;"></th>
                         <th class="th" style="padding: 8px 12px; border: 1px solid #eee; width: 200px !important; min-width: 200px; max-width: 200px;"><input type="text" placeholder="搜索唛头..." class="filter-input" style="font-size: 14px; width: 100%;"></th>
                         <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 170px;"><input type="text" placeholder="搜索出库时间..." class="filter-input" style="font-size: 14px; width: 100%;"></th>
@@ -184,6 +186,9 @@
                         {% endif %}
                         <td class="td" style="padding: 10px 12px; border: 1px solid #eee; white-space: nowrap; font-size:14px;">
                             {{ f.container_number|default_if_none:"-" }}
+                        </td>
+                        <td class="td" style="padding: 10px 12px; border: 1px solid #eee; white-space: nowrap; font-size:14px;">
+                            {{ f.all_locations|default_if_none:"-" }}
                         </td>
                         <td class="td" style="padding: 10px 12px; border: 1px solid #eee; white-space: nowrap; font-size:14px;">
                             {{ f.destination|default_if_none:"-" }}

@@ -1541,7 +1541,7 @@ class FleetManagement(View):
             .order_by("shipped_at")
         )
 
-        # 处理数据：核心修改 - 按柜号+唛头分组，每个分组作为独立条目
+        # 处理数据：核心修改 - 修复字典取值错误，按柜号+唛头分组并包含location字段
         async def process_shipment_data(shipment_list):
             processed = []
             for s in shipment_list:
@@ -1557,16 +1557,17 @@ class FleetManagement(View):
                     pallet_cost_input_time = None
                     pallet_operator_name = None
 
-                # 核心修改1：查询当前shipment关联的所有pallet
+                # 核心修改1：查询当前shipment关联的所有pallet（修复字典取值问题）
                 @sync_to_async
                 def get_related_pallets(shipment_id):
-                    """查询关联的pallet数据，并按柜号+唛头分组"""
-                    # 查询当前发货单关联的所有pallet
+                    """查询关联的pallet数据（包含location），并按柜号+唛头分组"""
+                    # 方案1：不使用.values()，直接获取模型实例（推荐，避免字典取值错误）
                     pallets = list(Pallet.objects.filter(
                         shipment_batch_number=shipment_id
-                    ).select_related("container_number"))
+                    ).select_related("container_number"))  # 移除.values()，返回模型实例
 
                     # 提取Container ID用于查Order
+                    # 修复：模型实例用属性访问 .container_number_id
                     container_ids = [p.container_number_id for p in pallets if p.container_number_id]
                     order_map = {}
                     if container_ids:
@@ -1577,6 +1578,7 @@ class FleetManagement(View):
                             order_map[order.container_number_id] = order
 
                     # 按 柜号 + 唛头 分组
+                    # 修复：模型实例用属性访问
                     group_key = lambda p: (
                         p.container_number.container_number if p.container_number else "",
                         p.shipping_mark or ""
@@ -1595,27 +1597,36 @@ class FleetManagement(View):
                                 'container_number': key[0] or "-",
                                 'shipping_mark': key[1] or "-",
                                 'offload_at': None,
-                                'retrieval_time': None
+                                'retrieval_time': None,
+                                'locations': set(),
                             }
 
-                        # 累加数量
+                        # 累加数量（修复：模型实例用属性访问）
                         pallet_groups[key]['total_pallet_count'] += 1
                         pallet_groups[key]['total_pcs_count'] += pallet.pcs or 0
                         pallet_groups[key]['pallets'].append(pallet)
 
-                        # 补充提柜时间（取第一个有效时间）
+                        # 新增：收集location（去重，修复：模型实例用属性访问）
+                        if pallet.location:
+                            pallet_groups[key]['locations'].add(pallet.location)
+
+                        # 补充提柜时间（取第一个有效时间，修复：模型实例用属性访问）
                         if pallet.container_number_id and not pallet_groups[key]['offload_at']:
                             order = order_map.get(pallet.container_number_id)
                             if order and order.offload_id:
                                 pallet_groups[key]['offload_at'] = order.offload_id.offload_at
                                 pallet_groups[key]['retrieval_time'] = order.offload_id.offload_at
 
+                    # 将locations集合转为列表，方便前端展示
+                    for group in pallet_groups.values():
+                        group['locations'] = list(group['locations']) if group['locations'] else ["-"]
+
                     return pallet_groups
 
-                # 获取按柜号+唛头分组的pallet数据
+                # 获取按柜号+唛头分组的pallet数据（包含location）
                 pallet_groups = await get_related_pallets(s.id)
 
-                # 核心修改2：每个分组生成独立的发货单条目
+                # 核心修改2：每个分组生成独立的发货单条目（包含location信息）
                 for group_key, group_data in pallet_groups.items():
                     # 复制原shipment对象（避免引用同一对象）
                     shipment_copy = copy.deepcopy(s)
@@ -1628,6 +1639,7 @@ class FleetManagement(View):
                     shipment_copy.shipping_mark = group_data['shipping_mark']
                     shipment_copy.offload_at = group_data['offload_at']
                     shipment_copy.retrieval_time = group_data['retrieval_time']
+                    shipment_copy.all_locations = group_data['locations'][0]  # 该分组所有location（去重）
 
                     # 挂载成本录入信息
                     shipment_copy.pallet_cost_input_time = pallet_cost_input_time
@@ -1650,6 +1662,8 @@ class FleetManagement(View):
                     shipment_copy.shipping_mark = "-"
                     shipment_copy.offload_at = None
                     shipment_copy.retrieval_time = None
+                    shipment_copy.all_locations = ["-"]
+                    # 成本录入信息
                     shipment_copy.pallet_cost_input_time = pallet_cost_input_time
                     shipment_copy.pallet_operator_name = pallet_operator_name
                     shipment_copy.fleet_number_code = shipment_copy.fleet_number.fleet_number if (
