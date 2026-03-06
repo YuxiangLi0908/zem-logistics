@@ -1738,9 +1738,18 @@
                         </div>
                     </div>
                     
-                    <div class="mb-3">
-                        <label class="form-label">发货日期 <span class="text-danger">*</span></label>
-                        <input type="date" class="form-control" id="quote_ship_date" required>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">发货日期 <span class="text-danger">*</span></label>
+                            <input type="date" class="form-control" id="quote_ship_date" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">是否需要 Liftgate</label>
+                            <select id="quote_need_liftgate" class="form-select">
+                                <option value="否" selected>否</option>
+                                <option value="是">是</option>
+                            </select>
+                        </div>
                     </div>
                     
                     <div class="mb-3">
@@ -1889,6 +1898,8 @@
         const shipDateEl = document.getElementById('quote_ship_date');
         shipDateEl.min = tomorrow;
         shipDateEl.value = tomorrow;
+        const liftSel = document.getElementById('quote_need_liftgate');
+        if (liftSel) liftSel.value = '否';
         
         // 填充表格
         const tbody = document.getElementById('quote_items_tbody');
@@ -2223,6 +2234,8 @@
         formData.append('ship_date', shipDate);
         formData.append('total_weight', totalWeight);
         formData.append('line_items_json', JSON.stringify(lineItems));
+        const needLiftgate = document.getElementById('quote_need_liftgate')?.value || '否';
+        formData.append('need_liftgate', needLiftgate);
         
         const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
         formData.append('csrfmiddlewaretoken', csrfToken);

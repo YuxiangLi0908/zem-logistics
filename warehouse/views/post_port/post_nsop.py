@@ -899,6 +899,8 @@ class PostNsop(View):
             origin_zip = request.POST.get('origin_zip')
             dest_zip = request.POST.get('dest_zip')
             ship_date = request.POST.get('ship_date')
+            need_liftgate_raw = request.POST.get('need_liftgate', '否')
+            need_liftgate = True if str(need_liftgate_raw).strip() in ('是', 'true', 'True', '1') else False
             
             # 新增参数：结构化的货物明细
             line_items_json = request.POST.get('line_items_json')
@@ -1000,6 +1002,7 @@ class PostNsop(View):
                 "origin_zip": origin_zip,
                 "dest_zip": dest_zip,
                 "lineItems": rating_items,
+                "liftgate": need_liftgate,
                 "declaredValue": None,
                 "insuranceValue": None,
                 "debrisRemoval": None
@@ -1022,6 +1025,7 @@ class PostNsop(View):
                         data = await response.json()
                         # 将请求参数中的 lineItems 注入到响应数据中，以便前端使用
                         data['lineItems'] = line_items
+                        data['need_liftgate'] = need_liftgate
                         return JsonResponse({'success': True, 'data': data})
                     else:
                         text = await response.text()
