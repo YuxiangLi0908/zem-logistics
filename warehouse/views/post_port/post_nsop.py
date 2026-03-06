@@ -617,6 +617,7 @@ class PostNsop(View):
                     "weightUnit": "lb",
                     "dimensionalUnit": "in"
                 })
+
             # 4. 调用 Maersk 下单 API
             # 构造 Consignee Address (符合 ShipmentAddress 定义)
             consignee_address = {
@@ -694,7 +695,6 @@ class PostNsop(View):
                 payload["SpecialInstructions"] = schedule.get('pickup_time')
 
             api_url = "https://zem-maersk-gateway.kindmoss-a5050a64.eastus.azurecontainerapps.io/shipment"
-            #api_key = '2Tdtqrj4dqnooXIJi4ReCVrMGW3ehJnC'
             api_key = os.environ.get("MAERSK_API_KEY")
             headers = {
                 "Content-Type": "application/json",
@@ -852,7 +852,6 @@ class PostNsop(View):
             # 2. 调用 Maersk API 取消
             api_url = "https://zem-maersk-gateway.kindmoss-a5050a64.eastus.azurecontainerapps.io/shipment/void"
             api_key = os.environ.get("MAERSK_API_KEY")
-            #api_key = '2Tdtqrj4dqnooXIJi4ReCVrMGW3ehJnC'
             
             params = {
                 "pro_number": pro_number,
@@ -900,7 +899,7 @@ class PostNsop(View):
             dest_zip = request.POST.get('dest_zip')
             ship_date = request.POST.get('ship_date')
             need_liftgate_raw = request.POST.get('need_liftgate', '否')
-            need_liftgate = True if str(need_liftgate_raw).strip() in ('是', 'true', 'True', '1') else False
+            need_liftgate = 'true' if str(need_liftgate_raw).strip() in ('是', 'true', 'True', '1') else 'false'
             
             # 新增参数：结构化的货物明细
             line_items_json = request.POST.get('line_items_json')
@@ -996,7 +995,6 @@ class PostNsop(View):
                 }
                 for it in line_items
             ]
-
             payload = {
                 "shipDate": ship_date_formatted,
                 "origin_zip": origin_zip,
@@ -1900,7 +1898,6 @@ class PostNsop(View):
         # Call Maersk Gateway API
         api_url = "https://zem-maersk-gateway.kindmoss-a5050a64.eastus.azurecontainerapps.io/label"
         api_key = os.environ.get("MAERSK_API_KEY")
-        #api_key = '2Tdtqrj4dqnooXIJi4ReCVrMGW3ehJnC'
 
         params = {
             "shawb": arm_pro,
@@ -2022,7 +2019,6 @@ class PostNsop(View):
         # Call Maersk Gateway API
         api_url = "https://zem-maersk-gateway.kindmoss-a5050a64.eastus.azurecontainerapps.io/bol"
         api_key = os.environ.get("MAERSK_API_KEY")
-        #api_key = '2Tdtqrj4dqnooXIJi4ReCVrMGW3ehJnC'
         
         params = {
             "shawb": arm_pro,
