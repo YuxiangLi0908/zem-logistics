@@ -389,8 +389,11 @@
         }
         serviceInfoEl.innerHTML = `<i class="fas fa-info-circle me-1"></i> ${serviceText}`;
 
-        // 重置复选框
-        document.getElementById('maersk_liftgate').checked = false;
+        // 重置并设置复选框（Liftgate 由询价阶段传入，仅展示，不允许用户修改）
+        const liftgateEl = document.getElementById('maersk_liftgate');
+        const needLiftgate = !!(currentQuoteData && currentQuoteData.need_liftgate === true);
+        liftgateEl.checked = needLiftgate;
+        liftgateEl.disabled = true;
         document.getElementById('maersk_insurance').checked = false;
         document.getElementById('maersk_insurance_amount').value = '';
         document.getElementById('div_maersk_insurance_amount').style.display = 'none';
@@ -546,7 +549,7 @@
             destination: document.getElementById('maersk_destination').value,
             note: document.getElementById('maersk_note').value.trim(),
             // 特殊服务
-            is_liftgate: document.getElementById('maersk_liftgate').checked,
+            is_liftgate: !!(currentQuoteData && currentQuoteData.need_liftgate === true),
             is_insurance: isInsurance,
             insurance_amount: insuranceAmount
         };
