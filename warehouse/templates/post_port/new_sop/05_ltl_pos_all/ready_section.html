@@ -190,9 +190,14 @@
                             <td colspan="3"></td> <!-- 占位：出库、拣货单、下载 -->
                             <td style="vertical-align: middle;">
                                 {% if fleet_group.carrier == 'Maersk' %}
-                                    <button type="button" class="btn btn-danger btn-sm" onclick="cancelMaerskShipment('{{ fleet_group.fleet_number }}', this)">
-                                        取消下单
-                                    </button>
+                                    <div style="display:flex; gap: 6px; align-items: center; flex-wrap: wrap;">
+                                        <button type="button" class="btn btn-danger btn-sm" onclick="cancelMaerskShipment('{{ fleet_group.fleet_number }}', this)">
+                                            取消下单
+                                        </button>
+                                        <button type="button" class="btn btn-primary btn-sm" onclick="openMaerskTrackingModalByFleet('{{ fleet_group.fleet_number }}')">
+                                            物流追踪
+                                        </button>
+                                    </div>
                                 {% else %}
                                     <form method="post" action="" class="notify-customer-form" style="display: inline-block;">
                                         {% csrf_token %}
@@ -251,9 +256,14 @@
                                             <td rowspan="{{ fleet_rowspan }}" colspan="3"></td> <!-- 占位：出库、拣货单、下载 -->
                                             <td rowspan="{{ fleet_rowspan }}" style="vertical-align: middle;">
                                                 {% if fleet_group.carrier == 'Maersk' %}
-                                                    <button type="button" class="btn btn-danger btn-sm" onclick="cancelMaerskShipment('{{ fleet_group.fleet_number }}', this)">
-                                                        取消下单
-                                                    </button>
+                                                    <div style="display:flex; gap: 6px; align-items: center; flex-wrap: wrap;">
+                                                        <button type="button" class="btn btn-danger btn-sm" onclick="cancelMaerskShipment('{{ fleet_group.fleet_number }}', this)">
+                                                            取消下单
+                                                        </button>
+                                                        <button type="button" class="btn btn-primary btn-sm" onclick="openMaerskTrackingModalByFleet('{{ fleet_group.fleet_number }}')">
+                                                            物流追踪
+                                                        </button>
+                                                    </div>
                                                 {% else %}
                                                     <form method="post" action="" class="notify-customer-form" style="display: inline-block;">
                                                         {% csrf_token %}
@@ -486,6 +496,9 @@
                                                         <button type="button" class="btn btn-danger btn-sm" onclick="cancelMaerskShipment('{{ fleet_group.fleet_number }}', this)">
                                                             取消下单
                                                         </button>
+                                                        <button type="button" class="btn btn-primary btn-sm" onclick="openMaerskTrackingModalByFleet('{{ fleet_group.fleet_number }}')">
+                                                            物流追踪
+                                                        </button>
                                                     {% else %}
                                                         <form method="post" action="" class="notify-customer-form" style="display: inline-block;">
                                                             {% csrf_token %}
@@ -601,6 +614,8 @@
         </div>
     </div>
 </div>
+
+{% include 'post_port/new_sop/05_ltl_pos_all/modal/maersk_tracking_modal.html' %}
 
 <script>
     function openMaerskLabelModal(fleetNumber) {

@@ -1037,6 +1037,22 @@ class PostNsop(View):
     async def handle_get_maersk_tracking(self, request: HttpRequest) -> JsonResponse:
         try:
             pro_number = (request.POST.get('pro_number') or '').strip()
+            fleet_number = (request.POST.get('fleet_number') or '').strip()
+            if not pro_number and fleet_number:
+                pro_number = await sync_to_async(
+                    lambda: (
+                        Shipment.objects.filter(
+                            fleet_number__fleet_number=fleet_number,
+                            carrier='Maersk',
+                            ARM_PRO__isnull=False,
+                        )
+                        .exclude(ARM_PRO='')
+                        .values_list('ARM_PRO', flat=True)
+                        .distinct()
+                        .first()
+                    )
+                )()
+
             if not pro_number:
                 return JsonResponse({'success': False, 'message': '缺少 pro_number'}, status=400)
 
@@ -1053,7 +1069,7 @@ class PostNsop(View):
                 async with session.post(api_url, json=payload, headers=headers) as response:
                     if response.status == 200:
                         data = await response.json()
-                        return JsonResponse({'success': True, 'data': data})
+                        return JsonResponse({'success': True, 'data': data, 'pro_number': pro_number})
                     text = await response.text()
                     return JsonResponse(
                         {'success': False, 'message': f'API调用失败: {response.status} - {text}'},
