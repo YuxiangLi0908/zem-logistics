@@ -303,6 +303,8 @@ class PostNsop(View):
             return render(request, template, context)
         elif step == "get_maersk_quote":
             return await self.handle_get_maersk_quote(request)
+        elif step == "get_maersk_tracking":
+            return await self.handle_get_maersk_tracking(request)
         elif step == 'maersk_schedule_post':
             return await self.handle_maersk_schedule_post(request)
         elif step == "bind_group_shipment":
@@ -1029,6 +1031,34 @@ class PostNsop(View):
                         text = await response.text()
                         return JsonResponse({'success': False, 'message': f'API调用失败: {response.status} - {text}'}, status=response.status)
 
+        except Exception as e:
+            return JsonResponse({'success': False, 'message': str(e)}, status=500)
+
+    async def handle_get_maersk_tracking(self, request: HttpRequest) -> JsonResponse:
+        try:
+            pro_number = (request.POST.get('pro_number') or '').strip()
+            if not pro_number:
+                return JsonResponse({'success': False, 'message': '缺少 pro_number'}, status=400)
+
+            api_url = "https://zem-maersk-gateway.kindmoss-a5050a64.eastus.azurecontainerapps.io/tracking"
+            api_key = '2Tdtqrj4dqnooXIJi4ReCVrMGW3ehJnC'
+
+            headers = {
+                "Content-Type": "application/json",
+                "x-api-key": api_key
+            }
+            payload = {"pro_number": pro_number}
+
+            async with aiohttp.ClientSession() as session:
+                async with session.post(api_url, json=payload, headers=headers) as response:
+                    if response.status == 200:
+                        data = await response.json()
+                        return JsonResponse({'success': True, 'data': data})
+                    text = await response.text()
+                    return JsonResponse(
+                        {'success': False, 'message': f'API调用失败: {response.status} - {text}'},
+                        status=response.status
+                    )
         except Exception as e:
             return JsonResponse({'success': False, 'message': str(e)}, status=500)
 

@@ -182,6 +182,15 @@
                         <td rowspan="{{ pairs|length }}" style="max-width: 120px; word-break: break-all;">
                             {{ s.fleet_number.fleet_number }}<br>
                             <span style="color: #7f8c8d; font-size: 0.8em;">{{ s.fleet_number.pickup_number|default_if_none:'' }}</span>
+                            {% if s.carrier == 'Maersk' %}
+                                <div style="margin-top: 6px;">
+                                    {% if s.ARM_PRO %}
+                                        <button type="button" class="table-btn btn-primary-small" onclick="openMaerskTrackingModal('{{ s.ARM_PRO }}')">查询物流</button>
+                                    {% else %}
+                                        <button type="button" class="table-btn btn-primary-small" disabled style="opacity: 0.6; cursor: not-allowed;">查询物流</button>
+                                    {% endif %}
+                                </div>
+                            {% endif %}
                         </td>
                         <td rowspan="{{ pairs|length }}" style="max-width: 120px; word-break: break-all;">{{ s.shipment_batch_number }}</td>
                         <td rowspan="{{ pairs|length }}">{{ s.fleet_number.appointment_datetime|date:"M-j H:i" }}</td>
@@ -246,6 +255,15 @@
                         <td style="max-width: 120px; word-break: break-all;">
                             {{ s.fleet_number.fleet_number }}<br>
                             <span style="color: #7f8c8d; font-size: 0.8em;">{{ s.fleet_number.pickup_number|default_if_none:'' }}</span>
+                            {% if s.carrier == 'Maersk' %}
+                                <div style="margin-top: 6px;">
+                                    {% if s.ARM_PRO %}
+                                        <button type="button" class="table-btn btn-primary-small" onclick="openMaerskTrackingModal('{{ s.ARM_PRO }}')">查询物流</button>
+                                    {% else %}
+                                        <button type="button" class="table-btn btn-primary-small" disabled style="opacity: 0.6; cursor: not-allowed;">查询物流</button>
+                                    {% endif %}
+                                </div>
+                            {% endif %}
                         </td>
                         <td style="max-width: 120px; word-break: break-all;">{{ s.shipment_batch_number }}</td>
                         <td>{{ s.fleet_number.appointment_datetime|date:"M-j H:i" }}</td>
@@ -306,6 +324,20 @@
         {% endfor %}
     </tbody>
 </table>
+
+<div id="maerskTrackingModal" class="modal" style="display:none; position: fixed; z-index: 1200; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5);">
+    <div class="modal-content" style="background-color: #fefefe; margin: 6% auto; border: 1px solid #888; width: 92%; max-width: 900px; border-radius: 8px; max-height: 80vh; display: flex; flex-direction: column; overflow: hidden;">
+        <div style="display:flex; justify-content: space-between; align-items:center; padding: 14px 16px; background: #4a90e2; color: #fff;">
+            <div style="font-size: 16px; font-weight: 600;">Maersk 物流追踪 <span id="maerskTrackingProLabel" style="margin-left: 8px; font-weight: 500; opacity: 0.95;"></span></div>
+            <button type="button" onclick="closeMaerskTrackingModal()" style="background: transparent; border: none; color: #fff; font-size: 22px; cursor: pointer; line-height: 1;">&times;</button>
+        </div>
+        <div style="padding: 16px; overflow: auto; background: #fff;">
+            <div id="maerskTrackingLoading" style="display:none; color:#666;">查询中...</div>
+            <div id="maerskTrackingError" style="display:none; color:#c0392b;"></div>
+            <div id="maerskTrackingContent"></div>
+        </div>
+    </div>
+</div>
 
 <script>
     function initializeDeliverySection() {
@@ -429,4 +461,94 @@
     document.addEventListener('DOMContentLoaded', function() {
         initializeDeliverySection();
     });
+
+    function closeMaerskTrackingModal() {
+        const modal = document.getElementById('maerskTrackingModal');
+        if (modal) modal.style.display = 'none';
+    }
+
+    function openMaerskTrackingModal(proNumber) {
+        const modal = document.getElementById('maerskTrackingModal');
+        const proLabel = document.getElementById('maerskTrackingProLabel');
+        const loading = document.getElementById('maerskTrackingLoading');
+        const errorEl = document.getElementById('maerskTrackingError');
+        const content = document.getElementById('maerskTrackingContent');
+
+        if (!proNumber) {
+            alert('缺少 PRO number');
+            return;
+        }
+
+        proLabel.textContent = proNumber;
+        errorEl.style.display = 'none';
+        errorEl.textContent = '';
+        content.innerHTML = '';
+        loading.style.display = 'block';
+        modal.style.display = 'block';
+
+        const formData = new FormData();
+        formData.append('step', 'get_maersk_tracking');
+        formData.append('pro_number', proNumber);
+        formData.append('warehouse', '{{ warehouse }}');
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value;
+        if (csrfToken) formData.append('csrfmiddlewaretoken', csrfToken);
+
+        fetch(window.location.href, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(r => r.json())
+        .then(res => {
+            if (!res || !res.success) {
+                throw new Error(res?.message || '查询失败');
+            }
+            const events = (res.data && res.data.TrackingEvents) ? res.data.TrackingEvents : [];
+            if (!Array.isArray(events) || events.length === 0) {
+                content.innerHTML = '<div style="color:#666;">暂无追踪信息</div>';
+                return;
+            }
+            const normalized = events.map(e => {
+                const dt = (e.EventDateTime || '').trim();
+                const loc = e.EventLocation || {};
+                const locStr = [loc.City, loc.StateProvince, loc.PostalCode, loc.CountryCode].filter(Boolean).join(', ');
+                return {
+                    code: e.EventCode || '',
+                    desc: e.EventCodeDesc || '',
+                    type: e.EventType || '',
+                    datetime: dt,
+                    location: locStr
+                };
+            });
+            normalized.sort((a, b) => String(b.datetime).localeCompare(String(a.datetime)));
+            const rows = normalized.map(ev => `
+                <tr>
+                    <td style="padding: 10px; border-bottom: 1px solid #eee; white-space: nowrap;">${ev.datetime || '-'}</td>
+                    <td style="padding: 10px; border-bottom: 1px solid #eee;">${(ev.desc || ev.type || '-')}${ev.code ? ` <span style="color:#999;">(${ev.code})</span>` : ''}</td>
+                    <td style="padding: 10px; border-bottom: 1px solid #eee;">${ev.location || '-'}</td>
+                </tr>
+            `).join('');
+            content.innerHTML = `
+                <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+                    <thead>
+                        <tr>
+                            <th style="text-align:left; padding: 10px; border-bottom: 2px solid #ddd; width: 170px;">时间</th>
+                            <th style="text-align:left; padding: 10px; border-bottom: 2px solid #ddd;">事件</th>
+                            <th style="text-align:left; padding: 10px; border-bottom: 2px solid #ddd; width: 260px;">地点</th>
+                        </tr>
+                    </thead>
+                    <tbody>${rows}</tbody>
+                </table>
+            `;
+        })
+        .catch(err => {
+            errorEl.style.display = 'block';
+            errorEl.textContent = String(err && err.message ? err.message : err);
+        })
+        .finally(() => {
+            loading.style.display = 'none';
+        });
+    }
 </script>
