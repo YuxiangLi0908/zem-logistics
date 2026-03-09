@@ -2252,6 +2252,8 @@
             if (data.success) {
                 // 注入请求时的发货日期，确保后续排约排车能使用正确的格式 (YYYY-MM-DD)
                 data.data.requestShipDate = shipDate;
+                // 统一 Liftgate 字段类型为 boolean，避免字符串 "false" 被当作 truthy
+                data.data.need_liftgate = needLiftgate === '是';
                 
                 document.getElementById('quote_result_area').style.display = 'block';
                 document.getElementById('quote_error_msg').style.display = 'none';
