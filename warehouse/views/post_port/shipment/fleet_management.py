@@ -1688,22 +1688,24 @@ class FleetManagement(View):
         }
         return self.template_fleet_cost_record_ltl, context
 
-
     async def handle_batch_allocate_ltl_cost(self, request: HttpRequest):
         """
-        LTL批量分摊成本核心逻辑（最终完整版）：
-        1. 总成本按选中记录的总板数分摊到每个车次（每车次成本 = 总成本/总板数 × 该车次板数）
-        2. 更新Fleet表的fleet_cost字段为分摊后的成本
-        3. 调用已有insert_fleet_shipment_pallet_fleet_cost方法，完成车次成本的二次分摊
+        LTL批量分摊成本核心逻辑（最终版：按柜号+唛头匹配）：
+        1. 核心匹配维度：柜号 + 唛头（唯一标识每一票）
+        2. 公式：每票费用 = (总成本 ÷ 总板数) × 该票（柜号+唛头）板数
+        3. 按柜号+唛头统计板数，再关联到车次更新成本
         """
         error_messages = []
         success_count = 0
         logger = logging.getLogger(__name__)
 
         try:
-            # 1. 获取前端参数
+            # 1. 获取前端参数（核心：接收柜号+唛头+板数组合）
             total_batch_cost = request.POST.get('total_batch_cost')
-            selected_fleet_numbers = request.POST.get('selected_fleet_numbers', '').split(',')
+            # 格式："柜号1|唛头1,柜号2|唛头2"（URL编码避免特殊字符）
+            selected_items = request.POST.get('selected_items', '').split(',')
+            # 格式："板数1,板数2"（与selected_items一一对应）
+            selected_item_pallets = request.POST.get('selected_item_pallets', '').split(',')
             area = request.POST.get('area', '')
 
             # 2. 基础参数校验
@@ -1721,176 +1723,146 @@ class FleetManagement(View):
                 return await self.handle_fleet_cost_record_get_ltl(request, error_messages, success_count)
 
             # 过滤空值
-            selected_fleet_numbers = [fleet_num.strip() for fleet_num in selected_fleet_numbers if fleet_num.strip()]
-            if not selected_fleet_numbers:
+            selected_items = [item.strip() for item in selected_items if item.strip()]
+            if not selected_items:
                 error_messages.append('请至少选择一条记录进行分摊')
                 return await self.handle_fleet_cost_record_get_ltl(request, error_messages, success_count)
 
-            # 3. 批量查询选中记录的板数和车次信息（正确关联路径）
-            @sync_to_async
-            def get_selected_fleet_data(fleet_numbers):
-                """
-                获取选中车次的总板数（按车次分组）
-                关联路径：Pallet → Shipment(shipment_batch_number) → Fleet(fleet_number)
-                总板数逻辑：每条Pallet记录=1个板，总板数=Pallet记录条数
-                """
-                fleet_data = []
-
-                # Step1: 先查询符合条件的Shipment（关联Fleet车次号）
-                shipments = Shipment.objects.filter(
-                    fleet_number__fleet_number__in=fleet_numbers
-                ).values_list('id', 'fleet_number__fleet_number')
-                shipment_fleet_map = {shipment_id: fleet_num for shipment_id, fleet_num in shipments}
-
-                if not shipment_fleet_map:
-                    return fleet_data
-
-                # Step2: 查询这些Shipment关联的所有Pallet
-                pallets = Pallet.objects.filter(
-                    shipment_batch_number__in=shipment_fleet_map.keys()
-                ).select_related('container_number')
-
-                # Step3: 按车次号分组，计算每个车次的总板数
-                fleet_group = {}
-                for pallet in pallets:
-                    fleet_num = shipment_fleet_map.get(pallet.shipment_batch_number_id)
-                    if not fleet_num:
-                        continue
-
-                    container_num = pallet.container_number.container_number if pallet.container_number else '未知柜号'
-
-                    if fleet_num not in fleet_group:
-                        fleet_group[fleet_num] = {
-                            'fleet_number': fleet_num,
-                            'total_pallet': 0,
-                            'container_numbers': set()
-                        }
-
-                    fleet_group[fleet_num]['total_pallet'] += 1
-                    fleet_group[fleet_num]['container_numbers'].add(container_num)
-
-                # 转换为列表
-                for fleet_num, data in fleet_group.items():
-                    fleet_data.append({
-                        'fleet_number': fleet_num,
-                        'total_pallet': data['total_pallet'],
-                        'container_numbers': ', '.join(data['container_numbers'])
-                    })
-                return fleet_data
-
-            fleet_data = await get_selected_fleet_data(selected_fleet_numbers)
-            if not fleet_data:
-                error_messages.append('未找到选中的车次数据')
+            # 校验板数参数（与柜号+唛头组合数量匹配）
+            if len(selected_item_pallets) != len(selected_items):
+                error_messages.append('板数参数与选中记录数量不匹配，无法分摊')
                 return await self.handle_fleet_cost_record_get_ltl(request, error_messages, success_count)
 
-            # 4. 计算所有选中车次的总板数
-            total_pallets = sum([item['total_pallet'] for item in fleet_data])
+            # 3. 解析柜号+唛头，构建「柜号+唛头→板数」映射
+            item_pallet_map = {}  # key: "柜号|唛头", value: 板数
+            total_pallets = 0
+            for i, item_str in enumerate(selected_items):
+                # 解析柜号和唛头（前端传递格式：柜号|唛头）
+                if '|' not in item_str:
+                    error_messages.append(f'无效的记录格式：{item_str}，跳过该记录')
+                    continue
+
+                container_num, shipping_mark = item_str.split('|', 1)  # 只分割一次（唛头可能含|）
+                container_num = container_num.strip()
+                shipping_mark = shipping_mark.strip()
+
+                # 解析板数
+                try:
+                    pallet_count = float(selected_item_pallets[i]) if selected_item_pallets[i].strip() else 0
+                except ValueError:
+                    pallet_count = 0
+
+                if pallet_count <= 0:
+                    error_messages.append(
+                        f'柜号[{container_num}] 唛头[{shipping_mark}]的板数无效（{selected_item_pallets[i]}），跳过该记录')
+                    continue
+
+                # 组合唯一键（柜号+唛头）
+                item_key = f"{container_num}|{shipping_mark}"
+                item_pallet_map[item_key] = {
+                    'container_num': container_num,
+                    'shipping_mark': shipping_mark,
+                    'pallet_count': pallet_count
+                }
+                total_pallets += pallet_count
+
+            if not item_pallet_map:
+                error_messages.append('无有效板数的记录，无法分摊成本')
+                return await self.handle_fleet_cost_record_get_ltl(request, error_messages, success_count)
+
             if total_pallets <= 0:
                 error_messages.append('选中记录的总卡板数为0，无法分摊成本')
                 return await self.handle_fleet_cost_record_get_ltl(request, error_messages, success_count)
 
-            # 5. 计算每板基础成本
+            # 4. 计算每板基础成本（公式正确：总成本 ÷ 总板数）
             cost_per_pallet = round(total_batch_cost / total_pallets, 2)
+            logger.info(f'批量分摊参数：总成本={total_batch_cost}元，总板数={total_pallets}，每板成本={cost_per_pallet}元')
 
-            # ========== 核心新增：更新Fleet表fleet_cost字段 + 修复事务逻辑 ==========
-            # 6. 批量处理：更新Fleet表 + 调用insert方法
-            async def batch_call_insert_method(fleet_data, cost_per_pallet, request):
-                """异步批量处理：更新Fleet.fleet_cost + 调用insert方法"""
+            # 5. 批量处理：按柜号+唛头找车次，更新Fleet表 + 调用insert方法
+            async def batch_call_insert_method(item_pallet_map, cost_per_pallet, total_batch_cost, request):
+                """异步批量处理：按柜号+唛头匹配车次，更新成本"""
                 processed_count = 0
                 errors = []
 
-                # 同步函数：更新Fleet表fleet_cost字段 + 收集任务参数
+                # 同步函数：按柜号+唛头找车次，更新Fleet.fleet_cost
                 @sync_to_async
-                def update_fleet_cost_sync(fleet_data, cost_per_pallet):
+                def update_fleet_cost_by_item(container_num, shipping_mark, item_total_cost):
                     """
-                    同步更新Fleet表的fleet_cost字段
-                    并收集后续insert方法需要的任务参数
+                    按柜号+唛头查找对应的车次，更新fleet_cost字段
                     """
-                    tasks = []
-                    with transaction.atomic():  # 保证Fleet表更新的原子性
-                        for item in fleet_data:
-                            fleet_number = item['fleet_number']
-                            fleet_pallet_count = item['total_pallet']
-                            container_numbers = item['container_numbers']
-
-                            if fleet_pallet_count <= 0:
-                                errors.append(f'车次{fleet_number}（柜号：{container_numbers}）板数为0，跳过处理')
-                                continue
-
-                            # 计算该车次应分摊的总成本
-                            fleet_total_cost = round(cost_per_pallet * fleet_pallet_count, 2)
-
-                            try:
-                                # ========== 核心新增：更新Fleet表的fleet_cost字段 ==========
-                                fleet_obj = Fleet.objects.get(fleet_number=fleet_number)
-                                # 方式1：直接覆盖fleet_cost字段
-                                fleet_obj.fleet_cost = fleet_total_cost
-                                # 方式2（可选）：累加成本（如果需要保留历史成本，改为 +=）
-                                # fleet_obj.fleet_cost = (fleet_obj.fleet_cost or 0) + fleet_total_cost
-                                fleet_obj.save(update_fields=['fleet_cost'])  # 只更新fleet_cost字段，性能更优
-
-                                logger.info(f'车次{fleet_number}的fleet_cost字段已更新为：{fleet_total_cost}元')
-
-                                # 收集insert方法的任务参数
-                                tasks.append({
-                                    'fleet_number': fleet_number,
-                                    'fleet_total_cost': fleet_total_cost,
-                                    'container_numbers': container_numbers,
-                                    'pallet_count': fleet_pallet_count
-                                })
-                            except ObjectDoesNotExist:
-                                errors.append(f'车次{fleet_number}（柜号：{container_numbers}）不存在，无法更新fleet_cost')
-                            except Exception as e:
-                                errors.append(
-                                    f'车次{fleet_number}（柜号：{container_numbers}）更新fleet_cost失败：{str(e)[:50]}')
-                    return tasks
-
-                # 第一步：更新Fleet表fleet_cost字段，获取任务列表
-                tasks = await update_fleet_cost_sync(fleet_data, cost_per_pallet)
-
-                # 第二步：逐个调用insert方法（二次分摊）
-                for task in tasks:
                     try:
-                        # 调用已有insert方法（异步/同步兼容）
-                        # 如果insert是同步方法，替换为：await sync_to_async(self.insert_fleet_shipment_pallet_fleet_cost)(...)
+                        # 请根据你的实际模型关联关系调整查询条件！
+                        # 核心：通过柜号+唛头找到对应的Fleet记录
+                        fleet_obj = Fleet.objects.filter(
+                            # 示例：假设Fleet关联Shipment，Shipment关联Pallet，Pallet含柜号和唛头
+                            shipment__pallet__container_number__container_number=container_num,
+                            shipment__pallet__shipping_mark=shipping_mark
+                        ).first()
+
+                        if not fleet_obj:
+                            return False, f'未找到对应的车次记录'
+
+                        # 更新fleet_cost字段（按柜号+唛头分摊的成本）
+                        with transaction.atomic():
+                            fleet_obj.fleet_cost = item_total_cost
+                            fleet_obj.save(update_fields=['fleet_cost'])
+
+                        return True, fleet_obj.fleet_number
+                    except Exception as e:
+                        return False, f'更新失败：{str(e)[:50]}'
+
+                # 逐个处理每一票（柜号+唛头）
+                for item_key, item_data in item_pallet_map.items():
+                    container_num = item_data['container_num']
+                    shipping_mark = item_data['shipping_mark']
+                    pallet_count = item_data['pallet_count']
+
+                    # 计算该票应分摊的成本（核心公式：每板成本 × 该票板数）
+                    item_total_cost = round(cost_per_pallet * pallet_count, 2)
+                    logger.info(
+                        f'柜号[{container_num}] 唛头[{shipping_mark}]：板数={pallet_count}，分摊成本={item_total_cost}元')
+
+                    # 按柜号+唛头更新Fleet表
+                    update_success, fleet_num_or_msg = await update_fleet_cost_by_item(
+                        container_num, shipping_mark, item_total_cost
+                    )
+                    if not update_success:
+                        errors.append(f'柜号[{container_num}] 唛头[{shipping_mark}]：{fleet_num_or_msg}')
+                        continue
+
+                    # 调用二次分摊方法（传入车次号）
+                    try:
                         await self.insert_fleet_shipment_pallet_fleet_cost(
                             request=request,
-                            fleet_number=task['fleet_number'],
-                            fleet_cost=task['fleet_total_cost']
+                            fleet_number=fleet_num_or_msg,  # 找到的车次号
+                            fleet_cost=item_total_cost
                         )
-
                         processed_count += 1
                         logger.info(
-                            f'车次{task["fleet_number"]}（柜号：{task["container_numbers"]}）分摊完成：'
-                            f'fleet_cost已更新为{task["fleet_total_cost"]}元，二次分摊也已完成'
-                        )
-                    except ObjectDoesNotExist as e:
-                        errors.append(f'车次{task["fleet_number"]}二次分摊失败：{str(e)}')
-                    except ValueError as e:
-                        errors.append(f'车次{task["fleet_number"]}二次分摊失败：{str(e)}')
+                            f'柜号[{container_num}] 唛头[{shipping_mark}]（车次{fleet_num_or_msg}）分摊完成，成本={item_total_cost}元')
                     except Exception as e:
-                        errors.append(f'车次{task["fleet_number"]}二次分摊失败：{str(e)[:50]}')
+                        errors.append(f'柜号[{container_num}] 唛头[{shipping_mark}]二次分摊失败：{str(e)[:50]}')
 
                 return processed_count, errors
 
             # 执行批量处理
             success_count, process_errors = await batch_call_insert_method(
-                fleet_data, cost_per_pallet, request
+                item_pallet_map, cost_per_pallet, total_batch_cost, request
             )
             error_messages.extend(process_errors)
 
-            # 7. 日志记录整体结果
+            # 日志记录整体结果
             logger.info(
                 f'LTL批量分摊成本完成：'
-                f'总投入成本{total_batch_cost}元，总板数{total_pallets}，每板成本{cost_per_pallet}元，'
-                f'成功处理{success_count}个车次（已更新Fleet.fleet_cost），失败{len(process_errors)}个车次'
+                f'总成本{total_batch_cost}元，总板数{total_pallets}，每板成本{cost_per_pallet}元，'
+                f'成功处理{success_count}票（柜号+唛头），失败{len(process_errors)}票'
             )
 
         except Exception as e:
             logger.error('LTL批量分摊成本整体异常', exc_info=True)
             error_messages.append(f'批量分摊整体失败：{str(e)[:200]}')
 
-        # 8. 返回结果页面
+        # 返回结果页面
         return await self.handle_fleet_cost_record_get_ltl(request, error_messages, success_count)
 
     async def handle_pod_upload_get(
