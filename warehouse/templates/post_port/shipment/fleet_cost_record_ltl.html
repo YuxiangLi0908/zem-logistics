@@ -84,6 +84,8 @@
                         <input type="number" step="0.01" name="total_batch_cost" placeholder="请输入总成本总值"
                                style="width: 180px; font-size: 14px; padding: 6px; border: 1px solid #ddd; border-radius: 4px;" required>
                         <input type="hidden" name="selected_fleet_numbers" id="selected-fleet-numbers">
+                        <input type="hidden" name="start_time" value="{{ start_time }}">
+                        <input type="hidden" name="end_time" value="{{ end_time }}">
                         <input type="hidden" name="step" value="batch_allocate_ltl_cost">
                         <input type="hidden" name="area" value="{{ area }}">
                         <button type="submit" class="btn btn-primary" style="height: 36px; font-size: 14px; border: none; border-radius: 4px; background: #007bff; color: white; cursor: pointer;"
@@ -129,130 +131,240 @@
         <div style="width: 100%; overflow-x: auto; overflow-y: auto; max-height: 65vh;">
             <table id="shipment-table" class="table" style="font-size: 14px; width: 100%; border-collapse: collapse; table-layout: auto;">
                 <thead>
-                    <tr style="position: sticky; top: 0; background: #f5f7fa;">
-                        {% if shipment_type == '未录入内容' %}
-                        <th class="th" style="padding: 10px 12px; text-align: center; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 60px;">
+                <tr style="position: sticky; top: 0; background: #f5f7fa;">
+                    {% if shipment_type == '未录入内容' %}
+                        <th class="th"
+                            style="padding: 10px 12px; text-align: center; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 60px;">
                             <input type="checkbox" id="select-all" onchange="toggleAllSelection(this)">
                         </th>
-                        {% endif %}
-                        <th class="th" style="padding: 10px 12px; text-align: left; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 110px;">柜号</th>
-                        <th class="th" style="padding: 10px 12px; text-align: left; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 110px;">目的仓库</th>
-                        <th class="th" style="padding: 10px 12px; text-align: left; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 130px;">目的地</th>
-                        <th class="th" style="padding: 10px 12px; text-align: left; border: 1px solid #eee; font-size:14px; width: 200px !important; min-width: 200px; max-width: 200px; white-space: normal; word-wrap: break-word;">唛头</th>
-                        <th class="th" style="padding: 10px 12px; text-align: left; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 170px;">实际出库时间</th>
-                        <th class="th" style="padding: 10px 12px; text-align: left; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 170px;">拆柜时间</th>
-                        <th class="th" style="padding: 10px 12px; text-align: center; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 90px;">总件数</th>
-                        <th class="th" style="padding: 10px 12px; text-align: center; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 90px;">总卡板数</th>
-                        <th class="th" style="padding: 10px 12px; text-align: left; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 190px;">费用</th>
-                        <th class="th" style="padding: 10px 12px; text-align: left; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 140px;">出库批次</th>
-                        <th class="th" style="padding: 10px 12px; text-align: left; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 140px;">预约批次</th>
-                        <th class="th" style="padding: 10px 12px; text-align: left; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 130px;">Carrier</th>
-                        <th class="th" style="padding: 10px 12px; text-align: left; border: 1px solid #eee; font-size:14px; width: 200px !important; min-width: 200px; max-width: 200px; white-space: normal; word-wrap: break-word;">备注</th>
-                        {% if shipment_type == '已录入内容' %}
-                            <th class="th" style="padding: 10px 12px; text-align: left; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 190px;">退回费用</th>
-                        {% endif %}
-                    </tr>
-                    <tr style="position: sticky; top: 40px; background: #f9f9f9;" id="fleet-table-filter">
-                        {% if shipment_type == '未录入内容' %}
+                    {% endif %}
+                    <th class="th"
+                        style="padding: 10px 12px; text-align: left; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 110px;">
+                        柜号
+                    </th>
+                    <th class="th"
+                        style="padding: 10px 12px; text-align: left; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 110px;">
+                        目的仓库
+                    </th>
+                    <th class="th"
+                        style="padding: 10px 12px; text-align: left; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 130px;">
+                        目的地
+                    </th>
+                    <th class="th"
+                        style="padding: 10px 12px; text-align: left; border: 1px solid #eee; font-size:14px; width: 200px !important; min-width: 200px; max-width: 200px; white-space: normal; word-wrap: break-word;">
+                        唛头
+                    </th>
+                    <th class="th"
+                        style="padding: 10px 12px; text-align: center; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 90px;">
+                        总件数
+                    </th>
+                    <th class="th"
+                        style="padding: 10px 12px; text-align: center; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 90px;">
+                        总卡板数
+                    </th>
+                    <!-- 新增：分摊价格列 -->
+                    <th class="th"
+                        style="padding: 10px 12px; text-align: center; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 120px;">
+                        分摊价格
+                    </th>
+                    <th class="th"
+                        style="padding: 10px 12px; text-align: left; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 190px;">
+                        车次费用
+                    </th>
+                    <th class="th"
+                        style="padding: 10px 12px; text-align: left; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 170px;">
+                        实际出库时间
+                    </th>
+                    <th class="th"
+                        style="padding: 10px 12px; text-align: left; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 170px;">
+                        拆柜时间
+                    </th>
+                    <th class="th"
+                        style="padding: 10px 12px; text-align: left; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 140px;">
+                        出库批次
+                    </th>
+                    <th class="th"
+                        style="padding: 10px 12px; text-align: left; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 140px;">
+                        预约批次
+                    </th>
+                    <th class="th"
+                        style="padding: 10px 12px; text-align: left; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 130px;">
+                        Carrier
+                    </th>
+                    <th class="th"
+                        style="padding: 10px 12px; text-align: left; border: 1px solid #eee; font-size:14px; width: 200px !important; min-width: 200px; max-width: 200px; white-space: normal; word-wrap: break-word;">
+                        备注
+                    </th>
+                    {% if shipment_type == '已录入内容' %}
+                        <th class="th"
+                            style="padding: 10px 12px; text-align: left; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 190px;">
+                            退回费用
+                        </th>
+                    {% endif %}
+                </tr>
+                <tr style="position: sticky; top: 40px; background: #f9f9f9;" id="fleet-table-filter">
+                    {% if shipment_type == '未录入内容' %}
                         <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 60px;"></th>
-                        {% endif %}
-                        <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 110px;"><input type="text" placeholder="搜索柜号..." class="filter-input" style="font-size: 14px; width: 100%;"></th>
-                        <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 110px;"><input type="text" placeholder="搜索目的仓库..." class="filter-input" style="font-size: 14px; width: 100%;"></th>
-                        <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 130px;"><input type="text" placeholder="搜索目的地..." class="filter-input" style="font-size: 14px; width: 100%;"></th>
-                        <th class="th" style="padding: 8px 12px; border: 1px solid #eee; width: 200px !important; min-width: 200px; max-width: 200px;"><input type="text" placeholder="搜索唛头..." class="filter-input" style="font-size: 14px; width: 100%;"></th>
-                        <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 170px;"><input type="text" placeholder="搜索出库时间..." class="filter-input" style="font-size: 14px; width: 100%;"></th>
-                        <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 170px;"><input type="text" placeholder="搜索拆柜时间..." class="filter-input" style="font-size: 14px; width: 100%;"></th>
-                        <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 90px;"></th>
-                        <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 90px;"></th>
+                    {% endif %}
+                    <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 110px;"><input
+                            type="text" placeholder="搜索柜号..." class="filter-input"
+                            style="font-size: 14px; width: 100%;"></th>
+                    <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 110px;"><input
+                            type="text" placeholder="搜索目的仓库..." class="filter-input"
+                            style="font-size: 14px; width: 100%;"></th>
+                    <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 130px;"><input
+                            type="text" placeholder="搜索目的地..." class="filter-input"
+                            style="font-size: 14px; width: 100%;"></th>
+                    <th class="th"
+                        style="padding: 8px 12px; border: 1px solid #eee; width: 200px !important; min-width: 200px; max-width: 200px;">
+                        <input type="text" placeholder="搜索唛头..." class="filter-input"
+                               style="font-size: 14px; width: 100%;"></th>
+                    <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 90px;"></th>
+                    <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 90px;"></th>
+                    <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 190px;"></th>
+                    <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 190px;"></th>
+                    <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 170px;"><input
+                            type="text" placeholder="搜索出库时间..." class="filter-input"
+                            style="font-size: 14px; width: 100%;"></th>
+                    <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 170px;"><input
+                            type="text" placeholder="搜索拆柜时间..." class="filter-input"
+                            style="font-size: 14px; width: 100%;"></th>
+                    <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 140px;"><input
+                            type="text" placeholder="搜索出库批次..." class="filter-input"
+                            style="font-size: 14px; width: 100%;"></th>
+                    <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 140px;"><input
+                            type="text" placeholder="搜索预约批次..." class="filter-input"
+                            style="font-size: 14px; width: 100%;"></th>
+                    <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 130px;"><input
+                            type="text" placeholder="搜索Carrier..." class="filter-input"
+                            style="font-size: 14px; width: 100%;"></th>
+                    <th class="th"
+                        style="padding: 8px 12px; border: 1px solid #eee; width: 200px !important; min-width: 200px; max-width: 200px;">
+                        <input type="text" placeholder="搜索备注..." class="filter-input"
+                               style="font-size: 14px; width: 100%;"></th>
+                    {% if shipment_type == '已录入内容' %}
                         <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 190px;"></th>
-                        <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 140px;"><input type="text" placeholder="搜索出库批次..." class="filter-input" style="font-size: 14px; width: 100%;"></th>
-                        <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 140px;"><input type="text" placeholder="搜索预约批次..." class="filter-input" style="font-size: 14px; width: 100%;"></th>
-                        <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 130px;"><input type="text" placeholder="搜索Carrier..." class="filter-input" style="font-size: 14px; width: 100%;"></th>
-                        <th class="th" style="padding: 8px 12px; border: 1px solid #eee; width: 200px !important; min-width: 200px; max-width: 200px;"><input type="text" placeholder="搜索备注..." class="filter-input" style="font-size: 14px; width: 100%;"></th>
-                        {% if shipment_type == '已录入内容' %}
-                            <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 190px;"></th>
-                        {% endif %}
-                    </tr>
+                    {% endif %}
+                </tr>
                 </thead>
                 <tbody>
-                    {% for f in fleet %}
+                {% for f in fleet %}
                     <tr class="data-row" style="border-bottom: 1px solid #eee;">
                         {% if shipment_type == '未录入内容' %}
-                        <td class="td" style="padding: 10px 12px; text-align: center; border: 1px solid #eee; font-size:14px;">
-                            <input type="checkbox" class="row-select" value="{{ f.fleet_number_code|default_if_none:'' }}"
-                                   data-pallet="{{ f.shipped_pallet|default_if_none:0 }}"
-                                   onchange="updateSelectionCount()">
-                        </td>
+                            <td class="td"
+                                style="padding: 10px 12px; text-align: center; border: 1px solid #eee; font-size:14px;">
+                                <input type="checkbox" class="row-select"
+                                       value="{{ f.fleet_number_code|default_if_none:'' }}"
+                                       data-pallet="{{ f.shipped_pallet|default_if_none:0 }}"
+                                       onchange="updateSelectionCount()">
+                            </td>
                         {% endif %}
-                        <td class="td" style="padding: 10px 12px; border: 1px solid #eee; white-space: nowrap; font-size:14px;">
+                        <td class="td"
+                            style="padding: 10px 12px; border: 1px solid #eee; white-space: nowrap; font-size:14px;">
                             {{ f.container_number|default_if_none:"-" }}
                         </td>
-                        <td class="td" style="padding: 10px 12px; border: 1px solid #eee; white-space: nowrap; font-size:14px;">
+                        <td class="td"
+                            style="padding: 10px 12px; border: 1px solid #eee; white-space: nowrap; font-size:14px;">
                             {{ f.all_locations|default_if_none:"-" }}
                         </td>
-                        <td class="td" style="padding: 10px 12px; border: 1px solid #eee; white-space: nowrap; font-size:14px;">
+                        <td class="td"
+                            style="padding: 10px 12px; border: 1px solid #eee; white-space: nowrap; font-size:14px;">
                             {{ f.destination|default_if_none:"-" }}
                         </td>
-                        <td class="td" style="padding: 10px 12px; border: 1px solid #eee; width: 200px !important; min-width: 200px; max-width: 200px; font-size:14px; white-space: normal; word-wrap: break-word; line-height: 1.2;">
+                        <td class="td"
+                            style="padding: 10px 12px; border: 1px solid #eee; width: 200px !important; min-width: 200px; max-width: 200px; font-size:14px; white-space: normal; word-wrap: break-word; line-height: 1.2;">
                             {{ f.shipping_mark|default_if_none:"-" }}
                         </td>
-                        <td class="td" style="padding: 10px 12px; border: 1px solid #eee; white-space: nowrap; font-size:14px;">
-                            {{ f.shipped_at|default_if_none:"-"|date:"Y-m-d H:i" }}
-                        </td>
-                        <td class="td" style="padding: 10px 12px; border: 1px solid #eee; white-space: nowrap; font-size:14px;">
-                            {{ f.offload_at|default_if_none:"-"|date:"Y-m-d H:i" }}
-                        </td>
-                        <td class="td" style="padding: 10px 12px; border: 1px solid #eee; text-align: center; white-space: nowrap; font-size:14px;">
+                        <td class="td"
+                            style="padding: 10px 12px; border: 1px solid #eee; text-align: center; white-space: nowrap; font-size:14px;">
                             {{ f.shipped_pcs|default_if_none:0|floatformat:0 }}
                         </td>
-                        <td class="td" style="padding: 10px 12px; border: 1px solid #eee; text-align: center; white-space: nowrap; font-size:14px;">
+                        <td class="td"
+                            style="padding: 10px 12px; border: 1px solid #eee; text-align: center; white-space: nowrap; font-size:14px;">
                             {{ f.shipped_pallet|default_if_none:0|floatformat:0 }}
                         </td>
-                        <td class="td" style="padding: 10px 12px; border: 1px solid #eee; white-space: nowrap; font-size:14px;">
-                            <form action="" method="post" style="margin: 0; display: flex; gap: 6px; align-items: center;">
+                        <!-- 新增：展示分摊价格 -->
+                        <td class="td"
+                            style="padding: 10px 12px; border: 1px solid #eee; text-align: center; white-space: nowrap; font-size:14px; color: #ff4d4f; font-weight: 600;">
+                            {{ f.allocation_price|default_if_none:0|floatformat:2 }}
+                        </td>
+                        <td class="td"
+                            style="padding: 10px 12px; border: 1px solid #eee; white-space: nowrap; font-size:14px;">
+                            <form action="" method="post"
+                                  style="margin: 0; display: flex; gap: 6px; align-items: center;">
                                 {% csrf_token %}
-                                <input type="number" step="0.01" name="fleet_cost" value="{{ f.fleet_number.fleet_cost|default_if_none:0 }}" style="width: 100px; font-size: 14px; padding: 6px; border: 1px solid #ddd; border-radius: 4px;">
-                                <input type="hidden" name="fleet_number" value="{{ f.fleet_number_code|default_if_none:'' }}">
+                                <input type="number" step="0.01" name="fleet_cost"
+                                       value="{{ f.fleet_number.fleet_cost|default_if_none:0 }}"
+                                       style="width: 100px; font-size: 14px; padding: 6px; border: 1px solid #ddd; border-radius: 4px;">
+                                <input type="hidden" name="fleet_number"
+                                       value="{{ f.fleet_number_code|default_if_none:'' }}">
                                 <input type="hidden" name="step" value="fleet_cost_confirm_ltl">
                                 <input type="hidden" name="area" value="{{ area }}">
-                                <button type="submit" class="btn btn-success" style="font-size: 14px; padding: 6px 10px; border: none; border-radius: 4px; background: #28a745; color: white; cursor: pointer;" onclick="showLoadingBar()">
+                                <input type="hidden" name="start_time" value="{{ start_time }}">
+                                <input type="hidden" name="end_time" value="{{ end_time }}">
+                                <button type="submit" class="btn btn-success"
+                                        style="font-size: 14px; padding: 6px 10px; border: none; border-radius: 4px; background: #28a745; color: white; cursor: pointer;"
+                                        onclick="showLoadingBar()">
                                     确认
                                 </button>
                             </form>
                         </td>
-                        <td class="td" style="padding: 10px 12px; border: 1px solid #eee; white-space: nowrap; font-size:14px;">
-                            {{ f.shipment_batch_number|default_if_none:"-" }}
+                        <td class="td"
+                            style="padding: 10px 12px; border: 1px solid #eee; white-space: nowrap; font-size:14px;">
+                            {{ f.shipped_at|default_if_none:"-"|date:"Y-m-d H:i" }}
                         </td>
-                        <td class="td" style="padding: 10px 12px; border: 1px solid #eee; white-space: nowrap; font-size:14px;">
+                        <td class="td"
+                            style="padding: 10px 12px; border: 1px solid #eee; white-space: nowrap; font-size:14px;">
+                            {{ f.offload_at|default_if_none:"-"|date:"Y-m-d H:i" }}
+                        </td>
+                        <td class="td"
+                            style="padding: 10px 12px; border: 1px solid #eee; white-space: nowrap; font-size:14px;">
                             {{ f.fleet_number.fleet_number|default_if_none:"-" }}
                         </td>
-                        <td class="td" style="padding: 10px 12px; border: 1px solid #eee; white-space: nowrap; font-size:14px;">
+                        <td class="td"
+                            style="padding: 10px 12px; border: 1px solid #eee; white-space: nowrap; font-size:14px;">
+                            {{ f.shipment_batch_number|default_if_none:"-" }}
+                        </td>
+                        <td class="td"
+                            style="padding: 10px 12px; border: 1px solid #eee; white-space: nowrap; font-size:14px;">
                             {{ f.carrier|default_if_none:"-" }}
                         </td>
-                        <td class="td" style="padding: 10px 12px; border: 1px solid #eee; width: 200px !important; min-width: 200px; max-width: 200px; font-size:14px; white-space: normal; word-wrap: break-word; line-height: 1.2;">
+                        <td class="td"
+                            style="padding: 10px 12px; border: 1px solid #eee; width: 200px !important; min-width: 200px; max-width: 200px; font-size:14px; white-space: normal; word-wrap: break-word; line-height: 1.2;">
                             {{ f.note|default_if_none:"-" }}
                         </td>
                         {% if shipment_type == '已录入内容' %}
-                        <td class="td" style="padding: 10px 12px; border: 1px solid #eee; white-space: nowrap; font-size:14px;">
-                            <form action="" method="post" style="margin: 0; display: flex; gap: 6px; align-items: center;">
-                                {% csrf_token %}
-                                <input type="number" step="0.01" name="fleet_cost_back" value="{{ f.fleet_number.fleet_cost_back|default_if_none:0 }}" style="width: 100px; font-size: 14px; padding: 6px; border: 1px solid #ddd; border-radius: 4px;">
-                                <input type="hidden" name="fleet_number" value="{{ f.fleet_number_code|default_if_none:'' }}">
-                                <input type="hidden" name="step" value="fleet_cost_confirm_back_ltl">
-                                <button type="submit" class="btn btn-success" style="font-size: 14px; padding: 6px 10px; border: none; border-radius: 4px; background: #28a745; color: white; cursor: pointer;" onclick="showLoadingBar()">
-                                    确定
-                                </button>
-                            </form>
-                        </td>
+                            <td class="td"
+                                style="padding: 10px 12px; border: 1px solid #eee; white-space: nowrap; font-size:14px;">
+                                <form action="" method="post"
+                                      style="margin: 0; display: flex; gap: 6px; align-items: center;">
+                                    {% csrf_token %}
+                                    <input type="number" step="0.01" name="fleet_cost_back"
+                                           value="{{ f.fleet_number.fleet_cost_back|default_if_none:0 }}"
+                                           style="width: 100px; font-size: 14px; padding: 6px; border: 1px solid #ddd; border-radius: 4px;">
+                                    <input type="hidden" name="fleet_number"
+                                           value="{{ f.fleet_number_code|default_if_none:'' }}">
+                                    <input type="hidden" name="step" value="fleet_cost_confirm_back_ltl">
+                                    <input type="hidden" name="start_time" value="{{ start_time }}">
+                                    <input type="hidden" name="end_time" value="{{ end_time }}">
+                                    <button type="submit" class="btn btn-success"
+                                            style="font-size: 14px; padding: 6px 10px; border: none; border-radius: 4px; background: #28a745; color: white; cursor: pointer;"
+                                            onclick="showLoadingBar()">
+                                        确定
+                                    </button>
+                                </form>
+                            </td>
                         {% endif %}
                     </tr>
-                    {% empty %}
+                {% empty %}
                     <tr class="empty-row">
-                        <td colspan="{% if shipment_type == '已录入内容' %}13{% elif shipment_type == '未录入内容' %}13{% else %}12{% endif %}" style="padding: 20px; text-align: center; color: #999; border: 1px solid #eee; white-space: nowrap; font-size:14px;">
+                        <!-- 注意：空行的colspan需要根据新增列调整 -->
+                        <td colspan="{% if shipment_type == '已录入内容' %}14{% elif shipment_type == '未录入内容' %}14{% else %}13{% endif %}"
+                            style="padding: 20px; text-align: center; color: #999; border: 1px solid #eee; white-space: nowrap; font-size:14px;">
                             暂无数据
                         </td>
                     </tr>
-                    {% endfor %}
+                {% endfor %}
                 </tbody>
             </table>
         </div>
@@ -351,258 +463,203 @@
     }
 </style>
 
-<script>
-    function showLoadingBar() {
-        document.getElementById('loading-bar').style.display = 'block';
-    }
-    window.onload = function() {
-        document.getElementById('loading-bar').style.display = 'none';
-    };
+    <script>
+        function showLoadingBar() {
+            document.getElementById('loading-bar').style.display = 'block';
+        }
 
-    // 全局变量存储过滤后的行
-    let visibleRows = [];
+        window.onload = function () {
+            document.getElementById('loading-bar').style.display = 'none';
+        };
 
-    document.addEventListener('DOMContentLoaded', function() {
-        const submitButtons = document.querySelectorAll('button[type="submit"]');
-        submitButtons.forEach(btn => {
-            btn.addEventListener('click', showLoadingBar);
-        });
+        // ========== 核心修改：全局变量存储过滤后的行 ==========
+        let visibleRows = []; // 存储当前显示的行
 
-        function filterTable() {
-            const table = document.getElementById('shipment-table');
-            const filterInputs = table.querySelectorAll('.filter-input');
-            const rows = table.querySelectorAll('tbody tr.data-row');
-            const filters = [];
-            const colOffset = document.querySelector('.row-select') ? 1 : 0;
-
-            filterInputs.forEach((input, index) => {
-                const value = input.value.trim().toUpperCase();
-                if (value) {
-                    const th = input.closest('th');
-                    const headerRow = th.closest('#fleet-table-filter');
-                    const colIndex = Array.from(headerRow.children).indexOf(th);
-                    filters.push({ value: value, colIndex: colIndex });
-                }
+        document.addEventListener('DOMContentLoaded', function () {
+            const submitButtons = document.querySelectorAll('button[type="submit"]');
+            submitButtons.forEach(btn => {
+                btn.addEventListener('click', showLoadingBar);
             });
 
-            visibleRows = [];
-            rows.forEach(row => {
-                let shouldShow = true;
-                for (const filter of filters) {
-                    const cell = row.querySelector(`td:nth-child(${filter.colIndex + 1})`);
-                    if (!cell) {
-                        shouldShow = false;
-                        break;
+            function filterTable() {
+                const table = document.getElementById('shipment-table');
+                const filterInputs = table.querySelectorAll('.filter-input');
+                const rows = table.querySelectorAll('tbody tr.data-row');
+                const filters = [];
+                const colOffset = document.querySelector('.row-select') ? 1 : 0;
+
+                filterInputs.forEach((input, index) => {
+                    const value = input.value.trim().toUpperCase();
+                    if (value) {
+                        const th = input.closest('th');
+                        const headerRow = th.closest('#fleet-table-filter');
+                        const colIndex = Array.from(headerRow.children).indexOf(th);
+                        filters.push({value: value, colIndex: colIndex});
                     }
-                    const cellText = (cell.textContent || cell.innerText || '').trim().toUpperCase();
-                    if (cellText.indexOf(filter.value) === -1) {
-                        shouldShow = false;
-                        break;
-                    }
-                }
-                row.style.display = shouldShow ? '' : 'none';
-                if (shouldShow) {
-                    visibleRows.push(row);
-                }
-            });
-
-            updateSelectAllStatus();
-            updateSelectionCount();
-        }
-
-        function getVisibleCheckboxes() {
-            const checkboxes = [];
-            visibleRows.forEach(row => {
-                const cb = row.querySelector('.row-select');
-                if (cb) checkboxes.push(cb);
-            });
-            return checkboxes;
-        }
-
-        function updateSelectAllStatus() {
-            const selectAllCheckbox = document.getElementById('select-all');
-            if (!selectAllCheckbox) return;
-
-            const checkboxes = getVisibleCheckboxes();
-            if (checkboxes.length === 0) {
-                selectAllCheckbox.checked = false;
-                selectAllCheckbox.indeterminate = false;
-                return;
-            }
-
-            const allChecked = checkboxes.every(cb => cb.checked);
-            const someChecked = checkboxes.some(cb => cb.checked);
-
-            selectAllCheckbox.checked = allChecked;
-            selectAllCheckbox.indeterminate = someChecked && !allChecked;
-        }
-
-        window.toggleAllSelection = function(checkbox) {
-            const checkboxes = getVisibleCheckboxes();
-            checkboxes.forEach(cb => {
-                cb.checked = checkbox.checked;
-            });
-            updateSelectionCount();
-        };
-
-        window.selectAllRows = function() {
-            const selectAllCheckbox = document.getElementById('select-all');
-            if (selectAllCheckbox) {
-                selectAllCheckbox.checked = true;
-            }
-            const checkboxes = getVisibleCheckboxes();
-            checkboxes.forEach(cb => {
-                cb.checked = true;
-            });
-            updateSelectionCount();
-        };
-
-        window.deselectAllRows = function() {
-            const selectAllCheckbox = document.getElementById('select-all');
-            if (selectAllCheckbox) {
-                selectAllCheckbox.checked = false;
-                selectAllCheckbox.indeterminate = false;
-            }
-            const checkboxes = getVisibleCheckboxes();
-            checkboxes.forEach(cb => {
-                cb.checked = false;
-            });
-            updateSelectionCount();
-        };
-
-        // ========== 核心重构：收集柜号+唛头+板数 ==========
-        window.updateSelectionCount = function() {
-            const checkboxes = getVisibleCheckboxes();
-            const selectedCheckboxes = checkboxes.filter(cb => cb.checked);
-
-            // 更新选中计数
-            const countElement = document.getElementById('selection-count');
-            if (countElement) {
-                countElement.textContent = `已选：${selectedCheckboxes.length} 条`;
-            }
-
-            // 收集选中的「柜号+唛头」和对应的板数
-            const selectedItems = [];       // 格式：["柜号1|唛头1", "柜号2|唛头2"]
-            const selectedItemPallets = []; // 格式：["板数1", "板数2"]
-            const selectionDetails = [];    // 用于预览的明细
-
-            selectedCheckboxes.forEach(cb => {
-                const row = cb.closest('.data-row');
-                if (!row) return;
-
-                // 获取柜号（第2列）、唛头（第5列）、板数（第9列）
-                const containerNum = row.querySelector('td:nth-child(2)').textContent.trim() || '未知柜号';
-                const shippingMark = row.querySelector('td:nth-child(5)').textContent.trim() || '未知唛头';
-                const palletCount = row.querySelector('td:nth-child(9)').textContent.trim() || '0';
-
-                // 编码唛头（避免特殊字符）
-                const encodedShippingMark = encodeURIComponent(shippingMark);
-                // 组合唯一键（柜号|唛头）
-                const itemKey = `${containerNum}|${encodedShippingMark}`;
-
-                selectedItems.push(itemKey);
-                selectedItemPallets.push(palletCount);
-                selectionDetails.push({
-                    containerNum,
-                    shippingMark,
-                    palletCount: parseFloat(palletCount) || 0
                 });
+
+                // ========== 修改1：更新visibleRows为当前显示的行 ==========
+                visibleRows = [];
+                rows.forEach(row => {
+                    let shouldShow = true;
+                    for (const filter of filters) {
+                        const cell = row.querySelector(`td:nth-child(${filter.colIndex + 1})`);
+                        if (!cell) {
+                            shouldShow = false;
+                            break;
+                        }
+                        const cellText = (cell.textContent || cell.innerText || '').trim().toUpperCase();
+                        if (cellText.indexOf(filter.value) === -1) {
+                            shouldShow = false;
+                            break;
+                        }
+                    }
+                    row.style.display = shouldShow ? '' : 'none';
+                    // 只收集显示的行
+                    if (shouldShow) {
+                        visibleRows.push(row);
+                    }
+                });
+
+                // ========== 修改2：过滤后更新全选框状态和选中计数 ==========
+                updateSelectAllStatus();
+                updateSelectionCount();
+            }
+
+            // ========== 修改3：获取当前显示行的复选框 ==========
+            function getVisibleCheckboxes() {
+                const checkboxes = [];
+                visibleRows.forEach(row => {
+                    const cb = row.querySelector('.row-select');
+                    if (cb) checkboxes.push(cb);
+                });
+                return checkboxes;
+            }
+
+            // ========== 修改4：更新全选框状态（是否所有显示行都被选中） ==========
+            function updateSelectAllStatus() {
+                const selectAllCheckbox = document.getElementById('select-all');
+                if (!selectAllCheckbox) return;
+
+                const checkboxes = getVisibleCheckboxes();
+                if (checkboxes.length === 0) {
+                    selectAllCheckbox.checked = false;
+                    selectAllCheckbox.indeterminate = false;
+                    return;
+                }
+
+                // 检查是否所有显示行都被选中
+                const allChecked = checkboxes.every(cb => cb.checked);
+                // 检查是否有部分选中
+                const someChecked = checkboxes.some(cb => cb.checked);
+
+                selectAllCheckbox.checked = allChecked;
+                selectAllCheckbox.indeterminate = someChecked && !allChecked;
+            }
+
+            // ========== 修改5：全选/取消全选只作用于显示行 ==========
+            window.toggleAllSelection = function (checkbox) {
+                const checkboxes = getVisibleCheckboxes();
+                checkboxes.forEach(cb => {
+                    cb.checked = checkbox.checked;
+                });
+                updateSelectionCount();
+            };
+
+            // ========== 修改6：全选按钮只选显示行 ==========
+            window.selectAllRows = function () {
+                const selectAllCheckbox = document.getElementById('select-all');
+                if (selectAllCheckbox) {
+                    selectAllCheckbox.checked = true;
+                }
+                const checkboxes = getVisibleCheckboxes();
+                checkboxes.forEach(cb => {
+                    cb.checked = true;
+                });
+                updateSelectionCount();
+            };
+
+            // ========== 修改7：取消全选只作用于显示行 ==========
+            window.deselectAllRows = function () {
+                const selectAllCheckbox = document.getElementById('select-all');
+                if (selectAllCheckbox) {
+                    selectAllCheckbox.checked = false;
+                    selectAllCheckbox.indeterminate = false;
+                }
+                const checkboxes = getVisibleCheckboxes();
+                checkboxes.forEach(cb => {
+                    cb.checked = false;
+                });
+                updateSelectionCount();
+            };
+
+            // ========== 修改8：选中计数只统计显示行的选中数量 ==========
+            window.updateSelectionCount = function () {
+                const checkboxes = getVisibleCheckboxes();
+                const selectedCheckboxes = checkboxes.filter(cb => cb.checked);
+
+                // 更新选中计数
+                const countElement = document.getElementById('selection-count');
+                if (countElement) {
+                    countElement.textContent = `已选：${selectedCheckboxes.length} 条`;
+                }
+
+                // 收集选中的车次号
+                const selectedFleetNumbers = selectedCheckboxes.map(cb => cb.value);
+                const hiddenInput = document.getElementById('selected-fleet-numbers');
+                if (hiddenInput) {
+                    hiddenInput.value = selectedFleetNumbers.join(',');
+                }
+
+                // 更新全选框状态
+                updateSelectAllStatus();
+            };
+
+            // ========== 修改9：批量提交校验只校验显示行 ==========
+            window.validateBatchSelection = function () {
+                const checkboxes = getVisibleCheckboxes();
+                const selectedCheckboxes = checkboxes.filter(cb => cb.checked);
+                const totalCost = document.querySelector('input[name="total_batch_cost"]').value;
+
+                if (selectedCheckboxes.length === 0) {
+                    alert('请至少选择一条记录进行批量分摊！');
+                    document.getElementById('loading-bar').style.display = 'none';
+                    return false;
+                }
+
+                if (!totalCost || parseFloat(totalCost) <= 0) {
+                    alert('请输入有效的总成本（大于0）！');
+                    document.getElementById('loading-bar').style.display = 'none';
+                    return false;
+                }
+
+                let totalPallets = 0;
+                selectedCheckboxes.forEach(cb => {
+                    totalPallets += parseFloat(cb.dataset.pallet || 0);
+                });
+
+                if (totalPallets <= 0) {
+                    alert('选中的记录总卡板数为0，无法分摊成本！');
+                    document.getElementById('loading-bar').style.display = 'none';
+                    return false;
+                }
+
+                if (!confirm(`确认按总板数${totalPallets}分摊总成本${totalCost}元？`)) {
+                    document.getElementById('loading-bar').style.display = 'none';
+                    return false;
+                }
+
+                return true;
+            };
+
+            // 初始化过滤和选中状态
+            filterInputs = document.querySelectorAll('.filter-input');
+            filterInputs.forEach(input => {
+                input.addEventListener('input', filterTable);
+                input.addEventListener('keyup', filterTable);
             });
-
-            // 赋值给隐藏字段
-            const form = document.getElementById('batch-cost-form');
-            // 柜号+唛头组合
-            let itemsInput = document.getElementById('selected-items');
-            if (!itemsInput) {
-                itemsInput = document.createElement('input');
-                itemsInput.type = 'hidden';
-                itemsInput.name = 'selected_items';
-                itemsInput.id = 'selected-items';
-                form.appendChild(itemsInput);
-            }
-            itemsInput.value = selectedItems.join(',');
-
-            // 板数
-            let palletsInput = document.getElementById('selected-item-pallets');
-            if (!palletsInput) {
-                palletsInput = document.createElement('input');
-                palletsInput.type = 'hidden';
-                palletsInput.name = 'selected_item_pallets';
-                palletsInput.id = 'selected-item-pallets';
-                form.appendChild(palletsInput);
-            }
-            palletsInput.value = selectedItemPallets.join(',');
-
-            // 存储明细用于预览
-            window.selectionDetails = selectionDetails;
-
-            updateSelectAllStatus();
-        };
-
-        // ========== 核心重构：按柜号+唛头预览分摊明细 ==========
-        window.validateBatchSelection = function() {
-            const totalCostInput = document.querySelector('input[name="total_batch_cost"]');
-            const totalCost = totalCostInput.value.trim();
-            const selectionDetails = window.selectionDetails || [];
-
-            // 基础校验
-            if (selectionDetails.length === 0) {
-                alert('请至少选择一条记录进行批量分摊！');
-                document.getElementById('loading-bar').style.display = 'none';
-                return false;
-            }
-
-            if (!totalCost || parseFloat(totalCost) <= 0) {
-                alert('请输入有效的总成本（大于0）！');
-                totalCostInput.focus();
-                document.getElementById('loading-bar').style.display = 'none';
-                return false;
-            }
-
-            // 计算总板数和每板成本
-            let totalPallets = 0;
-            selectionDetails.forEach(item => {
-                totalPallets += item.palletCount;
-            });
-
-            if (totalPallets <= 0) {
-                alert('选中的记录总卡板数为0，无法分摊成本！');
-                document.getElementById('loading-bar').style.display = 'none';
-                return false;
-            }
-
-            // 计算每板成本和各票分摊费用
-            const costPerPallet = (parseFloat(totalCost) / totalPallets).toFixed(2);
-            let confirmMsg = `批量分摊确认（按柜号+唛头）：
-总成本：${totalCost} 元
-总板数：${totalPallets} 板
-每板成本：${costPerPallet} 元
-
-各票分摊费用：
-`;
-
-            selectionDetails.forEach(item => {
-                const singleCost = (costPerPallet * item.palletCount).toFixed(2);
-                confirmMsg += `- 柜号[${item.containerNum}] 唛头[${item.shippingMark}]：${item.palletCount}板 × ${costPerPallet}元/板 = ${singleCost}元
-`;
-            });
-
-            if (!confirm(confirmMsg)) {
-                document.getElementById('loading-bar').style.display = 'none';
-                return false;
-            }
-
-            return true;
-        };
-
-        // 初始化过滤和选中状态
-        filterInputs = document.querySelectorAll('.filter-input');
-        filterInputs.forEach(input => {
-            input.addEventListener('input', filterTable);
-            input.addEventListener('keyup', filterTable);
+            filterTable();
+            updateSelectionCount();
         });
-        filterTable();
-        updateSelectionCount();
-    });
-</script>
+    </script>
 {% endblock %}
