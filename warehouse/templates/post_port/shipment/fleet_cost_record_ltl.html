@@ -359,8 +359,8 @@
         document.getElementById('loading-bar').style.display = 'none';
     };
 
-    // ========== 核心修改：全局变量存储过滤后的行 ==========
-    let visibleRows = []; // 存储当前显示的行
+    // 全局变量存储过滤后的行
+    let visibleRows = [];
 
     document.addEventListener('DOMContentLoaded', function() {
         const submitButtons = document.querySelectorAll('button[type="submit"]');
@@ -385,7 +385,6 @@
                 }
             });
 
-            // ========== 修改1：更新visibleRows为当前显示的行 ==========
             visibleRows = [];
             rows.forEach(row => {
                 let shouldShow = true;
@@ -402,18 +401,15 @@
                     }
                 }
                 row.style.display = shouldShow ? '' : 'none';
-                // 只收集显示的行
                 if (shouldShow) {
                     visibleRows.push(row);
                 }
             });
 
-            // ========== 修改2：过滤后更新全选框状态和选中计数 ==========
             updateSelectAllStatus();
             updateSelectionCount();
         }
 
-        // ========== 修改3：获取当前显示行的复选框 ==========
         function getVisibleCheckboxes() {
             const checkboxes = [];
             visibleRows.forEach(row => {
@@ -423,7 +419,6 @@
             return checkboxes;
         }
 
-        // ========== 修改4：更新全选框状态（是否所有显示行都被选中） ==========
         function updateSelectAllStatus() {
             const selectAllCheckbox = document.getElementById('select-all');
             if (!selectAllCheckbox) return;
@@ -435,16 +430,13 @@
                 return;
             }
 
-            // 检查是否所有显示行都被选中
             const allChecked = checkboxes.every(cb => cb.checked);
-            // 检查是否有部分选中
             const someChecked = checkboxes.some(cb => cb.checked);
 
             selectAllCheckbox.checked = allChecked;
             selectAllCheckbox.indeterminate = someChecked && !allChecked;
         }
 
-        // ========== 修改5：全选/取消全选只作用于显示行 ==========
         window.toggleAllSelection = function(checkbox) {
             const checkboxes = getVisibleCheckboxes();
             checkboxes.forEach(cb => {
@@ -453,7 +445,6 @@
             updateSelectionCount();
         };
 
-        // ========== 修改6：全选按钮只选显示行 ==========
         window.selectAllRows = function() {
             const selectAllCheckbox = document.getElementById('select-all');
             if (selectAllCheckbox) {
@@ -466,7 +457,6 @@
             updateSelectionCount();
         };
 
-        // ========== 修改7：取消全选只作用于显示行 ==========
         window.deselectAllRows = function() {
             const selectAllCheckbox = document.getElementById('select-all');
             if (selectAllCheckbox) {
@@ -480,7 +470,7 @@
             updateSelectionCount();
         };
 
-        // ========== 修改8：选中计数只统计显示行的选中数量 ==========
+        // ========== 核心重构：收集柜号+唛头+板数 ==========
         window.updateSelectionCount = function() {
             const checkboxes = getVisibleCheckboxes();
             const selectedCheckboxes = checkboxes.filter(cb => cb.checked);
@@ -491,24 +481,72 @@
                 countElement.textContent = `已选：${selectedCheckboxes.length} 条`;
             }
 
-            // 收集选中的车次号
-            const selectedFleetNumbers = selectedCheckboxes.map(cb => cb.value);
-            const hiddenInput = document.getElementById('selected-fleet-numbers');
-            if (hiddenInput) {
-                hiddenInput.value = selectedFleetNumbers.join(',');
-            }
+            // 收集选中的「柜号+唛头」和对应的板数
+            const selectedItems = [];       // 格式：["柜号1|唛头1", "柜号2|唛头2"]
+            const selectedItemPallets = []; // 格式：["板数1", "板数2"]
+            const selectionDetails = [];    // 用于预览的明细
 
-            // 更新全选框状态
+            selectedCheckboxes.forEach(cb => {
+                const row = cb.closest('.data-row');
+                if (!row) return;
+
+                // 获取柜号（第2列）、唛头（第5列）、板数（第9列）
+                const containerNum = row.querySelector('td:nth-child(2)').textContent.trim() || '未知柜号';
+                const shippingMark = row.querySelector('td:nth-child(5)').textContent.trim() || '未知唛头';
+                const palletCount = row.querySelector('td:nth-child(9)').textContent.trim() || '0';
+
+                // 编码唛头（避免特殊字符）
+                const encodedShippingMark = encodeURIComponent(shippingMark);
+                // 组合唯一键（柜号|唛头）
+                const itemKey = `${containerNum}|${encodedShippingMark}`;
+
+                selectedItems.push(itemKey);
+                selectedItemPallets.push(palletCount);
+                selectionDetails.push({
+                    containerNum,
+                    shippingMark,
+                    palletCount: parseFloat(palletCount) || 0
+                });
+            });
+
+            // 赋值给隐藏字段
+            const form = document.getElementById('batch-cost-form');
+            // 柜号+唛头组合
+            let itemsInput = document.getElementById('selected-items');
+            if (!itemsInput) {
+                itemsInput = document.createElement('input');
+                itemsInput.type = 'hidden';
+                itemsInput.name = 'selected_items';
+                itemsInput.id = 'selected-items';
+                form.appendChild(itemsInput);
+            }
+            itemsInput.value = selectedItems.join(',');
+
+            // 板数
+            let palletsInput = document.getElementById('selected-item-pallets');
+            if (!palletsInput) {
+                palletsInput = document.createElement('input');
+                palletsInput.type = 'hidden';
+                palletsInput.name = 'selected_item_pallets';
+                palletsInput.id = 'selected-item-pallets';
+                form.appendChild(palletsInput);
+            }
+            palletsInput.value = selectedItemPallets.join(',');
+
+            // 存储明细用于预览
+            window.selectionDetails = selectionDetails;
+
             updateSelectAllStatus();
         };
 
-        // ========== 修改9：批量提交校验只校验显示行 ==========
+        // ========== 核心重构：按柜号+唛头预览分摊明细 ==========
         window.validateBatchSelection = function() {
-            const checkboxes = getVisibleCheckboxes();
-            const selectedCheckboxes = checkboxes.filter(cb => cb.checked);
-            const totalCost = document.querySelector('input[name="total_batch_cost"]').value;
+            const totalCostInput = document.querySelector('input[name="total_batch_cost"]');
+            const totalCost = totalCostInput.value.trim();
+            const selectionDetails = window.selectionDetails || [];
 
-            if (selectedCheckboxes.length === 0) {
+            // 基础校验
+            if (selectionDetails.length === 0) {
                 alert('请至少选择一条记录进行批量分摊！');
                 document.getElementById('loading-bar').style.display = 'none';
                 return false;
@@ -516,13 +554,15 @@
 
             if (!totalCost || parseFloat(totalCost) <= 0) {
                 alert('请输入有效的总成本（大于0）！');
+                totalCostInput.focus();
                 document.getElementById('loading-bar').style.display = 'none';
                 return false;
             }
 
+            // 计算总板数和每板成本
             let totalPallets = 0;
-            selectedCheckboxes.forEach(cb => {
-                totalPallets += parseFloat(cb.dataset.pallet || 0);
+            selectionDetails.forEach(item => {
+                totalPallets += item.palletCount;
             });
 
             if (totalPallets <= 0) {
@@ -531,7 +571,23 @@
                 return false;
             }
 
-            if (!confirm(`确认按总板数${totalPallets}分摊总成本${totalCost}元？`)) {
+            // 计算每板成本和各票分摊费用
+            const costPerPallet = (parseFloat(totalCost) / totalPallets).toFixed(2);
+            let confirmMsg = `批量分摊确认（按柜号+唛头）：
+总成本：${totalCost} 元
+总板数：${totalPallets} 板
+每板成本：${costPerPallet} 元
+
+各票分摊费用：
+`;
+
+            selectionDetails.forEach(item => {
+                const singleCost = (costPerPallet * item.palletCount).toFixed(2);
+                confirmMsg += `- 柜号[${item.containerNum}] 唛头[${item.shippingMark}]：${item.palletCount}板 × ${costPerPallet}元/板 = ${singleCost}元
+`;
+            });
+
+            if (!confirm(confirmMsg)) {
                 document.getElementById('loading-bar').style.display = 'none';
                 return false;
             }
