@@ -182,6 +182,15 @@
                         <td rowspan="{{ pairs|length }}" style="max-width: 120px; word-break: break-all;">
                             {{ s.fleet_number.fleet_number }}<br>
                             <span style="color: #7f8c8d; font-size: 0.8em;">{{ s.fleet_number.pickup_number|default_if_none:'' }}</span>
+                            {% if s.carrier == 'Maersk' %}
+                                <div style="margin-top: 6px;">
+                                    {% if s.ARM_PRO %}
+                                        <button type="button" class="table-btn btn-primary-small" onclick="openMaerskTrackingModalByPro('{{ s.ARM_PRO }}')">查询物流</button>
+                                    {% else %}
+                                        <button type="button" class="table-btn btn-primary-small" disabled style="opacity: 0.6; cursor: not-allowed;">查询物流</button>
+                                    {% endif %}
+                                </div>
+                            {% endif %}
                         </td>
                         <td rowspan="{{ pairs|length }}" style="max-width: 120px; word-break: break-all;">{{ s.shipment_batch_number }}</td>
                         <td rowspan="{{ pairs|length }}">{{ s.fleet_number.appointment_datetime|date:"M-j H:i" }}</td>
@@ -246,6 +255,15 @@
                         <td style="max-width: 120px; word-break: break-all;">
                             {{ s.fleet_number.fleet_number }}<br>
                             <span style="color: #7f8c8d; font-size: 0.8em;">{{ s.fleet_number.pickup_number|default_if_none:'' }}</span>
+                            {% if s.carrier == 'Maersk' %}
+                                <div style="margin-top: 6px;">
+                                    {% if s.ARM_PRO %}
+                                        <button type="button" class="table-btn btn-primary-small" onclick="openMaerskTrackingModalByPro('{{ s.ARM_PRO }}')">查询物流</button>
+                                    {% else %}
+                                        <button type="button" class="table-btn btn-primary-small" disabled style="opacity: 0.6; cursor: not-allowed;">查询物流</button>
+                                    {% endif %}
+                                </div>
+                            {% endif %}
                         </td>
                         <td style="max-width: 120px; word-break: break-all;">{{ s.shipment_batch_number }}</td>
                         <td>{{ s.fleet_number.appointment_datetime|date:"M-j H:i" }}</td>
@@ -306,6 +324,7 @@
         {% endfor %}
     </tbody>
 </table>
+{% include 'post_port/new_sop/05_ltl_pos_all/modal/maersk_tracking_modal.html' %}
 
 <script>
     function initializeDeliverySection() {
@@ -429,4 +448,5 @@
     document.addEventListener('DOMContentLoaded', function() {
         initializeDeliverySection();
     });
+
 </script>
