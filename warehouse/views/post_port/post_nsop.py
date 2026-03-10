@@ -3361,7 +3361,9 @@ class PostNsop(View):
         if not combined_list:
             context = {"error_messages": f'{combined_list}是空的'}
             return await self.handle_td_shipment_post(request, context)
+        
         for po in combined_list:
+            # 遍历依次查找报价
             container_number = po['container_number__container_number']
             destination = po['destination']
             order = await sync_to_async(
@@ -3399,7 +3401,15 @@ class PostNsop(View):
                 elif container.manually_order_type == "转运":
                     is_combina = False
                 else:
-                    is_combina = self._is_combina(container, order, warehouse)
+                    combina_context, is_combina, _ = await self._is_combina(
+                        container, order, warehouse
+                    )
+                    if (
+                        isinstance(combina_context, dict)
+                        and combina_context.get("error_messages")
+                    ):
+                        context = {"error_messages": combina_context["error_messages"]}
+                        return await self.handle_td_shipment_post(request, context)
             
             non_combina_table = True
             if is_combina:
@@ -3467,7 +3477,7 @@ class PostNsop(View):
                                 rate_found = True
                     if rate_found:
                         break
-                
+
                 if rate_found:
                     # 找到报价
                     rate = float(rate) if rate else 0.0
@@ -3704,7 +3714,7 @@ class PostNsop(View):
             container.non_combina_reason = (
                 f"总仓点超过{uncombina_threshold}个"
             )
-            container.save()
+            await sync_to_async(container.save)()
             return context, False, f"总仓点超过{uncombina_threshold}个" # 不是组合柜
 
         # 按区域统计
@@ -3731,7 +3741,7 @@ class PostNsop(View):
         if is_mix:
             container.account_order_type = "转运"
             container.non_combina_reason = "混区不符合标准"
-            container.save()
+            await sync_to_async(container.save)()
             return context, False, "混区不符合标准"
         
         filtered_non_destinations = [key for key in matched_regions["non_combina_dests"].keys() if "UPS" not in key]
@@ -3754,11 +3764,11 @@ class PostNsop(View):
             # 当非组合柜的区域数量超出时，不能按转运组合
             container.account_order_type = "转运"
             container.non_combina_reason = f"总区数量为{sum_region_count},要求是{uncombina_threshold}"
-            container.save()
+            await sync_to_async(container.save)()
             return context, False,f"总区数量为{sum_region_count},要求是{uncombina_threshold}"
         container.non_combina_reason = None
         container.account_order_type = "转运组合"
-        container.save()
+        await sync_to_async(container.save)()
         return context, True, None
     
     def find_matching_regions(
