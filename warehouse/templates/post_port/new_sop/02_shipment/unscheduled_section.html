@@ -9,10 +9,10 @@
         padding: 8px 4px !important;
     }
 
-    .modal-table th:nth-child(6), /* 板数列 */
-    .modal-table td:nth-child(6),
-    .modal-table th:nth-child(7), /* CBM列 */
-    .modal-table td:nth-child(7) {
+    .modal-table th:nth-child(7), /* 板数列 */
+    .modal-table td:nth-child(7),
+    .modal-table th:nth-child(8), /* CBM列 */
+    .modal-table td:nth-child(8) {
         width: 80px !important;
         min-width: 80px;
         max-width: 80px;
@@ -24,10 +24,12 @@
     .modal-table td:nth-child(2),
     .modal-table th:nth-child(3), /* FBA ID */
     .modal-table td:nth-child(3),
-    .modal-table th:nth-child(4), /* 柜号 */
-    .modal-table td:nth-child(4),
-    .modal-table th:nth-child(5), /* 入仓时间 */
-    .modal-table td:nth-child(5) {
+    .modal-table th:nth-child(4),
+    .modal-table th:nth-child(4),
+    .modal-table th:nth-child(5), /* 柜号 */
+    .modal-table td:nth-child(5),
+    .modal-table th:nth-child(6), /* 入仓时间 */
+    .modal-table td:nth-child(6) {
         width: auto;
         min-width: 100px;
     }
@@ -227,6 +229,7 @@
                         <th>建议预约号</th>
                         <th>REF ID</th>
                         <th>FBA ID</th>
+                        <th>客户</th>
                         <th>柜号</th>
                         <th>入仓时间</th>
                         <th>派送时间</th>
@@ -242,13 +245,14 @@
                         <td><input type="text" class="header-search" placeholder="搜索预约号" data-column="1"></td>
                         <td><input type="text" class="header-search" placeholder="搜索REF ID" data-column="2"></td>
                         <td><input type="text" class="header-search" placeholder="搜索FBA ID" data-column="3"></td>
-                        <td><input type="text" class="header-search" placeholder="搜索柜号" data-column="4"></td>
-                        <td><input type="text" class="header-search" placeholder="搜索入仓时间" data-column="5"></td>
-                        <td><input type="text" class="header-search" placeholder="搜索派送时间" data-column="6"></td>
-                        <td><input type="text" class="header-search" placeholder="搜索板数" data-column="7"></td>
-                        <td><input type="text" class="header-search" placeholder="搜索CBM" data-column="8"></td>
-                        <td><input type="text" class="header-search" placeholder="搜索重量" data-column="9"></td>
-                        <td><input type="text" class="header-search" placeholder="搜索是否甩板" data-column="10"></td>
+                        <td><input type="text" class="header-search" placeholder="搜索客户" data-column="4"></td>
+                        <td><input type="text" class="header-search" placeholder="搜索柜号" data-column="5"></td>
+                        <td><input type="text" class="header-search" placeholder="搜索入仓时间" data-column="6"></td>
+                        <td><input type="text" class="header-search" placeholder="搜索派送时间" data-column="7"></td>
+                        <td><input type="text" class="header-search" placeholder="搜索板数" data-column="8"></td>
+                        <td><input type="text" class="header-search" placeholder="搜索CBM" data-column="9"></td>
+                        <td><input type="text" class="header-search" placeholder="搜索重量" data-column="10"></td>
+                        <td><input type="text" class="header-search" placeholder="搜索是否甩板" data-column="11"></td>
                         <td></td>
                         <td></td>
                     </tr>
@@ -259,7 +263,7 @@
                         {% if suggestion.primary_group.matched_shipment %}
                         <!-- 添加组间隔行 - 每个组都添加 -->
                         <tr class="group-separator">
-                            <td colspan="12" style="background: linear-gradient(90deg, #3498db, #6c8bc7); 
+                            <td colspan="13" style="background: linear-gradient(90deg, #3498db, #6c8bc7); 
                                                 height: 2px; padding: 0;"></td>
                         </tr>
                         
@@ -320,6 +324,9 @@
                             <!-- 货物详细信息 -->
                             <td class="ref-ids-col" data-full="{{ cargo.ref_ids|default:'' }}">{{ cargo.ref_ids|default:"-"|truncatechars:20 }}</td>
                             <td class="fba-ids-col" data-full="{{ cargo.fba_ids|default:'' }}">{{ cargo.fba_ids|default:"-"|truncatechars:20 }}</td>
+                            <td class="customer-name-col">
+                                {{ cargo.customer_name }}
+                            </td>
                             <td class="container-no-col" style="max-width: 150px; white-space: pre-line; font-size: 0.8rem;">
                                 {{ cargo.cns|linebreaks_cn }}
                             </td>
@@ -443,7 +450,7 @@
                         {% if not suggestion.primary_group.matched_shipment %}
                         <!-- 添加组间隔行 -->
                         <tr class="group-separator">
-                            <td colspan="11" style="background: linear-gradient(90deg, #f39c12, #e67e22); 
+                            <td colspan="12" style="background: linear-gradient(90deg, #f39c12, #e67e22); 
                                                 height: 2px; padding: 0;"></td>
                         </tr>
                         {% for cargo in suggestion.cargos %}
@@ -479,6 +486,9 @@
                             <!-- 货物详细信息 -->
                             <td class="ref-ids-col" data-full="{{ cargo.ref_ids|default:'' }}">{{ cargo.ref_ids|default:"-"|truncatechars:20 }}</td>
                             <td class="fba-ids-col" data-full="{{ cargo.fba_ids|default:'' }}">{{ cargo.fba_ids|default:"-"|truncatechars:20 }}</td>
+                            <td class="customer-name-col">
+                                {{ cargo.customer_name }}
+                            </td>
                             <td class="container-no-col" style="max-width: 150px; white-space: pre-line; font-size: 0.8rem;">
                                 {{ cargo.cns|linebreaks_cn }}
                             </td>
@@ -706,7 +716,7 @@
         
         for (const [colIndex, searchTerm] of Object.entries(searchState)) {
             const cellIndex = parseInt(colIndex);
-            if (cellIndex >= cells.length || cellIndex >= 10) continue;
+            if (cellIndex >= cells.length || cellIndex >= 11) continue;
             
             const cellText = cells[cellIndex].textContent.toLowerCase().trim();
             if (!cellText.includes(searchTerm)) {
@@ -817,7 +827,7 @@
             const cells = row.querySelectorAll('td');
             cells.forEach((cell, cellIndex) => {
                 // 跳过操作列和匹配度列（最后2列）
-                if (cellIndex >= 10) return;
+                if (cellIndex >= 11) return;
                 
                 let cellText = cell.textContent;
                 
