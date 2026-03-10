@@ -148,6 +148,9 @@ class PostNsop(View):
         "ZEM": "ZEM",
         "LiFeng": "LiFeng",
         "LLC": "LLC",
+        "FWT": "FWT",
+        "大森林": "大森林",
+        "Sunzong": "Sunzong",
     }
     shipment_type_options = {
         "FTL": "FTL",
