@@ -3632,8 +3632,8 @@ class PostNsop(View):
         
         customer_name = order.customer_name.zem_name
         vessel_etd = order.vessel_id.vessel_etd
-
         container_type = container.container_type
+        has_pallet = True
         #  基础数据统计
         plts = await sync_to_async(
             lambda: Pallet.objects.filter(
@@ -3645,6 +3645,24 @@ class PostNsop(View):
                 total_pallets=Count("id"),
             )
         )()
+        if plts['total_pallets'] == 0:
+            has_pallet = False
+            plts = await sync_to_async(
+                lambda: PackingList.objects.filter(
+                    container_number=container
+                ).aggregate(
+                    unique_destinations=Count("destination", distinct=True),
+                    total_weight=Sum("total_weight_lbs"),
+                    total_cbm=Sum("cbm"),
+                    total_pallets=Coalesce(
+                        Round(
+                            Cast(Sum("cbm"), output_field=FloatField()) / 1.8,
+                            output_field=IntegerField()
+                        ),
+                        0  # 默认值，当Sum("cbm")为None时设为0
+                    )
+                )
+            )()
         plts["total_cbm"] = round(float(plts.get("total_cbm") or 0.0), 2)
         plts["total_weight"] = round(float(plts.get("total_weight") or 0.0), 2)
         # 获取匹配的报价表
@@ -3718,16 +3736,28 @@ class PostNsop(View):
             return context, False, f"总仓点超过{uncombina_threshold}个" # 不是组合柜
 
         # 按区域统计
-        destinations = await sync_to_async(
-            lambda: list(Pallet.objects.filter(container_number=container)
-                        .values_list("destination", flat=True)
-                        .distinct())
-        )()
-        plts_by_destination = await sync_to_async(
-            lambda: list(Pallet.objects.filter(container_number=container)
-                        .values("destination")
-                        .annotate(total_cbm=Sum("cbm")))
-        )()
+        if has_pallet:
+            destinations = await sync_to_async(
+                lambda: list(Pallet.objects.filter(container_number=container)
+                            .values_list("destination", flat=True)
+                            .distinct())
+            )()
+            plts_by_destination = await sync_to_async(
+                lambda: list(Pallet.objects.filter(container_number=container)
+                            .values("destination")
+                            .annotate(total_cbm=Sum("cbm")))
+            )()
+        else:
+            destinations = await sync_to_async(
+                lambda: list(PackingList.objects.filter(container_number=container)
+                            .values_list("destination", flat=True)
+                            .distinct())
+            )()
+            plts_by_destination = await sync_to_async(
+                lambda: list(PackingList.objects.filter(container_number=container)
+                            .values("destination")
+                            .annotate(total_cbm=Sum("cbm")))
+            )()
         total_cbm_sum = sum(item["total_cbm"] for item in plts_by_destination)
         # 区分组合柜区域和非组合柜区域
         container_type_temp = 0 if "40" in container_type else 1
