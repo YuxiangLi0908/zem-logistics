@@ -282,6 +282,9 @@ class FleetManagement(View):
         elif step == "rollback_fleet_status":
             template, context = await self.handle_rollback_fleet_status(request)
             return render(request, template, context)
+        elif step == "batch_confirm_ltl_price":
+            template, context = await self.handle_batch_confirm_ltl_price(request)
+            return render(request, template, context)
         else:
             return await self.get(request)
 
@@ -1540,7 +1543,7 @@ class FleetManagement(View):
             arrived_at__isnull=False,
             shipped_at__gte=tz_2026_01_01,
             shipment_schduled_at__gte=tz_2026_01_01,
-            fleet_number__fleet_type='LTL'
+            fleet_number__fleet_type__in=['LTL','客户自提']
         )
 
         # 已录入/未录入筛选
@@ -1809,6 +1812,74 @@ class FleetManagement(View):
             "success_count": success_count,
         }
         return self.template_fleet_cost_record_ltl, context
+
+
+    async def handle_batch_confirm_ltl_price(self, request):
+        """批量确认未录入价格的核心逻辑（接收每行的价格）"""
+        error_messages = []
+        success_count = 0
+
+        try:
+            # 1. 获取并解析批量价格数据（修复：添加JSON解析）
+            batch_prices_str = request.POST.get("batch_prices_data", "[]")
+            try:
+                # 解析JSON字符串为列表
+                batch_prices = json.loads(batch_prices_str)
+                # 验证是否为列表
+                if not isinstance(batch_prices, list):
+                    error_messages.append("批量价格数据格式错误：不是列表类型")
+                    batch_prices = []
+            except json.JSONDecodeError as e:
+                error_messages.append(f"批量价格数据解析失败：{str(e)}")
+                batch_prices = []
+
+            # 2. 遍历每条数据，更新价格
+            for idx, item in enumerate(batch_prices):
+                try:
+                    # 更严格的字段验证
+                    fleet_number = item.get("fleet_number")
+                    price = item.get("price")
+
+                    if not fleet_number or fleet_number.strip() == '':
+                        error_messages.append(f"第{idx + 1}条数据：车次号为空")
+                        continue
+
+                    if price is None:
+                        error_messages.append(f"第{idx + 1}条数据（车次：{fleet_number}）：价格为空")
+                        continue
+
+                    # 转换价格为浮点数
+                    try:
+                        price_float = float(price)
+                    except (ValueError, TypeError):
+                        error_messages.append(f"第{idx + 1}条数据（车次：{fleet_number}）：价格格式错误「{price}」")
+                        continue
+
+                    if price_float < 0:
+                        error_messages.append(f"第{idx + 1}条数据（车次：{fleet_number}）：价格不能为负数「{price_float}」")
+                        continue
+
+                    # 3. 更新数据库记录
+                    try:
+                        fleet = await sync_to_async(Fleet.objects.get)(fleet_number=fleet_number)
+                        fleet.fleet_cost = price_float
+                        await sync_to_async(fleet.save)()
+                        success_count += 1
+                    except Fleet.DoesNotExist:
+                        error_messages.append(f"第{idx + 1}条数据：车次号「{fleet_number}」不存在")
+                    except Exception as e:
+                        error_messages.append(f"第{idx + 1}条数据（车次：{fleet_number}）：处理失败「{str(e)}」")
+
+                except Exception as e:
+                    error_messages.append(f"处理第{idx + 1}条数据时发生未知错误：{str(e)}")
+
+        except Exception as e:
+            error_messages.append(f"批量处理主逻辑异常：{str(e)}")
+
+        # 4. 返回结果页面
+        return await self.handle_fleet_cost_record_get_ltl(
+            request, error_messages=error_messages, success_count=success_count
+        )
 
     async def handle_batch_allocate_ltl_cost(self, request: HttpRequest):
         """
