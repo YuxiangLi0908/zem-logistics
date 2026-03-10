@@ -19,7 +19,7 @@ import zipfile
 import barcode
 from PIL import Image
 from django.template.loader import get_template
-from PyPDF2 import PdfMerger, PdfReader
+from PyPDF2 import PdfMerger, PdfReader, PdfWriter
 from xhtml2pdf import pisa
 from barcode.writer import ImageWriter
 from django.db.models.functions import Ceil
@@ -1466,8 +1466,9 @@ class PostNsop(View):
                 lines.append(", ".join(cleaned[i : i + 2]))
             return mark_safe("<br>".join(lines)) if lines else ""
 
-        def extract_pickup_attachments(rows: List[dict]) -> List[dict]:
+        def extract_pickup_attachments(rows: List[dict]) -> Tuple[List[dict], List[bytes]]:
             attachments = []
+            pdf_attachments: List[bytes] = []
             seen = set()
             for r in rows:
                 image_value = r.get("pickup_image", "")
@@ -1489,20 +1490,19 @@ class PostNsop(View):
                     if file_value_str:
                         if file_value_str.startswith("data:application/pdf;base64,"):
                             base64_part = file_value_str.split(",", 1)[1] if "," in file_value_str else ""
-                            if base64_part and len(base64_part) <= 4_500_000:
+                            if base64_part and len(base64_part) <= 20_000_000:
                                 try:
                                     pdf_bytes = base64.b64decode(base64_part, validate=False)
-                                    reader = PdfReader(io.BytesIO(pdf_bytes))
-                                    extracted = []
-                                    for page in reader.pages:
-                                        page_text = page.extract_text() or ""
-                                        if page_text:
-                                            extracted.append(page_text)
-                                    extracted_text = "\n\n".join(extracted).strip()
-                                    if extracted_text:
-                                        file_value_str = extracted_text
+                                    if not pdf_bytes.startswith(b"%PDF"):
+                                        continue
+                                    dedupe_key = f"PDF::{hash(pdf_bytes)}"
+                                    if dedupe_key not in seen:
+                                        seen.add(dedupe_key)
+                                        pdf_attachments.append(pdf_bytes)
+                                    continue
                                 except Exception:
-                                    file_value_str = "[PDF parse failed]"
+                                    continue
+                            continue
                         if len(file_value_str) > 30_000:
                             file_value_str = file_value_str[:30_000] + "\n...[truncated]"
                         safe_html = escape(file_value_str).replace("\r\n", "\n").replace(
@@ -1518,7 +1518,7 @@ class PostNsop(View):
                                 "html": mark_safe(safe_html),
                             }
                         )
-            return attachments
+            return attachments, pdf_attachments
 
         if arm_pickup_data and arm_pickup_data != "[]":
             loaded = json.loads(arm_pickup_data)
@@ -1735,7 +1735,7 @@ class PostNsop(View):
                 if part_str:
                     all_marks.append(part_str)
         group_shipping_mark = format_two_per_line(all_marks)
-        pickup_attachments = extract_pickup_attachments(arm_pickup)
+        pickup_attachments, pickup_pdfs = extract_pickup_attachments(arm_pickup)
         notes_str = "<br>".join(filter(None, notes))
         barcode_type = "code128"
         barcode_class = barcode.get_barcode_class(barcode_type)
@@ -1756,6 +1756,7 @@ class PostNsop(View):
         is_multi_arm_pickup = len(arm_pickup_groups) > 1
         if is_multi_arm_pickup:
             bol_pages = []
+            all_pickup_pdfs: List[bytes] = []
             for group in arm_pickup_groups:
                 group_rows = group.get("rows", [])
                 if not group_rows:
@@ -1800,6 +1801,8 @@ class PostNsop(View):
                     barcode_content = f"{group_arm_pro}"
                 if not group_carrier or group_carrier == "None" or group_carrier == "":
                     group_carrier = "nocarrier"
+                group_attachments, group_pdfs = extract_pickup_attachments(group_rows)
+                all_pickup_pdfs.extend(group_pdfs)
                 bol_pages.append(
                     {
                         "warehouse": warehouse,
@@ -1809,7 +1812,8 @@ class PostNsop(View):
                         "pcs": group_pcs,
                         "container_number": format_two_per_line(group_container_numbers),
                         "shipping_mark": format_two_per_line(group_marks),
-                        "pickup_attachments": extract_pickup_attachments(group_rows),
+                        "pickup_attachments": group_attachments,
+                        "pickup_has_pdf": bool(group_pdfs),
                         "barcode": generate_barcode_base64(barcode_content),
                         "contact": group.get("contact", {}),
                         "contact_flag": group.get("contact_flag", False),
@@ -1825,6 +1829,7 @@ class PostNsop(View):
             }
             template = get_template(self.template_ltl_bol_multi)
             html = template.render(context)
+            pickup_pdfs = all_pickup_pdfs
         else:
             if arm_pro == "" or arm_pro == "None" or arm_pro is None:
                 if '自提' in destination:
@@ -1836,6 +1841,7 @@ class PostNsop(View):
 
             if not carrier or carrier == "None" or carrier == "":
                 carrier = "nocarrier"
+
             context = {
                 "warehouse": warehouse,
                 "arm_pro": arm_pro,
@@ -1846,6 +1852,7 @@ class PostNsop(View):
                 "shipping_mark": group_shipping_mark,
                 "barcode": barcode_base64,
                 "pickup_attachments": pickup_attachments,
+                "pickup_has_pdf": bool(pickup_pdfs),
                 "arm_pickup": arm_pickup,
                 "contact": contact,
                 "contact_flag": contact_flag,
@@ -1855,7 +1862,7 @@ class PostNsop(View):
             template = get_template(self.template_ltl_bol)
             html = template.render(context)
 
-        response = HttpResponse(content_type="application/pdf")
+        pdf_buffer = io.BytesIO()
         def sanitize_filename(value: str) -> str:
             """清理文件名中的换行和非法字符"""
             if not value:
@@ -1901,19 +1908,69 @@ class PostNsop(View):
             if not filename_base:
                 safe_fleet_number = sanitize_filename(fleet_number)
                 filename_base = f"{safe_fleet_number}+MULTI"
-            response["Content-Disposition"] = (
-                f'attachment; filename="{filename_base}+BOL.pdf"'
-            )
+            content_disposition = f'attachment; filename="{filename_base}+BOL.pdf"'
         else:
-            response["Content-Disposition"] = (
+            content_disposition = (
                 f'attachment; filename="{container_number}+{safe_destination}+{safe_shipping_mark}+BOL.pdf"'
             )
-        pisa_status = pisa.CreatePDF(html, dest=response, link_callback=link_callback)
+
+        pisa_status = pisa.CreatePDF(html, dest=pdf_buffer, link_callback=link_callback)
         if pisa_status.err:
             raise ValueError(
                 "Error during PDF generation: %s" % pisa_status.err,
                 content_type="text/plain",
             )
+        pdf_buffer.seek(0)
+        base_pdf_bytes = pdf_buffer.getvalue()
+        merged_bytes = base_pdf_bytes
+
+        if pickup_pdfs:
+            try:
+                base_reader = PdfReader(io.BytesIO(base_pdf_bytes))
+                insert_at = None
+                anchor = "__ZEM_PICKUP_PDF_ANCHOR__"
+                fallback_matches: List[int] = []
+                for idx, page in enumerate(base_reader.pages):
+                    page_text = page.extract_text() or ""
+                    normalized = re.sub(r"\s+", "", page_text).upper()
+                    if anchor in (page_text or ""):
+                        insert_at = idx
+                        break
+                    if "CONTAINERS:" in normalized and "SHIPPING_MARK:" in normalized:
+                        fallback_matches.append(idx)
+                if insert_at is None and fallback_matches:
+                    insert_at = fallback_matches[-1]
+
+                writer = PdfWriter()
+                for idx, page in enumerate(base_reader.pages):
+                    if insert_at is not None and idx == insert_at:
+                        for pdf_bytes in pickup_pdfs:
+                            try:
+                                att_reader = PdfReader(io.BytesIO(pdf_bytes))
+                                for att_page in att_reader.pages:
+                                    writer.add_page(att_page)
+                            except Exception:
+                                continue
+                    writer.add_page(page)
+
+                if insert_at is None:
+                    for pdf_bytes in pickup_pdfs:
+                        try:
+                            att_reader = PdfReader(io.BytesIO(pdf_bytes))
+                            for att_page in att_reader.pages:
+                                writer.add_page(att_page)
+                        except Exception:
+                            continue
+
+                out = io.BytesIO()
+                writer.write(out)
+                merged_bytes = out.getvalue()
+            except Exception:
+                merged_bytes = base_pdf_bytes
+
+        response = HttpResponse(merged_bytes, content_type="application/pdf")
+        response["Content-Disposition"] = content_disposition
+        response["X-Content-Type-Options"] = "nosniff"
         return response
     
     async def handle_export_maersk_label(self, request: HttpRequest) -> HttpResponse:
