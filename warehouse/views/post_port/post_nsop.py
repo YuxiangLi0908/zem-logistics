@@ -3645,8 +3645,8 @@ class PostNsop(View):
                 total_pallets=Count("id"),
             )
         )()
-        plts["total_cbm"] = round(plts["total_cbm"], 2)
-        plts["total_weight"] = round(plts["total_weight"], 2)
+        plts["total_cbm"] = round(float(plts.get("total_cbm") or 0.0), 2)
+        plts["total_weight"] = round(float(plts.get("total_weight") or 0.0), 2)
         # 获取匹配的报价表
         matching_quotation = await sync_to_async(
             lambda: QuotationMaster.objects.filter(
