@@ -126,6 +126,50 @@
         margin-top: 5px;
     }
 
+    .note-input-wrapper {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        background: #f6f8fa;
+        border: 1px solid #d0d7de;
+        border-radius: 6px;
+        padding: 2px 4px;
+        max-width: 160px;
+    }
+
+    .shipment-note-input {
+        flex: 1;
+        border: none;
+        background: transparent;
+        outline: none;
+        resize: none;
+        padding: 4px 6px;
+        font-size: 12px;
+        line-height: 16px;
+        min-height: 24px;
+        max-height: 60px;
+        overflow: hidden;
+    }
+
+    .note-save-btn {
+        border: none;
+        background: transparent;
+        cursor: pointer;
+        width: 26px;
+        height: 26px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 6px;
+        color: #57606a;
+        flex-shrink: 0;
+    }
+
+    .note-save-btn:hover {
+        background: rgba(9, 105, 218, 0.12);
+        color: #0969da;
+    }
+
     .query-quotation-btn:hover {
         background: linear-gradient(135deg, #ff9800, #f57c00);
         transform: translateY(-1px);
@@ -156,6 +200,7 @@
         background: #fdcb6e !important;
         transform: translateY(-1px);
     }
+    
 </style>
 <!-- 未排约标签页 -->
 <div class="content-section" id="unscheduled-section">
@@ -240,6 +285,7 @@
                         <th>CBM</th>
                         <th>重量(lbs)</th>
                         <th>是否甩板</th>
+                        <th>排约备注</th>
                         <th>匹配度</th>
                         <th>操作</th>
                     </tr>
@@ -256,6 +302,7 @@
                         <td><input type="text" class="header-search" placeholder="搜索CBM" data-column="9"></td>
                         <td><input type="text" class="header-search" placeholder="搜索重量" data-column="10"></td>
                         <td><input type="text" class="header-search" placeholder="搜索是否甩板" data-column="11"></td>
+                        <td><input type="text" class="header-search" placeholder="搜索排约备注甩板" data-column="12"></td>
                         <td></td>
                         <td></td>
                     </tr>
@@ -266,7 +313,7 @@
                         {% if suggestion.primary_group.matched_shipment %}
                         <!-- 添加组间隔行 - 每个组都添加 -->
                         <tr class="group-separator">
-                            <td colspan="13" style="background: linear-gradient(90deg, #3498db, #6c8bc7); 
+                            <td colspan="14" style="background: linear-gradient(90deg, #3498db, #6c8bc7); 
                                                 height: 2px; padding: 0;"></td>
                         </tr>
                         
@@ -361,6 +408,24 @@
                                     {% endif %}
                                 {% endif %}
                             </td>
+                            <td>
+                                <div class="note-input-wrapper">
+                                    <textarea class="editable-textarea shipment-note-input"
+                                        data-cargo-ids="{{ cargo.ids|default:'' }}"
+                                        data-plt-ids="{{ cargo.plt_ids|default:'' }}"
+                                        placeholder="输入排约备注..."
+                                        oninput="autoResizeTextarea(this)"
+                                        rows="1">{{ cargo.shipment_note|default_if_none:"" }}</textarea>
+
+                                    <button
+                                        type="button"
+                                        class="note-save-btn"
+                                        title="保存备注"
+                                        onclick="submitShipmentNote(this)">
+                                        💾
+                                    </button>
+                                </div>
+                            </td>
                             <!-- 匹配度 -->
                             {% if forloop.first %}
                             <td rowspan="{{ suggestion.cargos|length }}" style="vertical-align: middle;">
@@ -453,7 +518,7 @@
                         {% if not suggestion.primary_group.matched_shipment %}
                         <!-- 添加组间隔行 -->
                         <tr class="group-separator">
-                            <td colspan="12" style="background: linear-gradient(90deg, #f39c12, #e67e22); 
+                            <td colspan="13" style="background: linear-gradient(90deg, #f39c12, #e67e22); 
                                                 height: 2px; padding: 0;"></td>
                         </tr>
                         {% for cargo in suggestion.cargos %}
@@ -522,6 +587,24 @@
                                         无主约时间
                                     {% endif %}
                                 {% endif %}
+                            </td>
+                            <td>
+                                <div class="note-input-wrapper">
+                                    <textarea class="editable-textarea shipment-note-input"
+                                        data-cargo-ids="{{ cargo.ids|default:'' }}"
+                                        data-plt-ids="{{ cargo.plt_ids|default:'' }}"
+                                        placeholder="输入排约备注..."
+                                        oninput="autoResizeTextarea(this)"
+                                        rows="1">{{ cargo.shipment_note|default_if_none:"" }}</textarea>
+
+                                    <button
+                                        type="button"
+                                        class="note-save-btn"
+                                        title="保存备注"
+                                        onclick="submitShipmentNote(this)">
+                                        💾
+                                    </button>
+                                </div>
                             </td>
                             <!-- 匹配度 -->
                             {% if forloop.first %}
@@ -651,12 +734,23 @@
     </div>
 </div>
 
+<!-- 修改指令的表单 -->
+<form id="shipmentNoteForm" method="post">
+    {% csrf_token %}
+    <input type="hidden" name="step" value="shipment_note_save">
+    <input type="hidden" name="cargo_ids" id="main_cargoIdInput">
+    <input type="hidden" name="plt_ids" id="queryPltIds">
+    <input type="hidden" name="shipment_note" id="shipmentNoteValue">
+    <input type="hidden" name="warehouse" value="{{ warehouse }}">
+    <input type="hidden" name="st_type" value="{{ st_type }}">
+</form>
+
 <!-- 查询报价表单 -->
 <form id="queryQuotationForm" method="post" action="" style="display: none;">
     {% csrf_token %}
     <input type="hidden" name="step" value="query_quotation">
     <input type="hidden" name="cargo_ids" id="queryCargoIds">
-    <input type="hidden" name="plt_ids" id="queryPltIds">
+    <input type="hidden" name="plt_ids" id="queryPltIdsQuotation">
     <input type="hidden" name="warehouse" value="{{ warehouse }}">
     <input type="hidden" name="st_type" value="{{ st_type }}">
 </form>
@@ -719,7 +813,7 @@
         
         for (const [colIndex, searchTerm] of Object.entries(searchState)) {
             const cellIndex = parseInt(colIndex);
-            if (cellIndex >= cells.length || cellIndex >= 11) continue;
+            if (cellIndex >= cells.length || cellIndex >= 12) continue;
             
             const cellText = cells[cellIndex].textContent.toLowerCase().trim();
             if (!cellText.includes(searchTerm)) {
@@ -830,7 +924,7 @@
             const cells = row.querySelectorAll('td');
             cells.forEach((cell, cellIndex) => {
                 // 跳过操作列和匹配度列（最后2列）
-                if (cellIndex >= 11) return;
+                if (cellIndex >= 12) return;
                 
                 let cellText = cell.textContent;
                 
@@ -1151,7 +1245,7 @@
 
                 // 填充表单数据并提交
                 document.getElementById('queryCargoIds').value = cargoIds;
-                document.getElementById('queryPltIds').value = pltIds;
+                document.getElementById('queryPltIdsQuotation').value = pltIds;
                 
                 // 提交表单
                 document.getElementById('queryQuotationForm').submit();
@@ -1196,6 +1290,33 @@
             document.getElementById('actionForm').submit();
         });
     });
+
+    function submitShipmentNote(btn) {
+        const wrapper = btn.closest('.note-input-wrapper');
+        const textarea = wrapper.querySelector('.shipment-note-input');
+
+        const cargoIds = (textarea.dataset.cargoIds || '').trim();
+        const pltIds = (textarea.dataset.pltIds || '').trim();
+        const value = textarea.value.trim();
+
+        if (!cargoIds && !pltIds) return;
+
+        const cargoInput = document.getElementById('main_cargoIdInput');
+        const pltInput = document.getElementById('queryPltIds');
+        const noteInput = document.getElementById('shipmentNoteValue');
+
+        if (cargoIds) {
+            cargoInput.value = cargoIds;
+            pltInput.value = '';
+        } else {
+            cargoInput.value = '';
+            pltInput.value = pltIds;
+        }
+        noteInput.value = value;
+
+        document.getElementById('shipmentNoteForm').submit();
+        
+    }
     
     
 </script>
