@@ -512,6 +512,10 @@ CARRIER_FLEET = {
     "Arm": "Arm",
     "ZEM": "ZEM",
     "LiFeng": "LiFeng",
+    "LLC": "LLC",
+    "FWT": "FWT",
+    "大森林": "大森林",
+    "Sunzong": "Sunzong",
 }
 
 PORT_TO_WAREHOUSE_AREA = {
