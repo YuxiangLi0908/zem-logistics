@@ -276,6 +276,12 @@ class FleetManagement(View):
         elif step == "upload_ltl_cost":
             template, context = await self.handle_upload_ltl_cost(request)
             return render(request, template, context)
+        elif step == "update_fleet_verify_status":
+            template, context = await self.handle_update_fleet_verify_status(request)
+            return render(request, template, context)
+        elif step == "rollback_fleet_status":
+            template, context = await self.handle_rollback_fleet_status(request)
+            return render(request, template, context)
         else:
             return await self.get(request)
 
@@ -2265,6 +2271,159 @@ class FleetManagement(View):
             logger.error('LTL批量上传成本整体异常', exc_info=True)
             error_messages = [f'文件处理失败：{str(e)[:200]}']
             return await self.handle_fleet_cost_record_get_ltl(request, error_messages, 0)
+
+    async def handle_update_fleet_verify_status(self, request: HttpRequest):
+        """
+        统一处理单条/批量更新核实状态
+        - 修复核心：用sync_to_async包装所有数据库操作，兼容异步上下文
+        """
+        logger = logging.getLogger(__name__)
+        logger.info(f"【更新核实状态】接收到的POST参数：{dict(request.POST)}")
+
+        # 1. 解析参数（兼容单条/批量）
+        single_fleet_number = request.POST.get('fleet_number')
+        single_is_verified = request.POST.get('is_verified', 'false') == 'true'
+
+        batch_fleet_numbers = request.POST.get('selected_fleet_numbers', '')
+        batch_action = request.POST.get('verify_action', 'verify')
+        batch_is_verified = batch_action == 'verify'
+
+        # 2. 确定要更新的车次号列表和核实状态
+        fleet_number_list = []
+        is_verified = False
+
+        # 优先处理批量操作
+        if batch_fleet_numbers:
+            # 严格清洗：去重、去空、去空格
+            fleet_number_list = list(set([num.strip() for num in batch_fleet_numbers.split(',') if num.strip()]))
+            is_verified = batch_is_verified
+            logger.info(f"【批量操作】清洗后待更新车次号列表：{fleet_number_list}，核实状态：{is_verified}")
+        # 处理单条操作
+        elif single_fleet_number:
+            fleet_number_list = [single_fleet_number.strip()]  # 单条也清洗
+            is_verified = single_is_verified
+            logger.info(f"【单条操作】清洗后待更新车次号：{fleet_number_list}，核实状态：{is_verified}")
+        # 无有效参数
+        else:
+            if 'error_messages' not in request.session:
+                request.session['error_messages'] = []
+            request.session['error_messages'].append("未获取到有效的车次号")
+            error_message = "【更新失败】未获取到有效的车次号"
+            return await self.handle_fleet_cost_record_get_ltl(request, error_message, 0)
+
+        # 3. 定义同步的数据库操作函数（核心修复）
+        def update_fleet_verify_status_sync(fleet_numbers, verify_status):
+            """同步更新核实状态（包装成异步可调用）"""
+            try:
+                # 同步查询匹配数量
+                match_count = Fleet.objects.filter(fleet_number__in=fleet_numbers).count()
+                logger.info(f"【查询匹配数据】车次号列表{fleet_numbers}匹配到{match_count}条记录")
+
+                if match_count == 0:
+                    return 0, [f"未找到匹配的车次号：{fleet_numbers}"]
+
+                # 同步批量更新
+                success_count = Fleet.objects.filter(
+                    fleet_number__in=fleet_numbers
+                ).update(fleet_verify_status=verify_status)
+
+                logger.info(f"【更新成功】{'核实' if verify_status else '取消核实'} {success_count} 条记录")
+                return success_count, [f"成功{'核实' if verify_status else '取消核实'} {success_count} 条记录"]
+
+            except Exception as e:
+                logger.error(f"【更新失败】操作异常：{str(e)}", exc_info=True)
+                return 0, [f"{'核实' if verify_status else '取消核实'}操作失败：{str(e)}"]
+
+        # 4. 执行更新操作（同步函数转异步）
+        success_count, error_messages = await sync_to_async(update_fleet_verify_status_sync)(
+            fleet_number_list, is_verified
+        )
+
+        # 5. 保存错误信息到session
+        if error_messages:
+            if 'error_messages' not in request.session:
+                request.session['error_messages'] = []
+            request.session['error_messages'].extend(error_messages)
+            request.session.modified = True  # 异步下必须标记session修改
+
+        # 6. 返回原页面
+        return await self.handle_fleet_cost_record_get_ltl(request, None, success_count)
+
+    async def handle_rollback_fleet_status(self, request: HttpRequest):
+        """
+        统一处理单条/批量退回未录入状态
+        - 支持单个退回：从fleet_number获取车次号
+        - 支持批量退回：从selected_fleet_numbers获取多个车次号
+        - 核心逻辑：不是删除数据，而是重置核实状态/成本字段为未录入状态
+        """
+        logger = logging.getLogger(__name__)
+        logger.info(f"【退回未录入】接收到的POST参数：{dict(request.POST)}")
+
+        # 1. 解析参数（兼容单条/批量）
+        single_fleet_number = request.POST.get('fleet_number')
+        batch_fleet_numbers = request.POST.get('selected_fleet_numbers', '')
+
+        # 2. 确定要更新的车次号列表
+        fleet_number_list = []
+
+        # 优先处理批量操作
+        if batch_fleet_numbers:
+            # 严格清洗：去重、去空、去空格
+            fleet_number_list = list(set([num.strip() for num in batch_fleet_numbers.split(',') if num.strip()]))
+            logger.info(f"【批量退回】清洗后车次号列表：{fleet_number_list}")
+        # 处理单条操作
+        elif single_fleet_number:
+            fleet_number_list = [single_fleet_number.strip()]  # 单条也清洗
+            logger.info(f"【单条退回】车次号：{fleet_number_list}")
+        # 无有效参数
+        else:
+            if 'error_messages' not in request.session:
+                request.session['error_messages'] = []
+            request.session['error_messages'].append("未获取到有效的车次号")
+            logger.warning("【退回失败】未获取到有效的车次号")
+            return await self.handle_fleet_cost_record_get_ltl(request, None, 0)
+
+        # 3. 定义同步的数据库操作函数（核心：重置为未录入状态，而非删除）
+        def rollback_fleet_status_sync(fleet_numbers):
+            """同步退回未录入状态"""
+            try:
+                # 同步查询匹配数量
+                match_count = Fleet.objects.filter(fleet_number__in=fleet_numbers).count()
+                logger.info(f"【查询匹配数据】车次号列表{fleet_numbers}匹配到{match_count}条记录")
+
+                if match_count == 0:
+                    return 0, [f"未找到匹配的车次号：{fleet_numbers}"]
+
+                # 同步批量更新（重置为未录入状态）
+                # 根据业务需求调整字段：比如重置核实状态、清空成本、退回状态等
+                success_count = Fleet.objects.filter(
+                    fleet_number__in=fleet_numbers
+                ).update(
+                    fleet_verify_status=False,  # 重置核实状态为未核实
+                    fleet_cost=None,  # 清空已录入的成本
+                    fleet_cost_back=None,  # 清空退回费用（如有）
+                    # 可添加其他需要重置的字段
+                )
+
+                logger.info(f"【退回成功】成功退回 {success_count} 条记录到未录入状态")
+                return success_count, [f"成功退回 {success_count} 条记录到未录入状态"]
+
+            except Exception as e:
+                logger.error(f"【退回失败】操作异常：{str(e)}", exc_info=True)
+                return 0, [f"退回操作失败：{str(e)}"]
+
+        # 4. 执行更新操作（同步函数转异步）
+        success_count, error_messages = await sync_to_async(rollback_fleet_status_sync)(fleet_number_list)
+
+        # 5. 保存错误信息到session
+        if error_messages:
+            if 'error_messages' not in request.session:
+                request.session['error_messages'] = []
+            request.session['error_messages'].extend(error_messages)
+            request.session.modified = True  # 异步下必须标记session修改
+
+        # 6. 返回原页面
+        return await self.handle_fleet_cost_record_get_ltl(request, None, success_count)
 
     async def handle_fleet_warehouse_search_post(
         self, request: HttpRequest
