@@ -5428,6 +5428,15 @@ class PostNsop(View):
                     "shipment__shipment_batch_number", delimiter=","
                 ),
                 appointment_ids=StringAgg("shipment__appointment_id", delimiter=","),
+                all_appointment_times=StringAgg(
+                    Func(
+                        F("shipment__shipment_appointment"),
+                        Value("YYYY-MM-DD HH24:MI"),  # 规定格式：年-月-日 时:分
+                        function="to_char"
+                    ),
+                    delimiter="\n",
+                    distinct=True  # 建议加上，防止同一辆车多个PO导致时间行重复显示
+                ),
             )
             .order_by("appointment_datetime")
         )
