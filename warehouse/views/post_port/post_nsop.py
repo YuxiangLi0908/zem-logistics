@@ -6110,7 +6110,7 @@ class PostNsop(View):
         # 生成匹配建议
         max_cbm, max_pallet = await self.get_capacity_limits(st_type)
         
-        # 获取三类数据：未排约、已排约、待出库
+        # 未排约
         if not matching_suggestions:
             sp_result = await self.sp_unscheduled_data(
                 warehouse, st_type, 1000, 1000, request.user
@@ -6374,6 +6374,7 @@ class PostNsop(View):
                         'fba_ids': cargo.get('fba_ids', ''),
                         'container_numbers': cargo.get('container_numbers', ''),
                         'cns': cargo.get('cns', ''),
+                        'customer_name': cargo.get('customer_name', ''),
                         'destination': cargo.get('destination', ''),
                         'offload_time': cargo.get('offload_time', ''),
                         'delivery_window_start': cargo.get('delivery_window_start'),
@@ -9524,6 +9525,7 @@ class PostNsop(View):
                     "location",  # 添加location用于比较
                     "is_pass",
                     "is_zhunshida",
+                    customer_name=F("container_number__orders__customer_name__zem_name"),
                     warehouse=F(
                         "container_number__orders__retrieval_id__retrieval_destination_precise"
                     ),               
@@ -9741,6 +9743,7 @@ class PostNsop(View):
                     "has_appointment_retrieval", 
                     "has_estimated_retrieval",
                     "is_zhunshida", 
+                    customer_name=F("container_number__orders__customer_name__zem_name"),
                     warehouse=F(
                         "container_number__orders__retrieval_id__retrieval_destination_precise"
                     ),
