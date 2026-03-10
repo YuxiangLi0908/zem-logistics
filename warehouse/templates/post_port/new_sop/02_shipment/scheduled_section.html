@@ -182,10 +182,22 @@
                         </td>
                         <td rowspan="{{ shipment_group.cargos|length }}" style="vertical-align: middle;">
                             
-                            <button class="action-btn btn-secondary" onclick="unassignShipment('{{ shipment_group.appointment_id }}')">
+                            <button class="action-btn btn-danger" onclick="unassignShipment('{{ shipment_group.appointment_id }}')">
                                 <i class="fas fa-unlink"></i> 取消排约
                             </button>
                             
+                            <form method="post" action="">
+                                {% csrf_token %}
+                                <input type="hidden" name="appointment_id" value="{{ shipment_group.appointment_id }}">                                  
+                                <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                                <input type="hidden" name="step" value="shipment_export_po">
+                                <input type="hidden" name="active_tab" value="scheduled"> 
+
+                                <button class="action-btn btn-success" onclick="">
+                                    <i class="fas fa-square-plus"></i> 导出PO
+                                </button>
+                            </form>
+
                             <form method="post" action="">
                                 {% csrf_token %}
                                 <input type="hidden" name="appointment_id" value="{{ shipment_group.appointment_id }}">                                  
@@ -194,7 +206,7 @@
                                 <input type="hidden" name="step" value="search_addable_po">
                                 <input type="hidden" name="active_tab" value="scheduled"> 
 
-                                <button class="action-btn btn-success" onclick="">
+                                <button class="action-btn btn-info" onclick="">
                                     <i class="fas fa-square-plus"></i> 添加PO
                                 </button>
                             </form>

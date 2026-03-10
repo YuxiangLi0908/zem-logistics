@@ -230,6 +230,8 @@ class PostNsop(View):
             return render(request, template, context)
         elif step == "export_pos":
             return await self.handle_export_pos(request)
+        elif step == "shipment_export_po":
+            return await self.handle_shipment_export_pos(request)     
         elif step == "appointment_time_modify":
             template, context = await self.handle_appointment_time(request)
             return render(request, template, context)
@@ -4824,6 +4826,32 @@ class PostNsop(View):
         else:
             return await self.handle_appointment_management_post(request,context)
 
+    async def handle_shipment_export_pos(self, request: HttpRequest) -> HttpResponse:
+        '''已排约的PO导出'''
+        appointment_id = request.POST.getlist("appointment_id")[0]
+        if not appointment_id:
+            raise ValueError('没有获取到约的id')
+        
+        try:
+            shipment = await Shipment.objects.aget(appointment_id=appointment_id)
+        except Shipment.DoesNotExist:
+            raise ValueError(f'没有找到{appointment_id}的约')
+        
+        pl_ids = [
+            pk async for pk in PackingList.objects.filter(
+                shipment_batch_number=shipment
+            ).values_list('id', flat=True)
+        ]
+        plt_ids = [
+            pk async for pk in Pallet.objects.filter(
+                shipment_batch_number=shipment
+            ).values_list('id', flat=True)
+        ]
+        if not pl_ids and not plt_ids:
+            raise ValueError(f'{appointment_id}约里没有任何po没有获取到id')
+        return await self._execute_export_logic(pl_ids, plt_ids)
+        
+
     async def handle_export_pos(self, request: HttpRequest) -> HttpResponse:
         cargo_ids_str_list = request.POST.getlist("cargo_ids")
         pl_ids = [
@@ -4842,7 +4870,9 @@ class PostNsop(View):
 
         if not pl_ids and not plt_ids:
             raise ValueError('没有获取到id')
-        
+        return await self._execute_export_logic(pl_ids, plt_ids)
+    
+    async def _execute_export_logic(self, pl_ids: list, plt_ids: list) -> HttpResponse:
         all_data = []
         #先把plt_id找到对应的pl_id
         if plt_ids:
