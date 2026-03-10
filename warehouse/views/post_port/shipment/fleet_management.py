@@ -731,7 +731,7 @@ class FleetManagement(View):
         wb = openpyxl.Workbook()
         ws = wb.active
         ws.title = "Fleet Cost Template"
-        headers = ["PickUp Number", "出库批次", "预约批次", "ISA", "费用"]
+        headers = ["PickUp Number", "预约批次", "ISA", "费用"]
         ws.append(headers)
 
         response = HttpResponse(
@@ -768,129 +768,192 @@ class FleetManagement(View):
             raise RuntimeError("无法识别文件编码，请检查文件格式！")
 
     async def handle_upload_fleet_cost_get(
-        self, request: HttpRequest
+            self, request: HttpRequest
     ) -> tuple[Any, Any]:
-        form = UploadFileForm(request.POST, request.FILES)
-        error_messages = [] #错误信息
+        error_messages = []  # 错误信息
         success_count = 0
-        if form.is_valid():
+        valid_rows = []
+
+        # 验证表单
+        form = UploadFileForm(request.POST, request.FILES)
+        if not form.is_valid():
+            # 表单验证失败时的错误信息
+            for field, errors in form.errors.items():
+                for error in errors:
+                    error_messages.append(f"表单错误 - {field}: {error}")
+            return await self.handle_fleet_cost_record_get(request, error_messages, success_count)
+
+        try:
             file = request.FILES["file"]
+            # 读取Excel文件
             df = pd.read_excel(file)
-            if "费用" in df.columns:
-                valid_rows = []
-                for index, row in df.iterrows():
-                    #满足：费用存在 或 (PickUp Number/出库批次/预约批次 至少一个存在)
-                    if pd.notna(row["费用"]) or any([
-                        pd.notna(row.get("PickUp Number")),
-                        pd.notna(row.get("出库批次")),
-                        pd.notna(row.get("预约批次")),
-                        pd.notna(row.get("ISA")),
-                    ]):
-                        isa_value = ""
-                        if pd.notna(row["ISA"]):
-                            try:
-                                isa_value = str(int(float(row["ISA"]))).strip()
-                            except (ValueError, TypeError) as e:
-                                error_messages.append(f"第{index+2}行: ISA值 '{isa_value}' 转换失败 - {str(e)}")
-                                continue 
-                        row_data = (
-                            str(row["PickUp Number"]).strip() if pd.notna(row["PickUp Number"]) else "",
-                            str(row["出库批次"]).strip() if pd.notna(row["出库批次"]) else "",
-                            str(row["预约批次"]).strip() if pd.notna(row["预约批次"]) else "",
-                            isa_value,
-                            float(row["费用"]) if pd.notna(row["费用"]) else 0.0,
-                            index + 2
-                        )
-                        valid_rows.append(row_data)
-            else:
-                error_messages.append(f"文件缺少必要列。找到的列: {df.columns.tolist()}")
-                return await self.handle_fleet_cost_record_get(request, error_messages, 0)
 
+            # 检查必要列是否存在
+            if "费用" not in df.columns:
+                error_messages.append(f"文件缺少必要列'费用'。找到的列: {df.columns.tolist()}")
+                return await self.handle_fleet_cost_record_get(request, error_messages, success_count)
+
+            # 处理每一行数据
+            for index, row in df.iterrows():
+                row_number = index + 2  # Excel行号从2开始（跳过表头）
+
+                # 验证：费用存在 或 (PickUp Number/出库批次/预约批次 至少一个存在)
+                has_cost = pd.notna(row["费用"])
+                has_identifier = any([
+                    pd.notna(row.get("PickUp Number")),
+                    pd.notna(row.get("预约批次")),
+                    pd.notna(row.get("ISA")),
+                ])
+
+                if not (has_cost or has_identifier):
+                    error_messages.append(f"第{row_number}行: 缺少费用或车次识别信息")
+                    continue
+
+                # 处理ISA值
+                isa_value = ""
+                if pd.notna(row.get("ISA")):
+                    try:
+                        isa_value = str(int(float(row["ISA"]))).strip()
+                    except (ValueError, TypeError) as e:
+                        error_messages.append(f"第{row_number}行: ISA值 '{row['ISA']}' 转换失败 - {str(e)}")
+                        continue
+
+                # 处理PickUp Number
+                pickup_number = ""
+                if pd.notna(row.get("PickUp Number")):
+                    pickup_number = str(row["PickUp Number"]).strip()
+
+                # 处理预约批次
+                shipment_batch_number = ""
+                if pd.notna(row.get("预约批次")):
+                    shipment_batch_number = str(row["预约批次"]).strip()
+
+                # 处理费用
+                fleet_cost = 0.0
+                if pd.notna(row["费用"]):
+                    try:
+                        fleet_cost = float(row["费用"])
+                    except (ValueError, TypeError) as e:
+                        error_messages.append(f"第{row_number}行: 费用值 '{row['费用']}' 转换失败 - {str(e)}")
+                        continue
+
+                # 添加到有效行列表
+                valid_rows.append((
+                    pickup_number,
+                    shipment_batch_number,
+                    isa_value,
+                    fleet_cost,
+                    row_number
+                ))
+
+            # 处理有效数据行
             for (
-                pickup_number,
-                fleet_number,
-                shipment_batch_number,
-                ISA,
-                fleet_cost,
-                row_number
+                    pickup_number,
+                    shipment_batch_number,
+                    ISA,
+                    fleet_cost,
+                    row_number
             ) in valid_rows:
-                #try:
-                if fleet_cost <= 0:
-                    error_messages.append(f"第{row_number}行: 费用不能为负或零")
-                    continue
-                fleet = None
-                search_criteria = ""
-                # 更新车次表的价格
-                if pickup_number:
-                    fleet_query = await sync_to_async(list)(
-                        Fleet.objects.filter(pickup_number=pickup_number).only(
-                            "id", "fleet_number", "pickup_number"
-                        )
-                    )
-                    if len(fleet_query) > 1:
-                        error_messages.append(f"第{row_number}行: PickUp Number '{pickup_number}' 对应多个车次")
-                        continue
-                    if not fleet_query:
-                        error_messages.append(f"第{row_number}行: 未找到 PickUp Number '{pickup_number}' 对应的车次")
-                        continue
-                    fleet = fleet_query[0]
-                    search_criteria = f"PickUp Number: {pickup_number}"
-                elif shipment_batch_number:
-                    try:
-                        shipment = await sync_to_async(Shipment.objects.get)(shipment_batch_number=shipment_batch_number)
-                        fleet = await sync_to_async(getattr)(shipment, 'fleet_number')
-                        if not fleet:
-                            error_messages.append(f"第{row_number}行: 未找到ISA '{ISA}' 对应的车次")
-                            continue
-                        search_criteria = f"预约批次: {shipment_batch_number}"
-                    except Shipment.DoesNotExist:
-                        error_messages.append(f"第{row_number}行: 未找到预约批次 '{shipment_batch_number}' 对应的车次")
-                        continue
-                elif fleet_number:
-                    try:
-                        fleet = await sync_to_async(Fleet.objects.get)(
-                            fleet_number=fleet_number
-                        )
-                        search_criteria = f"出库批次: {fleet_number}"
-                    except Fleet.DoesNotExist:
-                        error_messages.append(f"第{row_number}行: 未找出库批次 '{fleet_number}' 对应的车次")
-                        continue
-                elif ISA:                     
-                    try:
-                        shipment = await sync_to_async(Shipment.objects.get)(appointment_id=ISA)
-                        fleet = await sync_to_async(getattr)(shipment, 'fleet_number')
-                        if not fleet:
-                            error_messages.append(f"第{row_number}行: 未找到ISA '{ISA}' 对应的车次")
-                            continue
-                        search_criteria = f"ISA: {ISA}"
-                    except Shipment.DoesNotExist:
-                        error_messages.append(f"第{row_number}行: 未找到ISA '{ISA}' 对应的车次")
-                        continue
-                    except Shipment.MultipleObjectsReturned:
-                        error_messages.append(f"第{row_number}行: ISA '{ISA}' 对应多条记录")
-                        continue
-                else:
-                    error_messages.append(f"第{row_number}行: 缺少车次识别信息")
-                    continue
-                
-                if hasattr(fleet, 'fleet_cost') and fleet.fleet_cost is not None:
-                    # 检查是否有相关的FleetShipmentPallet记录且已记录
-                    existing_records = await sync_to_async(list)(
-                        FleetShipmentPallet.objects.filter(
-                            models.Q(fleet_number=fleet) | 
-                            models.Q(pickup_number=fleet.pickup_number)
-                        )
-                    )
-                    if existing_records and any(record.is_recorded for record in existing_records):
-                        error_messages.append(f"第{row_number}行 ({search_criteria}): 费用已经登记过，不能修改")
+                try:
+                    # 验证费用是否有效
+                    if fleet_cost <= 0:
+                        error_messages.append(f"第{row_number}行: 费用不能为负或零（当前值：{fleet_cost}）")
                         continue
 
-                fleet.fleet_cost = fleet_cost
-                await sync_to_async(fleet.save)()
+                    fleet = None
+                    search_criteria = ""
 
-                # 分摊车次成本
-                await self.insert_fleet_shipment_pallet_fleet_cost(request, fleet_number, fleet_cost)
-        return await self.handle_fleet_cost_record_get(request,error_messages, success_count)
+                    # 根据PickUp Number查找车次
+                    if pickup_number:
+                        fleet_query = await sync_to_async(list)(
+                            Fleet.objects.filter(pickup_number=pickup_number).only(
+                                "id", "fleet_number", "pickup_number", "fleet_cost"
+                            )
+                        )
+                        if len(fleet_query) > 1:
+                            error_messages.append(f"第{row_number}行: PickUp Number '{pickup_number}' 对应多个车次")
+                            continue
+                        if not fleet_query:
+                            error_messages.append(
+                                f"第{row_number}行: 未找到 PickUp Number '{pickup_number}' 对应的车次")
+                            continue
+                        fleet = fleet_query[0]
+                        search_criteria = f"PickUp Number: {pickup_number}"
+
+                    # 根据预约批次查找车次
+                    elif shipment_batch_number:
+                        try:
+                            shipment = await sync_to_async(Shipment.objects.get)(
+                                shipment_batch_number=shipment_batch_number
+                            )
+                            fleet = await sync_to_async(getattr)(shipment, 'fleet_number', None)
+                            if not fleet:
+                                error_messages.append(
+                                    f"第{row_number}行: 预约批次 '{shipment_batch_number}' 未关联车次")
+                                continue
+                            search_criteria = f"预约批次: {shipment_batch_number}"
+                        except Shipment.DoesNotExist:
+                            error_messages.append(
+                                f"第{row_number}行: 未找到预约批次 '{shipment_batch_number}' 对应的记录")
+                            continue
+
+                    # 根据ISA查找车次
+                    elif ISA:
+                        try:
+                            shipment = await sync_to_async(Shipment.objects.get)(appointment_id=ISA)
+                            fleet = await sync_to_async(getattr)(shipment, 'fleet_number', None)
+                            if not fleet:
+                                error_messages.append(f"第{row_number}行: ISA '{ISA}' 未关联车次")
+                                continue
+                            search_criteria = f"ISA: {ISA}"
+                        except Shipment.DoesNotExist:
+                            error_messages.append(f"第{row_number}行: 未找到ISA '{ISA}' 对应的记录")
+                            continue
+                        except Shipment.MultipleObjectsReturned:
+                            error_messages.append(f"第{row_number}行: ISA '{ISA}' 对应多条记录")
+                            continue
+
+                    # 没有识别信息
+                    else:
+                        error_messages.append(f"第{row_number}行: 缺少车次识别信息")
+                        continue
+
+                    # 检查费用是否已登记
+                    if hasattr(fleet, 'fleet_cost') and fleet.fleet_cost is not None:
+                        # 检查是否有相关的FleetShipmentPallet记录且已记录
+                        existing_records = await sync_to_async(list)(
+                            FleetShipmentPallet.objects.filter(
+                                models.Q(fleet_number=fleet) |
+                                models.Q(pickup_number=fleet.pickup_number)
+                            )
+                        )
+                        if existing_records and any(record.is_recorded for record in existing_records):
+                            error_messages.append(f"第{row_number}行 ({search_criteria}): 费用已经登记过，不能修改")
+                            continue
+
+                    # 更新车次费用
+                    fleet.fleet_cost = fleet_cost
+                    await sync_to_async(fleet.save)()
+
+                    # 分摊车次成本
+                    await self.insert_fleet_shipment_pallet_fleet_cost(
+                        request, fleet.fleet_number, fleet_cost
+                    )
+
+                    # 成功计数+1
+                    success_count += 1
+
+                except Exception as e:
+                    # 捕获其他未预期的异常
+                    error_messages.append(f"第{row_number}行: 处理失败 - {str(e)}")
+                    continue
+
+        except Exception as e:
+            # 捕获文件处理过程中的异常
+            error_messages.append(f"文件处理失败: {str(e)}")
+
+        # 返回处理结果
+        return await self.handle_fleet_cost_record_get(request, error_messages, success_count)
 
     async def handle_fleet_cost_confirm_get(
             self, request: HttpRequest
@@ -1066,7 +1129,7 @@ class FleetManagement(View):
             fleet_cost = Decimal(str(fleet_cost))
             # 计算每托盘分摊金额
             cost_per_pallet = (fleet_cost / total_pallets_decimal).quantize(
-                Decimal("0.00"), rounding=ROUND_HALF_UP  # 保留2位小数，财务标准
+                Decimal("0.0000"), rounding=ROUND_HALF_UP  # 保留2位小数，财务标准
             )
 
             # 批量更新分摊后的费用
@@ -1156,7 +1219,7 @@ class FleetManagement(View):
             fleet_cost = Decimal(str(fleet_cost))
             # 计算每托盘分摊金额
             cost_per_pallet = (fleet_cost / total_pallets_decimal).quantize(
-                Decimal("0.00"), rounding=ROUND_HALF_UP  # 保留2位小数，财务标准
+                Decimal("0.0000"), rounding=ROUND_HALF_UP  # 保留2位小数，财务标准
             )
 
             # 批量更新分摊后的费用

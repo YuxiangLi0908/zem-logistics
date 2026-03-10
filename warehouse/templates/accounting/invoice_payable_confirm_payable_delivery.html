@@ -1164,7 +1164,7 @@
                                                                 </td>
                                                                 <td class="td" rowspan="{{ pickup_data.total_rows }}"
                                                                     style="vertical-align: middle;">
-                                                                    ${{ pickup_data.ISA_total_expense }}
+                                                                    ${{ pickup_data.ISA_total_expense|floatformat:2 }}
                                                                 </td>
                                                                 <td class="td" rowspan="{{ pickup_data.total_rows }}"
                                                                     style="vertical-align: middle;">
@@ -1451,7 +1451,7 @@
                                                                 </td>
                                                                 <td class="td" rowspan="{{ pickup_data.total_rows }}"
                                                                     style="vertical-align: middle;">
-                                                                    ${{ pickup_data.ISA_total_expense }}
+                                                                    ${{ pickup_data.ISA_total_expense|floatformat:2 }}
                                                                 </td>
                                                             {% endif %}
                                                             <td class="td" rowspan="{{ pickup_data.total_rows }}" style="vertical-align: middle;">
