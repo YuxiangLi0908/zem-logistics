@@ -198,7 +198,7 @@
 </div>
 </div>
 
-{% if page.pickup_attachments %}
+{% if page.pickup_attachments or page.pickup_has_pdf %}
 <div style="padding: 10px 0;">
     {% for att in page.pickup_attachments %}
         {% if att.kind == "image" %}
@@ -212,6 +212,7 @@
         {% endif %}
     {% endfor %}
     <div style="padding-top: 10px; font-size: 14px;">
+        <span style="font-size: 1px; color: #ffffff; line-height: 1px;">__ZEM_PICKUP_PDF_ANCHOR__</span>
         containers: <b>{{ page.container_number|safe }}</b><br>
         shipping_mark: <b>{{ page.shipping_mark|safe }}</b>
     </div>
