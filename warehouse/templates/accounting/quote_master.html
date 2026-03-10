@@ -56,7 +56,8 @@
                     </button>
                 </th>            
                 <th style="padding: 15px; border-bottom: 2px solid #dee2e6; text-align: center;width:100px;">是否通用</th>
-                <th style="padding: 15px; border-bottom: 2px solid #dee2e6; text-align: center;width:120px;">专属客户</th>         
+                <th style="padding: 15px; border-bottom: 2px solid #dee2e6; text-align: center;width:120px;">专属客户</th>   
+                <th style="padding: 15px; border-bottom: 2px solid #dee2e6; text-align: center;width:120px;">version</th>       
             </tr>
             <tr style="position: sticky; top: 52px;" id="fleet-table-filter">
                 <th class="th"><input type="text" style="width:110px;" id="filenameSearchInput" placeholder="搜索文件名..." oninput="filterTable()"></th>
@@ -70,6 +71,7 @@
                 <th class="th">
                     <input type="text" style="width:110px;" id="customerSearchInput" placeholder="(空值输入#)..." oninput="filterTable()" title="搜索客户，输入#null查找空值">
                 </th>
+                <th class="th"></th>
             </tr>
         </thead>
         <tbody>
@@ -84,6 +86,7 @@
                     data-sort-value="{{ q.upload_date|date:'Y-m-d' }}">{{ q.upload_date|date:"Y-M-j" }}</td>             
                     <td style="padding: 15px; text-align: center;">{{ q.is_user_exclusive|yesno:"否,是" }}</td>
                     <td style="padding: 15px; text-align: center;" data-customer-value="{{ q.exclusive_user|default:'' }}">{{ q.exclusive_user|default:"" }}</td>
+                    <td style="padding: 15px; text-align: center;">{{ q.version }}</td>
                     {% comment %} <td style="padding: 15px; text-align: center; {% if q.active %}color: #28a745; font-weight: bold;{% else %}color: #dc3545; font-style: italic;{% endif %}">
                         {% if q.active %}已启用{% else %}未启用{% endif %}
                     </td>
