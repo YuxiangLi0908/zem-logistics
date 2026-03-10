@@ -3665,6 +3665,8 @@ class PostNsop(View):
             )()
         plts["total_cbm"] = round(float(plts.get("total_cbm") or 0.0), 2)
         plts["total_weight"] = round(float(plts.get("total_weight") or 0.0), 2)
+        if plts["total_cbm"] == 0.0:
+            raise ValueError(f"{container.container_number} total_cbm是0")
         # 获取匹配的报价表
         matching_quotation = await sync_to_async(
             lambda: QuotationMaster.objects.filter(
@@ -6501,8 +6503,8 @@ class PostNsop(View):
             current_pallets = current_group['total_pallets']
             
             # 计算当前大组的剩余容量
-            remaining_cbm = 100 - current_cbm
-            remaining_pallets = 100 - current_pallets
+            remaining_cbm = 1000 - current_cbm
+            remaining_pallets = 1000 - current_pallets
             
             # 寻找可以合并的其他大组
             compatible_groups = []
