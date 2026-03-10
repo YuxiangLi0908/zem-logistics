@@ -745,6 +745,8 @@
     <input type="hidden" name="st_type" value="{{ st_type }}">
 </form>
 
+<div id="quotationModalContainer"></div>
+
 <!-- 查询报价表单 -->
 <form id="queryQuotationForm" method="post" action="" style="display: none;">
     {% csrf_token %}
@@ -1211,9 +1213,9 @@
                 openExportPoModal();
             });
         });
-        // 查询报价功能 - 直接提交表单
+        // 查询报价功能 - AJAX 弹框展示（不刷新页面）
         document.querySelectorAll('.query-quotation-btn').forEach(btn => {
-            btn.addEventListener('click', function() {
+            btn.addEventListener('click', async function() {
                 const suggestionId = this.getAttribute('data-suggestion-id');
                 console.log('suggestionId',suggestionId);
                 const groupRows = document.querySelectorAll(`tr[data-suggestion-id="${suggestionId}"]`);
@@ -1243,18 +1245,37 @@
                 this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 查询中...';
                 this.disabled = true;
 
-                // 填充表单数据并提交
-                document.getElementById('queryCargoIds').value = cargoIds;
-                document.getElementById('queryPltIdsQuotation').value = pltIds;
-                
-                // 提交表单
-                document.getElementById('queryQuotationForm').submit();
-                
-                // 3秒后恢复按钮状态（防止重复提交）
-                setTimeout(() => {
+                try {
+                    const form = document.getElementById('queryQuotationForm');
+                    const formData = new FormData(form);
+                    formData.set('cargo_ids', cargoIds.join(','));
+                    formData.set('plt_ids', pltIds.join(','));
+
+                    const resp = await fetch(window.location.href, {
+                        method: 'POST',
+                        body: formData,
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest'
+                        }
+                    });
+
+                    const data = await resp.json().catch(() => null);
+                    if (!resp.ok || !data) {
+                        const msg = (data && data.message) ? data.message : '查询失败';
+                        alert(msg);
+                        return;
+                    }
+                    if (!data.success) {
+                        alert(data.message || '查询失败');
+                        return;
+                    }
+                    openQuotationModal(data.html || '');
+                } catch (e) {
+                    alert('查询失败');
+                } finally {
                     this.innerHTML = originalHtml;
                     this.disabled = false;
-                }, 3000);
+                }
             });
         });
 
@@ -1316,6 +1337,25 @@
 
         document.getElementById('shipmentNoteForm').submit();
         
+    }
+
+    function closeQuotationModal() {
+        const modal = document.getElementById('quotationModal');
+        if (modal) modal.style.display = 'none';
+    }
+
+    function openQuotationModal(html) {
+        const container = document.getElementById('quotationModalContainer');
+        if (!container) return;
+        container.innerHTML = html || '';
+        const modal = document.getElementById('quotationModal');
+        if (!modal) return;
+        modal.style.display = 'block';
+        modal.addEventListener('click', function(event) {
+            if (event.target === modal) {
+                closeQuotationModal();
+            }
+        }, { once: true });
     }
     
     

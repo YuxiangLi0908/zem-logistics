@@ -453,7 +453,10 @@ class PostNsop(View):
             template, context = await self.handle_save_shipment_note(request)
             return render(request, template, context)
         elif step == "query_quotation":
-            template, context = await self.handle_query_quotation(request)
+            result = await self.handle_query_quotation(request)
+            if isinstance(result, HttpResponse):
+                return result
+            template, context = result
             return render(request, template, context) 
         elif step == "export_maersk_label":
             return await self.handle_export_maersk_label(request)
@@ -3319,14 +3322,19 @@ class PostNsop(View):
     
     async def handle_query_quotation(
         self, request: HttpRequest
-    ) -> tuple[str, dict[str, Any]]:
+    ) -> HttpResponse | tuple[str, dict[str, Any]]:
         '''查询多个仓点的报价'''
+        context = {}
+        is_ajax = request.headers.get("x-requested-with") == "XMLHttpRequest"
         cargo_ids = request.POST.get("cargo_ids", "")
         plt_ids = request.POST.get("plt_ids", "")
         cargo_id_list = [int(i) for i in cargo_ids.split(",") if i]
         plt_id_list = [int(i) for i in plt_ids.split(",") if i]
         if not cargo_ids and not plt_ids:
-            context.update({'error_messages': "未提供ID，无法查询报价"})
+            message = "未提供ID，无法查询报价"
+            if is_ajax:
+                return JsonResponse({"success": False, "message": message}, status=400)
+            context.update({"error_messages": message})
             return await self.handle_td_shipment_post(request, context)
         
         pls = await sync_to_async(
@@ -3365,7 +3373,10 @@ class PostNsop(View):
         quote_total = 0.0
         # 查找报价
         if not combined_list:
-            context = {"error_messages": f'{combined_list}是空的'}
+            message = f"{combined_list}是空的"
+            if is_ajax:
+                return JsonResponse({"success": False, "message": message}, status=400)
+            context = {"error_messages": message}
             return await self.handle_td_shipment_post(request, context)
         
         for po in combined_list:
@@ -3386,14 +3397,20 @@ class PostNsop(View):
             else:
                 warehouse = po['location'].split('-')[0]
                 if not warehouse:
-                    context = {"error_messages": f'{container_number}的板子缺少实际仓库位置！'}
+                    message = f"{container_number}的板子缺少实际仓库位置！"
+                    if is_ajax:
+                        return JsonResponse({"success": False, "message": message}, status=400)
+                    context = {"error_messages": message}
                     return await self.handle_td_shipment_post(request, context)
 
             customer_name = order.customer_name.zem_name if order.customer_name else None
             #查找报价表
             quotations = await self._get_fee_details(order, warehouse, customer_name)
             if isinstance(quotations, dict) and quotations.get("error_messages"):
-                context = {"error_messages": quotations["error_messages"]}
+                message = quotations["error_messages"]
+                if is_ajax:
+                    return JsonResponse({"success": False, "message": message}, status=400)
+                context = {"error_messages": message}
                 return await self.handle_td_shipment_post(request, context)
             fee_details = quotations['fees']
             
@@ -3414,7 +3431,10 @@ class PostNsop(View):
                         isinstance(combina_context, dict)
                         and combina_context.get("error_messages")
                     ):
-                        context = {"error_messages": combina_context["error_messages"]}
+                        message = combina_context["error_messages"]
+                        if is_ajax:
+                            return JsonResponse({"success": False, "message": message}, status=400)
+                        context = {"error_messages": message}
                         return await self.handle_td_shipment_post(request, context)
             
             non_combina_table = True
@@ -3422,7 +3442,10 @@ class PostNsop(View):
                 #组合柜计算
                 combina_key = f"{warehouse}_COMBINA"
                 if combina_key not in fee_details:
-                    context = {"error_messages": f'{warehouse}_COMBINA-{container_number}未找到组合柜报价表！'}
+                    message = f"{warehouse}_COMBINA-{container_number}未找到组合柜报价表！"
+                    if is_ajax:
+                        return JsonResponse({"success": False, "message": message}, status=400)
+                    context = {"error_messages": message}
                     return await self.handle_td_shipment_post(request, context)
                 
                 rules = fee_details.get(combina_key).details
@@ -3516,12 +3539,15 @@ class PostNsop(View):
                         'quotation_name': quotations.get("filename"),  
                     })
             
-            # 按照type排序
-            quotation_table_data = sorted(
-                quotation_table_data, 
-                key=lambda x: x['type'] or ''
-            )
-            context = {'quotation_table_data':quotation_table_data}
+        quotation_table_data = sorted(
+            quotation_table_data,
+            key=lambda x: x.get("type") or "",
+        )
+        context = {"quotation_table_data": quotation_table_data}
+        if is_ajax:
+            template = get_template("post_port/new_sop/02_shipment/modals/quote_table_ajax.html")
+            html = template.render(context, request)
+            return JsonResponse({"success": True, "html": html})
         return await self.handle_td_shipment_post(request, context)
     
     async def _process_combina_quote(self, po, cbm, total_cbm, rules, container_type_temp, warehouse, filename):
