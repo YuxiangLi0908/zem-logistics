@@ -219,6 +219,9 @@
     <div style="margin-top: 20px;">
         <h4 style="margin-bottom: 15px; color: var(--secondary-color);">
             <i class="fas fa-robot"></i> 智能匹配建议 ({{ matching_suggestions|length }}个分组)
+            <span style="background-color: #e3f2fd; padding: 2px 8px; border-radius: 6px; display: inline-block; font-size: 0.9 rem;">
+                选中总板数: <span id="unscheduledVisiblePallets">0</span> ，选中总CBM: <span id="unscheduledVisibleCbm">0</span>
+            </span>
         </h4>
         
         <div class="table-container">
@@ -879,6 +882,27 @@
         });
     }
 
+    function updateUnscheduledVisibleTotals() {
+        const rows = document.querySelectorAll('#unscheduledSuggestionTable tbody tr:not(.group-separator)');
+        let totalPallets = 0;
+        let totalCbm = 0;
+
+        rows.forEach(r => {
+            if (r.style.display === 'none') return;
+            const palletText = r.querySelector('.pallet-col')?.textContent || '0';
+            const cbmText = r.querySelector('.cbm-col')?.textContent || '0';
+            const palletVal = parseFloat(String(palletText).replace(/[^0-9.\-]/g, '')) || 0;
+            const cbmVal = parseFloat(String(cbmText).replace(/[^0-9.\-]/g, '')) || 0;
+            totalPallets += palletVal;
+            totalCbm += cbmVal;
+        });
+
+        const palletEl = document.getElementById('unscheduledVisiblePallets');
+        const cbmEl = document.getElementById('unscheduledVisibleCbm');
+        if (palletEl) palletEl.textContent = totalPallets.toFixed(2).replace(/\.00$/, '');
+        if (cbmEl) cbmEl.textContent = totalCbm.toFixed(3).replace(/0+$/, '').replace(/\.$/, '');
+    }
+
     // 多列 AND 条件搜索
     function applyMultiFilterUnscheduledSection() {
 
@@ -916,6 +940,7 @@
         // 没有搜索条件时仅展示目的地筛选后的结果
         if (searchTerms.length === 0) {
             updateGroupSeparators();
+            updateUnscheduledVisibleTotals();
             return;
         }
         let firstRound = true;
@@ -938,6 +963,7 @@
         updateGroupSeparators();
         // 应用高亮
         applyHighlightsUnscheduledSP(searchTerms);
+        updateUnscheduledVisibleTotals();
     }
 
     let searchTimers = {};
@@ -1035,6 +1061,7 @@
     // 未排约页面特定的JavaScript
     document.addEventListener('DOMContentLoaded', function() {
         initSearch();
+        updateUnscheduledVisibleTotals();
         
         // 导出PO功能
         document.querySelectorAll('.export-group-po').forEach(btn => {
