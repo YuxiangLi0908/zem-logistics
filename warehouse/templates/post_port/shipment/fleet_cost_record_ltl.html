@@ -78,8 +78,8 @@
 
             <div style="display: flex; flex-direction: column; gap: 10px; align-items: flex-end; min-width: 300px;">
                 {% if shipment_type == '未录入内容' %}
-                <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap; width: 100%; background: #f8f9fa; padding: 10px; border-radius: 6px;">
-                    <form method="post" id="batch-cost-form" style="font-size:14px; display: inline-flex; align-items: center; width: 100%; gap: 8px;">
+                <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap; width: 100%; background: #f8f9fa; padding: 10px; border-radius: 6px; justify-content: flex-end;">
+                    <form method="post" id="batch-cost-form" style="font-size:14px; display: inline-flex; align-items: center; width: auto; gap: 8px;">
                         {% csrf_token %}
                         <label style="font-weight: 600; color: #333; white-space: nowrap;">批量分摊成本：</label>
                         <input type="number" step="0.01" name="total_batch_cost" placeholder="请输入总成本总值"
@@ -107,9 +107,9 @@
                 {% endif %}
 
                 {% if shipment_type == '已录入内容' %}
-                <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap; width: 100%; background: #f8f9fa; padding: 10px; border-radius: 6px;">
+                <div style="display: flex; flex-direction: column; gap: 8px; width: 100%; background: #f8f9fa; padding: 10px; border-radius: 6px;">
                     <!-- 批量核实表单 -->
-                    <form method="post" id="batch-verify-form" action="" style="font-size:14px; display: inline-flex; align-items: center; width: 100%; gap: 8px; margin-bottom: 8px;">
+                    <form method="post" id="batch-verify-form" action="" style="font-size:14px; display: inline-flex; align-items: center; width: auto; gap: 8px; margin: 0; justify-content: flex-end;">
                         {% csrf_token %}
                         <label style="font-weight: 600; color: #333; white-space: nowrap;">批量核实操作：</label>
                         <input type="hidden" name="selected_fleet_numbers" id="batch-verify-fleet-numbers">
@@ -139,7 +139,7 @@
                     </form>
 
                     <!-- 新增：批量退回未录入表单 -->
-                    <form method="post" id="batch-rollback-form" action="" style="font-size:14px; display: inline-flex; align-items: center; width: 100%; gap: 8px;">
+                    <form method="post" id="batch-rollback-form" action="" style="font-size:14px; display: inline-flex; align-items: center; width: auto; gap: 8px; margin: 0; justify-content: flex-end;">
                         {% csrf_token %}
                         <label style="font-weight: 600; color: #333; white-space: nowrap;">批量退回操作：</label>
                         <input type="hidden" name="selected_fleet_numbers" id="batch-rollback-fleet-numbers">
@@ -165,7 +165,7 @@
                 </div>
                 {% endif %}
 
-                <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap; width: 100%;">
+                <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap; width: 100%; justify-content: flex-end;">
                     <form method="post" enctype="multipart/form-data" style="font-size:14px; display: inline-flex; align-items: center;">
                         {% csrf_token %}
                         <input type="file" name="ltl_file" id="ltl-file-input" style="display: none;">
