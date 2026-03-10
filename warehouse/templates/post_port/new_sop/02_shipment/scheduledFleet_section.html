@@ -100,6 +100,7 @@
                     <th>ISA</th>
                     <th>carrier</th>
                     <th>提货时间</th>
+                    <th>预约时间</th>
                     <th>总重lbs</th>
                     <th>总CBM</th>
                     <th>总卡板数</th>
@@ -112,10 +113,11 @@
                     <td><input type="text" class="header-search" placeholder="搜索ISA" data-column="2"></td>
                     <td><input type="text" class="header-search" placeholder="搜索carrier" data-column="3"></td>
                     <td><input type="text" class="header-search" placeholder="搜索提货时间" data-column="4"></td>
-                    <td><input type="text" class="header-search" placeholder="搜索总重" data-column="5"></td>
-                    <td><input type="text" class="header-search" placeholder="搜索CBM" data-column="6"></td>
-                    <td><input type="text" class="header-search" placeholder="搜索卡板数" data-column="7"></td>
-                    <td><input type="text" class="header-search" placeholder="搜索备注" data-column="8"></td>
+                    <td><input type="text" class="header-search" placeholder="搜索预约时间" data-column="5"></td>
+                    <td><input type="text" class="header-search" placeholder="搜索总重" data-column="6"></td>
+                    <td><input type="text" class="header-search" placeholder="搜索CBM" data-column="7"></td>
+                    <td><input type="text" class="header-search" placeholder="搜索卡板数" data-column="8"></td>
+                    <td><input type="text" class="header-search" placeholder="搜索备注" data-column="9"></td>
                     <td></td>
                 </tr>
             </thead>
@@ -183,6 +185,9 @@
                         {% else %}
                         {{ f.appointment_datetime|date:"Y-m-d" }} {{ f.appointment_datetime|time:"H:i" }}
                         {% endif %}
+                    </td>
+                    <td style="white-space: pre-line;">
+                        {{ f.all_appointment_times }}
                     </td>
                     <td>{{ f.total_weight|floatformat:2 }}</td>
                     <td>{{ f.total_cbm|floatformat:2 }}</td>
