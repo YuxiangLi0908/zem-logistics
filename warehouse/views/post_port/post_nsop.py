@@ -449,6 +449,9 @@ class PostNsop(View):
         elif step == "save_releaseCommand":
             template, context = await self.handle_save_releaseCommand(request)
             return render(request, template, context) 
+        elif step == "shipment_note_save":
+            template, context = await self.handle_save_shipment_note(request)
+            return render(request, template, context)
         elif step == "query_quotation":
             template, context = await self.handle_query_quotation(request)
             return render(request, template, context) 
@@ -6470,6 +6473,7 @@ class PostNsop(View):
                         'label': cargo.get('label', ''),
                         'is_dropped_pallet': cargo.get('is_dropped_pallet'),
                         'rebuilt_is_dropped_pallet': cargo.get('rebuilt_is_dropped_pallet'),
+                        'shipment_note': cargo.get('shipment_note', ''),
                     } for cargo in primary_group['cargos']],
                     'intelligent_cargos': intelligent_cargos,
                     'intelligent_pos_stats': intelligent_pos_stats,
@@ -7784,6 +7788,50 @@ class PostNsop(View):
             num+=1
         context = {'success_messages': f'保存成功{num}组数据!'}
         return await self.handle_ltl_unscheduled_pos_post(request,context)
+
+    async def handle_save_shipment_note(
+        self, request: HttpRequest
+    ) -> tuple[str, dict[str, Any]]:
+        print(request.POST)
+        cargo_ids_raw = (request.POST.get("cargo_ids") or "").strip()
+        plt_ids_raw = (request.POST.get("plt_ids") or "").strip()
+        note = (request.POST.get("shipment_note") or "").strip()
+
+        if cargo_ids_raw and plt_ids_raw:
+            context = {"error_messages": "cargo_ids 和 plt_ids 都为空"}
+            return await self.handle_td_shipment_post(request, context)
+
+        def parse_ids(raw: str) -> list[int]:
+            ids: list[int] = []
+            for part in raw.split(","):
+                part_str = part.strip()
+                if part_str.isdigit():
+                    ids.append(int(part_str))
+            return ids
+
+        updated = 0
+        if cargo_ids_raw:
+            cargo_ids = parse_ids(cargo_ids_raw)
+            if not cargo_ids:
+                context = {"error_messages": "cargo_ids 为空"}
+                return await self.handle_td_shipment_post(request, context)
+            updated = await PackingList.objects.filter(id__in=cargo_ids).aupdate(
+                shipment_note=note or None
+            )
+        elif plt_ids_raw:
+            plt_ids = parse_ids(plt_ids_raw)
+            if not plt_ids:
+                context = {"error_messages": "plt_ids 为空"}
+                return await self.handle_td_shipment_post(request, context)
+            updated = await Pallet.objects.filter(id__in=plt_ids).aupdate(
+                shipment_note=note or None
+            )
+        else:
+            context = {"error_messages": "未提供 cargo_ids 或 plt_ids"}
+            return await self.handle_td_shipment_post(request, context)
+
+        context = {"success_messages": f"排约备注保存成功"}
+        return await self.handle_td_shipment_post(request, context)
     
     async def handle_save_selfdel_cargo(
         self, request: HttpRequest
@@ -9609,6 +9657,7 @@ class PostNsop(View):
                     "location",  # 添加location用于比较
                     "is_pass",
                     "is_zhunshida",
+                    "shipment_note",
                     customer_name=F("container_number__orders__customer_name__zem_name"),
                     warehouse=F(
                         "container_number__orders__retrieval_id__retrieval_destination_precise"
@@ -9827,6 +9876,7 @@ class PostNsop(View):
                     "has_appointment_retrieval", 
                     "has_estimated_retrieval",
                     "is_zhunshida", 
+                    "shipment_note",
                     customer_name=F("container_number__orders__customer_name__zem_name"),
                     warehouse=F(
                         "container_number__orders__retrieval_id__retrieval_destination_precise"
