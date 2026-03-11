@@ -231,7 +231,6 @@
 <table style="width: 100%; text-align:left; padding: 5px; table-layout: fixed;"> 
     <thead> 
         <tr>
-            <th style="width: 7%; border: none;"></th>
             <th style="width: 14%; border:1px solid black;">container number</th>
             <th style="width: 14%; border:1px solid black;">destination</th>
             <th style="width: 18%; border:1px solid black;">shipping_mark</th>
@@ -241,13 +240,12 @@
             {% if "LA-91761" == warehouse %}
             <th style="width: 8%; border:1px solid black;">slot</th>
             {% endif %}
-            <th style="width: 8%; border: none;"></th>
+            <th style="width: 8%; border:1px solid black;">Multi-drop</th>
         </tr>
     </thead>
     <tbody>
         {% for p in arm_pickup %}
         <tr style="text-align:center;">
-            <th style="width: 7%; border: none;"></th>
             <td style="text-align:center; border:1px solid black;">{{ p.container_number__container_number }}</td>
             <td style="text-align:center; border:1px solid black; font-family: STSong-Light;">{{ p.destination }}</td>
             <td style="word-break:break-all; border:1px solid black;">{{ p.shipping_mark }}</td>
@@ -259,13 +257,32 @@
                 {{ p.slot|default:"&nbsp;" }}
             </td>
             {% endif %}
-            <th style="width: 8%; border: none;"></th>
+            <th style="width: 8%; border:1px solid black;">{{ p.multi_drop }}</th>
         </tr>
         {% endfor %}
     </tbody>
 </table>
 <br/><br/>
 <div style="font-size: 18px; font-family: STSong-Light; padding-left: 80px;">
-{{ notes|safe }}
+
+<b><span style="text-align:center; display:block; font-size:24px;">Notes</span></b>
+<table style="width: 100%; text-align:left; padding: 5px; table-layout: fixed;"> 
+    <thead> 
+        <tr>
+            <th style="width: 25%; border:1px solid black;">container number</th>
+            <th style="width: 16%; border:1px solid black;">destination</th>
+            <th style="width: 45%; border:1px solid black;">note</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for n in notes_table %}
+        <tr style="text-align:center;">
+            <td style="text-align:center; border:1px solid black;">{{ n.container_no }}</td>
+            <td style="text-align:center; border:1px solid black;">{{ n.destination }}</td>
+            <td style="text-align:center; border:1px solid black; font-family: STSong-Light; word-wrap: break-word; word-break: break-all; white-space: pre-line; padding: 4px;">{{ n.note }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
 </div>
 {% endblock %}

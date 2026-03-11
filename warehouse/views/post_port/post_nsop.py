@@ -1764,8 +1764,42 @@ class PostNsop(View):
             cropped_image.save(new_buffer, format="PNG")
             return base64.b64encode(new_buffer.getvalue()).decode("utf-8")
 
+        def wrap_text_by_length(text, length=20):
+            """
+            每隔指定长度强制换行
+            """
+            if not text or not str(text).strip():
+                return mark_safe("  ")
+            
+            text = str(text).strip()
+            # 每 length 个字符切分一次
+            lines = [text[i:i+length] for i in range(0, len(text), length)]
+            
+            # 如果是生成 PDF/打印，建议用 <br>
+            return mark_safe("<br>".join([escape(line) for line in lines]))
         is_multi_arm_pickup = len(arm_pickup_groups) > 1
         if is_multi_arm_pickup:
+            # 一提多卸用单独模板
+
+            # 增加装货顺序
+            count = len(arm_pickup)
+            for i, arm in enumerate(arm_pickup):
+                if i == count - 1:
+                    arm['multi_drop'] = 'outside'
+                else:
+                    arm['multi_drop'] = f'inside {i + 1}'
+            # 增加备注单独表格
+            notes_table = []
+            for item in arm_pickup:
+                raw_note = item.get("shipment_batch_number__note") or ""
+                # 调用折行函数，假设 note 列在 A4 纸宽度下大约 20-25 个中文字符换行
+                formatted_note = wrap_text_by_length(raw_note, length=20) 
+                
+                notes_table.append({
+                    "container_no": item.get("container_number__container_number") or "",
+                    "destination": item.get("destination") or "",
+                    "note": formatted_note  # 已经是带有 <br> 的 mark_safe 字符串
+                })
             bol_pages = []
             all_pickup_pdfs: List[bytes] = []
             for group in arm_pickup_groups:
@@ -1836,7 +1870,7 @@ class PostNsop(View):
                 "warehouse": warehouse,
                 "bol_pages": bol_pages,
                 "arm_pickup": arm_pickup,
-                "notes": notes_str,
+                "notes_table": notes_table,
             }
             template = get_template(self.template_ltl_bol_multi)
             html = template.render(context)
@@ -7818,7 +7852,6 @@ class PostNsop(View):
     async def handle_save_shipment_note(
         self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
-        print(request.POST)
         cargo_ids_raw = (request.POST.get("cargo_ids") or "").strip()
         plt_ids_raw = (request.POST.get("plt_ids") or "").strip()
         note = (request.POST.get("shipment_note") or "").strip()
