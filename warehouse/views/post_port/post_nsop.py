@@ -4634,6 +4634,69 @@ class PostNsop(View):
         timezone = parts["timezone"].strip() if parts["timezone"] else ""
         return timezone
     
+    async def handle_pl_ids_to_plt_ids(self, selected: list, selected_plt: list) -> tuple:
+        """
+        状态转换核心逻辑：
+        1. 检查选中的 PL 是否已打板。
+        2. 若已打板，从 selected 中移除该 PL ID。
+        3. 将对应的 Pallet ID 加入 selected_plt。
+        返回: (处理后的selected, 处理后的selected_plt)
+        """
+        if not selected:
+            return selected, selected_plt
+
+        # 1. 批量获取选中 PackingList 的 PO_ID 映射
+        # 使用 values_list 提高查询效率
+        pl_data = await sync_to_async(list)(
+            PackingList.objects.filter(id__in=selected)
+            .values("id", "PO_ID", "container_number")
+        )
+
+        if not pl_data:
+            return selected, selected_plt
+
+        # 构建查询条件池：每一个条件都是 (PO_ID AND 柜号)
+        condition_queries = Q()
+        pl_info_map = {} # 记录 pl_id 对应的特征，方便后续剔除
+
+        for item in pl_data:
+            po = item["PO_ID"]
+            container = item["container_number"]
+            if po and container:
+                # 构建复合查询条件
+                condition_queries |= Q(PO_ID=po, container_number=container)
+                pl_info_map[item["id"]] = (po, container)
+
+        if not pl_info_map:
+            return selected, selected_plt
+        # 2. 精确查找 Pallet 表中【完全匹配】这些组合的记录
+        pallets = await sync_to_async(list)(
+            Pallet.objects.filter(condition_queries)
+            .values("id", "PO_ID", "container_number")
+        )
+
+        if not pallets:
+            return selected, selected_plt
+
+        # 3. 统计哪些 (PO_ID, 柜号) 组合已经打板了
+        finished_combinations = {
+            (p["PO_ID"], p["container_number"]) for p in pallets
+        }
+        
+        # 收集匹配到的所有 Pallet ID
+        new_found_plt_ids = [p["id"] for p in pallets]
+
+        # 4. 执行状态转换：
+        # 如果某条 PL 的 (PO, 柜号) 组合在 Pallet 表里找到了，就从 selected 中移除
+        updated_selected = [
+            pl_id for pl_id in selected 
+            if pl_id not in pl_info_map or pl_info_map[pl_id] not in finished_combinations
+        ]
+
+        # 合并 Pallet ID 列表并去重
+        updated_selected_plt = list(set(selected_plt + new_found_plt_ids))
+        return updated_selected, updated_selected_plt
+
     async def handle_appointment_post(
         self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:  
@@ -4655,6 +4718,9 @@ class PostNsop(View):
         plt_ids = request.POST.get("plt_ids")
         selected = [int(i) for i in ids.split(",") if i]
         selected_plt = [int(i) for i in plt_ids.split(",") if i]
+
+        # 处理打板数据为同步到预约出库界面的问题
+        selected, selected_plt = await self.handle_pl_ids_to_plt_ids(selected, selected_plt)
         if not selected and not selected_plt:
             context.update({"error_messages": f"没有选择PO！"}) 
             if page == "arm_appointment":          
