@@ -3236,21 +3236,21 @@ class Accounting(View):
                 deliverys[fleet_id]["fleets"][order.pickup_number] = {
                     "appointments": {},
                     "ISA_total_pallets": 0,
-                    "ISA_total_expense": 0,
+                    "ISA_total_expense": 0.0,  # 显式初始化为浮点型
                     "total_rows": 0,
                 }
 
             appointment_id = order.appointment_id
             if appointment_id not in deliverys[fleet_id]["fleets"][order.pickup_number]["appointments"]:
                 deliverys[fleet_id]["fleets"][order.pickup_number]["appointments"][appointment_id] = {
-                    "orders": [], "total_pallets": 0, "total_expense": 0, "rowspan": 0
+                    "orders": [], "total_pallets": 0, "total_expense": 0.0, "rowspan": 0
                 }
 
-            # 计算单板成本（防除零错误）
+            # 🔴 修改1：每板单价cn_per_expense保留4位小数（防除零错误）
             per_expense = (
-                round(order.expense / int(order.total_pallet), 2)
+                round(order.expense / int(order.total_pallet), 4)  # 保留4位小数
                 if order.total_pallet and order.total_pallet != 0
-                else 0
+                else 0.0  # 显式初始化为浮点型
             )
 
             itemv2_data = None
@@ -3269,8 +3269,8 @@ class Accounting(View):
             order_data = {
                 "object": order,
                 "cn_total_pallet": int(order.total_pallet) if order.total_pallet else 0,
-                "cn_total_expense": order.expense or 0,
-                "cn_per_expense": per_expense,
+                "cn_total_expense": order.expense or 0.0,
+                "cn_per_expense": per_expense,  # 已保留4位小数
                 "container_num": order.container_num,
                 "pallet_destination": order.pallet_destination,
                 "carrier": deliverys[fleet_id]["carrier"],
@@ -3288,11 +3288,15 @@ class Accounting(View):
             fleet_pickup_data = deliverys[fleet_id]["fleets"][order.pickup_number]
             fleet_pickup_data["ISA_total_pallets"] += order_data["cn_total_pallet"]
             fleet_pickup_data["ISA_total_expense"] += order_data["cn_total_expense"]
+            # 🔴 修改2：ISA_total_expense累加后保留2位小数
+            fleet_pickup_data["ISA_total_expense"] = round(fleet_pickup_data["ISA_total_expense"], 2)
             fleet_pickup_data["total_rows"] += 1
 
             fleet_data = deliverys[fleet_id]
             fleet_data["total_pallets"] += order_data["cn_total_pallet"]
             fleet_data["total_expense"] += order_data["cn_total_expense"]
+            # 🔴 修改3：fleet层级total_expense也保留2位小数（可选，保持一致性）
+            fleet_data["total_expense"] = round(fleet_data["total_expense"], 2)
             fleet_data["total_rows"] += 1
 
         # 转换配送数据结构
@@ -3300,7 +3304,7 @@ class Accounting(View):
             {
                 "fleets": fleet_data["fleets"],
                 "total_pallets": int(fleet_data["total_pallets"]),
-                "total_expense": fleet_data["total_expense"],
+                "total_expense": round(fleet_data["total_expense"], 2),  # 最终输出保留2位
                 "carrier": fleet_data["carrier"],
                 "fleet_number": fleet_data["fleet_number"],
                 "fleet_id": fleet_data["fleet_id"],
@@ -3364,7 +3368,7 @@ class Accounting(View):
                 deliverys_confirm[fleet_id] = {
                     "fleets": {},
                     "total_pallets": 0,
-                    "total_expense": 0,
+                    "total_expense": 0.0,  # 显式初始化为浮点型
                     "total_rows": 0,
                     "carrier": carrier,
                     "fleet_number": fleet_number,
@@ -3375,29 +3379,29 @@ class Accounting(View):
                 deliverys_confirm[fleet_id]["fleets"][order.pickup_number] = {
                     "appointments": {},
                     "ISA_total_pallets": 0,
-                    "ISA_total_expense": 0,
+                    "ISA_total_expense": 0.0,  # 显式初始化为浮点型
                     "total_rows": 0,
                 }
 
             appointment_id = order.appointment_id
             if appointment_id not in deliverys_confirm[fleet_id]["fleets"][order.pickup_number]["appointments"]:
                 deliverys_confirm[fleet_id]["fleets"][order.pickup_number]["appointments"][appointment_id] = {
-                    "orders": [], "total_pallets": 0, "total_expense": 0, "rowspan": 0
+                    "orders": [], "total_pallets": 0, "total_expense": 0.0, "rowspan": 0
                 }
 
-            # 计算单板成本
+            # 🔴 修改4：已确认订单的每板单价保留4位小数
             per_expense = (
-                round(order.expense / int(order.total_pallet), 2)
+                round(order.expense / int(order.total_pallet), 4)  # 保留4位小数
                 if order.total_pallet and order.total_pallet != 0
-                else 0
+                else 0.0
             )
 
             # 组装订单数据
             order_data = {
                 "object": order,
                 "cn_total_pallet": int(order.total_pallet) if order.total_pallet else 0,
-                "cn_total_expense": order.expense or 0,
-                "cn_per_expense": per_expense,
+                "cn_total_expense": order.expense or 0.0,
+                "cn_per_expense": per_expense,  # 已保留4位小数
                 "container_num": order.container_num,
                 "pallet_destination": order.pallet_destination,
                 "carrier": deliverys_confirm[fleet_id]["carrier"],
@@ -3416,11 +3420,15 @@ class Accounting(View):
             fleet_pickup_data = deliverys_confirm[fleet_id]["fleets"][order.pickup_number]
             fleet_pickup_data["ISA_total_pallets"] += order_data["cn_total_pallet"]
             fleet_pickup_data["ISA_total_expense"] += order_data["cn_total_expense"]
+            # 🔴 修改5：已确认订单的ISA_total_expense保留2位小数
+            fleet_pickup_data["ISA_total_expense"] = round(fleet_pickup_data["ISA_total_expense"], 2)
             fleet_pickup_data["total_rows"] += 1
 
             fleet_data = deliverys_confirm[fleet_id]
             fleet_data["total_pallets"] += order_data["cn_total_pallet"]
             fleet_data["total_expense"] += order_data["cn_total_expense"]
+            # 🔴 修改6：已确认订单fleet层级total_expense保留2位小数
+            fleet_data["total_expense"] = round(fleet_data["total_expense"], 2)
             fleet_data["total_rows"] += 1
 
         # 转换配送数据结构
@@ -3428,7 +3436,7 @@ class Accounting(View):
             {
                 "fleets": fleet_data["fleets"],
                 "total_pallets": int(fleet_data["total_pallets"]),
-                "total_expense": fleet_data["total_expense"],
+                "total_expense": round(fleet_data["total_expense"], 2),  # 最终输出保留2位
                 "carrier": fleet_data["carrier"],
                 "fleet_number": fleet_data["fleet_number"],
                 "fleet_id": fleet_data["fleet_id"],
