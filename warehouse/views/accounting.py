@@ -10,7 +10,7 @@ import traceback
 import zipfile
 from collections import defaultdict
 from datetime import date, datetime, timedelta, time as datetime_time
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 from io import BytesIO
 from itertools import chain, groupby
 from operator import attrgetter
@@ -3214,106 +3214,131 @@ class Accounting(View):
         # 分批转换为列表
         delivery_pending_orders_list = list(delivery_pending_orders.iterator(chunk_size=200))
 
-        # ========== 第三步：数据组装/统计逻辑 ==========
+        # ========== 第三步：数据组装/统计逻辑（核心修改） ==========
         deliverys = {}
         for order in delivery_pending_orders_list:
-            fleet_id = order.fleet_number_id
+            fleet_id = order.fleet_number_id or "unknown"  # 兼容空值
             if fleet_id not in deliverys:
-                carrier = order.fleet_number.carrier if order.fleet_number else None
-                fleet_number = order.fleet_number.fleet_number if order.fleet_number else None
-                fleet_id = order.fleet_number.id if order.fleet_number else None
+                carrier = order.fleet_number.carrier if (order.fleet_number and order.fleet_number.carrier) else None
+                fleet_number = order.fleet_number.fleet_number if (
+                            order.fleet_number and order.fleet_number.fleet_number) else None
                 deliverys[fleet_id] = {
                     "fleets": {},
                     "total_pallets": 0,
-                    "total_expense": 0,
+                    "total_expense": Decimal("0.0000"),  # 初始化为4位小数
                     "total_rows": 0,
                     "carrier": carrier,
                     "fleet_number": fleet_number,
                     "fleet_id": fleet_id,
                 }
 
-            if order.pickup_number not in deliverys[fleet_id]["fleets"]:
-                deliverys[fleet_id]["fleets"][order.pickup_number] = {
+            pickup_number = order.pickup_number or "unknown"
+            if pickup_number not in deliverys[fleet_id]["fleets"]:
+                deliverys[fleet_id]["fleets"][pickup_number] = {
                     "appointments": {},
                     "ISA_total_pallets": 0,
-                    "ISA_total_expense": 0.0,  # 显式初始化为浮点型
+                    "ISA_total_expense": Decimal("0.00"),  # 车次总成本初始化为2位小数
                     "total_rows": 0,
                 }
 
-            appointment_id = order.appointment_id
-            if appointment_id not in deliverys[fleet_id]["fleets"][order.pickup_number]["appointments"]:
-                deliverys[fleet_id]["fleets"][order.pickup_number]["appointments"][appointment_id] = {
-                    "orders": [], "total_pallets": 0, "total_expense": 0.0, "rowspan": 0
+            appointment_id = order.appointment_id or "unknown"
+            if appointment_id not in deliverys[fleet_id]["fleets"][pickup_number]["appointments"]:
+                deliverys[fleet_id]["fleets"][pickup_number]["appointments"][appointment_id] = {
+                    "orders": [],
+                    "total_pallets": 0,
+                    "total_expense": Decimal("0.0000"),  # 预约级总成本4位小数
+                    "rowspan": 0
                 }
 
-            # 🔴 修改1：每板单价cn_per_expense保留4位小数（防除零错误）
-            per_expense = (
-                round(order.expense / int(order.total_pallet), 4)  # 保留4位小数
-                if order.total_pallet and order.total_pallet != 0
-                else 0.0  # 显式初始化为浮点型
+            # 1. 基础数据转换（精准化）
+            total_pallet = int(order.total_pallet) if (order.total_pallet and order.total_pallet != 0) else 1
+            expense = Decimal(str(order.expense or 0))  # 转为精准Decimal
+
+            # 2. 价格（cn_total_expense）：强制保留4位小数
+            cn_total_expense = expense.quantize(Decimal("0.0000"), rounding=ROUND_HALF_UP)
+
+            # 3. 单板成本（cn_per_expense）：强制保留4位小数
+            cn_per_expense = (expense / Decimal(str(total_pallet))).quantize(
+                Decimal("0.0000"),  # 严格4位小数
+                rounding=ROUND_HALF_UP  # 四舍五入
             )
 
+            # 4. 卡板数
+            cn_total_pallet = int(order.total_pallet) if order.total_pallet else 0
+
             itemv2_data = None
-            # 仅当有预加载的itemv2_list时，筛选「派送费用+应付+未核销」的记录
             if hasattr(order.container_number, 'itemv2_list') and order.container_number.itemv2_list:
                 filtered_items = [
                     item for item in order.container_number.itemv2_list
                     if '派送费用' in (item.description or '')
                        and item.invoice_type == 'payable'
-                       and item.write_off_amount is None  # 未核销
+                       and item.write_off_amount is None
                 ]
                 if filtered_items:
                     itemv2_data = filtered_items[0]
 
-            # 组装订单数据
+            # 组装订单数据（保留Decimal类型，最终转float前保证小数位）
             order_data = {
                 "object": order,
-                "cn_total_pallet": int(order.total_pallet) if order.total_pallet else 0,
-                "cn_total_expense": order.expense or 0.0,
-                "cn_per_expense": per_expense,  # 已保留4位小数
-                "container_num": order.container_num,
-                "pallet_destination": order.pallet_destination,
+                "cn_total_pallet": cn_total_pallet,
+                "cn_total_expense": float(cn_total_expense),  # 4位小数转float（如123.4567）
+                "cn_per_expense": float(cn_per_expense),  # 4位小数转float（如12.3456）
+                "container_num": order.container_num or "",
+                "pallet_destination": order.pallet_destination or "",
                 "carrier": deliverys[fleet_id]["carrier"],
                 "fleet_number": deliverys[fleet_id]["fleet_number"],
                 "itemv2_data": itemv2_data,
             }
 
-            # 累加统计数据
-            appointment_data = deliverys[fleet_id]["fleets"][order.pickup_number]["appointments"][appointment_id]
+            # 累加统计（精准Decimal累加）
+            appointment_data = deliverys[fleet_id]["fleets"][pickup_number]["appointments"][appointment_id]
             appointment_data["orders"].append(order_data)
-            appointment_data["total_pallets"] += order_data["cn_total_pallet"]
-            appointment_data["total_expense"] += order_data["cn_total_expense"]
+            appointment_data["total_pallets"] += cn_total_pallet
+            appointment_data["total_expense"] += cn_total_expense  # 4位小数累加
             appointment_data["rowspan"] += 1
 
-            fleet_pickup_data = deliverys[fleet_id]["fleets"][order.pickup_number]
-            fleet_pickup_data["ISA_total_pallets"] += order_data["cn_total_pallet"]
-            fleet_pickup_data["ISA_total_expense"] += order_data["cn_total_expense"]
-            # 🔴 修改2：ISA_total_expense累加后保留2位小数
-            fleet_pickup_data["ISA_total_expense"] = round(fleet_pickup_data["ISA_total_expense"], 2)
+            # 车次级统计（ISA_total_expense = 所有订单cn_total_expense之和，保留2位）
+            fleet_pickup_data = deliverys[fleet_id]["fleets"][pickup_number]
+            fleet_pickup_data["ISA_total_pallets"] += cn_total_pallet
+            # 先累加4位小数的cn_total_expense，再量化为2位小数
+            fleet_pickup_data["ISA_total_expense"] = (
+                        fleet_pickup_data["ISA_total_expense"] + cn_total_expense).quantize(Decimal("0.00"),
+                                                                                            rounding=ROUND_HALF_UP)
             fleet_pickup_data["total_rows"] += 1
 
+            # 车队级统计
             fleet_data = deliverys[fleet_id]
-            fleet_data["total_pallets"] += order_data["cn_total_pallet"]
-            fleet_data["total_expense"] += order_data["cn_total_expense"]
-            # 🔴 修改3：fleet层级total_expense也保留2位小数（可选，保持一致性）
-            fleet_data["total_expense"] = round(fleet_data["total_expense"], 2)
+            fleet_data["total_pallets"] += cn_total_pallet
+            fleet_data["total_expense"] += cn_total_expense  # 4位小数累加
             fleet_data["total_rows"] += 1
 
-        # 转换配送数据结构
-        delivery_pending_orders = [
-            {
-                "fleets": fleet_data["fleets"],
-                "total_pallets": int(fleet_data["total_pallets"]),
-                "total_expense": round(fleet_data["total_expense"], 2),  # 最终输出保留2位
+        # 转换数据结构（最终输出，保证小数位）
+        delivery_pending_orders = []
+        for fleet_id, fleet_data in deliverys.items():
+            processed_fleets = {}
+            for pickup_num, pickup_data in fleet_data["fleets"].items():
+                # 车次总成本：已保证2位小数，转float
+                pickup_data["ISA_total_expense"] = float(pickup_data["ISA_total_expense"])
+
+                # 处理预约级数据
+                processed_appointments = {}
+                for appt_id, appt_data in pickup_data["appointments"].items():
+                    # 预约级总成本：4位小数转float
+                    appt_data["total_expense"] = float(appt_data["total_expense"].quantize(Decimal("0.0000")))
+                    processed_appointments[appt_id] = appt_data
+                pickup_data["appointments"] = processed_appointments
+                processed_fleets[pickup_num] = pickup_data
+
+            delivery_pending_orders.append({
+                "fleets": processed_fleets,
+                "total_pallets": fleet_data["total_pallets"],
+                "total_expense": float(fleet_data["total_expense"].quantize(Decimal("0.0000"))),  # 车队级总成本4位小数
                 "carrier": fleet_data["carrier"],
                 "fleet_number": fleet_data["fleet_number"],
                 "fleet_id": fleet_data["fleet_id"],
-            }
-            for fleet_data in deliverys.values()
-        ]
+            })
 
-        # 已确认
-        # 先查询基础派送订单，提取柜号ID
+        # 已确认订单逻辑（完全同步待确认的小数位规则）
         base_delivery_orders = (
             FleetShipmentPallet.objects.select_related(
                 "fleet_number",
@@ -3338,111 +3363,117 @@ class Accounting(View):
             .order_by("fleet_number__id", "pickup_number", "container_num")
         )
 
-        # 提取所有基础订单的container_number_id（去重）
         container_ids = base_delivery_orders.values_list("container_number_id", flat=True).distinct()
-
-        # 查询已核销的InvoiceItemv2
         itemv2_valid_container_ids = InvoiceItemv2.objects.filter(
-            container_number_id__in=container_ids,  # 只查基础订单包含的柜号
-            write_off_amount__isnull=False,  # 已核销
+            container_number_id__in=container_ids,
+            write_off_amount__isnull=False,
             description='派送费用',
             invoice_type='payable'
-        ).values_list("container_number_id", flat=True).distinct()  # 去重，只保留有核销记录的柜号ID
+        ).values_list("container_number_id", flat=True).distinct()
 
-        # 只保留关联已核销InvoiceItemv2的订单
-        delivery_confirm_orders = (
-            base_delivery_orders.filter(
-                container_number_id__in=itemv2_valid_container_ids
-            )
-        )
-        # 分批转换为列表（避免内存溢出）
+        delivery_confirm_orders = base_delivery_orders.filter(container_number_id__in=itemv2_valid_container_ids)
         delivery_confirm_orders_list = list(delivery_confirm_orders.iterator(chunk_size=200))
 
         deliverys_confirm = {}
         for order in delivery_confirm_orders_list:
-            fleet_id = order.fleet_number_id
+            fleet_id = order.fleet_number_id or "unknown"
             if fleet_id not in deliverys_confirm:
-                carrier = order.fleet_number.carrier if order.fleet_number else None
-                fleet_number = order.fleet_number.fleet_number if order.fleet_number else None
-                fleet_id = order.fleet_number.id if order.fleet_number else None
+                carrier = order.fleet_number.carrier if (order.fleet_number and order.fleet_number.carrier) else ""
+                fleet_number = order.fleet_number.fleet_number if (
+                            order.fleet_number and order.fleet_number.fleet_number) else ""
                 deliverys_confirm[fleet_id] = {
                     "fleets": {},
                     "total_pallets": 0,
-                    "total_expense": 0.0,  # 显式初始化为浮点型
+                    "total_expense": Decimal("0.0000"),
                     "total_rows": 0,
                     "carrier": carrier,
                     "fleet_number": fleet_number,
                     "fleet_id": fleet_id,
                 }
 
-            if order.pickup_number not in deliverys_confirm[fleet_id]["fleets"]:
-                deliverys_confirm[fleet_id]["fleets"][order.pickup_number] = {
+            pickup_number = order.pickup_number or "unknown"
+            if pickup_number not in deliverys_confirm[fleet_id]["fleets"]:
+                deliverys_confirm[fleet_id]["fleets"][pickup_number] = {
                     "appointments": {},
                     "ISA_total_pallets": 0,
-                    "ISA_total_expense": 0.0,  # 显式初始化为浮点型
+                    "ISA_total_expense": Decimal("0.00"),
                     "total_rows": 0,
                 }
 
-            appointment_id = order.appointment_id
-            if appointment_id not in deliverys_confirm[fleet_id]["fleets"][order.pickup_number]["appointments"]:
-                deliverys_confirm[fleet_id]["fleets"][order.pickup_number]["appointments"][appointment_id] = {
-                    "orders": [], "total_pallets": 0, "total_expense": 0.0, "rowspan": 0
+            appointment_id = order.appointment_id or "unknown"
+            if appointment_id not in deliverys_confirm[fleet_id]["fleets"][pickup_number]["appointments"]:
+                deliverys_confirm[fleet_id]["fleets"][pickup_number]["appointments"][appointment_id] = {
+                    "orders": [], "total_pallets": 0, "total_expense": Decimal("0.0000"), "rowspan": 0
                 }
 
-            # 🔴 修改4：已确认订单的每板单价保留4位小数
-            per_expense = (
-                round(order.expense / int(order.total_pallet), 4)  # 保留4位小数
-                if order.total_pallet and order.total_pallet != 0
-                else 0.0
-            )
+            # 已确认订单严格遵循相同的小数位规则
+            total_pallet = int(order.total_pallet) if (order.total_pallet and order.total_pallet != 0) else 1
+            expense = Decimal(str(order.expense or 0))
 
-            # 组装订单数据
+            # 价格（cn_total_expense）：4位小数
+            cn_total_expense = expense.quantize(Decimal("0.0000"), rounding=ROUND_HALF_UP)
+
+            # 单板成本（cn_per_expense）：4位小数
+            cn_per_expense = (expense / Decimal(str(total_pallet))).quantize(Decimal("0.0000"), rounding=ROUND_HALF_UP)
+
+            cn_total_pallet = int(order.total_pallet) if order.total_pallet else 0
+
             order_data = {
                 "object": order,
-                "cn_total_pallet": int(order.total_pallet) if order.total_pallet else 0,
-                "cn_total_expense": order.expense or 0.0,
-                "cn_per_expense": per_expense,  # 已保留4位小数
-                "container_num": order.container_num,
-                "pallet_destination": order.pallet_destination,
+                "cn_total_pallet": cn_total_pallet,
+                "cn_total_expense": float(cn_total_expense),  # 4位小数
+                "cn_per_expense": float(cn_per_expense),  # 4位小数
+                "container_num": order.container_num or "",
+                "pallet_destination": order.pallet_destination or "",
                 "carrier": deliverys_confirm[fleet_id]["carrier"],
                 "fleet_number": deliverys_confirm[fleet_id]["fleet_number"],
-                "itemv2_data": order.container_number.invoice_itemv2.get(),
+                "itemv2_data": order.container_number.invoice_itemv2.get() if hasattr(order.container_number,
+                                                                                      'invoice_itemv2') else None,
             }
 
-            # 累加统计数据
-            appointment_data = deliverys_confirm[fleet_id]["fleets"][order.pickup_number]["appointments"][
-                appointment_id]
+            # 累加统计
+            appointment_data = deliverys_confirm[fleet_id]["fleets"][pickup_number]["appointments"][appointment_id]
             appointment_data["orders"].append(order_data)
-            appointment_data["total_pallets"] += order_data["cn_total_pallet"]
-            appointment_data["total_expense"] += order_data["cn_total_expense"]
+            appointment_data["total_pallets"] += cn_total_pallet
+            appointment_data["total_expense"] += cn_total_expense
             appointment_data["rowspan"] += 1
 
-            fleet_pickup_data = deliverys_confirm[fleet_id]["fleets"][order.pickup_number]
-            fleet_pickup_data["ISA_total_pallets"] += order_data["cn_total_pallet"]
-            fleet_pickup_data["ISA_total_expense"] += order_data["cn_total_expense"]
-            # 🔴 修改5：已确认订单的ISA_total_expense保留2位小数
-            fleet_pickup_data["ISA_total_expense"] = round(fleet_pickup_data["ISA_total_expense"], 2)
+            fleet_pickup_data = deliverys_confirm[fleet_id]["fleets"][pickup_number]
+            fleet_pickup_data["ISA_total_pallets"] += cn_total_pallet
+            # 车次总成本累加后保留2位小数
+            fleet_pickup_data["ISA_total_expense"] = (
+                        fleet_pickup_data["ISA_total_expense"] + cn_total_expense).quantize(Decimal("0.00"),
+                                                                                            rounding=ROUND_HALF_UP)
             fleet_pickup_data["total_rows"] += 1
 
             fleet_data = deliverys_confirm[fleet_id]
-            fleet_data["total_pallets"] += order_data["cn_total_pallet"]
-            fleet_data["total_expense"] += order_data["cn_total_expense"]
-            # 🔴 修改6：已确认订单fleet层级total_expense保留2位小数
-            fleet_data["total_expense"] = round(fleet_data["total_expense"], 2)
+            fleet_data["total_pallets"] += cn_total_pallet
+            fleet_data["total_expense"] += cn_total_expense
             fleet_data["total_rows"] += 1
 
-        # 转换配送数据结构
-        delivery_confirm_orders = [
-            {
-                "fleets": fleet_data["fleets"],
-                "total_pallets": int(fleet_data["total_pallets"]),
-                "total_expense": round(fleet_data["total_expense"], 2),  # 最终输出保留2位
+        # 转换已确认订单数据结构
+        delivery_confirm_orders = []
+        for fleet_id, fleet_data in deliverys_confirm.items():
+            processed_fleets = {}
+            for pickup_num, pickup_data in fleet_data["fleets"].items():
+                # 车次总成本2位小数转float
+                pickup_data["ISA_total_expense"] = float(pickup_data["ISA_total_expense"])
+                processed_appointments = {}
+                for appt_id, appt_data in pickup_data["appointments"].items():
+                    # 预约级总成本4位小数转float
+                    appt_data["total_expense"] = float(appt_data["total_expense"].quantize(Decimal("0.0000")))
+                    processed_appointments[appt_id] = appt_data
+                pickup_data["appointments"] = processed_appointments
+                processed_fleets[pickup_num] = pickup_data
+
+            delivery_confirm_orders.append({
+                "fleets": processed_fleets,
+                "total_pallets": fleet_data["total_pallets"],
+                "total_expense": float(fleet_data["total_expense"].quantize(Decimal("0.0000"))),
                 "carrier": fleet_data["carrier"],
                 "fleet_number": fleet_data["fleet_number"],
                 "fleet_id": fleet_data["fleet_id"],
-            }
-            for fleet_data in deliverys_confirm.values()
-        ]
+            })
 
         # 页面上下文数据
         start_date_export = (current_date + timedelta(days=-15)).strftime("%Y-%m-%d")
