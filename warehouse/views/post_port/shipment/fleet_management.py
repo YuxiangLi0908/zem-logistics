@@ -1435,8 +1435,9 @@ class FleetManagement(View):
         )
 
     async def handle_fleet_cost_record_get(
-        self, request: HttpRequest, error_messages=None, success_count=0
+            self, request: HttpRequest, error_messages=None, success_count=0
     ) -> tuple[str, dict[str, Any]]:
+        """ftl页面"""
         pickup_number = request.POST.get("pickup_number", "")
         fleet_number = request.POST.get("fleet_number", "")
         batch_number = request.POST.get("batch_number", "")
@@ -1463,6 +1464,7 @@ class FleetManagement(View):
                 fleet_number__fleet_cost__isnull=True,
             )
             shipment_type = '未录入内容'
+
         if pickup_number:
             criteria &= models.Q(fleet_number__pickup_number=pickup_number)
         if fleet_number:
@@ -1472,40 +1474,75 @@ class FleetManagement(View):
         if area and area is not None and area != "None":
             criteria &= models.Q(origin=area)
 
-        shipment = await sync_to_async(list)(
+        # 查询shipment基础数据
+        shipment_list = await sync_to_async(list)(
             Shipment.objects.select_related("fleet_number")
             .prefetch_related(
                 Prefetch(
                     "fleetshipmentpallets",
-                    queryset=FleetShipmentPallet.objects.select_related("operator")  # 预加载operator
+                    queryset=FleetShipmentPallet.objects.select_related("operator")
                 )
             )
             .filter(criteria)
             .order_by("shipped_at")
         )
 
-        async def process_shipment_data(shipment_list):
+        # 新增：批量查询Pallet数据（优化性能，避免循环查询）
+        # 1. 收集所有shipment的id
+        shipment_ids = [s.id for s in shipment_list]
+        # 2. 查询所有关联的Pallet数据并按shipment_batch_number分组
+        pallet_data = await sync_to_async(list)(
+            Pallet.objects.filter(
+                shipment_batch_number__in=shipment_ids  # shipment_batch_number = shipment.id
+            ).values("shipment_batch_number", "weight_lbs", "cbm")
+        )
+        # 3. 构建分组字典：key=shipment.id，value={总重, 总CBM, 总板数}
+        pallet_summary = {}
+        for pallet in pallet_data:
+            batch_id = pallet["shipment_batch_number"]
+            if batch_id not in pallet_summary:
+                pallet_summary[batch_id] = {
+                    "total_weight_lbs": 0.0,
+                    "total_cbm": 0.0,
+                    "total_pallets": 0
+                }
+            # 累加重量和CBM
+            pallet_summary[batch_id]["total_weight_lbs"] += float(pallet["weight_lbs"] or 0)
+            pallet_summary[batch_id]["total_cbm"] += float(pallet["cbm"] or 0)
+            # 总板数+1（每条pallet记录对应一个板子）
+            pallet_summary[batch_id]["total_pallets"] += 1
+
+        async def process_shipment_data(shipment_items):
             processed = []
-            for s in shipment_list:
-                # 同步获取最新的fleetshipmentpallets记录（用sync_to_async包裹）
+            for s in shipment_items:
+                # 原有逻辑：处理fleetshipmentpallets
                 latest_pallet = await sync_to_async(
                     lambda: s.fleetshipmentpallets.order_by("-cost_input_time", "-id").first()
                 )()
 
-                # 深度提取字段，避免后续访问触发懒加载
                 if latest_pallet:
                     s.pallet_cost_input_time = latest_pallet.cost_input_time
-                    # 提取operator的用户名（或ID），而非直接存对象
                     s.pallet_operator_name = latest_pallet.operator.username if latest_pallet.operator else None
                 else:
                     s.pallet_cost_input_time = None
                     s.pallet_operator_name = None
 
+                # 新增：绑定Pallet计算结果
+                summary = pallet_summary.get(s.id, {
+                    "total_weight_lbs": 0.0,
+                    "total_cbm": 0.0,
+                    "total_pallets": 0
+                })
+                s.shipped_weight = summary["total_weight_lbs"]  # 总重lbs
+                s.shipped_cbm = summary["total_cbm"]  # 总CBM
+                s.shipped_pallet = summary["total_pallets"]  # 总卡板数
+
                 processed.append(s)
             return processed
 
-        # 处理数据
-        shipment = await process_shipment_data(shipment)
+        # 处理数据（包含新增的Pallet计算结果）
+        shipment = await process_shipment_data(shipment_list)
+
         context = {
             "shipment_type": shipment_type,
             "pickup_number": pickup_number,
