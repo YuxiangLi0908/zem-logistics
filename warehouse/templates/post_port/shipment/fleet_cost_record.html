@@ -108,6 +108,23 @@
                             下载模版
                         </button>
                     </form>
+
+                    <!-- 新增：已录入内容下载按钮（仅在已录入页面显示） -->
+                    {% if shipment_type == '已录入内容' %}
+                        <form method="post"
+                              style="font-size:11px; display: inline-flex; align-items: center; margin-left: 20px;">
+                            {% csrf_token %}
+                            <input type="hidden" name="step" value="download_recorded_fleet_cost">
+                            <input type="hidden" name="area" value="{{ area }}">
+                            <input type="hidden" name="pickup_number" value="{{ pickup_number }}">
+                            <input type="hidden" name="fleet_number" value="{{ fleet_number }}">
+                            <input type="hidden" name="batch_number" value="{{ batch_number }}">
+                            <button type="submit" class="btn btn-info" style="height: 30px; font-size: 13px;">
+                                <i class="bi bi-download"></i> 下载已录入数据
+                            </button>
+                        </form>
+                    {% endif %}
+
                 </div>
             </div>
             <!-- ========== 上传按钮区域修改结束 ========== -->
@@ -386,6 +403,15 @@
                 showLoadingBar();
             });
         }
+
+        // 新增：下载已录入数据按钮绑定加载动画
+        const downloadRecordedForm = document.querySelector('form[action=""][method="post"]:has(.btn-info)');
+        if (downloadRecordedForm) {
+            downloadRecordedForm.addEventListener('submit', function () {
+                showLoadingBar();
+            });
+        }
+
     });
 
     function filterTable() {
