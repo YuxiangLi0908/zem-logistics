@@ -1570,7 +1570,7 @@ class FleetManagement(View):
         start_time = request.POST.get("start_time", default_start_time.strftime("%Y-%m-%d"))
         end_time = request.POST.get("end_time", now.strftime("%Y-%m-%d"))
 
-        status = request.POST.get("status", "")
+        status = request.POST.get("status", "record")
 
         # 时区感知的datetime对象
         tz_2026_01_01 = timezone.make_aware(
