@@ -482,7 +482,24 @@
                         </td>
                         <td class="td" data-col="note"
                             style="padding: 10px 12px; border: 1px solid #eee; width: 200px !important; min-width: 200px; max-width: 200px; font-size:14px; white-space: normal; word-wrap: break-word; line-height: 1.2;">
-                            {{ f.note|default_if_none:"-" }}
+                            <form action="" method="post"
+                                  style="margin: 0; display: flex; gap: 6px; align-items: flex-start; flex-wrap: wrap;">
+                                {% csrf_token %}
+                                <textarea name="note" placeholder="请输入备注内容..."
+                                          style="width: 150px; font-size: 14px; padding: 6px; border: 1px solid #ddd; border-radius: 4px; resize: vertical; min-height: 60px; margin-bottom: 5px;">{{ f.note|default_if_none:"" }}</textarea>
+                                <input type="hidden" name="fleet_number"
+                                       value="{{ f.fleet_number|default_if_none:'' }}">
+                                <input type="hidden" name="shipment_id" value="{{ f.id }}">
+                                <input type="hidden" name="step" value="update_fleet_note">
+                                <input type="hidden" name="area" value="{{ area }}">
+                                <input type="hidden" name="start_time" value="{{ start_time }}">
+                                <input type="hidden" name="end_time" value="{{ end_time }}">
+                                <button type="submit" class="btn btn-success"
+                                        style="font-size: 14px; padding: 6px 10px; border: none; border-radius: 4px; background: #28a745; color: white; cursor: pointer; align-self: flex-start;"
+                                        onclick="showLoadingBar()">
+                                    保存备注
+                                </button>
+                            </form>
                         </td>
                         {% if shipment_type == '已录入内容' %}
                             <td class="td"
@@ -746,6 +763,22 @@
                 // 若后端返回 Content-Disposition，浏览器会自动触发下载，无需额外处理
             });
         }
+
+        // 备注表单提交处理
+        const noteForms = document.querySelectorAll('form[action=""][name="step"][value="update_fleet_note"]');
+        noteForms.forEach(form => {
+            form.addEventListener('submit', function (e) {
+                // 验证备注内容（可选）
+                const noteInput = this.querySelector('textarea[name="note"]');
+                if (noteInput && noteInput.value.trim() === '') {
+                    if (!confirm('备注内容为空，确定要保存吗？')) {
+                        e.preventDefault();
+                        return;
+                    }
+                }
+                showLoadingBar();
+            });
+        });
     });
 
     // 兜底定义所有可能被调用的函数，防止未定义报错

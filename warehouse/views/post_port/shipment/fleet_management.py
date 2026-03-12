@@ -211,6 +211,9 @@ class FleetManagement(View):
             return await self.handle_export_packing_list_post(request)
         elif step == "export_bol":
             return await self.handle_export_bol_post(request)
+        elif step == "update_fleet_note":
+            template, context = await self.handle_update_fleet_note(request)
+            return render(request, template, context)
         elif step == "add_pallet":
             template, context = await self.handle_add_pallet(request)
             return render(request, template, context)
@@ -3256,6 +3259,13 @@ class FleetManagement(View):
                 content_type="text/plain",
             )
         return response
+
+    async def handle_update_fleet_note(self, request: HttpRequest) -> HttpResponse:
+        """ltl保存备注 """
+        shipment_id = request.POST.get("shipment_id")
+        note = request.POST.get("note")
+        await sync_to_async(lambda: Shipment.objects.filter(id=shipment_id).update(note=note))()
+        return await self.handle_fleet_cost_record_get_ltl(request, None, 1)
 
     async def handle_export_bol_packing_list_post(self, request: HttpRequest) -> HttpResponse:
         batch_number = request.POST.get("shipment_batch_number")
