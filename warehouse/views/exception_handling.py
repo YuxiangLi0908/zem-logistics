@@ -495,12 +495,12 @@ class ExceptionHandling(View):
             nonlocal updated_count, failed_count
             with transaction.atomic():
                 for item in invoice_items_to_process:
-                    try:
+                    if 1:
                         container = item.container_number
                         invoice_number = item.invoice_number.invoice_number
-                        
+
                         order = asyncio.run(sync_to_async(Order.objects.get)(container_number=container))
-                        invoice_status = asyncio.run(sync_to_async(InvoiceStatusv2.objects.get)(invoice_number=invoice_number))
+                        invoice_status = asyncio.run(sync_to_async(InvoiceStatusv2.objects.get)(invoice=item.invoice_number))
                         
                         if not container:
                             # 没有关联柜子，记录失败
@@ -508,6 +508,7 @@ class ExceptionHandling(View):
                                 'invoice_number': invoice_number,
                                 'container_number': "",
                                 'created_at': order.created_at,
+                                'status': invoice_status.finance_status,
                                 'warehouse_code':  item.warehouse_code,
                                 'cbm': item.cbm or 0,
                                 'cbm_ratio': item.cbm_ratio or 0,
@@ -529,6 +530,8 @@ class ExceptionHandling(View):
                             result_list.append({
                                 'invoice_number': invoice_number,
                                 'container_number': container.container_number or "",
+                                'created_at': order.created_at,
+                                'status': invoice_status.finance_status,
                                 'warehouse_code':  item.warehouse_code,
                                 'cbm': item.cbm or 0,
                                 'cbm_ratio': item.cbm_ratio or 0,
@@ -546,6 +549,8 @@ class ExceptionHandling(View):
                             result_list.append({
                                 'invoice_number': invoice_number,
                                 'container_number': container.container_number or "",
+                                'created_at': order.created_at,
+                                'status': invoice_status.finance_status,
                                 'warehouse_code':  item.warehouse_code,
                                 'cbm': current_cbm,
                                 'cbm_ratio': item.cbm_ratio or 0,
@@ -569,6 +574,8 @@ class ExceptionHandling(View):
                         result_list.append({
                             'invoice_number': invoice_number,
                             'container_number': container.container_number or "",
+                            'created_at': order.created_at,
+                            'status': invoice_status.finance_status,
                             'warehouse_code':  item.warehouse_code,
                             'cbm': current_cbm,
                             'cbm_ratio': calculated_ratio,
@@ -577,20 +584,20 @@ class ExceptionHandling(View):
                             'total_container_cbm': total_container_cbm  # 可选的柜子总CBM
                         })
                         
-                    except Exception as e:
-                        # 处理异常情况
-                        container_number = item.container_number.container_number if item.container_number else ""
-                        result_list.append({
-                            'invoice_number': invoice_number,
-                            'container_number': container_number,
-                            'warehouse_code':  item.warehouse_code,
-                            'cbm': item.cbm or 0,
-                            'cbm_ratio': item.cbm_ratio or 0,
-                            'is_success': False,
-                            'error_message': str(e)
-                        })
-                        failed_count += 1
-                        continue
+                    # except Exception as e:
+                    #     # 处理异常情况
+                    #     container_number = item.container_number.container_number if item.container_number else ""
+                    #     result_list.append({
+                    #         'invoice_number': invoice_number,
+                    #         'container_number': container_number,
+                    #         'warehouse_code':  item.warehouse_code,
+                    #         'cbm': item.cbm or 0,
+                    #         'cbm_ratio': item.cbm_ratio or 0,
+                    #         'is_success': False,
+                    #         'error_message': str(e)
+                    #     })
+                    #     failed_count += 1
+                    #     continue
         
         # 执行更新
         await sync_to_async(update_cbm_ratios, thread_sensitive=True)()
