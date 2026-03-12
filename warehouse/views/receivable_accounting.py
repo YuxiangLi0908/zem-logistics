@@ -7858,7 +7858,7 @@ class ReceivableAccounting(View):
             total_cbm_ratio=Sum("cbm_ratio")
         )
         
-        if base_queryset.filter(cbm_ratio=0).exists():
+        if base_queryset.filter(Q(cbm_ratio=0) | Q(cbm_ratio__isnull=True)).exists():
             result = self._recalculate_cbm_ratio(container_number, invoice,plts["total_cbm"])
         
         non_combina_cbm = round(result.get('total_cbm') or 0,4)
