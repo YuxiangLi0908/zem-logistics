@@ -863,6 +863,7 @@
                                 <th>唛头</th>
                                 <th>目的地</th>
                                 <th>CBM</th>
+                                <th>CBM占比</th>
                                 <th>重量(lbs)</th>
                                 <th>派送类型</th>
                                 <th>板数</th>
@@ -877,7 +878,7 @@
                         </thead>
                         <tbody>
                             {% for item in normal_items %}                  
-                            <tr data-row="{{ forloop.counter0 }}" data-item-id="{{ item.id|default:'' }}" data-po="{{ item.PO_ID|default:'' }}" data-is-hold="{% if item.delivery_category == 'hold' %}true{% else %}false{% endif %}">                      
+                            <tr data-row="{{ forloop.counter0 }}" data-item-id="{{ item.id|default:'' }}" data-po="{{ item.PO_ID|default:'' }}" data-cbm-ratio="{{ item.cbm_ratio|default:'' }}" data-is-hold="{% if item.delivery_category == 'hold' %}true{% else %}false{% endif %}">                      
                                 <!-- 唛头 -->
                                 <td class="cell-mark">
                                     <div class="mark-text" title="{{ item.shipping_marks|default:'' }}">
@@ -891,12 +892,17 @@
                                 </td>
                                 
                                 <!-- CBM -->
-                                <td class="cell-stats">
+                                <td class="cell-stats cell-cbm">
                                     <div class="stat-value">{{ item.total_cbm|floatformat:2|default:"0.00" }}</div>
+                                </td>
+
+                                <!-- CBM占比 -->
+                                <td class="cell-stats cell-cbm-ratio">
+                                    <div class="stat-value">{{ item.cbm_ratio|default:"" }}</div>
                                 </td>
                                 
                                 <!-- 重量 -->
-                                <td class="cell-stats">
+                                <td class="cell-stats cell-weight">
                                     <div class="stat-value">{{ item.total_weight_lbs|floatformat:2|default:"0.00" }}</div>
                                 </td>
                                 
@@ -1039,7 +1045,7 @@
                             </form>
                             {% empty %}
                             <tr>
-                                <td colspan="13" style="text-align: center; padding: 60px 20px; color: var(--text-secondary);">
+                                <td colspan="14" style="text-align: center; padding: 60px 20px; color: var(--text-secondary);">
                                     <i class="fas fa-clipboard-list" style="font-size: 3rem; margin-bottom: 20px; color: #e0e0e0;"></i>
                                     <p>暂无账单数据</p>
                                 </td>
@@ -1261,6 +1267,7 @@
     <input type="hidden" name="amount" id="single-amount" value="">
     <input type="hidden" name="note" id="single-note" value="">
     <input type="hidden" name="cbm" id="single-cbm" value="">
+    <input type="hidden" name="cbm_ratio" id="single-cbm-ratio" value="">
     <input type="hidden" name="weight" id="single-weight" value="">
 </form>
 <!-- 转换类型的form -->
@@ -1439,8 +1446,9 @@ $(document).ready(function() {
         const poId = $row.data('po') || '';
         const shippingMarks = $row.find('.mark-text').attr('title') || '';
         const destination = $row.find('.cell-destination').text().trim();
-        const cbm = $row.find('td:nth-child(3) .stat-value').text().trim() || '0.00';
-        const weight = $row.find('td:nth-child(4) .stat-value').text().trim() || '0.00';
+        const cbm = $row.find('.cell-cbm .stat-value').text().trim() || '0.00';
+        const cbmRatio = $row.find('.cell-cbm-ratio .stat-value').text().trim() || '0.00';
+        const weight = $row.find('.cell-weight .stat-value').text().trim() || '0.00';
 
         // 验证
         if (!deliveryCategory) {
@@ -1469,6 +1477,7 @@ $(document).ready(function() {
         $('#single-amount').val(amount || '0');          // ← 确保把金额写入
         $('#single-note').val(note || '');
         $('#single-cbm').val(cbm); 
+        $('#single-cbm-ratio').val(cbmRatio);
         $('#single-weight').val(weight);
 
         // 状态变更
@@ -1504,8 +1513,9 @@ $(document).ready(function() {
             const surcharges = $(this).find('.input-surcharge').val() || '0';
             const amount = $(this).find('.amount-input').val() || '0';
             const note = $(this).find('.input-note').val() || '';
-            const cbm = $(this).find('td:nth-child(3) .stat-value').text().trim() || '0.00'; 
-            const weight = $(this).find('td:nth-child(4) .stat-value').text().trim() || '0.00';
+            const cbm = $(this).find('.cell-cbm .stat-value').text().trim() || '0.00'; 
+            const cbmRatio = $(this).find('.cell-cbm-ratio .stat-value').text().trim() || '0.00';
+            const weight = $(this).find('.cell-weight .stat-value').text().trim() || '0.00';
 
             items.push({
                 rowIndex: rowIndex,
@@ -1520,6 +1530,7 @@ $(document).ready(function() {
                 amount: amount,
                 note: note,
                 cbm: cbm,
+                cbm_ratio: cbmRatio,
                 weight: weight
             });
         });

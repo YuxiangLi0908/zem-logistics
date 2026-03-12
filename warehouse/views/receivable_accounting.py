@@ -2264,7 +2264,7 @@ class ReceivableAccounting(View):
         except json.JSONDecodeError as e:
             context.update({"error_messages": f"数据格式错误: {str(e)}"})
             return self.handle_delivery_entry_post(request, context)
-    
+        print(items_data)
         context = self.batch_save_delivery_item(container, invoice, items_data, item_category, context, username)
 
         # 处理激活费
@@ -2416,7 +2416,6 @@ class ReceivableAccounting(View):
 
         # 遍历每条数据
         for item_data in items_data:
-            
             po_id = item_data.get("po_id", "")
             if not po_id:
                 raise ValueError('缺少PO_ID')
@@ -2441,7 +2440,7 @@ class ReceivableAccounting(View):
                 description = "派送费"
             region = item_data.get("combina_region", "")
             cbm = item_data.get("cbm", "")
-            cbm_ratio = item_data.get("cbmRatio", 0)
+            cbm_ratio = item_data.get("cbmRatio") or item_data.get("cbm_ratio") or 0
             weight = item_data.get("weight", "")
             note = item_data.get("note", "")
             shipping_marks = item_data.get("shipping_marks", "")
@@ -2511,7 +2510,6 @@ class ReceivableAccounting(View):
             # 保存
             item.save()
             success_count += 1
-        
         # 准备返回消息
         success_messages = []
         if success_count > 0:
@@ -2555,7 +2553,7 @@ class ReceivableAccounting(View):
             "amount": request.POST.get("amount"),
             "note": request.POST.get("note"),
             "cbm": request.POST.get("cbm"),
-            "cbm_ratio": 1,
+            "cbm_ratio": request.POST.get("cbm_ratio"),
             "weight": request.POST.get("weight"),
             "registered_user": username,
             "shipping_marks": request.POST.get("shipping_marks"),
@@ -5471,6 +5469,15 @@ class ReceivableAccounting(View):
             "combina_groups": [],
             "combina_info": {},
         }
+
+        # 计算整个柜子的cbm
+        total_container_cbm_result = PackingList.objects.filter(
+            container_number=container  # 使用container对象，或者container_number字符串
+        ).aggregate(
+            total_cbm=Sum('cbm')
+        )
+        total_container_cbm = round(total_container_cbm_result['total_cbm'] or 0.0, 2)
+
         # 按区域分组组合柜数据
         combina_items_by_region = {}
         fee_details = {}
@@ -5531,15 +5538,18 @@ class ReceivableAccounting(View):
                         destination=destination,
                         location=location,
                         fee_details=fee_details,
-                        vessel_etd=vessel_etd
+                        vessel_etd=vessel_etd,
+                        total_container_cbm=total_container_cbm
                     )
                     
                 else:
                     # 私仓：只确定类型，不创建记录
                     item_data = self._process_private_unbilled(
                         group=group,
-                        invoice=invoice
+                        invoice=invoice,
+                        total_container_cbm=total_container_cbm
                     )
+                    print('item_data',item_data)
 
                 if isinstance(item_data, dict) and item_data.get("error_messages"):
                     if quotation_info:
@@ -5934,7 +5944,8 @@ class ReceivableAccounting(View):
     def _process_private_unbilled(
         self,
         group: Dict,
-        invoice
+        invoice,
+        total_container_cbm
     ) -> Dict[str, Any]:
         """处理私仓未录入的PO"""
         po_id = group.get("PO_ID")
@@ -5954,6 +5965,7 @@ class ReceivableAccounting(View):
             delivery_category = "selfpickup"
         else:
             delivery_category = "selfdelivery"
+        cbm_ratio = round(group.get("total_cbm", 0) / total_container_cbm, 4)
         # 返回数据（不自动创建记录）
         return {
             "id": None,
@@ -5976,6 +5988,7 @@ class ReceivableAccounting(View):
             "is_previous_existing": False,
             "need_manual_input": need_manual_input,  # 私仓都需要手动录入
             "invoice_id": invoice.id,  # 记录invoice_id，用于后续创建
+            "cbm_ratio": cbm_ratio,
         }
     
     def _process_public_unbilled(
@@ -5986,7 +5999,8 @@ class ReceivableAccounting(View):
         destination,
         location,
         fee_details,
-        vessel_etd
+        vessel_etd,
+        total_container_cbm
     ) -> Dict[str, Any]:
         """处理公仓未录入的PO"""
         context = {}
@@ -6078,6 +6092,7 @@ class ReceivableAccounting(View):
                 total_pallets = float(total_pallets) if total_pallets else 0.0
                 amount = rate * total_pallets
 
+        cbm_ratio = round(total_cbm / total_container_cbm, 4)
         # 返回数据（不创建InvoiceItemv2记录）
         return {
             "id": None,
@@ -6098,6 +6113,7 @@ class ReceivableAccounting(View):
             "is_existing": False,
             "is_previous_existing": False,
             "need_manual_input": need_manual_input,  
+            "cbm_ratio": cbm_ratio,
         }
     
     def _calculate_total_pallet(

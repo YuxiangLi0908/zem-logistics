@@ -1630,6 +1630,7 @@
                                 <!-- 移除了唛头列 -->
                                 <th>目的地</th>
                                 <th>CBM</th>
+                                <th>cbm_ratio</th>
                                 <th>重量(lbs)</th>
                                 <th>派送类型</th>
                                 <th>板数</th>
@@ -1650,6 +1651,7 @@
                                 data-is-hold="{% if item.delivery_category == 'hold' %}true{% else %}false{% endif %}"
                                 data-base-amount="{{ item.amount|floatformat:2 }}"
                                 data-cbm="{{ item.total_cbm|default:0 }}"
+                                data-cbm-ratio="{{ item.cbm_ratio|default:0 }}"
                                 data-weight="{{ item.total_weight_lbs|default:0 }}"
                                 {% if not item.delivery_category %}class="row-no-type"{% endif %}>
                                 
@@ -1657,12 +1659,17 @@
                                 <td class="cell-destination">{{ item.destination|default:"-" }}</td>
                                 
                                 <!-- CBM -->
-                                <td class="cell-stats">
+                                <td class="cell-stats cell-cbm">
                                     <div class="stat-value">{{ item.total_cbm|floatformat:2|default:"0.00" }}</div>
+                                </td>
+
+                                <!-- CBM占比 -->
+                                <td class="cell-stats cell-cbm-ratio">
+                                    <div class="stat-value">{{ item.cbm_ratio|default:"0" }}</div>
                                 </td>
                                 
                                 <!-- 重量 -->
-                                <td class="cell-stats">
+                                <td class="cell-stats cell-weight">
                                     <div class="stat-value">{{ item.total_weight_lbs|floatformat:2|default:"0.00" }}</div>
                                 </td>
                                 
@@ -1767,7 +1774,7 @@
                             </tr>
                             {% empty %}
                             <tr>
-                                <td colspan="12" style="text-align: center; padding: 60px 20px; color: var(--text-secondary);">
+                                <td colspan="13" style="text-align: center; padding: 60px 20px; color: var(--text-secondary);">
                                     <i class="fas fa-clipboard-list" style="font-size: 3rem; margin-bottom: 20px; color: #e0e0e0;"></i>
                                     <p>暂无转运计费数据</p>
                                 </td>
@@ -2096,6 +2103,7 @@
     <input type="hidden" name="amount" id="single-amount" value="">
     <input type="hidden" name="note" id="single-note" value="">
     <input type="hidden" name="cbm" id="single-cbm" value="">
+    <input type="hidden" name="cbm_ratio" id="single-cbm-ratio" value="">
     <input type="hidden" name="weight" id="single-weight" value="">
 </form>
 
@@ -2122,6 +2130,18 @@
 
     // PO激活费功能
     let activationItems = [];
+    function getCbmRatioForRow($row) {
+        const rawText = $row.find('.cell-cbm-ratio .stat-value').text().trim();
+        const rawData = ($row.data('cbm-ratio') || '').toString().trim();
+        const raw = rawText || rawData;
+        if (!raw) return '';
+        const hasPercent = raw.includes('%');
+        const s = raw.replace('%', '').trim();
+        const num = parseFloat(s);
+        if (isNaN(num)) return '';
+        const value = hasPercent ? (num / 100) : num;
+        return value.toString();
+    }
     function calculateTotalAmount() {
         let total = 0;
         
@@ -2404,8 +2424,9 @@
         const note = $row.find('.input-note').val();
         const poId = $row.data('po') || '';
         const destination = $row.find('.cell-destination').text().trim();
-        const cbm = $row.find('.cell-stats').first().find('.stat-value').text().trim();
-        const weight = $row.find('.cell-stats').eq(1).find('.stat-value').text().trim();
+        const cbm = $row.find('.cell-cbm .stat-value').text().trim();
+        const cbmRatio = getCbmRatioForRow($row);
+        const weight = $row.find('.cell-weight .stat-value').text().trim();
 
         // 验证
         if (!deliveryCategory) {
@@ -2447,6 +2468,7 @@
         $('#single-amount').val(amount || '0');
         $('#single-note').val(note || '');
         $('#single-cbm').val(cbm || '0');
+        $('#single-cbm-ratio').val(cbmRatio || '0');
         $('#single-weight').val(weight || '0');
 
         // 提交表单
@@ -2732,8 +2754,9 @@
             const $row = $(this);
         
             // 获取CBM和重量
-            const cbm = $row.find('.cell-stats').first().find('.stat-value').text().trim() || "0";
-            const weight = $row.find('.cell-stats').eq(1).find('.stat-value').text().trim() || "0";
+            const cbm = $row.find('.cell-cbm .stat-value').text().trim() || "0";
+            const cbmRatio = getCbmRatioForRow($row) || "0";
+            const weight = $row.find('.cell-weight .stat-value').text().trim() || "0";
             allItems.push({
                 rowIndex: rowIndex,
                 item_id: $(this).data('item-id') || "",
@@ -2747,6 +2770,7 @@
                 amount: $(this).find(`input[name="amount_${rowIndex}"]`).val() || "0.00",
                 note: $(this).find(`input[name="note_${rowIndex}"]`).val() || "",
                 cbm: cbm, // 新增：CBM
+                cbm_ratio: cbmRatio,
                 weight: weight, // 新增：重量
             });
         });
