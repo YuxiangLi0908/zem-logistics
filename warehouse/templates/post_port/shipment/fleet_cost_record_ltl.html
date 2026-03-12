@@ -79,6 +79,35 @@
             <div style="display: flex; flex-direction: column; gap: 10px; align-items: flex-end; min-width: 300px;">
                 {% if shipment_type == '未录入内容' %}
                     <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap; width: 100%; background: #f8f9fa; padding: 10px; border-radius: 6px; justify-content: flex-end;">
+                        <form method="post" enctype="multipart/form-data"
+                              style="font-size:14px; display: inline-flex; align-items: center;">
+                            {% csrf_token %}
+                            <!-- 隐藏文件输入框 -->
+                            <input type="file" name="ltl_file" id="ltl-file-input"
+                                   style="position: absolute; left: -9999px; top: -9999px;"
+                                   onchange="if(this.files.length>0) { this.form.submit(); showLoadingBar(); }">
+                            <input type="hidden" name="step" value="upload_ltl_cost">
+                            <input type="hidden" name="area" value="{{ area }}">
+                            <!-- 按钮仅文字可点击 -->
+                            <button type="button" class="btn btn-warning"
+                                    style="height: 36px; font-size: 14px; border: none; border-radius: 4px; background: #ffc107; color: #212529; cursor: pointer;"
+                                    onclick="document.getElementById('ltl-file-input').click();">
+                                LTL批量上传成本
+                            </button>
+                            <small style="color: #666; margin-left: 5px;">（按LTL模板格式上传）</small>
+                        </form>
+
+                        <form method="post" enctype="multipart/form-data"
+                              style="font-size:14px; display: inline-flex; align-items: center; margin-left: 20px;">
+                            {% csrf_token %}
+                            <input type="hidden" name="step" value="download_ltl_cost_template">
+                            <button type="submit" class="btn btn-info"
+                                    style="height: 36px; font-size: 14px; border: none; border-radius: 4px; background: #17a2b8; color: white; cursor: pointer;"
+                                    onclick="handleTemplateDownload()">
+                                下载LTL模版
+                            </button>
+                        </form>
+
                         <!-- 原有批量分摊成本表单 -->
                         <form method="post" id="batch-cost-form"
                               style="font-size:14px; display: inline-flex; align-items: center; width: auto; gap: 8px; margin-right: 10px;">
@@ -685,6 +714,39 @@
     function showLoadingBar() {
         document.getElementById('loading-bar').style.display = 'block';
     }
+
+    // 处理模板下载：显示加载动画 + 延迟关闭（适配文件下载）
+    function handleTemplateDownload() {
+        // 1. 显示加载动画
+        showLoadingBar();
+
+        // 2. 延迟关闭动画（3秒，可根据实际下载速度调整）
+        setTimeout(() => {
+            try {
+                document.getElementById('loading-bar').style.display = 'none';
+            } catch (e) {
+                console.debug('关闭加载动画失败:', e);
+            }
+        }, 3000); // 3000ms = 3秒，可根据实际情况调整为2000-5000ms
+    }
+
+    // 增强版：监听文件下载完成事件（可选，更精准）
+    document.addEventListener('DOMContentLoaded', function () {
+        // 给下载模板表单绑定提交事件
+        const templateForm = document.querySelector('form[action=""][name="step"][value="download_ltl_cost_template"]');
+        if (templateForm) {
+            templateForm.addEventListener('submit', function () {
+                showLoadingBar();
+                // 延迟关闭（兜底）
+                setTimeout(() => {
+                    document.getElementById('loading-bar').style.display = 'none';
+                }, 3000);
+
+                // 进阶方案：监听浏览器下载状态（需后端配合返回特定响应头）
+                // 若后端返回 Content-Disposition，浏览器会自动触发下载，无需额外处理
+            });
+        }
+    });
 
     // 兜底定义所有可能被调用的函数，防止未定义报错
     window.updateSelectAllStatus = function () { return; };
