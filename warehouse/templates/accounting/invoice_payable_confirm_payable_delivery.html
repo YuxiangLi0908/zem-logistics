@@ -283,14 +283,14 @@
             width: 100% !important;
             min-width: 100% !important;
             max-width: 100% !important;
-            table-layout: fixed !important; /* 固定布局核心 */
+            table-layout: fixed !important;
             border-collapse: separate !important;
             border-spacing: 0 !important;
             box-sizing: border-box !important;
             transition: none !important;
+            border: 1px solid #dee2e6; /* 新增：表格边框确保结构稳定 */
         }
 
-        /* 给每个表头设置固定像素宽度，禁止自动计算 */
         .table th {
             box-sizing: border-box !important;
             padding: 8px !important;
@@ -298,6 +298,8 @@
             overflow: hidden !important;
             text-overflow: ellipsis !important;
             vertical-align: middle !important;
+            border: 1px solid #dee2e6 !important; /* 新增：表头边框 */
+            background-color: #f8f9fa !important;
         }
 
         /* 待确认账单列宽（14列） */
@@ -370,7 +372,13 @@
             width: 150px !important;
         }
 
-        /* 备注 */
+        /* 为待确认/已确认表格的每一列添加强制固定宽度（补充原有缺失） */
+        #delivery-pending .table th:nth-child(15),
+        #delivery-confirm .table th:nth-child(16) {
+            width: 150px !important;
+            min-width: 150px !important;
+            max-width: 150px !important;
+        }
 
         /* 已确认账单列宽（15列，多核销时间） */
         #delivery-confirm .table th:nth-child(1) {
@@ -456,6 +464,7 @@
             overflow: hidden !important;
             text-overflow: ellipsis !important;
             vertical-align: middle !important;
+            border: 1px solid #dee2e6 !important; /* 新增：单元格边框确保对齐 */
         }
 
         /* 禁止动态添加的单元格影响布局 */
@@ -470,13 +479,14 @@
         /* 合并行单元格强制继承列宽，禁止干扰布局 */
         .table td[rowspan], .table th[rowspan],
         .table td[colspan], .table th[colspan] {
-            width: 100% !important; /* 改为100%，继承列宽 */
+            width: 100% !important;
             min-width: inherit !important;
             max-width: inherit !important;
             box-sizing: border-box !important;
-            white-space: nowrap !important; /* 禁止单元格内容换行导致宽度变化 */
+            white-space: nowrap !important;
             overflow: hidden !important;
             text-overflow: ellipsis !important;
+            position: relative !important; /* 新增：确保定位稳定 */
         }
 
         /* 搜索行的输入框禁止影响列宽 */
@@ -1721,6 +1731,166 @@
             });
         }
 
+        // ========== 修复：全选/取消全选函数（仅选中可见行） ==========
+        function toggleSelectAll(checkboxId, targetClass) {
+            const selectAllCheckbox = document.getElementById(checkboxId);
+            const checkboxes = document.querySelectorAll(`.${targetClass}`);
+
+            // 遍历所有复选框，但只处理可见行的复选框
+            checkboxes.forEach(cb => {
+                const row = cb.closest('tr');
+                // 判断行是否可见（display !== 'none'）
+                const isRowVisible = row && window.getComputedStyle(row).display !== 'none';
+
+                if (isRowVisible) {
+                    cb.checked = selectAllCheckbox.checked;
+
+                    const combinedRows = combinedRowsMap.get(row) || [row];
+                    if (selectAllCheckbox.checked) {
+                        combinedRows.forEach(r => r.classList.add('selected-row'));
+                    } else {
+                        combinedRows.forEach(r => r.classList.remove('selected-row'));
+                    }
+                }
+            });
+
+            updateSelectedCount(targetClass);
+            updatePendingSummary();
+        }
+
+        // ========== 修复：更新选中数量（仅统计可见行） ==========
+        function updateSelectedCount(targetClass) {
+            const checkboxes = document.querySelectorAll(`.${targetClass}`);
+            let selectedCount = 0;
+
+            // 只统计可见且选中的复选框
+            checkboxes.forEach(cb => {
+                const row = cb.closest('tr');
+                const isRowVisible = row && window.getComputedStyle(row).display !== 'none';
+
+                if (isRowVisible && cb.checked) {
+                    selectedCount++;
+                }
+            });
+
+            if (targetClass === 'delivery-pending-checkbox') {
+                document.getElementById('delivery-pending-selected-count').textContent = `已选：${selectedCount} 条`;
+            } else if (targetClass === 'delivery-export-checkbox') {
+                document.getElementById('delivery-selected-count').textContent = `已选：${selectedCount} 条`;
+            }
+        }
+
+        // ========== 修复：收集选中的Fleet ID（仅收集可见行） ==========
+        function collectSelectedPendingFleetIds() {
+            const selectedIds = [];
+            document.querySelectorAll('.delivery-pending-checkbox:checked').forEach(cb => {
+                const row = cb.closest('tr');
+                const isRowVisible = row && window.getComputedStyle(row).display !== 'none';
+
+                if (isRowVisible && cb.value) {
+                    selectedIds.push(cb.value);
+                }
+            });
+
+            if (selectedIds.length === 0) {
+                alert('请至少选择一条记录导出！');
+                return false;
+            }
+
+            document.getElementById('selected_pending_fleet_ids').value = selectedIds.join(',');
+            return true;
+        }
+
+        function collectSelectedFleetIds() {
+            const selectedIds = [];
+            document.querySelectorAll('.delivery-export-checkbox:checked').forEach(cb => {
+                const row = cb.closest('tr');
+                const isRowVisible = row && window.getComputedStyle(row).display !== 'none';
+
+                if (isRowVisible && cb.value) {
+                    selectedIds.push(cb.value);
+                }
+            });
+
+            if (selectedIds.length === 0) {
+                alert('请至少选择一条记录导出！');
+                return false;
+            }
+
+            document.getElementById('selected_fleet_ids').value = selectedIds.join(',');
+            return true;
+        }
+
+        // ========== 批量核销相关函数（保持不变） ==========
+        function openBatchWriteoffModal() {
+            const checkedBoxes = document.querySelectorAll('.delivery-pending-checkbox:checked');
+            if (checkedBoxes.length === 0) {
+                alert('请至少选择一条记录进行批量核销！');
+                return;
+            }
+
+            const batchItems = [];
+            const previewHtml = [];
+
+            checkedBoxes.forEach((cb, index) => {
+                const row = cb.closest('tr');
+                const isRowVisible = row && window.getComputedStyle(row).display !== 'none';
+
+                if (!isRowVisible) return;
+                if (!row) return;
+
+                // 修复：正确获取fleetId
+                const fleetId = cb.dataset.fleetId || cb.value; // 关键修复
+                const amountInput = row.querySelector('input[name="write_off_amount"]');
+                if (!amountInput) {
+                    alert(`第${index + 1}条记录未找到核销金额输入框！`);
+                    return;
+                }
+                const amount = parseFloat(amountInput.value.trim()) || 0;
+
+                const noteInput = row.querySelector('input[name="note_delivery"]');
+                const note = noteInput ? noteInput.value.trim() : '无备注';
+
+                if (amount <= 0) {
+                    alert(`第${index + 1}条记录金额无效（≤0），请检查！`);
+                    return;
+                }
+
+                batchItems.push({
+                    fleet_id: fleetId,
+                    container_id: amountInput.dataset.containerId || '',
+                    write_off_amount: amount,
+                    note: note
+                });
+
+                previewHtml.push(`
+            <div class="batch-note-item">
+                <span>记录${index + 1}：</span>
+                车次ID=${fleetId} | 柜号ID=${amountInput.dataset.containerId || '无'} |
+                核销金额=$${amount.toFixed(2)} | 备注=${note}
+            </div>
+        `);
+            });
+
+            if (batchItems.length === 0) return;
+
+            const countElement = document.getElementById('batch-selected-count');
+            const previewElement = document.getElementById('batch-items-preview');
+            const itemsInput = document.getElementById('batch_writeoff_items');
+            const modalElement = document.getElementById('batchWriteoffModal');
+
+            if (!countElement || !previewElement || !itemsInput || !modalElement) {
+                alert('批量核销模态框元素加载失败，请刷新页面！');
+                return;
+            }
+
+            countElement.textContent = batchItems.length;
+            previewElement.innerHTML = previewHtml.join('');
+            itemsInput.value = JSON.stringify(batchItems);
+            modalElement.style.display = 'block';
+        }
+
+
         // ========== 核心：修正后的总计计算函数（仅修改核销金额部分） ==========
         function updatePendingSummary() {
             const checkedBoxes = document.querySelectorAll('.delivery-pending-checkbox:checked');
@@ -1768,115 +1938,6 @@
             document.getElementById('summary-writeoff').textContent = '$' + totalWriteoff.toFixed(2);
         }
 
-        // ========== 全选/取消全选函数（适配当前页面） ==========
-        function toggleSelectAll(checkboxId, targetClass) {
-            const selectAllCheckbox = document.getElementById(checkboxId);
-            const checkboxes = document.querySelectorAll(`.${targetClass}`);
-
-            checkboxes.forEach(cb => {
-                cb.checked = selectAllCheckbox.checked;
-
-                const row = cb.closest('tr');
-                const combinedRows = combinedRowsMap.get(row) || [row];
-                if (selectAllCheckbox.checked) {
-                    combinedRows.forEach(r => r.classList.add('selected-row'));
-                } else {
-                    combinedRows.forEach(r => r.classList.remove('selected-row'));
-                }
-            });
-
-            updateSelectedCount(targetClass);
-            updatePendingSummary();
-        }
-
-        // ========== 更新选中数量显示 ==========
-        function updateSelectedCount(targetClass) {
-            const checkboxes = document.querySelectorAll(`.${targetClass}`);
-            const selectedCount = document.querySelectorAll(`.${targetClass}:checked`).length;
-
-            if (targetClass === 'delivery-pending-checkbox') {
-                document.getElementById('delivery-pending-selected-count').textContent = `已选：${selectedCount} 条`;
-            } else if (targetClass === 'delivery-export-checkbox') {
-                document.getElementById('delivery-selected-count').textContent = `已选：${selectedCount} 条`;
-            }
-        }
-
-        // ========== 批量核销相关函数 ==========
-        function openBatchWriteoffModal() {
-            const checkedBoxes = document.querySelectorAll('.delivery-pending-checkbox:checked');
-            if (checkedBoxes.length === 0) {
-                alert('请至少选择一条记录进行批量核销！');
-                return;
-            }
-
-            // 收集每行的详细数据
-            const batchItems = [];
-            const previewHtml = [];
-
-            checkedBoxes.forEach((cb, index) => {
-                const fleetId = cb.value;
-                const row = cb.closest('tr');
-                if (!row) return;
-
-                // 获取当前行的核销金额输入框
-                const amountInput = row.querySelector('input[name="write_off_amount"]');
-                if (!amountInput) { // 增加容错：找不到输入框则跳过
-                    alert(`第${index + 1}条记录未找到核销金额输入框！`);
-                    return;
-                }
-                const amount = parseFloat(amountInput.value.trim()) || 0;
-
-                // 获取当前行的备注输入框
-                const noteInput = row.querySelector('input[name="note_delivery"]');
-                const note = noteInput ? noteInput.value.trim() : '无备注';
-
-                // 跳过金额≤0的行
-                if (amount <= 0) {
-                    alert(`第${index + 1}条记录金额无效（≤0），请检查！`);
-                    return;
-                }
-
-                // 存储行数据
-                batchItems.push({
-                    fleet_id: fleetId,
-                    container_id: amountInput.dataset.containerId || '', // 兼容空值
-                    write_off_amount: amount,
-                    note: note
-                });
-
-                // 生成预览HTML
-                previewHtml.push(`
-            <div class="batch-note-item">
-                <span>记录${index + 1}：</span>
-                车次ID=${fleetId} | 柜号ID=${amountInput.dataset.containerId || '无'} |
-                核销金额=$${amount.toFixed(2)} | 备注=${note}
-            </div>
-        `);
-            });
-
-            // 无有效数据时返回
-            if (batchItems.length === 0) return;
-
-            // 更新预览和计数
-            const countElement = document.getElementById('batch-selected-count');
-            const previewElement = document.getElementById('batch-items-preview');
-            const itemsInput = document.getElementById('batch_writeoff_items');
-            const modalElement = document.getElementById('batchWriteoffModal');
-
-            // 增加容错：检查元素是否存在
-            if (!countElement || !previewElement || !itemsInput || !modalElement) {
-                alert('批量核销模态框元素加载失败，请刷新页面！');
-                return;
-            }
-
-            countElement.textContent = batchItems.length;
-            previewElement.innerHTML = previewHtml.join('');
-            itemsInput.value = JSON.stringify(batchItems);
-
-            // 显示模态框
-            modalElement.style.display = 'block';
-        }
-
         // ========== 关闭模态框 ==========
         function closeBatchWriteoffModal() {
             const modalElement = document.getElementById('batchWriteoffModal');
@@ -1913,37 +1974,6 @@
             return confirm(`确认核销选中的 ${batchItems.length} 条记录？`);
         }
 
-        // ========== 收集选中的Fleet ID（导出用） ==========
-        function collectSelectedPendingFleetIds() {
-            const selectedIds = [];
-            document.querySelectorAll('.delivery-pending-checkbox:checked').forEach(cb => {
-                if (cb.value) selectedIds.push(cb.value);
-            });
-
-            if (selectedIds.length === 0) {
-                alert('请至少选择一条记录导出！');
-                return false;
-            }
-
-            document.getElementById('selected_pending_fleet_ids').value = selectedIds.join(',');
-            return true;
-        }
-
-        function collectSelectedFleetIds() {
-            const selectedIds = [];
-            document.querySelectorAll('.delivery-export-checkbox:checked').forEach(cb => {
-                if (cb.value) selectedIds.push(cb.value);
-            });
-
-            if (selectedIds.length === 0) {
-                alert('请至少选择一条记录导出！');
-                return false;
-            }
-
-            document.getElementById('selected_fleet_ids').value = selectedIds.join(',');
-            return true;
-        }
-
         // ========== 直达底部函数 ==========
         function scrollToBottom() {
             window.scrollTo({
@@ -1963,24 +1993,52 @@
                     const table = this.closest('.table');
                     const rows = table.querySelectorAll('tbody tr');
 
+                    // 先重置所有行显示
                     rows.forEach(row => {
-                        if (row.classList.contains('summary-row') || row.classList.contains('search-row')) return;
-
-                        const cell = row.querySelector(`td:nth-child(${parseInt(columnIndex) + 1})`) ||
-                            row.querySelector(`td[data-column-name="${columnName}"]`);
-
-                        if (cell) {
-                            const cellText = cell.textContent.trim().toUpperCase();
-                            if (searchValue === '' || cellText.includes(searchValue)) {
-                                row.style.display = '';
-                            } else {
-                                row.style.display = 'none';
-                            }
+                        if (!row.classList.contains('summary-row') && !row.classList.contains('search-row')) {
+                            row.style.display = '';
                         }
                     });
 
+                    // 搜索值为空时直接返回
+                    if (searchValue === '') {
+                        updateSelectedCount('delivery-pending-checkbox');
+                        updateSelectedCount('delivery-export-checkbox');
+                        updatePendingSummary();
+                        return;
+                    }
+
+                    // 遍历所有行，处理合并行逻辑
+                    rows.forEach(row => {
+                        if (row.classList.contains('summary-row') || row.classList.contains('search-row')) return;
+
+                        // 获取当前行所属的合并行组
+                        const combinedRows = combinedRowsMap.get(row) || [row];
+                        let isMatch = false;
+
+                        // 检查合并行组中是否有匹配的单元格
+                        combinedRows.forEach(r => {
+                            const cell = r.querySelector(`td:nth-child(${parseInt(columnIndex) + 1})`);
+                            if (cell) {
+                                const cellText = cell.textContent.trim().toUpperCase();
+                                if (cellText.includes(searchValue)) {
+                                    isMatch = true;
+                                }
+                            }
+                        });
+
+                        // 统一控制整个合并行组的显示/隐藏
+                        if (!isMatch) {
+                            combinedRows.forEach(r => r.style.display = 'none');
+                        } else {
+                            combinedRows.forEach(r => r.style.display = '');
+                        }
+                    });
+
+                    // 更新选中计数和总计
                     if (this.closest('#delivery-pending')) {
                         updateSelectedCount('delivery-pending-checkbox');
+                        updatePendingSummary();
                     } else if (this.closest('#delivery-confirm')) {
                         updateSelectedCount('delivery-export-checkbox');
                     }
@@ -2036,6 +2094,11 @@
             initTabs();
             initTableFilter();
             updatePendingSummary();
+
+            // 新增：监听窗口大小变化，重新计算合并行映射
+            window.addEventListener('resize', function () {
+                preloadCombinedRowsMap();
+            });
 
             document.querySelectorAll('.delivery-pending-checkbox, .delivery-export-checkbox').forEach(cb => {
                 cb.addEventListener('change', function () {
