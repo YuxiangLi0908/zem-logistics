@@ -308,6 +308,9 @@ class ExceptionHandling(View):
         elif step == "update_receivable_total_fee":
             template, context = await self.handle_update_receivable_total_fee(request)
             return await sync_to_async(render)(request, template, context) 
+        elif step == "get_cbm_ratio_with_fallback":
+            template, context = await self.handle_get_cbm_ratio_with_fallback(request)
+            return await sync_to_async(render)(request, template, context) 
         elif step == "delete_shipment":
             template, context = await self.handle_delete_shipment(request)
             return await sync_to_async(render)(request, template, context)
@@ -469,6 +472,126 @@ class ExceptionHandling(View):
         }
 
         return self.template_post_port_status, context
+
+    async def handle_get_cbm_ratio_with_fallback(self, request):
+        '''处理InvoiceItemv2中cbm_ratio为空或0的记录，重新计算并更新'''
+        
+        # 1. 查询需要处理的InvoiceItemv2记录
+        # item_category是delivery_public或delivery_other，delivery_type不是combine，cbm_ratio为空或0
+        invoice_items_to_process = await sync_to_async(list)(
+            InvoiceItemv2.objects.filter(
+                Q(item_category__in=['delivery_public', 'delivery_other']) &
+                ~Q(delivery_type='combine') &
+                (Q(cbm_ratio__isnull=True) | Q(cbm_ratio=0))
+            ).select_related('container_number', 'invoice_number')
+        )
+        
+        result_list = []
+        updated_count = 0
+        failed_count = 0
+        
+        @transaction.atomic
+        def update_cbm_ratios():
+            nonlocal updated_count, failed_count
+            with transaction.atomic():
+                for item in invoice_items_to_process:
+                    try:
+                        container = item.container_number
+                        invoice_number = item.invoice_number.invoice_number
+                        if not container:
+                            # 没有关联柜子，记录失败
+                            result_list.append({
+                                'invoice_number': invoice_number,
+                                'container_number': "",
+                                'cbm': item.cbm or 0,
+                                'cbm_ratio': item.cbm_ratio or 0,
+                                'is_success': False,
+                                'error_message': '未关联柜子'
+                            })
+                            failed_count += 1
+                            continue
+                        
+                        # 2. 计算这个柜子的总CBM
+                        total_container_cbm = PackingList.objects.filter(
+                            container_number=container
+                        ).aggregate(
+                            total_cbm=Sum('cbm')
+                        )['total_cbm'] or 0.0
+                        
+                        if total_container_cbm == 0:
+                            # 柜子总CBM为0，无法计算比率
+                            result_list.append({
+                                'invoice_number': invoice_number,
+                                'container_number': container.container_number or "",
+                                'cbm': item.cbm or 0,
+                                'cbm_ratio': item.cbm_ratio or 0,
+                                'is_success': False,
+                                'error_message': f'柜子总CBM为{total_container_cbm}，无法计算比率'
+                            })
+                            failed_count += 1
+                            continue
+                        
+                        # 获取当前记录的CBM
+                        current_cbm = item.cbm or 0
+                        
+                        if current_cbm == 0:
+                            # 当前记录的CBM为0，无法计算比率
+                            result_list.append({
+                                'invoice_number': invoice_number,
+                                'container_number': container.container_number or "",
+                                'cbm': current_cbm,
+                                'cbm_ratio': item.cbm_ratio or 0,
+                                'is_success': False,
+                                'error_message': '当前记录的CBM为0，无法计算比率'
+                            })
+                            failed_count += 1
+                            continue
+                        
+                        # 3. 计算正确的cbm_ratio
+                        calculated_ratio = round(current_cbm / total_container_cbm, 4)
+                        
+                        # 4. 更新记录
+                        old_ratio = item.cbm_ratio
+                        item.cbm_ratio = calculated_ratio
+                        item.save()
+                        
+                        updated_count += 1
+                        
+                        # 5. 记录成功结果
+                        result_list.append({
+                            'invoice_number': invoice_number,
+                            'container_number': container.container_number or "",
+                            'cbm': current_cbm,
+                            'cbm_ratio': calculated_ratio,
+                            'is_success': True,
+                            'old_cbm_ratio': old_ratio,  # 可选的旧值
+                            'total_container_cbm': total_container_cbm  # 可选的柜子总CBM
+                        })
+                        
+                    except Exception as e:
+                        # 处理异常情况
+                        container_number = item.container_number.container_number if item.container_number else ""
+                        result_list.append({
+                            'invoice_number': invoice_number,
+                            'container_number': container_number,
+                            'cbm': item.cbm or 0,
+                            'cbm_ratio': item.cbm_ratio or 0,
+                            'is_success': False,
+                            'error_message': str(e)
+                        })
+                        failed_count += 1
+                        continue
+        
+        # 执行更新
+        await sync_to_async(update_cbm_ratios, thread_sensitive=True)()
+        
+        context = {
+            'success_messages': f'成功更新了{updated_count}条记录，失败{failed_count}条记录！',
+            'cbm_ratio_errors': result_list  
+        }
+
+        return self.template_post_port_status, context
+    
 
     async def handle_update_shipment_type_to_fleet_type(self, request):
         fleets_without_type = await sync_to_async(list)(
