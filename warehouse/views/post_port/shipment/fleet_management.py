@@ -1,6 +1,7 @@
 import ast
 import base64
 import copy
+import csv
 import io
 import json
 import os
@@ -273,6 +274,8 @@ class FleetManagement(View):
             return await self.handle_fleet_cost_export(request)
         elif step == "download_ltl_cost_template":
             return await self.handle_download_ltl_template(request)
+        elif step == "download_recorded_fleet_cost":
+            return await self.handle_download_recorded_fleet_cost(request)
         elif step == "upload_ltl_cost":
             template, context = await self.handle_upload_ltl_cost(request)
             return render(request, template, context)
@@ -2442,6 +2445,150 @@ class FleetManagement(View):
             logger.error('LTL批量上传成本整体异常', exc_info=True)
             error_messages = [f'文件处理失败：{str(e)[:200]}']
             return await self.handle_fleet_cost_record_get_ltl(request, error_messages, 0)
+
+    async def handle_download_recorded_fleet_cost(self, request: HttpRequest):
+        """FTL已录入派送成本下载（完全对齐前端展示逻辑）"""
+        # 1. 获取筛选条件（与前端查询条件完全一致）
+        pickup_number = request.POST.get("pickup_number", "")
+        fleet_number = request.POST.get("fleet_number", "")
+        batch_number = request.POST.get("batch_number", "")
+        area = request.POST.get("area") or None
+
+        # 2. 构建已录入数据的查询条件（复用前端已录入筛选逻辑）
+        criteria = Q(
+            pod_uploaded_at__isnull=False,
+            shipped_at__isnull=False,
+            arrived_at__isnull=False,
+            shipment_schduled_at__gte="2025-05-01",
+            fleet_number__fleet_cost__isnull=False,  # 已录入费用
+        )
+
+        # 追加筛选条件
+        if pickup_number:
+            criteria &= Q(fleet_number__pickup_number=pickup_number)  # 前端是精确匹配，保持一致
+        if fleet_number:
+            criteria &= Q(fleet_number__fleet_number=fleet_number)  # 前端是精确匹配
+        if batch_number:
+            criteria &= Q(shipment_batch_number=batch_number)  # 前端是精确匹配
+        if area and area is not None and area != "None":
+            criteria &= Q(origin=area)
+
+        # 3. 查询Shipment基础数据（复用前端的关联查询和排序）
+        shipment_list = await sync_to_async(list)(
+            Shipment.objects.select_related("fleet_number")
+            .prefetch_related(
+                Prefetch(
+                    "fleetshipmentpallets",
+                    queryset=FleetShipmentPallet.objects.select_related("operator")
+                )
+            )
+            .filter(criteria)
+            .order_by("shipped_at")
+        )
+
+        # 4. 批量计算Pallet汇总数据（完全复用前端的性能优化逻辑）
+        # 4.1 收集所有shipment的id
+        shipment_ids = [s.id for s in shipment_list]
+        # 4.2 查询所有关联的Pallet数据并按shipment_batch_number分组
+        pallet_data = await sync_to_async(list)(
+            Pallet.objects.filter(
+                shipment_batch_number__in=shipment_ids  # shipment_batch_number = shipment.id
+            ).values("shipment_batch_number", "weight_lbs", "cbm")
+        )
+        # 4.3 构建分组字典：key=shipment.id，value={总重, 总CBM, 总板数}
+        pallet_summary = {}
+        for pallet in pallet_data:
+            batch_id = pallet["shipment_batch_number"]
+            if batch_id not in pallet_summary:
+                pallet_summary[batch_id] = {
+                    "total_weight_lbs": 0.0,
+                    "total_cbm": 0.0,
+                    "total_pallets": 0
+                }
+            # 累加重量和CBM（兼容空值）
+            pallet_summary[batch_id]["total_weight_lbs"] += float(pallet["weight_lbs"] or 0)
+            pallet_summary[batch_id]["total_cbm"] += float(pallet["cbm"] or 0)
+            # 总板数+1（每条pallet记录对应一个板子）
+            pallet_summary[batch_id]["total_pallets"] += 1
+
+        # 5. 处理Shipment数据（补充成本录入信息和Pallet汇总数据）
+        @sync_to_async
+        def process_shipment_for_csv(shipment_list, pallet_summary):
+            processed_data = []
+            for s in shipment_list:
+                # 5.1 获取成本录入信息（复用前端逻辑）
+                latest_pallet = s.fleetshipmentpallets.order_by("-cost_input_time", "-id").first()
+
+                # 5.2 组装单条数据（与前端表格字段一一对应）
+                data = {
+                    # 基础字段
+                    "pickup_number": s.fleet_number.pickup_number if s.fleet_number else "",
+                    "fleet_cost": s.fleet_number.fleet_cost if (s.fleet_number and s.fleet_number.fleet_cost) else "",
+                    "fleet_number": s.fleet_number.fleet_number if (
+                                s.fleet_number and s.fleet_number.fleet_number) else "",
+                    "shipment_batch_number": s.shipment_batch_number or "",
+                    "appointment_id": s.appointment_id or "",
+                    "carrier": s.carrier or "",
+                    # 日期字段（兼容空值）
+                    "appointment_datetime": s.fleet_number.appointment_datetime.strftime("%Y-%m-%d")
+                    if (s.fleet_number and s.fleet_number.appointment_datetime) else "",
+                    "departured_at": s.fleet_number.departured_at.strftime("%Y-%m-%d")
+                    if (s.fleet_number and s.fleet_number.departured_at) else "",
+                    # Pallet汇总字段
+                    "shipped_weight": round(pallet_summary.get(s.id, {}).get("total_weight_lbs", 0.0), 2),
+                    "shipped_cbm": round(pallet_summary.get(s.id, {}).get("total_cbm", 0.0), 2),
+                    "shipped_pallet": pallet_summary.get(s.id, {}).get("total_pallets", 0),
+                    # 其他字段
+                    "note": s.note or "",
+                    "fleet_cost_back": s.fleet_number.fleet_cost_back if (
+                                s.fleet_number and s.fleet_number.fleet_cost_back) else "",
+                    "pallet_cost_input_time": latest_pallet.cost_input_time.strftime("%Y-%m-%d")
+                    if (latest_pallet and latest_pallet.cost_input_time) else "",
+                    "pallet_operator_name": latest_pallet.operator.username
+                    if (latest_pallet and latest_pallet.operator) else ""
+                }
+                processed_data.append(data)
+            return processed_data
+
+        # 执行数据处理
+        processed_data = await process_shipment_for_csv(shipment_list, pallet_summary)
+
+        # 6. 生成CSV响应
+        response = HttpResponse(content_type='text/csv')
+        filename = f"FTL已录入派送成本_{datetime.now().strftime('%Y%m%d%H%M%S')}.csv"
+        # 解决中文文件名乱码问题
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'.encode('utf-8')
+
+        # 7. 写入CSV表头和内容
+        writer = csv.writer(response)
+        # 表头（与前端表格列完全一致）
+        writer.writerow([
+            'PickUp Number', '费用', '出库批次', '预约批次', '预约号',
+            'Carrier', '预约发车日期', '实际发车日期', '总重lbs', '总CBM',
+            '总卡板数', '备注', '退回费用', '录入时间', '操作人'
+        ])
+
+        # 写入数据行
+        for item in processed_data:
+            writer.writerow([
+                item["pickup_number"],
+                item["fleet_cost"],
+                item["fleet_number"],
+                item["shipment_batch_number"],
+                item["appointment_id"],
+                item["carrier"],
+                item["appointment_datetime"],
+                item["departured_at"],
+                item["shipped_weight"],
+                item["shipped_cbm"],
+                item["shipped_pallet"],
+                item["note"],
+                item["fleet_cost_back"],
+                item["pallet_cost_input_time"],
+                item["pallet_operator_name"]
+            ])
+
+        return response
 
     async def handle_update_fleet_verify_status(self, request: HttpRequest):
         """
