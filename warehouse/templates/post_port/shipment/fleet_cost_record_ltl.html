@@ -1068,10 +1068,6 @@
                     .filter(num => num);
                 const finalValue = selectedFleetNumbers.join(',');
 
-                // 调试日志（F12控制台可查看）
-                console.log('选中的车次号：', selectedFleetNumbers);
-                console.log('要传递给后端的最终值：', finalValue);
-
                 // 给隐藏输入框赋值
                 const verifyHiddenInput = document.getElementById('batch-verify-fleet-numbers');
                 const rollbackHiddenInput = document.getElementById('batch-rollback-fleet-numbers');
