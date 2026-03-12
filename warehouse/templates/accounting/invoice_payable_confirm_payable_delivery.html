@@ -1573,6 +1573,7 @@
                                             <th class="th"></th>
                                             <th class="th"></th>
                                             <th class="th"></th>
+                                            <th class="th"></th>
                                         </tr>
                                         <tbody>
                                         {% for fleet in delivery_confirm_orders %}
@@ -1591,9 +1592,6 @@
                                                                            data-fleet-id="{{ fleet.fleet_id|default:'' }}"
                                                                            style="width: 16px; height: 16px;">
                                                                 </td>
-                                                            {% endif %}
-
-                                                            {% if forloop.parentloop.first and forloop.first %}
                                                                 <td class="td" rowspan="{{ pickup_data.total_rows }}"
                                                                     style="vertical-align: middle;">
                                                                     {{ fleet.fleet_number|default_if_none:"" }}
@@ -1625,6 +1623,7 @@
                                                                 style="vertical-align: middle;">{{ order.cn_total_expense }}</td>
                                                             <td class="td"
                                                                 style="vertical-align: middle;">{{ order.cn_per_expense }}</td>
+
                                                             {% if forloop.parentloop.first and forloop.first %}
                                                                 <td class="td" rowspan="{{ pickup_data.total_rows }}"
                                                                     style="vertical-align: middle;">
@@ -1634,16 +1633,20 @@
                                                                     style="vertical-align: middle;">
                                                                     ${{ pickup_data.ISA_total_expense }}
                                                                 </td>
+                                                                <!-- 核心修改：将这三列移到合并行逻辑内，确保只显示一次 -->
+                                                                <td class="td" rowspan="{{ pickup_data.total_rows }}"
+                                                                    style="vertical-align: middle;">
+                                                                    {{ order.itemv2_data.write_off_amount|default:"0.00" }}
+                                                                </td>
+                                                                <td class="td" rowspan="{{ pickup_data.total_rows }}"
+                                                                    style="vertical-align: middle;">
+                                                                    {{ order.itemv2_data.write_off_time|date:"Y-m-d"|default:"未核销" }}
+                                                                </td>
+                                                                <td class="td" rowspan="{{ pickup_data.total_rows }}"
+                                                                    style="vertical-align: middle;">
+                                                                    {{ order.itemv2_data.note|default:"无" }}
+                                                                </td>
                                                             {% endif %}
-                                                            <td class="td" rowspan="{{ pickup_data.total_rows }}" style="vertical-align: middle;">
-                                                                {{ order.itemv2_data.write_off_amount|default:"0.00" }}
-                                                            </td>
-                                                            <td class="td" rowspan="{{ pickup_data.total_rows }}" style="vertical-align: middle;">
-                                                                {{ order.itemv2_data.write_off_time|date:"Y-m-d"|default:"未核销" }}
-                                                            </td>
-                                                            <td class="td" rowspan="{{ pickup_data.total_rows }}" style="vertical-align: middle;">
-                                                                {{ order.itemv2_data.note|default:"无" }}
-                                                            </td>
                                                         </tr>
                                                     {% endfor %}
                                                 {% endfor %}
