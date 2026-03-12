@@ -8057,7 +8057,7 @@ class ReceivableAccounting(View):
                 item.cbm = self._fetch_cbm_from_sources(item)
 
         for item in items:
-            if item.cbm_ratio == 0:
+            if item.cbm_ratio == 0 or item.cbm_ratio is None:
                 if total_container_cbm > 0 and item.cbm:
                     # 计算占比，取小数点后四位
                     ratio = item.cbm / total_container_cbm
