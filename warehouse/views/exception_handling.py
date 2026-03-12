@@ -500,7 +500,7 @@ class ExceptionHandling(View):
                         invoice_number = item.invoice_number.invoice_number
 
                         order = asyncio.run(sync_to_async(Order.objects.get)(container_number=container))
-                        invoice_status = asyncio.run(sync_to_async(InvoiceStatusv2.objects.get)(invoice=item.invoice_number))
+                        invoice_status = asyncio.run(sync_to_async(InvoiceStatusv2.objects.get)(invoice=item.invoice_number,invoice_type="receivable"))
                         
                         if not container:
                             # 没有关联柜子，记录失败
