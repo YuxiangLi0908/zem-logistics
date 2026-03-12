@@ -270,6 +270,8 @@
             <tr>
                 <th>订单号</th>
                 <th>柜号</th>
+                <th>建单时间</th>
+                <th>状态</th>
                 <th>cbm</th>
                 <th>cbm_ratio</th>
                 <th>是否成功</th>       
@@ -283,6 +285,8 @@
             <tr>
                 <td>{{ ab_fee.invoice_number }}</td>
                 <td>{{ ab_fee.container_number }}</td>
+                <td>{{ ab_fee.created_at }}</td>
+                <td>{{ ab_fee.status }}</td>
                 <td>{{ ab_fee.cbm }}</td>
                 <td>{{ ab_fee.cbm_ratio }}</td>
                 <td style="text-align:center;">
