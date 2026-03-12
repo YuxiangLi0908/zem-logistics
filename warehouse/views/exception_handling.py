@@ -498,11 +498,17 @@ class ExceptionHandling(View):
                     try:
                         container = item.container_number
                         invoice_number = item.invoice_number.invoice_number
+                        
+                        order = asyncio.run(sync_to_async(Order.objects.get)(container_number=container))
+                        invoice_status = asyncio.run(sync_to_async(InvoiceStatusv2.objects.get)(invoice_number=invoice_number))
+                        
                         if not container:
                             # 没有关联柜子，记录失败
                             result_list.append({
                                 'invoice_number': invoice_number,
                                 'container_number': "",
+                                'created_at': order.created_at,
+                                'warehouse_code':  item.warehouse_code,
                                 'cbm': item.cbm or 0,
                                 'cbm_ratio': item.cbm_ratio or 0,
                                 'is_success': False,
@@ -523,6 +529,7 @@ class ExceptionHandling(View):
                             result_list.append({
                                 'invoice_number': invoice_number,
                                 'container_number': container.container_number or "",
+                                'warehouse_code':  item.warehouse_code,
                                 'cbm': item.cbm or 0,
                                 'cbm_ratio': item.cbm_ratio or 0,
                                 'is_success': False,
@@ -539,6 +546,7 @@ class ExceptionHandling(View):
                             result_list.append({
                                 'invoice_number': invoice_number,
                                 'container_number': container.container_number or "",
+                                'warehouse_code':  item.warehouse_code,
                                 'cbm': current_cbm,
                                 'cbm_ratio': item.cbm_ratio or 0,
                                 'is_success': False,
@@ -561,6 +569,7 @@ class ExceptionHandling(View):
                         result_list.append({
                             'invoice_number': invoice_number,
                             'container_number': container.container_number or "",
+                            'warehouse_code':  item.warehouse_code,
                             'cbm': current_cbm,
                             'cbm_ratio': calculated_ratio,
                             'is_success': True,
@@ -574,6 +583,7 @@ class ExceptionHandling(View):
                         result_list.append({
                             'invoice_number': invoice_number,
                             'container_number': container_number,
+                            'warehouse_code':  item.warehouse_code,
                             'cbm': item.cbm or 0,
                             'cbm_ratio': item.cbm_ratio or 0,
                             'is_success': False,
