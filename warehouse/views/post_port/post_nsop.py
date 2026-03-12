@@ -2224,7 +2224,7 @@ class PostNsop(View):
 
                                 # 7️⃣ 返回给浏览器
                                 response_obj = HttpResponse(decoded_bytes, content_type='application/pdf')
-                                response_obj['Content-Disposition'] = f'attachment; filename="Maersk_Label_{arm_pro}.pdf"'
+                                response_obj['Content-Disposition'] = f'attachment; filename="Maersk_BOL_{arm_pro}.pdf"'
                                 return response_obj
 
                             else:
