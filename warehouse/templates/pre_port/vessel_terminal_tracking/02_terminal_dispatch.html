@@ -127,6 +127,7 @@
                             <th class="th">ETD</th>
                             <th class="th">预约时间</th>
                             <th class="th">优先级</th>
+                            <th class="th">提柜备注</th>
                         </tr>
                         <tr style="position: sticky; top: 28px;">
                             <th class="th"></th>
@@ -136,6 +137,7 @@
                             <th class="th">
                                 <input type="text" id="ctnSearch" placeholder="搜索柜号..." oninput="filterTable(this, 1, true)" size="13" style="font-size: 11px;">
                             </th>
+                            <th class="th"></th>
                             <th class="th"></th>
                             <th class="th"></th>
                             <th class="th"></th>
@@ -207,6 +209,9 @@
 
                             <td class="td">
                                 {{ o.unpacking_priority}}
+                            </td>
+                            <td class="td">
+                                {{ o.retrieval_id.note}}
                             </td>
                         </tr>
                         {% endfor %}
