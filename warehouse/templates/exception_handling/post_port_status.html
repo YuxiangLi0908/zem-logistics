@@ -263,6 +263,43 @@
         </tbody>
     </table>
 {% endif %}
+
+{% if cbm_ratio_errors %}
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>订单号</th>
+                <th>柜号</th>
+                <th>cbm</th>
+                <th>cbm_ratio</th>
+                <th>是否成功</th>       
+                <th>原cbm</th>  
+                <th>总CBM</th>     
+                <th>异常情况</th>        
+            </tr>
+        </thead>
+        <tbody>
+            {% for ab_fee in cbm_ratio_errors %}
+            <tr>
+                <td>{{ ab_fee.invoice_number }}</td>
+                <td>{{ ab_fee.container_number }}</td>
+                <td>{{ ab_fee.cbm }}</td>
+                <td>{{ ab_fee.cbm_ratio }}</td>
+                <td style="text-align:center;">
+                    {% if ab_fee.is_success %}
+                        <span style="color:green;font-weight:bold;">✔</span>
+                    {% else %}
+                        <span style="color:red;font-weight:bold;">✘</span>
+                    {% endif %}
+                </td>
+                <td>{{ ab_fee.old_cbm_ratio }}</td>
+                <td>{{ ab_fee.total_container_cbm }}</td>     
+                <td>{{ ab_fee.error_message }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% endif %}
 {% if shipments %}
 <table class="data-table">
     <thead>
@@ -672,6 +709,12 @@
     {% csrf_token %}
     <input type="hidden" name="step" value="update_receivable_total_fee">
     <button type="submit" class="search-btn">转运类型总费用为空的赋值</button>
+</form>
+
+<form method="post">
+    {% csrf_token %}
+    <input type="hidden" name="step" value="get_cbm_ratio_with_fallback">
+    <button type="submit" class="search-btn">查询空的cbm_ratio并且赋值</button>
 </form>
 
 <script>
