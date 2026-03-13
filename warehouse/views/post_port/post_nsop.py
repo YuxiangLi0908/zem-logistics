@@ -2218,12 +2218,80 @@ class PostNsop(View):
                                 if not decoded_bytes.startswith(b'%PDF'):
                                     print("⚠️ 警告：文件头不是 %PDF，可能不是PDF文件")
 
-                                # 6️⃣ 保存调试文件
-                                with open("debug_label.pdf", "wb") as f:
-                                    f.write(decoded_bytes)
+                                # 6️⃣ 追加非Maersk拣货单页（使用 ltl_bol 模板的 Pickup List 部分）
+                                arm_pickup = await sync_to_async(list)(
+                                    Pallet.objects.select_related(
+                                        "container_number__container_number",
+                                        "shipment_batch_number__fleet_number",
+                                    )
+                                    .filter(shipment_batch_number__fleet_number__fleet_number=fleet_number)
+                                    .values(
+                                        "container_number__container_number",
+                                        "destination",
+                                        "shipping_mark",
+                                        "shipment_batch_number__ARM_PRO",
+                                        "shipment_batch_number__fleet_number__carrier",
+                                        "slot",
+                                        "shipment_batch_number__note",
+                                    )
+                                    .annotate(
+                                        total_pcs=Sum("pcs"),
+                                        total_pallet=Count("pallet_id", distinct=True),
+                                    )
+                                )
+                                notes = set()
+                                for row in arm_pickup:
+                                    v = row.get("shipment_batch_number__note") or ""
+                                    if v:
+                                        notes.add(v)
+                                notes_str = "<br>".join(filter(None, notes))
+                                pickup_time = datetime.now().strftime("%Y-%m-%d")
+                                context = {
+                                    "warehouse": origin or "",
+                                    "arm_pickup": arm_pickup,
+                                    "notes": notes_str,
+                                    "pickup_attachments": [],
+                                    "pickup_has_pdf": False,
+                                    "container_number": "",
+                                    "shipping_mark": "",
+                                }
+                                template = get_template("export_file/ltl_bol.html")
+                                html = template.render(context)
+                                pickup_pdf_buf = io.BytesIO()
+                                pisa.CreatePDF(html, dest=pickup_pdf_buf, link_callback=link_callback)
+                                pickup_pdf_buf.seek(0)
+                                pickup_pdf_bytes = pickup_pdf_buf.getvalue()
 
-                                # 7️⃣ 返回给浏览器
-                                response_obj = HttpResponse(decoded_bytes, content_type='application/pdf')
+                                base_reader = PdfReader(io.BytesIO(pickup_pdf_bytes))
+                                pickup_pages = []
+                                start_idx = None
+                                for idx, page in enumerate(base_reader.pages):
+                                    txt = page.extract_text() or ""
+                                    if "Pickup List" in txt:
+                                        start_idx = idx
+                                        break
+                                if start_idx is None:
+                                    pickup_pages = base_reader.pages
+                                else:
+                                    pickup_pages = base_reader.pages[start_idx:]
+
+                                merger = PdfMerger()
+                                merger.append(PdfReader(io.BytesIO(decoded_bytes)))
+                                temp_bufs = []
+                                for pg in pickup_pages:
+                                    out = PdfWriter()
+                                    out.add_page(pg)
+                                    tmp = io.BytesIO()
+                                    out.write(tmp)
+                                    tmp.seek(0)
+                                    temp_bufs.append(tmp)
+                                for b in temp_bufs:
+                                    merger.append(PdfReader(b))
+                                out_all = io.BytesIO()
+                                merger.write(out_all)
+                                out_all.seek(0)
+
+                                response_obj = HttpResponse(out_all.getvalue(), content_type='application/pdf')
                                 response_obj['Content-Disposition'] = f'attachment; filename="Maersk_BOL_{arm_pro}.pdf"'
                                 return response_obj
 
