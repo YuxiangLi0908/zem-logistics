@@ -123,6 +123,7 @@ class ReceivableAccounting(View):
 
     template_financial_statistics = "receivable_accounting/financial_statistics.html"
     template_quotation_management = "receivable_accounting/quotation_management.html"
+    template_pl_container_fee = "receivable_accounting/container_fee_caculate.html"
     
     allowed_group = "accounting"
     warehouse_options = {
@@ -181,6 +182,10 @@ class ReceivableAccounting(View):
             quotes = QuotationMaster.objects.filter(quote_type="receivable")
             context = {"order_form": OrderForm(), "quotes": quotes}
             return render(request, self.template_quotation_management, context)  
+        elif step == "pl_container_fee": #报价表管理
+            quotes = QuotationMaster.objects.filter(quote_type="receivable")
+            context = {"order_form": OrderForm(), "quotes": quotes}
+            return render(request, self.template_pl_container_fee, context)
         elif step == "container_preport":
             tempalte, context = self.handle_container_preport_post(request)
             return render(request, tempalte, context)
@@ -285,8 +290,85 @@ class ReceivableAccounting(View):
             return self.handle_export_invoice_post(request)
         elif step == "export_details_invoicestatus":  #预警监控
             return self.handle_export_details_invoicestatus(request)
+        elif step == "upload_packinglist":
+            template, context = self.handle_upload_packinglist_post(request)
+            return render(request, self.template_pl_container_fee, context)
         else:
             raise ValueError(f"unknow request {step}")
+
+    def handle_upload_packinglist_post(self, request: HttpRequest) -> Dict[str, Any]:
+        '''上传packignlist自动计算柜子总费用'''
+        
+        quote_id = request.POST.get("quote_id")
+        container_type = request.POST.get("container_type")
+        order_type = request.POST.get("order_type")
+        print(quote_id,container_type,order_type)
+        packinglist_file = request.FILES.get("packinglist")
+        context: Dict[str, Any] = {"quote_id": quote_id, "container_size": container_type, "order_type": order_type}
+        if not packinglist_file:
+            context["reason"] = "未接收到上传文件"
+            return context
+
+        wb = openpyxl.load_workbook(packinglist_file, data_only=True)
+        ws = wb.active
+
+        def normalize_header(value: Any) -> str:
+            if value is None:
+                return ""
+            return re.sub(r"\s+", "", str(value)).strip().lower()
+
+        header_row = None
+        for r in ws.iter_rows(min_row=1, max_row=1, values_only=True):
+            header_row = list(r)
+            break
+        if not header_row:
+            context["reason"] = "Excel表头为空"
+            return context
+
+        headers = [normalize_header(h) for h in header_row]
+        col_index = {h: idx for idx, h in enumerate(headers) if h}
+
+        required = {
+            "唛头": "shipping_mark",
+            "总箱重kg": "weight",
+            "总cbm": "cbm",
+            "仓库代码": "destination",
+            "派送方式": "delivery_method",
+        }
+        missing = [k for k in required.keys() if k not in col_index]
+        if missing:
+            context["reason"] = f"缺少表头列：{', '.join(missing)}"
+            return context
+
+        def to_float(v: Any) -> float:
+            if v is None:
+                return 0.0
+            if isinstance(v, (int, float)):
+                return float(v)
+            s = str(v).strip()
+            if not s:
+                return 0.0
+            s = re.sub(r"[^\d.\-]+", "", s)
+            try:
+                return float(s)
+            except Exception:
+                return 0.0
+
+        rows: List[Dict[str, Any]] = []
+        for row in ws.iter_rows(min_row=2, values_only=True):
+            if not row or all(v is None or str(v).strip() == "" for v in row):
+                continue
+            data: Dict[str, Any] = {}
+            data["shipping_mark"] = str(row[col_index["唛头"]] or "").strip()
+            data["weight"] = to_float(row[col_index["总箱重kg"]])
+            data["cbm"] = to_float(row[col_index["总cbm"]])
+            data["destination"] = str(row[col_index["仓库代码"]] or "").strip()
+            data["delivery_method"] = str(row[col_index["派送方式"]] or "").strip()
+            rows.append(data)
+
+        context["packinglist_rows"] = rows
+        context["packinglist_count"] = len(rows)
+        return self.template_pl_container_fee, context
 
     def handle_save_manual_invoice_items(self, request: HttpRequest):
         """手动保存所有账单记录"""
@@ -296,7 +378,6 @@ class ReceivableAccounting(View):
         items_data = request.POST.get("items_data")
         deleted_items_str = request.POST.get('deleted_items', '[]')
         
-
         invoice = Invoicev2.objects.get(invoice_number=invoice_number)
         container = Container.objects.get(container_number=container_number)
         items_data_json = request.POST.get("items_data")
@@ -7901,12 +7982,13 @@ class ReceivableAccounting(View):
                         "add_fee": 0.0,
                     }
         # 看实际录入，多少仓点归入到组合柜
-        combine_warehouse_points = list(
-            base_queryset
-            .filter(delivery_type='combine')
-            .values_list('warehouse_code', flat=True)
-            .distinct()
-        )
+        combine_warehouse_points = InvoiceItemv2.objects.filter(
+            invoice_type="receivable",
+            container_number__container_number=container_number,
+            invoice_number=invoice,
+            item_category__in=["delivery_public", "delivery_other"],
+            delivery_type="combine"
+        ).values('warehouse_code').distinct().count()
 
         if "tiered_pricing" in stipulate:
             region_count = len(combine_warehouse_points)
