@@ -6306,6 +6306,28 @@ class Accounting(View):
                     invoice_status.finance_status = "tobeconfirmed"
                 invoice_status.save()
             return self.handle_invoice_confirm_get_v1(request, start_date_confirm, end_date_confirm, data.get("customer"))
+        # 财务已审核批量驳回到待审核阶段
+        elif save_type == "batch_reject_reviewed":
+            container_numbers = data.getlist("containers") or data.getlist("container_number")
+            # 处理逗号分隔的容器编号，拆分并去重
+            processed_containers = []
+            for item in container_numbers:
+                # 拆分逗号分隔的字符串，并去除首尾空格
+                split_items = [num.strip() for num in item.split(',') if num.strip()]
+                processed_containers.extend(split_items)
+
+            # 去重（可选，避免重复处理相同编号）
+            processed_containers = list(set(processed_containers))
+
+            for container_number in processed_containers:
+                invoice_status = InvoiceStatusv2.objects.get(
+                    models.Q(invoice_type='payable') | models.Q(invoice_type='payable_direct'),
+                    container_number__container_number=container_number
+                )
+                if invoice_status.finance_status == "completed":
+                    invoice_status.finance_status = "tobeconfirmed"
+                invoice_status.save()
+            return self.handle_invoice_confirm_get_v1(request, start_date_confirm, end_date_confirm, data.get("customer"))
         # 财务审核通过
         elif save_type == "confirmed_finance":
             container_numbers = data.getlist("containers") or data.getlist("container_number")
