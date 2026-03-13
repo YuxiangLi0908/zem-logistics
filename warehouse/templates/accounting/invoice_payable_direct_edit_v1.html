@@ -409,6 +409,9 @@
                 {% if user_is_leader %}
                     <div class="d-flex align-items-stretch" style="gap: 1rem;">
                         <div class="d-flex align-items-center position-relative">
+                            <button type="submit" class="btn btn-success" onclick="modifyStatus('complete_finance')">
+                                <i class="bi bi-check-circle"></i> 确认账单
+                            </button>
                             <button type="submit" class="action-btn btn-danger me-3" onclick="modifyStatus('reject')">
                                 <i class="bi bi-x-circle me-1"></i>财务审核驳回
                             </button>

@@ -6820,6 +6820,15 @@ class Accounting(View):
             invoice_status.finance_status = "tobeconfirmed"  # 待财务审核
             invoice_status.preport_reason = ""
 
+        #财务编辑账单
+        if save_type == "complete_finance":
+            invoice_status.preport_status = "completed" # 客服已审核
+            invoice_status.finance_status = "tobeconfirmed"  # 待财务审核
+            return self.handle_invoice_confirm_get_v1(request, data.get("start_date_confirm"),
+                                                      data.get("end_date_confirm"),
+                                                      data.get("customer"),
+                                                      data.get("warehouse_filter"))
+
         # 修改payable_status字段
         for key, value in invoice_status.payable_status.items():
             if value != "confirmed":
