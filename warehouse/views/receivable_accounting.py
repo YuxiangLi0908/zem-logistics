@@ -302,12 +302,16 @@ class ReceivableAccounting(View):
         quote_id = request.POST.get("quote_id")
         container_type = request.POST.get("container_type")
         order_type = request.POST.get("order_type")
-        print(quote_id,container_type,order_type)
+        
         packinglist_file = request.FILES.get("packinglist")
         context: Dict[str, Any] = {"quote_id": quote_id, "container_size": container_type, "order_type": order_type}
         if not packinglist_file:
             context["reason"] = "未接收到上传文件"
             return context
+        
+        quotation = QuotationMaster.objects.get(
+            id=quote_id
+        )
 
         wb = openpyxl.load_workbook(packinglist_file, data_only=True)
         ws = wb.active
@@ -365,7 +369,7 @@ class ReceivableAccounting(View):
             data["destination"] = str(row[col_index["仓库代码"]] or "").strip()
             data["delivery_method"] = str(row[col_index["派送方式"]] or "").strip()
             rows.append(data)
-
+        print('上传的报价表是',rows)
         context["packinglist_rows"] = rows
         context["packinglist_count"] = len(rows)
         return self.template_pl_container_fee, context
@@ -7982,7 +7986,7 @@ class ReceivableAccounting(View):
                         "add_fee": 0.0,
                     }
         # 看实际录入，多少仓点归入到组合柜
-        combine_warehouse_points = InvoiceItemv2.objects.filter(
+        region_count = InvoiceItemv2.objects.filter(
             invoice_type="receivable",
             container_number__container_number=container_number,
             invoice_number=invoice,
@@ -7991,7 +7995,6 @@ class ReceivableAccounting(View):
         ).values('warehouse_code').distinct().count()
 
         if "tiered_pricing" in stipulate:
-            region_count = len(combine_warehouse_points)
             if warehouse in stipulate["tiered_pricing"]:
                 for rule in stipulate["tiered_pricing"][warehouse]:
                     min_points = rule.get("min_points")
