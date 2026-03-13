@@ -2194,7 +2194,7 @@ class FleetManagement(View):
 
 
     async def handle_upload_ltl_cost(self, request: HttpRequest):
-        """LTL批量上传成本Excel（修复：支持同柜号不同唛头独立上传）"""
+        """LTL批量上传成本Excel（修复：支持同柜号不同唛头独立上传 + 仅fleet_verify_status=False时覆盖成本）"""
         logger = logging.getLogger(__name__)
         # 1. 校验文件是否存在
         if not request.FILES.get('ltl_file'):
@@ -2311,10 +2311,10 @@ class FleetManagement(View):
             # 获取（柜号+唛头）→Fleet ID的映射
             fleet_id_mapping = await get_fleet_id_mapping(container_numbers, shipping_marks)
 
-            # 批量查询所有需要的Fleet数据（避免循环内查库）
+            # 批量查询所有需要的Fleet数据（新增：包含fleet_verify_status字段）
             @sync_to_async
             def get_fleet_info_by_ids(fleet_ids):
-                """批量查询Fleet表，获取ID→车次号的映射"""
+                """批量查询Fleet表，获取ID→(车次号, 验证状态)的映射"""
                 fleet_info = {}
                 if not fleet_ids:
                     return fleet_info
@@ -2323,29 +2323,39 @@ class FleetManagement(View):
                     fleet_ids_int = [int(fid) for fid in fleet_ids if fid]
                 except ValueError:
                     return fleet_info
-                queryset = Fleet.objects.filter(id__in=fleet_ids_int).values('id', 'fleet_number')
+                # 新增：查询fleet_verify_status字段
+                queryset = Fleet.objects.filter(id__in=fleet_ids_int).values('id', 'fleet_number','fleet_verify_status')
                 for item in queryset:
-                    fleet_info[item['id']] = item['fleet_number']
+                    fleet_info[item['id']] = {
+                        'fleet_number': item['fleet_number'],
+                        'fleet_verify_status': item['fleet_verify_status']  # 新增：记录验证状态
+                    }
                 return fleet_info
 
-            # 提取所有Fleet ID并批量查询车次号
+            # 提取所有Fleet ID并批量查询车次号+验证状态
             fleet_ids = list(fleet_id_mapping.values())
             fleet_info = await get_fleet_info_by_ids(fleet_ids) if fleet_ids else {}
 
             # ========== 核心：定义更新Fleet表fleet_cost字段的函数 ==========
             @sync_to_async
             def update_fleet_cost_field(fleet_id, cost):
-                """更新Fleet表的fleet_cost字段"""
+                """更新Fleet表的fleet_cost字段（仅当fleet_verify_status=False时更新，其他状态直接跳过）"""
                 try:
                     fleet_obj = Fleet.objects.filter(id=fleet_id).first()
                     if not fleet_obj:
+                        # Fleet ID不存在，返回提示（便于日志排查）
                         return False, f'Fleet ID {fleet_id} 不存在'
 
-                    # 更新fleet_cost字段
-                    fleet_obj.fleet_cost = cost
-                    fleet_obj.save(update_fields=['fleet_cost'])  # 只更新指定字段，提升性能
-                    return True, ''
+                    # 核心逻辑：仅当验证状态为False时更新成本，其他状态直接跳过（返回成功+提示）
+                    if fleet_obj.fleet_verify_status is False:
+                        fleet_obj.fleet_cost = cost
+                        fleet_obj.save(update_fields=['fleet_cost'])  # 只更新指定字段，提升性能
+                        return True, ''
+                    else:
+                        # 验证状态非False，跳过更新，返回成功+跳过提示（不影响整体流程）
+                        return True, f'Fleet ID {fleet_id} 验证状态为{str(fleet_obj.fleet_verify_status)}，跳过成本更新'
                 except Exception as e:
+                    # 仅捕获异常时返回失败
                     return False, f'更新Fleet表失败：{str(e)[:50]}'
 
             # 6. 批量处理数据（事务控制 + 异步兼容）
@@ -2377,17 +2387,27 @@ class FleetManagement(View):
                                 continue
 
                             fleet_id = fleet_id_map[key]
-                            # 检查Fleet ID是否能查到车次号
+                            # 检查Fleet ID是否能查到车次信息
                             if fleet_id not in fleet_info_map:
                                 process_errors.append(
                                     f'第{row_num}行：柜号{container_num}+唛头{shipping_mark} 关联的车次ID({fleet_id})不存在'
                                 )
                                 continue
 
-                            fleet_number = fleet_info_map[fleet_id]
+                            fleet_detail = fleet_info_map[fleet_id]
+                            fleet_number = fleet_detail['fleet_number']
+                            fleet_verify_status = fleet_detail['fleet_verify_status']
+
                             if not fleet_number:
                                 process_errors.append(
                                     f'第{row_num}行：柜号{container_num}+唛头{shipping_mark} 关联的车次ID({fleet_id})无车次号'
+                                )
+                                continue
+
+                            # ========== 新增前置校验：验证状态是否为False ==========
+                            if fleet_verify_status is not False:
+                                process_errors.append(
+                                    f'第{row_num}行：柜号{container_num}+唛头{shipping_mark} 关联的车次{fleet_number}（ID:{fleet_id}）验证状态为{str(fleet_verify_status)}，不允许覆盖成本'
                                 )
                                 continue
 
@@ -2416,17 +2436,22 @@ class FleetManagement(View):
                             request, data['fleet_number'], data['fleet_cost']
                         )
 
-                        # 步骤2：更新Fleet表的fleet_cost字段
+                        # 步骤2：更新Fleet表的fleet_cost字段（已包含验证状态校验）
                         update_success, update_msg = await update_fleet_cost_field(
                             data['fleet_id'], data['fleet_cost']
                         )
 
                         if not update_success:
-                            # 更新Fleet表失败，抛出异常触发后续回滚
+                            # 仅当更新失败（如Fleet ID不存在/异常）时才抛异常
                             raise Exception(update_msg)
+                        elif update_msg:
+                            # 跳过更新的提示，记录日志但不影响成功计数
+                            logger.info(f'第{data["row_num"]}行：{update_msg}')
+                            # 可选：将跳过提示添加到错误信息列表（但不扣减成功数）
+                            error_messages.append(f'第{data["row_num"]}行：{update_msg}')
 
                         logger.info(
-                            f'第{data["row_num"]}行：柜号{data["container_num"]}+唛头{data["shipping_mark"]}（车次{data["fleet_number"]}）成本录入成功，金额：{data["fleet_cost"]}'
+                            f'第{data["row_num"]}行：柜号{data["container_num"]}+唛头{data["shipping_mark"]}（车次{data["fleet_number"]}）成本处理完成，金额：{data["fleet_cost"]}'
                         )
                     except Exception as e:
                         logger.error(
@@ -2435,7 +2460,7 @@ class FleetManagement(View):
                         )
                         error_messages.append(
                             f'第{data["row_num"]}行：柜号{data["container_num"]}+唛头{data["shipping_mark"]} 处理失败：{str(e)[:100]}')
-                        success_count -= 1  # 录入失败，回滚计数
+                        success_count -= 1  # 仅异常时才扣减成功数
 
             # 执行批量录入
             await batch_update_fleet_cost(valid_rows, fleet_id_mapping, fleet_info)
