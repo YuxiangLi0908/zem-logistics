@@ -1,0 +1,285 @@
+{% extends 'base.html' %}
+{% load custom_filters %}
+{% block content %}
+
+{% include 'receivable_accounting/modals/message_modal.html' %}
+
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+
+<style>
+    :root {
+        --primary-gradient: linear-gradient(135deg, #1677ff 0%, #003eb3 100%);
+        --primary-color: #1677ff;
+        --success-color: #52c41a;
+        --warning-color: #faad14;
+        --danger-color: #ff4d4f;
+        --bg-light: #f0f2f5;
+        --card-shadow: 0 6px 24px rgba(0, 0, 0, 0.06);
+    }
+
+    body { background-color: var(--bg-light); font-family: 'Inter', sans-serif; }
+    .page-wrapper { max-width: 1600px; margin: auto; padding: 20px 20px 60px 20px; }
+    
+    .custom-card { border: none; border-radius: 12px; background: #fff; box-shadow: var(--card-shadow); overflow: hidden; margin-bottom: 24px; }
+    .card-header-custom { background: #ffffff; border-bottom: 1px solid #f0f0f0; padding: 16px 24px; font-weight: 700; display: flex; align-items: center; justify-content: space-between; }
+    
+    /* ---------------- 参数配置区布局优化 ---------------- */
+    .config-form-row { 
+        display: flex; 
+        flex-wrap: wrap; 
+        align-items: flex-end; 
+        gap: 20px; /* 增大间距 */
+    }
+    
+    /* 报价表列 - 给更多空间防止重叠 */
+    .config-item-quote { flex: 2.5; min-width: 350px; } 
+    .config-item-small { flex: 1; min-width: 140px; }
+    .config-item-file { flex: 2; min-width: 280px; }
+
+    .config-button-wrap { flex: 0 0 auto; margin-left: auto; }
+
+    /* 确保下拉框不溢出 */
+    .form-select, .form-control { width: 100% !important; }
+
+    .btn-calculate { background: var(--primary-gradient); border: none; border-radius: 6px; color: white; font-weight: 600; padding: 8px 24px; height: 38px; }
+    /* -------------------------------------------------- */
+
+    .table thead th { background: #fafafa; color: #8c8c8c; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; padding: 14px; border-bottom: 1px solid #f0f0f0; }
+    .table tbody td { padding: 12px 14px; vertical-align: middle; border-bottom: 1px solid #f0f0f0; }
+    
+    .amount-text { color: var(--primary-color); font-weight: 700; font-family: 'JetBrains Mono', monospace; }
+    
+    .icon-yes { color: var(--success-color); font-size: 1.2rem; }
+    .icon-no { color: var(--danger-color); font-size: 1.2rem; opacity: 0.5; }
+
+    .stat-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-bottom: 24px; }
+    .stat-card-v2 { background: white; border-radius: 12px; padding: 24px; box-shadow: var(--card-shadow); border-left: 4px solid var(--primary-color); }
+    .stat-card-v2.total { background: var(--primary-gradient); color: white; border-left: none; }
+
+    .input-amount-calc { text-align: right; font-family: 'JetBrains Mono'; font-weight: 600; color: var(--primary-color); }
+</style>
+
+<div class="container-fluid page-wrapper">
+
+    <div class="custom-card">
+        <div class="card-header-custom"><span><i class="bi bi-gear-wide-connected me-2 text-primary"></i>基础信息</span></div>
+        <div class="card-body p-4">
+            <form method="post" enctype="multipart/form-data">
+                {% csrf_token %}
+                <input type="hidden" name="step" value="upload_packinglist">
+                <div class="config-form-row">
+                    <div class="config-item-quote">
+                        <label class="form-label small fw-bold text-muted">报价表</label>
+                        <select class="form-select form-select-sm" name="quote_id" required>
+                            <option value="">请选择报价表</option>
+                            {% for q in quotes %}
+                            <option value="{{ q.id }}" {% if q.id|stringformat:"s" == quote_id|stringformat:"s" %}selected{% endif %}>{{ q.filename|default:q.id }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="config-item-small">
+                        <label class="form-label small fw-bold text-muted">柜型</label>
+                        <select class="form-select form-select-sm" name="container_type" required>
+                            <option value="40HQ/GP" {% if container_type == "40HQ/GP" %}selected{% endif %}>40HQ/GP</option>
+                            <option value="45HQ/GP" {% if container_type == "45HQ/GP" %}selected{% endif %}>45HQ/GP</option>
+                        </select>
+                    </div>
+                    <div class="config-item-small">
+                        <label class="form-label small fw-bold text-muted">订单类型</label>
+                        <select class="form-select form-select-sm" name="order_type" required>
+                            <option value="转运组合" {% if order_type == "转运组合" %}selected{% endif %}>转运组合</option>
+                            <option value="转运" {% if order_type == "转运" %}selected{% endif %}>转运</option>
+                        </select>
+                    </div>
+                    <div class="config-item-small">
+                        <label class="form-label small fw-bold text-muted">仓库</label>
+                        <select class="form-select form-select-sm" name="warehouse" required>
+                            <option value="LA" {% if warehouse == "LA" %}selected{% endif %}>LA</option>
+                            <option value="SAV" {% if warehouse == "SAV" %}selected{% endif %}>SAV</option>
+                            <option value="NJ" {% if warehouse == "NJ" %}selected{% endif %}>NJ</option>
+                        </select>
+                    </div>
+                    <div class="config-item-file">
+                        <label class="form-label small fw-bold text-muted">预报清单 (Excel)</label>
+                        <input type="file" class="form-control form-control-sm" name="packinglist" accept=".xlsx,.xls" required>
+                    </div>
+                    <div class="config-button-wrap">
+                        <button class="btn btn-primary btn-calculate"><i class="bi bi-play-fill"></i> 开始计算</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {% if is_calculated %}
+        <div class="stat-container">
+            <div class="stat-card-v2 total">
+                <div class="small opacity-75 fw-bold text-uppercase">Total Amount (USD)</div>
+                <div class="h2 fw-bold m-0"><span id="display-total-amount">{{ total_amount|floatformat:2 }}</span></div>
+            </div>
+            {% if extra_fees.is_overweight %}
+            <div class="stat-card-v2" style="border-left-color: var(--warning-color);">
+                <div class="small text-muted fw-bold">系统超重预警</div>
+                <div class="h3 fw-bold m-0 text-warning">${{ extra_fees.overweight_fee|default:0|floatformat:2 }}</div>
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="custom-card">
+            <div class="card-header-custom"><span><i class="bi bi-layers-half me-2 text-primary"></i>派送费 - 组合柜方式</span></div>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th class="text-center">区域</th>
+                            <th>单价</th>
+                            <th>目的地</th>
+                            <th class="text-end">CBM</th>
+                            <th class="text-end">板数</th>
+                            <th class="text-end">结算金额</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in combina_table %}
+                        <tr>
+                            {% if item.is_first_in_group %}
+                            <td rowspan="{{ item.group_size }}" class="text-center bg-light-subtle fw-bold text-primary">{{ item.region|default:"-" }}</td>
+                            <td rowspan="{{ item.group_size }}" class="text-center fw-bold">${{ item.rate|floatformat:2 }}</td>
+                            {% endif %}
+                            <td class="fw-semibold">{{ item.destination }}</td>
+                            <td class="text-end">{{ item.cbm|floatformat:4 }}</td>
+                            <td class="text-end">{{ item.total_pallets }}</td>
+                            <td class="text-end amount-text">
+                                {% if item.amount %}
+                                    <span class="js-row-amount">{{ item.amount|floatformat:2 }}</span>
+                                {% else %}
+                                    <input type="number" step="0.01" class="form-control form-control-sm input-amount-calc js-row-input" value="0.00">
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="custom-card">
+            <div class="card-header-custom"><span><i class="bi bi-truck me-2 text-primary"></i>派送费 - 非组合柜方式</span></div>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>目的地</th>
+                            <th>计费类型</th>
+                            <th class="text-end">CBM</th>
+                            <th class="text-end">板数</th>
+                            <th>单价</th>
+                            <th class="text-end">结算金额</th>
+                            <th class="text-center">冷门仓点</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in non_combina_table %}
+                        <tr>
+                            <td class="fw-bold">{{ item.destination }}</td>
+                            <td><span class="badge bg-light text-dark border">{{ item.type|default:"-" }}</span></td>
+                            <td class="text-end">{{ item.cbm|floatformat:4 }}</td>
+                            <td class="text-end">{{ item.total_pallets }}</td>
+                            <td>${{ item.rate|floatformat:2 }}</td>
+                            <td class="text-end amount-text">
+                                {% if item.amount %}
+                                    <span class="js-row-amount">{{ item.amount|floatformat:2 }}</span>
+                                {% else %}
+                                    <input type="number" step="0.01" class="form-control form-control-sm input-amount-calc js-row-input" value="0.00">
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                {% if item.is_niche_warehouse %}<i class="bi bi-check-circle-fill icon-yes"></i>{% else %}<i class="bi bi-x-circle icon-no"></i>{% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="custom-card">
+            <div class="card-header-custom"><span><i class="bi bi-info-circle me-2 text-primary"></i>组合柜附加项</span></div>
+            <div class="table-responsive">
+                <table class="table align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>费用类型</th>
+                            <th class="text-center">触发状态</th>
+                            <th>说明</th>
+                            <th class="text-end">结算金额</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td class="fw-bold">超重费</td>
+                            <td class="text-center">
+                                {% if extra_fees.is_overweight %}<i class="bi bi-check-circle-fill icon-yes"></i>{% else %}<i class="bi bi-x-circle icon-no"></i>{% endif %}
+                            </td>
+                            <td class="small text-muted">手动录入</td>
+                            <td class="text-end"><input type="number" step="0.01" class="form-control form-control-sm input-amount-calc js-row-input" value="0.00" style="width: 150px; margin-left: auto;"></td>
+                        </tr>
+                        <tr>
+                            <td class="fw-bold">超板费 </td>
+                            <td class="text-center">
+                                {% if extra_fees.is_overpallet %}<i class="bi bi-check-circle-fill icon-yes"></i>{% else %}<i class="bi bi-x-circle icon-no"></i>{% endif %}
+                            </td>
+                            <td class="small text-muted">-</td>
+                            <td class="text-end amount-text"><span class="js-row-amount">{{ extra_fees.overpallets_fee|default:0|floatformat:2 }}</span></td>
+                        </tr>
+                        <tr>
+                            <td class="fw-bold">超区费 </td>
+                            <td class="text-center">
+                                {% if extra_fees.is_overregion %}<i class="bi bi-check-circle-fill icon-yes"></i>{% else %}<i class="bi bi-x-circle icon-no"></i>{% endif %}
+                            </td>
+                            <td class="small text-muted">-</td>
+                            <td class="text-end amount-text"><span class="js-row-amount">{{ extra_fees.overregion_fee|default:0|floatformat:2 }}</span></td>
+                        </tr>
+                        <tr>
+                            <td class="fw-bold">超仓点费</td>
+                            <td class="text-center">
+                                {% if extra_fees.is_overdestination %}<i class="bi bi-check-circle-fill icon-yes"></i>{% else %}<i class="bi bi-x-circle icon-no"></i>{% endif %}
+                            </td>
+                            <td class="small text-muted">{% if extra_fees.overdestination_fee %}{{ extra_fees.overdestination_fee.min_points }}-{{ extra_fees.overdestination_fee.max_points }}{% endif %}</td>
+                            <td class="text-end amount-text"><span class="js-row-amount">{{ extra_fees.overdestination_fee.add_fee|default:0|floatformat:2 }}</span></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    {% endif %}
+</div>
+
+<script>
+function updateTotalAmount() {
+    let total = 0;
+    document.querySelectorAll('.js-row-amount').forEach(el => {
+        let val = parseFloat(el.innerText.replace(/[^0-9.-]+/g, ""));
+        if (!isNaN(val)) total += val;
+    });
+    document.querySelectorAll('.js-row-input').forEach(el => {
+        let val = parseFloat(el.value);
+        if (!isNaN(val)) total += val;
+    });
+    const displayEl = document.getElementById('display-total-amount');
+    if(displayEl) {
+        displayEl.innerText = total.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    }
+}
+
+document.addEventListener('input', function(e) {
+    if (e.target.classList.contains('js-row-input')) {
+        updateTotalAmount();
+    }
+});
+
+window.onload = updateTotalAmount;
+</script>
+
+{% endblock %}

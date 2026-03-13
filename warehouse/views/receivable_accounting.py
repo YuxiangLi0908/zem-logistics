@@ -173,8 +173,6 @@ class ReceivableAccounting(View):
         elif step == "supplementary": #补开账单
             context = {"warehouse_options": self.warehouse_options,"order_form": OrderForm()}
             return render(request, self.template_supplementary_entry, context) 
-
-            return render(request, template, context)
         elif step == "finance_stats": #财务统计分析
             template, context = self.handle_financial_statistics_get(request)
             return render(request, template, context)
@@ -291,7 +289,7 @@ class ReceivableAccounting(View):
         elif step == "export_details_invoicestatus":  #预警监控
             return self.handle_export_details_invoicestatus(request)
         elif step == "upload_packinglist":
-            template, context = self.handle_upload_packinglist_post(request)
+            context = self.handle_upload_packinglist_post(request)
             return render(request, self.template_pl_container_fee, context)
         else:
             raise ValueError(f"unknow request {step}")
@@ -299,20 +297,503 @@ class ReceivableAccounting(View):
     def handle_upload_packinglist_post(self, request: HttpRequest) -> Dict[str, Any]:
         '''上传packignlist自动计算柜子总费用'''
         
+        context: Dict[str, Any] = {}
         quote_id = request.POST.get("quote_id")
         container_type = request.POST.get("container_type")
-        order_type = request.POST.get("order_type")
-        
+        order_type = request.POST.get("order_type")     
+        warehouse = request.POST.get("warehouse") 
         packinglist_file = request.FILES.get("packinglist")
-        context: Dict[str, Any] = {"quote_id": quote_id, "container_size": container_type, "order_type": order_type}
-        if not packinglist_file:
-            context["reason"] = "未接收到上传文件"
-            return context
+        container_type_temp = 0 if container_type and "40" in container_type else 1
+        quotes = QuotationMaster.objects.filter(quote_type="receivable")
+        context.update(
+            {
+                "quote_id": quote_id,
+                "container_type": container_type,
+                "order_type": order_type,
+                "warehouse": warehouse,
+                "quotes": quotes,
+            }
+        )
+
         
+        if not packinglist_file:
+            context["error_messages"] = "未接收到上传文件"
+            return context
+        packinglists, errors = self._parse_forecast_data(packinglist_file)
+        if errors:
+            context["error_messages"] = "<br>".join(errors) if isinstance(errors, list) else str(errors)
+            return context
         quotation = QuotationMaster.objects.get(
             id=quote_id
         )
+        fee_types = {
+            "NJ": ["NJ_LOCAL", "NJ_PUBLIC", "NJ_COMBINA"],
+            "SAV": ["SAV_PUBLIC", "SAV_COMBINA"],
+            "LA": ["LA_PUBLIC", "LA_COMBINA"],
+        }.get(warehouse, [])
 
+        fee_details = list(
+            FeeDetail.objects.filter(quotation_id=quote_id, fee_type__in=fee_types)
+        )
+        fee_details_by_type = {fd.fee_type: fd for fd in fee_details}
+        
+        unique_destinations = list(set(item["destination"] for item in packinglists))
+        total_container_cbm = sum(float(item.get("cbm") or 0) for item in packinglists)
+        total_container_weight = sum(float(item.get("weight") or 0) for item in packinglists)
+        # 先看下是不是满足组合柜要求
+        is_combina = False
+        if order_type == "转运组合":
+            forecast_context, is_combina = self._forecast_is_combina(
+                order_type,
+                quotation,
+                warehouse,
+                container_type_temp,
+                packinglists,
+                unique_destinations,
+                total_container_cbm,
+            )
+            if forecast_context:
+                context.update(forecast_context)
+        
+        combina_table = []
+        non_combina_table = []
+
+        combina_key = f"{warehouse}_COMBINA"
+        if combina_key not in fee_details_by_type:
+            context["error_messages"] = f"{warehouse}_COMBINA未找到组合柜报价表！"
+            return context
+        public_key = f"{warehouse}_PUBLIC"
+        if public_key not in fee_details_by_type:
+            context["error_messages"] = f"{warehouse}_PUBLIC未找到亚马逊沃尔玛报价表！"
+            return context
+            
+        combina_destination = []
+        non_combina_desination = []
+        non_combina_cbm = 0.0
+        for po in packinglists:
+            # 遍历计算每条预报清单
+            cbm = float(po['cbm'])
+            temp_table = None
+
+            if is_combina:
+                combina_fee_detail = fee_details_by_type.get(combina_key)
+                rules = combina_fee_detail.details
+                temp_table = self._process_combina_quote(po, cbm, total_container_cbm, rules, container_type_temp, warehouse)
+                if temp_table:
+                    # 按组合计算
+                    temp_table["cbm_ratio"] = round(
+                        (float(temp_table.get("cbm") or 0) / total_container_cbm) if total_container_cbm else 0,
+                        4,
+                    )
+                    combina_table.append(temp_table)
+                    combina_destination.append(po['destination'])
+
+
+            if not temp_table:
+                # 按转运计算   
+                public_fee_detail = fee_details_by_type.get(public_key)
+                rules = public_fee_detail.details
+                niche_warehouse = public_fee_detail.niche_warehouse
+
+                temp_table = self._process_non_combina_quote(po, cbm, total_container_cbm, rules, container_type_temp, warehouse, niche_warehouse)
+                if temp_table:
+                    # 按组合计算
+                    temp_table["cbm_ratio"] = round(
+                        (float(temp_table.get("cbm") or 0) / total_container_cbm) if total_container_cbm else 0,
+                        4,
+                    )
+                    non_combina_table.append(temp_table)
+                    non_combina_desination.append(po['destination'])
+                    non_combina_cbm += po['cbm']
+                else:
+                    raise ValueError(f'异常，没找到{po}的计费')
+        # 对组合柜表格进行合并处理
+        if combina_table:
+            combina_table = self._merge_combina_table(combina_table)
+
+        # 超重
+        is_overweight = False
+        stipulate = FeeDetail.objects.get(
+            quotation_id=quote_id, fee_type="COMBINA_STIPULATE"
+        ).details
+        if total_container_weight > stipulate["global_rules"]["weight_limit"]["default"]:
+            is_overweight = True
+        
+        # 超板
+        is_overpallet, overpallets_fee = self._caculate_overpallet(packinglists, stipulate, warehouse, container_type, fee_details)
+        
+        # 超区的提柜费
+        is_overregion = False
+        overregion_fee = 0.0
+        if non_combina_desination:
+            is_overregion = True
+            # 提拆费，要计算下非组合柜区域占当前柜子的cbm比例*对应的提拆费
+            match = re.match(r"\d+", container_type)
+            if match:
+                pick_subkey = match.group()
+                # 这个提拆费是从组合柜规则的warehouse_pricing的nonmix_40ft 45ft取
+                c_type = f"nonmix_{pick_subkey}ft"
+                try:
+                    pickup_fee = stipulate["warehouse_pricing"][warehouse][c_type]
+                except KeyError as e:
+                    error_msg = f"缺少{pick_subkey}柜型的报价配置"
+                    raise ValueError(error_msg)
+
+            overregion_fee = round(non_combina_cbm / total_container_cbm * pickup_fee, 3)
+
+        # 超仓点
+        is_overdestination = False
+        overdestination_fee = 0.0
+        combina_destination = list(set(combina_destination))
+        if "tiered_pricing" in stipulate:
+            if warehouse in stipulate["tiered_pricing"]:
+                for rule in stipulate["tiered_pricing"][warehouse]:
+                    min_points = rule.get("min_points")
+                    max_points = rule.get("max_points")
+                    if int(min_points) <= len(combina_destination) <= int(max_points):
+                        is_overdestination = True
+                        overdestination_fee = {
+                            "min_points": int(min_points),
+                            "max_points": int(max_points),
+                            "add_fee": rule.get("fee"),
+                        }
+        
+        extra_fees = {
+            "is_overweight": is_overweight,
+            "is_overpallet": is_overpallet,
+            "is_overregion": is_overregion,
+            "is_overdestination": is_overdestination,
+            "overpallets_fee": overpallets_fee,
+            "overregion_fee": overregion_fee,
+            "overdestination_fee": overdestination_fee
+        }
+
+        delivery_amount = sum(float(i.get("amount") or 0) for i in combina_table) + sum(
+            float(i.get("amount") or 0) for i in non_combina_table
+        )
+        other_amount = float(overpallets_fee or 0) + float(overregion_fee or 0)
+        if isinstance(overdestination_fee, dict):
+            other_amount += float(overdestination_fee.get("add_fee") or 0)
+        total_amount = round(delivery_amount + other_amount, 2)
+
+        context.update(
+            {
+                "is_calculated": True,
+                "combina_table": combina_table,
+                "non_combina_table": non_combina_table,
+                "extra_fees": extra_fees,
+                "total_amount": total_amount,
+            }
+        )
+        return context
+    
+    def _caculate_overpallet(self, packinglists, stipulate, warehouse, container_type, fee_details):
+        '''根据预报清单计算是否超板'''
+        group_cbm = defaultdict(float)
+
+        for item in packinglists:
+            dest = item["destination"]
+            method = item["delivery_method"]
+
+            if "自提" in dest or "自提" in method:
+                continue
+
+            key = (dest, method)
+            group_cbm[key] += item["cbm"]
+
+        # 转换成类似 Django annotate 的格式
+        plts_by_destination = [
+            {"destination": k[0], "delivery_method": k[1], "total_cbm": v}
+            for k, v in group_cbm.items()
+        ]
+
+        # 计算总板数
+        total_pallets = sum(math.ceil(v / 1.8) for v in group_cbm.values())
+
+        # 4.2、规定的最大板数
+        max_pallets = self._get_max_pallets(stipulate, warehouse, container_type)
+        # 4.3、超出板数
+        over_count = max(0, total_pallets - max_pallets)
+        is_overpallet = False
+        overpallets_fee = 0.0
+
+        if over_count > 0:
+            is_overpallet = True
+            # 4.4、计算超板费用
+            vessel_etd = datetime(2026, 1, 1)
+            plts_by_destination = self._calculate_delivery_fee_cost(
+                fee_details, warehouse, plts_by_destination, over_count, vessel_etd
+            )
+            max_price = 0
+            max_single_price = 0
+            for plt_d in plts_by_destination:
+                if plt_d["is_fixed_price"]:  # 一口价的不用乘板数
+                    max_price = max(float(plt_d["price"]), max_price)
+                    max_single_price = max(max_price, max_single_price)
+                else:
+                    max_price = max(float(plt_d["price"]) * over_count, max_price)
+                    max_single_price = max(float(plt_d["price"]), max_single_price)
+            overpallets_fee = max_price
+        return is_overpallet, overpallets_fee
+    
+    def _merge_combina_table(self, combina_table):
+        """
+        按照region和rate合并combina_table
+        同一region下相同rate的条目合并，不同rate的保留
+        """
+        if not combina_table:
+            return []
+        
+        # 按 (region, rate) 分组
+        grouped_dict = {}
+    
+        for item in combina_table:
+            key = (item['region'], item['rate'])
+            
+            if key not in grouped_dict:
+                grouped_dict[key] = []
+            
+            grouped_dict[key].append(item.copy())
+    
+        # 构建最终的表格数据
+        final_table = []
+        
+        for (region, rate), items in grouped_dict.items():
+            # 计算该组的总CBM
+            group_total_cbm = sum(item['cbm'] for item in items)
+            
+            # 按destination排序
+            items.sort(key=lambda x: x['destination'])
+            
+            for i, item in enumerate(items):
+                cbm_ratio = item['cbm'] / group_total_cbm if group_total_cbm > 0 else 0
+                
+                row = {
+                    'region': region,
+                    'rate': rate,
+                    'destination': item['destination'],
+                    'cbm': item['cbm'],
+                    'cbm_ratio': cbm_ratio,
+                    'total_pallets': item['total_pallets'],
+                    'amount': item['amount'],
+                    'type': item.get('type', '组合柜'),
+                    'warehouse': item.get('warehouse', ''),
+                    'is_niche_warehouse': item.get('is_niche_warehouse'),
+                    'group_key': f"{region}_{rate}",
+                    'is_first_in_group': i == 0,  # 每组的第一行标记为True
+                    'group_size': len(items)  # 组大小，用于rowspan
+                }
+                final_table.append(row)
+        
+        # 按region, rate排序
+        final_table.sort(key=lambda x: (x['region'], x['rate']))
+        
+        return final_table
+
+    def _process_non_combina_quote(self, po, cbm, total_cbm, rules, container_type_temp, warehouse, niche_warehouse):
+        '''按非组合方式计算费用'''
+        destination_origin, destination = self._process_destination(po['destination'])
+        if destination in niche_warehouse:
+            is_niche_warehouse = True
+        else:
+            is_niche_warehouse = False
+
+        #LA和其他的存储格式有点区别
+        details = (
+            {"LA_AMAZON": rules}
+            if "LA" in warehouse and "LA_AMAZON" not in rules
+            else rules
+        )
+        delivery_category = None
+        rate_found = False
+        for category, zones in details.items():
+            for zone, locations in zones.items():
+                if destination in locations:
+                    if "AMAZON" in category:
+                        delivery_category = "amazon"
+                        rate = zone
+                        rate_found = True
+                    elif "WALMART" in category:
+                        delivery_category = "walmart"
+                        rate = zone
+                        rate_found = True
+            if rate_found:
+                break
+        
+        cbm = po['cbm']
+        total_pallets = math.ceil(po['cbm'] / 1.8)
+        if rate_found:
+            # 找到报价
+            rate = float(rate) if rate else 0.0
+            
+            return ({
+                'destination': destination,                         
+                'cbm': cbm,
+                'total_pallets': total_pallets, 
+                'rate': rate, 
+                'amount': rate * total_pallets,
+                'type': delivery_category,
+                'region': None,
+                'warehouse': warehouse, 
+                'is_niche_warehouse': is_niche_warehouse
+            })
+        else:            
+            return ({
+                'destination': destination,                         
+                'cbm': cbm,
+                'total_pallets': total_pallets, 
+                'rate': None, 
+                'amount': None,
+                'type': delivery_category,
+                'region': None,
+                'warehouse': warehouse, 
+                'is_niche_warehouse': True 
+            })
+
+    def _process_combina_quote(self, po, cbm, total_cbm, rules, container_type_temp, warehouse):
+        """按组合柜方式查找仓点报价 """
+
+        #改前和改后的
+        destination_origin, destination = self._process_destination(po['destination'])
+        
+        # 检查是否属于组合区域
+        price = 0
+        is_combina_region = False
+        region = None
+        for region, region_data in rules.items():
+            for item in region_data:
+                rule_locations = item.get("location", [])
+                if isinstance(rule_locations, str):
+                    rule_locations = [rule_locations] # 统一转成列表处理
+
+                if any(destination == loc.replace(" ", "").upper() for loc in rule_locations):
+                    is_combina_region = True
+                    price = item["prices"][container_type_temp]
+                    region = region
+                    break
+            if is_combina_region:
+                break
+        if destination == "UPS":
+            is_combina_region = False
+        
+        if is_combina_region:
+            '''按组合柜计费'''
+            cbm = po['cbm']
+            total_pallets = math.ceil(po['cbm'] / 1.8)
+            return ({
+                'destination': po['destination'],                         
+                'cbm': cbm,
+                'total_pallets': total_pallets, 
+                'rate': price, 
+                'amount': round(price * cbm / total_cbm,2),
+                'type': "组合柜",
+                'region': region,
+                'warehouse': warehouse, 
+                'is_niche_warehouse': None,  
+            })
+        else:
+            return None
+    
+    def _forecast_is_combina(self, order_type, matching_quotation, warehouse, container_type_temp, packinglists, unique_destinations, total_cbm_sum) -> Any:
+        '''根据上传预报清单，判断是否符合组合柜'''
+        context = {}
+        # 获取组合柜规则
+        try:
+            stipulate_fee_detail = FeeDetail.objects.get(
+                quotation_id=matching_quotation.id, fee_type="COMBINA_STIPULATE"
+            )
+            stipulate = stipulate_fee_detail.details
+        except FeeDetail.DoesNotExist:
+            context.update({
+                "error_messages": f"报价表《{matching_quotation.filename}》-{matching_quotation.id}中找不到<报价表规则>分表，请截此图给技术员！"
+            })
+            return context, None
+        
+        combina_fee = FeeDetail.objects.get(
+            quotation_id=matching_quotation.id, fee_type=f"{warehouse}_COMBINA"
+        ).details
+        if isinstance(combina_fee, str):
+            combina_fee = json.loads(combina_fee)
+
+        # 看是否超出组合柜限定仓点,NJ/SAV是14个
+        warehouse_specific_key = f'{warehouse}_max_mixed'
+        if warehouse_specific_key in stipulate.get("global_rules", {}):
+            combina_threshold = stipulate["global_rules"][warehouse_specific_key]["default"]
+        else:
+            combina_threshold = stipulate["global_rules"]["max_mixed"]["default"]
+
+        warehouse_specific_key1 = f'{warehouse}_bulk_threshold'
+        if warehouse_specific_key1 in stipulate.get("global_rules", {}):
+            uncombina_threshold = stipulate["global_rules"][warehouse_specific_key1]["default"]
+        else:
+            uncombina_threshold = stipulate["global_rules"]["bulk_threshold"]["default"]
+
+        if len(unique_destinations) > uncombina_threshold:
+            context.update({
+                "non_combina_reason": f"总仓点超过{uncombina_threshold}个"
+            })
+            return context, False
+
+        # 把packinglists按区域统计
+        destination_summary = defaultdict(lambda: {"total_weight": 0.0, "total_cbm": 0.0, "count": 0})
+
+        for item in packinglists:
+            dest = item["destination"]
+            destination_summary[dest]["total_weight"] += item["weight"]
+            destination_summary[dest]["total_cbm"] += item["cbm"]
+            destination_summary[dest]["count"] += 1
+
+        # 转换为列表格式，类似 plts_by_destination
+        plts_by_destination = [
+            {
+                "destination": dest,
+                "total_weight": data["total_weight"],
+                "total_cbm": data["total_cbm"],
+                "item_count": data["count"]
+            }
+            for dest, data in destination_summary.items()
+        ]
+        # 区分组合柜区域和非组合柜区域
+        matched_regions = self.find_matching_regions(
+            plts_by_destination, combina_fee, container_type_temp, total_cbm_sum, combina_threshold
+        )
+        # 判断是否混区，False表示满足混区条件
+        vessel_etd = datetime(2026, 1, 1)
+        is_mix = self.is_mixed_region(
+            matched_regions["matching_regions"], warehouse, vessel_etd
+        )
+        if is_mix:
+            context.update({
+                "non_combina_reason": "混区不符合标准"
+            })
+            return context, False, 
+        
+        filtered_non_destinations = [key for key in matched_regions["non_combina_dests"].keys() if "UPS" not in key]
+        # 非组合柜区域
+        non_combina_region_count = len(filtered_non_destinations)
+        # 组合柜区域
+        combina_region_count = len(matched_regions["combina_dests"])
+
+        filtered_destinations = self._filter_ups_destinations(unique_destinations)
+        if combina_region_count + non_combina_region_count != len(filtered_destinations):
+            raise ValueError(
+                f"计算组合柜和非组合柜区域有误\n"
+                f"组合柜目的地：{matched_regions['combina_dests']}，数量：{combina_region_count}\n"
+                f"非组合柜目的地：{filtered_non_destinations}，数量：{non_combina_region_count}\n"
+                f"目的地集合：{filtered_destinations}\n"
+                f"目的地总数：{len(filtered_destinations)}"
+            )
+        sum_region_count = non_combina_region_count + combina_region_count
+        if sum_region_count > uncombina_threshold:
+            # 当非组合柜的区域数量超出时，不能按转运组合
+            context.update({
+                "non_combina_reason": f"总区数量为{sum_region_count},要求是{uncombina_threshold}"
+            })
+            return context, False
+        return context, True
+
+    def _parse_forecast_data(self,packinglist_file):
+        ''' 解析上传的预报清单'''
         wb = openpyxl.load_workbook(packinglist_file, data_only=True)
         ws = wb.active
 
@@ -326,8 +807,7 @@ class ReceivableAccounting(View):
             header_row = list(r)
             break
         if not header_row:
-            context["reason"] = "Excel表头为空"
-            return context
+            return [],"Excel表头为空"
 
         headers = [normalize_header(h) for h in header_row]
         col_index = {h: idx for idx, h in enumerate(headers) if h}
@@ -341,8 +821,7 @@ class ReceivableAccounting(View):
         }
         missing = [k for k in required.keys() if k not in col_index]
         if missing:
-            context["reason"] = f"缺少表头列：{', '.join(missing)}"
-            return context
+            return [], f"缺少表头列：{', '.join(missing)}"
 
         def to_float(v: Any) -> float:
             if v is None:
@@ -369,10 +848,42 @@ class ReceivableAccounting(View):
             data["destination"] = str(row[col_index["仓库代码"]] or "").strip()
             data["delivery_method"] = str(row[col_index["派送方式"]] or "").strip()
             rows.append(data)
-        print('上传的报价表是',rows)
-        context["packinglist_rows"] = rows
-        context["packinglist_count"] = len(rows)
-        return self.template_pl_container_fee, context
+
+        merged_rows: List[Dict[str, Any]] = []
+        merged_map: Dict[tuple[str, str], Dict[str, Any]] = {}
+
+        for item in rows:
+            destination = str(item.get("destination") or "").strip()
+            delivery_method = str(item.get("delivery_method") or "").strip()
+            is_self_pickup = ("自提" in destination) or ("自提" in delivery_method)
+
+            if is_self_pickup:
+                merged_rows.append(item)
+                continue
+
+            key = (destination, delivery_method)
+            if key not in merged_map:
+                merged_item = {
+                    "destination": destination,
+                    "delivery_method": delivery_method,
+                    "weight": float(item.get("weight") or 0),
+                    "cbm": float(item.get("cbm") or 0),
+                    "shipping_mark": str(item.get("shipping_mark") or "").strip(),
+                }
+                merged_map[key] = merged_item
+                merged_rows.append(merged_item)
+            else:
+                target = merged_map[key]
+                target["weight"] = float(target.get("weight") or 0) + float(item.get("weight") or 0)
+                target["cbm"] = float(target.get("cbm") or 0) + float(item.get("cbm") or 0)
+                current_mark = str(target.get("shipping_mark") or "").strip()
+                new_mark = str(item.get("shipping_mark") or "").strip()
+                if current_mark and new_mark:
+                    target["shipping_mark"] = f"{current_mark},{new_mark}"
+                elif new_mark:
+                    target["shipping_mark"] = new_mark
+
+        return merged_rows, None
 
     def handle_save_manual_invoice_items(self, request: HttpRequest):
         """手动保存所有账单记录"""
