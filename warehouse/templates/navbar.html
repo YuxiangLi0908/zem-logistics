@@ -248,9 +248,9 @@
                                 {% if user.is_authenticated and user.is_staff %}
                                 <a href="{% url 'receivable_accounting' %}?step=finance_stats" target="_blank">财务统计分析</a>
                                 <!-- 报价管理 -->
-                                <a href="{% url 'receivable_accounting' %}?step=quotation_management" target="_blank">报价表管理</a>
-                                <a href="{% url 'receivable_accounting' %}?step=pl_container_fee" target="_blank">预报费用计算</a>
+                                <a href="{% url 'receivable_accounting' %}?step=quotation_management" target="_blank">报价表管理</a>                               
                                 {% endif %}
+                                <a href="{% url 'receivable_accounting' %}?step=pl_container_fee" target="_blank">预报费用计算</a>
                             </div>
                         </div>
                     </li>
