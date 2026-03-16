@@ -255,6 +255,13 @@ class FleetManagement(View):
         elif step == "fleet_cost_record_ltl":
             template, context = await self.handle_fleet_cost_record_get_ltl(request)
             return render(request, template, context)
+        elif step == "bind_multi_unload":
+            template, context = await self.handle_bind_multi_unload(request)
+            return render(request, template, context)
+        elif step == "unbind_multi_unload":
+            template, context = await self.handle_unbind_multi_unload(request)
+            return render(request, template, context)
+
         elif step == "batch_allocate_ltl_cost":
             template, context = await self.handle_batch_allocate_ltl_cost(request)
             return render(request, template, context)
@@ -1855,6 +1862,83 @@ class FleetManagement(View):
             "success_count": success_count,
         }
         return self.template_fleet_cost_record_ltl, context
+
+    async def handle_bind_multi_unload(self, request: HttpRequest):
+        """绑定一提多卸（批量更新train_related字段）"""
+        logger = logging.getLogger(__name__)
+        try:
+            # 获取选中的车次号
+            fleet_numbers = request.POST.get('selected_fleet_numbers', '').split(',')
+            fleet_numbers = [f.strip() for f in fleet_numbers if f.strip()]
+
+            if not fleet_numbers or len(fleet_numbers) < 2:
+                error_messages = ['请至少选择2个车次进行绑定']
+                return await self.handle_fleet_cost_record_get_ltl(request, error_messages, 0)
+
+            # 生成随机唯一标识
+            train_related = str(uuid.uuid4())[:8]  # 取8位UUID
+
+            # 批量更新train_related字段
+            @sync_to_async
+            def update_train_related():
+                with transaction.atomic():
+                    # 只更新未核实的车次
+                    updated_count = Fleet.objects.filter(
+                        fleet_number__in=fleet_numbers,
+                        fleet_verify_status=False
+                    ).update(train_related=train_related)
+                return updated_count
+
+            updated_count = await update_train_related()
+
+            error_messages = []
+            if updated_count != len(fleet_numbers):
+                error_messages.append(f'仅成功绑定{updated_count}个车次（部分车次已核实，无法修改）')
+
+            return await self.handle_fleet_cost_record_get_ltl(
+                request, error_messages, updated_count
+            )
+        except Exception as e:
+            logger.error('绑定一提多卸失败', exc_info=True)
+            error_messages = [f'绑定失败：{str(e)[:200]}']
+            return await self.handle_fleet_cost_record_get_ltl(request, error_messages, 0)
+
+    async def handle_unbind_multi_unload(self, request: HttpRequest):
+        """解绑一提多卸（清空train_related字段）"""
+        logger = logging.getLogger(__name__)
+        try:
+            # 获取选中的车次号
+            fleet_numbers = request.POST.get('selected_fleet_numbers', '').split(',')
+            fleet_numbers = [f.strip() for f in fleet_numbers if f.strip()]
+
+            if not fleet_numbers:
+                error_messages = ['请选择需要解绑的车次']
+                return await self.handle_fleet_cost_record_get_ltl(request, error_messages, 0)
+
+            # 批量清空train_related字段
+            @sync_to_async
+            def clear_train_related():
+                with transaction.atomic():
+                    # 只更新未核实的车次
+                    updated_count = Fleet.objects.filter(
+                        fleet_number__in=fleet_numbers,
+                        fleet_verify_status=False
+                    ).update(train_related=None)
+                return updated_count
+
+            updated_count = await clear_train_related()
+
+            error_messages = []
+            if updated_count != len(fleet_numbers):
+                error_messages.append(f'仅成功解绑{updated_count}个车次（部分车次已核实，无法修改）')
+
+            return await self.handle_fleet_cost_record_get_ltl(
+                request, error_messages, updated_count
+            )
+        except Exception as e:
+            logger.error('解绑一提多卸失败', exc_info=True)
+            error_messages = [f'解绑失败：{str(e)[:200]}']
+            return await self.handle_fleet_cost_record_get_ltl(request, error_messages, 0)
 
 
     async def handle_batch_confirm_ltl_price(self, request):
