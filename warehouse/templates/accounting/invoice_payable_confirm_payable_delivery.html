@@ -936,6 +936,34 @@
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15) !important;
         }
 
+        /* 一提多卸分组样式 */
+        .multi-unload-group {
+            background: #f0f8fb !important;
+            border-left: 4px solid #2196f3 !important;
+        }
+
+        .multi-unload-label {
+            color: #2196f3;
+            font-weight: 600;
+            display: inline-block;
+            padding: 2px 8px;
+            background: rgba(33, 150, 243, 0.1);
+            border-radius: 4px;
+            font-size: 0.85rem;
+            margin-right: 8px;
+        }
+
+        /* 分组标题行样式 */
+        .group-header-row {
+            background: #e8f5e9 !important;
+            font-weight: 600 !important;
+        }
+
+        .group-header-row td {
+            border-top: 2px solid #2e7d32 !important;
+            padding: 10px !important;
+        }
+
         /* 总计行样式 */
         .summary-row {
             background: #f8f9fa !important;
@@ -1251,131 +1279,165 @@
                                             <th class="th"></th>
                                         </tr>
                                         <tbody>
-                                        {% for fleet in delivery_pending_orders %}
-                                            {% for pickup_number, pickup_data in fleet.fleets.items %}
-                                                {% for appointment_id, appointment_data in pickup_data.appointments.items %}
-                                                    {% for order in appointment_data.orders %}
-                                                        <tr>
-                                                            {% if forloop.parentloop.first and forloop.first %}
-                                                                <td class="td export-checkbox-col"
-                                                                    rowspan="{{ pickup_data.total_rows }}"
-                                                                    style="vertical-align: middle;">
-                                                                    <input type="checkbox"
-                                                                           class="delivery-pending-checkbox"
-                                                                           value="{{ fleet.fleet_id|default:'' }}"
-                                                                           data-fleet-id="{{ fleet.fleet_id|default:'' }}"
-                                                                           style="width: 16px; height: 16px;">
-                                                                </td>
-                                                                <td class="td" rowspan="{{ pickup_data.total_rows }}"
-                                                                    style="vertical-align: middle;">
-                                                                    {{ fleet.fleet_number|default_if_none:"" }}
-                                                                </td>
-                                                                <td class="td" rowspan="{{ pickup_data.total_rows }}"
-                                                                    style="vertical-align: middle;">
-                                                                    {{ fleet.carrier|default_if_none:"" }}
-                                                                </td>
-                                                                <td class="td" rowspan="{{ pickup_data.total_rows }}"
-                                                                    style="vertical-align: middle;">
-                                                                    {{ pickup_number|default_if_none:"" }}
-                                                                </td>
-                                                            {% endif %}
+                                        {% for group in delivery_pending_orders %}
+                                            <!-- 新增：一提多卸分组标题行 -->
+                                            <tr class="group-header-row {% if group.is_multi_unload %}multi-unload-group{% endif %}">
+                                                <td colspan="14">
+                                                    {% if group.is_multi_unload %}
+                                                        <span class="multi-unload-label">一提多卸</span>
+                                                    {% endif %}
+                                                    分组：{{ group.group_key }} |
+                                                    车次：{{ group.fleet_numbers|join:", " }} |
+                                                    承运商：{{ group.carriers|join:", " }} |
+                                                    总板数：{{ group.total_pallets }} |
+                                                    总成本：${{ group.total_expense|floatformat:2 }}
+                                                </td>
+                                            </tr>
 
-                                                            {% if forloop.first %}
-                                                                <td class="td" rowspan="{{ appointment_data.rowspan }}"
-                                                                    style="vertical-align: middle;">
-                                                                    {{ appointment_id|default_if_none:"" }}
-                                                                </td>
-                                                            {% endif %}
+                                            {% for fleet_id, fleet in group.fleets.items %}
+                                                {% for pickup_number, pickup_data in fleet.fleets.items %}
+                                                    {% for appointment_id, appointment_data in pickup_data.appointments.items %}
+                                                        {% for order in appointment_data.orders %}
+                                                            <tr>
+                                                                {% if forloop.parentloop.first and forloop.first %}
+                                                                    <td class="td export-checkbox-col"
+                                                                        rowspan="{{ pickup_data.total_rows }}"
+                                                                        style="vertical-align: middle;">
+                                                                        <input type="checkbox"
+                                                                               class="delivery-pending-checkbox"
+                                                                               value="{{ fleet_id|default:'' }}"
+                                                                               data-fleet-id="{{ fleet_id|default:'' }}"
+                                                                               style="width: 16px; height: 16px;">
+                                                                    </td>
+                                                                    <td class="td"
+                                                                        rowspan="{{ pickup_data.total_rows }}"
+                                                                        style="vertical-align: middle;">
+                                                                        {{ fleet.fleet_number|default_if_none:"" }}
+                                                                    </td>
+                                                                    <td class="td"
+                                                                        rowspan="{{ pickup_data.total_rows }}"
+                                                                        style="vertical-align: middle;">
+                                                                        {{ fleet.carrier|default_if_none:"" }}
+                                                                    </td>
+                                                                    <td class="td"
+                                                                        rowspan="{{ pickup_data.total_rows }}"
+                                                                        style="vertical-align: middle;">
+                                                                        {{ pickup_number|default_if_none:"" }}
+                                                                    </td>
+                                                                {% endif %}
 
-                                                            <td class="td"
-                                                                style="vertical-align: middle;">{{ order.container_num }}</td>
-                                                            <td class="td"
-                                                                style="vertical-align: middle;">{{ order.pallet_destination }}</td>
-                                                            <td class="td"
-                                                                style="vertical-align: middle;">{{ order.cn_total_pallet }}</td>
-                                                            <td class="td"
-                                                                style="vertical-align: middle;">{{ order.cn_total_expense }}</td>
-                                                            <td class="td"
-                                                                style="vertical-align: middle;">{{ order.cn_per_expense }}</td>
-                                                            {% if forloop.parentloop.first and forloop.first %}
-                                                                <td class="td" rowspan="{{ pickup_data.total_rows }}"
-                                                                    style="vertical-align: middle;">
-                                                                    {{ pickup_data.ISA_total_pallets }}
-                                                                </td>
-                                                                <td class="td" rowspan="{{ pickup_data.total_rows }}"
-                                                                    style="vertical-align: middle;">
-                                                                    ${{ pickup_data.ISA_total_expense }}
-                                                                </td>
-                                                                <td class="td" rowspan="{{ pickup_data.total_rows }}"
-                                                                    style="vertical-align: middle;">
-                                                                    <div class="delivery-input-group">
-                                                                        <input type="number" name="write_off_amount"
-                                                                               class="write-off-amount"
-                                                                               data-container-id="{{ order.object.container_number.id }}"
-                                                                               step="0.01" min="0"
-                                                                               placeholder="输入核销金额"
-                                                                               style="padding: 4px 8px; border: 1px solid #ced4da; border-radius: 4px; text-align: center;">
-                                                                        <form action="" method="post"
-                                                                              class="single-writeoff-form"
-                                                                              style="margin: 0;">
-                                                                            {% csrf_token %}
-                                                                            <input type="hidden" name="step"
-                                                                                   value="write_off_amount_post_delivery">
-                                                                            <input type="hidden" name="container_id"
-                                                                                   value="{{ order.object.container_number.id }}">
-                                                                            <input type="hidden" name="write_off_type"
-                                                                                   value="pick-x">
-                                                                            <input type="hidden"
-                                                                                   name="start_date_confirm"
-                                                                                   value="{{ start_date_confirm }}">
-                                                                            <input type="hidden" name="end_date_confirm"
-                                                                                   value="{{ end_date_confirm }}">
-                                                                            <input type="hidden" name="warehouse_filter"
-                                                                                   value="{{ warehouse_filter }}">
-                                                                            <input type="hidden" name="customer_name"
-                                                                                   value="{{ selected_customer_id|default:'' }}">
-                                                                            <button type="submit"
-                                                                                    class="btn btn-success btn-sm">确认
-                                                                            </button>
-                                                                        </form>
-                                                                    </div>
-                                                                </td>
-                                                                <td class="td" rowspan="{{ pickup_data.total_rows }}"
-                                                                    style="vertical-align: middle;">
-                                                                    <div class="delivery-input-group">
-                                                                        <input type="text" name="note_delivery"
-                                                                               class="write-off-amount-note"
-                                                                               data-container-id="{{ order.object.container_number.id }}"
-                                                                               placeholder="输入备注"
-                                                                               value="{{ order.itemv2_data.note }}"
-                                                                               style="padding: 4px 8px; border: 1px solid #ced4da; border-radius: 4px; text-align: center;">
-                                                                        <form action="" method="post"
-                                                                              class="note-submit-form"
-                                                                              style="margin: 0;">
-                                                                            {% csrf_token %}
-                                                                            <input type="hidden" name="step"
-                                                                                   value="note_post_delivery">
-                                                                            <input type="hidden" name="container_id"
-                                                                                   value="{{ order.object.container_number.id }}">
-                                                                            <input type="hidden" name="write_off_type"
-                                                                                   value="pick-x">
-                                                                            <input type="hidden"
-                                                                                   name="start_date_confirm"
-                                                                                   value="{{ start_date_confirm }}">
-                                                                            <input type="hidden" name="end_date_confirm"
-                                                                                   value="{{ end_date_confirm }}">
-                                                                            <input type="hidden" name="warehouse_filter"
-                                                                                   value="{{ warehouse_filter }}">
-                                                                            <input type="hidden" name="customer_name"
-                                                                                   value="{{ selected_customer_id|default:'' }}">
-                                                                            <button type="submit"
-                                                                                    class="btn btn-success btn-sm">确认
-                                                                            </button>
-                                                                        </form>
-                                                                    </div>
-                                                                </td>
-                                                            {% endif %}
-                                                        </tr>
+                                                                {% if forloop.first %}
+                                                                    <td class="td"
+                                                                        rowspan="{{ appointment_data.rowspan }}"
+                                                                        style="vertical-align: middle;">
+                                                                        {{ appointment_id|default_if_none:"" }}
+                                                                    </td>
+                                                                {% endif %}
+
+                                                                <td class="td"
+                                                                    style="vertical-align: middle;">{{ order.container_num }}</td>
+                                                                <td class="td"
+                                                                    style="vertical-align: middle;">{{ order.pallet_destination }}</td>
+                                                                <td class="td"
+                                                                    style="vertical-align: middle;">{{ order.cn_total_pallet }}</td>
+                                                                <td class="td"
+                                                                    style="vertical-align: middle;">{{ order.cn_total_expense }}</td>
+                                                                <td class="td"
+                                                                    style="vertical-align: middle;">{{ order.cn_per_expense }}</td>
+                                                                {% if forloop.parentloop.first and forloop.first %}
+                                                                    <td class="td"
+                                                                        rowspan="{{ pickup_data.total_rows }}"
+                                                                        style="vertical-align: middle;">
+                                                                        {{ pickup_data.ISA_total_pallets }}
+                                                                    </td>
+                                                                    <td class="td"
+                                                                        rowspan="{{ pickup_data.total_rows }}"
+                                                                        style="vertical-align: middle;">
+                                                                        ${{ pickup_data.ISA_total_expense }}
+                                                                    </td>
+                                                                    <td class="td"
+                                                                        rowspan="{{ pickup_data.total_rows }}"
+                                                                        style="vertical-align: middle;">
+                                                                        <div class="delivery-input-group">
+                                                                            <input type="number" name="write_off_amount"
+                                                                                   class="write-off-amount"
+                                                                                   data-container-id="{{ order.object.container_number.id }}"
+                                                                                   step="0.01" min="0"
+                                                                                   placeholder="输入核销金额"
+                                                                                   style="padding: 4px 8px; border: 1px solid #ced4da; border-radius: 4px; text-align: center;">
+                                                                            <form action="" method="post"
+                                                                                  class="single-writeoff-form"
+                                                                                  style="margin: 0;">
+                                                                                {% csrf_token %}
+                                                                                <input type="hidden" name="step"
+                                                                                       value="write_off_amount_post_delivery">
+                                                                                <input type="hidden" name="container_id"
+                                                                                       value="{{ order.object.container_number.id }}">
+                                                                                <input type="hidden"
+                                                                                       name="write_off_type"
+                                                                                       value="pick-x">
+                                                                                <input type="hidden"
+                                                                                       name="start_date_confirm"
+                                                                                       value="{{ start_date_confirm }}">
+                                                                                <input type="hidden"
+                                                                                       name="end_date_confirm"
+                                                                                       value="{{ end_date_confirm }}">
+                                                                                <input type="hidden"
+                                                                                       name="warehouse_filter"
+                                                                                       value="{{ warehouse_filter }}">
+                                                                                <input type="hidden"
+                                                                                       name="customer_name"
+                                                                                       value="{{ selected_customer_id|default:'' }}">
+                                                                                <button type="submit"
+                                                                                        class="btn btn-success btn-sm">
+                                                                                    确认
+                                                                                </button>
+                                                                            </form>
+                                                                        </div>
+                                                                    </td>
+                                                                    <td class="td"
+                                                                        rowspan="{{ pickup_data.total_rows }}"
+                                                                        style="vertical-align: middle;">
+                                                                        <div class="delivery-input-group">
+                                                                            <input type="text" name="note_delivery"
+                                                                                   class="write-off-amount-note"
+                                                                                   data-container-id="{{ order.object.container_number.id }}"
+                                                                                   placeholder="输入备注"
+                                                                                   value="{{ order.itemv2_data.note }}"
+                                                                                   style="padding: 4px 8px; border: 1px solid #ced4da; border-radius: 4px; text-align: center;">
+                                                                            <form action="" method="post"
+                                                                                  class="note-submit-form"
+                                                                                  style="margin: 0;">
+                                                                                {% csrf_token %}
+                                                                                <input type="hidden" name="step"
+                                                                                       value="note_post_delivery">
+                                                                                <input type="hidden" name="container_id"
+                                                                                       value="{{ order.object.container_number.id }}">
+                                                                                <input type="hidden"
+                                                                                       name="write_off_type"
+                                                                                       value="pick-x">
+                                                                                <input type="hidden"
+                                                                                       name="start_date_confirm"
+                                                                                       value="{{ start_date_confirm }}">
+                                                                                <input type="hidden"
+                                                                                       name="end_date_confirm"
+                                                                                       value="{{ end_date_confirm }}">
+                                                                                <input type="hidden"
+                                                                                       name="warehouse_filter"
+                                                                                       value="{{ warehouse_filter }}">
+                                                                                <input type="hidden"
+                                                                                       name="customer_name"
+                                                                                       value="{{ selected_customer_id|default:'' }}">
+                                                                                <button type="submit"
+                                                                                        class="btn btn-success btn-sm">
+                                                                                    确认
+                                                                                </button>
+                                                                            </form>
+                                                                        </div>
+                                                                    </td>
+                                                                {% endif %}
+                                                            </tr>
+                                                        {% endfor %}
                                                     {% endfor %}
                                                 {% endfor %}
                                             {% endfor %}
@@ -1586,78 +1648,103 @@
                                             <th class="th"></th>
                                         </tr>
                                         <tbody>
-                                        {% for fleet in delivery_confirm_orders %}
-                                            {% for pickup_number, pickup_data in fleet.fleets.items %}
-                                                {% for appointment_id, appointment_data in pickup_data.appointments.items %}
-                                                    {% for order in appointment_data.orders %}
-                                                        <tr>
-                                                            <!-- 新增：多选框单元格 -->
-                                                            {% if forloop.parentloop.first and forloop.first %}
-                                                                <td class="td export-checkbox-col"
-                                                                    rowspan="{{ pickup_data.total_rows }}"
-                                                                    style="vertical-align: middle;">
-                                                                    <input type="checkbox"
-                                                                           class="delivery-export-checkbox"
-                                                                           value="{{ fleet.fleet_id|default:'' }}"
-                                                                           data-fleet-id="{{ fleet.fleet_id|default:'' }}"
-                                                                           style="width: 16px; height: 16px;">
-                                                                </td>
-                                                                <td class="td" rowspan="{{ pickup_data.total_rows }}"
-                                                                    style="vertical-align: middle;">
-                                                                    {{ fleet.fleet_number|default_if_none:"" }}
-                                                                </td>
-                                                                <td class="td" rowspan="{{ pickup_data.total_rows }}"
-                                                                    style="vertical-align: middle;">
-                                                                    {{ fleet.carrier|default_if_none:"" }}
-                                                                </td>
-                                                                <td class="td" rowspan="{{ pickup_data.total_rows }}"
-                                                                    style="vertical-align: middle;">
-                                                                    {{ pickup_number|default_if_none:"" }}
-                                                                </td>
-                                                            {% endif %}
+                                        {% for group in delivery_confirm_orders %}
+                                            <!-- 新增：一提多卸分组标题行 -->
+                                            <tr class="group-header-row {% if group.is_multi_unload %}multi-unload-group{% endif %}">
+                                                <td colspan="15">
+                                                    {% if group.is_multi_unload %}
+                                                        <span class="multi-unload-label">一提多卸</span>
+                                                    {% endif %}
+                                                    分组：{{ group.group_key }} |
+                                                    车次：{{ group.fleet_numbers|join:", " }} |
+                                                    承运商：{{ group.carriers|join:", " }} |
+                                                    总板数：{{ group.total_pallets }} |
+                                                    总成本：${{ group.total_expense|floatformat:2 }}
+                                                </td>
+                                            </tr>
 
-                                                            {% if forloop.first %}
-                                                                <td class="td" rowspan="{{ appointment_data.rowspan }}"
-                                                                    style="vertical-align: middle;">
-                                                                    {{ appointment_id|default_if_none:"" }}
-                                                                </td>
-                                                            {% endif %}
+                                            {% for fleet_id, fleet in group.fleets.items %}
+                                                {% for pickup_number, pickup_data in fleet.fleets.items %}
+                                                    {% for appointment_id, appointment_data in pickup_data.appointments.items %}
+                                                        {% for order in appointment_data.orders %}
+                                                            <tr>
+                                                                <!-- 新增：多选框单元格 -->
+                                                                {% if forloop.parentloop.first and forloop.first %}
+                                                                    <td class="td export-checkbox-col"
+                                                                        rowspan="{{ pickup_data.total_rows }}"
+                                                                        style="vertical-align: middle;">
+                                                                        <input type="checkbox"
+                                                                               class="delivery-export-checkbox"
+                                                                               value="{{ fleet_id|default:'' }}"
+                                                                               data-fleet-id="{{ fleet_id|default:'' }}"
+                                                                               style="width: 16px; height: 16px;">
+                                                                    </td>
+                                                                    <td class="td"
+                                                                        rowspan="{{ pickup_data.total_rows }}"
+                                                                        style="vertical-align: middle;">
+                                                                        {{ fleet.fleet_number|default_if_none:"" }}
+                                                                    </td>
+                                                                    <td class="td"
+                                                                        rowspan="{{ pickup_data.total_rows }}"
+                                                                        style="vertical-align: middle;">
+                                                                        {{ fleet.carrier|default_if_none:"" }}
+                                                                    </td>
+                                                                    <td class="td"
+                                                                        rowspan="{{ pickup_data.total_rows }}"
+                                                                        style="vertical-align: middle;">
+                                                                        {{ pickup_number|default_if_none:"" }}
+                                                                    </td>
+                                                                {% endif %}
 
-                                                            <td class="td"
-                                                                style="vertical-align: middle;">{{ order.container_num }}</td>
-                                                            <td class="td"
-                                                                style="vertical-align: middle;">{{ order.pallet_destination }}</td>
-                                                            <td class="td"
-                                                                style="vertical-align: middle;">{{ order.cn_total_pallet }}</td>
-                                                            <td class="td"
-                                                                style="vertical-align: middle;">{{ order.cn_total_expense }}</td>
-                                                            <td class="td"
-                                                                style="vertical-align: middle;">{{ order.cn_per_expense }}</td>
+                                                                {% if forloop.first %}
+                                                                    <td class="td"
+                                                                        rowspan="{{ appointment_data.rowspan }}"
+                                                                        style="vertical-align: middle;">
+                                                                        {{ appointment_id|default_if_none:"" }}
+                                                                    </td>
+                                                                {% endif %}
 
-                                                            {% if forloop.parentloop.first and forloop.first %}
-                                                                <td class="td" rowspan="{{ pickup_data.total_rows }}"
-                                                                    style="vertical-align: middle;">
-                                                                    {{ pickup_data.ISA_total_pallets }}
-                                                                </td>
-                                                                <td class="td" rowspan="{{ pickup_data.total_rows }}"
-                                                                    style="vertical-align: middle;">
-                                                                    ${{ pickup_data.ISA_total_expense }}
-                                                                </td>
-                                                                <!-- 核心修改：将这三列移到合并行逻辑内，确保只显示一次 -->
-                                                                <td class="td" rowspan="{{ pickup_data.total_rows }}"
-                                                                    style="vertical-align: middle;">
-                                                                    {{ order.itemv2_data.write_off_amount|default:"0.00" }}
-                                                                </td>
-                                                                <td class="td" rowspan="{{ pickup_data.total_rows }}"
-                                                                    style="vertical-align: middle;">
-                                                                    {{ order.itemv2_data.write_off_time|date:"Y-m-d"|default:"未核销" }}
-                                                                </td>
-                                                                <td class="td" rowspan="{{ pickup_data.total_rows }}"
-                                                                    style="vertical-align: middle;">
-                                                                    {{ order.itemv2_data.note|default:"无" }}
-                                                                </td>
-                                                            {% endif %}
-                                                        </tr>
+                                                                <td class="td"
+                                                                    style="vertical-align: middle;">{{ order.container_num }}</td>
+                                                                <td class="td"
+                                                                    style="vertical-align: middle;">{{ order.pallet_destination }}</td>
+                                                                <td class="td"
+                                                                    style="vertical-align: middle;">{{ order.cn_total_pallet }}</td>
+                                                                <td class="td"
+                                                                    style="vertical-align: middle;">{{ order.cn_total_expense }}</td>
+                                                                <td class="td"
+                                                                    style="vertical-align: middle;">{{ order.cn_per_expense }}</td>
+
+                                                                {% if forloop.parentloop.first and forloop.first %}
+                                                                    <td class="td"
+                                                                        rowspan="{{ pickup_data.total_rows }}"
+                                                                        style="vertical-align: middle;">
+                                                                        {{ pickup_data.ISA_total_pallets }}
+                                                                    </td>
+                                                                    <td class="td"
+                                                                        rowspan="{{ pickup_data.total_rows }}"
+                                                                        style="vertical-align: middle;">
+                                                                        ${{ pickup_data.ISA_total_expense }}
+                                                                    </td>
+                                                                    <!-- 核心修改：将这三列移到合并行逻辑内，确保只显示一次 -->
+                                                                    <td class="td"
+                                                                        rowspan="{{ pickup_data.total_rows }}"
+                                                                        style="vertical-align: middle;">
+                                                                        {{ order.itemv2_data.write_off_amount|default:"0.00" }}
+                                                                    </td>
+                                                                    <td class="td"
+                                                                        rowspan="{{ pickup_data.total_rows }}"
+                                                                        style="vertical-align: middle;">
+                                                                        {{ order.itemv2_data.write_off_time|date:"Y-m-d"|default:"未核销" }}
+                                                                    </td>
+                                                                    <td class="td"
+                                                                        rowspan="{{ pickup_data.total_rows }}"
+                                                                        style="vertical-align: middle;">
+                                                                        {{ order.itemv2_data.note|default:"无" }}
+                                                                    </td>
+                                                                {% endif %}
+                                                            </tr>
+                                                        {% endfor %}
                                                     {% endfor %}
                                                 {% endfor %}
                                             {% endfor %}
