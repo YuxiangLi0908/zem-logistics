@@ -1247,7 +1247,7 @@
                                                        data-field="车次"
                                                        placeholder="搜索车次"
                                                        data-column-name="车次"
-                                                       data-search-type="text">
+                                                       data-search-type="multi-text">
                                             </th>
                                             <th class="th">
                                                 <input type="text" class="search-input"
@@ -1255,7 +1255,7 @@
                                                        data-field="Carrier"
                                                        placeholder="搜索Carrier"
                                                        data-column-name="Carrier"
-                                                       data-search-type="text">
+                                                       data-search-type="multi-text">
                                             </th>
                                             <th class="th">
                                                 <input type="text" class="search-input"
@@ -1263,7 +1263,7 @@
                                                        data-field="Pickup Number"
                                                        placeholder="搜索Pickup Number"
                                                        data-column-name="Pickup Number"
-                                                       data-search-type="text">
+                                                       data-search-type="multi-text">
                                             </th>
                                             <th class="th">
                                                 <input type="text" class="search-input"
@@ -1271,7 +1271,7 @@
                                                        data-field="ISA"
                                                        placeholder="搜索ISA"
                                                        data-column-name="ISA"
-                                                       data-search-type="text">
+                                                       data-search-type="multi-text">
                                             </th>
                                             <th class="th">
                                                 <input type="text" class="search-input"
@@ -1287,7 +1287,7 @@
                                                        data-field="目的地"
                                                        placeholder="搜索目的地"
                                                        data-column-name="目的地"
-                                                       data-search-type="text">
+                                                       data-search-type="multi-text">
                                             </th>
                                             <th class="th">
                                                 <input type="number" class="search-input"
@@ -1629,7 +1629,7 @@
                                                        data-field="车次"
                                                        placeholder="搜索车次"
                                                        data-column-name="车次"
-                                                       data-search-type="text">
+                                                       data-search-type="multi-text">
                                             </th>
                                             <th class="th">
                                                 <input type="text" class="search-input"
@@ -1637,7 +1637,7 @@
                                                        data-field="Carrier"
                                                        placeholder="搜索Carrier"
                                                        data-column-name="Carrier"
-                                                       data-search-type="text">
+                                                       data-search-type="multi-text">
                                             </th>
                                             <th class="th">
                                                 <input type="text" class="search-input"
@@ -1645,7 +1645,7 @@
                                                        data-field="Pickup Number"
                                                        placeholder="搜索Pickup Number"
                                                        data-column-name="Pickup Number"
-                                                       data-search-type="text">
+                                                       data-search-type="multi-text">
                                             </th>
                                             <th class="th">
                                                 <input type="text" class="search-input"
@@ -1653,7 +1653,7 @@
                                                        data-field="ISA"
                                                        placeholder="搜索ISA"
                                                        data-column-name="ISA"
-                                                       data-search-type="text">
+                                                       data-search-type="multi-text">
                                             </th>
                                             <th class="th">
                                                 <input type="text" class="search-input"
@@ -1669,7 +1669,7 @@
                                                        data-field="目的地"
                                                        placeholder="搜索目的地"
                                                        data-column-name="目的地"
-                                                       data-search-type="text">
+                                                       data-search-type="multi-text">
                                             </th>
                                             <th class="th">
                                                 <input type="number" class="search-input"
@@ -2060,90 +2060,75 @@
             return confirm('确认要批量核销选中的记录吗？');
         }
 
-        // ========== 表格搜索（最终版：修复目的地读取+极致调试） ==========
+        // ========== 重构：多条件并集搜索（核心修改） ==========
         function initTableSearch() {
             const searchInputs = document.querySelectorAll('.search-input');
+            // 存储所有搜索条件的全局对象
+            let searchConditions = {};
 
-            // 核心映射：列名 → 列索引（请确认目的地的索引是否正确！）
+            // 核心映射：列名 → 列索引
             const columnNameToIndex = {
                 '车次': 2,
                 'Carrier': 3,
                 'Pickup Number': 4,
                 'ISA': 5,
                 '柜号': 6,
-                '目的地': 7, // 重点：确认这个索引是否匹配表格实际列位置
+                '目的地': 7,
                 '板数': 8
             };
 
-            searchInputs.forEach(input => {
-                input.addEventListener('input', function () {
-                    // 1. 基础配置
-                    const fieldName = this.getAttribute('data-field');
-                    const searchValue = this.value.trim().toLowerCase();
-                    const table = this.closest('table');
+            // 通用多关键词匹配函数
+            function matchMultiKeywords(fieldValues, searchValue) {
+                const keywords = searchValue.split(' ').filter(k => k);
+                return keywords.some(keyword =>
+                    fieldValues.some(val => val.includes(keyword))
+                );
+            }
 
-                    // 2. 重置显示
+            // 统一搜索执行函数（核心：并集逻辑）
+            function executeSearch() {
+                // 遍历所有表格（待确认/已确认）
+                const tables = document.querySelectorAll('.table-container table');
+                tables.forEach(table => {
+                    // 1. 重置所有行显示
                     table.querySelectorAll('tbody tr').forEach(row => {
                         if (!row.classList.contains('search-row') && !row.classList.contains('summary-row')) {
                             row.style.display = '';
                         }
                     });
 
-                    if (!searchValue || !fieldName) {
+                    // 2. 收集所有非空搜索条件
+                    const validConditions = Object.entries(searchConditions).filter(([field, value]) => value.trim());
+                    if (validConditions.length === 0) {
                         updateSummaryRow();
                         return;
                     }
 
-                    // 3. 核心：构建父行+子行的完整数据映射
+                    // 3. 构建所有行的字段数据映射
                     const fleetFullDataMap = new Map();
                     const allDataRows = table.querySelectorAll('tbody tr:not(.group-header-row):not(.search-row):not(.summary-row)');
 
-                    // ========== 修复：通用字段读取函数（优化目的地筛选规则） ==========
-                    const getChildRowFieldValue = (row, fieldName, parentRow, rowIndex) => {
-                        // 方式1：直接读取对应列
+                    // 读取字段值的通用函数
+                    const getChildRowFieldValue = (row, fieldName, parentRow) => {
                         const colIndex = columnNameToIndex[fieldName];
+                        // 1. 直接读取目标列
                         const directTd = row.querySelector(`td:nth-child(${colIndex})`);
                         let fieldValue = directTd?.textContent.trim().toLowerCase() || '';
 
-                        // 方式2：如果为空，读取当前行所有TD文本并筛选
+                        // 2. 为空则读取行内非空文本（仅板数过滤纯数字）
                         if (!fieldValue) {
-                            const allTdTexts = Array.from(row.querySelectorAll('td')).map((td, idx) => ({
-                                tdIndex: idx + 1, // 列索引从1开始
-                                text: td.textContent.trim().toLowerCase(),
-                                rawText: td.textContent.trim() // 原始文本（不转小写）
-                            })).filter(item => item.text);
+                            const allTdTexts = Array.from(row.querySelectorAll('td')).map(td =>
+                                td.textContent.trim().toLowerCase()
+                            ).filter(text => text);
 
-                            if (fieldName === '柜号') {
-                                // 柜号特征：字母+数字/含下划线/纯数字≥3位
-                                const containerLikeValues = allTdTexts.filter(item =>
-                                    (/^[a-z0-9]+$/.test(item.text) && item.text.length >= 3) ||
-                                    item.text.includes('_') ||
-                                    (item.text.length >= 6 && /^\d+$/.test(item.text))
-                                );
-                                if (containerLikeValues.length > 0) {
-                                    fieldValue = containerLikeValues[0].text;
-                                }
-                            } else if (fieldName === '目的地') {
-                                // ========== 核心修复：放宽目的地筛选规则 ==========
-                                // 新规则：保留非空且不是纯符号的文本（兼容纯字母/字母+数字）
-                                const destLikeValues = allTdTexts.filter(item =>
-                                    // 排除柜号（已被柜号规则筛选）
-                                    !(/^\d+$/.test(item.text))
-                                );
-
-                                if (destLikeValues.length > 0) {
-                                    fieldValue = destLikeValues[0].text;
-                                }
-                            } else if (fieldName === '板数') {
-                                // 板数特征：纯数字
-                                const palletLikeValues = allTdTexts.filter(item => /^\d+$/.test(item.text));
-                                if (palletLikeValues.length > 0) {
-                                    fieldValue = palletLikeValues[0].text;
-                                }
+                            if (fieldName === '板数') {
+                                fieldValue = allTdTexts.find(text => /^\d+$/.test(text)) || '';
+                            } else {
+                                fieldValue = allTdTexts[0] || '';
                             }
                         }
 
-                        // 方式3：最终兜底继承父行对应字段值
+                        // 3. 兜底继承父行值
                         if (!fieldValue && parentRow) {
                             const parentTd = parentRow.querySelector(`td:nth-child(${colIndex})`);
                             fieldValue = parentTd?.textContent.trim().toLowerCase() || '';
@@ -2152,16 +2137,13 @@
                         return fieldValue;
                     };
 
-                    // 第一步：初始化每个fleetId的完整数据
-                    allDataRows.forEach((row, rowIndex) => {
+                    // 初始化fleet数据映射
+                    allDataRows.forEach(row => {
                         // 找fleetId和父行
                         let fleetId = null;
                         let parentRow = null;
                         let currentRow = row;
-                        let findCount = 0;
-
-                        while (currentRow && findCount < 20) {
-                            findCount++;
+                        while (currentRow) {
                             const checkbox = currentRow.querySelector('.delivery-pending-checkbox, .delivery-export-checkbox');
                             if (checkbox) {
                                 fleetId = checkbox.getAttribute('data-fleet-id');
@@ -2170,40 +2152,10 @@
                             }
                             currentRow = currentRow.previousElementSibling;
                         }
+                        if (!fleetId || !parentRow) return;
 
-                        if (!fleetId || !parentRow) {
-                            return;
-                        }
-
-                        // 初始化fleetId数据结构
+                        // 初始化fleet数据
                         if (!fleetFullDataMap.has(fleetId)) {
-                            // 收集父行所属的所有行（调试用）
-                            const parentRelatedRows = [];
-                            let tempRow = parentRow.nextElementSibling;
-                            let tempCount = 0;
-
-                            parentRelatedRows.push({
-                                type: '父行',
-                                rowIndex: Array.from(allDataRows).indexOf(parentRow),
-                                目的地: parentRow.querySelector(`td:nth-child(${columnNameToIndex['目的地']})`)?.textContent.trim().toLowerCase() || ''
-                            });
-
-                            while (tempRow && tempCount < 50) {
-                                tempCount++;
-                                if (tempRow.querySelector('.delivery-pending-checkbox, .delivery-export-checkbox')) break;
-                                if (tempRow.classList.contains('group-header-row') || tempRow.classList.contains('search-row') || tempRow.classList.contains('summary-row')) {
-                                    tempRow = tempRow.nextElementSibling;
-                                    continue;
-                                }
-
-                                parentRelatedRows.push({
-                                    type: '子行',
-                                    rowIndex: Array.from(allDataRows).indexOf(tempRow),
-                                    目的地: tempRow.querySelector(`td:nth-child(${columnNameToIndex['目的地']})`)?.textContent.trim().toLowerCase() || ''
-                                });
-                                tempRow = tempRow.nextElementSibling;
-                            }
-
                             fleetFullDataMap.set(fleetId, {
                                 parentRow: parentRow,
                                 childRows: [],
@@ -2224,7 +2176,7 @@
                         const isParentRow = !!row.querySelector('.delivery-pending-checkbox, .delivery-export-checkbox');
 
                         if (isParentRow) {
-                            // 提取父行所有字段值
+                            // 父行直接读取字段值
                             Object.keys(columnNameToIndex).forEach(colName => {
                                 const colIndex = columnNameToIndex[colName];
                                 const value = row.querySelector(`td:nth-child(${colIndex})`)?.textContent.trim().toLowerCase() || '';
@@ -2232,47 +2184,45 @@
                             });
                         } else {
                             fleetData.childRows.push(row);
-
-                            // 读取所有子行字段（复用通用函数）
-                            const containerValue = getChildRowFieldValue(row, '柜号', fleetData.parentRow, rowIndex);
-                            const destValue = getChildRowFieldValue(row, '目的地', fleetData.parentRow, rowIndex); // 重点
-                            const palletValue = getChildRowFieldValue(row, '板数', fleetData.parentRow, rowIndex);
-                            const carrierValue = row.querySelector(`td:nth-child(${columnNameToIndex['Carrier']})`)?.textContent.trim().toLowerCase() ||
-                                fleetData.parentRow.querySelector(`td:nth-child(${columnNameToIndex['Carrier']})`)?.textContent.trim().toLowerCase() || '';
-
-                            // 存入字段值集合
-                            if (containerValue) fleetData.fieldValues['柜号'].add(containerValue);
-                            if (carrierValue) fleetData.fieldValues['Carrier'].add(carrierValue);
-                            if (destValue) fleetData.fieldValues['目的地'].add(destValue); // 重点
-                            if (palletValue) fleetData.fieldValues['板数'].add(palletValue);
+                            // 子行读取字段值
+                            Object.keys(columnNameToIndex).forEach(colName => {
+                                const value = getChildRowFieldValue(row, colName, fleetData.parentRow);
+                                if (value) fleetData.fieldValues[colName].add(value);
+                            });
                         }
                     });
 
-                    // 4. 核心搜索匹配
+                    // 4. 核心：并集筛选（所有条件都满足才显示）
                     const matchedFleetIds = new Set();
                     fleetFullDataMap.forEach((data, fleetId) => {
-                        const fieldValues = Array.from(data.fieldValues[fieldName]);
-                        let isMatched = false;
+                        let isAllConditionsMatched = true;
 
-                        if (fieldName === '板数') {
-                            const inputNum = parseInt(searchValue);
-                            if (!isNaN(inputNum)) {
-                                isMatched = fieldValues.some(val => {
-                                    const num = parseInt(val);
-                                    return !isNaN(num) && num >= inputNum;
-                                });
+                        // 遍历所有有效搜索条件，必须全部满足
+                        validConditions.forEach(([fieldName, searchValue]) => {
+                            const fieldValues = Array.from(data.fieldValues[fieldName]);
+                            const lowerValue = searchValue.toLowerCase();
+                            let isMatched = false;
+
+                            if (fieldName === '板数') {
+                                // 板数：数值≥匹配
+                                const inputNum = parseInt(lowerValue);
+                                if (!isNaN(inputNum)) {
+                                    isMatched = fieldValues.some(val => {
+                                        const num = parseInt(val);
+                                        return !isNaN(num) && num >= inputNum;
+                                    });
+                                }
+                            } else {
+                                // 其他字段：多关键词模糊匹配
+                                isMatched = matchMultiKeywords(fieldValues, lowerValue);
                             }
-                        } else if (fieldName === '柜号') {
-                            const keywords = searchValue.split(' ').filter(k => k);
-                            isMatched = keywords.some(keyword =>
-                                fieldValues.some(val => val.includes(keyword))
-                            );
-                        } else {
-                            // 目的地使用模糊匹配
-                            isMatched = fieldValues.some(val => val.includes(searchValue));
-                        }
 
-                        if (isMatched) {
+                            if (!isMatched) {
+                                isAllConditionsMatched = false;
+                            }
+                        });
+
+                        if (isAllConditionsMatched) {
                             matchedFleetIds.add(fleetId);
                         }
                     });
@@ -2287,7 +2237,24 @@
 
                     updateSummaryRow();
                 });
+            }
+
+            // 绑定所有搜索框的输入事件
+            searchInputs.forEach(input => {
+                const fieldName = input.getAttribute('data-field');
+                // 初始化条件对象
+                searchConditions[fieldName] = '';
+
+                input.addEventListener('input', function () {
+                    // 更新当前字段的搜索条件
+                    searchConditions[fieldName] = this.value.trim().toLowerCase();
+                    // 执行全局搜索
+                    executeSearch();
+                });
             });
+
+            // 初始执行一次搜索（加载时）
+            executeSearch();
         }
 
         // ========== 辅助函数：获取行的指定列值（自动找父行值） ==========
