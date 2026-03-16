@@ -291,8 +291,46 @@ class ReceivableAccounting(View):
         elif step == "upload_packinglist":
             context = self.handle_upload_packinglist_post(request)
             return render(request, self.template_pl_container_fee, context)
+        elif step == "match_quotation":
+            return self.handle_match_quotation(request)
         else:
             raise ValueError(f"unknow request {step}")
+
+    def handle_match_quotation(self, request: HttpRequest) -> JsonResponse:
+        """根据用户名和 ETD 日期匹配报价表"""
+        username = request.POST.get("username", "").strip()
+        etd_date_str = request.POST.get("etd_date")
+
+        try:
+            etd_date = datetime.strptime(etd_date_str, "%Y-%m-%d").date()
+        except (ValueError, TypeError):
+            return JsonResponse({"success": False, "error": "无效的日期格式"})
+
+        # 基础查询：应收报价表
+        query = QuotationMaster.objects.filter(
+            quote_type="receivable",
+            effective_date__lte=etd_date
+        )
+
+        # 匹配逻辑
+        if username and username != "通用规则":
+            # 查找专属该用户的报价表
+            query = query.filter(is_user_exclusive=True, exclusive_user=username)
+        else:
+            # 查找通用规则（exclusive_user 为空）
+            query = query.filter(Q(exclusive_user__isnull=True) | Q(exclusive_user=""))
+
+        # 按生效日期倒序取第一条
+        matching_quote = query.order_by("-effective_date").first()
+
+        if matching_quote:
+            return JsonResponse({
+                "success": True,
+                "quote_id": matching_quote.id,
+                "filename": matching_quote.filename or matching_quote.quotation_id or str(matching_quote.id)
+            })
+        else:
+            return JsonResponse({"success": True, "quote_id": None})
 
     def handle_upload_packinglist_post(self, request: HttpRequest) -> Dict[str, Any]:
         '''上传packignlist自动计算柜子总费用'''
