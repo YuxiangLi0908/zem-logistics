@@ -1,0 +1,518 @@
+<!-- 询价模态框 -->
+<div class="modal fade" id="fleet_quoteModal" tabindex="-1" aria-hidden="true" style="z-index: 1060;">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title"><i class="fas fa-calculator me-2"></i>Maersk 询价</h5>
+                <button type="button" class="btn btn-link text-white text-decoration-none" data-bs-dismiss="modal" aria-label="Close" style="font-size: 1.5rem; padding: 0; opacity: 0.9;">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="fleet_quoteForm">
+                    <input type="hidden" id="quote_current_cargo_id">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">起始地 <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="quote_origin_zip" required>
+                            <div class="form-text text-muted">从当前仓库自动提取</div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">目的地<span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="quote_dest_zip" required>
+                            <div class="form-text text-muted">从目的地自动提取</div>
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">发货日期 <span class="text-danger">*</span></label>
+                            <input type="date" class="form-control" id="quote_ship_date" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">是否需要 Liftgate</label>
+                            <select id="quote_need_liftgate" class="form-select">
+                                <option value="否" selected>否</option>
+                                <option value="是">是</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">货物明细 <span class="text-danger">*</span></label>
+                        <div class="table-responsive" style="max-height: 300px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 4px;">
+                            <table class="table table-bordered table-sm mb-0" id="quote_items_table">
+                                <thead class="table-light" style="position: sticky; top: 0; z-index: 1;">
+                                    <tr>
+                                        <th style="width: 15%">长 (in)</th>
+                                        <th style="width: 15%">宽 (in)</th>
+                                        <th style="width: 15%">高 (in)</th>
+                                        <th style="width: 12%">件数</th>
+                                        <th style="width: 14%">重量 (lbs)</th>
+                                        <th style="width: 18%">包装</th>
+                                        <th>商品名/类目</th>
+                                        <th style="width: 50px;"></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="quote_items_tbody">
+                                    <!-- 动态生成 -->
+                                </tbody>
+                            </table>
+                        </div>
+                        <button type="button" class="btn btn-sm btn-outline-primary mt-2" onclick="fleet_addQuoteItemRow()">
+                            <i class="fas fa-plus"></i> 添加一行
+                        </button>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <label class="form-label mb-0">总重量 (lbs): <span id="quote_total_weight_display" class="fw-bold text-primary">0</span></label>
+                            <small class="text-muted">根据明细自动计算</small>
+                        </div>
+                        <input type="hidden" id="quote_total_weight">
+                        <!-- 旧字段隐藏保留，防止JS报错 -->
+                        <textarea id="quote_cargo_details" style="display:none;"></textarea>
+                    </div>
+                </form>
+                
+                <!-- 结果展示区 -->
+                <div id="quote_result_area" class="mt-4 border-top pt-3" style="display:none;">
+                    <div id="quote_result_content"></div>
+                </div>
+                
+                <!-- 错误提示区 -->
+                <div id="quote_error_msg" class="alert alert-danger mt-3" style="display:none;"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+                <button type="button" class="btn btn-primary" id="btn_start_quote" onclick="fleet_submitQuote()">
+                    <i class="fas fa-paper-plane me-1"></i> 开始询价
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let currentQuoteData = null;
+    (function() {
+        if (window.__maersk_quote_modal_inited__) return;
+        window.__maersk_quote_modal_inited__ = true;
+
+        function formatDateYMD(date) {
+            const y = date.getFullYear();
+            const m = String(date.getMonth() + 1).padStart(2, '0');
+            const d = String(date.getDate()).padStart(2, '0');
+            return `${y}-${m}-${d}`;
+        }
+
+        function getTomorrowYMD() {
+            const dt = new Date();
+            dt.setDate(dt.getDate() + 1);
+            return formatDateYMD(dt);
+        }
+
+        function ceilOrEmpty(v) {
+            if (v === undefined || v === null) return '';
+            const s = String(v).trim();
+            if (!s) return '';
+            const n = Number(s);
+            if (!Number.isFinite(n)) return '';
+            return String(Math.ceil(n));
+        }
+
+        function roundIntField(input) {
+            if (!input) return;
+            const raw = String(input.value ?? '').trim();
+            if (!raw) return;
+            const n = Number(raw);
+            if (!Number.isFinite(n)) return;
+            input.value = String(Math.ceil(n));
+        }
+
+        if (typeof window.fleet_updateQuoteTotalWeight !== 'function') {
+            window.fleet_updateQuoteTotalWeight = function() {
+                let total = 0;
+                document.querySelectorAll('#quote_items_tbody tr').forEach(tr => {
+                    const weight = parseFloat(tr.querySelector('.item-weight')?.value) || 0;
+                    total += Math.ceil(weight);
+                });
+                const displayEl = document.getElementById('quote_total_weight_display');
+                const hiddenEl = document.getElementById('quote_total_weight');
+                if (displayEl) displayEl.textContent = total.toFixed(0);
+                if (hiddenEl) hiddenEl.value = total.toFixed(0);
+            };
+        }
+
+        if (typeof window.fleet_addQuoteItemRow !== 'function') {
+            window.fleet_addQuoteItemRow = function(data = {}) {
+                const tbody = document.getElementById('quote_items_tbody');
+                if (!tbody) return;
+                const tr = document.createElement('tr');
+
+                const l = ceilOrEmpty(data.length);
+                const w = ceilOrEmpty(data.width);
+                const h = ceilOrEmpty(data.height);
+                const pcs = data.pieces || 1;
+                const weight = ceilOrEmpty(data.weight);
+                const desc = data.description || '';
+                const packaging = data.packaging || 'Pallet';
+
+                tr.innerHTML = `
+                    <td><input type="number" step="1" class="form-control form-control-sm item-length" value="${l}" required></td>
+                    <td><input type="number" step="1" class="form-control form-control-sm item-width" value="${w}" required></td>
+                    <td><input type="number" step="1" class="form-control form-control-sm item-height" value="${h}" required></td>
+                    <td><input type="number" class="form-control form-control-sm item-pieces" value="${pcs}" min="1" required></td>
+                    <td><input type="number" step="1" class="form-control form-control-sm item-weight" value="${weight}" required></td>
+                    <td>
+                        <select class="form-select form-select-sm item-packaging">
+                            <option ${packaging==='Bundle'?'selected':''}>Bundle</option>
+                            <option ${packaging==='Bin'?'selected':''}>Bin</option>
+                            <option ${packaging==='Box'?'selected':''}>Box</option>
+                            <option ${packaging==='Basket'?'selected':''}>Basket</option>
+                            <option ${packaging==='Case'?'selected':''}>Case</option>
+                            <option ${packaging==='Crate'?'selected':''}>Crate</option>
+                            <option ${packaging==='Cartons'?'selected':''}>Cartons</option>
+                            <option ${packaging==='Container'?'selected':''}>Container</option>
+                            <option ${packaging==='Drum'?'selected':''}>Drum</option>
+                            <option ${packaging==='Eaches'?'selected':''}>Eaches</option>
+                            <option ${packaging==='Envelope'?'selected':''}>Envelope</option>
+                            <option ${packaging==='Letter'?'selected':''}>Letter</option>
+                            <option ${packaging==='Pails'?'selected':''}>Pails</option>
+                            <option ${packaging==='Pieces'?'selected':''}>Pieces</option>
+                            <option ${packaging==='Pallet'?'selected':''}>Pallet</option>
+                            <option ${packaging==='Roll'?'selected':''}>Roll</option>
+                            <option ${packaging==='Skid'?'selected':''}>Skid</option>
+                            <option ${packaging==='Tube'?'selected':''}>Tube</option>
+                            <option ${packaging==='ToolBox'?'selected':''}>ToolBox</option>
+                            <option ${packaging==='Tote'?'selected':''}>Tote</option>
+                            <option ${packaging==='Truckload'?'selected':''}>Truckload</option>
+                        </select>
+                    </td>
+                    <td><input type="text" class="form-control form-control-sm item-desc" value="${desc}" placeholder="商品名/类目"></td>
+                    <td class="text-center">
+                        <button type="button" class="btn btn-sm btn-link text-danger p-0 maersk-remove-item">
+                            <i class="fas fa-trash-alt"></i>
+                        </button>
+                    </td>
+                `;
+
+                tbody.appendChild(tr);
+
+                tr.querySelectorAll('.item-length, .item-width, .item-height, .item-weight').forEach(el => {
+                    el.addEventListener('blur', function() {
+                        roundIntField(this);
+                        window.fleet_updateQuoteTotalWeight();
+                    });
+                });
+                tr.querySelectorAll('.item-pieces, .item-weight').forEach(el => {
+                    el.addEventListener('input', function() {
+                        window.fleet_updateQuoteTotalWeight();
+                    });
+                });
+                tr.querySelector('.maersk-remove-item')?.addEventListener('click', function() {
+                    tr.remove();
+                    window.fleet_updateQuoteTotalWeight();
+                });
+
+                window.fleet_updateQuoteTotalWeight();
+            };
+        }
+
+        if (typeof window.fleet_renderQuoteResults !== 'function') {
+            window.fleet_renderQuoteResults = function(data) {
+                const resultContainer = document.getElementById('quote_result_content');
+                if (!data || !data.rating) {
+                    resultContainer.innerHTML = '<div class="alert alert-warning">未获取到有效的报价信息</div>';
+                    return;
+                }
+
+                currentQuoteData = data;
+
+                const rating = data.rating;
+                const shipper = data.shipper || {};
+                const consignee = data.consignee || {};
+                const lineItems = data.lineItems || [];
+                const quotes = data.quotes || [];
+
+                let totalPieces = 0;
+                let totalWeight = 0;
+                const dimensions = [];
+
+                lineItems.forEach(item => {
+                    totalPieces += (item.Pieces || 0);
+                    totalWeight += (item.Weight || 0);
+                    dimensions.push(`${item.Length}×${item.Width}×${item.Height}`);
+                });
+
+                const uniqueDims = [...new Set(dimensions)];
+                const dimStr = uniqueDims.join(', ');
+
+                const summaryHtml = `
+                    <div class="card mb-3 border-0 bg-light">
+                        <div class="card-body py-3">
+                            <div class="row g-2 text-secondary" style="font-size: 0.9rem;">
+                                <div class="col-md-12 mb-2">
+                                    <i class="fas fa-route me-2 text-primary"></i>
+                                    <strong>运输路线：</strong> 
+                                    ${shipper.Zipcode || '-'} (${shipper.State || '-'}) 
+                                    <i class="fas fa-long-arrow-alt-right mx-2 text-muted"></i> 
+                                    ${consignee.Zipcode || '-'} (${consignee.State || '-'})
+                                </div>
+                                <div class="col-md-6">
+                                    <i class="far fa-calendar-alt me-2 text-primary"></i>
+                                    <strong>发货日期：</strong> ${rating.ShipDate || '-'}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                quotes.sort((a, b) => (a.TotalQuote || 0) - (b.TotalQuote || 0));
+
+                let quotesHtml = '';
+                quotes.forEach((quote, index) => {
+                    const isBestValue = index === 0;
+                    const borderClass = isBestValue ? 'border-success' : 'border-light';
+                    const badgeHtml = isBestValue ? '<span class="badge bg-success ms-2">推荐方案</span>' : '';
+
+                    const chargeNameMap = {
+                        'FREIGHT CHARGES': '基础运费',
+                        'FUEL SURCHARGE': '燃油附加费',
+                        'ADDTL LABOR': '额外人工费',
+                        'LIFTGATE PICKUP': '提货升降机费',
+                        'LIFTGATE DELIVERY': '送货升降机费',
+                        'LIMITED ACCESS PICKUP': '受限区域提货费',
+                        'LIMITED ACCESS DELIVERY': '受限区域送货费',
+                        'RESIDENTIAL PICKUP': '住宅提货费',
+                        'RESIDENTIAL DELIVERY': '住宅送货费'
+                    };
+
+                    let breakdownsHtml = '';
+                    if (quote.Breakdowns && quote.Breakdowns.length > 0) {
+                        breakdownsHtml = '<div class="mt-3 pt-3 border-top">';
+                        breakdownsHtml += '<div class="mb-2 text-muted small">费用明细：</div>';
+                        quote.Breakdowns.forEach(bd => {
+                            const cnName = chargeNameMap[bd.BillCodeName] || bd.BillCodeName;
+                            breakdownsHtml += `
+                                <div class="d-flex justify-content-between mb-1 small text-secondary">
+                                    <span>${cnName}</span>
+                                    <span>$${(bd.Charge || 0).toFixed(2)}</span>
+                                </div>
+                            `;
+                        });
+                        breakdownsHtml += '</div>';
+                    }
+
+                    quotesHtml += `
+                        <div class="card mb-3 ${borderClass} shadow-sm" id="quote_card_${index}">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-start mb-3">
+                                    <div>
+                                        <h6 class="card-title mb-1 fw-bold text-dark">
+                                            ${quote.DisplayService} 
+                                            ${badgeHtml}
+                                        </h6>
+                                        <small class="text-muted">服务代码：${quote.Service}</small>
+                                    </div>
+                                    <div class="text-end">
+                                        <h4 class="text-danger fw-bold mb-0">$${(quote.TotalQuote || 0).toFixed(2)}</h4>
+                                    </div>
+                                </div>
+
+                                <div class="row g-3 mb-3" style="font-size: 0.9rem;">
+                                    <div class="col-6">
+                                        <span class="text-muted d-block">预计送达</span>
+                                        <strong>${quote.DeliveryDate || '-'}</strong>
+                                    </div>
+                                    <div class="col-6">
+                                        <span class="text-muted d-block">计费重量</span>
+                                        <strong>${quote.ChargeWeight || '-'} lbs</strong>
+                                    </div>
+                                </div>
+
+                                <div class="collapse" id="collapseDetail_${index}">
+                                    ${breakdownsHtml}
+                                </div>
+
+                                <div class="d-flex justify-content-between align-items-center mt-3 pt-2">
+                                    <button class="btn btn-link btn-sm text-decoration-none p-0" type="button" data-bs-toggle="collapse" data-bs-target="#collapseDetail_${index}">
+                                        查看费用明细 <i class="fas fa-chevron-down ms-1"></i>
+                                    </button>
+                                    <button class="btn btn-primary btn-sm px-4" onclick='fleet_openMaerskScheduleModal(${index}, "private")'>
+                                        排约排车
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+
+                resultContainer.innerHTML = summaryHtml + '<div class="quote-list">' + quotesHtml + '</div>' + `
+                    <div class="mt-4 pt-3 border-top">
+                        <button class="btn btn-outline-secondary btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#debugJsonArea">
+                            <i class="fas fa-code me-1"></i> 显示原始数据
+                        </button>
+                        <div class="collapse mt-2" id="debugJsonArea">
+                            <pre style="background: #f1f8e9; padding: 15px; border-radius: 6px; max-height: 200px; overflow: auto; font-size: 0.8rem; border: 1px solid #c8e6c9;">${JSON.stringify(data, null, 2)}</pre>
+                        </div>
+                    </div>
+                `;
+            };
+        }
+
+        if (typeof window.fleet_submitQuote !== 'function') {
+            window.fleet_submitQuote = function() {
+                const originZipRaw = document.getElementById('quote_origin_zip').value.trim();
+                const destZip = document.getElementById('quote_dest_zip').value.trim();
+                const shipDate = document.getElementById('quote_ship_date').value;
+                const totalWeight = document.getElementById('quote_total_weight').value.trim();
+
+                const originDigits = originZipRaw.replace(/\D/g, '');
+                const originZip = originDigits.length >= 5 ? originDigits.slice(-5) : originDigits;
+
+                if (!originZip || !destZip || !shipDate) {
+                    alert('请填写所有必填字段');
+                    return;
+                }
+
+                const tomorrow = getTomorrowYMD();
+                if (shipDate < tomorrow) {
+                    alert('发货日期不能早于明天');
+                    return;
+                }
+
+                const lineItems = [];
+                document.querySelectorAll('#quote_items_tbody tr').forEach(tr => {
+                    const lengthEl = tr.querySelector('.item-length');
+                    const widthEl = tr.querySelector('.item-width');
+                    const heightEl = tr.querySelector('.item-height');
+                    const weightEl = tr.querySelector('.item-weight');
+                    roundIntField(lengthEl);
+                    roundIntField(widthEl);
+                    roundIntField(heightEl);
+                    roundIntField(weightEl);
+
+                    lineItems.push({
+                        length: Math.ceil(parseFloat(lengthEl.value) || 0),
+                        width: Math.ceil(parseFloat(widthEl.value) || 0),
+                        height: Math.ceil(parseFloat(heightEl.value) || 0),
+                        pieces: Math.max(1, parseInt(tr.querySelector('.item-pieces').value, 10) || 1),
+                        weight: Math.ceil(parseFloat(weightEl.value) || 0),
+                        description: tr.querySelector('.item-desc').value,
+                        packaging: tr.querySelector('.item-packaging')?.value || 'Pallet'
+                    });
+                });
+
+                if (lineItems.length === 0) {
+                    alert('请至少添加一行货物明细');
+                    return;
+                }
+
+                const btn = document.getElementById('btn_start_quote');
+                const originalText = btn.innerHTML;
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 询价中...';
+
+                const formData = new FormData();
+                formData.append('step', 'get_maersk_quote');
+                formData.append('origin_zip', originZip);
+                formData.append('dest_zip', destZip);
+                formData.append('ship_date', shipDate);
+                formData.append('total_weight', totalWeight);
+                formData.append('line_items_json', JSON.stringify(lineItems));
+                const needLiftgate = document.getElementById('quote_need_liftgate')?.value || '否';
+                formData.append('need_liftgate', needLiftgate);
+
+                const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+                formData.append('csrfmiddlewaretoken', csrfToken);
+
+                fetch(window.location.href, {
+                    method: 'POST',
+                    body: formData,
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        data.data.requestShipDate = shipDate;
+                        data.data.need_liftgate = needLiftgate === '是';
+
+                        document.getElementById('quote_result_area').style.display = 'block';
+                        document.getElementById('quote_error_msg').style.display = 'none';
+                        window.fleet_renderQuoteResults(data.data);
+                    } else {
+                        document.getElementById('quote_result_area').style.display = 'none';
+                        const errorDiv = document.getElementById('quote_error_msg');
+                        errorDiv.style.display = 'block';
+                        errorDiv.textContent = '询价失败: ' + (data.message || '未知错误');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    document.getElementById('quote_result_area').style.display = 'none';
+                    const errorDiv = document.getElementById('quote_error_msg');
+                    errorDiv.style.display = 'block';
+                    errorDiv.textContent = '请求出错，请检查网络或重试';
+                })
+                .finally(() => {
+                    btn.disabled = false;
+                    btn.innerHTML = originalText;
+                });
+            };
+        }
+
+        if (typeof window.fleet_openMaerskQuoteModal !== 'function') {
+            window.fleet_openMaerskQuoteModal = function(params = {}) {
+                const modalEl = document.getElementById('fleet_quoteModal');
+                if (!modalEl) return;
+
+                const warehouseRaw = String(params.originWarehouse ?? '').trim();
+                const whParts = warehouseRaw.split('-');
+                let originZip = '';
+                if (whParts.length > 0) {
+                    const lastPart = whParts[whParts.length - 1];
+                    const digits = (lastPart || '').replace(/\D/g, '');
+                    originZip = digits.length >= 5 ? digits.slice(-5) : digits;
+                }
+                if (params.originZip) originZip = String(params.originZip).replace(/\D/g, '').slice(-5) || originZip;
+
+                const destinationRaw = String(params.destination ?? '').trim();
+                let destZip = destinationRaw;
+                if (params.destZip) destZip = String(params.destZip) || destZip;
+
+                const cargoIdEl = document.getElementById('quote_current_cargo_id');
+                if (cargoIdEl) cargoIdEl.value = params.cargoId || '';
+
+                const originEl = document.getElementById('quote_origin_zip');
+                const destEl = document.getElementById('quote_dest_zip');
+                if (originEl) originEl.value = originZip;
+                if (destEl) destEl.value = destZip;
+
+                const tomorrow = getTomorrowYMD();
+                const shipDateEl = document.getElementById('quote_ship_date');
+                if (shipDateEl) {
+                    shipDateEl.min = tomorrow;
+                    shipDateEl.value = tomorrow;
+                }
+                const liftSel = document.getElementById('quote_need_liftgate');
+                if (liftSel) liftSel.value = '否';
+
+                const tbody = document.getElementById('quote_items_tbody');
+                if (tbody) tbody.innerHTML = '';
+                window.fleet_addQuoteItemRow();
+
+                const resultArea = document.getElementById('quote_result_area');
+                const resultContent = document.getElementById('quote_result_content');
+                const errorDiv = document.getElementById('quote_error_msg');
+                if (resultArea) resultArea.style.display = 'none';
+                if (resultContent) resultContent.innerHTML = '';
+                if (errorDiv) errorDiv.style.display = 'none';
+                currentQuoteData = null;
+
+                const modal = new bootstrap.Modal(modalEl);
+                modal.show();
+            };
+        }
+    })();
+</script>

@@ -296,19 +296,19 @@
             row = checkbox.closest('tr');
         }
 
-        if (!row) {
-            alert('找不到对应的货物行');
-            return;
-        }
-
         // 保存索引、ID 和 仓库类型
         document.getElementById('maersk_quote_index').value = index;
         document.getElementById('maersk_cargo_id').value = cargoId;
         document.getElementById('maersk_warehouse_type').value = warehouseType;
 
         // 1. 填充预约信息
-        document.getElementById('maersk_destination').value = row.dataset.destination || '';
-        const rawAddress = row.querySelector('.fleet-address-input').value.trim();
+        const quoteDestInput = document.getElementById('quote_dest_zip');
+        const quoteDestValue = quoteDestInput ? (quoteDestInput.value || '').trim() : '';
+        const destinationText = row
+            ? (row.dataset.destination || '')
+            : (quoteDestValue || `${(currentQuoteData.consignee?.Zipcode || '')}${currentQuoteData.consignee?.State ? ` (${currentQuoteData.consignee.State})` : ''}`);
+        document.getElementById('maersk_destination').value = destinationText;
+        const rawAddress = row ? (row.querySelector('.fleet-address-input')?.value.trim() || '') : '';
         document.getElementById('maersk_raw_address').value = rawAddress;
         
         // 提货时间默认使用发货日期 (优先使用请求时的日期格式 YYYY-MM-DD)

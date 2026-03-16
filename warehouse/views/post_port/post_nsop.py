@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta, time
 from typing import Any, Dict, List, Tuple
-from django.db.models import Prefetch, F, Subquery, OuterRef
+from django.db.models import Prefetch, F, Subquery, OuterRef, Exists
 from collections import OrderedDict, defaultdict
 import pandas as pd
 import json
@@ -22,7 +22,7 @@ from django.template.loader import get_template
 from PyPDF2 import PdfMerger, PdfReader, PdfWriter
 from xhtml2pdf import pisa
 from barcode.writer import ImageWriter
-from django.db.models.functions import Ceil
+from django.db.models.functions import Ceil, Length
 from django.utils.safestring import mark_safe
 from django.utils.html import escape
 from asgiref.sync import sync_to_async
@@ -913,6 +913,15 @@ class PostNsop(View):
             ship_date = request.POST.get('ship_date')
             need_liftgate_raw = request.POST.get('need_liftgate', '否')
             need_liftgate = 'true' if str(need_liftgate_raw).strip() in ('是', 'true', 'True', '1') else 'false'
+
+            if dest_zip and not dest_zip.strip().isdigit():
+                # 表示前端查询的是仓点，需要去亚马逊文件里查找邮编
+                if dest_zip in amazon_fba_locations:
+                    fba = amazon_fba_locations[dest_zip]
+                    dest_zip = fba['zipcode']
+                    print('邮编是',dest_zip)
+                else:
+                    return JsonResponse({'success': False, 'message': '没有查到该目的地的邮编'}, status=400)
             
             # 新增参数：结构化的货物明细
             line_items_json = request.POST.get('line_items_json')
@@ -5640,10 +5649,50 @@ class PostNsop(View):
             is_canceled=False,
         )
         if group and 'ltl' in group.lower():  # 如果group包含ltl（不区分大小写）
-            fl_base_q = f_base_q & models.Q(fleet_type__in=['LTL', '客户自提'])
-        else:
-            fl_base_q = f_base_q & models.Q(fleet_type="FTL")
+            ltl_fleet_numbers = await sync_to_async(list)(
+                Shipment.objects.filter(
+                    destination__regex=r'\d.*\d.*\d.*\d.*\d'
+                ).values_list("fleet_number", flat=True).distinct()
+            )
 
+            fl_base_q = f_base_q & models.Q(
+                models.Q(fleet_type="客户自提") |
+                models.Q(
+                    fleet_type="LTL",
+                    fleet_number__in=ltl_fleet_numbers
+                )
+            )
+        else:
+            shipment_q = Shipment.objects.annotate(
+                letters_count=Length(
+                    Func(
+                        F("destination"),
+                        Value("[^A-Za-z]"),
+                        Value(""),
+                        Value("g"),
+                        function="regexp_replace"
+                    )
+                ),
+                numbers_count=Length(
+                    Func(
+                        F("destination"),
+                        Value("[^0-9]"),
+                        Value(""),
+                        Value("g"),
+                        function="regexp_replace"
+                    )
+                )
+            ).filter(
+                fleet_number=OuterRef("pk"),
+                letters_count__gte=3,
+                numbers_count__lt=3
+            )
+
+
+            fl_base_q = f_base_q & models.Q(
+                models.Q(fleet_type="FTL") |
+                (models.Q(fleet_type="LTL") & models.Q(Exists(shipment_q)))
+            )
         if four_major_whs == "four_major_whs":
             fl_base_q &= models.Q(shipment__destination__in=FOUR_MAJOR_WAREHOUSES)
         
