@@ -1344,6 +1344,72 @@
         if (modal) modal.style.display = 'none';
     }
 
+    function initQuotationModalSelection() {
+        const modal = document.getElementById('quotationModal');
+        if (!modal) return;
+        if (modal.dataset.selectionInitialized === '1') return;
+        modal.dataset.selectionInitialized = '1';
+
+        const table = modal.querySelector('table');
+        if (!table) return;
+
+        const selectAllCb = modal.querySelector('#selectAllQuote');
+
+        function syncSelectAllState() {
+            if (!selectAllCb) return;
+            const checkboxes = Array.from(modal.querySelectorAll('.quote-checkbox'));
+            if (checkboxes.length === 0) {
+                selectAllCb.checked = false;
+                selectAllCb.indeterminate = false;
+                return;
+            }
+            const checkedCount = checkboxes.filter(c => c.checked).length;
+            selectAllCb.checked = checkedCount === checkboxes.length;
+            selectAllCb.indeterminate = checkedCount > 0 && checkedCount < checkboxes.length;
+        }
+
+        function updateAjaxQuoteTotals() {
+            let totalCbm = 0;
+            let totalPallets = 0;
+            let totalAmount = 0;
+
+            modal.querySelectorAll('.quote-checkbox:checked').forEach(cb => {
+                totalCbm += parseFloat(cb.dataset.cbm || 0);
+                totalPallets += parseFloat(cb.dataset.pallets || 0);
+                totalAmount += parseFloat(cb.dataset.amount || 0);
+            });
+
+            const cbmEl = modal.querySelector('#sum-cbm-ajax');
+            const palletsEl = modal.querySelector('#sum-pallets-ajax');
+            const amountEl = modal.querySelector('#sum-amount-ajax');
+
+            if (cbmEl) cbmEl.innerText = totalCbm.toFixed(2);
+            if (palletsEl) palletsEl.innerText = totalPallets.toFixed(2);
+            if (amountEl) amountEl.innerText = '$' + totalAmount.toFixed(2);
+        }
+
+        table.addEventListener('change', function(e) {
+            if (e.target && e.target.id === 'selectAllQuote') {
+                const isChecked = e.target.checked;
+                modal.querySelectorAll('.quote-checkbox').forEach(cb => {
+                    cb.checked = isChecked;
+                });
+                if (selectAllCb) selectAllCb.indeterminate = false;
+                updateAjaxQuoteTotals();
+                syncSelectAllState();
+                return;
+            }
+
+            if (e.target && e.target.classList && e.target.classList.contains('quote-checkbox')) {
+                updateAjaxQuoteTotals();
+                syncSelectAllState();
+            }
+        });
+
+        updateAjaxQuoteTotals();
+        syncSelectAllState();
+    }
+
     function openQuotationModal(html) {
         const container = document.getElementById('quotationModalContainer');
         if (!container) return;
@@ -1351,6 +1417,7 @@
         const modal = document.getElementById('quotationModal');
         if (!modal) return;
         modal.style.display = 'block';
+        initQuotationModalSelection();
         modal.addEventListener('click', function(event) {
             if (event.target === modal) {
                 closeQuotationModal();
