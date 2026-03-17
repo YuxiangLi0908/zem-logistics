@@ -558,7 +558,7 @@ class ReceivableAccounting(View):
         if over_count > 0:
             is_overpallet = True
             # 4.4、计算超板费用
-            vessel_etd = datetime(2026, 1, 1)
+            vessel_etd = timezone.make_aware(datetime(2026, 1, 1))
             plts_by_destination = self._calculate_delivery_fee_cost(
                 fee_details, warehouse, plts_by_destination, over_count, vessel_etd
             )
@@ -796,7 +796,7 @@ class ReceivableAccounting(View):
             plts_by_destination, combina_fee, container_type_temp, total_cbm_sum, combina_threshold
         )
         # 判断是否混区，False表示满足混区条件
-        vessel_etd = datetime(2026, 1, 1)
+        vessel_etd = timezone.make_aware(datetime(2026, 1, 1))
         is_mix = self.is_mixed_region(
             matched_regions["matching_regions"], warehouse, vessel_etd
         )
@@ -2898,7 +2898,6 @@ class ReceivableAccounting(View):
         except json.JSONDecodeError as e:
             context.update({"error_messages": f"数据格式错误: {str(e)}"})
             return self.handle_delivery_entry_post(request, context)
-        print(items_data)
         context = self.batch_save_delivery_item(container, invoice, items_data, item_category, context, username)
 
         # 处理激活费
@@ -6183,7 +6182,6 @@ class ReceivableAccounting(View):
                         invoice=invoice,
                         total_container_cbm=total_container_cbm
                     )
-                    print('item_data',item_data)
 
                 if isinstance(item_data, dict) and item_data.get("error_messages"):
                     if quotation_info:
@@ -8145,6 +8143,8 @@ class ReceivableAccounting(View):
         cutoff_datetime = datetime.combine(cutoff_date, datetime_time.min).replace(
             tzinfo=pytz.UTC
         )
+        if timezone.is_naive(vessel_etd):
+            vessel_etd = timezone.make_aware(vessel_etd)
         is_new_rule = vessel_etd >= cutoff_datetime
         
         is_niche_warehouse = True
