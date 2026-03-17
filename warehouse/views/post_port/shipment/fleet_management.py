@@ -1620,9 +1620,14 @@ class FleetManagement(View):
             # 过滤Order
             order_filter = models.Q()
             if start_datetime:
-                order_filter &= models.Q(offload_id__offload_at__gte=start_datetime)
+                # 正确关联路径：Order→Container→Pallet→ShipmentBatchNumber→Shipment
+                order_filter &= models.Q(
+                    container_number__pallet__shipment_batch_number__shipped_at__gte=start_datetime
+                )
             if end_datetime:
-                order_filter &= models.Q(offload_id__offload_at__lte=end_datetime)
+                order_filter &= models.Q(
+                    container_number__pallet__shipment_batch_number__shipped_at__lte=end_datetime
+                )
 
             # 获取Container ID
             container_ids = await sync_to_async(list)(
