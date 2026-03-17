@@ -297,6 +297,13 @@ class FleetManagement(View):
         elif step == "rollback_fleet_status":
             template, context = await self.handle_rollback_fleet_status(request)
             return render(request, template, context)
+        elif step == "batch_confirm_verify":
+            template, context = await self.handle_batch_confirm_verify(request)
+            return render(request, template, context)
+        elif step == "batch_cancel_verify":
+            template, context = await self.handle_batch_cancel_verify(request)
+            return render(request, template, context)
+
         elif step == "batch_confirm_ltl_price":
             template, context = await self.handle_batch_confirm_ltl_price(request)
             return render(request, template, context)
@@ -3170,6 +3177,147 @@ class FleetManagement(View):
 
         # 6. 返回原页面
         return await self.handle_fleet_cost_record_get_ltl(request, None, success_count)
+
+    async def handle_batch_confirm_verify(self, request: HttpRequest):
+        """
+        ftl统一处理单条/批量更新核实状态
+        - 核心优化：改用ID作为唯一标识，避免车次号重复问题
+        - 修复核心：用sync_to_async包装所有数据库操作，兼容异步上下文
+        """
+        logger = logging.getLogger(__name__)
+
+        # 1. 解析参数（兼容单条/批量，改用ID）
+        single_fleet_id = request.POST.get('fleet_id')
+        single_is_verified = request.POST.get('is_verified', 'false') == 'true'
+
+        # 批量ID：接收数组形式的ID列表
+        batch_fleet_ids = request.POST.getlist('selected_fleet_ids')  # 关键：用getlist接收多个ID
+        batch_action = request.POST.get('verify_action', 'verify')
+        batch_is_verified = batch_action == 'verify'
+
+        # 调试：打印解析后的参数
+        logger.info(f"【解析后】批量ID列表：{batch_fleet_ids}，操作类型：{batch_action}，核实状态：{batch_is_verified}")
+
+        # 2. 确定要更新的ID列表和核实状态
+        fleet_id_list = []
+        is_verified = False
+
+        # 优先处理批量操作
+        if batch_fleet_ids:
+            # 严格清洗：去重、去空、确保是数字
+            fleet_id_list = list(set([id.strip() for id in batch_fleet_ids if id.strip().isdigit()]))
+            is_verified = batch_is_verified
+        # 处理单条操作
+        elif single_fleet_id and single_fleet_id.strip().isdigit():
+            fleet_id_list = [single_fleet_id.strip()]
+            is_verified = single_is_verified
+        # 无有效参数
+        else:
+            if 'error_messages' not in request.session:
+                request.session['error_messages'] = []
+            request.session['error_messages'].append("未获取到有效的记录ID")
+            error_message = "【更新失败】未获取到有效的记录ID"
+            logger.error(error_message)
+            return await self.handle_fleet_cost_record_get(request, error_message, 0)
+
+        # 3. 定义同步的数据库操作函数（核心：按ID查询）
+        def update_fleet_verify_status_sync(fleet_ids, verify_status):
+            """同步更新核实状态（包装成异步可调用）"""
+            try:
+                # 同步查询匹配数量（按ID查询，更精准）
+                match_count = Fleet.objects.filter(id__in=fleet_ids).count()
+                if match_count == 0:
+                    return 0, [f"未找到匹配的记录ID：{fleet_ids}"]
+
+                # 同步批量更新（按ID更新）
+                success_count = Fleet.objects.filter(
+                    id__in=fleet_ids
+                ).update(fleet_verify_status=verify_status)
+                return success_count, None
+
+            except Exception as e:
+                logger.error(f"【更新失败】操作异常：{str(e)}", exc_info=True)
+                return 0, [f"{'核实' if verify_status else '取消核实'}操作失败：{str(e)}"]
+
+        # 4. 执行更新操作（同步函数转异步）
+        success_count, error_messages = await sync_to_async(update_fleet_verify_status_sync)(
+            fleet_id_list, is_verified
+        )
+
+        # 5. 保存错误信息到session
+        if error_messages:
+            if 'error_messages' not in request.session:
+                request.session['error_messages'] = []
+            request.session['error_messages'].extend(error_messages)
+            request.session.modified = True  # 异步下必须标记session修改
+
+        # 6. 返回原页面
+        return await self.handle_fleet_cost_record_get(request, None, success_count)
+
+    async def handle_batch_cancel_verify(self, request: HttpRequest):
+        """
+        ftl统一处理单条/批量退回未录入状态
+        - 核心优化：改用ID作为唯一标识
+        - 核心逻辑：不是删除数据，而是重置核实状态/成本字段为未录入状态
+        """
+        logger = logging.getLogger(__name__)
+
+        # 1. 解析参数（兼容单条/批量，改用ID）
+        single_fleet_id = request.POST.get('fleet_id')
+        batch_fleet_ids = request.POST.getlist('selected_fleet_ids')  # 关键：用getlist接收多个ID
+
+        # 2. 确定要更新的ID列表
+        fleet_id_list = []
+
+        # 优先处理批量操作
+        if batch_fleet_ids:
+            # 严格清洗：去重、去空、确保是数字
+            fleet_id_list = list(set([id.strip() for id in batch_fleet_ids if id.strip().isdigit()]))
+        # 处理单条操作
+        elif single_fleet_id and single_fleet_id.strip().isdigit():
+            fleet_id_list = [single_fleet_id.strip()]
+        # 无有效参数
+        else:
+            if 'error_messages' not in request.session:
+                request.session['error_messages'] = []
+            request.session['error_messages'].append("未获取到有效的记录ID")
+            return await self.handle_fleet_cost_record_get(request, None, 0)
+
+        # 3. 定义同步的数据库操作函数（核心：按ID重置状态）
+        def rollback_fleet_status_sync(fleet_ids):
+            """重置为未核实"""
+            try:
+                # 同步查询匹配数量（按ID查询）
+                match_count = Fleet.objects.filter(id__in=fleet_ids).count()
+
+                if match_count == 0:
+                    return 0, [f"未找到匹配的记录ID：{fleet_ids}"]
+
+                # 同步批量更新（重置为未录入状态）
+                success_count = Fleet.objects.filter(
+                    id__in=fleet_ids  # 按ID更新，精准操作
+                ).update(
+                    fleet_verify_status=False  # 重置核实状态为未核实
+                )
+
+                return success_count, []
+
+            except Exception as e:
+                logger.error(f"【退回失败】操作异常：{str(e)}", exc_info=True)
+                return 0, [f"退回操作失败：{str(e)}"]
+
+        # 4. 执行更新操作（同步函数转异步）
+        success_count, error_messages = await sync_to_async(rollback_fleet_status_sync)(fleet_id_list)
+
+        # 5. 保存错误信息到session
+        if error_messages:
+            if 'error_messages' not in request.session:
+                request.session['error_messages'] = []
+            request.session['error_messages'].extend(error_messages)
+            request.session.modified = True  # 异步下必须标记session修改
+
+        # 6. 返回原页面
+        return await self.handle_fleet_cost_record_get(request, None, success_count)
 
     async def handle_fleet_warehouse_search_post(
         self, request: HttpRequest
