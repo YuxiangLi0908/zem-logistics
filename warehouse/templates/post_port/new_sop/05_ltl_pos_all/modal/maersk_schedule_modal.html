@@ -326,7 +326,7 @@
         document.getElementById('maersk_pickup_time').value = formattedDate;
         
         // 车次成本
-        document.getElementById('maersk_cost').value = quote.TotalQuote;
+        document.getElementById('maersk_cost').value = quote.TotalQuote.toFixed(2);
         
         // 清空 PRO
         document.getElementById('maersk_pro').value = '';

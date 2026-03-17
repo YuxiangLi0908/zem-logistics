@@ -206,6 +206,14 @@
                             </button>
                         </form>
                         {% endif %}
+                        {% if f.carrier == 'Maersk' %}
+                        <button type="button" class="btn btn-danger btn-sm" onclick="cancelMaerskShipment('{{ fleet_group.fleet_number }}', this)">
+                            取消下单
+                        </button>
+                        <button type="button" class="btn btn-primary btn-sm" onclick="openMaerskTrackingModalByFleet('{{ fleet_group.fleet_number }}')">
+                            物流追踪
+                        </button>
+                        {% endif %}
                     </td>
                 </tr>
                 {% endfor %}

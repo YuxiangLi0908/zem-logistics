@@ -584,6 +584,7 @@ class PostNsop(View):
     
     async def handle_maersk_schedule_post(self, request: HttpRequest) -> JsonResponse:
         """处理Maersk预约下单"""
+        print(request.POST)
         try:     
             # 1. 提取参数
             quote_id = request.POST.get('quote_id')
@@ -919,7 +920,6 @@ class PostNsop(View):
                 if dest_zip in amazon_fba_locations:
                     fba = amazon_fba_locations[dest_zip]
                     dest_zip = fba['zipcode']
-                    print('邮编是',dest_zip)
                 else:
                     return JsonResponse({'success': False, 'message': '没有查到该目的地的邮编'}, status=400)
             
@@ -1027,7 +1027,6 @@ class PostNsop(View):
                 "insuranceValue": None,
                 "debrisRemoval": None
             }
-
             api_url = "https://zem-maersk-gateway.kindmoss-a5050a64.eastus.azurecontainerapps.io/rating"
             api_key = os.environ.get("MAERSK_API_KEY")
             
@@ -6576,6 +6575,58 @@ class PostNsop(View):
         """生成智能匹配建议 - 基于功能A的逻辑但适配shipment匹配"""
         suggestions = []
 
+        # 为了方便马士基询价，增加参数pallet_items_json，记录每个板子的长宽高、件数、重量
+        plt_id_set = set()
+        for cargo in unshipment_pos:
+            if cargo.get("data_source") == "PALLET" and cargo.get("plt_ids"):
+                for pid in str(cargo.get("plt_ids") or "").split(","):
+                    pid = pid.strip()
+                    if pid.isdigit():
+                        plt_id_set.add(int(pid))
+
+        pallet_map = {}
+        if plt_id_set:
+            pallets = await sync_to_async(list)(
+                Pallet.objects.select_related("container_number")
+                .filter(id__in=list(plt_id_set))
+                .values(
+                    "id",
+                    "length",
+                    "width",
+                    "height",
+                    "pcs",
+                    "weight_lbs",
+                    "container_number__container_number",
+                )
+            )
+            pallet_map = {int(p["id"]): p for p in pallets if p.get("id") is not None}
+
+        for cargo in unshipment_pos:
+            if cargo.get("data_source") == "PALLET" and cargo.get("plt_ids"):
+                pallet_items = []
+                for pid in str(cargo.get("plt_ids") or "").split(","):
+                    pid = pid.strip()
+                    if not pid.isdigit():
+                        continue
+                    p = pallet_map.get(int(pid))
+                    if not p:
+                        continue
+                    pallet_items.append(
+                        {
+                            "plt_id": str(pid),
+                            "container_number": p.get("container_number__container_number") or "",
+                            "length": p.get("length"),
+                            "width": p.get("width"),
+                            "height": p.get("height"),
+                            "pieces": p.get("pcs"),
+                            "weight": p.get("weight_lbs"),
+                            "description": "",
+                        }
+                    )
+                cargo["pallet_items_json"] = json.dumps(pallet_items, ensure_ascii=False)
+            else:
+                cargo["pallet_items_json"] = ""
+
         # 第一级分组：按目的地和派送方式预分组
         pre_groups = {}
         for cargo in unshipment_pos:
@@ -6717,6 +6768,7 @@ class PostNsop(View):
                         'is_dropped_pallet': cargo.get('is_dropped_pallet'),
                         'rebuilt_is_dropped_pallet': cargo.get('rebuilt_is_dropped_pallet'),
                         'shipment_note': cargo.get('shipment_note', ''),
+                        'pallet_items_json': cargo.get('pallet_items_json', ''),
                     } for cargo in primary_group['cargos']],
                     'intelligent_cargos': intelligent_cargos,
                     'intelligent_pos_stats': intelligent_pos_stats,
@@ -9934,8 +9986,7 @@ class PostNsop(View):
             )
             #去排查是否有转仓的，有转仓的要特殊处理
             pal_list_trans = await self._find_transfer(pal_list)
-            pal_list_sorted = sorted(pal_list_trans, key=sort_key)
-
+            pal_list_sorted = sorted(pal_list_trans, key=sort_key)          
             
             data += pal_list_sorted
         

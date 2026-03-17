@@ -62,6 +62,7 @@
                     
                     <div class="mb-3">
                         <label class="form-label">货物明细 <span class="text-danger">*</span></label>
+                        <small class="text-muted">总板数: <span id="quote_total_pallets_display" class="fw-bold text-primary">0</span></small>
                         <div class="table-responsive" style="max-height: 300px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 4px;">
                             <table class="table table-bordered table-sm mb-0" id="quote_items_table">
                                 <thead class="table-light" style="position: sticky; top: 0; z-index: 1;">
@@ -90,10 +91,10 @@
                     
                     <div class="mb-3">
                         <div class="d-flex justify-content-between align-items-center">
-                            <label class="form-label mb-0">总重量 (lbs): <span id="quote_total_weight_display" class="fw-bold text-primary">0</span></label>
-                            <small class="text-muted">根据明细自动计算</small>
+                            <label class="form-label mb-0">总重量 : <span id="quote_total_weight_display" class="fw-bold text-primary">0</span>&nbsp;lbs</label>
                         </div>
                         <input type="hidden" id="quote_total_weight">
+                        <input type="hidden" id="quote_total_pallets">
                         <!-- 旧字段隐藏保留，防止JS报错 -->
                         <textarea id="quote_cargo_details" style="display:none;"></textarea>
                     </div>
@@ -157,17 +158,23 @@
         if (typeof window.fleet_updateQuoteTotalWeight !== 'function') {
             window.fleet_updateQuoteTotalWeight = function() {
                 let total = 0;
+                let totalPallets = 0;
                 document.querySelectorAll('#quote_items_tbody tr').forEach(tr => {
                     const checked = tr.querySelector('.maersk-line-checkbox')?.checked !== false;
                     if (!checked) return;
-                    const pieces = parseInt(tr.querySelector('.item-pieces')?.value, 10) || 1;
+                    totalPallets += 1;
                     const weight = parseFloat(tr.querySelector('.item-weight')?.value) || 0;
-                    total += Math.ceil(weight) * Math.max(1, pieces);
+                    total += Math.ceil(weight);
                 });
                 const displayEl = document.getElementById('quote_total_weight_display');
                 const hiddenEl = document.getElementById('quote_total_weight');
                 if (displayEl) displayEl.textContent = total.toFixed(0);
                 if (hiddenEl) hiddenEl.value = total.toFixed(0);
+
+                const palletsDisplayEl = document.getElementById('quote_total_pallets_display');
+                const palletsHiddenEl = document.getElementById('quote_total_pallets');
+                if (palletsDisplayEl) palletsDisplayEl.textContent = String(totalPallets);
+                if (palletsHiddenEl) palletsHiddenEl.value = String(totalPallets);
             };
         }
 
@@ -428,14 +435,12 @@
         if (typeof window.fleet_submitQuote !== 'function') {
             window.fleet_submitQuote = function() {
                 const originZipRaw = document.getElementById('quote_origin_zip').value.trim();
-                const destZipRaw = document.getElementById('quote_dest_zip').value.trim();
+                const destZip = document.getElementById('quote_dest_zip').value.trim();
                 const shipDate = document.getElementById('quote_ship_date').value;
                 const totalWeight = document.getElementById('quote_total_weight').value.trim();
 
                 const originDigits = originZipRaw.replace(/\D/g, '');
-                const destDigits = destZipRaw.replace(/\D/g, '');
                 const originZip = originDigits.length >= 5 ? originDigits.slice(-5) : originDigits;
-                const destZip = destDigits.length >= 5 ? destDigits.slice(-5) : destDigits;
 
                 if (!originZip || !destZip || !shipDate) {
                     alert('请填写所有必填字段');
@@ -549,39 +554,61 @@
 
                 const tbody = document.getElementById('quote_items_tbody');
                 if (tbody) tbody.innerHTML = '';
-                const pltIds = String(params.plt_ids_csv || '')
-                    .split(',')
-                    .map(s => s.trim())
-                    .filter(Boolean);
-                const pltRecords = Array.isArray(params.plt_records) ? params.plt_records : [];
-                const pltToContainer = new Map();
-                pltRecords.forEach(r => {
-                    const pid = String(r.plt_id || '').trim();
-                    if (!pid) return;
-                    if (!pltToContainer.has(pid)) pltToContainer.set(pid, String(r.container_numbers || '').trim());
-                });
-
                 const addBtn = document.getElementById('btn_add_quote_item');
-                if (addBtn) addBtn.style.display = pltIds.length > 0 ? 'none' : '';
 
-                if (pltIds.length > 0) {
-                    pltIds.forEach(pid => {
+                const palletItems = Array.isArray(params.pallet_items) ? params.pallet_items : [];
+                if (palletItems.length > 0) {
+                    if (addBtn) addBtn.style.display = 'none';
+                    palletItems.forEach(it => {
+                        const pid = String(it.plt_id || '').trim();
+                        if (!pid) return;
                         window.fleet_addQuoteItemRow({
                             checked: true,
                             row_id: pid,
                             plt_id: pid,
-                            container_numbers: pltToContainer.get(pid) || '',
-                            length: '',
-                            width: '',
-                            height: '',
-                            pieces: 1,
-                            weight: '',
-                            description: ''
+                            container_numbers: String(it.container_number || it.container_numbers || '').trim(),
+                            length: it.length ?? '',
+                            width: it.width ?? '',
+                            height: it.height ?? '',
+                            pieces: it.pieces ?? 1,
+                            weight: it.weight ?? '',
+                            description: it.description || ''
                         });
                     });
                 } else {
-                    if (addBtn) addBtn.style.display = '';
-                    window.fleet_addQuoteItemRow();
+                    const pltIds = String(params.plt_ids_csv || '')
+                        .split(',')
+                        .map(s => s.trim())
+                        .filter(Boolean);
+                    const pltRecords = Array.isArray(params.plt_records) ? params.plt_records : [];
+                    const pltToContainer = new Map();
+                    pltRecords.forEach(r => {
+                        const pid = String(r.plt_id || '').trim();
+                        if (!pid) return;
+                        if (!pltToContainer.has(pid)) pltToContainer.set(pid, String(r.container_numbers || '').trim());
+                    });
+
+                    if (addBtn) addBtn.style.display = pltIds.length > 0 ? 'none' : '';
+
+                    if (pltIds.length > 0) {
+                        pltIds.forEach(pid => {
+                            window.fleet_addQuoteItemRow({
+                                checked: true,
+                                row_id: pid,
+                                plt_id: pid,
+                                container_numbers: pltToContainer.get(pid) || '',
+                                length: '',
+                                width: '',
+                                height: '',
+                                pieces: 1,
+                                weight: '',
+                                description: ''
+                            });
+                        });
+                    } else {
+                        if (addBtn) addBtn.style.display = '';
+                        window.fleet_addQuoteItemRow();
+                    }
                 }
 
                 const resultArea = document.getElementById('quote_result_area');
