@@ -520,6 +520,7 @@
                                 <input type="hidden" name="fleet_number"
                                        value="{{ f.fleet_number|default_if_none:'' }}">
                                 <input type="hidden" name="step" value="fleet_cost_confirm_ltl">
+                                <input type="hidden" name="status" value="unrecord">
                                 <input type="hidden" name="area" value="{{ area }}">
                                 <input type="hidden" name="start_time" value="{{ start_time }}">
                                 <input type="hidden" name="end_time" value="{{ end_time }}">
@@ -565,6 +566,7 @@
                                        value="{{ f.fleet_number|default_if_none:'' }}">
                                 <input type="hidden" name="shipment_id" value="{{ f.id }}">
                                 <input type="hidden" name="step" value="update_fleet_note">
+                                <input type="hidden" name="status" value="unrecord">
                                 <input type="hidden" name="area" value="{{ area }}">
                                 <input type="hidden" name="start_time" value="{{ start_time }}">
                                 <input type="hidden" name="end_time" value="{{ end_time }}">
@@ -587,6 +589,7 @@
                                     <input type="hidden" name="fleet_number"
                                            value="{{ f.fleet_number|default_if_none:'' }}">
                                     <input type="hidden" name="step" value="fleet_cost_confirm_back_ltl">
+                                    <input type="hidden" name="status" value="unrecord">
                                     <input type="hidden" name="start_time" value="{{ start_time }}">
                                     <input type="hidden" name="end_time" value="{{ end_time }}">
                                     <button type="submit" class="btn btn-success"
@@ -602,6 +605,7 @@
                                     {% csrf_token %}
                                     <input type="hidden" name="fleet_number" value="{{ f.fleet_number|default_if_none:'' }}">
                                     <input type="hidden" name="step" value="update_fleet_verify_status">
+                                    <input type="hidden" name="status" value="unrecord">
                                     <input type="hidden" name="start_time" value="{{ start_time }}">
                                     <input type="hidden" name="end_time" value="{{ end_time }}">
                                     <input type="hidden" name="is_verified" id="is-verified-{{ f.fleet_number|default_if_none:'' }}"
@@ -631,6 +635,7 @@
                                     {% csrf_token %}
                                     <input type="hidden" name="fleet_number" value="{{ f.fleet_number|default_if_none:'' }}">
                                     <input type="hidden" name="step" value="rollback_fleet_status">
+                                    <input type="hidden" name="status" value="unrecord">
                                     <input type="hidden" name="start_time" value="{{ start_time }}">
                                     <input type="hidden" name="end_time" value="{{ end_time }}">
                                     <button type="submit" class="btn btn-sm btn-danger"
