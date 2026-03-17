@@ -89,7 +89,7 @@
         当前显示 <strong>{{ warehouse }}</strong> 仓库的未排车货物，筛选条件：          
         <strong>未出库</strong>、
         <strong>车次未取消</strong>、
-        <strong>车次类型为FTL</strong>
+        <strong>车次类型为FTL或者约的目的地为仓点的LTL</strong>
     </div>
     <div class="table-container">
         <table class="data-table">
@@ -207,12 +207,14 @@
                         </form>
                         {% endif %}
                         {% if f.carrier == 'Maersk' %}
-                        <button type="button" class="btn btn-danger btn-sm" onclick="cancelMaerskShipment('{{ fleet_group.fleet_number }}', this)">
+                        <div style="display:flex; gap: 6px; align-items: center; flex-wrap: wrap;">
+                        <button type="button" class="btn btn-danger btn-sm" onclick="cancelMaerskShipment('{{ f.fleet_number }}', this)">
                             取消下单
                         </button>
-                        <button type="button" class="btn btn-primary btn-sm" onclick="openMaerskTrackingModalByFleet('{{ fleet_group.fleet_number }}')">
+                        <button type="button" class="btn btn-primary btn-sm" onclick="openMaerskTrackingModalByFleet('{{ f.fleet_number }}')">
                             物流追踪
                         </button>
+                        </div>
                         {% endif %}
                     </td>
                 </tr>
@@ -754,5 +756,81 @@
         const d1 = new Date(date1.getFullYear(), date1.getMonth(), date1.getDate());
         const d2 = new Date(date2.getFullYear(), date2.getMonth(), date2.getDate());
         return Math.floor((d2 - d1) / (1000 * 60 * 60 * 24));
+    }
+</script>
+
+<!-- Maersk 取消下单成功模态框 -->
+<div class="modal fade" id="fleet_maerskCancelSuccessModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" style="z-index: 1090;">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title"><i class="fas fa-check-circle me-2"></i>取消成功</h5>
+            </div>
+            <div class="modal-body text-center py-4">
+                <div class="mb-3">
+                    <i class="fas fa-check-circle text-success" style="font-size: 4rem;"></i>
+                </div>
+                <h4 class="mb-4">Maersk 订单已取消！</h4>
+                
+                <div class="card bg-light border-0">
+                    <div class="card-body text-start">
+                        <div class="row mb-2">
+                            <div class="col-5 text-muted">PRO 号码:</div>
+                            <div class="col-7 fw-bold" id="maersk_cancel_pro"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer justify-content-center">
+                <button type="button" class="btn btn-success px-5" onclick="window.location.reload()">确定</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% include 'post_port/new_sop/05_ltl_pos_all/modal/maersk_tracking_modal.html' %}
+
+<script>
+    function cancelMaerskShipment(fleetNumber, btnElement) {
+        if (!confirm('确定要取消该 Maersk 下单吗？\n这将调用 API 取消订单并删除本地车次。')) {
+            return;
+        }
+
+        const originalText = btnElement.innerHTML;
+        btnElement.disabled = true;
+        btnElement.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 取消中...';
+
+        const formData = new FormData();
+        formData.append('step', 'cancel_maersk_shipment');
+        formData.append('fleet_number', fleetNumber);
+        formData.append('warehouse', '{{ warehouse }}');
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+        formData.append('csrfmiddlewaretoken', csrfToken);
+
+        fetch(window.location.href, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                document.getElementById('maersk_cancel_pro').innerText = data.pro_number || 'N/A';
+                const modal = new bootstrap.Modal(document.getElementById('fleet_maerskCancelSuccessModal'));
+                modal.show();
+            } else {
+                alert('取消失败: ' + (data.message || '未知错误'));
+                btnElement.disabled = false;
+                btnElement.innerHTML = originalText;
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('请求出错，请检查网络');
+            btnElement.disabled = false;
+            btnElement.innerHTML = originalText;
+        });
     }
 </script>
