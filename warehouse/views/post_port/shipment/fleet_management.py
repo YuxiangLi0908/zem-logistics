@@ -286,6 +286,8 @@ class FleetManagement(View):
             return await self.handle_download_ltl_template(request)
         elif step == "download_recorded_fleet_cost":
             return await self.handle_download_recorded_fleet_cost(request)
+        elif step == "download_ltl_table":
+            return await self.handle_download_ltl_table(request)
         elif step == "upload_ltl_cost":
             template, context = await self.handle_upload_ltl_cost(request)
             return render(request, template, context)
@@ -971,6 +973,245 @@ class FleetManagement(View):
         # 返回处理结果
         return await self.handle_fleet_cost_record_get(request, error_messages, success_count)
 
+    async def handle_download_ltl_table(self, request: HttpRequest) -> HttpResponse:
+        """下载已录入页面的表格数据为Excel"""
+        # 获取筛选条件
+        start_time = request.POST.get("start_time")
+        end_time = request.POST.get("end_time")
+        area = request.POST.get("area")
+
+        # 构建查询条件（复用原有逻辑）
+        now = timezone.now()
+        tz_2026_01_01 = timezone.make_aware(
+            datetime(2026, 1, 1, 0, 0, 0),
+            timezone.get_current_timezone()
+        )
+
+        criteria = models.Q(
+            arrived_at__isnull=False,
+            shipped_at__gte=tz_2026_01_01,
+            shipment_schduled_at__gte=tz_2026_01_01,
+            fleet_number__fleet_type__in=['LTL', '客户自提'],
+            fleet_number__fleet_cost__isnull=False  # 仅已录入数据
+        )
+
+        # 时间过滤逻辑（复用原有）
+        if start_time or end_time:
+            start_datetime = None
+            end_datetime = None
+
+            if start_time:
+                naive_start = datetime.strptime(start_time, "%Y-%m-%d")
+                start_datetime = timezone.make_aware(naive_start, timezone.get_current_timezone())
+
+            if end_time:
+                naive_end = datetime.strptime(end_time, "%Y-%m-%d") + timedelta(days=1) - timedelta(seconds=1)
+                end_datetime = timezone.make_aware(naive_end, timezone.get_current_timezone())
+
+            order_filter = models.Q()
+            if start_datetime:
+                order_filter &= models.Q(
+                    container_number__pallet__shipment_batch_number__shipped_at__gte=start_datetime
+                )
+            if end_datetime:
+                order_filter &= models.Q(
+                    container_number__pallet__shipment_batch_number__shipped_at__lte=end_datetime
+                )
+
+            container_ids = await sync_to_async(list)(
+                Order.objects.filter(order_filter)
+                .values_list('container_number_id', flat=True)
+                .distinct()
+            )
+
+            pallet_ids = []
+            if container_ids:
+                pallet_ids = await sync_to_async(list)(
+                    Pallet.objects.filter(container_number_id__in=container_ids)
+                    .values_list('id', flat=True)
+                    .distinct()
+                )
+
+            shipment_ids = []
+            if pallet_ids:
+                shipment_ids = await sync_to_async(list)(
+                    Pallet.objects.filter(id__in=pallet_ids)
+                    .values_list('shipment_batch_number', flat=True)
+                    .distinct()
+                )
+
+            if start_time or end_time:
+                if shipment_ids:
+                    criteria &= models.Q(id__in=shipment_ids)
+                else:
+                    criteria &= models.Q(id__in=[])
+
+        # 查询数据
+        shipment = await sync_to_async(list)(
+            Shipment.objects
+            .select_related("fleet_number")
+            .filter(criteria)
+            .order_by("shipped_at")
+        )
+
+        # 处理数据（复用原有process_shipment_data逻辑）
+        processed_data = await self.process_shipment_data_for_download(shipment)
+
+        # 构建Excel数据
+        df = pd.DataFrame([
+            {
+                '柜号': item.container_number,
+                '一提多卸': '是' if item.fleet_number and item.fleet_number.train_related else '否',
+                '目的仓库': item.all_locations,
+                '目的地': item.destination,
+                '唛头': item.shipping_mark,
+                '总件数': item.shipped_pcs,
+                '总卡板数': item.shipped_pallet,
+                '车次费用': item.fleet_number.fleet_cost if (item.fleet_number and item.fleet_number.fleet_cost) else 0,
+                '分摊价格': item.allocation_price,
+                '实际出库时间': item.shipped_at.strftime("%Y-%m-%d %H:%M") if item.shipped_at else '-',
+                '拆柜时间': item.offload_at.strftime("%Y-%m-%d %H:%M") if item.offload_at else '-',
+                '出库批次': item.fleet_number.fleet_number if (
+                            item.fleet_number and item.fleet_number.fleet_number) else '-',
+                '预约批次': item.shipment_batch_number,
+                'Carrier': item.carrier,
+                '备注': item.note,
+                '退回费用': item.fleet_number.fleet_cost_back if (
+                            item.fleet_number and item.fleet_number.fleet_cost_back) else 0,
+                '核实状态': '已核实' if (item.fleet_number and item.fleet_number.fleet_verify_status) else '未核实'
+            }
+            for item in processed_data
+        ])
+
+        # 生成Excel文件
+        output = io.BytesIO()
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            df.to_excel(writer, sheet_name='已录入LTL数据', index=False)
+
+        # 构建响应
+        output.seek(0)
+        response = HttpResponse(
+            output,
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        response['Content-Disposition'] = f'attachment; filename="已录入LTL数据_{now.strftime("%Y%m%d%H%M%S")}.xlsx"'
+        return response
+
+    async def process_shipment_data_for_download(self, shipment_list):
+        """处理下载用的发货单数据（复用原有逻辑）"""
+        processed = []
+        for s in shipment_list:
+            # 复用原有process_shipment_data中的逻辑
+            latest_pallet = await sync_to_async(
+                lambda: s.fleetshipmentpallets.order_by("-cost_input_time", "-id").first()
+            )()
+
+            @sync_to_async
+            def get_related_pallets(shipment_id):
+                pallets = list(Pallet.objects.filter(
+                    shipment_batch_number=shipment_id
+                ).select_related("container_number"))
+
+                container_ids = [p.container_number_id for p in pallets if p.container_number_id]
+                order_map = {}
+                if container_ids:
+                    orders = Order.objects.filter(container_number_id__in=container_ids).select_related("offload_id")
+                    for order in orders:
+                        order_map[order.container_number_id] = order
+
+                group_key = lambda p: (
+                    p.container_number.container_number if p.container_number else "",
+                    p.shipping_mark or ""
+                )
+
+                pallet_groups = {}
+                for pallet in pallets:
+                    key = group_key(pallet)
+                    if key not in pallet_groups:
+                        pallet_groups[key] = {
+                            'pallets': [],
+                            'total_pallet_count': 0,
+                            'total_pcs_count': 0,
+                            'container_number': key[0] or "-",
+                            'shipping_mark': key[1] or "-",
+                            'offload_at': None,
+                            'retrieval_time': None,
+                            'locations': set(),
+                        }
+
+                    pallet_groups[key]['total_pallet_count'] += 1
+                    pallet_groups[key]['total_pcs_count'] += pallet.pcs or 0
+                    pallet_groups[key]['pallets'].append(pallet)
+
+                    if pallet.location:
+                        pallet_groups[key]['locations'].add(pallet.location)
+
+                    if pallet.container_number_id and not pallet_groups[key]['offload_at']:
+                        order = order_map.get(pallet.container_number_id)
+                        if order and order.offload_id:
+                            pallet_groups[key]['offload_at'] = order.offload_id.offload_at
+                            pallet_groups[key]['retrieval_time'] = order.offload_id.offload_at
+
+                for group in pallet_groups.values():
+                    group['locations'] = list(group['locations']) if group['locations'] else ["-"]
+
+                return pallet_groups
+
+            pallet_groups = await get_related_pallets(s.id)
+
+            for group_key, group_data in pallet_groups.items():
+                shipment_copy = copy.deepcopy(s)
+                shipment_copy.related_pallet = group_data['pallets']
+                shipment_copy.shipped_pcs = group_data['total_pcs_count'] or 0
+                shipment_copy.shipped_pallet = group_data['total_pallet_count'] or 0
+                shipment_copy.container_number = group_data['container_number']
+                shipment_copy.shipping_mark = group_data['shipping_mark']
+                shipment_copy.offload_at = group_data['offload_at']
+                shipment_copy.retrieval_time = group_data['retrieval_time']
+                shipment_copy.all_locations = group_data['locations'][0]
+
+                # 计算分摊价格（复用原有逻辑）
+                fleet_code = shipment_copy.fleet_number.fleet_number if (
+                        shipment_copy.fleet_number and shipment_copy.fleet_number.fleet_number
+                ) else "-"
+
+                @sync_to_async
+                def get_fleet_pallet_count(fleet_code):
+                    if not fleet_code:
+                        return 0
+                    return Pallet.objects.filter(
+                        shipment_batch_number__fleet_number__fleet_number=fleet_code,
+                        shipment_batch_number__fleet_number__fleet_type='LTL'
+                    ).count()
+
+                total_pallets_of_fleet = await get_fleet_pallet_count(fleet_code)
+                fleet_total_cost = shipment_copy.fleet_number.fleet_cost if (
+                        shipment_copy.fleet_number and shipment_copy.fleet_number.fleet_cost
+                ) else 0
+
+                if total_pallets_of_fleet > 0 and fleet_total_cost > 0:
+                    allocation_price = (fleet_total_cost / total_pallets_of_fleet) * shipment_copy.shipped_pallet
+                    shipment_copy.allocation_price = round(allocation_price, 2)
+                else:
+                    shipment_copy.allocation_price = 0
+
+                processed.append(shipment_copy)
+
+            if not pallet_groups:
+                shipment_copy = copy.deepcopy(s)
+                shipment_copy.related_pallet = []
+                shipment_copy.shipped_pcs = 0
+                shipment_copy.shipped_pallet = 0
+                shipment_copy.container_number = "-"
+                shipment_copy.shipping_mark = "-"
+                shipment_copy.offload_at = None
+                shipment_copy.retrieval_time = None
+                shipment_copy.all_locations = ["-"]
+                shipment_copy.allocation_price = 0
+                processed.append(shipment_copy)
+
+        return processed
+
     async def handle_fleet_cost_confirm_get(
             self, request: HttpRequest
     ) -> tuple[Any, Any]:
@@ -1620,9 +1861,14 @@ class FleetManagement(View):
             # 过滤Order
             order_filter = models.Q()
             if start_datetime:
-                order_filter &= models.Q(offload_id__offload_at__gte=start_datetime)
+                # 正确关联路径：Order→Container→Pallet→ShipmentBatchNumber→Shipment
+                order_filter &= models.Q(
+                    container_number__pallet__shipment_batch_number__shipped_at__gte=start_datetime
+                )
             if end_datetime:
-                order_filter &= models.Q(offload_id__offload_at__lte=end_datetime)
+                order_filter &= models.Q(
+                    container_number__pallet__shipment_batch_number__shipped_at__lte=end_datetime
+                )
 
             # 获取Container ID
             container_ids = await sync_to_async(list)(
