@@ -374,6 +374,7 @@ class ReceivableAccounting(View):
             FeeDetail.objects.filter(quotation_id=quote_id, fee_type__in=fee_types)
         )
         fee_details_by_type = {fd.fee_type: fd for fd in fee_details}
+        fee_details = fee_details_by_type
         
         unique_destinations = list(set(item["destination"] for item in packinglists))
         total_container_cbm = sum(float(item.get("cbm") or 0) for item in packinglists)
@@ -8152,10 +8153,11 @@ class ReceivableAccounting(View):
             amazon_data = fee_details.get(f"{warehouse}_PUBLIC").details
             walmart_data = None
         else:
-            amazon_data = fee_details.get(f"{warehouse}_PUBLIC").details.get(
+            temp_data = fee_details.get(f"{warehouse}_PUBLIC").details
+            amazon_data = temp_data.get(
                 f"{warehouse}_AMAZON"
             )
-            walmart_data = fee_details.get(f"{warehouse}_PUBLIC").details.get(
+            walmart_data = temp_data.get(
                 f"{warehouse}_WALMART"
             )
         if warehouse == "NJ":
