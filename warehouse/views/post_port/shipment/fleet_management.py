@@ -2265,7 +2265,7 @@ class FleetManagement(View):
     async def handle_download_ltl_template(self, request: HttpRequest):
         """ltl下载模板"""
         # 创建LTL模板，表头为：柜号、目的地、唛头、成本
-        df = pd.DataFrame(columns=['柜号', '目的地', '唛头', '成本'])
+        df = pd.DataFrame(columns=['柜号', '目的地', '唛头', '成本', '备注'])
         output = io.BytesIO()
         with pd.ExcelWriter(output, engine='openpyxl') as writer:
             df.to_excel(writer, sheet_name='LTL成本模板', index=False)
@@ -2294,11 +2294,11 @@ class FleetManagement(View):
             df = df.fillna('')  # 空值替换为空字符串
 
             # 3. 校验表头
-            required_columns = ['柜号', '目的地', '唛头', '成本']
+            required_columns = ['柜号', '目的地', '唛头', '成本', '备注']
             missing_cols = [col for col in required_columns if col not in df.columns]
             if missing_cols:
                 error_messages = [
-                    f'上传文件表头错误，缺少字段：{", ".join(missing_cols)}（必须包含：柜号、目的地、唛头、成本）'
+                    f'上传文件表头错误，缺少字段：{", ".join(missing_cols)}（必须包含：柜号、目的地、唛头、成本、备注）'
                 ]
                 return await self.handle_fleet_cost_record_get_ltl(request, error_messages, 0)
 
@@ -2315,6 +2315,7 @@ class FleetManagement(View):
                 fleet_cost_str = str(row['成本']).strip()
                 destination = str(row['目的地']).strip()
                 shipping_mark = str(row['唛头']).strip()
+                note = str(row['备注']).strip()
 
                 # 4.1 校验必填字段
                 if not container_number:
@@ -2351,7 +2352,8 @@ class FleetManagement(View):
                     'container_number': container_number,
                     'fleet_cost': fleet_cost,
                     'destination': destination,
-                    'shipping_mark': shipping_mark
+                    'shipping_mark': shipping_mark,
+                    'note': note
                 })
 
             if not valid_rows:
@@ -2366,30 +2368,34 @@ class FleetManagement(View):
             # ========== 修复2：重构映射逻辑，按「柜号+唛头」获取Fleet ID ==========
             @sync_to_async
             def get_fleet_id_mapping(container_nums, shipping_marks):
-                """批量获取（柜号+唛头）对应的Fleet表ID"""
-                fleet_mapping = {}  # key: 柜号+唛头, value: fleet_id
-                # 关联查询Pallet表，获取（柜号+唛头）对应的Fleet ID
-                queryset = Pallet.objects.select_related('container_number', 'shipment_batch_number') \
-                    .filter(
+                """批量获取（柜号+唛头）对应的Fleet ID + Shipment原有备注"""
+                fleet_mapping = {}  # key: 柜号+唛头, value: (fleet_id, shipment_note)
+                # 关联查询Pallet表 + Shipment表，获取（柜号+唛头）对应的Fleet ID和原有备注
+                queryset = Pallet.objects.select_related(
+                    'container_number',
+                    'shipment_batch_number',
+                    'shipment'  # 关联Shipment表
+                ).filter(
                     container_number__container_number__in=container_nums,
                     shipping_mark__in=shipping_marks
-                ) \
-                    .values(
+                ).values(
                     'container_number__container_number',
                     'shipping_mark',
-                    'shipment_batch_number__fleet_number'  # Fleet表的ID
+                    'shipment_batch_number__fleet_number',  # Fleet表的ID
+                    'shipment_batch_number__note'  # Shipment表的原有备注
                 )
 
                 for item in queryset:
                     container_num = item['container_number__container_number']
                     shipping_mark = item['shipping_mark']
                     fleet_id = item['shipment_batch_number__fleet_number']
+                    shipment_note = item['shipment_batch_number__note'] or ''  # 原有备注（空值转空字符串）
 
                     # 按「柜号+唛头」作为key存储，确保不同唛头有独立映射
                     key = f"{container_num}_{shipping_mark}"
-                    # 仅当Fleet ID存在时才记录
+                    # 仅当Fleet ID存在时才记录，且保留第一个匹配项
                     if fleet_id and key not in fleet_mapping:
-                        fleet_mapping[key] = fleet_id
+                        fleet_mapping[key] = (fleet_id, shipment_note)  # 新增：返回fleet_id + 原有备注
                 return fleet_mapping
 
             # 获取（柜号+唛头）→Fleet ID的映射
@@ -2402,22 +2408,42 @@ class FleetManagement(View):
                 fleet_info = {}
                 if not fleet_ids:
                     return fleet_info
-                # 确保ID是整数类型
-                try:
-                    fleet_ids_int = [int(fid) for fid in fleet_ids if fid]
-                except ValueError:
+
+                # 核心修复：兼容元组/整数两种类型，提取车次ID并转整数
+                fleet_ids_int = []
+                for item in fleet_ids:
+                    try:
+                        # 情况1：item是元组 → 取第一个元素
+                        if isinstance(item, (tuple, list)):
+                            fid = int(item[0]) if item and item[0] else None
+                        # 情况2：item是整数/字符串 → 直接转整数
+                        else:
+                            fid = int(item) if item else None
+
+                        if fid is not None:
+                            fleet_ids_int.append(fid)
+                    except (ValueError, TypeError):
+                        logger.warning(f"无效的车次ID：{item}，已跳过")
+                        continue
+
+                # 去重（避免重复查询数据库）
+                fleet_ids_int = list(set(fleet_ids_int))
+
+                if not fleet_ids_int:
                     return fleet_info
-                # 新增：查询fleet_verify_status字段
-                queryset = Fleet.objects.filter(id__in=fleet_ids_int).values('id', 'fleet_number','fleet_verify_status')
+
+                # 批量查询Fleet表
+                queryset = Fleet.objects.filter(id__in=fleet_ids_int).values('id', 'fleet_number',
+                                                                             'fleet_verify_status')
                 for item in queryset:
                     fleet_info[item['id']] = {
                         'fleet_number': item['fleet_number'],
-                        'fleet_verify_status': item['fleet_verify_status']  # 新增：记录验证状态
+                        'fleet_verify_status': item['fleet_verify_status']
                     }
                 return fleet_info
 
             # 提取所有Fleet ID并批量查询车次号+验证状态
-            fleet_ids = list(fleet_id_mapping.values())
+            fleet_ids = [v[0] for v in fleet_id_mapping.values()]
             fleet_info = await get_fleet_info_by_ids(fleet_ids) if fleet_ids else {}
 
             # ========== 核心：定义更新Fleet表fleet_cost字段的函数 ==========
@@ -2442,6 +2468,33 @@ class FleetManagement(View):
                     # 仅捕获异常时返回失败
                     return False, f'更新Fleet表失败：{str(e)[:50]}'
 
+            # ========== 新增：更新Shipment表备注（拼接逻辑） ==========
+            @sync_to_async
+            def update_shipment_note(container_num, shipping_mark, new_note):
+                """更新Shipment表备注：新备注拼接到原有备注后"""
+                try:
+                    # 找到对应Pallet关联的Shipment记录
+                    pallet = Pallet.objects.filter(
+                        container_number__container_number=container_num,
+                        shipping_mark=shipping_mark
+                    ).select_related('shipment_batch_number').first()
+
+                    if not pallet or not pallet.shipment_batch_number:
+                        return False, f'柜号{container_num}+唛头{shipping_mark} 未找到关联的Shipment记录'
+
+                    shipment = pallet.shipment_batch_number
+                    original_note = shipment.note or ''
+                    # 拼接备注：原有备注 + 分号分隔 + 新备注（仅当新备注非空时拼接）
+                    if new_note.strip():
+                        if original_note:
+                            shipment.note = f"{original_note}; {new_note.strip()}"
+                        else:
+                            shipment.note = new_note.strip()
+                        shipment.save(update_fields=['note'])
+                    return True, ''
+                except Exception as e:
+                    return False, f'更新Shipment备注失败：{str(e)[:50]}'
+
             # 6. 批量处理数据（事务控制 + 异步兼容）
             async def batch_update_fleet_cost(rows, fleet_id_map, fleet_info_map):
                 """批量录入成本（异步+事务兼容版）"""
@@ -2460,8 +2513,9 @@ class FleetManagement(View):
                             shipping_mark = row['shipping_mark']
                             fleet_cost = row['fleet_cost']
                             row_num = row['row_num']
+                            upload_note = row['note'].strip()  # 上传的备注
 
-                            # ========== 修复3：按「柜号+唛头」查找Fleet ID ==========
+                            # ========== 修复3：按「柜号+唛头」查找Fleet ID + 原有备注 ==========
                             key = f"{container_num}_{shipping_mark}"
                             # 检查（柜号+唛头）是否关联了Fleet ID
                             if key not in fleet_id_map:
@@ -2470,7 +2524,7 @@ class FleetManagement(View):
                                 )
                                 continue
 
-                            fleet_id = fleet_id_map[key]
+                            fleet_id, original_shipment_note = fleet_id_map[key]  # 解构：Fleet ID + 原有备注
                             # 检查Fleet ID是否能查到车次信息
                             if fleet_id not in fleet_info_map:
                                 process_errors.append(
@@ -2495,14 +2549,16 @@ class FleetManagement(View):
                                 )
                                 continue
 
-                            # 校验通过，记录待录入的数据
+                            # 校验通过，记录待录入的数据（新增：传递原有备注和上传备注）
                             valid_fleet_data.append({
                                 'row_num': row_num,
                                 'container_num': container_num,
                                 'shipping_mark': shipping_mark,
                                 'fleet_id': fleet_id,
                                 'fleet_number': fleet_number,
-                                'fleet_cost': fleet_cost
+                                'fleet_cost': fleet_cost,
+                                'original_shipment_note': original_shipment_note,  # 原有备注
+                                'upload_note': upload_note  # 上传的备注
                             })
                             success_count += 1  # 累加成功计数
 
@@ -2531,8 +2587,22 @@ class FleetManagement(View):
                         elif update_msg:
                             # 跳过更新的提示，记录日志但不影响成功计数
                             logger.info(f'第{data["row_num"]}行：{update_msg}')
-                            # 可选：将跳过提示添加到错误信息列表（但不扣减成功数）
                             error_messages.append(f'第{data["row_num"]}行：{update_msg}')
+
+                        # ========== 新增步骤3：更新Shipment表备注（拼接逻辑） ==========
+                        if data['upload_note']:  # 仅当上传备注非空时才更新
+                            note_update_success, note_update_msg = await update_shipment_note(
+                                data['container_num'],
+                                data['shipping_mark'],
+                                data['upload_note']
+                            )
+                            if not note_update_success:
+                                logger.warning(f'第{data["row_num"]}行：{note_update_msg}')
+                                error_messages.append(f'第{data["row_num"]}行：{note_update_msg}')
+                            else:
+                                logger.info(
+                                    f'第{data["row_num"]}行：柜号{data["container_num"]}+唛头{data["shipping_mark"]} 备注更新完成，原有备注：{data["original_shipment_note"][:50]}，新增备注：{data["upload_note"][:50]}'
+                                )
 
                         logger.info(
                             f'第{data["row_num"]}行：柜号{data["container_num"]}+唛头{data["shipping_mark"]}（车次{data["fleet_number"]}）成本处理完成，金额：{data["fleet_cost"]}'

@@ -87,6 +87,8 @@
                                    style="position: absolute; left: -9999px; top: -9999px;"
                                    onchange="if(this.files.length>0) { this.form.submit(); showLoadingBar(); }">
                             <input type="hidden" name="step" value="upload_ltl_cost">
+                            <input type="hidden" name="start_time" value="{{ start_time }}">
+                            <input type="hidden" name="end_time" value="{{ end_time }}">
                             <input type="hidden" name="area" value="{{ area }}">
                             <!-- 按钮仅文字可点击 -->
                             <button type="button" class="btn btn-warning"
