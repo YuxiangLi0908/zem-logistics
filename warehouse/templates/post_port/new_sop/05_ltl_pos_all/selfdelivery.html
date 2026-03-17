@@ -385,8 +385,8 @@
     }
     /* 地址列样式 */
     .fleet-address-col, .fleet-note-col {
-        min-width: 300px;
-        max-width: 360px;
+        min-width: 260px;
+        max-width: 320px;
         min-height: 220px;
     }
 
@@ -398,7 +398,7 @@
 
     /* 操作列样式 */
     .fleet-action-col {
-        min-width: 120px;
+        min-width: 170px;
         text-align: center;
     }
 
@@ -868,7 +868,7 @@
                                 <i class="fas fa-save"></i> 保存
                             </button>
                             <button class="fleet-action-btn fleet-btn-warning fleet-small-btn" onclick="fleet_openQuoteModal(this)" style="background-color: #ff9800 !important; color: white;">
-                                <i class="fas fa-calculator"></i> 询价
+                                <i class="fas fa-calculator"></i> 马士基询价
                             </button>
                         </div>
                     </td>
@@ -1911,7 +1911,7 @@
                     length: item.length,
                     width: item.width,
                     height: item.height,
-                    pieces: 1, // 默认为 1 (每个托盘记录一行)
+                    pieces: item.pieces,
                     weight: item.weight,
                     description: item.description || ''
                 });

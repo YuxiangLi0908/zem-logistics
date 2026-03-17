@@ -134,7 +134,7 @@
         border: 1px solid #d0d7de;
         border-radius: 6px;
         padding: 2px 4px;
-        max-width: 160px;
+        max-width: 130px;
     }
 
     .shipment-note-input {
@@ -285,9 +285,9 @@
                         <th>CBM</th>
                         <th>重量(lbs)</th>
                         <th>是否甩板</th>
-                        <th>排约备注</th>
-                        <th>匹配度</th>
-                        <th>操作</th>
+                        <th style="width: 140px;">排约备注</th>
+                        <th style="width: 120px;">匹配度</th>
+                        <th style="min-width: 190px;">操作</th>
                     </tr>
                     <tr class="search-row">
                         <td><input type="text" class="header-search" placeholder="搜索仓点" data-column="0"></td>
@@ -321,7 +321,8 @@
                         <tr data-suggestion-id="{{ suggestion.suggestion_id }}"
                             data-destination="{{ suggestion.primary_group.destination }}"
                             data-cargo-id="{{ cargo.ids|default:'' }}"
-                            data-plt-id="{{ cargo.plt_ids|default:'' }}">
+                            data-plt-id="{{ cargo.plt_ids|default:'' }}"
+                            data-pallet-items="{{ cargo.pallet_items_json|default:''|escape }}">
                             <!-- 仓点列 -->
                             {% if forloop.first %}
                             <td rowspan="{{ suggestion.cargos|length }}" style="vertical-align: middle; background-color: #f8f9fa;">
@@ -429,7 +430,7 @@
                             <!-- 匹配度 -->
                             {% if forloop.first %}
                             <td rowspan="{{ suggestion.cargos|length }}" style="vertical-align: middle;">
-                                <div style="display: flex; flex-direction: column; gap: 6px; min-width: 100px;">
+                                <div style="display: flex; flex-direction: column; gap: 6px; min-width: 80px;">
                                     <!-- 板数进度条 -->
                                     <div style="display: flex; align-items: center; gap: 6px;">
                                         <div class="progress-container" style="flex: 0.6; background: #e9ecef; border-radius: 4px; height: 8px;">
@@ -454,7 +455,7 @@
                             
                             <!-- 操作按钮 -->
                             {% if forloop.first %}
-                            <td rowspan="{{ suggestion.cargos|length }}" style="vertical-align: middle;">
+                            <td rowspan="{{ suggestion.cargos|length }}" style="vertical-align: middle; min-width: 190px;">
                                 <button class="action-btn btn-success open-bind-modal"
                                         data-suggestion-id="{{ suggestion.suggestion_id }}"
                                         data-has-appointment="1"
@@ -484,7 +485,13 @@
                                         style="margin-top: 5px; background-color: #ffc107; color: #212529;">
                                     <i class="fas fa-dollar-sign fa-sm" style="font-size: 0.8em;"></i>查询报价
                                 </button>
+                                <button class="action-btn btn-primary" style="margin-top: 5px;" onclick="openMaerskQuoteFromUnscheduled(this)">
+                                    <i class="fas fa-calculator"></i> 马士基询价
+                                </button>
                                 {% with sid="suggestion_"|add:suggestion.suggestion_id %}
+                                    <div class="intelligent-po-action">
+                                        <button type="button"
+                                                class="action-btn btn-primary open-intelligent-modal"
                                     <div class="intelligent-po-action">
                                         <button type="button"
                                                 class="action-btn btn-primary open-intelligent-modal"
@@ -525,7 +532,8 @@
                         <tr data-suggestion-id="{{ suggestion.suggestion_id }}"
                             data-destination="{{ suggestion.primary_group.destination }}"
                             data-cargo-id="{{ cargo.ids|default:'' }}"
-                            data-plt-id="{{ cargo.plt_ids|default:'' }}">
+                            data-plt-id="{{ cargo.plt_ids|default:'' }}"
+                            data-pallet-items="{{ cargo.pallet_items_json|default:''|escape }}">
                             <!-- 仓点列 -->
                             {% if forloop.first %}
                             <td rowspan="{{ suggestion.cargos|length }}" style="vertical-align: middle; background-color: #f8f9fa;">
@@ -609,7 +617,7 @@
                             <!-- 匹配度 -->
                             {% if forloop.first %}
                             <td rowspan="{{ suggestion.cargos|length }}" style="vertical-align: middle;">
-                                <div style="display: flex; flex-direction: column; gap: 6px; min-width: 100px;">
+                                <div style="display: flex; flex-direction: column; gap: 6px; min-width: 80px;">
                                     <!-- 板数进度条 -->
                                     <div style="display: flex; align-items: center; gap: 6px;">
                                         <div class="progress-container" style="flex: 0.6; background: #e9ecef; border-radius: 4px; height: 8px;">
@@ -634,7 +642,7 @@
                             
                             <!-- 操作按钮 -->
                             {% if forloop.first %}
-                            <td rowspan="{{ suggestion.cargos|length }}" style="vertical-align: middle;">
+                            <td rowspan="{{ suggestion.cargos|length }}" style="vertical-align: middle; min-width: 190px;">
                                 <button class="action-btn btn-primary open-bind-modal"
                                         data-suggestion-id="{{ suggestion.suggestion_id }}"
                                         data-has-appointment="0"
@@ -652,6 +660,9 @@
                                         data-suggestion-id="{{ suggestion.suggestion_id }}"
                                         style="margin-top: 5px; background-color: #ffc107; color: #212529;">
                                     <i class="fas fa-dollar-sign fa-sm" style="font-size: 0.8em;"></i> 查询报价
+                                </button>
+                                <button class="action-btn btn-primary" style="margin-top: 5px;" onclick="openMaerskQuoteFromUnscheduled(this)">
+                                    <i class="fas fa-calculator"></i> 马士基询价
                                 </button>
                                 {% with sid="suggestion_"|add:suggestion.suggestion_id %}
                                     <div class="intelligent-po-action">
@@ -1424,6 +1435,48 @@
             }
         }, { once: true });
     }
+
+    function openMaerskQuoteFromUnscheduled(btn) {
+        const row = btn.closest('tr');
+        if (!row) return;
+        const destination = row.dataset.destination || '';
+        const suggestionId = row.dataset.suggestionId || '';
+
+        const groupRows = suggestionId
+            ? Array.from(document.querySelectorAll(`tr[data-suggestion-id="${suggestionId}"]`))
+            : [row];
+
+        const palletItems = [];
+        groupRows.forEach(r => {
+            const raw = (r.dataset.palletItems || '').trim();
+            if (!raw) return;
+            try {
+                const arr = JSON.parse(raw);
+                if (Array.isArray(arr)) {
+                    arr.forEach(it => {
+                        if (!it || !it.plt_id) return;
+                        palletItems.push(it);
+                    });
+                }
+            } catch (e) {
+                // ignore
+            }
+        });
+
+        const firstPltId = palletItems[0]?.plt_id || '';
+        if (typeof fleet_openMaerskQuoteModal === 'function') {
+            fleet_openMaerskQuoteModal({
+                originWarehouse: "{{ warehouse }}",
+                destination,
+                cargoId: firstPltId,
+                pallet_items: palletItems,
+                source: 'unscheduled'
+            });
+        }
+    }
     
     
 </script>
+
+{% include 'post_port/new_sop/02_shipment/modals/maersk_rating.html' %}
+{% include 'post_port/new_sop/05_ltl_pos_all/modal/maersk_schedule_modal.html' %}
