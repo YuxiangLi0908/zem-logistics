@@ -153,12 +153,12 @@
                         <th class="th">操作人</th>
                     </tr>
                     <tr style="position: sticky;" id="fleet-table-filter">
-                        <th class="th"><input type="text" placeholder="搜索PickUp Number..." size="13" style="font-size: 11px;"></th>
+                        <th class="th"><input type="text" placeholder="搜索PickUp Number(空格分隔多关键词)..." size="13" style="font-size: 11px;"></th>
                         <th class="th"></th>
-                        <th class="th"><input type="text" placeholder="搜索出库批次..." size="13" style="font-size: 11px;"></th>
-                        <th class="th"><input type="text" placeholder="搜索预约批次..." size="13" style="font-size: 11px;"></th>
-                        <th class="th"><input type="text" placeholder="搜索ISA..." size="13" style="font-size: 11px;"></th>
-                        <th class="th"><input type="text" placeholder="搜索carrier..." size="13" style="font-size: 11px;"></th>
+                        <th class="th"><input type="text" placeholder="搜索出库批次(空格分隔多关键词)..." size="13" style="font-size: 11px;"></th>
+                        <th class="th"><input type="text" placeholder="搜索预约批次(空格分隔多关键词)..." size="13" style="font-size: 11px;"></th>
+                        <th class="th"><input type="text" placeholder="搜索ISA(空格分隔多关键词)..." size="13" style="font-size: 11px;"></th>
+                        <th class="th"><input type="text" placeholder="搜索carrier(空格分隔多关键词)..." size="13" style="font-size: 11px;"></th>
                         <th class="th"></th>
                         <th class="th"></th>
                         <th class="th"></th>
@@ -190,7 +190,7 @@
                             </td>
                             <td class="td" style="max-width: 120px; word-break: break-all;">{{ f.fleet_number.fleet_number }}</td>
                             <td class="td">{{ f.shipment_batch_number }}</td>
-                            <td class="td">{{ f.appointment_id|default_if_none:"" }}</td>
+                            <td class="td" data-field="appointment_id">{{ f.appointment_id|default_if_none:"" }}</td>
                             <td class="td">{{ f.carrier|default_if_none:"" }}</td>
                             <td class="td">{{ f.fleet_number.appointment_datetime|date:"M-j" }}</td>
                             <td class="td">
@@ -414,22 +414,24 @@
 
     });
 
+    // 核心修改：重构过滤函数，支持多关键词空格分隔搜索 + 修复ISA搜索
     function filterTable() {
         const table = document.getElementById('shipment-table');
         const filterInputs = table.querySelectorAll('#fleet-table-filter input[type="text"]');
         const rows = table.querySelectorAll('tbody tr');
-        
-        const filters = [];
-        
-        // 收集所有过滤条件
+
+        // 收集所有过滤条件（按列索引分组）
+        const filterConditions = [];
         filterInputs.forEach(input => {
             const value = input.value.trim().toUpperCase();
             if (value !== '') {
                 const th = input.closest('th');
                 const headerRow = th.closest('tr');
                 const colIndex = Array.from(headerRow.children).indexOf(th);
-                filters.push({
-                    value: value,
+                // 将输入值按空格分割成多个关键词（过滤空字符串）
+                const keywords = value.split(/\s+/).filter(k => k);
+                filterConditions.push({
+                    keywords: keywords,
                     colIndex: colIndex
                 });
             }
@@ -437,21 +439,35 @@
 
         rows.forEach(row => {
             let shouldShow = true;
-            
-            for (const filter of filters) {
-                const cell = row.querySelector(`td:nth-child(${filter.colIndex + 1})`);
+
+            // 遍历所有过滤条件
+            for (const condition of filterConditions) {
+                let keywordMatched = false;
+                const cell = row.querySelector(`td:nth-child(${condition.colIndex + 1})`);
+
                 if (!cell) {
                     shouldShow = false;
                     break;
                 }
-                
+
+                // 获取单元格纯文本（排除子元素，修复ISA搜索问题）
                 const cellText = (cell.textContent || cell.innerText || '').trim().toUpperCase();
-                if (cellText.indexOf(filter.value) === -1) {
+
+                // 检查是否有任意一个关键词匹配
+                for (const keyword of condition.keywords) {
+                    if (cellText.includes(keyword)) {
+                        keywordMatched = true;
+                        break;
+                    }
+                }
+
+                // 如果没有关键词匹配，隐藏该行
+                if (!keywordMatched) {
                     shouldShow = false;
                     break;
                 }
             }
-            
+
             row.style.display = shouldShow ? '' : 'none';
         });
     };
@@ -462,7 +478,8 @@
             // 移除重复的ID，添加类名
             input.removeAttribute('id');
             input.classList.add('filter-input');
-            
+
+            // 绑定过滤事件（input/keyup）
             input.addEventListener('input', filterTable);
             input.addEventListener('keyup', filterTable);
         });
