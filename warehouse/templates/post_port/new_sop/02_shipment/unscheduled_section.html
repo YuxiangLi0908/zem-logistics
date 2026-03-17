@@ -321,7 +321,8 @@
                         <tr data-suggestion-id="{{ suggestion.suggestion_id }}"
                             data-destination="{{ suggestion.primary_group.destination }}"
                             data-cargo-id="{{ cargo.ids|default:'' }}"
-                            data-plt-id="{{ cargo.plt_ids|default:'' }}">
+                            data-plt-id="{{ cargo.plt_ids|default:'' }}"
+                            data-pallet-items='{{ cargo.pallet_items_json|safe }}'>
                             <!-- 仓点列 -->
                             {% if forloop.first %}
                             <td rowspan="{{ suggestion.cargos|length }}" style="vertical-align: middle; background-color: #f8f9fa;">
@@ -1438,12 +1439,37 @@
         const row = btn.closest('tr');
         if (!row) return;
         const destination = row.dataset.destination || '';
-        const cargoId = row.dataset.cargoId || row.dataset.pltId || '';
+        const suggestionId = row.dataset.suggestionId || '';
+
+        const groupRows = suggestionId
+            ? Array.from(document.querySelectorAll(`tr[data-suggestion-id="${suggestionId}"]`))
+            : [row];
+
+        const pltRecords = [];
+        const seenPlt = new Set();
+        groupRows.forEach(r => {
+            const pltRaw = (r.dataset.pltId || '').trim();
+            if (!pltRaw) return;
+            const containerNumbers = (r.querySelector('.container-no-col')?.innerText || '').trim();
+            pltRaw.split(',').map(s => s.trim()).filter(Boolean).forEach(pid => {
+                if (seenPlt.has(pid)) return;
+                seenPlt.add(pid);
+                pltRecords.push({
+                    plt_id: pid,
+                    container_numbers: containerNumbers
+                });
+            });
+        });
+
+        const plt_ids_csv = pltRecords.map(r => r.plt_id).join(',');
         if (typeof fleet_openMaerskQuoteModal === 'function') {
             fleet_openMaerskQuoteModal({
                 originWarehouse: "{{ warehouse }}",
                 destination,
-                cargoId
+                cargoId: pltRecords[0]?.plt_id || '',
+                plt_ids_csv,
+                plt_records: pltRecords,
+                source: 'unscheduled'
             });
         }
     }

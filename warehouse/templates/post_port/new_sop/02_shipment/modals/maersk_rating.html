@@ -1,6 +1,28 @@
+<style>
+    #fleet_quoteModal .modal-dialog {
+        max-width: 1000px;
+        width: calc(100vw - 80px);
+    }
+    @media (max-width: 576px) {
+        #fleet_quoteModal .modal-dialog {
+            width: calc(100vw - 20px);
+            margin: 10px auto;
+        }
+    }
+    #fleet_quoteModal #quote_items_table {
+        table-layout: auto; /* 改为 auto 让浏览器根据内容自适应，或者保留 fixed 但需精确定义每一列 */
+        width: 100%;
+    }
+    
+    /* 也可以给输入框设个统一的最大宽度 */
+    #fleet_quoteModal .form-control-sm {
+        padding: 0.25rem 0.4rem;
+    }
+</style>
+
 <!-- 询价模态框 -->
 <div class="modal fade" id="fleet_quoteModal" tabindex="-1" aria-hidden="true" style="z-index: 1060;">
-    <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-dialog modal-xl modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header bg-primary text-white">
                 <h5 class="modal-title"><i class="fas fa-calculator me-2"></i>Maersk 询价</h5>
@@ -44,13 +66,15 @@
                             <table class="table table-bordered table-sm mb-0" id="quote_items_table">
                                 <thead class="table-light" style="position: sticky; top: 0; z-index: 1;">
                                     <tr>
-                                        <th style="width: 15%">长 (in)</th>
-                                        <th style="width: 15%">宽 (in)</th>
-                                        <th style="width: 15%">高 (in)</th>
-                                        <th style="width: 12%">件数</th>
-                                        <th style="width: 14%">重量 (lbs)</th>
-                                        <th style="width: 18%">包装</th>
-                                        <th>商品名/类目</th>
+                                        <th class="text-center" style="width: 44px;">选</th>
+                                        <th style="width: 140px;">PLT ID</th>
+                                        <th style="width: 140px;">柜号</th>
+                                        <th style="width: 90px;">长 (in)</th>
+                                        <th style="width: 90px;">宽 (in)</th>
+                                        <th style="width: 90px;">高 (in)</th>
+                                        <th style="width: 70px;">件数</th>
+                                        <th style="width: 110px;">重量 (lbs)</th>
+                                        <th style="width: 90px;">商品名</th>
                                         <th style="width: 50px;"></th>
                                     </tr>
                                 </thead>
@@ -59,7 +83,7 @@
                                 </tbody>
                             </table>
                         </div>
-                        <button type="button" class="btn btn-sm btn-outline-primary mt-2" onclick="fleet_addQuoteItemRow()">
+                        <button type="button" class="btn btn-sm btn-outline-primary mt-2" id="btn_add_quote_item" onclick="fleet_addQuoteItemRow()">
                             <i class="fas fa-plus"></i> 添加一行
                         </button>
                     </div>
@@ -134,8 +158,11 @@
             window.fleet_updateQuoteTotalWeight = function() {
                 let total = 0;
                 document.querySelectorAll('#quote_items_tbody tr').forEach(tr => {
+                    const checked = tr.querySelector('.maersk-line-checkbox')?.checked !== false;
+                    if (!checked) return;
+                    const pieces = parseInt(tr.querySelector('.item-pieces')?.value, 10) || 1;
                     const weight = parseFloat(tr.querySelector('.item-weight')?.value) || 0;
-                    total += Math.ceil(weight);
+                    total += Math.ceil(weight) * Math.max(1, pieces);
                 });
                 const displayEl = document.getElementById('quote_total_weight_display');
                 const hiddenEl = document.getElementById('quote_total_weight');
@@ -156,39 +183,27 @@
                 const pcs = data.pieces || 1;
                 const weight = ceilOrEmpty(data.weight);
                 const desc = data.description || '';
-                const packaging = data.packaging || 'Pallet';
+                const rowId = data.row_id || data.record_id || '';
+                const cargoId = data.cargo_id || '';
+                const pltId = data.plt_id || '';
+                const containerNumbers = data.container_numbers || '';
+                const checked = data.checked !== false;
 
                 tr.innerHTML = `
+                    <td class="text-center align-middle" style="width: 44px;">
+                        <div class="form-check d-flex justify-content-center m-0">
+                            <input type="checkbox" class="form-check-input maersk-line-checkbox m-0" ${checked ? 'checked' : ''}>
+                        </div>
+                    </td>
+                    <td class="align-middle" style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                        <div class="fw-bold">${pltId || '-'}</div>
+                    </td>
+                    <td class="align-middle" style="white-space: pre-line; overflow: hidden;">${containerNumbers || '-'}</td>
                     <td><input type="number" step="1" class="form-control form-control-sm item-length" value="${l}" required></td>
                     <td><input type="number" step="1" class="form-control form-control-sm item-width" value="${w}" required></td>
                     <td><input type="number" step="1" class="form-control form-control-sm item-height" value="${h}" required></td>
                     <td><input type="number" class="form-control form-control-sm item-pieces" value="${pcs}" min="1" required></td>
                     <td><input type="number" step="1" class="form-control form-control-sm item-weight" value="${weight}" required></td>
-                    <td>
-                        <select class="form-select form-select-sm item-packaging">
-                            <option ${packaging==='Bundle'?'selected':''}>Bundle</option>
-                            <option ${packaging==='Bin'?'selected':''}>Bin</option>
-                            <option ${packaging==='Box'?'selected':''}>Box</option>
-                            <option ${packaging==='Basket'?'selected':''}>Basket</option>
-                            <option ${packaging==='Case'?'selected':''}>Case</option>
-                            <option ${packaging==='Crate'?'selected':''}>Crate</option>
-                            <option ${packaging==='Cartons'?'selected':''}>Cartons</option>
-                            <option ${packaging==='Container'?'selected':''}>Container</option>
-                            <option ${packaging==='Drum'?'selected':''}>Drum</option>
-                            <option ${packaging==='Eaches'?'selected':''}>Eaches</option>
-                            <option ${packaging==='Envelope'?'selected':''}>Envelope</option>
-                            <option ${packaging==='Letter'?'selected':''}>Letter</option>
-                            <option ${packaging==='Pails'?'selected':''}>Pails</option>
-                            <option ${packaging==='Pieces'?'selected':''}>Pieces</option>
-                            <option ${packaging==='Pallet'?'selected':''}>Pallet</option>
-                            <option ${packaging==='Roll'?'selected':''}>Roll</option>
-                            <option ${packaging==='Skid'?'selected':''}>Skid</option>
-                            <option ${packaging==='Tube'?'selected':''}>Tube</option>
-                            <option ${packaging==='ToolBox'?'selected':''}>ToolBox</option>
-                            <option ${packaging==='Tote'?'selected':''}>Tote</option>
-                            <option ${packaging==='Truckload'?'selected':''}>Truckload</option>
-                        </select>
-                    </td>
                     <td><input type="text" class="form-control form-control-sm item-desc" value="${desc}" placeholder="商品名/类目"></td>
                     <td class="text-center">
                         <button type="button" class="btn btn-sm btn-link text-danger p-0 maersk-remove-item">
@@ -197,8 +212,15 @@
                     </td>
                 `;
 
+                tr.dataset.rowId = rowId;
+                tr.dataset.cargoId = cargoId;
+                tr.dataset.pltId = pltId;
+                tr.dataset.containerNumbers = containerNumbers;
                 tbody.appendChild(tr);
 
+                tr.querySelector('.maersk-line-checkbox')?.addEventListener('change', function() {
+                    window.fleet_updateQuoteTotalWeight();
+                });
                 tr.querySelectorAll('.item-length, .item-width, .item-height, .item-weight').forEach(el => {
                     el.addEventListener('blur', function() {
                         roundIntField(this);
@@ -216,6 +238,48 @@
                 });
 
                 window.fleet_updateQuoteTotalWeight();
+            };
+        }
+
+        function getSelectedQuoteLineItems() {
+            const selected = [];
+            const pltIds = new Set();
+
+            document.querySelectorAll('#quote_items_tbody tr').forEach(tr => {
+                const cb = tr.querySelector('.maersk-line-checkbox');
+                if (cb && !cb.checked) return;
+
+                const lengthEl = tr.querySelector('.item-length');
+                const widthEl = tr.querySelector('.item-width');
+                const heightEl = tr.querySelector('.item-height');
+                const weightEl = tr.querySelector('.item-weight');
+
+                roundIntField(lengthEl);
+                roundIntField(widthEl);
+                roundIntField(heightEl);
+                roundIntField(weightEl);
+
+                const pltId = (tr.dataset.pltId || '').replace(/\s/g, '');
+                if (!pltId) return;
+                pltIds.add(pltId);
+
+                selected.push({
+                    length: Math.ceil(parseFloat(lengthEl?.value) || 0),
+                    width: Math.ceil(parseFloat(widthEl?.value) || 0),
+                    height: Math.ceil(parseFloat(heightEl?.value) || 0),
+                    pieces: Math.max(1, parseInt(tr.querySelector('.item-pieces')?.value, 10) || 1),
+                    weight: Math.ceil(parseFloat(weightEl?.value) || 0),
+                    description: tr.querySelector('.item-desc')?.value || '',
+                    packaging: 'Pallet',
+                    row_id: tr.dataset.rowId || '',
+                    plt_id: tr.dataset.pltId || '',
+                    container_numbers: tr.dataset.containerNumbers || ''
+                });
+            });
+
+            return {
+                lineItems: selected,
+                pltIds: Array.from(pltIds)
             };
         }
 
@@ -364,12 +428,14 @@
         if (typeof window.fleet_submitQuote !== 'function') {
             window.fleet_submitQuote = function() {
                 const originZipRaw = document.getElementById('quote_origin_zip').value.trim();
-                const destZip = document.getElementById('quote_dest_zip').value.trim();
+                const destZipRaw = document.getElementById('quote_dest_zip').value.trim();
                 const shipDate = document.getElementById('quote_ship_date').value;
                 const totalWeight = document.getElementById('quote_total_weight').value.trim();
 
                 const originDigits = originZipRaw.replace(/\D/g, '');
+                const destDigits = destZipRaw.replace(/\D/g, '');
                 const originZip = originDigits.length >= 5 ? originDigits.slice(-5) : originDigits;
+                const destZip = destDigits.length >= 5 ? destDigits.slice(-5) : destDigits;
 
                 if (!originZip || !destZip || !shipDate) {
                     alert('请填写所有必填字段');
@@ -382,30 +448,9 @@
                     return;
                 }
 
-                const lineItems = [];
-                document.querySelectorAll('#quote_items_tbody tr').forEach(tr => {
-                    const lengthEl = tr.querySelector('.item-length');
-                    const widthEl = tr.querySelector('.item-width');
-                    const heightEl = tr.querySelector('.item-height');
-                    const weightEl = tr.querySelector('.item-weight');
-                    roundIntField(lengthEl);
-                    roundIntField(widthEl);
-                    roundIntField(heightEl);
-                    roundIntField(weightEl);
-
-                    lineItems.push({
-                        length: Math.ceil(parseFloat(lengthEl.value) || 0),
-                        width: Math.ceil(parseFloat(widthEl.value) || 0),
-                        height: Math.ceil(parseFloat(heightEl.value) || 0),
-                        pieces: Math.max(1, parseInt(tr.querySelector('.item-pieces').value, 10) || 1),
-                        weight: Math.ceil(parseFloat(weightEl.value) || 0),
-                        description: tr.querySelector('.item-desc').value,
-                        packaging: tr.querySelector('.item-packaging')?.value || 'Pallet'
-                    });
-                });
-
-                if (lineItems.length === 0) {
-                    alert('请至少添加一行货物明细');
+                const selected = getSelectedQuoteLineItems();
+                if (selected.lineItems.length === 0) {
+                    alert('请至少勾选一行货物明细');
                     return;
                 }
 
@@ -420,7 +465,8 @@
                 formData.append('dest_zip', destZip);
                 formData.append('ship_date', shipDate);
                 formData.append('total_weight', totalWeight);
-                formData.append('line_items_json', JSON.stringify(lineItems));
+                formData.append('line_items_json', JSON.stringify(selected.lineItems));
+                formData.append('plt_ids', selected.pltIds.join(','));
                 const needLiftgate = document.getElementById('quote_need_liftgate')?.value || '否';
                 formData.append('need_liftgate', needLiftgate);
 
@@ -437,6 +483,8 @@
                     if (data.success) {
                         data.data.requestShipDate = shipDate;
                         data.data.need_liftgate = needLiftgate === '是';
+                        data.data.selected_plt_ids = selected.pltIds.join(',');
+                        data.data.selected_cargo_ids = '';
 
                         document.getElementById('quote_result_area').style.display = 'block';
                         document.getElementById('quote_error_msg').style.display = 'none';
@@ -466,6 +514,7 @@
             window.fleet_openMaerskQuoteModal = function(params = {}) {
                 const modalEl = document.getElementById('fleet_quoteModal');
                 if (!modalEl) return;
+                modalEl.dataset.quoteSource = params.source || '';
 
                 const warehouseRaw = String(params.originWarehouse ?? '').trim();
                 const whParts = warehouseRaw.split('-');
@@ -500,7 +549,40 @@
 
                 const tbody = document.getElementById('quote_items_tbody');
                 if (tbody) tbody.innerHTML = '';
-                window.fleet_addQuoteItemRow();
+                const pltIds = String(params.plt_ids_csv || '')
+                    .split(',')
+                    .map(s => s.trim())
+                    .filter(Boolean);
+                const pltRecords = Array.isArray(params.plt_records) ? params.plt_records : [];
+                const pltToContainer = new Map();
+                pltRecords.forEach(r => {
+                    const pid = String(r.plt_id || '').trim();
+                    if (!pid) return;
+                    if (!pltToContainer.has(pid)) pltToContainer.set(pid, String(r.container_numbers || '').trim());
+                });
+
+                const addBtn = document.getElementById('btn_add_quote_item');
+                if (addBtn) addBtn.style.display = pltIds.length > 0 ? 'none' : '';
+
+                if (pltIds.length > 0) {
+                    pltIds.forEach(pid => {
+                        window.fleet_addQuoteItemRow({
+                            checked: true,
+                            row_id: pid,
+                            plt_id: pid,
+                            container_numbers: pltToContainer.get(pid) || '',
+                            length: '',
+                            width: '',
+                            height: '',
+                            pieces: 1,
+                            weight: '',
+                            description: ''
+                        });
+                    });
+                } else {
+                    if (addBtn) addBtn.style.display = '';
+                    window.fleet_addQuoteItemRow();
+                }
 
                 const resultArea = document.getElementById('quote_result_area');
                 const resultContent = document.getElementById('quote_result_content');

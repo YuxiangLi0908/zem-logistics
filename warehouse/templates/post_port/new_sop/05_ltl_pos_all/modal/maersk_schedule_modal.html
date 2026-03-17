@@ -562,13 +562,21 @@
         const formData = new FormData();
         formData.append('step', 'maersk_schedule_post');
         
-        // 区分 cargo_ids 和 plt_ids
-        if (cargoId.startsWith('plt_')) {
-            formData.append('plt_ids', cargoId.replace('plt_', ''));
-            formData.append('cargo_ids', ''); // 清空 cargo_ids 以避免混淆
+        const selectedCargoIds = (currentQuoteData && currentQuoteData.selected_cargo_ids) ? String(currentQuoteData.selected_cargo_ids).trim() : '';
+        const selectedPltIds = (currentQuoteData && currentQuoteData.selected_plt_ids) ? String(currentQuoteData.selected_plt_ids).trim() : '';
+
+        if (selectedCargoIds || selectedPltIds) {
+            formData.append('cargo_ids', selectedCargoIds);
+            formData.append('plt_ids', selectedPltIds);
         } else {
-            formData.append('cargo_ids', cargoId);
-            formData.append('plt_ids', ''); // 清空 plt_ids
+            // 区分 cargo_ids 和 plt_ids（保留 selfdelivery 原逻辑）
+            if (cargoId.startsWith('plt_')) {
+                formData.append('plt_ids', cargoId.replace('plt_', ''));
+                formData.append('cargo_ids', '');
+            } else {
+                formData.append('cargo_ids', cargoId);
+                formData.append('plt_ids', '');
+            }
         }
         
         formData.append('quote_id', rating.QuoteID);

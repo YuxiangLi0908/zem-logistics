@@ -9935,6 +9935,8 @@ class PostNsop(View):
             #去排查是否有转仓的，有转仓的要特殊处理
             pal_list_trans = await self._find_transfer(pal_list)
             pal_list_sorted = sorted(pal_list_trans, key=sort_key)
+
+            
             data += pal_list_sorted
         
         # PackingList 查询 - 添加数据源标识
