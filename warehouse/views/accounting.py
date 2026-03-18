@@ -2786,7 +2786,7 @@ class Accounting(View):
         # 提柜
         t_item = ['提柜费用', '固定报价', '直送车架费', '等待费用', '超重费用', '港内滞港费', '港外滞箱费', '车架费用']
         # 卸柜
-        x_item = ['拆柜费用','入库拆柜费']
+        x_item = ['拆柜费用', '入库拆柜费']
 
         # 提柜待核销
         itemv2_prefetch_queryset_t_waited = InvoiceItemv2.objects.filter(
@@ -2810,7 +2810,6 @@ class Accounting(View):
             ),
             write_off_amount__isnull=False,
         )
-
 
         # 卸柜待核销
         itemv2_prefetch_queryset_x_waited = InvoiceItemv2.objects.filter(
@@ -2848,10 +2847,20 @@ class Accounting(View):
                 )
             )
             .annotate(
-                # 计算总费用（原逻辑不变）
+                # ========== 核心修改：总费用计算逻辑 ==========
+                # 先通过Case/When判断取amount还是rate，再求和
                 total_fee=Sum(
-                    "container_number__invoice_itemv2__rate",
-                    default=0
+                    Case(
+                        # 如果amount有值（非空），取amount
+                        When(
+                            container_number__invoice_itemv2__amount__isnull=False,
+                            then=F("container_number__invoice_itemv2__amount")
+                        ),
+                        # 否则取rate
+                        default=F("container_number__invoice_itemv2__rate"),
+                        output_field=models.DecimalField(max_digits=10, decimal_places=2)
+                    ),
+                    default=0  # 无数据时默认0
                 ),
                 # 标记分类：区分待确认/已确认
                 finance_type=Case(
@@ -2900,8 +2909,16 @@ class Accounting(View):
                 )
             )
             .annotate(
+                # ========== 核心修改：总费用计算逻辑 ==========
                 total_fee=Sum(
-                    "container_number__invoice_itemv2__rate",
+                    Case(
+                        When(
+                            container_number__invoice_itemv2__amount__isnull=False,
+                            then=F("container_number__invoice_itemv2__amount")
+                        ),
+                        default=F("container_number__invoice_itemv2__rate"),
+                        output_field=models.DecimalField(max_digits=10, decimal_places=2)
+                    ),
                     default=0
                 )
             )
@@ -2944,8 +2961,16 @@ class Accounting(View):
                 )
             )
             .annotate(
+                # ========== 核心修改：总费用计算逻辑 ==========
                 total_fee=Sum(
-                    "container_number__invoice_itemv2__rate",
+                    Case(
+                        When(
+                            container_number__invoice_itemv2__amount__isnull=False,
+                            then=F("container_number__invoice_itemv2__amount")
+                        ),
+                        default=F("container_number__invoice_itemv2__rate"),
+                        output_field=models.DecimalField(max_digits=10, decimal_places=2)
+                    ),
                     default=0
                 )
             )
@@ -2988,8 +3013,16 @@ class Accounting(View):
                 )
             )
             .annotate(
+                # ========== 核心修改：总费用计算逻辑 ==========
                 total_fee=Sum(
-                    "container_number__invoice_itemv2__rate",
+                    Case(
+                        When(
+                            container_number__invoice_itemv2__amount__isnull=False,
+                            then=F("container_number__invoice_itemv2__amount")
+                        ),
+                        default=F("container_number__invoice_itemv2__rate"),
+                        output_field=models.DecimalField(max_digits=10, decimal_places=2)
+                    ),
                     default=0
                 )
             )
@@ -3029,8 +3062,16 @@ class Accounting(View):
                 )
             )
             .annotate(
+                # ========== 核心修改：总费用计算逻辑 ==========
                 total_fee=Sum(
-                    "container_number__invoice_itemv2__rate",
+                    Case(
+                        When(
+                            container_number__invoice_itemv2__amount__isnull=False,
+                            then=F("container_number__invoice_itemv2__amount")
+                        ),
+                        default=F("container_number__invoice_itemv2__rate"),
+                        output_field=models.DecimalField(max_digits=10, decimal_places=2)
+                    ),
                     default=0
                 )
             )
@@ -3053,6 +3094,7 @@ class Accounting(View):
             )
         )
         finance_confirmed_x_completed = list(finance_confirmed_x_completed.iterator(chunk_size=200))
+
         # 页面上下文数据
         start_date_export = (current_date + timedelta(days=-15)).strftime("%Y-%m-%d")
         end_date_export = current_date.strftime("%Y-%m-%d")
