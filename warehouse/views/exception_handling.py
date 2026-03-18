@@ -2870,26 +2870,42 @@ class ExceptionHandling(View):
         if not shipment:
             messages.error(request, "未找到要删除的记录")
         else:
-            has_related_data = await sync_to_async(
-                lambda: (
-                    PackingList.objects.filter(shipment_batch_number=shipment).exists() or
-                    Pallet.objects.filter(shipment_batch_number=shipment).exists()
-                )
-            )()
-            del_able = True
-            if has_related_data:
-                messages.error(request, "存在po绑定在这条约上，不能直接删除批次号！")
-                del_able = False
-            if shipment.fleet_number:
-                messages.error(request, "这条约已排车，不能直接删除批次号！")
-                del_able = False
-            if del_able:
-                try:
-                    shipment.shipment_batch_number = None
-                    await sync_to_async(shipment.save)()
-                    messages.success(request, "批次号删除成功")
-                except Exception as e:
-                    messages.error(request, f"批次号删除失败: {str(e)}")
+            if request.user.is_staff:
+                # 如果是超级管理员，可以直接解绑删除约
+                await sync_to_async(
+                    lambda: (
+                        PackingList.objects.filter(
+                            shipment_batch_number=shipment
+                        ).update(shipment_batch_number=None),
+
+                        Pallet.objects.filter(
+                            shipment_batch_number=shipment
+                        ).update(shipment_batch_number=None)
+                    )
+                )()
+                await sync_to_async(shipment.delete)()
+                messages.success(request, "批次号删除成功")
+            else:
+                has_related_data = await sync_to_async(
+                    lambda: (
+                        PackingList.objects.filter(shipment_batch_number=shipment).exists() or
+                        Pallet.objects.filter(shipment_batch_number=shipment).exists()
+                    )
+                )()
+                del_able = True
+                if has_related_data:
+                    messages.error(request, "存在po绑定在这条约上，不能直接删除批次号！")
+                    del_able = False
+                if shipment.fleet_number:
+                    messages.error(request, "这条约已排车，不能直接删除批次号！")
+                    del_able = False
+                if del_able:
+                    try:
+                        shipment.shipment_batch_number = None
+                        await sync_to_async(shipment.save)()
+                        messages.success(request, "批次号删除成功")
+                    except Exception as e:
+                        messages.error(request, f"批次号删除失败: {str(e)}")
         return self.template_post_port_status, context
     
     async def handle_delete_fleet(self, request: HttpRequest):
