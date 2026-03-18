@@ -489,14 +489,27 @@ class ReceivableAccounting(View):
                 for rule in stipulate["tiered_pricing"][warehouse]:
                     min_points = rule.get("min_points")
                     max_points = rule.get("max_points")
-                    if int(min_points) <= len(combina_destination) <= int(max_points):
-                        is_overdestination = True
-                        overdestination_fee = {
-                            "min_points": int(min_points),
-                            "max_points": int(max_points),
-                            "add_fee": rule.get("fee"),
-                        }
-        
+                    if not max_points or str(max_points).lower() == 'nan':
+                        # 只有最小值，那么就是按每个仓点多收费
+                        len_points = len(combina_destination)
+                        temp_fee = rule.get("fee")
+                        if len_points > min_points:
+                            add_fee = round((len_points - min_points) * temp_fee, 4)
+                            is_overdestination = True
+                            overdestination_fee = {
+                                "min_points": int(min_points),
+                                "max_points": None,
+                                "add_fee": add_fee,
+                            }
+
+                    else:
+                        if int(min_points) <= len(combina_destination) <= int(max_points):
+                            is_overdestination = True
+                            overdestination_fee = {
+                                "min_points": int(min_points),
+                                "max_points": int(max_points),
+                                "add_fee": rule.get("fee"),
+                            }
         extra_fees = {
             "is_overweight": is_overweight,
             "is_overpallet": is_overpallet,
@@ -5897,9 +5910,16 @@ class ReceivableAccounting(View):
         tier_lines = []
         if warehouse_code in tp:
             for item in tp[warehouse_code]:
-                tier_lines.append(
-                    f"- 仓点 {item['min_points']}~{item['max_points']} 个：加收 {item['fee']} 美元"
-                )
+                max_points = item['max_points']
+                if not max_points or str(max_points).lower() == 'nan':
+                    # 只有最小值，那么就是按每个仓点多收费
+                    tier_lines.append(
+                        f"- 仓点超出 {item['min_points']} 个：加收 {item['fee']}/个 美元"
+                    )
+                else:
+                    tier_lines.append(
+                        f"- 仓点 {item['min_points']}~{item['max_points']} 个：加收 {item['fee']} 美元"
+                    )
 
         result["tiered_pricing"] = "\n".join(tier_lines)
         return result
@@ -8571,13 +8591,23 @@ class ReceivableAccounting(View):
                 for rule in stipulate["tiered_pricing"][warehouse]:
                     min_points = rule.get("min_points")
                     max_points = rule.get("max_points")
-                    if int(min_points) <= region_count <= int(max_points):
-                        addition_fee = {
-                            "min_points": int(min_points),
-                            "max_points": int(max_points),
-                            "add_fee": rule.get("fee"),
-                        }
-
+                    if not max_points or str(max_points).lower() == 'nan':
+                        # 只有最小值，那么就是按每个仓点多收费
+                        temp_fee = rule.get("fee")
+                        if region_count > min_points:
+                            add_fee = round((region_count - min_points) * temp_fee, 4)
+                            addition_fee = {
+                                "min_points": int(min_points),
+                                "max_points": None,
+                                "add_fee": add_fee,
+                            }
+                    else:
+                        if int(min_points) <= region_count <= int(max_points):
+                            addition_fee = {
+                                "min_points": int(min_points),
+                                "max_points": int(max_points),
+                                "add_fee": rule.get("fee"),
+                            }
         display_data = {
             # 基础信息
             "plts_by_destination": plts_by_destination,
@@ -9168,12 +9198,23 @@ class ReceivableAccounting(View):
                 for rule in stipulate["tiered_pricing"][warehouse]:
                     min_points = rule.get("min_points")
                     max_points = rule.get("max_points")
-                    if int(min_points) <= region_count <= int(max_points):
-                        addition_fee = {
-                            "min_points": int(min_points),
-                            "max_points": int(max_points),
-                            "add_fee": rule.get("fee"),
-                        }
+                    if not max_points or str(max_points).lower() == 'nan':
+                        # 只有最小值，那么就是按每个仓点多收费
+                        temp_fee = rule.get("fee")
+                        if region_count > min_points:
+                            add_fee = round((region_count - min_points) * temp_fee, 4)
+                            addition_fee = {
+                                "min_points": int(min_points),
+                                "max_points": None,
+                                "add_fee": add_fee,
+                            }
+                    else:
+                        if int(min_points) <= region_count <= int(max_points):
+                            addition_fee = {
+                                "min_points": int(min_points),
+                                "max_points": int(max_points),
+                                "add_fee": rule.get("fee"),
+                            }
         else:
             addition_fee = None
 
