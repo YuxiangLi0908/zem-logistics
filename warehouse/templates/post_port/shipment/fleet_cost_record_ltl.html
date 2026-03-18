@@ -151,8 +151,15 @@
                             <!-- 批量提交价格按钮（独立显示） -->
                             <button type="button" class="btn btn-info"
                                     style="height: 36px; font-size: 14px; border: none; border-radius: 4px; background: #17a2b8; color: white; cursor: pointer;"
-                                    onclick="submitBatchPrices()">
-                                批量提交各行价格备注
+                                    onclick="submitBatchOnlyPrices()">
+                                批量提交各行价格
+                            </button>
+
+                            <!-- 新增：批量提交备注按钮 -->
+                            <button type="button" class="btn btn-info"
+                                    style="height: 36px; font-size: 14px; border: none; border-radius: 4px; background: #17a2b8; color: white; cursor: pointer; margin-left: 10px;"
+                                    onclick="submitBatchOnlyNotes()">
+                                批量提交各行备注
                             </button>
 
                             <!-- 一提多卸绑定按钮 -->
@@ -204,6 +211,18 @@
                                 <input type="hidden" name="end_time" value="{{ end_time }}">
                                 <input type="hidden" name="area" value="{{ area }}">
                             </form>
+
+                            <!-- 新增：未录入页面批量备注提交表单 -->
+                            <form method="post" id="batch-notes-form"
+                                  style="position: absolute; left: -9999px; top: -9999px;">
+                                {% csrf_token %}
+                                <input type="hidden" name="step" value="batch_confirm_ltl_note">
+                                <input type="hidden" name="status" value="record">
+                                <input type="hidden" name="batch_notes_data" id="batch-notes-data">
+                                <input type="hidden" name="start_time" value="{{ start_time }}">
+                                <input type="hidden" name="end_time" value="{{ end_time }}">
+                                <input type="hidden" name="area" value="{{ area }}">
+                            </form>
                         </div>
                     {% endif %}
 
@@ -219,17 +238,23 @@
                                 <input type="hidden" name="status" value="unrecord">  <!-- 标记已录入页面 -->
                                 <input type="hidden" name="area" value="{{ area }}">
                                 <button type="submit" class="btn btn-info"
-                                        style="height: 36px; font-size: 14px; border: none; border-radius: 4px; background: #17a2b8; color: white; cursor: pointer;"
+                                        style="height: 36px; font-size: 14px; border: none; border-radius: 4px; background: #17a2b8; color: white; cursor: pointer;margin-bottom: 48px"
                                         onclick="handleTableDownload()">  <!-- 修改：调用新的处理函数 -->
                                     <i class="bi bi-download"></i> 下载已录入数据表格
                                 </button>
                             </form>
 
-                            <!-- 已录入页面新增：批量提交价格备注按钮 -->
+                            <!-- 已录入页面新增：批量提交价格按钮 -->
                             <button type="button" class="btn btn-info"
-                                    style="height: 36px; font-size: 14px; border: none; border-radius: 4px; background: #17a2b8; color: white; cursor: pointer; margin-bottom: 8px; width:250px; margin-left: 110px;margin-top: -54px;"
+                                    style="height: 36px; font-size: 14px; border: none; border-radius: 4px; background: #17a2b8; color: white; cursor: pointer; margin-bottom: 8px; width:150px; margin-left: 62px;margin-top: -102px;"
                                     onclick="submitBatchPrices()">
-                                批量提交各行价格备注
+                                批量提交各行价格
+                            </button>
+
+                            <button type="button" class="btn btn-info"
+                                    style="height: 36px; font-size: 14px; border: none; border-radius: 4px; background: #17a2b8; color: white; cursor: pointer; margin-bottom: 8px; width:120px; margin-left: 235px;margin-top: -52px;"
+                                    onclick="submitBatchOnlyNotes()">
+                                批量提交备注
                             </button>
 
                             <!-- 已录入页面新增：批量提交价格备注的隐藏表单 -->
@@ -239,6 +264,18 @@
                                 <input type="hidden" name="step" value="batch_confirm_ltl_price">
                                 <input type="hidden" name="status" value="unrecord">
                                 <input type="hidden" name="batch_prices_data" id="batch-prices-data-unrecord">
+                                <input type="hidden" name="start_time" value="{{ start_time }}">
+                                <input type="hidden" name="end_time" value="{{ end_time }}">
+                                <input type="hidden" name="area" value="{{ area }}">
+                            </form>
+
+                            <!-- 新增：已录入页面批量备注提交表单 -->
+                            <form method="post" id="batch-notes-form-unrecord"
+                                  style="position: absolute; left: -9999px; top: -9999px;">
+                                {% csrf_token %}
+                                <input type="hidden" name="step" value="batch_confirm_ltl_note">
+                                <input type="hidden" name="status" value="unrecord">
+                                <input type="hidden" name="batch_notes_data" id="batch-notes-data-unrecord">
                                 <input type="hidden" name="start_time" value="{{ start_time }}">
                                 <input type="hidden" name="end_time" value="{{ end_time }}">
                                 <input type="hidden" name="area" value="{{ area }}">
@@ -1143,32 +1180,32 @@
                 }
             };
 
-            // ==================== 核心修改：批量提交价格+备注 ====================
-            window.submitBatchPrices = function () {
+            // ==================== 拆分：批量仅提交价格 ====================
+            window.submitBatchOnlyPrices = function () {
                 // 判断当前页面类型（未录入/已录入）
                 const isUnrecordPage = document.querySelector('.verify-row-select') !== null;
-                let checkedBoxes, batchPricesFormId, batchPricesDataId;
+                let checkedBoxes, batchFormId, batchDataId;
 
                 // 未录入页面
                 if (!isUnrecordPage) {
                     checkedBoxes = document.querySelectorAll('.row-select:checked');
-                    batchPricesFormId = 'batch-prices-form';
-                    batchPricesDataId = 'batch-prices-data';
+                    batchFormId = 'batch-prices-form';
+                    batchDataId = 'batch-prices-data';
                 }
                 // 已录入页面
                 else {
                     checkedBoxes = document.querySelectorAll('.verify-row-select:checked');
-                    batchPricesFormId = 'batch-prices-form-unrecord';
-                    batchPricesDataId = 'batch-prices-data-unrecord';
+                    batchFormId = 'batch-prices-form-unrecord';
+                    batchDataId = 'batch-prices-data-unrecord';
                 }
 
                 // 校验选中数量
                 if (checkedBoxes.length === 0) {
-                    alert('请至少选择一条记录进行批量提交！');
+                    alert('请至少选择一条记录进行批量提交价格！');
                     return;
                 }
 
-                // 收集所有选中行的价格和备注数据
+                // 收集所有选中行的价格数据（允许价格为0）
                 const batchData = [];
                 checkedBoxes.forEach(checkbox => {
                     const fleetNumber = checkbox.value.trim();
@@ -1178,9 +1215,73 @@
                     const row = checkbox.closest('.data-row');
                     if (!row) return;
 
-                    // 获取价格输入框值
+                    // 获取价格输入框值（允许为0）
                     const priceInput = row.querySelector('input[name="fleet_cost"]');
                     const price = priceInput ? parseFloat(priceInput.value) || 0 : 0;
+
+                    // 获取shipment_id（如果有）
+                    const shipmentIdInput = row.querySelector('input[name="shipment_id"]');
+                    const shipmentId = shipmentIdInput ? shipmentIdInput.value.trim() : '';
+
+                    // 收集数据（仅价格相关）
+                    batchData.push({
+                        fleet_number: fleetNumber,
+                        fleet_cost: price,
+                        shipment_id: shipmentId
+                    });
+                });
+
+                // 校验数据有效性
+                if (batchData.length === 0) {
+                    alert('未获取到有效的提交数据，请重试！');
+                    return;
+                }
+
+                // 确认提交
+                if (confirm(`确认批量提交选中的 ${checkedBoxes.length} 条记录的价格？`)) {
+                    // 填充隐藏表单数据
+                    document.getElementById(batchDataId).value = JSON.stringify(batchData);
+
+                    // 显示加载动画并提交表单
+                    showLoadingBar();
+                    document.getElementById(batchFormId).submit();
+                }
+            };
+
+            // ==================== 拆分：批量仅提交备注 ====================
+            window.submitBatchOnlyNotes = function () {
+                // 判断当前页面类型（未录入/已录入）
+                const isUnrecordPage = document.querySelector('.verify-row-select') !== null;
+                let checkedBoxes, batchFormId, batchDataId;
+
+                // 未录入页面
+                if (!isUnrecordPage) {
+                    checkedBoxes = document.querySelectorAll('.row-select:checked');
+                    batchFormId = 'batch-notes-form';
+                    batchDataId = 'batch-notes-data';
+                }
+                // 已录入页面
+                else {
+                    checkedBoxes = document.querySelectorAll('.verify-row-select:checked');
+                    batchFormId = 'batch-notes-form-unrecord';
+                    batchDataId = 'batch-notes-data-unrecord';
+                }
+
+                // 校验选中数量
+                if (checkedBoxes.length === 0) {
+                    alert('请至少选择一条记录进行批量提交备注！');
+                    return;
+                }
+
+                // 收集所有选中行的备注数据
+                const batchData = [];
+                checkedBoxes.forEach(checkbox => {
+                    const fleetNumber = checkbox.value.trim();
+                    if (!fleetNumber) return;
+
+                    // 找到当前行
+                    const row = checkbox.closest('.data-row');
+                    if (!row) return;
 
                     // 获取备注文本框值
                     const noteTextarea = row.querySelector('textarea[name="note"]');
@@ -1190,10 +1291,9 @@
                     const shipmentIdInput = row.querySelector('input[name="shipment_id"]');
                     const shipmentId = shipmentIdInput ? shipmentIdInput.value.trim() : '';
 
-                    // 收集数据
+                    // 收集数据（仅备注相关）
                     batchData.push({
                         fleet_number: fleetNumber,
-                        fleet_cost: price,
                         note: note,
                         shipment_id: shipmentId
                     });
@@ -1206,13 +1306,13 @@
                 }
 
                 // 确认提交
-                if (confirm(`确认批量提交选中的 ${checkedBoxes.length} 条记录的价格和备注？`)) {
+                if (confirm(`确认批量提交选中的 ${checkedBoxes.length} 条记录的备注？`)) {
                     // 填充隐藏表单数据
-                    document.getElementById(batchPricesDataId).value = JSON.stringify(batchData);
+                    document.getElementById(batchDataId).value = JSON.stringify(batchData);
 
                     // 显示加载动画并提交表单
                     showLoadingBar();
-                    document.getElementById(batchPricesFormId).submit();
+                    document.getElementById(batchFormId).submit();
                 }
             };
 

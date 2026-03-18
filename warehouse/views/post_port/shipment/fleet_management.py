@@ -303,9 +303,11 @@ class FleetManagement(View):
         elif step == "batch_cancel_verify":
             template, context = await self.handle_batch_cancel_verify(request)
             return render(request, template, context)
-
         elif step == "batch_confirm_ltl_price":
             template, context = await self.handle_batch_confirm_ltl_price(request)
+            return render(request, template, context)
+        elif step == "batch_confirm_ltl_note":
+            template, context = await self.handle_batch_confirm_ltl_note(request)
             return render(request, template, context)
         else:
             return await self.get(request)
@@ -2318,7 +2320,6 @@ class FleetManagement(View):
                     # 更严格的字段验证
                     fleet_number = item.get("fleet_number")
                     price = item.get("fleet_cost")
-                    note = item.get("note")
 
                     if not fleet_number or fleet_number.strip() == '':
                         error_messages.append(f"第{idx + 1}条数据：车次号为空")
@@ -2339,11 +2340,60 @@ class FleetManagement(View):
                     # 3. 更新数据库记录
                     try:
                         fleet = await sync_to_async(Fleet.objects.get)(fleet_number=fleet_number)
-                        if price_float != 0:
-                            fleet.fleet_cost = price_float
+                        fleet.fleet_cost = price_float
+                        await sync_to_async(fleet.save)()
+                        success_count += 1
+                    except Fleet.DoesNotExist:
+                        error_messages.append(f"第{idx + 1}条数据：车次号「{fleet_number}」不存在")
+                    except Exception as e:
+                        error_messages.append(f"第{idx + 1}条数据（车次：{fleet_number}）：处理失败「{str(e)}」")
+
+                except Exception as e:
+                    error_messages.append(f"处理第{idx + 1}条数据时发生未知错误：{str(e)}")
+
+        except Exception as e:
+            error_messages.append(f"批量处理主逻辑异常：{str(e)}")
+
+        # 4. 返回结果页面
+        return await self.handle_fleet_cost_record_get_ltl(
+            request, error_messages=error_messages, success_count=success_count
+        )
+
+    async def handle_batch_confirm_ltl_note(self, request):
+        """批量确认备注"""
+        error_messages = []
+        success_count = 0
+
+        try:
+            # 1. 获取并解析批量价格数据（修复：添加JSON解析）
+            batch_notes_str = request.POST.get("batch_notes_data", "[]")
+            try:
+                # 解析JSON字符串为列表
+                batch_notes = json.loads(batch_notes_str)
+                # 验证是否为列表
+                if not isinstance(batch_notes, list):
+                    error_messages.append("批量价格数据格式错误：不是列表类型")
+                    batch_notes = []
+            except json.JSONDecodeError as e:
+                error_messages.append(f"批量价格数据解析失败：{str(e)}")
+                batch_notes = []
+
+            # 2. 遍历每条数据，更新价格
+            for idx, item in enumerate(batch_notes):
+                try:
+                    # 更严格的字段验证
+                    fleet_number = item.get("fleet_number")
+                    note = item.get("note")
+
+                    if not fleet_number or fleet_number.strip() == '':
+                        error_messages.append(f"第{idx + 1}条数据：车次号为空")
+                        continue
+
+                    # 3. 更新数据库记录
+                    try:
+                        fleet = await sync_to_async(Fleet.objects.get)(fleet_number=fleet_number)
                         shipment = await sync_to_async(Shipment.objects.get)(fleet_number=fleet.id)
                         shipment.note = note
-                        await sync_to_async(fleet.save)()
                         await sync_to_async(shipment.save)()
                         success_count += 1
                     except Fleet.DoesNotExist:
