@@ -303,9 +303,11 @@ class FleetManagement(View):
         elif step == "batch_cancel_verify":
             template, context = await self.handle_batch_cancel_verify(request)
             return render(request, template, context)
-
         elif step == "batch_confirm_ltl_price":
             template, context = await self.handle_batch_confirm_ltl_price(request)
+            return render(request, template, context)
+        elif step == "batch_confirm_ltl_note":
+            template, context = await self.handle_batch_confirm_ltl_note(request)
             return render(request, template, context)
         else:
             return await self.get(request)
@@ -1909,11 +1911,12 @@ class FleetManagement(View):
                 else:
                     criteria &= Q(id__in=[])
 
+        # 核心修改：新增按核实状态排序（未核实在前）
         shipment = await sync_to_async(list)(
             Shipment.objects
             .select_related("fleet_number")
             .filter(criteria)
-            .order_by("shipped_at")
+            .order_by("fleet_number__fleet_verify_status", "shipped_at")
         )
 
         # ========== 新增：按车次统计总板数 ==========
@@ -2003,27 +2006,12 @@ class FleetManagement(View):
         multi_unload_map = multi_unload_data['multi_unload_map']  # 前端用的车次→同组列表
         fleet_to_group_map = multi_unload_data['fleet_map']  # 原有车次→分组信息
 
-        # 获取一提多卸分组信息
-        multi_unload_data = await get_multi_unload_groups()
-        multi_unload_map = multi_unload_data['group_map']
-        fleet_to_group_map = multi_unload_data['fleet_map']
+        # ========== 移除重复的 multi_unload_data 赋值 ==========
 
         # 处理数据：核心修改 - 修复一提多卸信息挂载
         async def process_shipment_data(shipment_list):
             processed = []
             for s in shipment_list:
-                # 原有逻辑：获取fleetshipmentpallets记录
-                latest_pallet = await sync_to_async(
-                    lambda: s.fleetshipmentpallets.order_by("-cost_input_time", "-id").first()
-                )()
-
-                if latest_pallet:
-                    pallet_cost_input_time = latest_pallet.cost_input_time
-                    pallet_operator_name = latest_pallet.operator.username if latest_pallet.operator else None
-                else:
-                    pallet_cost_input_time = None
-                    pallet_operator_name = None
-
                 # 核心修改1：查询当前shipment关联的所有pallet（修复字典取值问题）
                 @sync_to_async
                 def get_related_pallets(shipment_id):
@@ -2108,10 +2096,6 @@ class FleetManagement(View):
                     shipment_copy.retrieval_time = group_data['retrieval_time']
                     shipment_copy.all_locations = group_data['locations'][0]  # 该分组所有location（去重）
 
-                    # 挂载成本录入信息
-                    shipment_copy.pallet_cost_input_time = pallet_cost_input_time
-                    shipment_copy.pallet_operator_name = pallet_operator_name
-
                     # 挂载车次号
                     shipment_copy.fleet_number_code = shipment_copy.fleet_number.fleet_number if (
                             shipment_copy.fleet_number and shipment_copy.fleet_number.fleet_number) else "-"
@@ -2174,8 +2158,6 @@ class FleetManagement(View):
                     shipment_copy.retrieval_time = None
                     shipment_copy.all_locations = ["-"]
                     # 成本录入信息
-                    shipment_copy.pallet_cost_input_time = pallet_cost_input_time
-                    shipment_copy.pallet_operator_name = pallet_operator_name
                     shipment_copy.fleet_number_code = shipment_copy.fleet_number.fleet_number if (
                             shipment_copy.fleet_number and shipment_copy.fleet_number.fleet_number) else "-"
                     # ========== 新增：空条目分摊价格默认0 ==========
@@ -2318,7 +2300,6 @@ class FleetManagement(View):
                     # 更严格的字段验证
                     fleet_number = item.get("fleet_number")
                     price = item.get("fleet_cost")
-                    note = item.get("note")
 
                     if not fleet_number or fleet_number.strip() == '':
                         error_messages.append(f"第{idx + 1}条数据：车次号为空")
@@ -2339,11 +2320,60 @@ class FleetManagement(View):
                     # 3. 更新数据库记录
                     try:
                         fleet = await sync_to_async(Fleet.objects.get)(fleet_number=fleet_number)
-                        if price_float != 0:
-                            fleet.fleet_cost = price_float
+                        fleet.fleet_cost = price_float
+                        await sync_to_async(fleet.save)()
+                        success_count += 1
+                    except Fleet.DoesNotExist:
+                        error_messages.append(f"第{idx + 1}条数据：车次号「{fleet_number}」不存在")
+                    except Exception as e:
+                        error_messages.append(f"第{idx + 1}条数据（车次：{fleet_number}）：处理失败「{str(e)}」")
+
+                except Exception as e:
+                    error_messages.append(f"处理第{idx + 1}条数据时发生未知错误：{str(e)}")
+
+        except Exception as e:
+            error_messages.append(f"批量处理主逻辑异常：{str(e)}")
+
+        # 4. 返回结果页面
+        return await self.handle_fleet_cost_record_get_ltl(
+            request, error_messages=error_messages, success_count=success_count
+        )
+
+    async def handle_batch_confirm_ltl_note(self, request):
+        """批量确认备注"""
+        error_messages = []
+        success_count = 0
+
+        try:
+            # 1. 获取并解析批量价格数据（修复：添加JSON解析）
+            batch_notes_str = request.POST.get("batch_notes_data", "[]")
+            try:
+                # 解析JSON字符串为列表
+                batch_notes = json.loads(batch_notes_str)
+                # 验证是否为列表
+                if not isinstance(batch_notes, list):
+                    error_messages.append("批量价格数据格式错误：不是列表类型")
+                    batch_notes = []
+            except json.JSONDecodeError as e:
+                error_messages.append(f"批量价格数据解析失败：{str(e)}")
+                batch_notes = []
+
+            # 2. 遍历每条数据，更新价格
+            for idx, item in enumerate(batch_notes):
+                try:
+                    # 更严格的字段验证
+                    fleet_number = item.get("fleet_number")
+                    note = item.get("note")
+
+                    if not fleet_number or fleet_number.strip() == '':
+                        error_messages.append(f"第{idx + 1}条数据：车次号为空")
+                        continue
+
+                    # 3. 更新数据库记录
+                    try:
+                        fleet = await sync_to_async(Fleet.objects.get)(fleet_number=fleet_number)
                         shipment = await sync_to_async(Shipment.objects.get)(fleet_number=fleet.id)
                         shipment.note = note
-                        await sync_to_async(fleet.save)()
                         await sync_to_async(shipment.save)()
                         success_count += 1
                     except Fleet.DoesNotExist:
