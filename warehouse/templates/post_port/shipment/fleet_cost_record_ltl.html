@@ -338,6 +338,10 @@
                         一提多卸
                     </th>
                     <th class="th"
+                        style="padding: 10px 12px; text-align: center; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 120px; color: #ff4d4f; font-weight: 700;">
+                        一提多卸总成本
+                    </th>
+                    <th class="th"
                         style="padding: 10px 12px; text-align: left; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 110px;">
                         目的仓库
                     </th>
@@ -358,7 +362,7 @@
                         总卡板数
                     </th>
                     <th class="th"
-                        style="padding: 10px 12px; text-align: left; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 190px;">
+                        style="padding: 10px 12px; border: 1px solid #eee; white-space: nowrap; font-size:14px;">
                         车次费用
                     </th>
                     <th class="th"
@@ -414,6 +418,7 @@
                     <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 110px;"><input
                             type="text" placeholder="搜索柜号..." class="filter-input" data-col="container"
                             style="font-size: 14px; width: 100%;"></th>
+                    <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 120px;"></th>
                     <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 80px;"></th>
                     <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 110px;"><input
                             type="text" placeholder="搜索目的仓库..." class="filter-input" data-col="warehouse"
@@ -457,24 +462,27 @@
                 </thead>
                 <tbody>
                 {% for f in fleet %}
-                    <tr class="data-row {% if shipment_type == '已录入内容' and f.fleet_number.fleet_verify_status %}verified-row{% endif %}"
+                    <tr class="data-row {% if shipment_type == '已录入内容' and f.fleet_number.fleet_verify_status %}verified-row{% endif %} {% if f.multi_unload_group_id %}multi-unload-row{% endif %}"
                         style="border-bottom: 1px solid #eee;"
-                        data-verified="{% if shipment_type == '已录入内容' and f.fleet_number.fleet_verify_status %}true{% else %}false{% endif %}">
+                        data-verified="{% if shipment_type == '已录入内容' and f.fleet_number.fleet_verify_status %}true{% else %}false{% endif %}"
+                        data-multi-unload-group="{{ f.multi_unload_group_id|default_if_none:'' }}">
                         {% if shipment_type == '未录入内容' %}
                             <td class="td"
                                 style="padding: 10px 12px; text-align: center; border: 1px solid #eee; font-size:14px;">
                                 <input type="checkbox" class="row-select"
-                                       value="{{ f.fleet_number|default_if_none:'' }}"
+                                       value="{{ f.fleet_number.fleet_number|default_if_none:'' }}"
                                        data-pallet="{{ f.shipped_pallet|default_if_none:0 }}"
-                                       onchange="updateSelectionCount()">
+                                       data-multi-unload-group="{{ f.multi_unload_group_id|default_if_none:'' }}"
+                                       onchange="handleMultiUnloadSelection(this)">
                             </td>
                         {% endif %}
                         {% if shipment_type == '已录入内容' %}
                             <td class="td"
                                 style="padding: 10px 12px; text-align: center; border: 1px solid #eee; font-size:14px;">
                                 <input type="checkbox" class="verify-row-select"
-                                       value="{{ f.fleet_number|default_if_none:'' }}"
-                                       onchange="updateVerifySelectionCount()">
+                                       value="{{ f.fleet_number.fleet_number|default_if_none:'' }}"
+                                       data-multi-unload-group="{{ f.multi_unload_group_id|default_if_none:'' }}"
+                                       onchange="handleMultiUnloadVerifySelection(this)">
                             </td>
                         {% endif %}
                         <td class="td" data-col="container"
@@ -488,6 +496,11 @@
                             {% else %}
                                 <span class="text-muted">-</span>
                             {% endif %}
+                        </td>
+                        <!-- 新增：一提多卸总成本显示 -->
+                        <td class="td multi-unload-total-cost"
+                            style="padding: 10px 12px; border: 1px solid #eee; text-align: center; white-space: nowrap; font-size:14px; color: #ff4d4f; font-weight: 600;">
+                            {{ f.multi_unload_total_cost|default_if_none:0|floatformat:2 }}
                         </td>
                         <td class="td" data-col="warehouse"
                             style="padding: 10px 12px; border: 1px solid #eee; white-space: nowrap; font-size:14px;">
@@ -649,7 +662,7 @@
                     </tr>
                 {% empty %}
                     <tr class="empty-row">
-                        <td colspan="{% if shipment_type == '已录入内容' %}21{% elif shipment_type == '未录入内容' %}17{% else %}15{% endif %}"
+                        <td colspan="{% if shipment_type == '已录入内容' %}22{% elif shipment_type == '未录入内容' %}18{% else %}16{% endif %}"
                             style="padding: 20px; text-align: center; color: #999; border: 1px solid #eee; white-space: nowrap; font-size:14px;">
                             暂无数据
                         </td>
@@ -804,13 +817,20 @@
         margin-left: 8px;
     }
 
-    /* 一提多卸行高亮 */
+    /* 一提多卸分组行高亮 */
     .multi-unload-row {
-        background-color: #fff3cd !important;
+        background-color: #fff8e1 !important;
     }
 
     .multi-unload-row:hover {
-        background-color: #ffeeba !important;
+        background-color: #ffecb3 !important;
+    }
+
+    /* 一提多卸总成本列样式强化 */
+    .multi-unload-total-cost {
+        font-weight: 700;
+        color: #e53935;
+        text-shadow: 0 1px 0 rgba(255,255,255,0.8);
     }
 
     /* 一提多卸标识 */
@@ -826,57 +846,141 @@
 </style>
 
 <script>
-// 页面加载完成后执行
+// 1. 注入后端返回的一提多卸映射（车次号→同组车次列表）
+const multiUnloadMap = {{ multi_unload_map|safe }};
+
+// 调试：控制台打印multiUnloadMap，确认数据格式
+console.log('=== 一提多卸映射数据 ===', multiUnloadMap);
+
 document.addEventListener('DOMContentLoaded', function () {
-    // ==================== 核心功能：未录入页面的行选择 ====================
-    // 1. 全选/取消全选（未录入页面）
-    window.toggleAllSelection = function (checkbox) {
-        const rowCheckboxes = document.querySelectorAll('.row-select');
-        rowCheckboxes.forEach(cb => {
-            cb.checked = checkbox.checked;
+    // ==================== 核心：一提多卸联动勾选（未录入页面） ====================
+    window.handleMultiUnloadSelection = function (checkbox) {
+        const isChecked = checkbox.checked;
+        const currentFleet = checkbox.value.trim();
+        const groupId = checkbox.getAttribute('data-multi-unload-group');
+
+        // 调试：打印当前勾选的车次和分组ID
+        console.log('=== 未录入页面联动勾选 ===', {
+            isChecked: isChecked,
+            currentFleet: currentFleet,
+            groupId: groupId
         });
-        updateSelectionCount(); // 更新选中数量
+
+        // 空值或无分组直接返回
+        if (!currentFleet || !groupId) {
+            updateSelectionCount();
+            return;
+        }
+
+        // 核心修改：优先通过groupID匹配所有同组复选框（不依赖multiUnloadMap）
+        const sameGroupCheckboxes = document.querySelectorAll(`.row-select[data-multi-unload-group="${groupId}"]`);
+        console.log('找到同组复选框数量：', sameGroupCheckboxes.length);
+
+        sameGroupCheckboxes.forEach(cb => {
+            // 同步勾选状态（跳过当前点击的复选框）
+            if (cb !== checkbox) {
+                cb.checked = isChecked;
+                console.log('同步勾选：', cb.value, '状态：', isChecked);
+            }
+        });
+
+        // 更新选中数量
+        updateSelectionCount();
     };
 
-    // 2. 手动选择行时更新选中数量（未录入页面）
+    // ==================== 核心：一提多卸联动勾选（已录入页面） ====================
+    window.handleMultiUnloadVerifySelection = function (checkbox) {
+        const isChecked = checkbox.checked;
+        const currentFleet = checkbox.value.trim();
+        const groupId = checkbox.getAttribute('data-multi-unload-group');
+
+        // 调试：打印当前勾选的车次和分组ID
+        console.log('=== 已录入页面联动勾选 ===', {
+            isChecked: isChecked,
+            currentFleet: currentFleet,
+            groupId: groupId
+        });
+
+        if (!currentFleet || !groupId) {
+            updateVerifySelectionCount();
+            return;
+        }
+
+        // 核心修改：优先通过groupID匹配所有同组复选框
+        const sameGroupCheckboxes = document.querySelectorAll(`.verify-row-select[data-multi-unload-group="${groupId}"]`);
+        console.log('找到同组复选框数量：', sameGroupCheckboxes.length);
+
+        sameGroupCheckboxes.forEach(cb => {
+            if (cb !== checkbox) {
+                cb.checked = isChecked;
+                console.log('同步勾选：', cb.value, '状态：', isChecked);
+            }
+        });
+
+        updateVerifySelectionCount();
+    };
+
+    // ==================== 全选/取消全选增强（支持联动逻辑） ====================
+    window.toggleAllSelection = function (checkbox) {
+        const isChecked = checkbox.checked;
+        const rowCheckboxes = document.querySelectorAll('.row-select');
+
+        // 先批量设置所有复选框状态
+        rowCheckboxes.forEach(cb => {
+            cb.checked = isChecked;
+        });
+
+        // 更新选中数量
+        updateSelectionCount();
+    };
+
+    window.toggleAllVerifySelection = function (checkbox) {
+        const isChecked = checkbox.checked;
+        const verifyCheckboxes = document.querySelectorAll('.verify-row-select');
+
+        verifyCheckboxes.forEach(cb => {
+            cb.checked = isChecked;
+        });
+
+        updateVerifySelectionCount();
+    };
+
+    // ==================== 原有功能保留 ====================
     window.updateSelectionCount = function () {
         const checkedBoxes = document.querySelectorAll('.row-select:checked');
         const countEl = document.getElementById('selection-count');
-        if (countEl) {
-            countEl.textContent = `已选：${checkedBoxes.length} 条`;
-        }
-
-        // 收集选中的车次号，赋值给批量分摊表单的隐藏字段
-        const selectedFleetNumbers = Array.from(checkedBoxes).map(cb => cb.value).filter(v => v);
-        document.getElementById('selected-fleet-numbers').value = selectedFleetNumbers.join(',');
+        if (countEl) countEl.textContent = `已选：${checkedBoxes.length} 条`;
+        const selectedFleets = Array.from(checkedBoxes).map(cb => cb.value).filter(v => v);
+        document.getElementById('selected-fleet-numbers').value = selectedFleets.join(',');
     };
 
-    // 3. 全选按钮点击事件（未录入页面）
+    window.updateVerifySelectionCount = function () {
+        const checkedBoxes = document.querySelectorAll('.verify-row-select:checked');
+        const verifyCountEl = document.getElementById('verify-selection-count');
+        const rollbackCountEl = document.getElementById('rollback-selection-count');
+        if (verifyCountEl) verifyCountEl.textContent = `已选：${checkedBoxes.length} 条`;
+        if (rollbackCountEl) rollbackCountEl.textContent = `已选：${checkedBoxes.length} 条`;
+        const selectedFleets = Array.from(checkedBoxes).map(cb => cb.value).filter(v => v);
+        document.getElementById('batch-verify-fleet-numbers').value = selectedFleets.join(',');
+        document.getElementById('batch-rollback-fleet-numbers').value = selectedFleets.join(',');
+    };
+
     window.selectAllRows = function () {
-        const rowCheckboxes = document.querySelectorAll('.row-select');
-        rowCheckboxes.forEach(cb => {
-            cb.checked = true;
-        });
+        document.querySelectorAll('.row-select').forEach(cb => cb.checked = true);
         updateSelectionCount();
     };
 
-    // 4. 取消全选按钮点击事件（未录入页面）
     window.deselectAllRows = function () {
-        const rowCheckboxes = document.querySelectorAll('.row-select');
-        rowCheckboxes.forEach(cb => {
-            cb.checked = false;
-        });
+        document.querySelectorAll('.row-select').forEach(cb => cb.checked = false);
         updateSelectionCount();
     };
 
-    // 5. 验证批量分摊的选择（未录入页面）
     window.validateBatchSelection = function () {
         const checkedCount = document.querySelectorAll('.row-select:checked').length;
         if (checkedCount === 0) {
             alert('请至少选择一条记录进行批量分摊！');
             return false;
         }
-
         const totalCost = document.querySelector('input[name="total_batch_cost"]').value;
         if (!totalCost || parseFloat(totalCost) <= 0) {
             alert('请输入有效的总成本（大于0）！');
@@ -885,50 +989,16 @@ document.addEventListener('DOMContentLoaded', function () {
         return true;
     };
 
-    // ==================== 核心功能：已录入页面的核实选择 ====================
-    // 6. 全选/取消全选（已录入页面）
-    window.toggleAllVerifySelection = function (checkbox) {
-        const verifyCheckboxes = document.querySelectorAll('.verify-row-select');
-        verifyCheckboxes.forEach(cb => {
-            cb.checked = checkbox.checked;
-        });
-        updateVerifySelectionCount(); // 更新核实选中数量
-    };
-
-    // 7. 手动选择核实行时更新数量（已录入页面）
-    window.updateVerifySelectionCount = function () {
-        const checkedBoxes = document.querySelectorAll('.verify-row-select:checked');
-        const verifyCountEl = document.getElementById('verify-selection-count');
-        const rollbackCountEl = document.getElementById('rollback-selection-count');
-
-        if (verifyCountEl) verifyCountEl.textContent = `已选：${checkedBoxes.length} 条`;
-        if (rollbackCountEl) rollbackCountEl.textContent = `已选：${checkedBoxes.length} 条`;
-
-        // 收集选中的车次号，赋值给批量核实/退回表单的隐藏字段
-        const selectedFleetNumbers = Array.from(checkedBoxes).map(cb => cb.value).filter(v => v);
-        document.getElementById('batch-verify-fleet-numbers').value = selectedFleetNumbers.join(',');
-        document.getElementById('batch-rollback-fleet-numbers').value = selectedFleetNumbers.join(',');
-    };
-
-    // 8. 全选核实行（已录入页面）
     window.selectAllVerifyRows = function () {
-        const verifyCheckboxes = document.querySelectorAll('.verify-row-select');
-        verifyCheckboxes.forEach(cb => {
-            cb.checked = true;
-        });
+        document.querySelectorAll('.verify-row-select').forEach(cb => cb.checked = true);
         updateVerifySelectionCount();
     };
 
-    // 9. 取消全选核实行（已录入页面）
     window.deselectAllVerifyRows = function () {
-        const verifyCheckboxes = document.querySelectorAll('.verify-row-select');
-        verifyCheckboxes.forEach(cb => {
-            cb.checked = false;
-        });
+        document.querySelectorAll('.verify-row-select').forEach(cb => cb.checked = false);
         updateVerifySelectionCount();
     };
 
-    // 10. 验证批量核实的选择（已录入页面）
     window.validateBatchVerifySelection = function () {
         const checkedCount = document.querySelectorAll('.verify-row-select:checked').length;
         if (checkedCount === 0) {
@@ -938,173 +1008,121 @@ document.addEventListener('DOMContentLoaded', function () {
         return true;
     };
 
-    // 11. 验证批量退回的选择（已录入页面）
     window.validateBatchRollbackSelection = function () {
         const checkedCount = document.querySelectorAll('.verify-row-select:checked').length;
         if (checkedCount === 0) {
             alert('请至少选择一条记录进行批量退回操作！');
             return false;
         }
-        if (!confirm(`确认将选中的 ${checkedCount} 条记录退回未录入状态？`)) {
-            return false;
-        }
-        return true;
+        return confirm(`确认将选中的 ${checkedCount} 条记录退回未录入状态？`);
     };
 
-    // ==================== 核心功能：一提多卸绑定/解绑 ====================
-    // 12. 绑定一提多卸
     window.bindMultiUnload = function () {
         const checkedBoxes = document.querySelectorAll('.row-select:checked');
         if (checkedBoxes.length === 0) {
             alert('请至少选择一条记录进行一提多卸绑定！');
             return;
         }
-
-        // 收集选中的车次号
-        const selectedFleetNumbers = Array.from(checkedBoxes).map(cb => cb.value).filter(v => v);
-        document.getElementById('bind-fleet-numbers').value = selectedFleetNumbers.join(',');
-
-        // 提交绑定表单
+        const selectedFleets = Array.from(checkedBoxes).map(cb => cb.value).filter(v => v);
+        document.getElementById('bind-fleet-numbers').value = selectedFleets.join(',');
         if (confirm(`确认将选中的 ${checkedBoxes.length} 条记录绑定为一提多卸？`)) {
             showLoadingBar();
             document.getElementById('bind-multi-unload-form').submit();
         }
     };
 
-    // 13. 解绑一提多卸
     window.unbindMultiUnload = function () {
         const checkedBoxes = document.querySelectorAll('.row-select:checked');
         if (checkedBoxes.length === 0) {
             alert('请至少选择一条记录进行一提多卸解绑！');
             return;
         }
-
-        // 收集选中的车次号
-        const selectedFleetNumbers = Array.from(checkedBoxes).map(cb => cb.value).filter(v => v);
-        document.getElementById('unbind-fleet-numbers').value = selectedFleetNumbers.join(',');
-
-        // 提交通绑表单
+        const selectedFleets = Array.from(checkedBoxes).map(cb => cb.value).filter(v => v);
+        document.getElementById('unbind-fleet-numbers').value = selectedFleets.join(',');
         if (confirm(`确认将选中的 ${checkedBoxes.length} 条记录解绑一提多卸？`)) {
             showLoadingBar();
             document.getElementById('unbind-multi-unload-form').submit();
         }
     };
 
-    // ==================== 核心功能：批量提交价格 ====================
-    // 14. 批量提交各行价格
     window.submitBatchPrices = function () {
         const checkedBoxes = document.querySelectorAll('.row-select:checked');
         if (checkedBoxes.length === 0) {
             alert('请至少选择一条记录进行批量提交！');
             return;
         }
-
-        // 收集选中行的价格数据
-        const batchPricesData = [];
+        const batchData = [];
+        let hasError = false;
         checkedBoxes.forEach(cb => {
             const row = cb.closest('.data-row');
-            const fleetNumber = cb.value;
+            const fleetNum = cb.value;
             const costInput = row.querySelector('input[name="fleet_cost"]');
-            const costValue = parseFloat(costInput.value) || 0;
-
-            if (costValue <= 0) {
-                alert(`车次 ${fleetNumber} 的价格不能为空且必须大于0！`);
+            const cost = parseFloat(costInput.value) || 0;
+            if (cost <= 0) {
+                alert(`车次 ${fleetNum} 的价格不能为空且必须大于0！`);
+                hasError = true;
                 return;
             }
-
-            batchPricesData.push({
-                fleet_number: fleetNumber,
-                fleet_cost: costValue
-            });
+            batchData.push({ fleet_number: fleetNum, fleet_cost: cost });
         });
-
-        if (batchPricesData.length === 0) return;
-
-        // 赋值给隐藏字段并提交表单
-        document.getElementById('batch-prices-data').value = JSON.stringify(batchPricesData);
-        if (confirm(`确认批量提交选中的 ${batchPricesData.length} 条记录的价格？`)) {
+        if (hasError || batchData.length === 0) return;
+        document.getElementById('batch-prices-data').value = JSON.stringify(batchData);
+        if (confirm(`确认批量提交选中的 ${batchData.length} 条记录的价格？`)) {
             showLoadingBar();
             document.getElementById('batch-prices-form').submit();
         }
     };
 
-    // ==================== 通用功能：加载动画 + 模板下载 + 表格筛选 ====================
-    // 15. 显示加载动画
     window.showLoadingBar = function () {
         const loadingBar = document.getElementById('loading-bar');
-        if (loadingBar) {
-            loadingBar.style.display = 'block';
-        }
+        if (loadingBar) loadingBar.style.display = 'block';
     };
 
-    // 16. 隐藏加载动画（新增通用函数）
     window.hideLoadingBar = function () {
         const loadingBar = document.getElementById('loading-bar');
-        if (loadingBar) {
-            loadingBar.style.display = 'none';
-        }
+        if (loadingBar) loadingBar.style.display = 'none';
     };
 
-    // 17. 处理模板下载（添加加载提示）
     window.handleTemplateDownload = function () {
         showLoadingBar();
-        // 下载请求发送后，延迟隐藏加载（避免闪屏）
-        setTimeout(() => {
-            hideLoadingBar();
-        }, 2000);
+        setTimeout(hideLoadingBar, 2000);
     };
 
-    // 18. 处理表格下载（新增函数，修复转圈问题）
     window.handleTableDownload = function () {
         showLoadingBar();
-        // 下载完成后自动隐藏加载动画（3秒延迟，适配不同网络速度）
-        setTimeout(() => {
-            hideLoadingBar();
-        }, 3000);
+        setTimeout(hideLoadingBar, 3000);
     };
 
-    // 19. 表格筛选功能（根据输入框过滤行）
-    const filterInputs = document.querySelectorAll('.filter-input');
-    filterInputs.forEach(input => {
+    // 表格筛选功能
+    document.querySelectorAll('.filter-input').forEach(input => {
         input.addEventListener('input', function () {
             const filterValue = this.value.toLowerCase().trim();
             const colName = this.getAttribute('data-col');
             const rows = document.querySelectorAll('.data-row');
-
+            let hasVisibleRows = false;
             rows.forEach(row => {
                 const cell = row.querySelector(`td[data-col="${colName}"]`);
                 if (cell) {
                     const cellText = cell.textContent.toLowerCase().trim();
-                    if (cellText.includes(filterValue)) {
-                        row.style.display = '';
-                    } else {
-                        row.style.display = 'none';
-                    }
+                    const isVisible = cellText.includes(filterValue);
+                    row.style.display = isVisible ? '' : 'none';
+                    if (isVisible) hasVisibleRows = true;
                 }
             });
-
-            // 检查是否有可见行，显示/隐藏空行提示
-            const visibleRows = document.querySelectorAll('.data-row:not([style*="display: none"])');
             const emptyRow = document.querySelector('.empty-row');
-            if (emptyRow) {
-                emptyRow.style.display = visibleRows.length === 0 ? '' : 'none';
-            }
+            if (emptyRow) emptyRow.style.display = hasVisibleRows ? 'none' : '';
         });
     });
 
-    // ==================== 增强：页面加载完成后自动隐藏加载动画 ====================
-    // 监听页面加载完成事件，确保任何情况下加载动画都会关闭
-    window.addEventListener('load', function() {
-        hideLoadingBar();
-    });
-
-    // ==================== 初始化 ====================
-    // 初始化选中数量显示
+    // 初始化
     updateSelectionCount();
     updateVerifySelectionCount();
-
-    // 初始化加载栏隐藏
     hideLoadingBar();
+    window.addEventListener('load', hideLoadingBar);
+
+    // 调试：初始化完成后打印所有一提多卸分组的复选框
+    console.log('=== 所有未录入页面一提多卸复选框 ===', document.querySelectorAll('.row-select[data-multi-unload-group]'));
+    console.log('=== 所有已录入页面一提多卸复选框 ===', document.querySelectorAll('.verify-row-select[data-multi-unload-group]'));
 });
 </script>
 {% endblock %}

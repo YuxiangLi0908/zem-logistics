@@ -1837,19 +1837,19 @@ class FleetManagement(View):
         )
 
         # 初始化查询条件
-        criteria = models.Q(
+        criteria = Q(
             arrived_at__isnull=False,
             shipped_at__gte=tz_2026_01_01,
             shipment_schduled_at__gte=tz_2026_01_01,
-            fleet_number__fleet_type__in=['LTL','客户自提']
+            fleet_number__fleet_type__in=['LTL', '客户自提']
         )
 
         # 已录入/未录入筛选
         if status != "record":
-            criteria &= models.Q(fleet_number__fleet_cost__isnull=False)
+            criteria &= Q(fleet_number__fleet_cost__isnull=False)
             shipment_type = '已录入内容'
         else:
-            criteria &= models.Q(fleet_number__fleet_cost__isnull=True)
+            criteria &= Q(fleet_number__fleet_cost__isnull=True)
             shipment_type = '未录入内容'
 
         # 提柜时间过滤逻辑（保留原有）
@@ -1866,14 +1866,14 @@ class FleetManagement(View):
                 end_datetime = timezone.make_aware(naive_end, timezone.get_current_timezone())
 
             # 过滤Order
-            order_filter = models.Q()
+            order_filter = Q()
             if start_datetime:
                 # 正确关联路径：Order→Container→Pallet→ShipmentBatchNumber→Shipment
-                order_filter &= models.Q(
+                order_filter &= Q(
                     container_number__pallet__shipment_batch_number__shipped_at__gte=start_datetime
                 )
             if end_datetime:
-                order_filter &= models.Q(
+                order_filter &= Q(
                     container_number__pallet__shipment_batch_number__shipped_at__lte=end_datetime
                 )
 
@@ -1905,9 +1905,9 @@ class FleetManagement(View):
             # 强制筛选
             if start_time or end_time:
                 if shipment_ids:
-                    criteria &= models.Q(id__in=shipment_ids)
+                    criteria &= Q(id__in=shipment_ids)
                 else:
-                    criteria &= models.Q(id__in=[])
+                    criteria &= Q(id__in=[])
 
         shipment = await sync_to_async(list)(
             Shipment.objects
@@ -1949,7 +1949,66 @@ class FleetManagement(View):
         # 获取车次总板数字典
         fleet_total_pallets = await get_fleet_total_pallets()
 
-        # 处理数据：核心修改 - 修复字典取值错误，按柜号+唛头分组并包含location字段
+        # ========== 修复：一提多卸分组和总成本计算（核心修改） ==========
+        @sync_to_async
+        def get_multi_unload_groups():
+            """获取一提多卸分组及总成本（修复格式：车次号→同组车次列表）"""
+            # 步骤1：查询所有包含一提多卸标识的记录（train_related不为空）
+            multi_unload_records = Shipment.objects.filter(
+                fleet_number__train_related__isnull=False,  # 不为空即为一提多卸
+                fleet_number__fleet_type__in=['LTL', '客户自提']
+            ).select_related('fleet_number')
+
+            # 步骤2：按 train_related 分组（相同字符串为同一组）
+            group_map = {}  # group_id → {total_cost, fleet_numbers}
+            for record in multi_unload_records:
+                group_id = record.fleet_number.train_related
+                fleet_number = record.fleet_number.fleet_number
+                if group_id not in group_map:
+                    group_map[group_id] = {
+                        'total_cost': 0,
+                        'fleet_numbers': []
+                    }
+                group_map[group_id]['total_cost'] += record.fleet_number.fleet_cost or 0
+                if fleet_number not in group_map[group_id]['fleet_numbers']:
+                    group_map[group_id]['fleet_numbers'].append(fleet_number)
+
+            # 步骤3：构建前端需要的映射格式（车次号→同组所有车次号）
+            fleet_to_group_map = {}  # 原有的车次→分组信息映射
+            multi_unload_map = {}  # 新增：车次号→同组车次列表（前端用）
+            for group_id, group_info in group_map.items():
+                fleet_numbers = group_info['fleet_numbers']
+                total_cost = group_info['total_cost']
+                # 为每个车次绑定同组所有车次
+                for fleet_num in fleet_numbers:
+                    multi_unload_map[fleet_num] = fleet_numbers  # 核心修改：直接赋值同组列表
+                    fleet_to_group_map[fleet_num] = {
+                        'group_id': group_id,
+                        'total_cost': total_cost,
+                        'member_ids': [
+                            s.id for s in multi_unload_records
+                            if s.fleet_number.fleet_number in fleet_numbers
+                        ]
+                    }
+
+            return {
+                'group_map': group_map,  # 保留原有分组信息
+                'fleet_map': fleet_to_group_map,  # 保留原有车次→分组信息
+                'multi_unload_map': multi_unload_map  # 新增：前端联动勾选用的映射
+            }
+
+        # 调用函数并获取正确格式的 multi_unload_map
+        multi_unload_data = await get_multi_unload_groups()
+        # 替换原有赋值（关键！）
+        multi_unload_map = multi_unload_data['multi_unload_map']  # 前端用的车次→同组列表
+        fleet_to_group_map = multi_unload_data['fleet_map']  # 原有车次→分组信息
+
+        # 获取一提多卸分组信息
+        multi_unload_data = await get_multi_unload_groups()
+        multi_unload_map = multi_unload_data['group_map']
+        fleet_to_group_map = multi_unload_data['fleet_map']
+
+        # 处理数据：核心修改 - 修复一提多卸信息挂载
         async def process_shipment_data(shipment_list):
             processed = []
             for s in shipment_list:
@@ -2074,6 +2133,32 @@ class FleetManagement(View):
                     else:
                         shipment_copy.allocation_price = 0  # 无成本或无板数时默认0
 
+                    # ========== 修复：挂载一提多卸相关信息（核心修改） ==========
+                    # 判断是否属于一提多卸（train_related不为空/空字符串）
+                    is_multi_unload = False
+                    multi_unload_total_cost = 0
+                    multi_unload_group_id = ""
+                    multi_unload_member_ids = []
+
+                    if s.fleet_number and s.fleet_number.train_related:
+                        train_related = s.fleet_number.train_related
+                        # 非空且非空字符串即为一提多卸
+                        if train_related is not None and train_related != '':
+                            is_multi_unload = True
+                            # 从映射中获取分组总成本
+                            fleet_num = s.fleet_number.fleet_number
+                            if fleet_num in fleet_to_group_map:
+                                group_info = fleet_to_group_map[fleet_num]
+                                multi_unload_total_cost = group_info['total_cost']
+                                multi_unload_group_id = group_info['group_id']
+                                multi_unload_member_ids = group_info['member_ids']
+
+                    # 挂载到对象
+                    shipment_copy.is_multi_unload = is_multi_unload
+                    shipment_copy.multi_unload_total_cost = multi_unload_total_cost
+                    shipment_copy.multi_unload_group_id = multi_unload_group_id
+                    shipment_copy.multi_unload_member_ids = multi_unload_member_ids
+
                     processed.append(shipment_copy)
 
                 # 兼容没有pallet的情况
@@ -2096,6 +2181,17 @@ class FleetManagement(View):
                     # ========== 新增：空条目分摊价格默认0 ==========
                     shipment_copy.allocation_price = 0
 
+                    # ========== 修复：空条目一提多卸信息 ==========
+                    is_multi_unload = False
+                    if s.fleet_number and s.fleet_number.train_related:
+                        if s.fleet_number.train_related is not None and s.fleet_number.train_related != '':
+                            is_multi_unload = True
+
+                    shipment_copy.is_multi_unload = is_multi_unload
+                    shipment_copy.multi_unload_total_cost = 0
+                    shipment_copy.multi_unload_group_id = ""
+                    shipment_copy.multi_unload_member_ids = []
+
                     processed.append(shipment_copy)
 
             return processed
@@ -2113,6 +2209,9 @@ class FleetManagement(View):
             "warehouse_options": self.warehouse_options,
             "error_messages": error_messages or [],
             "success_count": success_count,
+            # 新增：传递一提多卸分组数据到前端
+            "multi_unload_map": multi_unload_map,
+            "fleet_to_group_map": fleet_to_group_map,  # 新增：车次号→分组映射
         }
         return self.template_fleet_cost_record_ltl, context
 
