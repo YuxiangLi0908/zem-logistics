@@ -1073,6 +1073,14 @@ class ReceivableAccounting(View):
             item_category="activation_fee",
         ).aggregate(total=models.Sum('amount'))['total'] or 0
         total_amount += float(activation_items_total)
+
+        combina_extra_items_total = InvoiceItemv2.objects.filter(
+            invoice_number=invoice,
+            container_number=container,
+            invoice_type="receivable",
+            item_category="combina_extra_fee",
+        ).aggregate(total=models.Sum('amount'))['total'] or 0
+        total_amount += float(combina_extra_items_total)
         
         # 更新发票
         invoice.receivable_total_amount = total_amount
