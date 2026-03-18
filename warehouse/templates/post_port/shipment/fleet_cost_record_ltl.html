@@ -1,70 +1,74 @@
 {% extends 'base.html' %}
 {% block content %}
-<div style="max-width: 98%; margin: 0 auto; padding: 15px;">
-    {% if error_messages %}
-    <div id="error-alert" class="alert alert-danger" style="margin-bottom: 15px; max-height: 800px; overflow-y: auto;">
-        <button type="button" class="close" onclick="document.getElementById('error-alert').style.display='none'" style="float: right; background: none; border: none; font-size: 20px; cursor: pointer;">×</button>
-        <h4 style="margin-top: 0; color: #a94442;">
-            <i class="bi bi-exclamation-triangle"></i> 批量操作结果
-        </h4>
-        {% if success_count > 0 %}
-        <div class="alert alert-success" style="margin-bottom: 10px;">
-            <strong>成功:</strong> {{ success_count }} 条记录已更新
-        </div>
-        {% endif %}
-        <strong>错误信息 ({{ error_messages|length }} 条):</strong>
-        <ul style="margin-bottom: 0;">
-            {% for error in error_messages %}
-            <li>{{ error }}</li>
-            {% endfor %}
-        </ul>
-    </div>
-    {% endif %}
-
-    <div class="search-card"
-         style="background: white; border-radius: 8px; padding: 15px; margin-bottom: 15px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-        <form method="post" action="">
-            {% csrf_token %}
-            <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
-                <div style="display: flex; align-items: center; gap: 8px; white-space: nowrap;">
-                    <label class="filter-label" style="margin:0; font-size:14px;"><b>出库时间</b></label>
-                    <input type="date" name="start_time" value="{{ start_time }}" class="form-input"
-                           style="width: 180px; padding:6px; flex: none; font-size:14px;">
-                    <span style="color:#666;">~</span>
-                    <input type="date" name="end_time" value="{{ end_time }}" class="form-input"
-                           style="width: 180px; padding:6px; flex: none; font-size:14px;">
-                </div>
-
-                <div style="display: flex; gap: 6px; margin-left: auto;">
-                    <button type="submit" name="status" value="record" class="search-btn"
-                            style="background: #1890ff; color: white; border: none; padding: 8px 14px; font-size:14px; border-radius: 4px; cursor: pointer;">
-                        未录查询
-                    </button>
-                    <button type="submit" name="status" value="unrecord" class="search-btn"
-                            style="background: #28a745; color: white; border: none; padding: 8px 14px; font-size:14px; border-radius: 4px; cursor: pointer;">
-                        已录查询
-                    </button>
-                </div>
+    <div style="max-width: 98%; margin: 0 auto; padding: 15px;">
+        {% if error_messages %}
+            <div id="error-alert" class="alert alert-danger"
+                 style="margin-bottom: 15px; max-height: 800px; overflow-y: auto;">
+                <button type="button" class="close"
+                        onclick="document.getElementById('error-alert').style.display='none'"
+                        style="float: right; background: none; border: none; font-size: 20px; cursor: pointer;">×
+                </button>
+                <h4 style="margin-top: 0; color: #a94442;">
+                    <i class="bi bi-exclamation-triangle"></i> 批量操作结果
+                </h4>
+                {% if success_count > 0 %}
+                    <div class="alert alert-success" style="margin-bottom: 10px;">
+                        <strong>成功:</strong> {{ success_count }} 条记录已更新
+                    </div>
+                {% endif %}
+                <strong>错误信息 ({{ error_messages|length }} 条):</strong>
+                <ul style="margin-bottom: 0;">
+                    {% for error in error_messages %}
+                        <li>{{ error }}</li>
+                    {% endfor %}
+                </ul>
             </div>
-            <input type="hidden" name="step" value="fleet_cost_record_ltl">
-        </form>
-    </div>
+        {% endif %}
 
-    <div id="loading-bar">
-        <div class="spinner"></div>
-        <p>Loading, please wait...</p>
-    </div>
+        <div class="search-card"
+             style="background: white; border-radius: 8px; padding: 15px; margin-bottom: 15px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+            <form method="post" action="">
+                {% csrf_token %}
+                <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                    <div style="display: flex; align-items: center; gap: 8px; white-space: nowrap;">
+                        <label class="filter-label" style="margin:0; font-size:14px;"><b>出库时间</b></label>
+                        <input type="date" name="start_time" value="{{ start_time }}" class="form-input"
+                               style="width: 180px; padding:6px; flex: none; font-size:14px;">
+                        <span style="color:#666;">~</span>
+                        <input type="date" name="end_time" value="{{ end_time }}" class="form-input"
+                               style="width: 180px; padding:6px; flex: none; font-size:14px;">
+                    </div>
 
-    <div style="background: white; border-radius: 8px; padding: 15px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-        <div style="display: flex; justify-content: space-between; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
-            <h3 style="margin: 0; font-size: 18px;">
-                <i class="bi bi-list-check" style="font-size: 20px; color: #ff4d4f;"></i>
-                <span style="font-size: 22px; font-weight: 700;
+                    <div style="display: flex; gap: 6px; margin-left: auto;">
+                        <button type="submit" name="status" value="record" class="search-btn"
+                                style="background: #1890ff; color: white; border: none; padding: 8px 14px; font-size:14px; border-radius: 4px; cursor: pointer;">
+                            未录查询
+                        </button>
+                        <button type="submit" name="status" value="unrecord" class="search-btn"
+                                style="background: #28a745; color: white; border: none; padding: 8px 14px; font-size:14px; border-radius: 4px; cursor: pointer;">
+                            已录查询
+                        </button>
+                    </div>
+                </div>
+                <input type="hidden" name="step" value="fleet_cost_record_ltl">
+            </form>
+        </div>
+
+        <div id="loading-bar">
+            <div class="spinner"></div>
+            <p>Loading, please wait...</p>
+        </div>
+
+        <div style="background: white; border-radius: 8px; padding: 15px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
+                <h3 style="margin: 0; font-size: 18px;">
+                    <i class="bi bi-list-check" style="font-size: 20px; color: #ff4d4f;"></i>
+                    <span style="font-size: 22px; font-weight: 700;
                         text-shadow: 1px 1px 0 #fff, 2px 2px 0 rgba(255,77,79,0.3);
                         color: #ff4d4f;">
                     派送成本录入-{{ shipment_type }}
                 </span>
-                <span class="badge" style="
+                    <span class="badge" style="
                     display: inline-block;
                     padding: 4px 10px;
                     background-color: #1890ff;
@@ -74,168 +78,169 @@
                     font-weight: 500;
                     margin-left: 8px;
                 ">{{ fleet|length }}条</span>
-            </h3>
+                </h3>
 
-            <div style="display: flex; flex-direction: column; gap: 10px; align-items: flex-end; min-width: 300px;">
-                {% if shipment_type == '未录入内容' %}
-                    <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap; width: 100%; background: #f8f9fa; padding: 10px; border-radius: 6px; justify-content: flex-end;">
-                        <form method="post" enctype="multipart/form-data"
-                              style="font-size:14px; display: inline-flex; align-items: center;">
-                            {% csrf_token %}
-                            <!-- 隐藏文件输入框 -->
-                            <input type="file" name="ltl_file" id="ltl-file-input"
-                                   style="position: absolute; left: -9999px; top: -9999px;"
-                                   onchange="if(this.files.length>0) { this.form.submit(); showLoadingBar(); }">
-                            <input type="hidden" name="step" value="upload_ltl_cost">
-                            <input type="hidden" name="status" value="record">
-                            <input type="hidden" name="start_time" value="{{ start_time }}">
-                            <input type="hidden" name="end_time" value="{{ end_time }}">
-                            <input type="hidden" name="area" value="{{ area }}">
-                            <!-- 按钮仅文字可点击 -->
-                            <button type="button" class="btn btn-warning"
-                                    style="height: 36px; font-size: 14px; border: none; border-radius: 4px; background: #ffc107; color: #212529; cursor: pointer;"
-                                    onclick="document.getElementById('ltl-file-input').click();">
-                                LTL批量上传成本
-                            </button>
-                            <small style="color: #666; margin-left: 5px;">（按LTL模板格式上传）</small>
-                        </form>
+                <div style="display: flex; flex-direction: column; gap: 10px; align-items: flex-end; min-width: 300px;">
+                    {% if shipment_type == '未录入内容' %}
+                        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap; width: 100%; background: #f8f9fa; padding: 10px; border-radius: 6px; justify-content: flex-end;">
+                            <form method="post" enctype="multipart/form-data"
+                                  style="font-size:14px; display: inline-flex; align-items: center;">
+                                {% csrf_token %}
+                                <!-- 隐藏文件输入框 -->
+                                <input type="file" name="ltl_file" id="ltl-file-input"
+                                       style="position: absolute; left: -9999px; top: -9999px;"
+                                       onchange="if(this.files.length>0) { this.form.submit(); showLoadingBar(); }">
+                                <input type="hidden" name="step" value="upload_ltl_cost">
+                                <input type="hidden" name="status" value="record">
+                                <input type="hidden" name="start_time" value="{{ start_time }}">
+                                <input type="hidden" name="end_time" value="{{ end_time }}">
+                                <input type="hidden" name="area" value="{{ area }}">
+                                <!-- 按钮仅文字可点击 -->
+                                <button type="button" class="btn btn-warning"
+                                        style="height: 36px; font-size: 14px; border: none; border-radius: 4px; background: #ffc107; color: #212529; cursor: pointer;"
+                                        onclick="document.getElementById('ltl-file-input').click();">
+                                    LTL批量上传成本
+                                </button>
+                                <small style="color: #666; margin-left: 5px;">（按LTL模板格式上传）</small>
+                            </form>
 
-                        <form method="post" enctype="multipart/form-data"
-                              style="font-size:14px; display: inline-flex; align-items: center; margin-left: 20px;">
-                            {% csrf_token %}
-                            <input type="hidden" name="step" value="download_ltl_cost_template">
-                            <input type="hidden" name="status" value="record">
-                            <button type="submit" class="btn btn-info"
+                            <form method="post" enctype="multipart/form-data"
+                                  style="font-size:14px; display: inline-flex; align-items: center; margin-left: 20px;">
+                                {% csrf_token %}
+                                <input type="hidden" name="step" value="download_ltl_cost_template">
+                                <input type="hidden" name="status" value="record">
+                                <button type="submit" class="btn btn-info"
+                                        style="height: 36px; font-size: 14px; border: none; border-radius: 4px; background: #17a2b8; color: white; cursor: pointer;"
+                                        onclick="handleTemplateDownload()">
+                                    下载LTL模版
+                                </button>
+                            </form>
+
+                            <!-- 原有批量分摊成本表单 -->
+                            <form method="post" id="batch-cost-form"
+                                  style="font-size:14px; display: inline-flex; align-items: center; width: auto; gap: 8px; margin-right: 10px;">
+                                {% csrf_token %}
+                                <label style="font-weight: 600; color: #333; white-space: nowrap;">批量分摊成本：</label>
+                                <input type="number" step="0.01" name="total_batch_cost" placeholder="请输入总成本总值"
+                                       style="width: 180px; font-size: 14px; padding: 6px; border: 1px solid #ddd; border-radius: 4px;"
+                                       required>
+                                <input type="hidden" name="selected_fleet_numbers" id="selected-fleet-numbers">
+                                <input type="hidden" name="status" value="record">
+                                <input type="hidden" name="start_time" value="{{ start_time }}">
+                                <input type="hidden" name="end_time" value="{{ end_time }}">
+                                <input type="hidden" name="step" value="batch_allocate_ltl_cost">
+                                <input type="hidden" name="area" value="{{ area }}">
+                                <button type="submit" class="btn btn-primary"
+                                        style="height: 36px; font-size: 14px; border: none; border-radius: 4px; background: #007bff; color: white; cursor: pointer;"
+                                        onclick="return validateBatchSelection()">
+                                    确认分摊
+                                </button>
+                                <button type="button" class="btn btn-secondary"
+                                        style="height: 36px; font-size: 14px; border: none; border-radius: 4px; background: #6c757d; color: white; cursor: pointer;"
+                                        onclick="selectAllRows()">
+                                    全选
+                                </button>
+                                <button type="button" class="btn btn-secondary"
+                                        style="height: 36px; font-size: 14px; border: none; border-radius: 4px; background: #6c757d; color: white; cursor: pointer;"
+                                        onclick="deselectAllRows()">
+                                    取消全选
+                                </button>
+                                <span id="selection-count" style="color: #666; font-size:13px;">已选：0 条</span>
+                            </form>
+
+                            <!-- 批量提交价格按钮（独立显示） -->
+                            <button type="button" class="btn btn-info"
                                     style="height: 36px; font-size: 14px; border: none; border-radius: 4px; background: #17a2b8; color: white; cursor: pointer;"
-                                    onclick="handleTemplateDownload()">
-                                下载LTL模版
+                                    onclick="submitBatchPrices()">
+                                批量提交各行价格
                             </button>
-                        </form>
 
-                        <!-- 原有批量分摊成本表单 -->
-                        <form method="post" id="batch-cost-form"
-                              style="font-size:14px; display: inline-flex; align-items: center; width: auto; gap: 8px; margin-right: 10px;">
-                            {% csrf_token %}
-                            <label style="font-weight: 600; color: #333; white-space: nowrap;">批量分摊成本：</label>
-                            <input type="number" step="0.01" name="total_batch_cost" placeholder="请输入总成本总值"
-                                   style="width: 180px; font-size: 14px; padding: 6px; border: 1px solid #ddd; border-radius: 4px;"
-                                   required>
-                            <input type="hidden" name="selected_fleet_numbers" id="selected-fleet-numbers">
-                            <input type="hidden" name="status" value="record">
-                            <input type="hidden" name="start_time" value="{{ start_time }}">
-                            <input type="hidden" name="end_time" value="{{ end_time }}">
-                            <input type="hidden" name="step" value="batch_allocate_ltl_cost">
-                            <input type="hidden" name="area" value="{{ area }}">
-                            <button type="submit" class="btn btn-primary"
-                                    style="height: 36px; font-size: 14px; border: none; border-radius: 4px; background: #007bff; color: white; cursor: pointer;"
-                                    onclick="return validateBatchSelection()">
-                                确认分摊
+                            <!-- 一提多卸绑定按钮 -->
+                            <button type="button" class="btn btn-warning"
+                                    style="height: 36px; font-size: 14px; border: none; border-radius: 4px; background: #ffc107; color: #212529; cursor: pointer; margin-left: 10px;"
+                                    onclick="bindMultiUnload()">
+                                绑定一提多卸
                             </button>
+
+                            <!-- 解绑一提多卸按钮 -->
                             <button type="button" class="btn btn-secondary"
-                                    style="height: 36px; font-size: 14px; border: none; border-radius: 4px; background: #6c757d; color: white; cursor: pointer;"
-                                    onclick="selectAllRows()">
-                                全选
+                                    style="height: 36px; font-size: 14px; border: none; border-radius: 4px; background: #6c757d; color: white; cursor: pointer; margin-left: 10px;"
+                                    onclick="unbindMultiUnload()">
+                                解绑一提多卸
                             </button>
-                            <button type="button" class="btn btn-secondary"
-                                    style="height: 36px; font-size: 14px; border: none; border-radius: 4px; background: #6c757d; color: white; cursor: pointer;"
-                                    onclick="deselectAllRows()">
-                                取消全选
-                            </button>
-                            <span id="selection-count" style="color: #666; font-size:13px;">已选：0 条</span>
-                        </form>
 
-                        <!-- 批量提交价格按钮（独立显示） -->
-                        <button type="button" class="btn btn-info"
-                                style="height: 36px; font-size: 14px; border: none; border-radius: 4px; background: #17a2b8; color: white; cursor: pointer;"
-                                onclick="submitBatchPrices()">
-                            批量提交各行价格
-                        </button>
+                            <!-- 绑定一提多卸隐藏表单 -->
+                            <form method="post" id="bind-multi-unload-form"
+                                  style="position: absolute; left: -9999px; top: -9999px;">
+                                {% csrf_token %}
+                                <input type="hidden" name="step" value="bind_multi_unload">
+                                <input type="hidden" name="status" value="record">
+                                <input type="hidden" name="selected_fleet_numbers" id="bind-fleet-numbers">
+                                <input type="hidden" name="start_time" value="{{ start_time }}">
+                                <input type="hidden" name="end_time" value="{{ end_time }}">
+                                <input type="hidden" name="area" value="{{ area }}">
+                            </form>
 
-                        <!-- 一提多卸绑定按钮 -->
-                        <button type="button" class="btn btn-warning"
-                                style="height: 36px; font-size: 14px; border: none; border-radius: 4px; background: #ffc107; color: #212529; cursor: pointer; margin-left: 10px;"
-                                onclick="bindMultiUnload()">
-                            绑定一提多卸
-                        </button>
+                            <!-- 解绑一提多卸隐藏表单 -->
+                            <form method="post" id="unbind-multi-unload-form"
+                                  style="position: absolute; left: -9999px; top: -9999px;">
+                                {% csrf_token %}
+                                <input type="hidden" name="step" value="unbind_multi_unload">
+                                <input type="hidden" name="status" value="record">
+                                <input type="hidden" name="selected_fleet_numbers" id="unbind-fleet-numbers">
+                                <input type="hidden" name="start_time" value="{{ start_time }}">
+                                <input type="hidden" name="end_time" value="{{ end_time }}">
+                                <input type="hidden" name="area" value="{{ area }}">
+                            </form>
 
-                        <!-- 解绑一提多卸按钮 -->
-                        <button type="button" class="btn btn-secondary"
-                                style="height: 36px; font-size: 14px; border: none; border-radius: 4px; background: #6c757d; color: white; cursor: pointer; margin-left: 10px;"
-                                onclick="unbindMultiUnload()">
-                            解绑一提多卸
-                        </button>
+                            <!-- 隐藏的批量提交表单（仅承载参数） -->
+                            <form method="post" id="batch-prices-form"
+                                  style="position: absolute; left: -9999px; top: -9999px;">
+                                {% csrf_token %}
+                                <input type="hidden" name="step" value="batch_confirm_ltl_price">
+                                <input type="hidden" name="status" value="record">
+                                <input type="hidden" name="batch_prices_data" id="batch-prices-data">
+                                <input type="hidden" name="start_time" value="{{ start_time }}">
+                                <input type="hidden" name="end_time" value="{{ end_time }}">
+                                <input type="hidden" name="area" value="{{ area }}">
+                            </form>
+                        </div>
+                    {% endif %}
 
-                        <!-- 绑定一提多卸隐藏表单 -->
-                        <form method="post" id="bind-multi-unload-form"
-                              style="position: absolute; left: -9999px; top: -9999px;">
-                            {% csrf_token %}
-                            <input type="hidden" name="step" value="bind_multi_unload">
-                            <input type="hidden" name="status" value="record">
-                            <input type="hidden" name="selected_fleet_numbers" id="bind-fleet-numbers">
-                            <input type="hidden" name="start_time" value="{{ start_time }}">
-                            <input type="hidden" name="end_time" value="{{ end_time }}">
-                            <input type="hidden" name="area" value="{{ area }}">
-                        </form>
+                    {% if shipment_type == '已录入内容' %}
+                        <div style="display: flex; flex-direction: column; gap: 8px; width: 100%; background: #f8f9fa; padding: 10px; border-radius: 6px;">
+                            <!-- 新增：下载表格按钮 - 修复加载动画问题 -->
+                            <form method="post" id="download-table-form"
+                                  style="font-size:14px; display: inline-flex; align-items: center; width: auto; gap: 8px; margin: 0 0 10px 0; justify-content: flex-end;">
+                                {% csrf_token %}
+                                <input type="hidden" name="step" value="download_ltl_table">
+                                <input type="hidden" name="start_time" value="{{ start_time }}">
+                                <input type="hidden" name="end_time" value="{{ end_time }}">
+                                <input type="hidden" name="status" value="unrecord">  <!-- 标记已录入页面 -->
+                                <input type="hidden" name="area" value="{{ area }}">
+                                <button type="submit" class="btn btn-info"
+                                        style="height: 36px; font-size: 14px; border: none; border-radius: 4px; background: #17a2b8; color: white; cursor: pointer;"
+                                        onclick="handleTableDownload()">  <!-- 修改：调用新的处理函数 -->
+                                    <i class="bi bi-download"></i> 下载已录入数据表格
+                                </button>
+                            </form>
+                            <!-- 批量核实表单 -->
+                            <form method="post" id="batch-verify-form" action=""
+                                  style="font-size:14px; display: inline-flex; align-items: center; width: auto; gap: 8px; margin: 0; justify-content: flex-end;">
+                                {% csrf_token %}
+                                <label style="font-weight: 600; color: #333; white-space: nowrap;">批量核实操作：</label>
+                                <input type="hidden" name="status" value="unrecord">
+                                <input type="hidden" name="selected_fleet_numbers" id="batch-verify-fleet-numbers">
+                                <input type="hidden" name="verify_action" id="verify-action" value="verify">
+                                <input type="hidden" name="start_time" value="{{ start_time }}">
+                                <input type="hidden" name="end_time" value="{{ end_time }}">
+                                <input type="hidden" name="step" value="update_fleet_verify_status">
+                                <input type="hidden" name="area" value="{{ area }}">
 
-                        <!-- 解绑一提多卸隐藏表单 -->
-                        <form method="post" id="unbind-multi-unload-form"
-                              style="position: absolute; left: -9999px; top: -9999px;">
-                            {% csrf_token %}
-                            <input type="hidden" name="step" value="unbind_multi_unload">
-                            <input type="hidden" name="status" value="record">
-                            <input type="hidden" name="selected_fleet_numbers" id="unbind-fleet-numbers">
-                            <input type="hidden" name="start_time" value="{{ start_time }}">
-                            <input type="hidden" name="end_time" value="{{ end_time }}">
-                            <input type="hidden" name="area" value="{{ area }}">
-                        </form>
-
-                        <!-- 隐藏的批量提交表单（仅承载参数） -->
-                        <form method="post" id="batch-prices-form"
-                              style="position: absolute; left: -9999px; top: -9999px;">
-                            {% csrf_token %}
-                            <input type="hidden" name="step" value="batch_confirm_ltl_price">
-                            <input type="hidden" name="status" value="record">
-                            <input type="hidden" name="batch_prices_data" id="batch-prices-data">
-                            <input type="hidden" name="start_time" value="{{ start_time }}">
-                            <input type="hidden" name="end_time" value="{{ end_time }}">
-                            <input type="hidden" name="area" value="{{ area }}">
-                        </form>
-                    </div>
-                {% endif %}
-
-                {% if shipment_type == '已录入内容' %}
-                <div style="display: flex; flex-direction: column; gap: 8px; width: 100%; background: #f8f9fa; padding: 10px; border-radius: 6px;">
-                    <!-- 新增：下载表格按钮 - 修复加载动画问题 -->
-                    <form method="post" id="download-table-form"
-                          style="font-size:14px; display: inline-flex; align-items: center; width: auto; gap: 8px; margin: 0 0 10px 0; justify-content: flex-end;">
-                        {% csrf_token %}
-                        <input type="hidden" name="step" value="download_ltl_table">
-                        <input type="hidden" name="start_time" value="{{ start_time }}">
-                        <input type="hidden" name="end_time" value="{{ end_time }}">
-                        <input type="hidden" name="status" value="unrecord">  <!-- 标记已录入页面 -->
-                        <input type="hidden" name="area" value="{{ area }}">
-                        <button type="submit" class="btn btn-info"
-                                style="height: 36px; font-size: 14px; border: none; border-radius: 4px; background: #17a2b8; color: white; cursor: pointer;"
-                                onclick="handleTableDownload()">  <!-- 修改：调用新的处理函数 -->
-                            <i class="bi bi-download"></i> 下载已录入数据表格
-                        </button>
-                    </form>
-                    <!-- 批量核实表单 -->
-                    <form method="post" id="batch-verify-form" action="" style="font-size:14px; display: inline-flex; align-items: center; width: auto; gap: 8px; margin: 0; justify-content: flex-end;">
-                        {% csrf_token %}
-                        <label style="font-weight: 600; color: #333; white-space: nowrap;">批量核实操作：</label>
-                        <input type="hidden" name="status" value="unrecord">
-                        <input type="hidden" name="selected_fleet_numbers" id="batch-verify-fleet-numbers">
-                        <input type="hidden" name="verify_action" id="verify-action" value="verify">
-                        <input type="hidden" name="start_time" value="{{ start_time }}">
-                        <input type="hidden" name="end_time" value="{{ end_time }}">
-                        <input type="hidden" name="step" value="update_fleet_verify_status">
-                        <input type="hidden" name="area" value="{{ area }}">
-
-                        <!-- 修复后的批量确认核实按钮 -->
-                        <button type="submit" class="btn btn-primary"
-                                style="height: 36px; font-size: 14px; border: none; border-radius: 4px; background: #007bff; color: white; cursor: pointer;"
-                                onclick="
+                                <!-- 修复后的批量确认核实按钮 -->
+                                <button type="submit" class="btn btn-primary"
+                                        style="height: 36px; font-size: 14px; border: none; border-radius: 4px; background: #007bff; color: white; cursor: pointer;"
+                                        onclick="
                                     document.getElementById('verify-action').value='verify';
                                     updateVerifySelectionCount();
                                     if(!validateBatchVerifySelection()) {
@@ -244,13 +249,13 @@
                                         showLoadingBar();
                                     }
                                 ">
-                            批量确认核实
-                        </button>
+                                    批量确认核实
+                                </button>
 
-                        <!-- 修复后的批量取消核实按钮 -->
-                        <button type="submit" class="btn btn-warning"
-                                style="height: 36px; font-size: 14px; border: none; border-radius: 4px; background: #ffc107; color: #212529; cursor: pointer;"
-                                onclick="
+                                <!-- 修复后的批量取消核实按钮 -->
+                                <button type="submit" class="btn btn-warning"
+                                        style="height: 36px; font-size: 14px; border: none; border-radius: 4px; background: #ffc107; color: #212529; cursor: pointer;"
+                                        onclick="
                                     document.getElementById('verify-action').value='unverify';
                                     updateVerifySelectionCount();
                                     if(!validateBatchVerifySelection()) {
@@ -259,35 +264,38 @@
                                         showLoadingBar();
                                     }
                                 ">
-                            批量取消核实
-                        </button>
+                                    批量取消核实
+                                </button>
 
-                        <button type="button" class="btn btn-secondary" style="height: 36px; font-size: 14px; border: none; border-radius: 4px; background: #6c757d; color: white; cursor: pointer;"
-                                onclick="selectAllVerifyRows()">
-                            全选
-                        </button>
-                        <button type="button" class="btn btn-secondary" style="height: 36px; font-size: 14px; border: none; border-radius: 4px; background: #6c757d; color: white; cursor: pointer;"
-                                onclick="deselectAllVerifyRows()">
-                            取消全选
-                        </button>
-                        <span id="verify-selection-count" style="color: #666; font-size:13px;">已选：0 条</span>
-                    </form>
+                                <button type="button" class="btn btn-secondary"
+                                        style="height: 36px; font-size: 14px; border: none; border-radius: 4px; background: #6c757d; color: white; cursor: pointer;"
+                                        onclick="selectAllVerifyRows()">
+                                    全选
+                                </button>
+                                <button type="button" class="btn btn-secondary"
+                                        style="height: 36px; font-size: 14px; border: none; border-radius: 4px; background: #6c757d; color: white; cursor: pointer;"
+                                        onclick="deselectAllVerifyRows()">
+                                    取消全选
+                                </button>
+                                <span id="verify-selection-count" style="color: #666; font-size:13px;">已选：0 条</span>
+                            </form>
 
-                    <!-- 新增：批量退回未录入表单 -->
-                    <form method="post" id="batch-rollback-form" action="" style="font-size:14px; display: inline-flex; align-items: center; width: auto; gap: 8px; margin: 0; justify-content: flex-end;">
-                        {% csrf_token %}
-                        <label style="font-weight: 600; color: #333; white-space: nowrap;">批量退回操作：</label>
-                        <input type="hidden" name="status" value="unrecord">
-                        <input type="hidden" name="selected_fleet_numbers" id="batch-rollback-fleet-numbers">
-                        <input type="hidden" name="start_time" value="{{ start_time }}">
-                        <input type="hidden" name="end_time" value="{{ end_time }}">
-                        <input type="hidden" name="step" value="rollback_fleet_status">
-                        <input type="hidden" name="area" value="{{ area }}">
+                            <!-- 新增：批量退回未录入表单 -->
+                            <form method="post" id="batch-rollback-form" action=""
+                                  style="font-size:14px; display: inline-flex; align-items: center; width: auto; gap: 8px; margin: 0; justify-content: flex-end;">
+                                {% csrf_token %}
+                                <label style="font-weight: 600; color: #333; white-space: nowrap;">批量退回操作：</label>
+                                <input type="hidden" name="status" value="unrecord">
+                                <input type="hidden" name="selected_fleet_numbers" id="batch-rollback-fleet-numbers">
+                                <input type="hidden" name="start_time" value="{{ start_time }}">
+                                <input type="hidden" name="end_time" value="{{ end_time }}">
+                                <input type="hidden" name="step" value="rollback_fleet_status">
+                                <input type="hidden" name="area" value="{{ area }}">
 
-                        <!-- 修复后的批量退回按钮 -->
-                        <button type="submit" class="btn btn-danger"
-                                style="height: 36px; font-size: 14px; border: none; border-radius: 4px; background: #dc3545; color: white; cursor: pointer;"
-                                onclick="
+                                <!-- 修复后的批量退回按钮 -->
+                                <button type="submit" class="btn btn-danger"
+                                        style="height: 36px; font-size: 14px; border: none; border-radius: 4px; background: #dc3545; color: white; cursor: pointer;"
+                                        onclick="
                                     updateVerifySelectionCount();
                                     if(!validateBatchRollbackSelection()) {
                                         event.preventDefault();
@@ -295,837 +303,883 @@
                                         showLoadingBar();
                                     }
                                 ">
-                            批量退回未录入
-                        </button>
+                                    批量退回未录入
+                                </button>
 
-                        <button type="button" class="btn btn-secondary" style="height: 36px; font-size: 14px; border: none; border-radius: 4px; background: #6c757d; color: white; cursor: pointer;"
-                                onclick="selectAllVerifyRows()">
-                            全选
-                        </button>
-                        <button type="button" class="btn btn-secondary" style="height: 36px; font-size: 14px; border: none; border-radius: 4px; background: #6c757d; color: white; cursor: pointer;"
-                                onclick="deselectAllVerifyRows()">
-                            取消全选
-                        </button>
-                        <span id="rollback-selection-count" style="color: #666; font-size:13px;">已选：0 条</span>
-                    </form>
+                                <button type="button" class="btn btn-secondary"
+                                        style="height: 36px; font-size: 14px; border: none; border-radius: 4px; background: #6c757d; color: white; cursor: pointer;"
+                                        onclick="selectAllVerifyRows()">
+                                    全选
+                                </button>
+                                <button type="button" class="btn btn-secondary"
+                                        style="height: 36px; font-size: 14px; border: none; border-radius: 4px; background: #6c757d; color: white; cursor: pointer;"
+                                        onclick="deselectAllVerifyRows()">
+                                    取消全选
+                                </button>
+                                <span id="rollback-selection-count"
+                                      style="color: #666; font-size:13px;">已选：0 条</span>
+                            </form>
+                        </div>
+                    {% endif %}
                 </div>
-                {% endif %}
             </div>
-        </div>
 
-        <div style="width: 100%; overflow-x: auto; overflow-y: auto; max-height: 65vh;">
-            <table id="shipment-table" class="table" style="font-size: 14px; width: 100%; border-collapse: collapse; table-layout: auto;">
-                <thead>
-                <tr style="position: sticky; top: 0; background: #f5f7fa;">
-                    {% if shipment_type == '未录入内容' %}
+            <div style="width: 100%; overflow-x: auto; overflow-y: auto; max-height: 65vh;">
+                <table id="shipment-table" class="table"
+                       style="font-size: 14px; width: 100%; border-collapse: collapse; table-layout: auto;">
+                    <thead>
+                    <tr style="position: sticky; top: 0; background: #f5f7fa;">
+                        {% if shipment_type == '未录入内容' %}
+                            <th class="th"
+                                style="padding: 10px 12px; text-align: center; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 60px;">
+                                <input type="checkbox" id="select-all" onchange="toggleAllSelection(this)">
+                            </th>
+                        {% endif %}
+                        {% if shipment_type == '已录入内容' %}
+                            <th class="th"
+                                style="padding: 10px 12px; text-align: center; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 60px;">
+                                <input type="checkbox" id="select-all-verify" onchange="toggleAllVerifySelection(this)">
+                            </th>
+                        {% endif %}
                         <th class="th"
-                            style="padding: 10px 12px; text-align: center; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 60px;">
-                            <input type="checkbox" id="select-all" onchange="toggleAllSelection(this)">
+                            style="padding: 10px 12px; text-align: left; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 110px;">
+                            柜号
                         </th>
-                    {% endif %}
-                    {% if shipment_type == '已录入内容' %}
                         <th class="th"
-                            style="padding: 10px 12px; text-align: center; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 60px;">
-                            <input type="checkbox" id="select-all-verify" onchange="toggleAllVerifySelection(this)">
+                            style="padding: 10px 12px; text-align: center; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 80px;">
+                            一提多卸
                         </th>
-                    {% endif %}
-                    <th class="th"
-                        style="padding: 10px 12px; text-align: left; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 110px;">
-                        柜号
-                    </th>
-                    <th class="th"
-                        style="padding: 10px 12px; text-align: center; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 80px;">
-                        一提多卸
-                    </th>
-                    <th class="th"
-                        style="padding: 10px 12px; text-align: center; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 120px; color: #ff4d4f; font-weight: 700;">
-                        一提多卸总成本
-                    </th>
-                    <th class="th"
-                        style="padding: 10px 12px; text-align: left; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 110px;">
-                        目的仓库
-                    </th>
-                    <th class="th"
-                        style="padding: 10px 12px; text-align: left; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 130px;">
-                        目的地
-                    </th>
-                    <th class="th"
-                        style="padding: 10px 12px; text-align: left; border: 1px solid #eee; font-size:14px; width: 200px !important; min-width: 200px; max-width: 200px; white-space: normal; word-wrap: break-word;">
-                        唛头
-                    </th>
-                    <th class="th"
-                        style="padding: 10px 12px; text-align: center; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 90px;">
-                        总件数
-                    </th>
-                    <th class="th"
-                        style="padding: 10px 12px; text-align: center; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 90px;">
-                        总卡板数
-                    </th>
-                    <th class="th"
-                        style="padding: 10px 12px; border: 1px solid #eee; white-space: nowrap; font-size:14px;">
-                        车次费用
-                    </th>
-                    <th class="th"
-                        style="padding: 10px 12px; text-align: center; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 120px;">
-                        分摊价格
-                    </th>
-                    <th class="th"
-                        style="padding: 10px 12px; text-align: left; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 170px;">
-                        实际出库时间
-                    </th>
-                    <th class="th"
-                        style="padding: 10px 12px; text-align: left; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 170px;">
-                        拆柜时间
-                    </th>
-                    <th class="th"
-                        style="padding: 10px 12px; text-align: left; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 140px;">
-                        出库批次
-                    </th>
-                    <th class="th"
-                        style="padding: 10px 12px; text-align: left; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 140px;">
-                        预约批次
-                    </th>
-                    <th class="th"
-                        style="padding: 10px 12px; text-align: left; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 130px;">
-                        Carrier
-                    </th>
-                    <th class="th"
-                        style="padding: 10px 12px; text-align: left; border: 1px solid #eee; font-size:14px; width: 200px !important; min-width: 200px; max-width: 200px; white-space: normal; word-wrap: break-word;">
-                        备注
-                    </th>
-                    {% if shipment_type == '已录入内容' %}
                         <th class="th"
-                            style="padding: 10px 12px; text-align: left; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 190px;">
-                            退回费用
+                            style="padding: 10px 12px; text-align: center; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 120px; color: #ff4d4f; font-weight: 700;">
+                            一提多卸总成本
+                        </th>
+                        <th class="th"
+                            style="padding: 10px 12px; text-align: left; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 110px;">
+                            目的仓库
+                        </th>
+                        <th class="th"
+                            style="padding: 10px 12px; text-align: left; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 130px;">
+                            目的地
+                        </th>
+                        <th class="th"
+                            style="padding: 10px 12px; text-align: left; border: 1px solid #eee; font-size:14px; width: 200px !important; min-width: 200px; max-width: 200px; white-space: normal; word-wrap: break-word;">
+                            唛头
+                        </th>
+                        <th class="th"
+                            style="padding: 10px 12px; text-align: center; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 90px;">
+                            总件数
+                        </th>
+                        <th class="th"
+                            style="padding: 10px 12px; text-align: center; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 90px;">
+                            总卡板数
+                        </th>
+                        <th class="th"
+                            style="padding: 10px 12px; border: 1px solid #eee; white-space: nowrap; font-size:14px;">
+                            车次费用
                         </th>
                         <th class="th"
                             style="padding: 10px 12px; text-align: center; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 120px;">
-                            核实状态
+                            分摊价格
                         </th>
                         <th class="th"
-                            style="padding: 10px 12px; text-align: center; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 120px;">
-                            操作
+                            style="padding: 10px 12px; text-align: left; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 170px;">
+                            实际出库时间
                         </th>
-                    {% endif %}
-                </tr>
-                <tr style="position: sticky; top: 40px; background: #f9f9f9;" id="fleet-table-filter">
-                    {% if shipment_type == '未录入内容' %}
-                        <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 60px;"></th>
-                    {% endif %}
-                    {% if shipment_type == '已录入内容' %}
-                        <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 60px;"></th>
-                    {% endif %}
-                    <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 110px;"><input
-                            type="text" placeholder="搜索柜号..." class="filter-input" data-col="container"
-                            style="font-size: 14px; width: 100%;"></th>
-                    <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 120px;">
-                        <input type="text" placeholder="搜索一提多卸..." class="filter-input" data-col="multi-unload"
-                               style="font-size: 14px; width: 100%;">
-                    </th>
-                    <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 80px;"></th>
-                    <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 110px;"><input
-                            type="text" placeholder="搜索目的仓库..." class="filter-input" data-col="warehouse"
-                            style="font-size: 14px; width: 100%;"></th>
-                    <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 130px;"><input
-                            type="text" placeholder="搜索目的地..." class="filter-input" data-col="destination"
-                            style="font-size: 14px; width: 100%;"></th>
-                    <th class="th"
-                        style="padding: 8px 12px; border: 1px solid #eee; width: 200px !important; min-width: 200px; max-width: 200px;">
-                        <input type="text" placeholder="搜索唛头..." class="filter-input" data-col="mark"
-                               style="font-size: 14px; width: 100%;"></th>
-                    <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 90px;"></th>
-                    <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 90px;"></th>
-                    <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 190px;"></th>
-                    <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 120px;"></th>
-                    <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 170px;"><input
-                            type="text" placeholder="搜索出库时间..." class="filter-input" data-col="shipout"
-                            style="font-size: 14px; width: 100%;"></th>
-                    <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 170px;"><input
-                            type="text" placeholder="搜索拆柜时间..." class="filter-input" data-col="unload"
-                            style="font-size: 14px; width: 100%;"></th>
-                    <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 140px;"><input
-                            type="text" placeholder="搜索出库批次..." class="filter-input" data-col="batch"
-                            style="font-size: 14px; width: 100%;"></th>
-                    <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 140px;"><input
-                            type="text" placeholder="搜索预约批次..." class="filter-input" data-col="appointment"
-                            style="font-size: 14px; width: 100%;"></th>
-                    <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 130px;"><input
-                            type="text" placeholder="搜索Carrier..." class="filter-input" data-col="carrier"
-                            style="font-size: 14px; width: 100%;"></th>
-                    <th class="th"
-                        style="padding: 8px 12px; border: 1px solid #eee; width: 200px !important; min-width: 200px; max-width: 200px;">
-                        <input type="text" placeholder="搜索备注..." class="filter-input" data-col="note"
-                               style="font-size: 14px; width: 100%;"></th>
-                    {% if shipment_type == '已录入内容' %}
+                        <th class="th"
+                            style="padding: 10px 12px; text-align: left; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 170px;">
+                            拆柜时间
+                        </th>
+                        <th class="th"
+                            style="padding: 10px 12px; text-align: left; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 140px;">
+                            出库批次
+                        </th>
+                        <th class="th"
+                            style="padding: 10px 12px; text-align: left; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 140px;">
+                            预约批次
+                        </th>
+                        <th class="th"
+                            style="padding: 10px 12px; text-align: left; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 130px;">
+                            Carrier
+                        </th>
+                        <th class="th"
+                            style="padding: 10px 12px; text-align: left; border: 1px solid #eee; font-size:14px; width: 200px !important; min-width: 200px; max-width: 200px; white-space: normal; word-wrap: break-word;">
+                            备注
+                        </th>
+                        {% if shipment_type == '已录入内容' %}
+                            <th class="th"
+                                style="padding: 10px 12px; text-align: left; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 190px;">
+                                退回费用
+                            </th>
+                            <th class="th"
+                                style="padding: 10px 12px; text-align: center; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 120px;">
+                                核实状态
+                            </th>
+                            <th class="th"
+                                style="padding: 10px 12px; text-align: center; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 120px;">
+                                操作
+                            </th>
+                        {% endif %}
+                    </tr>
+                    <tr style="position: sticky; top: 40px; background: #f9f9f9;" id="fleet-table-filter">
+                        {% if shipment_type == '未录入内容' %}
+                            <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 60px;"></th>
+                        {% endif %}
+                        {% if shipment_type == '已录入内容' %}
+                            <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 60px;"></th>
+                        {% endif %}
+                        <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 110px;"><input
+                                type="text" placeholder="搜索柜号..." class="filter-input" data-col="container"
+                                style="font-size: 14px; width: 100%;"></th>
+                        <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 120px;">
+                            <input type="text" placeholder="搜索一提多卸..." class="filter-input"
+                                   data-col="multi-unload"
+                                   style="font-size: 14px; width: 100%;">
+                        </th>
+                        <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 80px;"></th>
+                        <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 110px;"><input
+                                type="text" placeholder="搜索目的仓库..." class="filter-input" data-col="warehouse"
+                                style="font-size: 14px; width: 100%;"></th>
+                        <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 130px;"><input
+                                type="text" placeholder="搜索目的地..." class="filter-input" data-col="destination"
+                                style="font-size: 14px; width: 100%;"></th>
+                        <th class="th"
+                            style="padding: 8px 12px; border: 1px solid #eee; width: 200px !important; min-width: 200px; max-width: 200px;">
+                            <input type="text" placeholder="搜索唛头..." class="filter-input" data-col="mark"
+                                   style="font-size: 14px; width: 100%;"></th>
+                        <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 90px;"></th>
+                        <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 90px;"></th>
                         <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 190px;"></th>
                         <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 120px;"></th>
-                        <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 120px;"></th>
-                    {% endif %}
-                </tr>
-                </thead>
-                <tbody>
-                {% for f in fleet %}
-                    <tr class="data-row {% if shipment_type == '已录入内容' and f.fleet_number.fleet_verify_status %}verified-row{% endif %} {% if f.multi_unload_group_id %}multi-unload-row{% endif %}"
-                        style="border-bottom: 1px solid #eee;"
-                        data-verified="{% if shipment_type == '已录入内容' and f.fleet_number.fleet_verify_status %}true{% else %}false{% endif %}"
-                        data-multi-unload-group="{{ f.multi_unload_group_id|default_if_none:'' }}">
-                        {% if shipment_type == '未录入内容' %}
-                            <td class="td"
-                                style="padding: 10px 12px; text-align: center; border: 1px solid #eee; font-size:14px;">
-                                <input type="checkbox" class="row-select"
-                                       value="{{ f.fleet_number.fleet_number|default_if_none:'' }}"
-                                       data-pallet="{{ f.shipped_pallet|default_if_none:0 }}"
-                                       data-multi-unload-group="{{ f.multi_unload_group_id|default_if_none:'' }}"
-                                       onchange="handleMultiUnloadSelection(this)">
-                            </td>
-                        {% endif %}
+                        <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 170px;"><input
+                                type="text" placeholder="搜索出库时间..." class="filter-input" data-col="shipout"
+                                style="font-size: 14px; width: 100%;"></th>
+                        <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 170px;"><input
+                                type="text" placeholder="搜索拆柜时间..." class="filter-input" data-col="unload"
+                                style="font-size: 14px; width: 100%;"></th>
+                        <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 140px;"><input
+                                type="text" placeholder="搜索出库批次..." class="filter-input" data-col="batch"
+                                style="font-size: 14px; width: 100%;"></th>
+                        <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 140px;"><input
+                                type="text" placeholder="搜索预约批次..." class="filter-input" data-col="appointment"
+                                style="font-size: 14px; width: 100%;"></th>
+                        <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 130px;"><input
+                                type="text" placeholder="搜索Carrier..." class="filter-input" data-col="carrier"
+                                style="font-size: 14px; width: 100%;"></th>
+                        <th class="th"
+                            style="padding: 8px 12px; border: 1px solid #eee; width: 200px !important; min-width: 200px; max-width: 200px;">
+                            <input type="text" placeholder="搜索备注..." class="filter-input" data-col="note"
+                                   style="font-size: 14px; width: 100%;"></th>
                         {% if shipment_type == '已录入内容' %}
-                            <td class="td"
-                                style="padding: 10px 12px; text-align: center; border: 1px solid #eee; font-size:14px;">
-                                <input type="checkbox" class="verify-row-select"
-                                       value="{{ f.fleet_number.fleet_number|default_if_none:'' }}"
-                                       data-multi-unload-group="{{ f.multi_unload_group_id|default_if_none:'' }}"
-                                       onchange="handleMultiUnloadVerifySelection(this)">
-                            </td>
+                            <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 190px;"></th>
+                            <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 120px;"></th>
+                            <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 120px;"></th>
                         {% endif %}
-                        <td class="td" data-col="container"
-                            style="padding: 10px 12px; border: 1px solid #eee; white-space: nowrap; font-size:14px;">
-                            {{ f.container_number|default_if_none:"-" }}
-                        </td>
-                        <td class="td" data-col="multi-unload"
-                            style="padding: 10px 12px; border: 1px solid #eee; text-align: center; white-space: nowrap; font-size:14px;">
-                            {% if f.fleet_number.train_related %}
-                                <span class="multi-unload-tag">是</span>
-                            {% else %}
-                                <span class="text-muted">否</span>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    {% for f in fleet %}
+                        <tr class="data-row {% if shipment_type == '已录入内容' and f.fleet_number.fleet_verify_status %}verified-row{% endif %} {% if f.multi_unload_group_id %}multi-unload-row{% endif %}"
+                            style="border-bottom: 1px solid #eee;"
+                            data-verified="{% if shipment_type == '已录入内容' and f.fleet_number.fleet_verify_status %}true{% else %}false{% endif %}"
+                            data-multi-unload-group="{{ f.multi_unload_group_id|default_if_none:'' }}">
+                            {% if shipment_type == '未录入内容' %}
+                                <td class="td"
+                                    style="padding: 10px 12px; text-align: center; border: 1px solid #eee; font-size:14px;">
+                                    <input type="checkbox" class="row-select"
+                                           value="{{ f.fleet_number.fleet_number|default_if_none:'' }}"
+                                           data-pallet="{{ f.shipped_pallet|default_if_none:0 }}"
+                                           data-multi-unload-group="{{ f.multi_unload_group_id|default_if_none:'' }}"
+                                           onchange="handleMultiUnloadSelection(this)">
+                                </td>
                             {% endif %}
-                        </td>
-                        <!-- 新增：一提多卸总成本显示 -->
-                        <td class="td multi-unload-total-cost"
-                            style="padding: 10px 12px; border: 1px solid #eee; text-align: center; white-space: nowrap; font-size:14px; color: #ff4d4f; font-weight: 600;">
-                            {{ f.multi_unload_total_cost|default_if_none:0|floatformat:2 }}
-                        </td>
-                        <td class="td" data-col="warehouse"
-                            style="padding: 10px 12px; border: 1px solid #eee; white-space: nowrap; font-size:14px;">
-                            {{ f.all_locations|default_if_none:"-" }}
-                        </td>
-                        <td class="td" data-col="destination"
-                            style="padding: 10px 12px; border: 1px solid #eee; white-space: nowrap; font-size:14px;">
-                            {{ f.destination|default_if_none:"-" }}
-                        </td>
-                        <td class="td" data-col="mark"
-                            style="padding: 10px 12px; border: 1px solid #eee; width: 200px !important; min-width: 200px; max-width: 200px; font-size:14px; white-space: normal; word-wrap: break-word; line-height: 1.2;">
-                            {{ f.shipping_mark|default_if_none:"-" }}
-                        </td>
-                        <td class="td"
-                            style="padding: 10px 12px; border: 1px solid #eee; text-align: center; white-space: nowrap; font-size:14px;">
-                            {{ f.shipped_pcs|default_if_none:0|floatformat:0 }}
-                        </td>
-                        <td class="td"
-                            style="padding: 10px 12px; border: 1px solid #eee; text-align: center; white-space: nowrap; font-size:14px;">
-                            {{ f.shipped_pallet|default_if_none:0|floatformat:0 }}
-                        </td>
-                        <td class="td"
-                            style="padding: 10px 12px; border: 1px solid #eee; white-space: nowrap; font-size:14px;">
-                            <form action="" method="post"
-                                  style="margin: 0; display: flex; gap: 6px; align-items: center;">
-                                {% csrf_token %}
-                                <input type="number" step="0.01" name="fleet_cost"
-                                       value="{{ f.fleet_number.fleet_cost|default_if_none:0 }}"
-                                       style="width: 100px; font-size: 14px; padding: 6px; border: 1px solid #ddd; border-radius: 4px;">
-                                <input type="hidden" name="fleet_number"
-                                       value="{{ f.fleet_number|default_if_none:'' }}">
-                                <input type="hidden" name="step" value="fleet_cost_confirm_ltl">
-                                <input type="hidden" name="status" value="unrecord">
-                                <input type="hidden" name="area" value="{{ area }}">
-                                <input type="hidden" name="start_time" value="{{ start_time }}">
-                                <input type="hidden" name="end_time" value="{{ end_time }}">
-                                <button type="submit" class="btn btn-success"
-                                        style="font-size: 14px; padding: 6px 10px; border: none; border-radius: 4px; background: #28a745; color: white; cursor: pointer;"
-                                        onclick="showLoadingBar()">
-                                    确认
-                                </button>
-                            </form>
-                        </td>
-                        <td class="td"
-                            style="padding: 10px 12px; border: 1px solid #eee; text-align: center; white-space: nowrap; font-size:14px; color: #ff4d4f; font-weight: 600;">
-                            {{ f.allocation_price|default_if_none:0|floatformat:2 }}
-                        </td>
-                        <td class="td" data-col="shipout"
-                            style="padding: 10px 12px; border: 1px solid #eee; white-space: nowrap; font-size:14px;">
-                            {{ f.shipped_at|default_if_none:"-"|date:"Y-m-d H:i" }}
-                        </td>
-                        <td class="td" data-col="unload"
-                            style="padding: 10px 12px; border: 1px solid #eee; white-space: nowrap; font-size:14px;">
-                            {{ f.offload_at|default_if_none:"-"|date:"Y-m-d H:i" }}
-                        </td>
-                        <td class="td" data-col="batch"
-                            style="padding: 10px 12px; border: 1px solid #eee; white-space: nowrap; font-size:14px;">
-                            {{ f.fleet_number.fleet_number|default_if_none:"-" }}
-                        </td>
-                        <td class="td" data-col="appointment"
-                            style="padding: 10px 12px; border: 1px solid #eee; white-space: nowrap; font-size:14px;">
-                            {{ f.shipment_batch_number|default_if_none:"-" }}
-                        </td>
-                        <td class="td" data-col="carrier"
-                            style="padding: 10px 12px; border: 1px solid #eee; white-space: nowrap; font-size:14px;">
-                            {{ f.carrier|default_if_none:"-" }}
-                        </td>
-                        <td class="td" data-col="note"
-                            style="padding: 10px 12px; border: 1px solid #eee; width: 200px !important; min-width: 200px; max-width: 200px; font-size:14px; white-space: normal; word-wrap: break-word; line-height: 1.2;">
-                            <form action="" method="post"
-                                  style="margin: 0; display: flex; gap: 6px; align-items: flex-start; flex-wrap: wrap;">
-                                {% csrf_token %}
-                                <textarea name="note" placeholder="请输入备注内容..."
-                                          style="width: 150px; font-size: 14px; padding: 6px; border: 1px solid #ddd; border-radius: 4px; resize: vertical; min-height: 60px; margin-bottom: 5px;">{{ f.note|default_if_none:"" }}</textarea>
-                                <input type="hidden" name="fleet_number"
-                                       value="{{ f.fleet_number|default_if_none:'' }}">
-                                <input type="hidden" name="shipment_id" value="{{ f.id }}">
-                                <input type="hidden" name="step" value="update_fleet_note">
-                                <input type="hidden" name="status" value="unrecord">
-                                <input type="hidden" name="area" value="{{ area }}">
-                                <input type="hidden" name="start_time" value="{{ start_time }}">
-                                <input type="hidden" name="end_time" value="{{ end_time }}">
-                                <button type="submit" class="btn btn-success"
-                                        style="font-size: 14px; padding: 6px 10px; border: none; border-radius: 4px; background: #28a745; color: white; cursor: pointer;"
-                                        onclick="showLoadingBar()">
-                                    保存备注
-                                </button>
-                            </form>
-                        </td>
-                        {% if shipment_type == '已录入内容' %}
+                            {% if shipment_type == '已录入内容' %}
+                                <td class="td"
+                                    style="padding: 10px 12px; text-align: center; border: 1px solid #eee; font-size:14px;">
+                                    <input type="checkbox" class="verify-row-select"
+                                           value="{{ f.fleet_number.fleet_number|default_if_none:'' }}"
+                                           data-multi-unload-group="{{ f.multi_unload_group_id|default_if_none:'' }}"
+                                           onchange="handleMultiUnloadVerifySelection(this)">
+                                </td>
+                            {% endif %}
+                            <td class="td" data-col="container"
+                                style="padding: 10px 12px; border: 1px solid #eee; white-space: nowrap; font-size:14px;">
+                                {{ f.container_number|default_if_none:"-" }}
+                            </td>
+                            <td class="td" data-col="multi-unload"
+                                style="padding: 10px 12px; border: 1px solid #eee; text-align: center; white-space: nowrap; font-size:14px;">
+                                {% if f.fleet_number.train_related %}
+                                    <span class="multi-unload-tag">是</span>
+                                {% else %}
+                                    <span class="text-muted">否</span>
+                                {% endif %}
+                            </td>
+                            <!-- 新增：一提多卸总成本显示 -->
+                            <td class="td multi-unload-total-cost"
+                                style="padding: 10px 12px; border: 1px solid #eee; text-align: center; white-space: nowrap; font-size:14px; color: #ff4d4f; font-weight: 600;">
+                                {{ f.multi_unload_total_cost|default_if_none:0|floatformat:2 }}
+                            </td>
+                            <td class="td" data-col="warehouse"
+                                style="padding: 10px 12px; border: 1px solid #eee; white-space: nowrap; font-size:14px;">
+                                {{ f.all_locations|default_if_none:"-" }}
+                            </td>
+                            <td class="td" data-col="destination"
+                                style="padding: 10px 12px; border: 1px solid #eee; white-space: nowrap; font-size:14px;">
+                                {{ f.destination|default_if_none:"-" }}
+                            </td>
+                            <td class="td" data-col="mark"
+                                style="padding: 10px 12px; border: 1px solid #eee; width: 200px !important; min-width: 200px; max-width: 200px; font-size:14px; white-space: normal; word-wrap: break-word; line-height: 1.2;">
+                                {{ f.shipping_mark|default_if_none:"-" }}
+                            </td>
+                            <td class="td"
+                                style="padding: 10px 12px; border: 1px solid #eee; text-align: center; white-space: nowrap; font-size:14px;">
+                                {{ f.shipped_pcs|default_if_none:0|floatformat:0 }}
+                            </td>
+                            <td class="td"
+                                style="padding: 10px 12px; border: 1px solid #eee; text-align: center; white-space: nowrap; font-size:14px;">
+                                {{ f.shipped_pallet|default_if_none:0|floatformat:0 }}
+                            </td>
                             <td class="td"
                                 style="padding: 10px 12px; border: 1px solid #eee; white-space: nowrap; font-size:14px;">
                                 <form action="" method="post"
                                       style="margin: 0; display: flex; gap: 6px; align-items: center;">
                                     {% csrf_token %}
-                                    <input type="number" step="0.01" name="fleet_cost_back"
-                                           value="{{ f.fleet_number.fleet_cost_back|default_if_none:0 }}"
+                                    <input type="number" step="0.01" name="fleet_cost"
+                                           value="{{ f.fleet_number.fleet_cost|default_if_none:0 }}"
                                            style="width: 100px; font-size: 14px; padding: 6px; border: 1px solid #ddd; border-radius: 4px;">
                                     <input type="hidden" name="fleet_number"
                                            value="{{ f.fleet_number|default_if_none:'' }}">
-                                    <input type="hidden" name="step" value="fleet_cost_confirm_back_ltl">
+                                    <input type="hidden" name="step" value="fleet_cost_confirm_ltl">
                                     <input type="hidden" name="status" value="unrecord">
+                                    <input type="hidden" name="area" value="{{ area }}">
                                     <input type="hidden" name="start_time" value="{{ start_time }}">
                                     <input type="hidden" name="end_time" value="{{ end_time }}">
                                     <button type="submit" class="btn btn-success"
                                             style="font-size: 14px; padding: 6px 10px; border: none; border-radius: 4px; background: #28a745; color: white; cursor: pointer;"
                                             onclick="showLoadingBar()">
-                                        确定
+                                        确认
                                     </button>
-                                </form>
-                            </td>
-                            <td class="td verify-status-cell {% if f.fleet_number.fleet_verify_status %}verified-cell{% endif %}"
-                                style="padding: 10px 12px; border: 1px solid #eee; text-align: center; white-space: nowrap; font-size:14px;">
-                                <form action="" method="post" style="margin: 0;">
-                                    {% csrf_token %}
-                                    <input type="hidden" name="fleet_number" value="{{ f.fleet_number|default_if_none:'' }}">
-                                    <input type="hidden" name="step" value="update_fleet_verify_status">
-                                    <input type="hidden" name="status" value="unrecord">
-                                    <input type="hidden" name="start_time" value="{{ start_time }}">
-                                    <input type="hidden" name="end_time" value="{{ end_time }}">
-                                    <input type="hidden" name="is_verified" id="is-verified-{{ f.fleet_number|default_if_none:'' }}"
-                                           value="{% if f.fleet_number.fleet_verify_status %}true{% else %}false{% endif %}">
-
-                                    {% if f.fleet_number.fleet_verify_status %}
-                                        <span style="color: #28a745; font-weight: 600;">✓ 已核实</span>
-                                        <button type="submit" class="btn btn-sm btn-outline-secondary"
-                                                style="font-size: 12px; padding: 4px 8px; margin-top: 4px; border-radius: 4px; cursor: pointer;"
-                                                onclick="this.form.querySelector('[name=is_verified]').value='false'; showLoadingBar();">
-                                            取消核实
-                                        </button>
-                                    {% else %}
-                                        <span style="color: #dc3545; font-weight: 600;">✗ 未核实</span>
-                                        <button type="submit" class="btn btn-sm btn-primary verify-btn"
-                                                style="font-size: 12px; padding: 4px 8px; border: none; border-radius: 4px; background: #007bff; color: white; cursor: pointer;"
-                                                onclick="this.form.querySelector('[name=is_verified]').value='true'; showLoadingBar();">
-                                            确认核实
-                                        </button>
-                                    {% endif %}
                                 </form>
                             </td>
                             <td class="td"
-                                style="padding: 10px 12px; border: 1px solid #eee; text-align: center; white-space: nowrap; font-size:14px;">
-                                <!-- 单个退回按钮（保留） -->
-                                <form action="" method="post" style="margin: 0; margin-bottom: 4px;">
+                                style="padding: 10px 12px; border: 1px solid #eee; text-align: center; white-space: nowrap; font-size:14px; color: #ff4d4f; font-weight: 600;">
+                                {{ f.allocation_price|default_if_none:0|floatformat:2 }}
+                            </td>
+                            <td class="td" data-col="shipout"
+                                style="padding: 10px 12px; border: 1px solid #eee; white-space: nowrap; font-size:14px;">
+                                {{ f.shipped_at|default_if_none:"-"|date:"Y-m-d H:i" }}
+                            </td>
+                            <td class="td" data-col="unload"
+                                style="padding: 10px 12px; border: 1px solid #eee; white-space: nowrap; font-size:14px;">
+                                {{ f.offload_at|default_if_none:"-"|date:"Y-m-d H:i" }}
+                            </td>
+                            <td class="td" data-col="batch"
+                                style="padding: 10px 12px; border: 1px solid #eee; white-space: nowrap; font-size:14px;">
+                                {{ f.fleet_number.fleet_number|default_if_none:"-" }}
+                            </td>
+                            <td class="td" data-col="appointment"
+                                style="padding: 10px 12px; border: 1px solid #eee; white-space: nowrap; font-size:14px;">
+                                {{ f.shipment_batch_number|default_if_none:"-" }}
+                            </td>
+                            <td class="td" data-col="carrier"
+                                style="padding: 10px 12px; border: 1px solid #eee; white-space: nowrap; font-size:14px;">
+                                {{ f.carrier|default_if_none:"-" }}
+                            </td>
+                            <td class="td" data-col="note"
+                                style="padding: 10px 12px; border: 1px solid #eee; width: 200px !important; min-width: 200px; max-width: 200px; font-size:14px; white-space: normal; word-wrap: break-word; line-height: 1.2;">
+                                <form action="" method="post"
+                                      style="margin: 0; display: flex; gap: 6px; align-items: flex-start; flex-wrap: wrap;">
                                     {% csrf_token %}
-                                    <input type="hidden" name="fleet_number" value="{{ f.fleet_number|default_if_none:'' }}">
-                                    <input type="hidden" name="step" value="rollback_fleet_status">
+                                    <textarea name="note" placeholder="请输入备注内容..."
+                                              style="width: 150px; font-size: 14px; padding: 6px; border: 1px solid #ddd; border-radius: 4px; resize: vertical; min-height: 60px; margin-bottom: 5px;">{{ f.note|default_if_none:"" }}</textarea>
+                                    <input type="hidden" name="fleet_number"
+                                           value="{{ f.fleet_number|default_if_none:'' }}">
+                                    <input type="hidden" name="shipment_id" value="{{ f.id }}">
+                                    <input type="hidden" name="step" value="update_fleet_note">
                                     <input type="hidden" name="status" value="unrecord">
+                                    <input type="hidden" name="area" value="{{ area }}">
                                     <input type="hidden" name="start_time" value="{{ start_time }}">
                                     <input type="hidden" name="end_time" value="{{ end_time }}">
-                                    <button type="submit" class="btn btn-sm btn-danger"
-                                            style="font-size: 12px; padding: 4px 8px; border: none; border-radius: 4px; background: #dc3545; color: white; cursor: pointer;"
-                                            onclick="if(!confirm('确认将该记录退回未录入状态？')){event.preventDefault();} else {showLoadingBar();}">
-                                        退回未录入
+                                    <button type="submit" class="btn btn-success"
+                                            style="font-size: 14px; padding: 6px 10px; border: none; border-radius: 4px; background: #28a745; color: white; cursor: pointer;"
+                                            onclick="showLoadingBar()">
+                                        保存备注
                                     </button>
                                 </form>
                             </td>
-                        {% endif %}
-                    </tr>
-                {% empty %}
-                    <tr class="empty-row">
-                        <td colspan="{% if shipment_type == '已录入内容' %}22{% elif shipment_type == '未录入内容' %}18{% else %}16{% endif %}"
-                            style="padding: 20px; text-align: center; color: #999; border: 1px solid #eee; white-space: nowrap; font-size:14px;">
-                            暂无数据
-                        </td>
-                    </tr>
-                {% endfor %}
-                </tbody>
-            </table>
+                            {% if shipment_type == '已录入内容' %}
+                                <td class="td"
+                                    style="padding: 10px 12px; border: 1px solid #eee; white-space: nowrap; font-size:14px;">
+                                    <form action="" method="post"
+                                          style="margin: 0; display: flex; gap: 6px; align-items: center;">
+                                        {% csrf_token %}
+                                        <input type="number" step="0.01" name="fleet_cost_back"
+                                               value="{{ f.fleet_number.fleet_cost_back|default_if_none:0 }}"
+                                               style="width: 100px; font-size: 14px; padding: 6px; border: 1px solid #ddd; border-radius: 4px;">
+                                        <input type="hidden" name="fleet_number"
+                                               value="{{ f.fleet_number|default_if_none:'' }}">
+                                        <input type="hidden" name="step" value="fleet_cost_confirm_back_ltl">
+                                        <input type="hidden" name="status" value="unrecord">
+                                        <input type="hidden" name="start_time" value="{{ start_time }}">
+                                        <input type="hidden" name="end_time" value="{{ end_time }}">
+                                        <button type="submit" class="btn btn-success"
+                                                style="font-size: 14px; padding: 6px 10px; border: none; border-radius: 4px; background: #28a745; color: white; cursor: pointer;"
+                                                onclick="showLoadingBar()">
+                                            确定
+                                        </button>
+                                    </form>
+                                </td>
+                                <td class="td verify-status-cell {% if f.fleet_number.fleet_verify_status %}verified-cell{% endif %}"
+                                    style="padding: 10px 12px; border: 1px solid #eee; text-align: center; white-space: nowrap; font-size:14px;">
+                                    <form action="" method="post" style="margin: 0;">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="fleet_number"
+                                               value="{{ f.fleet_number|default_if_none:'' }}">
+                                        <input type="hidden" name="step" value="update_fleet_verify_status">
+                                        <input type="hidden" name="status" value="unrecord">
+                                        <input type="hidden" name="start_time" value="{{ start_time }}">
+                                        <input type="hidden" name="end_time" value="{{ end_time }}">
+                                        <input type="hidden" name="is_verified"
+                                               id="is-verified-{{ f.fleet_number|default_if_none:'' }}"
+                                               value="{% if f.fleet_number.fleet_verify_status %}true{% else %}false{% endif %}">
+
+                                        {% if f.fleet_number.fleet_verify_status %}
+                                            <span style="color: #28a745; font-weight: 600;">✓ 已核实</span>
+                                            <button type="submit" class="btn btn-sm btn-outline-secondary"
+                                                    style="font-size: 12px; padding: 4px 8px; margin-top: 4px; border-radius: 4px; cursor: pointer;"
+                                                    onclick="this.form.querySelector('[name=is_verified]').value='false'; showLoadingBar();">
+                                                取消核实
+                                            </button>
+                                        {% else %}
+                                            <span style="color: #dc3545; font-weight: 600;">✗ 未核实</span>
+                                            <button type="submit" class="btn btn-sm btn-primary verify-btn"
+                                                    style="font-size: 12px; padding: 4px 8px; border: none; border-radius: 4px; background: #007bff; color: white; cursor: pointer;"
+                                                    onclick="this.form.querySelector('[name=is_verified]').value='true'; showLoadingBar();">
+                                                确认核实
+                                            </button>
+                                        {% endif %}
+                                    </form>
+                                </td>
+                                <td class="td"
+                                    style="padding: 10px 12px; border: 1px solid #eee; text-align: center; white-space: nowrap; font-size:14px;">
+                                    <!-- 单个退回按钮（保留） -->
+                                    <form action="" method="post" style="margin: 0; margin-bottom: 4px;">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="fleet_number"
+                                               value="{{ f.fleet_number|default_if_none:'' }}">
+                                        <input type="hidden" name="step" value="rollback_fleet_status">
+                                        <input type="hidden" name="status" value="unrecord">
+                                        <input type="hidden" name="start_time" value="{{ start_time }}">
+                                        <input type="hidden" name="end_time" value="{{ end_time }}">
+                                        <button type="submit" class="btn btn-sm btn-danger"
+                                                style="font-size: 12px; padding: 4px 8px; border: none; border-radius: 4px; background: #dc3545; color: white; cursor: pointer;"
+                                                onclick="if(!confirm('确认将该记录退回未录入状态？')){event.preventDefault();} else {showLoadingBar();}">
+                                            退回未录入
+                                        </button>
+                                    </form>
+                                </td>
+                            {% endif %}
+                        </tr>
+                    {% empty %}
+                        <tr class="empty-row">
+                            <td colspan="{% if shipment_type == '已录入内容' %}22{% elif shipment_type == '未录入内容' %}18{% else %}16{% endif %}"
+                                style="padding: 20px; text-align: center; color: #999; border: 1px solid #eee; white-space: nowrap; font-size:14px;">
+                                暂无数据
+                            </td>
+                        </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
-</div>
 
-<style>
-    * {
-        box-sizing: border-box;
-        margin: 0;
-        padding: 0;
-        line-height: 1.2;
-    }
-    .alert {
-        padding: 15px;
-        margin-bottom: 20px;
-        border: 1px solid transparent;
-        border-radius: 4px;
-    }
-    .alert-danger {
-        color: #721c24;
-        background-color: #f8d7da;
-        border-color: #f5c6cb;
-    }
-    .alert-success {
-        color: #155724;
-        background-color: #d4edda;
-        border-color: #c3e6cb;
-    }
-    .filter-label {
-        font-size: 14px;
-        color: #555;
-        white-space: nowrap;
-    }
-    #shipment-table {
-        border: 1px solid #eee;
-        table-layout: auto !important;
-        width: 100%;
-        border-collapse: collapse;
-    }
-    #shipment-table th, #shipment-table td {
-        vertical-align: middle !important;
-        border: 1px solid #eee;
-        padding: 8px 12px;
-        font-size: 14px;
-    }
-    #shipment-table th {
-        background-color: #f5f7fa;
-        position: sticky;
-        top: 0;
-        z-index: 10;
-        font-weight: 600;
-    }
-    #fleet-table-filter {
-        top: 40px !important;
-        z-index: 9 !important;
-        background-color: #f9f9f9 !important;
-    }
-    /* 修复列的white-space问题 */
-    #shipment-table td {
-        white-space: nowrap !important;
-    }
-    #shipment-table td[data-col="mark"],
-    #shipment-table td[data-col="note"] {
-        white-space: normal !important;
-        word-wrap: break-word !important;
-    }
-    .data-row:hover {
-        background-color: #f8f9fa;
-    }
-    .verified-row {
-        background-color: #f0fff4 !important;
-    }
-    .verified-cell {
-        background-color: #e8f5e9 !important;
-    }
-    .filter-input {
-        border: 1px solid #ddd;
-        border-radius: 4px;
-        padding: 6px;
-        font-size: 14px;
-        width: 100%;
-    }
-    #loading-bar {
-        display: none;
-        text-align: center;
-        padding: 20px;
-        margin: 10px 0;
-    }
-    .spinner {
-        border: 4px solid #f3f3f3;
-        border-top: 4px solid #1890ff;
-        border-radius: 50%;
-        width: 30px;
-        height: 30px;
-        animation: spin 1s linear infinite;
-        margin: 0 auto 10px;
-    }
-    @keyframes spin {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
-    }
-    .btn {
-        pointer-events: auto !important;
-        cursor: pointer;
-        border: none;
-        border-radius: 4px;
-        padding: 6px 12px;
-        font-size: 14px;
-    }
-    .btn-primary {
-        background-color: #007bff;
-        color: white;
-    }
-    .btn-secondary {
-        background-color: #6c757d;
-        color: white;
-    }
-    .btn-success {
-        background-color: #28a745;
-        color: white;
-    }
-    .btn-danger {
-        background-color: #dc3545;
-        color: white;
-    }
-    .btn-warning {
-        background-color: #ffc107;
-        color: #212529;
-    }
-    .btn-info {
-        background-color: #17a2b8;
-        color: white;
-    }
-    .btn-sm {
-        padding: 4px 8px;
-        font-size: 12px;
-    }
-    .badge {
-        display: inline-block;
-        padding: 4px 10px;
-        background-color: #1890ff;
-        color: white;
-        border-radius: 12px;
-        font-size: 14px;
-        font-weight: 500;
-        margin-left: 8px;
-    }
-
-    /* 一提多卸分组行高亮 */
-    .multi-unload-row {
-        background-color: #fff8e1 !important;
-    }
-
-    .multi-unload-row:hover {
-        background-color: #ffecb3 !important;
-    }
-
-    /* 一提多卸总成本列样式强化 */
-    .multi-unload-total-cost {
-        font-weight: 700;
-        color: #e53935;
-        text-shadow: 0 1px 0 rgba(255,255,255,0.8);
-    }
-
-    /* 一提多卸标识 */
-    .multi-unload-tag {
-        display: inline-block;
-        padding: 2px 6px;
-        background-color: #ffc107;
-        color: #212529;
-        border-radius: 3px;
-        font-size: 12px;
-        margin-left: 5px;
-    }
-</style>
-
-<script>
-// 1. 注入后端返回的一提多卸映射（车次号→同组车次列表）
-const multiUnloadMap = {{ multi_unload_map|safe }};
-
-// 调试：控制台打印multiUnloadMap，确认数据格式
-console.log('=== 一提多卸映射数据 ===', multiUnloadMap);
-
-document.addEventListener('DOMContentLoaded', function () {
-    // ==================== 核心：一提多卸联动勾选（未录入页面） ====================
-    window.handleMultiUnloadSelection = function (checkbox) {
-        const isChecked = checkbox.checked;
-        const currentFleet = checkbox.value.trim();
-        const groupId = checkbox.getAttribute('data-multi-unload-group');
-
-        // 调试：打印当前勾选的车次和分组ID
-        console.log('=== 未录入页面联动勾选 ===', {
-            isChecked: isChecked,
-            currentFleet: currentFleet,
-            groupId: groupId
-        });
-
-        // 空值或无分组直接返回
-        if (!currentFleet || !groupId) {
-            updateSelectionCount();
-            return;
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            line-height: 1.2;
         }
 
-        // 核心修改：优先通过groupID匹配所有同组复选框（不依赖multiUnloadMap）
-        const sameGroupCheckboxes = document.querySelectorAll(`.row-select[data-multi-unload-group="${groupId}"]`);
-        console.log('找到同组复选框数量：', sameGroupCheckboxes.length);
+        .alert {
+            padding: 15px;
+            margin-bottom: 20px;
+            border: 1px solid transparent;
+            border-radius: 4px;
+        }
 
-        sameGroupCheckboxes.forEach(cb => {
-            // 同步勾选状态（跳过当前点击的复选框）
-            if (cb !== checkbox) {
-                cb.checked = isChecked;
-                console.log('同步勾选：', cb.value, '状态：', isChecked);
+        .alert-danger {
+            color: #721c24;
+            background-color: #f8d7da;
+            border-color: #f5c6cb;
+        }
+
+        .alert-success {
+            color: #155724;
+            background-color: #d4edda;
+            border-color: #c3e6cb;
+        }
+
+        .filter-label {
+            font-size: 14px;
+            color: #555;
+            white-space: nowrap;
+        }
+
+        #shipment-table {
+            border: 1px solid #eee;
+            table-layout: auto !important;
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        #shipment-table th, #shipment-table td {
+            vertical-align: middle !important;
+            border: 1px solid #eee;
+            padding: 8px 12px;
+            font-size: 14px;
+        }
+
+        #shipment-table th {
+            background-color: #f5f7fa;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            font-weight: 600;
+        }
+
+        #fleet-table-filter {
+            top: 40px !important;
+            z-index: 9 !important;
+            background-color: #f9f9f9 !important;
+        }
+
+        /* 修复列的white-space问题 */
+        #shipment-table td {
+            white-space: nowrap !important;
+        }
+
+        #shipment-table td[data-col="mark"],
+        #shipment-table td[data-col="note"] {
+            white-space: normal !important;
+            word-wrap: break-word !important;
+        }
+
+        .data-row:hover {
+            background-color: #f8f9fa;
+        }
+
+        .verified-row {
+            background-color: #f0fff4 !important;
+        }
+
+        .verified-cell {
+            background-color: #e8f5e9 !important;
+        }
+
+        .filter-input {
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 6px;
+            font-size: 14px;
+            width: 100%;
+        }
+
+        #loading-bar {
+            display: none;
+            text-align: center;
+            padding: 20px;
+            margin: 10px 0;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #1890ff;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
             }
-        });
-
-        // 更新选中数量
-        updateSelectionCount();
-    };
-
-    // ==================== 核心：一提多卸联动勾选（已录入页面） ====================
-    window.handleMultiUnloadVerifySelection = function (checkbox) {
-        const isChecked = checkbox.checked;
-        const currentFleet = checkbox.value.trim();
-        const groupId = checkbox.getAttribute('data-multi-unload-group');
-
-        // 调试：打印当前勾选的车次和分组ID
-        console.log('=== 已录入页面联动勾选 ===', {
-            isChecked: isChecked,
-            currentFleet: currentFleet,
-            groupId: groupId
-        });
-
-        if (!currentFleet || !groupId) {
-            updateVerifySelectionCount();
-            return;
-        }
-
-        // 核心修改：优先通过groupID匹配所有同组复选框
-        const sameGroupCheckboxes = document.querySelectorAll(`.verify-row-select[data-multi-unload-group="${groupId}"]`);
-        console.log('找到同组复选框数量：', sameGroupCheckboxes.length);
-
-        sameGroupCheckboxes.forEach(cb => {
-            if (cb !== checkbox) {
-                cb.checked = isChecked;
-                console.log('同步勾选：', cb.value, '状态：', isChecked);
+            100% {
+                transform: rotate(360deg);
             }
-        });
-
-        updateVerifySelectionCount();
-    };
-
-    // ==================== 全选/取消全选增强（支持联动逻辑） ====================
-    window.toggleAllSelection = function (checkbox) {
-        const isChecked = checkbox.checked;
-        const rowCheckboxes = document.querySelectorAll('.row-select');
-
-        // 先批量设置所有复选框状态
-        rowCheckboxes.forEach(cb => {
-            cb.checked = isChecked;
-        });
-
-        // 更新选中数量
-        updateSelectionCount();
-    };
-
-    window.toggleAllVerifySelection = function (checkbox) {
-        const isChecked = checkbox.checked;
-        const verifyCheckboxes = document.querySelectorAll('.verify-row-select');
-
-        verifyCheckboxes.forEach(cb => {
-            cb.checked = isChecked;
-        });
-
-        updateVerifySelectionCount();
-    };
-
-    // ==================== 原有功能保留 ====================
-    window.updateSelectionCount = function () {
-        const checkedBoxes = document.querySelectorAll('.row-select:checked');
-        const countEl = document.getElementById('selection-count');
-        if (countEl) countEl.textContent = `已选：${checkedBoxes.length} 条`;
-        const selectedFleets = Array.from(checkedBoxes).map(cb => cb.value).filter(v => v);
-        document.getElementById('selected-fleet-numbers').value = selectedFleets.join(',');
-    };
-
-    window.updateVerifySelectionCount = function () {
-        const checkedBoxes = document.querySelectorAll('.verify-row-select:checked');
-        const verifyCountEl = document.getElementById('verify-selection-count');
-        const rollbackCountEl = document.getElementById('rollback-selection-count');
-        if (verifyCountEl) verifyCountEl.textContent = `已选：${checkedBoxes.length} 条`;
-        if (rollbackCountEl) rollbackCountEl.textContent = `已选：${checkedBoxes.length} 条`;
-        const selectedFleets = Array.from(checkedBoxes).map(cb => cb.value).filter(v => v);
-        document.getElementById('batch-verify-fleet-numbers').value = selectedFleets.join(',');
-        document.getElementById('batch-rollback-fleet-numbers').value = selectedFleets.join(',');
-    };
-
-    window.selectAllRows = function () {
-        document.querySelectorAll('.row-select').forEach(cb => cb.checked = true);
-        updateSelectionCount();
-    };
-
-    window.deselectAllRows = function () {
-        document.querySelectorAll('.row-select').forEach(cb => cb.checked = false);
-        updateSelectionCount();
-    };
-
-    window.validateBatchSelection = function () {
-        const checkedCount = document.querySelectorAll('.row-select:checked').length;
-        if (checkedCount === 0) {
-            alert('请至少选择一条记录进行批量分摊！');
-            return false;
         }
-        const totalCost = document.querySelector('input[name="total_batch_cost"]').value;
-        if (!totalCost || parseFloat(totalCost) <= 0) {
-            alert('请输入有效的总成本（大于0）！');
-            return false;
+
+        .btn {
+            pointer-events: auto !important;
+            cursor: pointer;
+            border: none;
+            border-radius: 4px;
+            padding: 6px 12px;
+            font-size: 14px;
         }
-        return true;
-    };
 
-    window.selectAllVerifyRows = function () {
-        document.querySelectorAll('.verify-row-select').forEach(cb => cb.checked = true);
-        updateVerifySelectionCount();
-    };
-
-    window.deselectAllVerifyRows = function () {
-        document.querySelectorAll('.verify-row-select').forEach(cb => cb.checked = false);
-        updateVerifySelectionCount();
-    };
-
-    window.validateBatchVerifySelection = function () {
-        const checkedCount = document.querySelectorAll('.verify-row-select:checked').length;
-        if (checkedCount === 0) {
-            alert('请至少选择一条记录进行批量核实操作！');
-            return false;
+        .btn-primary {
+            background-color: #007bff;
+            color: white;
         }
-        return true;
-    };
 
-    window.validateBatchRollbackSelection = function () {
-        const checkedCount = document.querySelectorAll('.verify-row-select:checked').length;
-        if (checkedCount === 0) {
-            alert('请至少选择一条记录进行批量退回操作！');
-            return false;
+        .btn-secondary {
+            background-color: #6c757d;
+            color: white;
         }
-        return confirm(`确认将选中的 ${checkedCount} 条记录退回未录入状态？`);
-    };
 
-    window.bindMultiUnload = function () {
-        const checkedBoxes = document.querySelectorAll('.row-select:checked');
-        if (checkedBoxes.length === 0) {
-            alert('请至少选择一条记录进行一提多卸绑定！');
-            return;
+        .btn-success {
+            background-color: #28a745;
+            color: white;
         }
-        const selectedFleets = Array.from(checkedBoxes).map(cb => cb.value).filter(v => v);
-        document.getElementById('bind-fleet-numbers').value = selectedFleets.join(',');
-        if (confirm(`确认将选中的 ${checkedBoxes.length} 条记录绑定为一提多卸？`)) {
-            showLoadingBar();
-            document.getElementById('bind-multi-unload-form').submit();
+
+        .btn-danger {
+            background-color: #dc3545;
+            color: white;
         }
-    };
 
-    window.unbindMultiUnload = function () {
-        const checkedBoxes = document.querySelectorAll('.row-select:checked');
-        if (checkedBoxes.length === 0) {
-            alert('请至少选择一条记录进行一提多卸解绑！');
-            return;
+        .btn-warning {
+            background-color: #ffc107;
+            color: #212529;
         }
-        const selectedFleets = Array.from(checkedBoxes).map(cb => cb.value).filter(v => v);
-        document.getElementById('unbind-fleet-numbers').value = selectedFleets.join(',');
-        if (confirm(`确认将选中的 ${checkedBoxes.length} 条记录解绑一提多卸？`)) {
-            showLoadingBar();
-            document.getElementById('unbind-multi-unload-form').submit();
+
+        .btn-info {
+            background-color: #17a2b8;
+            color: white;
         }
-    };
 
-    window.submitBatchPrices = function () {
-        const checkedBoxes = document.querySelectorAll('.row-select:checked');
-        if (checkedBoxes.length === 0) {
-            alert('请至少选择一条记录进行批量提交！');
-            return;
+        .btn-sm {
+            padding: 4px 8px;
+            font-size: 12px;
         }
-        const batchData = [];
-        let hasError = false;
-        checkedBoxes.forEach(cb => {
-            const row = cb.closest('.data-row');
-            const fleetNum = cb.value;
-            const costInput = row.querySelector('input[name="fleet_cost"]');
-            const cost = parseFloat(costInput.value) || 0;
-            if (cost <= 0) {
-                alert(`车次 ${fleetNum} 的价格不能为空且必须大于0！`);
-                hasError = true;
-                return;
-            }
-            batchData.push({ fleet_number: fleetNum, fleet_cost: cost });
-        });
-        if (hasError || batchData.length === 0) return;
-        document.getElementById('batch-prices-data').value = JSON.stringify(batchData);
-        if (confirm(`确认批量提交选中的 ${batchData.length} 条记录的价格？`)) {
-            showLoadingBar();
-            document.getElementById('batch-prices-form').submit();
+
+        .badge {
+            display: inline-block;
+            padding: 4px 10px;
+            background-color: #1890ff;
+            color: white;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: 500;
+            margin-left: 8px;
         }
-    };
 
-    window.showLoadingBar = function () {
-        const loadingBar = document.getElementById('loading-bar');
-        if (loadingBar) loadingBar.style.display = 'block';
-    };
+        /* 一提多卸分组行高亮 */
+        .multi-unload-row {
+            background-color: #fff8e1 !important;
+        }
 
-    window.hideLoadingBar = function () {
-        const loadingBar = document.getElementById('loading-bar');
-        if (loadingBar) loadingBar.style.display = 'none';
-    };
+        .multi-unload-row:hover {
+            background-color: #ffecb3 !important;
+        }
 
-    window.handleTemplateDownload = function () {
-        showLoadingBar();
-        setTimeout(hideLoadingBar, 2000);
-    };
+        /* 一提多卸总成本列样式强化 */
+        .multi-unload-total-cost {
+            font-weight: 700;
+            color: #e53935;
+            text-shadow: 0 1px 0 rgba(255, 255, 255, 0.8);
+        }
 
-    window.handleTableDownload = function () {
-        showLoadingBar();
-        setTimeout(hideLoadingBar, 3000);
-    };
+        /* 一提多卸标识 */
+        .multi-unload-tag {
+            display: inline-block;
+            padding: 2px 6px;
+            background-color: #ffc107;
+            color: #212529;
+            border-radius: 3px;
+            font-size: 12px;
+            margin-left: 5px;
+        }
+    </style>
 
-    // 表格筛选功能
-    document.querySelectorAll('.filter-input').forEach(input => {
-        input.addEventListener('input', function () {
-            const filterValue = this.value.toLowerCase().trim();
-            const colName = this.getAttribute('data-col');
-            const rows = document.querySelectorAll('.data-row');
-            let hasVisibleRows = false;
-            rows.forEach(row => {
-                const cell = row.querySelector(`td[data-col="${colName}"]`);
-                if (cell) {
-                    const cellText = cell.textContent.toLowerCase().trim();
-                    const isVisible = cellText.includes(filterValue);
-                    row.style.display = isVisible ? '' : 'none';
-                    if (isVisible) hasVisibleRows = true;
+    <script>
+        // 1. 注入后端返回的一提多卸映射（车次号→同组车次列表）
+        const multiUnloadMap = {{ multi_unload_map|safe }};
+
+        document.addEventListener('DOMContentLoaded', function () {
+            // ==================== 核心：一提多卸联动勾选（未录入页面） ====================
+            window.handleMultiUnloadSelection = function (checkbox) {
+                const isChecked = checkbox.checked;
+                const currentFleet = checkbox.value.trim();
+                const groupId = checkbox.getAttribute('data-multi-unload-group');
+
+                // 空值或无分组直接返回
+                if (!currentFleet || !groupId) {
+                    updateSelectionCount();
+                    return;
                 }
+
+                // 核心修改：优先通过groupID匹配所有同组复选框（不依赖multiUnloadMap）
+                const sameGroupCheckboxes = document.querySelectorAll(`.row-select[data-multi-unload-group="${groupId}"]`);
+
+                sameGroupCheckboxes.forEach(cb => {
+                    // 同步勾选状态（跳过当前点击的复选框）
+                    if (cb !== checkbox) {
+                        cb.checked = isChecked;
+                    }
+                });
+
+                // 更新选中数量
+                updateSelectionCount();
+            };
+
+            // ==================== 核心：一提多卸联动勾选（已录入页面） ====================
+            window.handleMultiUnloadVerifySelection = function (checkbox) {
+                const isChecked = checkbox.checked;
+                const currentFleet = checkbox.value.trim();
+                const groupId = checkbox.getAttribute('data-multi-unload-group');
+
+                if (!currentFleet || !groupId) {
+                    updateVerifySelectionCount();
+                    return;
+                }
+
+                // 核心修改：优先通过groupID匹配所有同组复选框
+                const sameGroupCheckboxes = document.querySelectorAll(`.verify-row-select[data-multi-unload-group="${groupId}"]`);
+
+                sameGroupCheckboxes.forEach(cb => {
+                    if (cb !== checkbox) {
+                        cb.checked = isChecked;
+                    }
+                });
+
+                updateVerifySelectionCount();
+            };
+
+            // ==================== 全选/取消全选增强（支持联动逻辑） ====================
+            window.toggleAllSelection = function (checkbox) {
+                const isChecked = checkbox.checked;
+                const rowCheckboxes = document.querySelectorAll('.row-select');
+
+                // 先批量设置所有复选框状态
+                rowCheckboxes.forEach(cb => {
+                    cb.checked = isChecked;
+                });
+
+                // 更新选中数量
+                updateSelectionCount();
+            };
+
+            window.toggleAllVerifySelection = function (checkbox) {
+                const isChecked = checkbox.checked;
+                const verifyCheckboxes = document.querySelectorAll('.verify-row-select');
+
+                verifyCheckboxes.forEach(cb => {
+                    cb.checked = isChecked;
+                });
+
+                updateVerifySelectionCount();
+            };
+
+            // ==================== 原有功能保留 ====================
+            window.updateSelectionCount = function () {
+                const checkedBoxes = document.querySelectorAll('.row-select:checked');
+                const countEl = document.getElementById('selection-count');
+                if (countEl) countEl.textContent = `已选：${checkedBoxes.length} 条`;
+                const selectedFleets = Array.from(checkedBoxes).map(cb => cb.value).filter(v => v);
+                document.getElementById('selected-fleet-numbers').value = selectedFleets.join(',');
+            };
+
+            window.updateVerifySelectionCount = function () {
+                const checkedBoxes = document.querySelectorAll('.verify-row-select:checked');
+                const verifyCountEl = document.getElementById('verify-selection-count');
+                const rollbackCountEl = document.getElementById('rollback-selection-count');
+                if (verifyCountEl) verifyCountEl.textContent = `已选：${checkedBoxes.length} 条`;
+                if (rollbackCountEl) rollbackCountEl.textContent = `已选：${checkedBoxes.length} 条`;
+                const selectedFleets = Array.from(checkedBoxes).map(cb => cb.value).filter(v => v);
+                document.getElementById('batch-verify-fleet-numbers').value = selectedFleets.join(',');
+                document.getElementById('batch-rollback-fleet-numbers').value = selectedFleets.join(',');
+            };
+
+            window.selectAllRows = function () {
+                document.querySelectorAll('.row-select').forEach(cb => cb.checked = true);
+                updateSelectionCount();
+            };
+
+            window.deselectAllRows = function () {
+                document.querySelectorAll('.row-select').forEach(cb => cb.checked = false);
+                updateSelectionCount();
+            };
+
+            window.validateBatchSelection = function () {
+                const checkedCount = document.querySelectorAll('.row-select:checked').length;
+                if (checkedCount === 0) {
+                    alert('请至少选择一条记录进行批量分摊！');
+                    return false;
+                }
+                const totalCost = document.querySelector('input[name="total_batch_cost"]').value;
+                if (!totalCost || parseFloat(totalCost) <= 0) {
+                    alert('请输入有效的总成本（大于0）！');
+                    return false;
+                }
+                return true;
+            };
+
+            window.selectAllVerifyRows = function () {
+                document.querySelectorAll('.verify-row-select').forEach(cb => cb.checked = true);
+                updateVerifySelectionCount();
+            };
+
+            window.deselectAllVerifyRows = function () {
+                document.querySelectorAll('.verify-row-select').forEach(cb => cb.checked = false);
+                updateVerifySelectionCount();
+            };
+
+            window.validateBatchVerifySelection = function () {
+                const checkedCount = document.querySelectorAll('.verify-row-select:checked').length;
+                if (checkedCount === 0) {
+                    alert('请至少选择一条记录进行批量核实操作！');
+                    return false;
+                }
+                return true;
+            };
+
+            window.validateBatchRollbackSelection = function () {
+                const checkedCount = document.querySelectorAll('.verify-row-select:checked').length;
+                if (checkedCount === 0) {
+                    alert('请至少选择一条记录进行批量退回操作！');
+                    return false;
+                }
+                return confirm(`确认将选中的 ${checkedCount} 条记录退回未录入状态？`);
+            };
+
+            window.bindMultiUnload = function () {
+                const checkedBoxes = document.querySelectorAll('.row-select:checked');
+                if (checkedBoxes.length === 0) {
+                    alert('请至少选择一条记录进行一提多卸绑定！');
+                    return;
+                }
+                const selectedFleets = Array.from(checkedBoxes).map(cb => cb.value).filter(v => v);
+                document.getElementById('bind-fleet-numbers').value = selectedFleets.join(',');
+                if (confirm(`确认将选中的 ${checkedBoxes.length} 条记录绑定为一提多卸？`)) {
+                    showLoadingBar();
+                    document.getElementById('bind-multi-unload-form').submit();
+                }
+            };
+
+            window.unbindMultiUnload = function () {
+                const checkedBoxes = document.querySelectorAll('.row-select:checked');
+                if (checkedBoxes.length === 0) {
+                    alert('请至少选择一条记录进行一提多卸解绑！');
+                    return;
+                }
+                const selectedFleets = Array.from(checkedBoxes).map(cb => cb.value).filter(v => v);
+                document.getElementById('unbind-fleet-numbers').value = selectedFleets.join(',');
+                if (confirm(`确认将选中的 ${checkedBoxes.length} 条记录解绑一提多卸？`)) {
+                    showLoadingBar();
+                    document.getElementById('unbind-multi-unload-form').submit();
+                }
+            };
+
+            window.submitBatchPrices = function () {
+                const checkedBoxes = document.querySelectorAll('.row-select:checked');
+                if (checkedBoxes.length === 0) {
+                    alert('请至少选择一条记录进行批量提交！');
+                    return;
+                }
+                const batchData = [];
+                let hasError = false;
+                checkedBoxes.forEach(cb => {
+                    const row = cb.closest('.data-row');
+                    const fleetNum = cb.value;
+                    const costInput = row.querySelector('input[name="fleet_cost"]');
+                    const cost = parseFloat(costInput.value) || 0;
+                    if (cost <= 0) {
+                        alert(`车次 ${fleetNum} 的价格不能为空且必须大于0！`);
+                        hasError = true;
+                        return;
+                    }
+                    batchData.push({fleet_number: fleetNum, fleet_cost: cost});
+                });
+                if (hasError || batchData.length === 0) return;
+                document.getElementById('batch-prices-data').value = JSON.stringify(batchData);
+                if (confirm(`确认批量提交选中的 ${batchData.length} 条记录的价格？`)) {
+                    showLoadingBar();
+                    document.getElementById('batch-prices-form').submit();
+                }
+            };
+
+            window.showLoadingBar = function () {
+                const loadingBar = document.getElementById('loading-bar');
+                if (loadingBar) loadingBar.style.display = 'block';
+            };
+
+            window.hideLoadingBar = function () {
+                const loadingBar = document.getElementById('loading-bar');
+                if (loadingBar) loadingBar.style.display = 'none';
+            };
+
+            window.handleTemplateDownload = function () {
+                showLoadingBar();
+                setTimeout(hideLoadingBar, 2000);
+            };
+
+            window.handleTableDownload = function () {
+                showLoadingBar();
+                setTimeout(hideLoadingBar, 3000);
+            };
+
+            // 增强版表格筛选：多搜索框共同筛选 + 单个搜索框空格分隔多关键词
+            function applyAllFilters() {
+                // 1. 获取所有搜索框的筛选条件
+                const filters = {};
+                document.querySelectorAll('.filter-input').forEach(input => {
+                    const colName = input.getAttribute('data-col');
+                    const rawValue = input.value.toLowerCase().trim();
+                    // 按空格分割成多个关键词（过滤空字符串）
+                    filters[colName] = rawValue.split(/\s+/).filter(keyword => keyword);
+                });
+
+                const rows = document.querySelectorAll('.data-row');
+                let hasVisibleRows = false;
+
+                // 2. 遍历所有行，应用所有筛选条件
+                rows.forEach(row => {
+                    let isRowVisible = true; // 默认显示，只要有一个条件不满足就隐藏
+
+                    // 3. 检查当前行是否满足所有搜索框的条件
+                    Object.keys(filters).forEach(colName => {
+                        const keywords = filters[colName];
+                        // 如果当前搜索框无关键词，跳过该条件
+                        if (keywords.length === 0) return;
+
+                        const cell = row.querySelector(`td[data-col="${colName}"]`);
+                        if (cell) {
+                            const cellText = cell.textContent.toLowerCase().trim();
+                            // 单个搜索框的多个关键词：只要满足其中一个就通过
+                            const isMatch = keywords.some(keyword => cellText.includes(keyword));
+                            if (!isMatch) {
+                                isRowVisible = false;
+                            }
+                        } else {
+                            // 没有对应列的行直接隐藏
+                            isRowVisible = false;
+                        }
+                    });
+
+                    // 4. 设置行的显示状态
+                    row.style.display = isRowVisible ? '' : 'none';
+                    if (isRowVisible) hasVisibleRows = true;
+                });
+
+                // 5. 处理空数据行
+                const emptyRow = document.querySelector('.empty-row');
+                if (emptyRow) emptyRow.style.display = hasVisibleRows ? 'none' : '';
+            }
+
+            // 给所有搜索框绑定筛选事件（任意搜索框变化都触发全局筛选）
+            document.querySelectorAll('.filter-input').forEach(input => {
+                input.addEventListener('input', applyAllFilters);
             });
-            const emptyRow = document.querySelector('.empty-row');
-            if (emptyRow) emptyRow.style.display = hasVisibleRows ? 'none' : '';
+
+            // 初始化
+            updateSelectionCount();
+            updateVerifySelectionCount();
+            hideLoadingBar();
+            window.addEventListener('load', hideLoadingBar);
+
         });
-    });
-
-    // 初始化
-    updateSelectionCount();
-    updateVerifySelectionCount();
-    hideLoadingBar();
-    window.addEventListener('load', hideLoadingBar);
-
-    // 调试：初始化完成后打印所有一提多卸分组的复选框
-    console.log('=== 所有未录入页面一提多卸复选框 ===', document.querySelectorAll('.row-select[data-multi-unload-group]'));
-    console.log('=== 所有已录入页面一提多卸复选框 ===', document.querySelectorAll('.verify-row-select[data-multi-unload-group]'));
-});
-</script>
+    </script>
 {% endblock %}
