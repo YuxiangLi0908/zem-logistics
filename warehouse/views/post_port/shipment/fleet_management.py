@@ -2317,7 +2317,7 @@ class FleetManagement(View):
                 try:
                     # 更严格的字段验证
                     fleet_number = item.get("fleet_number")
-                    price = item.get("price")
+                    price = item.get("fleet_cost")
 
                     if not fleet_number or fleet_number.strip() == '':
                         error_messages.append(f"第{idx + 1}条数据：车次号为空")
