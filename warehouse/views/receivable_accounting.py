@@ -959,10 +959,17 @@ class ReceivableAccounting(View):
         context = {
             'success_messages':'保存账单明细成功！',
             'container_number': request.POST.get('container_number'),
-            'start_date': request.POST.get('start_date'),
-            'end_date': request.POST.get('end_date'),
         }
-        return self.template_invoice_items_all ,context
+        get_data = request.GET.copy()
+        post_data = request.POST.copy()
+
+        get_data["container_number"] = container_number
+        get_data["invoice_id"] = invoice.id
+        post_data["invoice_id"] = invoice.id
+
+        request.GET = get_data
+        request.POST = post_data
+        return self.handle_invoice_item_search(request, context)
 
     def _save_delivery_items(self, item_data, item_id, invoice, container):
         """保存派送费用项"""
