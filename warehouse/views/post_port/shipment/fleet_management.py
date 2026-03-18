@@ -2318,14 +2318,12 @@ class FleetManagement(View):
                     # 更严格的字段验证
                     fleet_number = item.get("fleet_number")
                     price = item.get("fleet_cost")
+                    note = item.get("note")
 
                     if not fleet_number or fleet_number.strip() == '':
                         error_messages.append(f"第{idx + 1}条数据：车次号为空")
                         continue
 
-                    if price is None:
-                        error_messages.append(f"第{idx + 1}条数据（车次：{fleet_number}）：价格为空")
-                        continue
 
                     # 转换价格为浮点数
                     try:
@@ -2341,8 +2339,12 @@ class FleetManagement(View):
                     # 3. 更新数据库记录
                     try:
                         fleet = await sync_to_async(Fleet.objects.get)(fleet_number=fleet_number)
-                        fleet.fleet_cost = price_float
+                        if price_float != 0:
+                            fleet.fleet_cost = price_float
+                        shipment = await sync_to_async(Shipment.objects.get)(fleet_number=fleet.id)
+                        shipment.note = note
                         await sync_to_async(fleet.save)()
+                        await sync_to_async(shipment.save)()
                         success_count += 1
                     except Fleet.DoesNotExist:
                         error_messages.append(f"第{idx + 1}条数据：车次号「{fleet_number}」不存在")

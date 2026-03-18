@@ -152,7 +152,7 @@
                             <button type="button" class="btn btn-info"
                                     style="height: 36px; font-size: 14px; border: none; border-radius: 4px; background: #17a2b8; color: white; cursor: pointer;"
                                     onclick="submitBatchPrices()">
-                                批量提交各行价格
+                                批量提交各行价格备注
                             </button>
 
                             <!-- 一提多卸绑定按钮 -->
@@ -224,6 +224,26 @@
                                     <i class="bi bi-download"></i> 下载已录入数据表格
                                 </button>
                             </form>
+
+                            <!-- 已录入页面新增：批量提交价格备注按钮 -->
+                            <button type="button" class="btn btn-info"
+                                    style="height: 36px; font-size: 14px; border: none; border-radius: 4px; background: #17a2b8; color: white; cursor: pointer; margin-bottom: 8px; width:250px; margin-left: 110px;margin-top: -54px;"
+                                    onclick="submitBatchPrices()">
+                                批量提交各行价格备注
+                            </button>
+
+                            <!-- 已录入页面新增：批量提交价格备注的隐藏表单 -->
+                            <form method="post" id="batch-prices-form-unrecord"
+                                  style="position: absolute; left: -9999px; top: -9999px;">
+                                {% csrf_token %}
+                                <input type="hidden" name="step" value="batch_confirm_ltl_price">
+                                <input type="hidden" name="status" value="unrecord">
+                                <input type="hidden" name="batch_prices_data" id="batch-prices-data-unrecord">
+                                <input type="hidden" name="start_time" value="{{ start_time }}">
+                                <input type="hidden" name="end_time" value="{{ end_time }}">
+                                <input type="hidden" name="area" value="{{ area }}">
+                            </form>
+
                             <!-- 批量核实表单 -->
                             <form method="post" id="batch-verify-form" action=""
                                   style="font-size:14px; display: inline-flex; align-items: center; width: auto; gap: 8px; margin: 0; justify-content: flex-end;">
@@ -538,7 +558,8 @@
                                 style="padding: 10px 12px; border: 1px solid #eee; text-align: center; white-space: nowrap; font-size:14px;">
                                 {{ f.shipped_pallet|default_if_none:0|floatformat:0 }}
                             </td>
-                            <td class="td"
+                            {% if shipment_type == '已录入内容' %}
+                                <td class="td"
                                 style="padding: 10px 12px; border: 1px solid #eee; white-space: nowrap; font-size:14px;">
                                 <form action="" method="post"
                                       style="margin: 0; display: flex; gap: 6px; align-items: center;">
@@ -560,6 +581,30 @@
                                     </button>
                                 </form>
                             </td>
+                            {% else %}
+                                <td class="td"
+                                style="padding: 10px 12px; border: 1px solid #eee; white-space: nowrap; font-size:14px;">
+                                <form action="" method="post"
+                                      style="margin: 0; display: flex; gap: 6px; align-items: center;">
+                                    {% csrf_token %}
+                                    <input type="number" step="0.01" name="fleet_cost"
+                                           value="{{ f.fleet_number.fleet_cost|default_if_none:0 }}"
+                                           style="width: 100px; font-size: 14px; padding: 6px; border: 1px solid #ddd; border-radius: 4px;">
+                                    <input type="hidden" name="fleet_number"
+                                           value="{{ f.fleet_number|default_if_none:'' }}">
+                                    <input type="hidden" name="step" value="fleet_cost_confirm_ltl">
+                                    <input type="hidden" name="status" value="record">
+                                    <input type="hidden" name="area" value="{{ area }}">
+                                    <input type="hidden" name="start_time" value="{{ start_time }}">
+                                    <input type="hidden" name="end_time" value="{{ end_time }}">
+                                    <button type="submit" class="btn btn-success"
+                                            style="font-size: 14px; padding: 6px 10px; border: none; border-radius: 4px; background: #28a745; color: white; cursor: pointer;"
+                                            onclick="showLoadingBar()">
+                                        确认
+                                    </button>
+                                </form>
+                            </td>
+                            {% endif %}
                             <td class="td"
                                 style="padding: 10px 12px; border: 1px solid #eee; text-align: center; white-space: nowrap; font-size:14px; color: #ff4d4f; font-weight: 600;">
                                 {{ f.allocation_price|default_if_none:0|floatformat:2 }}
@@ -584,7 +629,8 @@
                                 style="padding: 10px 12px; border: 1px solid #eee; white-space: nowrap; font-size:14px;">
                                 {{ f.carrier|default_if_none:"-" }}
                             </td>
-                            <td class="td" data-col="note"
+                            {% if shipment_type == '已录入内容' %}
+                                <td class="td" data-col="note"
                                 style="padding: 10px 12px; border: 1px solid #eee; width: 200px !important; min-width: 200px; max-width: 200px; font-size:14px; white-space: normal; word-wrap: break-word; line-height: 1.2;">
                                 <form action="" method="post"
                                       style="margin: 0; display: flex; gap: 6px; align-items: flex-start; flex-wrap: wrap;">
@@ -606,6 +652,30 @@
                                     </button>
                                 </form>
                             </td>
+                            {% else %}
+                                <td class="td" data-col="note"
+                                style="padding: 10px 12px; border: 1px solid #eee; width: 200px !important; min-width: 200px; max-width: 200px; font-size:14px; white-space: normal; word-wrap: break-word; line-height: 1.2;">
+                                <form action="" method="post"
+                                      style="margin: 0; display: flex; gap: 6px; align-items: flex-start; flex-wrap: wrap;">
+                                    {% csrf_token %}
+                                    <textarea name="note" placeholder="请输入备注内容..."
+                                              style="width: 150px; font-size: 14px; padding: 6px; border: 1px solid #ddd; border-radius: 4px; resize: vertical; min-height: 60px; margin-bottom: 5px;">{{ f.note|default_if_none:"" }}</textarea>
+                                    <input type="hidden" name="fleet_number"
+                                           value="{{ f.fleet_number|default_if_none:'' }}">
+                                    <input type="hidden" name="shipment_id" value="{{ f.id }}">
+                                    <input type="hidden" name="step" value="update_fleet_note">
+                                    <input type="hidden" name="status" value="record">
+                                    <input type="hidden" name="area" value="{{ area }}">
+                                    <input type="hidden" name="start_time" value="{{ start_time }}">
+                                    <input type="hidden" name="end_time" value="{{ end_time }}">
+                                    <button type="submit" class="btn btn-success"
+                                            style="font-size: 14px; padding: 6px 10px; border: none; border-radius: 4px; background: #28a745; color: white; cursor: pointer;"
+                                            onclick="showLoadingBar()">
+                                        保存备注
+                                    </button>
+                                </form>
+                            </td>
+                            {% endif %}
                             {% if shipment_type == '已录入内容' %}
                                 <td class="td"
                                     style="padding: 10px 12px; border: 1px solid #eee; white-space: nowrap; font-size:14px;">
@@ -1073,113 +1143,130 @@
                 }
             };
 
+            // ==================== 核心修改：批量提交价格+备注 ====================
             window.submitBatchPrices = function () {
-                const checkedBoxes = document.querySelectorAll('.row-select:checked');
+                // 判断当前页面类型（未录入/已录入）
+                const isUnrecordPage = document.querySelector('.verify-row-select') !== null;
+                let checkedBoxes, batchPricesFormId, batchPricesDataId;
+
+                // 未录入页面
+                if (!isUnrecordPage) {
+                    checkedBoxes = document.querySelectorAll('.row-select:checked');
+                    batchPricesFormId = 'batch-prices-form';
+                    batchPricesDataId = 'batch-prices-data';
+                }
+                // 已录入页面
+                else {
+                    checkedBoxes = document.querySelectorAll('.verify-row-select:checked');
+                    batchPricesFormId = 'batch-prices-form-unrecord';
+                    batchPricesDataId = 'batch-prices-data-unrecord';
+                }
+
+                // 校验选中数量
                 if (checkedBoxes.length === 0) {
                     alert('请至少选择一条记录进行批量提交！');
                     return;
                 }
+
+                // 收集所有选中行的价格和备注数据
                 const batchData = [];
-                let hasError = false;
-                checkedBoxes.forEach(cb => {
-                    const row = cb.closest('.data-row');
-                    const fleetNum = cb.value;
-                    const costInput = row.querySelector('input[name="fleet_cost"]');
-                    const cost = parseFloat(costInput.value) || 0;
-                    if (cost <= 0) {
-                        alert(`车次 ${fleetNum} 的价格不能为空且必须大于0！`);
-                        hasError = true;
-                        return;
-                    }
-                    batchData.push({fleet_number: fleetNum, fleet_cost: cost});
+                checkedBoxes.forEach(checkbox => {
+                    const fleetNumber = checkbox.value.trim();
+                    if (!fleetNumber) return;
+
+                    // 找到当前行
+                    const row = checkbox.closest('.data-row');
+                    if (!row) return;
+
+                    // 获取价格输入框值
+                    const priceInput = row.querySelector('input[name="fleet_cost"]');
+                    const price = priceInput ? parseFloat(priceInput.value) || 0 : 0;
+
+                    // 获取备注文本框值
+                    const noteTextarea = row.querySelector('textarea[name="note"]');
+                    const note = noteTextarea ? noteTextarea.value.trim() : '';
+
+                    // 获取shipment_id（如果有）
+                    const shipmentIdInput = row.querySelector('input[name="shipment_id"]');
+                    const shipmentId = shipmentIdInput ? shipmentIdInput.value.trim() : '';
+
+                    // 收集数据
+                    batchData.push({
+                        fleet_number: fleetNumber,
+                        fleet_cost: price,
+                        note: note,
+                        shipment_id: shipmentId
+                    });
                 });
-                if (hasError || batchData.length === 0) return;
-                document.getElementById('batch-prices-data').value = JSON.stringify(batchData);
-                if (confirm(`确认批量提交选中的 ${batchData.length} 条记录的价格？`)) {
+
+                // 校验数据有效性
+                if (batchData.length === 0) {
+                    alert('未获取到有效的提交数据，请重试！');
+                    return;
+                }
+
+                // 确认提交
+                if (confirm(`确认批量提交选中的 ${checkedBoxes.length} 条记录的价格和备注？`)) {
+                    // 填充隐藏表单数据
+                    document.getElementById(batchPricesDataId).value = JSON.stringify(batchData);
+
+                    // 显示加载动画并提交表单
                     showLoadingBar();
-                    document.getElementById('batch-prices-form').submit();
+                    document.getElementById(batchPricesFormId).submit();
                 }
             };
 
+            // ==================== 加载动画控制 ====================
             window.showLoadingBar = function () {
                 const loadingBar = document.getElementById('loading-bar');
-                if (loadingBar) loadingBar.style.display = 'block';
+                if (loadingBar) {
+                    loadingBar.style.display = 'block';
+                    // 防止加载动画被遮挡
+                    loadingBar.style.zIndex = '9999';
+                }
             };
 
-            window.hideLoadingBar = function () {
-                const loadingBar = document.getElementById('loading-bar');
-                if (loadingBar) loadingBar.style.display = 'none';
-            };
-
+            // ==================== 下载处理函数 ====================
             window.handleTemplateDownload = function () {
                 showLoadingBar();
-                setTimeout(hideLoadingBar, 2000);
             };
 
             window.handleTableDownload = function () {
                 showLoadingBar();
-                setTimeout(hideLoadingBar, 3000);
             };
 
-            // 增强版表格筛选：多搜索框共同筛选 + 单个搜索框空格分隔多关键词
-            function applyAllFilters() {
-                // 1. 获取所有搜索框的筛选条件
-                const filters = {};
-                document.querySelectorAll('.filter-input').forEach(input => {
-                    const colName = input.getAttribute('data-col');
-                    const rawValue = input.value.toLowerCase().trim();
-                    // 按空格分割成多个关键词（过滤空字符串）
-                    filters[colName] = rawValue.split(/\s+/).filter(keyword => keyword);
-                });
+            // ==================== 表格筛选功能 ====================
+            const filterInputs = document.querySelectorAll('.filter-input');
+            filterInputs.forEach(input => {
+                input.addEventListener('input', function () {
+                    const filterValue = this.value.toLowerCase().trim();
+                    const colName = this.getAttribute('data-col');
+                    const rows = document.querySelectorAll('.data-row');
 
-                const rows = document.querySelectorAll('.data-row');
-                let hasVisibleRows = false;
-
-                // 2. 遍历所有行，应用所有筛选条件
-                rows.forEach(row => {
-                    let isRowVisible = true; // 默认显示，只要有一个条件不满足就隐藏
-
-                    // 3. 检查当前行是否满足所有搜索框的条件
-                    Object.keys(filters).forEach(colName => {
-                        const keywords = filters[colName];
-                        // 如果当前搜索框无关键词，跳过该条件
-                        if (keywords.length === 0) return;
-
+                    rows.forEach(row => {
                         const cell = row.querySelector(`td[data-col="${colName}"]`);
                         if (cell) {
                             const cellText = cell.textContent.toLowerCase().trim();
-                            // 单个搜索框的多个关键词：只要满足其中一个就通过
-                            const isMatch = keywords.some(keyword => cellText.includes(keyword));
-                            if (!isMatch) {
-                                isRowVisible = false;
+                            if (cellText.includes(filterValue)) {
+                                row.style.display = '';
+                            } else {
+                                row.style.display = 'none';
                             }
-                        } else {
-                            // 没有对应列的行直接隐藏
-                            isRowVisible = false;
                         }
                     });
 
-                    // 4. 设置行的显示状态
-                    row.style.display = isRowVisible ? '' : 'none';
-                    if (isRowVisible) hasVisibleRows = true;
+                    // 检查是否有可见行
+                    const visibleRows = document.querySelectorAll('.data-row:not([style*="display: none"])');
+                    const emptyRow = document.querySelector('.empty-row');
+                    if (emptyRow) {
+                        emptyRow.style.display = visibleRows.length === 0 ? '' : 'none';
+                    }
                 });
-
-                // 5. 处理空数据行
-                const emptyRow = document.querySelector('.empty-row');
-                if (emptyRow) emptyRow.style.display = hasVisibleRows ? 'none' : '';
-            }
-
-            // 给所有搜索框绑定筛选事件（任意搜索框变化都触发全局筛选）
-            document.querySelectorAll('.filter-input').forEach(input => {
-                input.addEventListener('input', applyAllFilters);
             });
 
-            // 初始化
+            // 初始化选中数量显示
             updateSelectionCount();
             updateVerifySelectionCount();
-            hideLoadingBar();
-            window.addEventListener('load', hideLoadingBar);
-
         });
     </script>
 {% endblock %}
