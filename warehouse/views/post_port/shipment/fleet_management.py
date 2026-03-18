@@ -1911,11 +1911,12 @@ class FleetManagement(View):
                 else:
                     criteria &= Q(id__in=[])
 
+        # 核心修改：新增按核实状态排序（未核实在前）
         shipment = await sync_to_async(list)(
             Shipment.objects
             .select_related("fleet_number")
             .filter(criteria)
-            .order_by("shipped_at")
+            .order_by("fleet_number__fleet_verify_status", "shipped_at")
         )
 
         # ========== 新增：按车次统计总板数 ==========
@@ -2005,27 +2006,12 @@ class FleetManagement(View):
         multi_unload_map = multi_unload_data['multi_unload_map']  # 前端用的车次→同组列表
         fleet_to_group_map = multi_unload_data['fleet_map']  # 原有车次→分组信息
 
-        # 获取一提多卸分组信息
-        multi_unload_data = await get_multi_unload_groups()
-        multi_unload_map = multi_unload_data['group_map']
-        fleet_to_group_map = multi_unload_data['fleet_map']
+        # ========== 移除重复的 multi_unload_data 赋值 ==========
 
         # 处理数据：核心修改 - 修复一提多卸信息挂载
         async def process_shipment_data(shipment_list):
             processed = []
             for s in shipment_list:
-                # 原有逻辑：获取fleetshipmentpallets记录
-                latest_pallet = await sync_to_async(
-                    lambda: s.fleetshipmentpallets.order_by("-cost_input_time", "-id").first()
-                )()
-
-                if latest_pallet:
-                    pallet_cost_input_time = latest_pallet.cost_input_time
-                    pallet_operator_name = latest_pallet.operator.username if latest_pallet.operator else None
-                else:
-                    pallet_cost_input_time = None
-                    pallet_operator_name = None
-
                 # 核心修改1：查询当前shipment关联的所有pallet（修复字典取值问题）
                 @sync_to_async
                 def get_related_pallets(shipment_id):
@@ -2110,10 +2096,6 @@ class FleetManagement(View):
                     shipment_copy.retrieval_time = group_data['retrieval_time']
                     shipment_copy.all_locations = group_data['locations'][0]  # 该分组所有location（去重）
 
-                    # 挂载成本录入信息
-                    shipment_copy.pallet_cost_input_time = pallet_cost_input_time
-                    shipment_copy.pallet_operator_name = pallet_operator_name
-
                     # 挂载车次号
                     shipment_copy.fleet_number_code = shipment_copy.fleet_number.fleet_number if (
                             shipment_copy.fleet_number and shipment_copy.fleet_number.fleet_number) else "-"
@@ -2176,8 +2158,6 @@ class FleetManagement(View):
                     shipment_copy.retrieval_time = None
                     shipment_copy.all_locations = ["-"]
                     # 成本录入信息
-                    shipment_copy.pallet_cost_input_time = pallet_cost_input_time
-                    shipment_copy.pallet_operator_name = pallet_operator_name
                     shipment_copy.fleet_number_code = shipment_copy.fleet_number.fleet_number if (
                             shipment_copy.fleet_number and shipment_copy.fleet_number.fleet_number) else "-"
                     # ========== 新增：空条目分摊价格默认0 ==========
