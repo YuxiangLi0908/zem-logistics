@@ -9664,12 +9664,14 @@ class PostNsop(View):
         
         nowtime = timezone.now()
         two_weeks_later = nowtime + timezone.timedelta(weeks=2)
+        three_months_ago = nowtime - timezone.timedelta(days=90)
         # 1、PO管理——所有没约且两周内到港的货物
         unshipment_pos = await self._get_packing_list(
             request.user,
             models.Q(
                 shipment_batch_number__shipment_batch_number__isnull=True,
                 container_number__orders__offload_id__offload_at__isnull=True,
+                container_number__orders__vessel_id__vessel_eta__gte=three_months_ago,
                 container_number__orders__vessel_id__vessel_eta__lte=two_weeks_later, 
                 container_number__orders__retrieval_id__retrieval_destination_area=warehouse_name,
                 delivery_type='public',
