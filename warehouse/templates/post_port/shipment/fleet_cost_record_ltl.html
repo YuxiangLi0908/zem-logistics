@@ -418,7 +418,10 @@
                     <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 110px;"><input
                             type="text" placeholder="搜索柜号..." class="filter-input" data-col="container"
                             style="font-size: 14px; width: 100%;"></th>
-                    <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 120px;"></th>
+                    <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 120px;">
+                        <input type="text" placeholder="搜索一提多卸..." class="filter-input" data-col="multi-unload"
+                               style="font-size: 14px; width: 100%;">
+                    </th>
                     <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 80px;"></th>
                     <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 110px;"><input
                             type="text" placeholder="搜索目的仓库..." class="filter-input" data-col="warehouse"
@@ -489,12 +492,12 @@
                             style="padding: 10px 12px; border: 1px solid #eee; white-space: nowrap; font-size:14px;">
                             {{ f.container_number|default_if_none:"-" }}
                         </td>
-                        <td class="td"
+                        <td class="td" data-col="multi-unload"
                             style="padding: 10px 12px; border: 1px solid #eee; text-align: center; white-space: nowrap; font-size:14px;">
                             {% if f.fleet_number.train_related %}
                                 <span class="multi-unload-tag">是</span>
                             {% else %}
-                                <span class="text-muted">-</span>
+                                <span class="text-muted">否</span>
                             {% endif %}
                         </td>
                         <!-- 新增：一提多卸总成本显示 -->
