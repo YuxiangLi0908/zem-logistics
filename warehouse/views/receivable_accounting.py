@@ -955,7 +955,7 @@ class ReceivableAccounting(View):
                 invoice_number=invoice
             )
             item.delete()
-        self._update_invoice_total(invoice,container)
+        self._update_invoice_total(invoice,container,True)
         context = {
             'success_messages':'保存账单明细成功！',
             'container_number': request.POST.get('container_number'),
@@ -1020,7 +1020,7 @@ class ReceivableAccounting(View):
             InvoiceItemv2.objects.create(**other_data)
             
 
-    def _update_invoice_total(self, invoice, container):
+    def _update_invoice_total(self, invoice, container,is_update_remain=False):
         """更新发票总金额"""
         # 计算所有费用项的总金额
         total_amount = 0
@@ -1089,6 +1089,8 @@ class ReceivableAccounting(View):
         invoice.receivable_wh_other_amount = receivable_wh_other_amount
         invoice.receivable_delivery_public_amount = receivable_delivery_public_amount + activation_items_total
         invoice.receivable_delivery_other_amount = receivable_delivery_other_amount
+        if is_update_remain:
+            invoice.remain_offset = total_amount
         invoice.save()
 
     def handle_invoice_item_search(self, request:HttpRequest, context: dict| None = None) -> Dict[str, Any]:
