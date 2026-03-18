@@ -962,11 +962,7 @@ class ReceivableAccounting(View):
             'start_date': request.POST.get('start_date'),
             'end_date': request.POST.get('end_date'),
         }
-        request.POST = request.POST.copy()  # 创建可变副本
-        request.POST['container_number'] = context['container_number']
-        request.POST['start_date'] = context['start_date']
-        request.POST['end_date'] = context['end_date']
-        return self.handle_manual_process_search(request)
+        return self.template_invoice_items_all ,context
 
     def _save_delivery_items(self, item_data, item_id, invoice, container):
         """保存派送费用项"""
@@ -1314,9 +1310,17 @@ class ReceivableAccounting(View):
         invoice.save()
 
         # 返回成功消息
-        success_message = f"成功生成新的excel!"
-        context = {'success_message': success_message}
-        return self.template_invoice_items_all ,context
+        context = {
+            'success_messages':'成功生成新的excel!',
+            'container_number': request.POST.get('container_number'),
+            'start_date': request.POST.get('start_date'),
+            'end_date': request.POST.get('end_date'),
+        }
+        request.POST = request.POST.copy()  # 创建可变副本
+        request.POST['container_number'] = context['container_number']
+        request.POST['start_date'] = context['start_date']
+        request.POST['end_date'] = context['end_date']
+        return self.handle_manual_process_search(request)
 
     def handle_export_invoice_post(self, request: HttpRequest) -> HttpResponse:
         resp, file_name, pdf_file, context = export_invoice(request)
