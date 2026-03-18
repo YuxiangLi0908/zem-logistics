@@ -2929,7 +2929,8 @@ class ExceptionHandling(View):
         if not shipment:
             messages.error(request, "未找到要删除的记录")
         else:
-            if request.user.is_staff:
+            is_staff = await sync_to_async(lambda: request.user.is_staff)()
+            if is_staff:
                 # 如果是超级管理员，可以直接解绑删除约
                 await sync_to_async(
                     lambda: (
