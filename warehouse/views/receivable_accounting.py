@@ -6360,7 +6360,14 @@ class ReceivableAccounting(View):
                 "error_messages": f"未找到组合柜报价表规则 {combina_key}"
             }
             return (context, [])  # 返回错误，空列表
-        
+
+        stipulate = fee_details.get("COMBINA_STIPULATE").details
+        warehouse_specific_key = f'{warehouse}_max_mixed'
+        if warehouse_specific_key in stipulate.get("global_rules", {}):
+            combina_threshold = stipulate["global_rules"][warehouse_specific_key]["default"]
+        else:
+            combina_threshold = stipulate["global_rules"]["max_mixed"]["default"]
+
         rules = fee_details.get(combina_key).details
         niche_warehouse = fee_details.get(f"{warehouse}_PUBLIC").niche_warehouse
         niche_warehouse_fixed = {
@@ -6375,6 +6382,11 @@ class ReceivableAccounting(View):
         need_Additional_des = []
         poid_list = []
 
+        # 按CBM从小到大排序，如果超过限制的组合柜数量，后面的就直接归为非组合区
+        pallet_groups = sorted(pallet_groups, key=lambda x: x.get("total_cbm", 0))
+        # 初始化组合柜仓点计数器和已占用的目的地集合
+        combina_dest_count = 0
+        occupied_combina_dests = set()
         for group in pallet_groups:
             po_id = group.get("PO_ID", "")
             destination_str = group.get("destination", "")
@@ -6409,8 +6421,20 @@ class ReceivableAccounting(View):
                 is_combina_region = False
             
             if is_combina_region:
-                combina_pallet_groups.append(group)
-                processed_po_ids.add(po_id)
+                dest_fixed = self._process_destination_wlm(destination_str)
+                if dest_fixed in occupied_combina_dests:
+                    # 该目的地已在组合柜名单里，直接加入
+                    combina_pallet_groups.append(group)
+                    processed_po_ids.add(po_id)
+                elif combina_dest_count < combina_threshold:
+                    # 这是一个新仓点，且组合柜名额还没满
+                    combina_dest_count += 1
+                    occupied_combina_dests.add(dest_fixed)
+                    combina_pallet_groups.append(group)
+                    processed_po_ids.add(po_id)
+                else:
+                    # 这是一个新仓点，但名额已满，强制转为非组合柜
+                    is_combina_region = False
             if is_combina_origin and not is_combina_region:
                 # 如果是组合->非组合，要补收一份组合柜
                 need_Additional_des.append(destination_str)
@@ -6880,12 +6904,12 @@ class ReceivableAccounting(View):
         id = quotation.id
         if "准时达" in customer_name:
             #准时达的，如果转仓，要根据pallet实际仓库去计算报价
-            fee_types = ["NJ_LOCAL", "NJ_PUBLIC", "NJ_COMBINA","SAV_PUBLIC", "SAV_COMBINA","LA_PUBLIC", "LA_COMBINA"]
+            fee_types = ["NJ_LOCAL", "NJ_PUBLIC", "NJ_COMBINA","SAV_PUBLIC", "SAV_COMBINA","LA_PUBLIC", "LA_COMBINA","COMBINA_STIPULATE"]
         else:
             fee_types = {
-                "NJ": ["NJ_LOCAL", "NJ_PUBLIC", "NJ_COMBINA"],
-                "SAV": ["SAV_PUBLIC", "SAV_COMBINA"],
-                "LA": ["LA_PUBLIC", "LA_COMBINA"],
+                "NJ": ["NJ_LOCAL", "NJ_PUBLIC", "NJ_COMBINA","COMBINA_STIPULATE"],
+                "SAV": ["SAV_PUBLIC", "SAV_COMBINA","COMBINA_STIPULATE"],
+                "LA": ["LA_PUBLIC", "LA_COMBINA","COMBINA_STIPULATE"],
             }.get(warehouse, [])
 
         return {
