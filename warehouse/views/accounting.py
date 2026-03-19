@@ -4740,7 +4740,7 @@ class Accounting(View):
     def export_confirmed_by_month_carrier_v1(self, request):
         """
         已确认-提拆账单导出：基于前端传递的集装箱ID，直接查询Container表，关联费用/客户信息导出
-        修复：移除无效的invoicestatusv2_set预加载，优化查询逻辑
+        核心优化：费用计算优先取amount，无则取rate；修复文件名编码、数据格式问题
         """
         try:
             # 1. 获取前端传递的核心参数
@@ -4756,7 +4756,7 @@ class Accounting(View):
                 raise ValueError("请至少勾选一个集装箱！")
 
             # 3. 核心逻辑：直接查询Container表（按勾选的ID筛选）
-            # 修复：移除无效的invoicestatusv2_set预加载，只保留有效关联
+            # 关键修改1：移除rate__isnull=False限制，新增amount字段查询
             containers = Container.objects.filter(
                 container_number__in=selected_container_ids  # 按集装箱号筛选
             ).prefetch_related(
@@ -4772,13 +4772,13 @@ class Accounting(View):
                         cancel_notification=False
                     )
                 ),
-                # 预加载关联的费用项（只筛选应付费用）
+                # 预加载关联的费用项（只筛选应付费用，移除rate非空限制）
                 Prefetch(
                     "invoice_itemv2",
                     queryset=InvoiceItemv2.objects.filter(
                         invoice_type__in=["payable", "payable_direct"],  # 只筛选应付费用
-                        rate__isnull=False  # 过滤空费用
-                    )
+                        # 移除 rate__isnull=False 限制，确保amount有值的记录被保留
+                    ).only("description", "rate", "amount", "carrier")  # 新增amount字段
                 )
             )
 
@@ -4786,7 +4786,7 @@ class Accounting(View):
             excel_data = []
             for container in containers:
                 # 4.1 基础信息
-                container_number = container.container_number
+                container_number = container.container_number or "-"
 
                 # 4.2 客户信息（取第一个订单的客户）
                 customer_name = "-"
@@ -4811,86 +4811,82 @@ class Accounting(View):
                 if unload_fee_items.exists():
                     unload_carrier = unload_fee_items.first().carrier or "-"
 
-                # 4.5 各费用项计算（直接从Container的invoice_itemv2中统计）
-                # 提柜费
-                pickup_fee = container.invoice_itemv2.filter(description="提柜费用").aggregate(
-                    total=Sum("rate", default=0)
-                )["total"] or 0
+                # 4.5 各费用项计算【核心修改：优先取amount，无则取rate】
+                # 定义通用费用计算函数
+                def calculate_fee(description):
+                    """
+                    计算指定描述的费用：优先sum(amount)，无则sum(rate)
+                    """
+                    # 先计算amount总和
+                    amount_sum = container.invoice_itemv2.filter(description=description).aggregate(
+                        total=Sum("amount", default=0)
+                    )["total"] or 0.0
+                    # 如果amount为0，计算rate总和
+                    if amount_sum == 0:
+                        rate_sum = container.invoice_itemv2.filter(description=description).aggregate(
+                            total=Sum("rate", default=0)
+                        )["total"] or 0.0
+                        return rate_sum
+                    return amount_sum
 
-                # 超重费
-                over_weight_fee = container.invoice_itemv2.filter(description="超重费用").aggregate(
-                    total=Sum("rate", default=0)
-                )["total"] or 0
+                # 定义包含模糊匹配的费用计算函数（用于"其他费用"）
+                def calculate_fee_contains(description):
+                    """
+                    模糊匹配描述计算费用：优先sum(amount)，无则sum(rate)
+                    """
+                    amount_sum = container.invoice_itemv2.filter(description__contains=description).aggregate(
+                        total=Sum("amount", default=0)
+                    )["total"] or 0.0
+                    if amount_sum == 0:
+                        rate_sum = container.invoice_itemv2.filter(description__contains=description).aggregate(
+                            total=Sum("rate", default=0)
+                        )["total"] or 0.0
+                        return rate_sum
+                    return amount_sum
 
-                # 车架费
-                chassis_fee = container.invoice_itemv2.filter(description="车架费用").aggregate(
-                    total=Sum("rate", default=0)
-                )["total"] or 0
+                # 各分项费用计算
+                pickup_fee = calculate_fee("提柜费用")  # 提柜费
+                over_weight_fee = calculate_fee("超重费用")  # 超重费
+                chassis_fee_base = calculate_fee("车架费用")  # 车架费（基础）
+                demurrage_fee = calculate_fee("港内滞港费")  # 滞港费
+                per_diem_fee = calculate_fee("港外滞箱费")  # 滞箱费
+                other_fee = calculate_fee_contains("其他费用")  # 其他费用
+                unload_fee = calculate_fee("拆柜费用")  # 拆柜费
+                arrive_fee = calculate_fee("入库拆柜费")  # 入库拆柜费
+                direct_basic_fee = calculate_fee("固定报价")  # 直送固定报价
+                direct_frame_fee_sum = calculate_fee("直送车架费")  # 直送车架费
+                waiting_fee = calculate_fee("等待费用")  # 直送等待费用
 
-                # 滞港费
-                demurrage_fee = container.invoice_itemv2.filter(description="港内滞港费").aggregate(
-                    total=Sum("rate", default=0)
-                )["total"] or 0
+                # 修复：原逻辑重复赋值chassis_fee，导致车架费被等待费用覆盖
+                chassis_fee_final = chassis_fee_base  # 最终车架费
+                waiting_fee_final = waiting_fee  # 最终等待费用
 
-                # 滞箱费
-                per_diem_fee = container.invoice_itemv2.filter(description="港外滞箱费").aggregate(
-                    total=Sum("rate", default=0)
-                )["total"] or 0
+                # 总费用计算：所有分项费用求和（避免直接sum所有rate/amount，确保与分项一致）
+                total_fee = (
+                        pickup_fee + unload_fee + arrive_fee + direct_basic_fee +
+                        direct_frame_fee_sum + waiting_fee_final + over_weight_fee +
+                        demurrage_fee + per_diem_fee + chassis_fee_final + other_fee
+                )
 
-                # 其他费用
-                other_fee = container.invoice_itemv2.filter(description__contains="其他费用").aggregate(
-                    total=Sum("rate", default=0)
-                )["total"] or 0
-
-                # 拆柜费
-                unload_fee = container.invoice_itemv2.filter(description="拆柜费用").aggregate(
-                    total=Sum("rate", default=0)
-                )["total"] or 0
-
-                # 入库拆柜费
-                arrive_fee = container.invoice_itemv2.filter(description="入库拆柜费").aggregate(
-                    total=Sum("rate", default=0)
-                )["total"] or 0
-
-                # 直送固定报价
-                direct_basic_fee = container.invoice_itemv2.filter(description="固定报价").aggregate(
-                    total=Sum("rate", default=0)
-                )["total"] or 0
-
-                # 直送车架费
-                direct_frame_fee_sum = container.invoice_itemv2.filter(description="直送车架费").aggregate(
-                    total=Sum("rate", default=0)
-                )["total"] or 0
-
-                # 直送等待费用
-                chassis_fee = container.invoice_itemv2.filter(description="等待费用").aggregate(
-                    total=Sum("rate", default=0)
-                )["total"] or 0
-
-                # 总费用
-                total_fee = container.invoice_itemv2.aggregate(
-                    total=Sum("rate", default=0)
-                )["total"] or 0
-
-                # 4.6 组装一行数据（与表格列对应）
+                # 4.6 组装一行数据（与表格列对应，移除$符号，仅保留数值，Excel中统一格式化）
                 excel_data.append([
                     customer_name,  # 客户
                     warehouse,  # 仓点
                     pickup_carrier,  # 提柜供应商
                     unload_carrier,  # 卸柜供应商
                     container_number,  # 货柜号
-                    f"${pickup_fee:.2f}",  # 提柜费
-                    f"${unload_fee:.2f}",  # 拆柜费
-                    f"${arrive_fee:.2f}",  # 入库拆柜费
-                    f"${direct_basic_fee:.2f}",  # 直送固定报价
-                    f"${direct_frame_fee_sum:.2f}",  # 直送车架费
-                    f"${chassis_fee:.2f}",  # 直送等待费用
-                    f"${over_weight_fee:.2f}",  # 超重费
-                    f"${demurrage_fee:.2f}",  # 滞港费
-                    f"${per_diem_fee:.2f}",  # 滞箱费
-                    f"${chassis_fee:.2f}",  # 车架费
-                    f"${other_fee:.2f}",  # 其他费用
-                    f"${total_fee:.2f}"  # 总费用
+                    round(pickup_fee, 2),  # 提柜费（保留2位小数）
+                    round(unload_fee, 2),  # 拆柜费
+                    round(arrive_fee, 2),  # 入库拆柜费
+                    round(direct_basic_fee, 2),  # 直送固定报价
+                    round(direct_frame_fee_sum, 2),  # 直送车架费
+                    round(waiting_fee_final, 2),  # 直送等待费用
+                    round(over_weight_fee, 2),  # 超重费
+                    round(demurrage_fee, 2),  # 滞港费
+                    round(per_diem_fee, 2),  # 滞箱费
+                    round(chassis_fee_final, 2),  # 车架费
+                    round(other_fee, 2),  # 其他费用
+                    round(total_fee, 2)  # 总费用
                 ])
 
             # 5. 生成Excel文件
@@ -4905,23 +4901,28 @@ class Accounting(View):
 
             # 6. 构建响应返回Excel
             response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-            # 修复：文件名处理中文编码问题
+            # 修复：文件名中文编码问题（使用quote处理）
             filename = f"提拆账单_勾选导出_{len(selected_container_ids)}个集装箱.xlsx"
-            response['Content-Disposition'] = f'attachment; filename="{filename}"'.encode('utf-8')
+            encoded_filename = quote(filename)
+            response['Content-Disposition'] = (
+                f'attachment; filename="{encoded_filename}"; '
+                f'filename*=UTF-8\'\'{encoded_filename}'
+            )
             df.to_excel(response, index=False, engine='openpyxl')
 
             return response
 
         except Exception as e:
             # 异常处理：返回友好提示，同时打印详细错误日志
-            import traceback
             traceback.print_exc()  # 打印详细错误到控制台，便于调试
             return HttpResponse(f"导出失败：{str(e)}", status=400)
 
+
     def export_pending_by_month_carrier_v1(self, request):
         """
-        待确认-提拆账单导出：强化兼容逗号分隔字符串
-        核心优化：精准拆分逗号分隔字符串，确保多集装箱号被正确识别
+        待确认-提拆账单导出：强化兼容逗号分隔字符串 + 优先取amount计算费用
+        核心优化1：精准拆分逗号分隔字符串，确保多集装箱号被正确识别
+        核心优化2：费用计算优先取amount，无则取rate，与前端展示逻辑一致
         """
         try:
             # 1. 获取并解析前端参数【核心优化：强化逗号分隔字符串处理】
@@ -4949,6 +4950,7 @@ class Accounting(View):
             if not selected_container_ids:
                 raise ValueError("请至少勾选一个有效的集装箱！")
 
+            # 2. 查询集装箱数据【关键修改：移除rate__isnull=False限制，确保amount有值的记录也能被查询】
             containers = Container.objects.filter(
                 container_number__in=selected_container_ids
             ).prefetch_related(
@@ -4961,15 +4963,16 @@ class Accounting(View):
                 Prefetch(
                     "invoice_itemv2",
                     queryset=InvoiceItemv2.objects.filter(
-                        invoice_type__in=["payable", "payable_direct"],
-                        rate__isnull=False
-                    ).only("description", "rate", "carrier")
+                        invoice_type__in=["payable", "payable_direct"]
+                        # 移除 rate__isnull=False 限制，避免过滤掉仅amount有值的记录
+                    ).only("description", "rate", "amount", "carrier")  # 新增amount字段查询
                 )
             )
 
             if not containers.exists():
                 raise ValueError(f"未查询到有效集装箱，请检查勾选的集装箱号！")
 
+            # 3. 费用映射关系（保持原有字段映射，仅修改计算逻辑）
             FEE_MAPPING = {
                 "提柜费用": "pickup_fee",
                 "拆柜费用": "unload_fee",
@@ -4981,10 +4984,11 @@ class Accounting(View):
                 "入库拆柜费": "arrive_fee",
                 "固定报价": "direct_basic_fee",
                 "直送车架费": "direct_frame_fee_sum",
-                "等待费用": "chassis_fee"
+                "等待费用": "waiting_fee"  # 修正：原等待费用映射错误（chassis_fee→waiting_fee）
             }
             excel_data = []
 
+            # 4. 遍历集装箱计算费用【核心修改：优先取amount，无则取rate】
             for container in containers:
                 container_number = container.container_number or "-"
                 order_first = container.orders.first()
@@ -4994,6 +4998,7 @@ class Accounting(View):
                 unload_carrier = "-"
                 fee_data = {k: 0.0 for k in FEE_MAPPING.values()}
 
+                # 基础信息赋值
                 if order_first:
                     customer_name = getattr(getattr(order_first, "customer_name", None), "zem_name", "-") or "-"
                     retrieval_id = getattr(order_first, "retrieval_id", None)
@@ -5001,30 +5006,47 @@ class Accounting(View):
                         warehouse = getattr(retrieval_id, "retrieval_destination_area", "-") or "-"
                         pickup_carrier = getattr(retrieval_id, "retrieval_carrier", "-") or "-"
 
+                # 费用计算：优先取amount，无则取rate
                 fee_items = list(container.invoice_itemv2.all())
                 for fee in fee_items:
                     desc = fee.description or ""
-                    rate = float(fee.rate or 0.0)
+                    # 核心修改：优先取amount，无则取rate，都无则为0.0
+                    fee_value = float(fee.amount or fee.rate or 0.0)
+
                     for fee_key, field_name in FEE_MAPPING.items():
                         if fee_key in desc:
-                            fee_data[field_name] += rate
+                            fee_data[field_name] += fee_value
+                            # 记录卸柜供应商（仅拆柜费用）
                             if fee_key == "拆柜费用":
                                 unload_carrier = getattr(fee, "carrier", "-") or "-"
                             break
 
+                # 计算总费用
                 total_fee = sum(fee_data.values())
+
+                # 组装Excel行数据（顺序与前端列对应）
                 excel_data.append([
-                    customer_name, warehouse, pickup_carrier, unload_carrier, container_number, fee_data["pickup_fee"],
-                    fee_data["unload_fee"], fee_data["arrive_fee"], fee_data["direct_basic_fee"],
-                    fee_data["direct_frame_fee_sum"], fee_data["chassis_fee"], fee_data["over_weight_fee"],
-                    fee_data["demurrage_fee"], fee_data["per_diem_fee"], fee_data["chassis_fee"], fee_data["other_fee"],
-                    total_fee
+                    customer_name, warehouse, pickup_carrier, unload_carrier, container_number,
+                    fee_data["pickup_fee"],  # 提柜费
+                    fee_data["unload_fee"],  # 拆柜费
+                    fee_data["arrive_fee"],  # 入库拆柜费
+                    fee_data["direct_basic_fee"],  # 直送固定报价
+                    fee_data["direct_frame_fee_sum"],  # 直送车架费
+                    fee_data["waiting_fee"],  # 直送等待费用（修正映射）
+                    fee_data["over_weight_fee"],  # 超重费
+                    fee_data["demurrage_fee"],  # 滞港费
+                    fee_data["per_diem_fee"],  # 滞箱费
+                    fee_data["chassis_fee"],  # 车架费
+                    fee_data["other_fee"],  # 其他费用
+                    total_fee  # 总费用
                 ])
 
+            # 5. 生成Excel文件
             df = pd.DataFrame(
                 excel_data,
                 columns=["客户", "仓点", "提柜供应商", "卸柜供应商", "货柜号", "提柜费", "拆柜费", "入库拆柜费",
-                         "直送固定报价", "直送车架费", "直送等待费用", "超重费", "滞港费", "滞箱费", "车架费", "其他费用",
+                         "直送固定报价", "直送车架费", "直送等待费用", "超重费", "滞港费", "滞箱费", "车架费",
+                         "其他费用",
                          "总费用"]
             )
 
@@ -5041,7 +5063,7 @@ class Accounting(View):
             return HttpResponse(f"导出失败：{str(e)}", status=400)
         except Exception as e:
             traceback.print_exc()
-            return HttpResponse(f"系统异常，导出失败：请联系管理员处理", status=500)
+            return HttpResponse(f"系统异常，导出失败：请联系管理员处理，错误详情：{str(e)}", status=500)
 
 
 
