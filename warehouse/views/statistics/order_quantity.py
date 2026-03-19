@@ -3,9 +3,10 @@ import random
 import re
 from collections import defaultdict
 from datetime import datetime, timedelta
-from typing import Any
+from typing import Any, Dict, List
 
 import numpy as np
+from django.utils import timezone
 from asgiref.sync import sync_to_async
 from dateutil.relativedelta import relativedelta
 from django.apps import apps
@@ -19,13 +20,14 @@ from django.views import View
 
 from warehouse.models.packing_list import PackingList
 from warehouse.models.pallet import Pallet
+from warehouse.models.quotation_master import QuotationMaster
 from warehouse.models.container import Container
+from warehouse.models.fee_detail import FeeDetail
 from warehouse.models.customer import Customer
 from warehouse.models.fleet_shipment_pallet import FleetShipmentPallet
 from warehouse.models.invoice import Invoice, InvoiceItem
 from warehouse.models.invoice_details import InvoiceDelivery
 from warehouse.models.order import Order
-from warehouse.models.pallet import Pallet
 from warehouse.models.retrieval import HistoricalRetrieval, Retrieval
 from warehouse.utils.constants import MODEL_CHOICES
 
@@ -62,7 +64,7 @@ class OrderQuantity(View):
             customers["----"] = None
             customers = {"----": None, **customers}
             context = {"area_options": self.area_options, "customers": customers}
-            return await sync_to_async(render)(request, self.template_profit, context)
+            return await sync_to_async(render)(request, self.template_cbm_analysis, context)
         elif step == "profit_analysis_personalized":
             if not await self._validate_user_profit(request.user):
                 return HttpResponseForbidden(
@@ -699,11 +701,7 @@ class OrderQuantity(View):
         else:
             return f"{'已' if new_value else '未'}{field_name_cn}"
 
-    async def handle_analysis_cbm(
-        self, request: HttpRequest
-    ) -> tuple[str, dict[str, Any]]:
-        start_date = request.POST.get("start_date")
-        end_date = request.POST.get("end_date")
+    async def _get_cbm_analysis_criteria(self, start_date, end_date, customer_idlist, warehouse_list, date_type):
         today = datetime.today()
         six_months_ago_first_day = (today + relativedelta(months=-6)).replace(day=1)
         last_month_last_day = today + relativedelta(months=-1, day=31)
@@ -720,10 +718,9 @@ class OrderQuantity(View):
         customers = await sync_to_async(
             lambda: {"----": None, **{c.zem_name: c.id for c in Customer.objects.all()}}
         )()
-        customer_idlist = request.POST.getlist("customer")
-        warehouse_list = request.POST.getlist("warehouse")
+        
 
-        date_type = request.POST.get("date_type")
+        
 
         if date_type == "eta":
             criteria = Q(
@@ -745,6 +742,16 @@ class OrderQuantity(View):
             )
             customer_idlist = [item["zem_name"] for item in customer_list]
             criteria &= Q(customer_name__zem_name__in=customer_idlist)
+        return criteria
+    async def handle_analysis_cbm(
+        self, request: HttpRequest
+    ) -> tuple[str, dict[str, Any]]:
+        start_date = request.POST.get("start_date")
+        end_date = request.POST.get("end_date")
+        customer_idlist = request.POST.getlist("customer")
+        warehouse_list = request.POST.getlist("warehouse")
+        date_type = request.POST.get("date_type")
+        criteria = await self._get_cbm_analysis_criteria(start_date, end_date, customer_idlist, warehouse_list, date_type)    
         
         orders = await sync_to_async(list)(
             Order.objects.select_related(
@@ -756,7 +763,9 @@ class OrderQuantity(View):
             .filter(criteria)
             .annotate(count=Count("id"))
         )
-
+        # 查找最新的通用报价表，去读取组合柜三张表，每个区都有哪些仓点
+        region_des = self._get_combina_region(warehouse_list)
+        
         for order in orders:
             pl_cbm_by_destination = (
                 PackingList.objects
@@ -765,6 +774,74 @@ class OrderQuantity(View):
                 .annotate(total_cbm=Sum("cbm"))
             )
 
+    async def _get_combina_region(
+        self, warehouse_list: List
+    ):
+        """
+        获取组合柜区域配置。
+        warehouse_list: ['NJ', 'SAV', 'LA'] 或 []
+        """
+        now_date = timezone.now().date()
+        target_quote = QuotationMaster.objects.filter(
+            quote_type="receivable",
+            effective_date__lte=now_date,
+            exclusive_user__in=[None, ""]
+        ).latest('effective_date')
+        full_mapping = {
+            "NJ": "NJ_COMBINA",
+            "SAV": "SAV_COMBINA",
+            "LA": "LA_COMBINA",
+        }
+
+        if not warehouse_list:
+            selected_prefixes = list(full_mapping.values())
+        else:
+            selected_prefixes = [full_mapping[w] for w in warehouse_list if w in full_mapping]
+
+        # 3. 批量查询费用明细
+        fee_details = FeeDetail.objects.filter(
+            quotation_id=target_quote.id, 
+            fee_type__in=selected_prefixes
+        )
+
+        # 4. 解析并重组数据
+        # 最终格式：[{"region": "美东一区", "locations": ["ABE8", ...]}, ...]
+        combined_result = []
+        # 辅助变量，用于合并相同名字的区域
+        region_map = {}
+
+        for detail in fee_details:
+            # 假设 details 字段是 JSONField，如果是字符串则需要 json.loads(detail.details)
+            data = detail.details or {}
+            
+            for region_name, tiers in data.items():
+                # 清洗区域名称（处理 LA 数据中可能存在的换行符）
+                clean_region_name = region_name.replace('\n', '').strip()
+                
+                # 汇总该区域下所有梯度的 location
+                all_locations = []
+                for tier in tiers:
+                    locations = tier.get("location", [])
+                    # 过滤掉空字符串并去重
+                    valid_locs = [str(loc).strip() for loc in locations if loc and str(loc).strip()]
+                    all_locations.extend(valid_locs)
+
+                if not all_locations:
+                    continue
+
+                if clean_region_name in region_map:
+                    # 如果区域名已存在，合并仓点并去重
+                    existing_locs = set(region_map[clean_region_name]["locations"])
+                    existing_locs.update(all_locations)
+                    region_map[clean_region_name]["locations"] = list(existing_locs)
+                else:
+                    region_map[clean_region_name] = {
+                        "region": clean_region_name,
+                        "locations": list(set(all_locations)) # 初始去重
+                    }
+
+        # 5. 转换为列表格式返回
+        return list(region_map.values())
     async def handle_order_profit_get(
         self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
