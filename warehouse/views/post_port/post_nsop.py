@@ -584,7 +584,6 @@ class PostNsop(View):
     
     async def handle_maersk_schedule_post(self, request: HttpRequest) -> JsonResponse:
         """处理Maersk预约下单"""
-        print(request.POST)
         try:     
             # 1. 提取参数
             quote_id = request.POST.get('quote_id')
