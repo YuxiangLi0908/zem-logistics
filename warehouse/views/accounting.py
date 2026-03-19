@@ -6975,13 +6975,16 @@ class Accounting(View):
             description__startswith="直送其他费用-"  # 精准匹配提柜其他费用前缀
         )
 
-        # 比对：删除数据库中不在提交列表里的冗余记录
-        submitted_direct_other_names = [fee["name"] for fee in db_direct_other_fees]
+        submitted_direct_other_names = [fee["name"] for fee in submitted_direct_other_fees]
+        db_direct_other_descriptions = [db_fee.description for db_fee in db_direct_other_fees]
 
-        # 删除冗余（不在提交列表的）
+        # 删除数据库中「不在提交列表」的冗余记录
         for db_fee in db_direct_other_fees:
             if db_fee.description not in submitted_direct_other_names:
                 db_fee.delete()
+
+
+        pt_amount = pt_amount if 'pt_amount' in locals() else 0.0
 
         for fee in submitted_direct_other_fees:
             fee_name = fee["name"]
