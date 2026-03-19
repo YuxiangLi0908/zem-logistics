@@ -751,30 +751,139 @@ class OrderQuantity(View):
         customer_idlist = request.POST.getlist("customer")
         warehouse_list = request.POST.getlist("warehouse")
         date_type = request.POST.get("date_type")
+        display_type = request.POST.get("display_type", "destination")  # 默认按仓点展示
         criteria = await self._get_cbm_analysis_criteria(start_date, end_date, customer_idlist, warehouse_list, date_type)    
         
+        # 获取符合条件的订单
         orders = await sync_to_async(list)(
             Order.objects.select_related(
                 "customer_name",
                 "warehouse",
                 "retrieval_id",
                 "container_number",
+                "vessel_id",  # 添加vessel_id的select_related
             )
             .filter(criteria)
             .annotate(count=Count("id"))
         )
-        # 查找最新的通用报价表，去读取组合柜三张表，每个区都有哪些仓点
-        region_des = self._get_combina_region(warehouse_list)
         
-        for order in orders:
-            pl_cbm_by_destination = (
-                PackingList.objects
-                .filter(container_number=order.container_number)
-                .values("destination")
-                .annotate(total_cbm=Sum("cbm"))
-            )
+        # 收集所有相关的容器ID
+        container_ids = [order.container_number.id for order in orders if order.container_number]
+        container_numbers = [order.container_number for order in orders if order.container_number]
+        
+        # 创建容器ID到订单的映射，用于获取客户信息
+        container_to_order = {order.container_number.id: order for order in orders if order.container_number}
+        
+        # 查找最新的通用报价表，去读取组合柜三张表，每个区都有哪些仓点
+        region_des = await sync_to_async(self._get_combina_region)(warehouse_list)
+        
+        # 构建区域到仓点的映射，方便快速查询
+        region_to_locations = {}
+        location_to_region = {}
+        for region in region_des:
+            region_name = region["region"]
+            region_to_locations[region_name] = region["locations"]
+            for location in region["locations"]:
+                location_to_region[location] = region_name
+        
+        # 从PackingList表查询数据，包含container_number
+        packing_lists = await sync_to_async(list)(
+            PackingList.objects
+            .filter(container_number_id__in=container_ids)  # 使用容器ID进行查询
+            .values("container_number_id", "destination", "cbm", "total_weight_kg")
+        )
+        
+        # 按destination和customer分组统计
+        destination_stats = {}
+        for pl in packing_lists:
+            container_id = pl.get("container_number_id")
+            if not container_id:
+                continue
+            
+            # 获取订单信息以获取客户
+            order = container_to_order.get(container_id)
+            if not order:
+                continue
+            
+            customer = order.customer_name.zem_name if order.customer_name else "未知客户"
+            destination = pl.get("destination")
+            if not destination:
+                continue
+            
+            cbm = pl.get("cbm", 0) or 0
+            weight = pl.get("total_weight_kg", 0) or 0
+            
+            # 使用(destination, customer)作为键
+            key = (destination, customer)
+            if key not in destination_stats:
+                destination_stats[key] = {
+                    "total_cbm": 0,
+                    "total_weight": 0,
+                    "region": location_to_region.get(destination, "未知区"),
+                    "customer": customer
+                }
+            
+            destination_stats[key]["total_cbm"] += cbm
+            destination_stats[key]["total_weight"] += weight
+        print('destination_stats',destination_stats)
+        # 转换为列表格式
+        destination_list = []
+        for (destination, customer), stats in destination_stats.items():
+            destination_list.append({
+                "destination": destination,
+                "customer": customer,
+                "total_cbm": round(stats["total_cbm"], 2),
+                "total_weight": round(stats["total_weight"], 2),
+                "region": stats["region"]
+            })
+        
+        # 按区分组统计
+        region_stats = {}
+        for (destination, customer), stats in destination_stats.items():
+            region = stats["region"]
+            if region not in region_stats:
+                region_stats[region] = {
+                    "total_cbm": 0,
+                    "total_weight": 0,
+                    "destinations": []
+                }
+            
+            region_stats[region]["total_cbm"] += stats["total_cbm"]
+            region_stats[region]["total_weight"] += stats["total_weight"]
+            region_stats[region]["destinations"].append({
+                "destination": destination,
+                "customer": customer,
+                "total_cbm": round(stats["total_cbm"], 2),
+                "total_weight": round(stats["total_weight"], 2)
+            })
+        
+        # 转换为列表格式
+        region_list = []
+        for region, stats in region_stats.items():
+            region_list.append({
+                "region": region,
+                "total_cbm": round(stats["total_cbm"], 2),
+                "total_weight": round(stats["total_weight"], 2),
+                "destinations": stats["destinations"]
+            })
+        
+        # 准备上下文数据
+        context = {
+            "start_date": start_date,
+            "end_date": end_date,
+            "date_type": date_type,
+            "warehouse_list": warehouse_list,
+            "customer_list": customer_idlist,
+            "customers": await sync_to_async(lambda: {"----": None, **{c.zem_name: c.id for c in Customer.objects.all()}})(),
+            "area_options": self.area_options,
+            "display_type": display_type,
+            "destination_list": destination_list,
+            "region_list": region_list
+        }
+        print('destination_list',destination_list)
+        return self.template_cbm_analysis, context
 
-    async def _get_combina_region(
+    def _get_combina_region(
         self, warehouse_list: List
     ):
         """
@@ -782,11 +891,14 @@ class OrderQuantity(View):
         warehouse_list: ['NJ', 'SAV', 'LA'] 或 []
         """
         now_date = timezone.now().date()
+        
+        # 直接执行数据库查询，因为该方法会被sync_to_async包装
         target_quote = QuotationMaster.objects.filter(
-            quote_type="receivable",
-            effective_date__lte=now_date,
-            exclusive_user__in=[None, ""]
+            Q(exclusive_user__isnull=True) | Q(exclusive_user=""), # Q 对象放在前面
+            quote_type="receivable",                               # 普通参数跟在后面
+            effective_date__lte=now_date
         ).latest('effective_date')
+        
         full_mapping = {
             "NJ": "NJ_COMBINA",
             "SAV": "SAV_COMBINA",
