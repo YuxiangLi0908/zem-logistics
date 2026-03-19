@@ -391,6 +391,7 @@
                             <th>总CBM</th>
                             <th>总重量(kg)</th>
                             <th>所属区域</th>
+                            <th>占比(%)</th>
                         </tr>
                         <tr class="filter-row">
                             <th><input type="text" class="filter-input" placeholder="筛选仓点" onkeyup="filterTable(0, this.value)"></th>
@@ -398,6 +399,7 @@
                             <th></th>
                             <th></th>
                             <th><input type="text" class="filter-input" placeholder="筛选区域" onkeyup="filterTable(4, this.value)"></th>
+                            <th></th>
                         </tr>
                     </thead>
                     <tbody>
@@ -408,6 +410,7 @@
                             <td class="number-column">{{ item.total_cbm }}</td>
                             <td class="number-column">{{ item.total_weight }}</td>
                             <td>{{ item.region }}</td>
+                            <td class="number-column">{{ item.percentage }}%</td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -421,11 +424,13 @@
                             <th>客户</th>
                             <th>总CBM</th>
                             <th>总重量(kg)</th>
+                            <th>占比(%)</th>
                         </tr>
                         <tr class="filter-row">
                             <th><input type="text" class="filter-input" placeholder="筛选区域" onkeyup="filterTable(0, this.value)"></th>
                             <th><input type="text" class="filter-input" placeholder="筛选仓点" onkeyup="filterTable(1, this.value)"></th>
                             <th><input type="text" class="filter-input" placeholder="筛选客户" onkeyup="filterTable(2, this.value)"></th>
+                            <th></th>
                             <th></th>
                             <th></th>
                         </tr>
@@ -438,13 +443,15 @@
                                 <td rowspan="{{ region.destinations|length }}">
                                     {{ region.region }}<br>
                                     <small style="color: #666;">总CBM: {{ region.total_cbm }}</small><br>
-                                    <small style="color: #666;">总重量: {{ region.total_weight }}kg</small>
+                                    <small style="color: #666;">总重量: {{ region.total_weight }}kg</small><br>
+                                    <small style="color: #666;">占比: {{ region.percentage }}%</small>
                                 </td>
                                 {% endif %}
                                 <td>{{ destination.destination }}</td>
                                 <td>{{ destination.customer }}</td>
                                 <td class="number-column">{{ destination.total_cbm }}</td>
                                 <td class="number-column">{{ destination.total_weight }}</td>
+                                <td class="number-column">{{ destination.percentage }}%</td>
                             </tr>
                             {% endfor %}
                         {% endfor %}
