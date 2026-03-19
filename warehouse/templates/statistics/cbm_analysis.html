@@ -1,65 +1,518 @@
 {% extends 'base.html' %}
 
-{% block content %}   
-<div class="profit-container">
-    <h2 class="page-title">
-        转运订单利润统计
-    </h2>
+{% block content %}
+<style>
+    /* 全局样式 */
+    .cbm-container {
+        min-height: 100vh;
+        background-color: #f5f5f5;
+        padding: 20px;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+    
+    .cbm-content {
+        max-width: 1200px;
+        width: 100%;
+        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+        border-radius: 10px;
+        overflow: hidden;
+    }
+    
+    /* 卡片样式 */
+    .cbm-card {
+        background-color: #ffffff;
+        padding: 20px;
+    }
+    
+    /* 标题样式 */
+    .cbm-title {
+        font-size: 24px;
+        font-weight: bold;
+        color: #333333;
+        margin-bottom: 20px;
+    }
+    
+    /* 筛选栏样式 */
+    .filter-bar {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        flex-wrap: wrap;
+        padding: 15px 0;
+        border-bottom: 1px solid #e8e8e8;
+        margin-bottom: 15px;
+    }
+    
+    .filter-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .filter-label {
+        font-weight: bold;
+        color: #333333;
+        white-space: nowrap;
+    }
+    
+    /* 输入控件样式 */
+    .filter-input,
+    .filter-select {
+        padding: 8px 12px;
+        border: 1px solid #d9d9d9;
+        border-radius: 4px;
+        font-size: 14px;
+        transition: all 0.3s;
+    }
+    
+    .filter-input:focus,
+    .filter-select:focus {
+        outline: none;
+        border-color: #1677ff;
+        box-shadow: 0 0 0 2px rgba(22, 119, 255, 0.2);
+    }
+    
+    /* 按钮样式 */
+    .btn {
+        padding: 8px 16px;
+        border: none;
+        border-radius: 4px;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+    
+    .btn-primary {
+        background-color: #1677ff;
+        color: white;
+    }
+    
+    .btn-primary:hover {
+        background-color: #0a66e0;
+    }
+    
+    .btn-secondary {
+        background-color: #f0f0f0;
+        color: #333333;
+    }
+    
+    .btn-secondary:hover {
+        background-color: #e6f2ff;
+    }
+    
+    /* 多选框组样式 */
+    .checkbox-group {
+        position: relative;
+        display: inline-block;
+    }
+    
+    .checkbox-dropdown {
+        position: relative;
+        width: 200px;
+    }
+    
+    .checkbox-dropdown-toggle {
+        width: 100%;
+        padding: 8px 12px;
+        border: 1px solid #d9d9d9;
+        border-radius: 4px;
+        background-color: white;
+        text-align: left;
+        cursor: pointer;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        transition: all 0.3s;
+    }
+    
+    .checkbox-dropdown-toggle:hover {
+        border-color: #1677ff;
+    }
+    
+    .checkbox-dropdown-menu {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        width: 100%;
+        max-height: 200px;
+        overflow-y: auto;
+        background-color: white;
+        border: 1px solid #d9d9d9;
+        border-radius: 4px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+        z-index: 1000;
+        display: none;
+        padding: 8px 0;
+    }
+    
+    .checkbox-dropdown-menu.show {
+        display: block;
+    }
+    
+    .checkbox-item {
+        padding: 4px 12px;
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+    
+    .checkbox-item:hover {
+        background-color: #f0f7ff;
+    }
+    
+    .checkbox-item label {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        cursor: pointer;
+        margin: 0;
+    }
+    
+    /* 提示文字行 */
+    .hint-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: 10px;
+    }
+    
+    .hint-text {
+        color: #666666;
+        font-size: 12px;
+    }
+    
+    /* 表格样式 */
+    .table-container {
+        overflow-x: auto;
+    }
+    
+    .data-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 14px;
+    }
+    
+    .data-table th {
+        background-color: #1e3a5f;
+        color: white;
+        padding: 14px 12px;
+        text-align: left;
+        font-weight: bold;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        border-bottom: 2px solid #1677ff;
+    }
+    
+    .data-table .filter-row th {
+        background-color: #f5f5f5;
+        color: #333333;
+        padding: 8px 12px;
+        border-bottom: 1px solid #e8e8e8;
+    }
+    
+    .data-table .filter-row input {
+        width: 100%;
+        padding: 6px 8px;
+        border: 1px solid #d9d9d9;
+        border-radius: 4px;
+        font-size: 12px;
+    }
+    
+    .data-table .filter-row input:focus {
+        outline: none;
+        border-color: #1677ff;
+        box-shadow: 0 0 0 2px rgba(22, 119, 255, 0.2);
+    }
+    
+    .data-table td {
+        padding: 12px;
+        border-bottom: 1px solid #e8e8e8;
+        height: 40px;
+    }
+    
+    .data-table tr:nth-child(even) {
+        background-color: #f0f7ff;
+    }
+    
+    .data-table tr:hover {
+        background-color: #e6f2ff;
+    }
+    
+    .data-table .number-column {
+        text-align: right;
+        color: #333333;
+        font-weight: 500;
+    }
+    
+    /* 响应式设计 */
+    @media (max-width: 768px) {
+        .cbm-container {
+            padding: 10px;
+        }
+        
+        .filter-bar {
+            gap: 10px;
+        }
+        
+        .filter-item {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 4px;
+        }
+        
+        .checkbox-dropdown {
+            width: 100%;
+        }
+        
+        .hint-row {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 10px;
+        }
+    }
+</style>
 
-    <div style="display: flex;">
-        <form method="post" action="" onsubmit="showLoadingBar()">
-            {% csrf_token %}
-            <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-                <div>
-                    <b style="margin-right: 5px;">时间类型:</b>
-                    <select name="date_type" style="margin-right: 10px;">
-                        <option value="eta" {% if date_type == "eta" or not date_type %}selected{% endif %}>ETA</option>
-                        <option value="etd" {% if date_type == "etd" %}selected{% endif %}>ETD</option>
-                    </select>
-                </div>
-                <div>
-                    <b style="margin-right: 5px;">开始年月:</b>
-                    <input type="date" name="start_date" value="{{ start_date }}">
-                </div>
-                <div>
-                    <b style="margin-right: 5px;">结束年月:</b>
-                    <input type="date" name="end_date" value="{{ end_date }}" style="margin-right: 5px;">
-                </div>
-                <b style="margin-right: 5px;">仓库:</b>
-                <div>
-                    <div id="warehouseList" style="display: inline-block; border: 1px solid #ccc; padding: 5px; max-height: 150px; overflow-y: auto; width: 200px;">
-                        {% for k, v in area_options.items %}
-                        <label style="display: block; margin: 3px 0;">
-                            <input type="checkbox" name="warehouse" value="{{ v }}"
-                            {% if v in warehouse_list %}checked{% endif %} style="margin-right: 5px;">
-                            {{ k }}
-                        </label>
-                        {% endfor %}
+<div class="cbm-container">
+    <div class="cbm-content">
+        <!-- 筛选卡片 -->
+        <div class="cbm-card" style="position: sticky; top: 0; z-index: 50;">
+            <h2 class="cbm-title">预报CBM统计</h2>
+            
+            <form method="post" action="" onsubmit="showLoadingBar()">
+                {% csrf_token %}
+                <div class="filter-bar">
+                    <!-- 时间类型 -->
+                    <div class="filter-item">
+                        <span class="filter-label">时间类型:</span>
+                        <select name="date_type" class="filter-select">
+                            <option value="eta" {% if date_type == "eta" or not date_type %}selected{% endif %}>ETA</option>
+                            <option value="etd" {% if date_type == "etd" %}selected{% endif %}>ETD</option>
+                        </select>
+                    </div>
+                    
+                    <!-- 开始日期 -->
+                    <div class="filter-item">
+                        <span class="filter-label">开始年月:</span>
+                        <input type="date" name="start_date" value="{{ start_date }}" class="filter-input">
+                    </div>
+                    
+                    <!-- 结束日期 -->
+                    <div class="filter-item">
+                        <span class="filter-label">结束年月:</span>
+                        <input type="date" name="end_date" value="{{ end_date }}" class="filter-input">
+                    </div>
+                    
+                    <!-- 仓库 -->
+                    <div class="filter-item">
+                        <span class="filter-label">仓库:</span>
+                        <div class="checkbox-group">
+                            <div class="checkbox-dropdown">
+                                <button type="button" class="checkbox-dropdown-toggle" onclick="toggleDropdown('warehouseDropdown')">
+                                    <span>选择仓库</span>
+                                    <span>▼</span>
+                                </button>
+                                <div id="warehouseDropdown" class="checkbox-dropdown-menu">
+                                    {% for k, v in area_options.items %}
+                                    <div class="checkbox-item">
+                                        <label>
+                                            <input type="checkbox" name="warehouse" value="{{ v }}" {% if v in warehouse_list %}checked{% endif %}>
+                                            {{ k }}
+                                        </label>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 客户 -->
+                    <div class="filter-item">
+                        <span class="filter-label">客户:</span>
+                        <div class="checkbox-group">
+                            <div class="checkbox-dropdown">
+                                <button type="button" class="checkbox-dropdown-toggle" onclick="toggleDropdown('customerDropdown')">
+                                    <span>选择客户</span>
+                                    <span>▼</span>
+                                </button>
+                                <div id="customerDropdown" class="checkbox-dropdown-menu">
+                                    {% for k, v in customers.items %}
+                                        {% if not forloop.first %}
+                                        <div class="checkbox-item">
+                                            <label>
+                                                <input type="checkbox" name="customer" value="{{ v }}" {% if k in customer_list %}checked{% endif %}>
+                                                {{ k }}
+                                            </label>
+                                        </div>
+                                        {% endif %}
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 展示方式 -->
+                    <div class="filter-item">
+                        <span class="filter-label">展示方式:</span>
+                        <select name="display_type" class="filter-select">
+                            <option value="destination" {% if display_type == "destination" or not display_type %}selected{% endif %}>按仓点</option>
+                            <option value="region" {% if display_type == "region" %}selected{% endif %}>按区域</option>
+                        </select>
+                    </div>
+                    
+                    <!-- 确认按钮 -->
+                    <div class="filter-item">
+                        <input type="hidden" name="step" value="cbm_analysis_selection">
+                        <button type="submit" class="btn btn-primary">确认</button>
                     </div>
                 </div>
                 
-                <b style="font-size: 13px;">客户</b>
-                <div>              
-                    <div id="customerList" style="display: inline-block; border: 1px solid #ccc; border-radius: 5px; background-color: #f9f9f9; padding: 5px; max-height: 150px; overflow-y: auto; width: 200px;">
-                        {% for k, v in customers.items %}
-                            {% if not forloop.first %} 
-                                <label style="display: block; margin: 3px 0;">
-                                    <input type="checkbox" name="customer" value="{{ v }}" 
-                                    {% if k in customer_list %}checked{% endif %} style="margin-right: 5px;">
-                                    {{ k }}
-                                </label>
-                            {% endif %}
+                <!-- 提示文字行 -->
+                <div class="hint-row">
+                    <span class="hint-text">（仓库和客户不选择即为全选，时间默认过去3个月）</span>
+                    <button type="button" class="btn btn-primary" onclick="exportToExcel()">导出Excel</button>
+                </div>
+            </form>
+        </div>
+        
+        <!-- 数据表格卡片 -->
+        {% if destination_list or region_list %}
+        <div class="cbm-card">
+            <div class="table-container">
+                {% if display_type == "destination" or not display_type %}
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>仓点</th>
+                            <th>客户</th>
+                            <th>总CBM</th>
+                            <th>总重量(kg)</th>
+                            <th>所属区域</th>
+                        </tr>
+                        <tr class="filter-row">
+                            <th><input type="text" class="filter-input" placeholder="筛选仓点" onkeyup="filterTable(0, this.value)"></th>
+                            <th><input type="text" class="filter-input" placeholder="筛选客户" onkeyup="filterTable(1, this.value)"></th>
+                            <th></th>
+                            <th></th>
+                            <th><input type="text" class="filter-input" placeholder="筛选区域" onkeyup="filterTable(4, this.value)"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in destination_list %}
+                        <tr>
+                            <td>{{ item.destination }}</td>
+                            <td>{{ item.customer }}</td>
+                            <td class="number-column">{{ item.total_cbm }}</td>
+                            <td class="number-column">{{ item.total_weight }}</td>
+                            <td>{{ item.region }}</td>
+                        </tr>
                         {% endfor %}
-                    </div>
-                </div>
-                <div>
-                    <input type="hidden" name="step" value="cbm_analysis_selection">
-                    <button type="submit">确认</button>
-                </div>
-                <small style="color: #666; margin-left: 0px;">（仓库和客户不选择即为全选，时间默认过去3个月）</small>
+                    </tbody>
+                </table>
+                {% else %}
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>区域</th>
+                            <th>仓点</th>
+                            <th>客户</th>
+                            <th>总CBM</th>
+                            <th>总重量(kg)</th>
+                        </tr>
+                        <tr class="filter-row">
+                            <th><input type="text" class="filter-input" placeholder="筛选区域" onkeyup="filterTable(0, this.value)"></th>
+                            <th><input type="text" class="filter-input" placeholder="筛选仓点" onkeyup="filterTable(1, this.value)"></th>
+                            <th><input type="text" class="filter-input" placeholder="筛选客户" onkeyup="filterTable(2, this.value)"></th>
+                            <th></th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for region in region_list %}
+                            {% for destination in region.destinations %}
+                            <tr>
+                                {% if forloop.counter0 == 0 %}
+                                <td rowspan="{{ region.destinations|length }}">
+                                    {{ region.region }}<br>
+                                    <small style="color: #666;">总CBM: {{ region.total_cbm }}</small><br>
+                                    <small style="color: #666;">总重量: {{ region.total_weight }}kg</small>
+                                </td>
+                                {% endif %}
+                                <td>{{ destination.destination }}</td>
+                                <td>{{ destination.customer }}</td>
+                                <td class="number-column">{{ destination.total_cbm }}</td>
+                                <td class="number-column">{{ destination.total_weight }}</td>
+                            </tr>
+                            {% endfor %}
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% endif %}
             </div>
-        </form>
+        </div>
+        {% endif %}
     </div>
-
 </div>
+
+<script>
+    // 下拉多选框切换
+    function toggleDropdown(id) {
+        const dropdown = document.getElementById(id);
+        dropdown.classList.toggle('show');
+    }
+    
+    // 点击外部关闭下拉框
+    document.addEventListener('click', function(event) {
+        const dropdowns = document.querySelectorAll('.checkbox-dropdown-menu');
+        dropdowns.forEach(dropdown => {
+            if (!dropdown.parentElement.contains(event.target)) {
+                dropdown.classList.remove('show');
+            }
+        });
+    });
+    
+    // 导出Excel功能
+    function exportToExcel() {
+        const displayType = '{{ display_type }}';
+        let table = document.querySelector('.data-table');
+        let html = table.outerHTML;
+        
+        // 创建Blob对象
+        const blob = new Blob(['\ufeff' + html], { type: 'application/vnd.ms-excel' });
+        const url = URL.createObjectURL(blob);
+        
+        // 创建下载链接
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'cbm_analysis_' + new Date().toISOString().slice(0, 10) + '.xls';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }
+    
+    // 表格筛选功能
+    function filterTable(columnIndex, value) {
+        const table = document.querySelector('.data-table');
+        const rows = table.getElementsByTagName('tr');
+        
+        // 从第二行开始筛选（跳过表头和筛选行）
+        for (let i = 2; i < rows.length; i++) {
+            const row = rows[i];
+            const cell = row.getElementsByTagName('td')[columnIndex];
+            
+            if (cell) {
+                const cellValue = cell.textContent || cell.innerText;
+                if (cellValue.toLowerCase().indexOf(value.toLowerCase()) > -1) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                }
+            }
+        }
+    }
+</script>
 {% endblock %}

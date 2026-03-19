@@ -3,9 +3,10 @@ import random
 import re
 from collections import defaultdict
 from datetime import datetime, timedelta
-from typing import Any
+from typing import Any, Dict, List
 
 import numpy as np
+from django.utils import timezone
 from asgiref.sync import sync_to_async
 from dateutil.relativedelta import relativedelta
 from django.apps import apps
@@ -19,13 +20,14 @@ from django.views import View
 
 from warehouse.models.packing_list import PackingList
 from warehouse.models.pallet import Pallet
+from warehouse.models.quotation_master import QuotationMaster
 from warehouse.models.container import Container
+from warehouse.models.fee_detail import FeeDetail
 from warehouse.models.customer import Customer
 from warehouse.models.fleet_shipment_pallet import FleetShipmentPallet
 from warehouse.models.invoice import Invoice, InvoiceItem
 from warehouse.models.invoice_details import InvoiceDelivery
 from warehouse.models.order import Order
-from warehouse.models.pallet import Pallet
 from warehouse.models.retrieval import HistoricalRetrieval, Retrieval
 from warehouse.utils.constants import MODEL_CHOICES
 
@@ -62,7 +64,7 @@ class OrderQuantity(View):
             customers["----"] = None
             customers = {"----": None, **customers}
             context = {"area_options": self.area_options, "customers": customers}
-            return await sync_to_async(render)(request, self.template_profit, context)
+            return await sync_to_async(render)(request, self.template_cbm_analysis, context)
         elif step == "profit_analysis_personalized":
             if not await self._validate_user_profit(request.user):
                 return HttpResponseForbidden(
@@ -699,11 +701,7 @@ class OrderQuantity(View):
         else:
             return f"{'已' if new_value else '未'}{field_name_cn}"
 
-    async def handle_analysis_cbm(
-        self, request: HttpRequest
-    ) -> tuple[str, dict[str, Any]]:
-        start_date = request.POST.get("start_date")
-        end_date = request.POST.get("end_date")
+    async def _get_cbm_analysis_criteria(self, start_date, end_date, customer_idlist, warehouse_list, date_type):
         today = datetime.today()
         six_months_ago_first_day = (today + relativedelta(months=-6)).replace(day=1)
         last_month_last_day = today + relativedelta(months=-1, day=31)
@@ -720,10 +718,9 @@ class OrderQuantity(View):
         customers = await sync_to_async(
             lambda: {"----": None, **{c.zem_name: c.id for c in Customer.objects.all()}}
         )()
-        customer_idlist = request.POST.getlist("customer")
-        warehouse_list = request.POST.getlist("warehouse")
+        
 
-        date_type = request.POST.get("date_type")
+        
 
         if date_type == "eta":
             criteria = Q(
@@ -745,26 +742,218 @@ class OrderQuantity(View):
             )
             customer_idlist = [item["zem_name"] for item in customer_list]
             criteria &= Q(customer_name__zem_name__in=customer_idlist)
+        return criteria
+    async def handle_analysis_cbm(
+        self, request: HttpRequest
+    ) -> tuple[str, dict[str, Any]]:
+        start_date = request.POST.get("start_date")
+        end_date = request.POST.get("end_date")
+        customer_idlist = request.POST.getlist("customer")
+        warehouse_list = request.POST.getlist("warehouse")
+        date_type = request.POST.get("date_type")
+        display_type = request.POST.get("display_type", "destination")  # 默认按仓点展示
+        criteria = await self._get_cbm_analysis_criteria(start_date, end_date, customer_idlist, warehouse_list, date_type)    
         
+        # 获取符合条件的订单
         orders = await sync_to_async(list)(
             Order.objects.select_related(
                 "customer_name",
                 "warehouse",
                 "retrieval_id",
                 "container_number",
+                "vessel_id",  # 添加vessel_id的select_related
             )
             .filter(criteria)
             .annotate(count=Count("id"))
         )
+        
+        # 收集所有相关的容器ID
+        container_ids = [order.container_number.id for order in orders if order.container_number]
+        container_numbers = [order.container_number for order in orders if order.container_number]
+        
+        # 创建容器ID到订单的映射，用于获取客户信息
+        container_to_order = {order.container_number.id: order for order in orders if order.container_number}
+        
+        # 查找最新的通用报价表，去读取组合柜三张表，每个区都有哪些仓点
+        region_des = await sync_to_async(self._get_combina_region)(warehouse_list)
+        
+        # 构建区域到仓点的映射，方便快速查询
+        region_to_locations = {}
+        location_to_region = {}
+        for region in region_des:
+            region_name = region["region"]
+            region_to_locations[region_name] = region["locations"]
+            for location in region["locations"]:
+                location_to_region[location] = region_name
+        
+        # 从PackingList表查询数据，包含container_number
+        packing_lists = await sync_to_async(list)(
+            PackingList.objects
+            .filter(container_number_id__in=container_ids)  # 使用容器ID进行查询
+            .values("container_number_id", "destination", "cbm", "total_weight_kg")
+        )
+        
+        # 按destination和customer分组统计
+        destination_stats = {}
+        for pl in packing_lists:
+            container_id = pl.get("container_number_id")
+            if not container_id:
+                continue
+            
+            # 获取订单信息以获取客户
+            order = container_to_order.get(container_id)
+            if not order:
+                continue
+            
+            customer = order.customer_name.zem_name if order.customer_name else "未知客户"
+            destination = pl.get("destination")
+            if not destination:
+                continue
+            
+            cbm = pl.get("cbm", 0) or 0
+            weight = pl.get("total_weight_kg", 0) or 0
+            
+            # 使用(destination, customer)作为键
+            key = (destination, customer)
+            if key not in destination_stats:
+                destination_stats[key] = {
+                    "total_cbm": 0,
+                    "total_weight": 0,
+                    "region": location_to_region.get(destination, "未知区"),
+                    "customer": customer
+                }
+            
+            destination_stats[key]["total_cbm"] += cbm
+            destination_stats[key]["total_weight"] += weight
+        print('destination_stats',destination_stats)
+        # 转换为列表格式
+        destination_list = []
+        for (destination, customer), stats in destination_stats.items():
+            destination_list.append({
+                "destination": destination,
+                "customer": customer,
+                "total_cbm": round(stats["total_cbm"], 2),
+                "total_weight": round(stats["total_weight"], 2),
+                "region": stats["region"]
+            })
+        
+        # 按区分组统计
+        region_stats = {}
+        for (destination, customer), stats in destination_stats.items():
+            region = stats["region"]
+            if region not in region_stats:
+                region_stats[region] = {
+                    "total_cbm": 0,
+                    "total_weight": 0,
+                    "destinations": []
+                }
+            
+            region_stats[region]["total_cbm"] += stats["total_cbm"]
+            region_stats[region]["total_weight"] += stats["total_weight"]
+            region_stats[region]["destinations"].append({
+                "destination": destination,
+                "customer": customer,
+                "total_cbm": round(stats["total_cbm"], 2),
+                "total_weight": round(stats["total_weight"], 2)
+            })
+        
+        # 转换为列表格式
+        region_list = []
+        for region, stats in region_stats.items():
+            region_list.append({
+                "region": region,
+                "total_cbm": round(stats["total_cbm"], 2),
+                "total_weight": round(stats["total_weight"], 2),
+                "destinations": stats["destinations"]
+            })
+        
+        # 准备上下文数据
+        context = {
+            "start_date": start_date,
+            "end_date": end_date,
+            "date_type": date_type,
+            "warehouse_list": warehouse_list,
+            "customer_list": customer_idlist,
+            "customers": await sync_to_async(lambda: {"----": None, **{c.zem_name: c.id for c in Customer.objects.all()}})(),
+            "area_options": self.area_options,
+            "display_type": display_type,
+            "destination_list": destination_list,
+            "region_list": region_list
+        }
+        print('destination_list',destination_list)
+        return self.template_cbm_analysis, context
 
-        for order in orders:
-            pl_cbm_by_destination = (
-                PackingList.objects
-                .filter(container_number=order.container_number)
-                .values("destination")
-                .annotate(total_cbm=Sum("cbm"))
-            )
+    def _get_combina_region(
+        self, warehouse_list: List
+    ):
+        """
+        获取组合柜区域配置。
+        warehouse_list: ['NJ', 'SAV', 'LA'] 或 []
+        """
+        now_date = timezone.now().date()
+        
+        # 直接执行数据库查询，因为该方法会被sync_to_async包装
+        target_quote = QuotationMaster.objects.filter(
+            Q(exclusive_user__isnull=True) | Q(exclusive_user=""), # Q 对象放在前面
+            quote_type="receivable",                               # 普通参数跟在后面
+            effective_date__lte=now_date
+        ).latest('effective_date')
+        
+        full_mapping = {
+            "NJ": "NJ_COMBINA",
+            "SAV": "SAV_COMBINA",
+            "LA": "LA_COMBINA",
+        }
 
+        if not warehouse_list:
+            selected_prefixes = list(full_mapping.values())
+        else:
+            selected_prefixes = [full_mapping[w] for w in warehouse_list if w in full_mapping]
+
+        # 3. 批量查询费用明细
+        fee_details = FeeDetail.objects.filter(
+            quotation_id=target_quote.id, 
+            fee_type__in=selected_prefixes
+        )
+
+        # 4. 解析并重组数据
+        # 最终格式：[{"region": "美东一区", "locations": ["ABE8", ...]}, ...]
+        combined_result = []
+        # 辅助变量，用于合并相同名字的区域
+        region_map = {}
+
+        for detail in fee_details:
+            # 假设 details 字段是 JSONField，如果是字符串则需要 json.loads(detail.details)
+            data = detail.details or {}
+            
+            for region_name, tiers in data.items():
+                # 清洗区域名称（处理 LA 数据中可能存在的换行符）
+                clean_region_name = region_name.replace('\n', '').strip()
+                
+                # 汇总该区域下所有梯度的 location
+                all_locations = []
+                for tier in tiers:
+                    locations = tier.get("location", [])
+                    # 过滤掉空字符串并去重
+                    valid_locs = [str(loc).strip() for loc in locations if loc and str(loc).strip()]
+                    all_locations.extend(valid_locs)
+
+                if not all_locations:
+                    continue
+
+                if clean_region_name in region_map:
+                    # 如果区域名已存在，合并仓点并去重
+                    existing_locs = set(region_map[clean_region_name]["locations"])
+                    existing_locs.update(all_locations)
+                    region_map[clean_region_name]["locations"] = list(existing_locs)
+                else:
+                    region_map[clean_region_name] = {
+                        "region": clean_region_name,
+                        "locations": list(set(all_locations)) # 初始去重
+                    }
+
+        # 5. 转换为列表格式返回
+        return list(region_map.values())
     async def handle_order_profit_get(
         self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
