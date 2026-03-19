@@ -17,6 +17,8 @@ from django.http import Http404, HttpRequest, HttpResponse, HttpResponseForbidde
 from django.shortcuts import render
 from django.views import View
 
+from warehouse.models.packing_list import PackingList
+from warehouse.models.pallet import Pallet
 from warehouse.models.container import Container
 from warehouse.models.customer import Customer
 from warehouse.models.fleet_shipment_pallet import FleetShipmentPallet
@@ -32,6 +34,7 @@ class OrderQuantity(View):
     template_shipment = "statistics/order_quantity.html"
     template_historical = "statistics/historical.html"
     template_profit = "statistics/profit.html"
+    template_cbm_analysis = "statistics/cbm_analysis.html"
     template_delivery_cost_status = "statistics/delivery_cost_status.html"
     area_options = {"NJ": "NJ", "SAV": "SAV", "LA": "LA"}
 
@@ -47,6 +50,13 @@ class OrderQuantity(View):
                 return HttpResponseForbidden(
                     "You are not authenticated to access this page!"
                 )
+            customers = await sync_to_async(list)(Customer.objects.all())
+            customers = {c.zem_name: c.id for c in customers}
+            customers["----"] = None
+            customers = {"----": None, **customers}
+            context = {"area_options": self.area_options, "customers": customers}
+            return await sync_to_async(render)(request, self.template_profit, context)
+        elif step == "cbm_analysis":
             customers = await sync_to_async(list)(Customer.objects.all())
             customers = {c.zem_name: c.id for c in customers}
             customers["----"] = None
@@ -93,6 +103,9 @@ class OrderQuantity(View):
             return await sync_to_async(render)(request, template, context)
         elif step == "caculate_all_expense":
             template, context = await self.handle_caculate_all_expense(request)
+            return await sync_to_async(render)(request, template, context)
+        elif step == "cbm_analysis_selection":
+            template, context = await self.handle_analysis_cbm(request)
             return await sync_to_async(render)(request, template, context)
 
     async def _get_orders(self, request) -> list:
@@ -685,6 +698,72 @@ class OrderQuantity(View):
             return f"确认{field_name_cn}"
         else:
             return f"{'已' if new_value else '未'}{field_name_cn}"
+
+    async def handle_analysis_cbm(
+        self, request: HttpRequest
+    ) -> tuple[str, dict[str, Any]]:
+        start_date = request.POST.get("start_date")
+        end_date = request.POST.get("end_date")
+        today = datetime.today()
+        six_months_ago_first_day = (today + relativedelta(months=-6)).replace(day=1)
+        last_month_last_day = today + relativedelta(months=-1, day=31)
+
+        start_date = (
+            six_months_ago_first_day.strftime("%Y-%m-%d")
+            if not start_date
+            else start_date
+        )
+        end_date = (
+            last_month_last_day.strftime("%Y-%m-%d") if not end_date else end_date
+        )
+
+        customers = await sync_to_async(
+            lambda: {"----": None, **{c.zem_name: c.id for c in Customer.objects.all()}}
+        )()
+        customer_idlist = request.POST.getlist("customer")
+        warehouse_list = request.POST.getlist("warehouse")
+
+        date_type = request.POST.get("date_type")
+
+        if date_type == "eta":
+            criteria = Q(
+                Q(vessel_id__vessel_eta__gte=start_date),
+                Q(vessel_id__vessel_eta__lte=end_date),
+                ~Q(order_type="直送"),
+            )
+        else:
+            criteria = Q(
+                Q(vessel_id__vessel_etd__gte=start_date),
+                Q(vessel_id__vessel_etd__lte=end_date),
+                ~Q(order_type="直送"),
+            )
+        if warehouse_list:
+            criteria &= Q(retrieval_id__retrieval_destination_area__in=warehouse_list)
+        if customer_idlist:
+            customer_list = await sync_to_async(list)(
+                Customer.objects.filter(id__in=customer_idlist).values("zem_name")
+            )
+            customer_idlist = [item["zem_name"] for item in customer_list]
+            criteria &= Q(customer_name__zem_name__in=customer_idlist)
+        
+        orders = await sync_to_async(list)(
+            Order.objects.select_related(
+                "customer_name",
+                "warehouse",
+                "retrieval_id",
+                "container_number",
+            )
+            .filter(criteria)
+            .annotate(count=Count("id"))
+        )
+
+        for order in orders:
+            pl_cbm_by_destination = (
+                PackingList.objects
+                .filter(container_number=order.container_number)
+                .values("destination")
+                .annotate(total_cbm=Sum("cbm"))
+            )
 
     async def handle_order_profit_get(
         self, request: HttpRequest
