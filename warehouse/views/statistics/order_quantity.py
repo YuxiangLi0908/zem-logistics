@@ -857,15 +857,31 @@ class OrderQuantity(View):
                 "total_weight": round(stats["total_weight"], 2)
             })
         
+        # 计算总CBM
+        total_cbm_all = sum(stats["total_cbm"] for stats in region_stats.values())
+        
         # 转换为列表格式
         region_list = []
         for region, stats in region_stats.items():
+            # 计算区域占比
+            region_percentage = round((stats["total_cbm"] / total_cbm_all * 100), 2) if total_cbm_all > 0 else 0
+            
+            # 计算每个仓点占区域的比例
+            for dest in stats["destinations"]:
+                dest_percentage = round((dest["total_cbm"] / stats["total_cbm"] * 100), 2) if stats["total_cbm"] > 0 else 0
+                dest["percentage"] = dest_percentage
+            
             region_list.append({
                 "region": region,
                 "total_cbm": round(stats["total_cbm"], 2),
                 "total_weight": round(stats["total_weight"], 2),
+                "percentage": region_percentage,
                 "destinations": stats["destinations"]
             })
+        
+        # 为按仓点展示计算占比
+        for item in destination_list:
+            item["percentage"] = round((item["total_cbm"] / total_cbm_all * 100), 2) if total_cbm_all > 0 else 0
         
         # 准备上下文数据
         context = {
