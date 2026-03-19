@@ -702,19 +702,7 @@ class OrderQuantity(View):
             return f"{'已' if new_value else '未'}{field_name_cn}"
 
     async def _get_cbm_analysis_criteria(self, start_date, end_date, customer_idlist, warehouse_list, date_type):
-        today = datetime.today()
-        six_months_ago_first_day = (today + relativedelta(months=-6)).replace(day=1)
-        last_month_last_day = today + relativedelta(months=-1, day=31)
-
-        start_date = (
-            six_months_ago_first_day.strftime("%Y-%m-%d")
-            if not start_date
-            else start_date
-        )
-        end_date = (
-            last_month_last_day.strftime("%Y-%m-%d") if not end_date else end_date
-        )
-
+        
         customers = await sync_to_async(
             lambda: {"----": None, **{c.zem_name: c.id for c in Customer.objects.all()}}
         )()
@@ -752,6 +740,17 @@ class OrderQuantity(View):
         warehouse_list = request.POST.getlist("warehouse")
         date_type = request.POST.get("date_type")
         display_type = request.POST.get("display_type", "destination")  # 默认按仓点展示
+        today = datetime.today()
+        six_months_ago_first_day = (today + relativedelta(months=-6)).replace(day=1)
+        last_month_last_day = today + relativedelta(months=-1, day=31)
+        start_date = (
+            six_months_ago_first_day.strftime("%Y-%m-%d")
+            if not start_date
+            else start_date
+        )
+        end_date = (
+            last_month_last_day.strftime("%Y-%m-%d") if not end_date else end_date
+        )
         criteria = await self._get_cbm_analysis_criteria(start_date, end_date, customer_idlist, warehouse_list, date_type)    
         
         # 获取符合条件的订单
@@ -825,7 +824,7 @@ class OrderQuantity(View):
             
             destination_stats[key]["total_cbm"] += cbm
             destination_stats[key]["total_weight"] += weight
-        print('destination_stats',destination_stats)
+
         # 转换为列表格式
         destination_list = []
         for (destination, customer), stats in destination_stats.items():
@@ -896,7 +895,8 @@ class OrderQuantity(View):
             "destination_list": destination_list,
             "region_list": region_list
         }
-        print('destination_list',destination_list)
+        print('start_date',start_date)
+
         return self.template_cbm_analysis, context
 
     def _get_combina_region(
