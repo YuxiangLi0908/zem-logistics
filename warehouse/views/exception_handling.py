@@ -317,6 +317,9 @@ class ExceptionHandling(View):
         elif step == "recaculate_combine_1w":
             template, context = await self.handle_recaculate_combine_1w(request)
             return await sync_to_async(render)(request, template, context)
+        elif step == "recaculate_combine_cbm_ratio":
+            template, context = await self.handle_recaculate_combine_cbm_ratio(request)
+            return await sync_to_async(render)(request, template, context)
         elif step == "delete_shipment":
             template, context = await self.handle_delete_shipment(request)
             return await sync_to_async(render)(request, template, context)
@@ -479,12 +482,104 @@ class ExceptionHandling(View):
 
         return self.template_post_port_status, context
 
+    async def handle_recaculate_combine_cbm_ratio(self, request):
+        '''重新计算组合柜费用和cbm占比异常的'''
+        invoice_items = await sync_to_async(list)(
+                InvoiceItemv2.objects.filter(
+                    invoice_type="receivable",
+                    item_category="warehouse_public",
+                    delivery_type="combine",
+                    cbm_ratio__isnull=True
+                ).select_related('invoice_number', 'container_number')[:500]
+            )
+        
+        # 按invoice分组
+        invoice_groups = {}
+        for item in invoice_items:
+            invoice_key = item.invoice_number.invoice_number
+            if invoice_key not in invoice_groups:
+                invoice_groups[invoice_key] = {
+                    'items': [],
+                    'invoice': item.invoice_number,
+                    'container': item.container_number
+                }
+            invoice_groups[invoice_key]['items'].append(item)
+        
+        result_records = []
+        
+        for invoice_key, group in invoice_groups.items():
+            success_count = 0
+            failed_count = 0
+            error_messages = []
+            
+            # 计算整柜的cbm
+            container_number = group['container'].container_number
+            total_container_cbm = await sync_to_async(lambda: 
+                PackingList.objects.filter(
+                    container_number__container_number=container_number
+                ).aggregate(
+                    total_cbm=Sum('cbm')
+                )['total_cbm'] or 0.0
+            )()
+            
+            if total_container_cbm == 0:
+                error_messages.append(f"整柜CBM为0，无法计算占比")
+                failed_count += len(group['items'])
+            else:
+                # 遍历组内的invoice_items记录
+                for item in group['items']:
+                    try:
+                        # 检查是否有cbm值
+                        if not item.cbm:
+                            error_messages.append(f"记录ID {item.id} 缺少CBM值")
+                            failed_count += 1
+                            continue
+                        
+                        # 计算cbm_ratio
+                        cbm = round(float(item.cbm), 2)
+                        cbm_ratio = round(cbm / total_container_cbm, 4)
+                        
+                        # 计算amount（这里需要知道regionPrice，假设从item中获取）
+                        region_price = item.rate or 0
+                        amount = cbm_ratio * region_price
+                        
+                        # 更新记录
+                        item.cbm_ratio = cbm_ratio
+                        item.amount = amount
+                        await sync_to_async(item.save)()
+                        
+                        success_count += 1
+                    except Exception as e:
+                        error_messages.append(f"记录ID {item.id} 处理失败: {str(e)}")
+                        failed_count += 1
+            
+            # 调用_update_invoice_total更新柜子的总值
+            try:
+                await sync_to_async(self._update_invoice_total)(group['invoice'], group['container'], True)
+            except Exception as e:
+                error_messages.append(f"更新发票总值失败: {str(e)}")
+            
+            # 构建结果记录
+            result_records.append({
+                'invoice_number': invoice_key,
+                'container_number': container_number,
+                'success_count': success_count,
+                'failed_count': failed_count,
+                'error_messages': '<br>'.join(error_messages)
+            })
+        
+        context = {
+            'success_messages': f'处理了{len(invoice_groups)}个发票组！',
+            'combine_cbm_ratio_records': result_records
+        }
+        return self.template_post_port_status, context
+
     async def handle_recaculate_combine_1w(self, request):
         '''重新计算组合柜费用大于1万'''
         invoices = await sync_to_async(list)(
             Invoicev2.objects.filter(
                 Q(receivable_delivery_public_amount__gt=10000)
-            ).select_related('container_number')
+            ).select_related('container_number')[:500]
         )
         
         success_records = []
