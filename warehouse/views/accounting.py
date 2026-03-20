@@ -3235,6 +3235,7 @@ class Accounting(View):
                 )
             )
             .filter(
+                fleet_number__isnull=False,
                 expense__isnull=False,
                 PO_ID__in=delivery_po_ids,
             )
@@ -3462,6 +3463,7 @@ class Accounting(View):
                 "container_number",
             )
             .filter(
+                fleet_number__isnull=False,
                 expense__isnull=False,
                 PO_ID__in=delivery_po_ids,
             )
