@@ -26,6 +26,7 @@ from warehouse.models.fee_detail import FeeDetail
 from warehouse.models.customer import Customer
 from warehouse.models.fleet_shipment_pallet import FleetShipmentPallet
 from warehouse.models.invoice import Invoice, InvoiceItem
+from warehouse.models.invoicev2 import Invoicev2, InvoiceStatusv2, InvoiceItemv2
 from warehouse.models.invoice_details import InvoiceDelivery
 from warehouse.models.order import Order
 from warehouse.models.retrieval import HistoricalRetrieval, Retrieval
@@ -1106,43 +1107,56 @@ class OrderQuantity(View):
             customer_name = order.customer_name.zem_name
             # 因为都是财务确认的账单，如果是早期的账单或者当前的组合柜账单，都是以invoice_item表为准的，否则是以这三个表为准
             invoice = await sync_to_async(
-                Invoice.objects.select_related("customer", "container_number").get
+                Invoicev2.objects.select_related("customer", "container_number").get
             )(container_number__container_number=container_number)
 
             has_items = await sync_to_async(
-                InvoiceItem.objects.filter(
+                InvoiceItemv2.objects.filter(
                     invoice_number__invoice_number=invoice.invoice_number
                 ).exists
             )()
 
-            if not has_items:  # 没有说明是以三个表为准
-                receivable_preport = (
-                    float(invoice.receivable_preport_amount)
-                    if invoice.receivable_preport_amount is not None
-                    else 0.0
-                )  # 港前提拆
-                receivable_warehouse = (
-                    float(invoice.receivable_warehouse_amount)
-                    if invoice.receivable_warehouse_amount is not None
-                    else 0.0
-                )  # 库内
-                receivable_delivery = (
-                    float(invoice.receivable_delivery_amount)
-                    if invoice.receivable_delivery_amount is not None
-                    else 0.0
-                )  # 派送
-                other_fees = 0
-            else:
-                items = await sync_to_async(list)(
-                    InvoiceItem.objects.filter(
-                        invoice_number__invoice_number=invoice.invoice_number
-                    )
-                )
-                categorized = self.categorize_invoice_items(items)
-                receivable_preport = categorized["preport_receivable"]  # 港前提拆
-                receivable_warehouse = categorized["warehouse_fee"]  # 库内
-                receivable_delivery = categorized["delivery_fee"]  # 派送
-                other_fees = categorized["other_fees"]
+            #if not has_items:  # 没有说明是以三个表为准
+            receivable_preport = (
+                float(invoice.receivable_preport_amount)
+                if invoice.receivable_preport_amount is not None
+                else 0.0
+            )  # 港前提拆
+            receivable_pub_warehouse = (
+                float(invoice.receivable_wh_public_amount)
+                if invoice.receivable_wh_public_amount is not None
+                else 0.0
+            )  # 库内
+            receivable_oth_warehouse = (
+                float(invoice.receivable_wh_other_amount)
+                if invoice.receivable_wh_other_amount is not None
+                else 0.0
+            )  # 库内
+            receivable_warehouse = receivable_pub_warehouse + receivable_oth_warehouse
+
+            receivable_pub_delivery = (
+                float(invoice.receivable_delivery_public_amount)
+                if invoice.receivable_delivery_public_amount is not None
+                else 0.0
+            )  # 派送
+            receivable_oth_delivery = (
+                float(invoice.receivable_delivery_other_amount)
+                if invoice.receivable_delivery_other_amount is not None
+                else 0.0
+            )  # 派送
+            receivable_delivery = receivable_pub_delivery + receivable_oth_delivery
+            other_fees = 0
+            # else:
+            #     items = await sync_to_async(list)(
+            #         InvoiceItemv2.objects.filter(
+            #             invoice_number__invoice_number=invoice.invoice_number
+            #         )
+            #     )
+            #     categorized = self.categorize_invoice_items(items)
+            #     receivable_preport = categorized["preport_receivable"]  # 港前提拆
+            #     receivable_warehouse = categorized["warehouse_fee"]  # 库内
+            #     receivable_delivery = categorized["delivery_fee"]  # 派送
+            #     other_fees = categorized["other_fees"]
 
             # 港前应付
             payable_preport = (
