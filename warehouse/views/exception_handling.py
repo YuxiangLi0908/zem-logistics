@@ -314,6 +314,9 @@ class ExceptionHandling(View):
         elif step == "get_combine_1w":
             template, context = await self.handle_get_combine_1w(request)
             return await sync_to_async(render)(request, template, context) 
+        elif step == "recaculate_combine_1w":
+            template, context = await self.handle_recaculate_combine_1w(request)
+            return await sync_to_async(render)(request, template, context)
         elif step == "delete_shipment":
             template, context = await self.handle_delete_shipment(request)
             return await sync_to_async(render)(request, template, context)
@@ -475,6 +478,18 @@ class ExceptionHandling(View):
         }
 
         return self.template_post_port_status, context
+
+    async def handle_recaculate_combine_1w(self, request):
+        '''重新计算组合柜费用大于1万'''
+        invoice_items = await sync_to_async(list)(
+            InvoiceItemv2.objects.filter(
+                invoice_type="receivable",
+                item_category="warehouse_public",
+                delivery_type="combine",
+                cbm_ratio__isnull=True
+            )
+        )
+        
 
     async def handle_get_combine_1w(self, request):
         '''查询Invoicev2表中组合柜费用大于1万的'''
