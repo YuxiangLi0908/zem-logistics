@@ -1889,7 +1889,7 @@
                                             data-fees="
                                             {% for fee in c.container_number.invoice_itemv2.all %}
                                             {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
-                                                {% if fee.description in t_item or '提柜其他费用' in fee.description %}
+                                                {% if fee.description in t_item or '提柜其他费用' in fee.description or '直送其他费用' in fee.description %}
                                                     {{ fee.amount|default:fee.rate|default:0|floatformat:2 }},
                                                 {% endif %}
                                             {% endif %}
@@ -2308,7 +2308,7 @@
                                             data-fees="
                                             {% for fee in c.container_number.invoice_itemv2.all %}
                                             {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
-                                                {% if fee.description in t_item or '提柜其他费用' in fee.description %}
+                                                {% if fee.description in t_item or '提柜其他费用' in fee.description or '直送其他费用' in fee.description %}
                                                     {{ fee.amount|default:fee.rate|default:0|floatformat:2 }},
                                                 {% endif %}
                                             {% endif %}
