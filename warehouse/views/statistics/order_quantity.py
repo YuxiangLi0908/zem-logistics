@@ -1067,10 +1067,16 @@ class OrderQuantity(View):
                 Q(vessel_id__vessel_eta__lte=end_date),
                 ~Q(order_type="直送"),
             )
-        else:
+        elif date_type == "etd":
             criteria = Q(
                 Q(vessel_id__vessel_etd__gte=start_date),
                 Q(vessel_id__vessel_etd__lte=end_date),
+                ~Q(order_type="直送"),
+            )
+        elif date_type == "retrieval_timestamp":
+            criteria = Q(
+                Q(retrieval_id__target_retrieval_timestamp_lower__gte=start_date),
+                Q(retrieval_id__actual_retrieval_timestamp__lte=end_date),
                 ~Q(order_type="直送"),
             )
         if warehouse_list:
