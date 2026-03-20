@@ -484,13 +484,24 @@ class ExceptionHandling(View):
 
     async def handle_recaculate_combine_cbm_ratio(self, request):
         '''重新计算组合柜费用和cbm占比异常的'''
+        # 先统计符合条件的记录总数
+        total_count = await sync_to_async(lambda: 
+            InvoiceItemv2.objects.filter(
+                Q(rate=F('regionPrice')) | Q(cbm_ratio__isnull=True) | Q(cbm_ratio=0),
+                invoice_type="receivable",
+                item_category="delivery_public",
+                delivery_type="combine"
+            ).count()
+        )()
+        
+        # 取最后600条记录
         invoice_items = await sync_to_async(list)(
                 InvoiceItemv2.objects.filter(
                     Q(rate=F('regionPrice')) | Q(cbm_ratio__isnull=True) | Q(cbm_ratio=0),
                     invoice_type="receivable",
                     item_category="delivery_public",
                     delivery_type="combine",                  
-                ).select_related('invoice_number', 'container_number').order_by('-id')[:600]
+                ).select_related('invoice_number', 'container_number').order_by('-id')[:420]
             )
         
         # 按invoice分组
@@ -605,7 +616,8 @@ class ExceptionHandling(View):
         
         context = {
             'success_messages': f'处理了{len(invoice_groups)}个发票组！',
-            'combine_cbm_ratio_records': result_records
+            'combine_cbm_ratio_records': result_records,
+            'total_count': total_count
         }
         return self.template_post_port_status, context
 
@@ -682,11 +694,11 @@ class ExceptionHandling(View):
             invoice_type="receivable",
             item_category="delivery_public",
         ).aggregate(
-            total=Func(
-            Sum('amount'),
-            function='ROUND',
-            template='%(function)s(%(expressions)s, 2)'
-        ))['total'] or 0
+            total=Round(
+                Sum('amount'),
+                2
+            )
+        )['total'] or 0
         total_amount += float(receivable_delivery_public_amount)
 
         receivable_delivery_other_amount = InvoiceItemv2.objects.filter(
