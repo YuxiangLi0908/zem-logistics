@@ -487,7 +487,7 @@ class ExceptionHandling(View):
         # 先统计符合条件的记录总数
         total_count = await sync_to_async(lambda: 
             InvoiceItemv2.objects.filter(
-                Q(rate=F('regionPrice')) | Q(cbm_ratio__isnull=True) | Q(cbm_ratio=0),
+                Q(cbm_ratio__isnull=True) | Q(cbm_ratio=0),
                 invoice_type="receivable",
                 item_category="delivery_public",
                 delivery_type="combine"
