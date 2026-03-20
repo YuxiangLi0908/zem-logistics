@@ -1666,6 +1666,50 @@
                                 </button>
                             </div>
 
+                            <!-- 提柜待核销批量操作区域后新增总计 -->
+                            <div class="selected-fees-summary">
+                                <div class="fee-summary-item">
+                                    <span class="fee-summary-label">提柜费合计：</span>
+                                    <span class="fee-summary-value" id="t-summary-pickup-fee">$0.00</span>
+                                </div>
+                                <div class="fee-summary-item">
+                                    <span class="fee-summary-label">直送固定报价合计：</span>
+                                    <span class="fee-summary-value" id="t-summary-fixed-price">$0.00</span>
+                                </div>
+                                <div class="fee-summary-item">
+                                    <span class="fee-summary-label">直送车架费合计：</span>
+                                    <span class="fee-summary-value" id="t-summary-direct-frame-fee">$0.00</span>
+                                </div>
+                                <div class="fee-summary-item">
+                                    <span class="fee-summary-label">直送等待费用合计：</span>
+                                    <span class="fee-summary-value" id="t-summary-waiting-fee">$0.00</span>
+                                </div>
+                                <div class="fee-summary-item">
+                                    <span class="fee-summary-label">超重费合计：</span>
+                                    <span class="fee-summary-value" id="t-summary-overweight-fee">$0.00</span>
+                                </div>
+                                <div class="fee-summary-item">
+                                    <span class="fee-summary-label">滞港费合计：</span>
+                                    <span class="fee-summary-value" id="t-summary-port-delay-fee">$0.00</span>
+                                </div>
+                                <div class="fee-summary-item">
+                                    <span class="fee-summary-label">滞箱费合计：</span>
+                                    <span class="fee-summary-value" id="t-summary-container-delay-fee">$0.00</span>
+                                </div>
+                                <div class="fee-summary-item">
+                                    <span class="fee-summary-label">车架费合计：</span>
+                                    <span class="fee-summary-value" id="t-summary-frame-fee">$0.00</span>
+                                </div>
+                                <div class="fee-summary-item">
+                                    <span class="fee-summary-label">提柜其他费用合计：</span>
+                                    <span class="fee-summary-value" id="t-summary-other-fee">$0.00</span>
+                                </div>
+                                <div class="fee-summary-item summary-total">
+                                    <span class="fee-summary-label">总费用合计：</span>
+                                    <span class="fee-summary-value" id="t-summary-total-fee">$0.00</span>
+                                </div>
+                            </div>
+
                             <!-- 表格部分：保留原有结构，仅确认data-container-id正确 -->
                             <table class="table" id="pick-t-waited-table">
                                 <!-- 提柜待核销表格thead修改（操作列前加核销金额列） -->
@@ -1828,7 +1872,7 @@
                                             data-type="other"
                                             data-fees="
                                             {% for fee in c.container_number.invoice_itemv2.all %}
-                                                {% if '提柜其他费用' in fee.description %}
+                                                {% if '提柜其他费用' in fee.description or '直送其他费用' in fee.description %}
                                                     {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
                                                     {{ fee.amount|default:fee.rate|default:0|floatformat:2 }},
                                                     {% endif %}
@@ -1924,6 +1968,26 @@
                                         style="margin-left: 10px;">
                                     <i class="fas fa-check"></i> 批量确认核销
                                 </button>
+                            </div>
+
+                            <!-- 卸柜待核销批量操作区域后新增总计 -->
+                            <div class="selected-fees-summary">
+                                <div class="fee-summary-item">
+                                    <span class="fee-summary-label">拆柜费合计：</span>
+                                    <span class="fee-summary-value" id="x-summary-unload-fee">$0.00</span>
+                                </div>
+                                <div class="fee-summary-item">
+                                    <span class="fee-summary-label">入库拆柜费合计：</span>
+                                    <span class="fee-summary-value" id="x-summary-warehouse-unload-fee">$0.00</span>
+                                </div>
+                                <div class="fee-summary-item">
+                                    <span class="fee-summary-label">拆柜其他费用合计：</span>
+                                    <span class="fee-summary-value" id="x-summary-other-fee">$0.00</span>
+                                </div>
+                                <div class="fee-summary-item summary-total">
+                                    <span class="fee-summary-label">总费用合计：</span>
+                                    <span class="fee-summary-value" id="x-summary-total-fee">$0.00</span>
+                                </div>
                             </div>
 
                             <table class="table" id="pick-x-waited-table">
@@ -2227,7 +2291,7 @@
                                             data-type="other"
                                             data-fees="
                                             {% for fee in c.container_number.invoice_itemv2.all %}
-                                                {% if '提柜其他费用' in fee.description %}
+                                                {% if '提柜其他费用' in fee.description or '直送其他费用' in fee.description %}
                                                     {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
                                                     {{ fee.amount|default:fee.rate|default:0|floatformat:2 }},
                                                     {% endif %}
@@ -2746,8 +2810,12 @@
         // 更新选中数量
         if (checkboxClass === 'pick-t-writeoff') {
             updateSelectedCount('pick-t');
+            // 新增：计算提柜待核销费用总计
+            calculateTPickedFeesSummary();
         } else if (checkboxClass === 'pick-x-writeoff') {
             updateSelectedCount('pick-x');
+            // 新增：计算卸柜待核销费用总计
+            calculateXPickedFeesSummary();
         }
     }
 
@@ -2932,9 +3000,13 @@
         } else if (tableId === 'pick-t-waited-table') {
             updateSelectAllStatusFiltered('pick-confirmed-select-all', 'pick-t-writeoff', 'pick-t-waited-table');
             updateSelectedCount('pick-t');
+            // 新增：过滤后重新计算提柜待核销费用总计
+            calculateTPickedFeesSummary();
         } else if (tableId === 'pick-x-waited-table') {
             updateSelectAllStatusFiltered('pick-x-select-all', 'pick-x-writeoff', 'pick-x-waited-table');
             updateSelectedCount('pick-x');
+            // 新增：过滤后重新计算卸柜待核销费用总计
+            calculateXPickedFeesSummary();
         }
 
         // 新增：过滤后重新计算选中费用总计
@@ -3039,6 +3111,11 @@
         const countElement = document.getElementById(`${type}-selected-count`);
         if (countElement) {
             countElement.textContent = `已选：${checkboxes.length} 条`;
+        }
+        if (type === 'pick-t') {
+            calculateTPickedFeesSummary();
+        } else if (type === 'pick-x') {
+            calculateXPickedFeesSummary();
         }
     }
 
@@ -3550,6 +3627,158 @@
         document.getElementById('summary-frame-fee').textContent = `$${frameFee.toFixed(2)}`;
         document.getElementById('summary-other-fee').textContent = `$${otherFee.toFixed(2)}`;
         document.getElementById('summary-total-fee').textContent = `$${totalFee.toFixed(2)}`;
+    }
+
+    // 计算提柜待核销选中记录的费用总计
+    function calculateTPickedFeesSummary() {
+        // 初始化各费用合计为0
+        let pickupFee = 0;        // 提柜费（第5列）
+        let fixedPrice = 0;       // 直送固定报价（第6列）
+        let directFrameFee = 0;   // 直送车架费（第7列）
+        let waitingFee = 0;       // 直送等待费用（第8列）
+        let overweightFee = 0;    // 超重费（第9列）
+        let portDelayFee = 0;     // 滞港费（第10列）
+        let containerDelayFee = 0;// 滞箱费（第11列）
+        let frameFee = 0;         // 车架费（第12列）
+        let otherFee = 0;         // 提柜其他费用（第13列）
+        let totalFee = 0;         // 总费用（第14列）
+
+        // 获取所有选中的复选框
+        const checkedCheckboxes = document.querySelectorAll('.pick-t-writeoff:checked');
+
+        // 遍历每个选中的记录，计算各费用
+        checkedCheckboxes.forEach(checkbox => {
+            const tr = checkbox.closest('tr');
+            if (!tr || tr.style.display === 'none') return; // 跳过隐藏行
+
+            // 获取当前行的所有单元格（td）
+            const tds = tr.querySelectorAll('td');
+
+            // 1. 提柜费（第5列，tds[5]）
+            const pickupFeeElement = tds[5]?.querySelectorAll('.pickup-fee-amount');
+            const pickupFeeValue = pickupFeeElement && pickupFeeElement.length > 0
+                ? pickupFeeElement[pickupFeeElement.length - 1].textContent
+                : '$0.00';
+            pickupFee += parseFloat(pickupFeeValue.replace(/[^0-9.]/g, '')) || 0;
+
+            // 2. 直送固定报价（第6列，tds[6]）
+            const fixedPriceElement = tds[6]?.querySelectorAll('.pickup-fee-amount');
+            const fixedPriceValue = fixedPriceElement && fixedPriceElement.length > 0
+                ? fixedPriceElement[fixedPriceElement.length - 1].textContent
+                : '$0.00';
+            fixedPrice += parseFloat(fixedPriceValue.replace(/[^0-9.]/g, '')) || 0;
+
+            // 3. 直送车架费（第7列，tds[7]）
+            const directFrameFeeElement = tds[7]?.querySelectorAll('.pickup-fee-amount');
+            const directFrameFeeValue = directFrameFeeElement && directFrameFeeElement.length > 0
+                ? directFrameFeeElement[directFrameFeeElement.length - 1].textContent
+                : '$0.00';
+            directFrameFee += parseFloat(directFrameFeeValue.replace(/[^0-9.]/g, '')) || 0;
+
+            // 4. 直送等待费用（第8列，tds[8]）
+            const waitingFeeElement = tds[8]?.querySelectorAll('.pickup-fee-amount');
+            const waitingFeeValue = waitingFeeElement && waitingFeeElement.length > 0
+                ? waitingFeeElement[waitingFeeElement.length - 1].textContent
+                : '$0.00';
+            waitingFee += parseFloat(waitingFeeValue.replace(/[^0-9.]/g, '')) || 0;
+
+            // 5. 超重费（第9列，tds[9]）
+            const overweightFeeElement = tds[9]?.querySelectorAll('.pickup-fee-amount');
+            const overweightFeeValue = overweightFeeElement && overweightFeeElement.length > 0
+                ? overweightFeeElement[overweightFeeElement.length - 1].textContent
+                : '$0.00';
+            overweightFee += parseFloat(overweightFeeValue.replace(/[^0-9.]/g, '')) || 0;
+
+            // 6. 滞港费（第10列，tds[10]）
+            const portDelayFeeElement = tds[10]?.querySelectorAll('.pickup-fee-amount');
+            const portDelayFeeValue = portDelayFeeElement && portDelayFeeElement.length > 0
+                ? portDelayFeeElement[portDelayFeeElement.length - 1].textContent
+                : '$0.00';
+            portDelayFee += parseFloat(portDelayFeeValue.replace(/[^0-9.]/g, '')) || 0;
+
+            // 7. 滞箱费（第11列，tds[11]）
+            const containerDelayFeeElement = tds[11]?.querySelectorAll('.pickup-fee-amount');
+            const containerDelayFeeValue = containerDelayFeeElement && containerDelayFeeElement.length > 0
+                ? containerDelayFeeElement[containerDelayFeeElement.length - 1].textContent
+                : '$0.00';
+            containerDelayFee += parseFloat(containerDelayFeeValue.replace(/[^0-9.]/g, '')) || 0;
+
+            // 8. 车架费（第12列，tds[12]）
+            const frameFeeElement = tds[12]?.querySelectorAll('.pickup-fee-amount');
+            const frameFeeValue = frameFeeElement && frameFeeElement.length > 0
+                ? frameFeeElement[frameFeeElement.length - 1].textContent
+                : '$0.00';
+            frameFee += parseFloat(frameFeeValue.replace(/[^0-9.]/g, '')) || 0;
+
+            // 9. 提柜其他费用（第13列，tds[13]）
+            const otherFeeValue = tds[13]?.querySelector('.total-amount')?.textContent || '$0.00';
+            otherFee += parseFloat(otherFeeValue.replace(/[^0-9.]/g, '')) || 0;
+
+            // 10. 总费用（第14列，tds[14]）
+            const totalFeeValue = tds[14]?.querySelector('.total-amount')?.textContent || '$0.00';
+            totalFee += parseFloat(totalFeeValue.replace(/[^0-9.]/g, '')) || 0;
+        });
+
+        // 更新页面显示的合计金额
+        document.getElementById('t-summary-pickup-fee').textContent = `$${pickupFee.toFixed(2)}`;
+        document.getElementById('t-summary-fixed-price').textContent = `$${fixedPrice.toFixed(2)}`;
+        document.getElementById('t-summary-direct-frame-fee').textContent = `$${directFrameFee.toFixed(2)}`;
+        document.getElementById('t-summary-waiting-fee').textContent = `$${waitingFee.toFixed(2)}`;
+        document.getElementById('t-summary-overweight-fee').textContent = `$${overweightFee.toFixed(2)}`;
+        document.getElementById('t-summary-port-delay-fee').textContent = `$${portDelayFee.toFixed(2)}`;
+        document.getElementById('t-summary-container-delay-fee').textContent = `$${containerDelayFee.toFixed(2)}`;
+        document.getElementById('t-summary-frame-fee').textContent = `$${frameFee.toFixed(2)}`;
+        document.getElementById('t-summary-other-fee').textContent = `$${otherFee.toFixed(2)}`;
+        document.getElementById('t-summary-total-fee').textContent = `$${totalFee.toFixed(2)}`;
+    }
+
+    // 计算卸柜待核销选中记录的费用总计
+    function calculateXPickedFeesSummary() {
+        // 初始化各费用合计为0
+        let unloadFee = 0;        // 拆柜费（第5列）
+        let warehouseUnloadFee = 0; // 入库拆柜费（第6列）
+        let otherFee = 0;         // 拆柜其他费用（第7列）
+        let totalFee = 0;         // 总费用（第8列）
+
+        // 获取所有选中的复选框
+        const checkedCheckboxes = document.querySelectorAll('.pick-x-writeoff:checked');
+
+        // 遍历每个选中的记录，计算各费用
+        checkedCheckboxes.forEach(checkbox => {
+            const tr = checkbox.closest('tr');
+            if (!tr || tr.style.display === 'none') return; // 跳过隐藏行
+
+            // 获取当前行的所有单元格（td）
+            const tds = tr.querySelectorAll('td');
+
+            // 1. 拆柜费（第5列，tds[5]）
+            const unloadFeeElement = tds[5]?.querySelectorAll('.unpickup-fee-amount');
+            const unloadFeeValue = unloadFeeElement && unloadFeeElement.length > 0
+                ? unloadFeeElement[unloadFeeElement.length - 1].textContent
+                : '$0.00';
+            unloadFee += parseFloat(unloadFeeValue.replace(/[^0-9.]/g, '')) || 0;
+
+            // 2. 入库拆柜费（第6列，tds[6]）
+            const warehouseUnloadFeeElement = tds[6]?.querySelectorAll('.unpickup-fee-amount');
+            const warehouseUnloadFeeValue = warehouseUnloadFeeElement && warehouseUnloadFeeElement.length > 0
+                ? warehouseUnloadFeeElement[warehouseUnloadFeeElement.length - 1].textContent
+                : '$0.00';
+            warehouseUnloadFee += parseFloat(warehouseUnloadFeeValue.replace(/[^0-9.]/g, '')) || 0;
+
+            // 3. 拆柜其他费用（第7列，tds[7]）
+            const otherFeeValue = tds[7]?.querySelector('.total-amount')?.textContent || '$0.00';
+            otherFee += parseFloat(otherFeeValue.replace(/[^0-9.]/g, '')) || 0;
+
+            // 4. 总费用（第8列，tds[8]）
+            const totalFeeValue = tds[8]?.querySelector('.total-amount')?.textContent || '$0.00';
+            totalFee += parseFloat(totalFeeValue.replace(/[^0-9.]/g, '')) || 0;
+        });
+
+        // 更新页面显示的合计金额
+        document.getElementById('x-summary-unload-fee').textContent = `$${unloadFee.toFixed(2)}`;
+        document.getElementById('x-summary-warehouse-unload-fee').textContent = `$${warehouseUnloadFee.toFixed(2)}`;
+        document.getElementById('x-summary-other-fee').textContent = `$${otherFee.toFixed(2)}`;
+        document.getElementById('x-summary-total-fee').textContent = `$${totalFee.toFixed(2)}`;
     }
 </script>
 {% endblock %}
