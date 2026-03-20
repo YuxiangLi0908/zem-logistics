@@ -702,19 +702,21 @@
     <table class="data-table">
         <thead>
             <tr>
-                <th>柜号</th>
-                <th>组合柜费用</th>
                 <th>发票号</th>
-                <th>费率</th>
-                <th>CBm占比</th>
+                <th>柜号</th>
+                <th>组合柜费用</th>     
+                <th>单条费用</th>             
+                <th>rate</th>
+                <th>cbm占比</th>
             </tr>
         </thead>
         <tbody>
             {% for record in combine_1w_records %}
             <tr>
-                <td>{{ record.container_number }}</td>
-                <td>{{ record.receivable_wh_public_amount }}</td>
                 <td>{{ record.invoice_number }}</td>
+                <td>{{ record.container_number }}</td>
+                <td>{{ record.receivable_delivery_public_amount }}</td>
+                <td>{{ record.amount }}</td>
                 <td>{{ record.rate }}</td>
                 <td>{{ record.cbm_ratio }}</td>
             </tr>

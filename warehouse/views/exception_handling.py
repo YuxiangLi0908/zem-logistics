@@ -481,7 +481,7 @@ class ExceptionHandling(View):
         # 查询Invoicev2表中receivable_wh_public_amount大于10000的记录
         invoices = await sync_to_async(list)(
             Invoicev2.objects.filter(
-                Q(receivable_wh_public_amount__gt=10000)
+                Q(receivable_delivery_public_amount__gt=10000)
             ).select_related('container_number')
         )
         
@@ -498,9 +498,10 @@ class ExceptionHandling(View):
             
             for item in invoice_items:
                 result_list.append({
-                    'container_number': invoice.container_number.container_number if invoice.container_number else '',
-                    'receivable_wh_public_amount': invoice.receivable_wh_public_amount,
                     'invoice_number': invoice.invoice_number,
+                    'container_number': invoice.container_number.container_number if invoice.container_number else '',
+                    'receivable_delivery_public_amount': invoice.receivable_delivery_public_amount,
+                    'amount': item.amount,                 
                     'rate': item.rate,
                     'cbm_ratio': item.cbm_ratio
                 })
@@ -1479,7 +1480,6 @@ class ExceptionHandling(View):
         # 设置可用的查询字段
         context['available_fields'] = await self.get_available_fields(table_name)
         context['table_name'] = table_name
-        print('table_name',table_name)
         
         return self.template_find_all_table, context
 
