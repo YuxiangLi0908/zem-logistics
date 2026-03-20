@@ -681,7 +681,12 @@ class ExceptionHandling(View):
             container_number=container,
             invoice_type="receivable",
             item_category="delivery_public",
-        ).aggregate(total=models.Sum('amount'))['total'] or 0
+        ).aggregate(
+            total=Func(
+            Sum('amount'),
+            function='ROUND',
+            template='%(function)s(%(expressions)s, 2)'
+        ))['total'] or 0
         total_amount += float(receivable_delivery_public_amount)
 
         receivable_delivery_other_amount = InvoiceItemv2.objects.filter(
