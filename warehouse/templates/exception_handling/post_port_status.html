@@ -740,16 +740,22 @@
     <button type="submit" class="search-btn">转运类型总费用为空的赋值</button>
 </form>
 
-<form method="post">
+<form method="post" style="display: inline-block; margin: 2px;">
     {% csrf_token %}
     <input type="hidden" name="step" value="get_cbm_ratio_with_fallback">
     <button type="submit" class="search-btn">查询空的cbm_ratio并且赋值</button>
 </form>
 
-<form method="post">
+<form method="post" style="display: inline-block; margin: 2px;">
     {% csrf_token %}
     <input type="hidden" name="step" value="get_combine_1w">
     <button type="submit" class="search-btn">查询组合柜费用大于1万的</button>
+</form>
+
+<form method="post" style="display: inline-block; margin: 2px;">
+    {% csrf_token %}
+    <input type="hidden" name="step" value="recaculate_combine_1w">
+    <button type="submit" class="search-btn">组合柜费用大于1w的重新计算</button>
 </form>
 
 <script>

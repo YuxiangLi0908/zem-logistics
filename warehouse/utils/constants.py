@@ -480,7 +480,7 @@ MODEL_CHOICES = {
         "mapping": INVOICESTATUS_TABLE_MAPPING,
         "transfer_table": None,
     },
-    "invoice": {
+    "invoicev2": {
         "model": "HistoricalInvoicev2",
         "name": "新版总账单",
         "search_field": "invoice_number",
@@ -491,7 +491,7 @@ MODEL_CHOICES = {
         "mapping": INVOICE_TABLE_MAPPING,
         "transfer_table": None,
     },
-    "invoicestatus": {
+    "invoicestatusv2": {
         "model": "HistoricalInvoiceStatusv2",
         "name": "新版账单状态",
         "search_field": "container_number",

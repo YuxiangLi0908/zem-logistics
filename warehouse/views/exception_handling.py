@@ -1478,6 +1478,8 @@ class ExceptionHandling(View):
         
         # 设置可用的查询字段
         context['available_fields'] = await self.get_available_fields(table_name)
+        context['table_name'] = table_name
+        print('table_name',table_name)
         
         return self.template_find_all_table, context
 
@@ -1494,6 +1496,8 @@ class ExceptionHandling(View):
             'InvoiceDelivery': InvoiceDelivery,
             'Invoice': Invoice,
             'InvoiceStatus': InvoiceStatus,
+            'Invoicev2': Invoicev2,
+            'InvoiceStatusv2': InvoiceStatusv2,
             'AbnormalOffloadStatus': AbnormalOffloadStatus,
             'Order': Order,
             'PackingList': PackingList,
@@ -1776,6 +1780,15 @@ class ExceptionHandling(View):
                 ('container_number', 'container_number')
             ],
             'InvoiceStatus': [
+                ('id', 'ID'),
+                ('container_number', 'container_number')
+            ],
+            'Invoicev2': [
+                ('id', 'ID'),
+                ('invoice_number', 'invoice_number'),
+                ('container_number', 'container_number')
+            ],
+            'InvoiceStatusv2': [
                 ('id', 'ID'),
                 ('container_number', 'container_number')
             ],
