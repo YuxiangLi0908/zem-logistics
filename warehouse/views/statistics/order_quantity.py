@@ -1082,6 +1082,7 @@ class OrderQuantity(View):
             )
             customer_idlist = [item["zem_name"] for item in customer_list]
             criteria &= Q(customer_name__zem_name__in=customer_idlist)
+        criteria &= Q(receivable_status__stage="confirmed")
         # 展示财务确认的账单
         orders = await sync_to_async(list)(
             Order.objects.select_related(
@@ -1105,10 +1106,28 @@ class OrderQuantity(View):
         for order in orders:
             container_number = order.container_number.container_number
             customer_name = order.customer_name.zem_name
-            # 因为都是财务确认的账单，如果是早期的账单或者当前的组合柜账单，都是以invoice_item表为准的，否则是以这三个表为准
-            invoice = await Invoicev2.objects.select_related("customer", "container_number").filter(container_number__container_number=container_number).order_by('created_at').afirst()
+
+            def get_confirmed_invoice(container):
+                status = InvoiceStatusv2.objects.select_related(
+                    "invoice", 
+                    "invoice__customer", 
+                    "invoice__container_number"
+                ).filter(
+                    container_number=container,
+                    invoice_type="receivable",
+                    finance_status="completed"
+                ).order_by('id').first() # 同步环境下用 first()
+                
+                if status and status.invoice:
+                    return status.invoice
+                return None
+
+            # 2. 异步调用
+            invoice = await sync_to_async(get_confirmed_invoice)(order.container_number)
             if not invoice:
                 continue
+
+
             #if not has_items:  # 没有说明是以三个表为准
             receivable_preport = (
                 float(invoice.receivable_preport_amount)
