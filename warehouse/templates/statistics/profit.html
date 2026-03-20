@@ -117,6 +117,7 @@
                 <input type="text" id="containerSearch" placeholder="搜索柜号..." style="padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
                 <button onclick="sortTable('profit')" style="padding: 8px 12px; background-color: #2196F3; color: white; border: none; border-radius: 4px; cursor: pointer;">按利润排序</button>
                 <button onclick="sortTable('margin')" style="padding: 8px 12px; background-color: #FF9800; color: white; border: none; border-radius: 4px; cursor: pointer;">按利润率排序</button>
+                <button onclick="exportToExcel()" style="padding: 8px 12px; background-color: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer;">导出Excel</button>
             </div>
         </div>
         <div class="table-responsive">
@@ -607,6 +608,25 @@
         rows.forEach(row => {
             tbody.appendChild(row);
         });
+    }
+    
+    // 导出Excel功能
+    function exportToExcel() {
+        const table = document.getElementById('profitTable');
+        let html = table.outerHTML;
+        
+        // 创建Blob对象
+        const blob = new Blob(['\ufeff' + html], { type: 'application/vnd.ms-excel' });
+        const url = URL.createObjectURL(blob);
+        
+        // 创建下载链接
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'profit_analysis_' + new Date().toISOString().slice(0, 10) + '.xls';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
     }
 </script>   
 {% endblock %}
