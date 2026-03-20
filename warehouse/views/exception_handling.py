@@ -497,7 +497,7 @@ class ExceptionHandling(View):
         # 取最后600条记录
         invoice_items = await sync_to_async(list)(
                 InvoiceItemv2.objects.filter(
-                    Q(rate=F('regionPrice')) | Q(cbm_ratio__isnull=True) | Q(cbm_ratio=0),
+                    Q(cbm_ratio__isnull=True) | Q(cbm_ratio=0),
                     invoice_type="receivable",
                     item_category="delivery_public",
                     delivery_type="combine",                  
@@ -752,7 +752,7 @@ class ExceptionHandling(View):
                 InvoiceItemv2.objects.filter(
                     invoice_number=invoice,
                     invoice_type="receivable",
-                    item_category="warehouse_public"
+                    item_category="delivery_public"
                 )
             )
             
