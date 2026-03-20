@@ -531,9 +531,44 @@ class ExceptionHandling(View):
                     try:
                         # 检查是否有cbm值
                         if not item.cbm:
-                            error_messages.append(f"记录ID {item.id} 缺少CBM值")
-                            failed_count += 1
-                            continue
+                            # 先查询PackingList表计算CBM值
+                            try:
+                                warehouse_code = item.warehouse_code
+                                if warehouse_code:
+                                    # 先从PackingList表查询
+                                    packinglist_cbm = await sync_to_async(lambda: 
+                                        PackingList.objects.filter(
+                                            destination=warehouse_code
+                                        ).aggregate(
+                                            total_cbm=Sum('cbm')
+                                        )['total_cbm'] or 0.0
+                                    )()
+                                    
+                                    if packinglist_cbm > 0:
+                                        item.cbm = packinglist_cbm
+                                    else:
+                                        # 如果PackingList表中无数据，再从Pallet表查询
+                                        pallet_cbm = await sync_to_async(lambda: 
+                                            Pallet.objects.filter(
+                                                destination=warehouse_code
+                                            ).aggregate(
+                                                total_cbm=Sum('cbm')
+                                            )['total_cbm'] or 0.0
+                                        )()
+                                        if pallet_cbm > 0:
+                                            item.cbm = pallet_cbm
+                                        else:
+                                            error_messages.append(f"记录ID {item.id} 缺少CBM值，且PackingList和Pallet表中均无相关数据")
+                                            failed_count += 1
+                                            continue
+                                else:
+                                    error_messages.append(f"记录ID {item.id} 缺少warehouse_code")
+                                    failed_count += 1
+                                    continue
+                            except Exception as e:
+                                error_messages.append(f"记录ID {item.id} 计算CBM失败: {str(e)}")
+                                failed_count += 1
+                                continue
                         
                         # 计算cbm_ratio
                         cbm = round(float(item.cbm), 2)
