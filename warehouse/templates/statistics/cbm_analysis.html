@@ -199,7 +199,7 @@
         background-color: #1e3a5f;
         color: white;
         padding: 14px 12px;
-        text-align: left;
+        text-align: center;
         font-weight: bold;
         position: sticky;
         top: 0;
@@ -232,6 +232,7 @@
         padding: 12px;
         border-bottom: 1px solid #e8e8e8;
         height: 40px;
+        text-align: center;
     }
     
     .data-table tr:nth-child(even) {
@@ -360,7 +361,13 @@
                         <select name="display_type" class="filter-select">
                             <option value="destination" {% if display_type == "destination" or not display_type %}selected{% endif %}>按仓点</option>
                             <option value="region" {% if display_type == "region" %}selected{% endif %}>按区域</option>
+                            <option value="customer" {% if display_type == "customer" %}selected{% endif %}>按客户</option>
                         </select>
+                    </div>
+                    
+                    <!-- 提示信息 -->
+                    <div class="filter-item" style="margin-left: auto; font-size: 12px; color: #666; display: flex; align-items: center;">
+                        （仓库和客户不选择即为全选，时间默认过去6个月）
                     </div>
                     
                     <!-- 确认按钮 -->
@@ -370,52 +377,70 @@
                     </div>
                 </div>
                 
-                <!-- 提示文字行 -->
-                <div class="hint-row">
-                    <span class="hint-text">（仓库和客户不选择即为全选，时间默认过去3个月）</span>
-                    <button type="button" class="btn btn-primary" onclick="exportToExcel()">导出Excel</button>
-                </div>
             </form>
         </div>
         
         <!-- 数据表格卡片 -->
         {% if destination_list or region_list %}
         <div class="cbm-card">
+            <!-- 实时统计区域 -->
+            <div class="statistics-summary" style="padding: 12px; border-bottom: 1px solid #e8e8e8; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
+                <div style="display: flex; gap: 20px;">
+                    <div>
+                        <span style="font-size: 12px; color: #666;">总CBM: </span>
+                        <span id="totalCbm" style="font-weight: 600;">0.00</span>
+                    </div>
+                    <div>
+                        <span style="font-size: 12px; color: #666;">总重量(kg): </span>
+                        <span id="totalWeight" style="font-weight: 600;">0.00</span>
+                    </div>
+                    <div>
+                        <span style="font-size: 12px; color: #666;">总重量(lbs): </span>
+                        <span id="totalWeightLbs" style="font-weight: 600;">0.00</span>
+                    </div>
+                </div>
+
+                <div>
+                    <button type="button" class="btn btn-success" onclick="exportToExcel()">导出Excel</button>
+                </div>
+            </div>
             <div class="table-container">
                 {% if display_type == "destination" or not display_type %}
                 <table class="data-table">
                     <thead>
                         <tr>
                             <th>仓点</th>
-                            <th>客户</th>
                             <th>总CBM</th>
                             <th>总重量(kg)</th>
+                            <th>总重量(lbs)</th>
                             <th>所属区域</th>
                             <th>占比(%)</th>
                         </tr>
                         <tr class="filter-row">
                             <th><input type="text" class="filter-input" placeholder="筛选仓点" onkeyup="filterTable(0, this.value)"></th>
-                            <th><input type="text" class="filter-input" placeholder="筛选客户" onkeyup="filterTable(1, this.value)"></th>
+                            <th></th>
                             <th></th>
                             <th></th>
                             <th><input type="text" class="filter-input" placeholder="筛选区域" onkeyup="filterTable(4, this.value)"></th>
-                            <th></th>
+                            <th>
+                                <div style="font-size: 12px; color: #666; margin-top: 4px;">每个仓点占总CBM的百分比</div>
+                            </th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for item in destination_list %}
                         <tr>
                             <td>{{ item.destination }}</td>
-                            <td>{{ item.customer }}</td>
                             <td class="number-column">{{ item.total_cbm }}</td>
                             <td class="number-column">{{ item.total_weight }}</td>
+                            <td class="number-column">{{ item.total_weight_lbs }}</td>
                             <td>{{ item.region }}</td>
                             <td class="number-column">{{ item.percentage }}%</td>
                         </tr>
                         {% endfor %}
                     </tbody>
                 </table>
-                {% else %}
+                {% elif display_type == "region" %}
                 <table class="data-table">
                     <thead>
                         <tr>
@@ -424,6 +449,7 @@
                             <th>客户</th>
                             <th>总CBM</th>
                             <th>总重量(kg)</th>
+                            <th>总重量(lbs)</th>
                             <th>占比(%)</th>
                         </tr>
                         <tr class="filter-row">
@@ -433,6 +459,9 @@
                             <th></th>
                             <th></th>
                             <th></th>
+                            <th>
+                                <div style="font-size: 12px; color: #666; margin-top: 4px;">仓点占所属区域CBM的百分比</div>
+                            </th>
                         </tr>
                     </thead>
                     <tbody>
@@ -444,6 +473,7 @@
                                     {{ region.region }}<br>
                                     <small style="color: #666;">总CBM: {{ region.total_cbm }}</small><br>
                                     <small style="color: #666;">总重量: {{ region.total_weight }}kg</small><br>
+                                    <small style="color: #666;">总重量: {{ region.total_weight_lbs }}lbs</small><br>
                                     <small style="color: #666;">占比: {{ region.percentage }}%</small>
                                 </td>
                                 {% endif %}
@@ -451,6 +481,55 @@
                                 <td>{{ destination.customer }}</td>
                                 <td class="number-column">{{ destination.total_cbm }}</td>
                                 <td class="number-column">{{ destination.total_weight }}</td>
+                                <td class="number-column">{{ destination.total_weight_lbs }}</td>
+                                <td class="number-column">{{ destination.percentage }}%</td>
+                            </tr>
+                            {% endfor %}
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% elif display_type == "customer" %}
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>客户</th>
+                            <th>仓点</th>
+                            <th>总CBM</th>
+                            <th>总重量(kg)</th>
+                            <th>总重量(lbs)</th>
+                            <th>所属区域</th>
+                            <th>占比(%)</th>
+                        </tr>
+                        <tr class="filter-row">
+                            <th><input type="text" class="filter-input" placeholder="筛选客户" onkeyup="filterTable(0, this.value)"></th>
+                            <th><input type="text" class="filter-input" placeholder="筛选仓点" onkeyup="filterTable(1, this.value)"></th>
+                            <th></th>
+                            <th></th>
+                            <th></th>
+                            <th><input type="text" class="filter-input" placeholder="筛选区域" onkeyup="filterTable(5, this.value)"></th>
+                            <th>
+                                <div style="font-size: 12px; color: #666; margin-top: 4px;">仓点占所属客户总CBM的百分比</div>
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for customer in customer_list %}
+                            {% for destination in customer.destinations %}
+                            <tr>
+                                {% if forloop.counter0 == 0 %}
+                                <td rowspan="{{ customer.destinations|length }}">
+                                    {{ customer.customer }}<br>
+                                    <small style="color: #666;">总CBM: {{ customer.total_cbm }}</small><br>
+                                    <small style="color: #666;">总重量: {{ customer.total_weight }}kg</small><br>
+                                    <small style="color: #666;">总重量: {{ customer.total_weight_lbs }}lbs</small><br>
+                                    <small style="color: #666;">占比: {{ customer.percentage }}%</small>
+                                </td>
+                                {% endif %}
+                                <td>{{ destination.destination }}</td>
+                                <td class="number-column">{{ destination.total_cbm }}</td>
+                                <td class="number-column">{{ destination.total_weight }}</td>
+                                <td class="number-column">{{ destination.total_weight_lbs }}</td>
+                                <td>{{ destination.region }}</td>
                                 <td class="number-column">{{ destination.percentage }}%</td>
                             </tr>
                             {% endfor %}
@@ -485,7 +564,13 @@
     function exportToExcel() {
         const displayType = '{{ display_type }}';
         let table = document.querySelector('.data-table');
-        let html = table.outerHTML;
+        
+        // 创建表格副本，移除筛选行
+        let tableCopy = table.cloneNode(true);
+        let filterRows = tableCopy.querySelectorAll('.filter-row');
+        filterRows.forEach(row => row.remove());
+        
+        let html = tableCopy.outerHTML;
         
         // 创建Blob对象
         const blob = new Blob(['\ufeff' + html], { type: 'application/vnd.ms-excel' });
@@ -499,6 +584,55 @@
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
+    }
+    
+    // 计算表格总CBM和总重量
+    function calculateTotals() {
+        const table = document.querySelector('.data-table');
+        const rows = table.getElementsByTagName('tr');
+        let totalCbm = 0;
+        let totalWeight = 0;
+        let totalWeightLbs = 0;
+        
+        // 从第二行开始计算（跳过表头和筛选行）
+        for (let i = 2; i < rows.length; i++) {
+            const row = rows[i];
+            if (row.style.display !== 'none') {
+                const cells = row.getElementsByTagName('td');
+                if (cells.length >= 3) {
+                    // 根据不同展示类型获取CBM和重量列
+                    let cbmIndex, weightIndex, weightLbsIndex;
+                    if (document.querySelector('.data-table th:nth-child(2)').textContent.includes('总CBM')) {
+                        // 按仓点或按客户展示
+                        cbmIndex = 1;
+                        weightIndex = 2;
+                        weightLbsIndex = 3;
+                    } else {
+                        // 按区域展示
+                        cbmIndex = 3;
+                        weightIndex = 4;
+                        weightLbsIndex = 5;
+                    }
+                    
+                    const cbmText = cells[cbmIndex].textContent.trim();
+                    const weightText = cells[weightIndex].textContent.trim();
+                    const weightLbsText = cells[weightLbsIndex].textContent.trim();
+                    
+                    const cbm = parseFloat(cbmText) || 0;
+                    const weight = parseFloat(weightText) || 0;
+                    const weightLbs = parseFloat(weightLbsText) || 0;
+                    
+                    totalCbm += cbm;
+                    totalWeight += weight;
+                    totalWeightLbs += weightLbs;
+                }
+            }
+        }
+        
+        // 更新统计信息
+        document.getElementById('totalCbm').textContent = totalCbm.toFixed(2);
+        document.getElementById('totalWeight').textContent = totalWeight.toFixed(2);
+        document.getElementById('totalWeightLbs').textContent = totalWeightLbs.toFixed(2);
     }
     
     // 表格筛选功能
@@ -520,6 +654,14 @@
                 }
             }
         }
+        
+        // 筛选后重新计算统计
+        calculateTotals();
     }
+    
+    // 页面加载完成后初始化统计
+    document.addEventListener('DOMContentLoaded', function() {
+        calculateTotals();
+    });
 </script>
 {% endblock %}

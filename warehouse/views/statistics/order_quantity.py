@@ -789,7 +789,7 @@ class OrderQuantity(View):
         packing_lists = await sync_to_async(list)(
             PackingList.objects
             .filter(container_number_id__in=container_ids)  # 使用容器ID进行查询
-            .values("container_number_id", "destination", "cbm", "total_weight_kg")
+            .values("container_number_id", "destination", "cbm", "total_weight_kg", "total_weight_lbs")
         )
         
         # 按destination和customer分组统计
@@ -811,6 +811,7 @@ class OrderQuantity(View):
             
             cbm = pl.get("cbm", 0) or 0
             weight = pl.get("total_weight_kg", 0) or 0
+            weight_lbs = pl.get("total_weight_lbs", 0) or 0
             
             # 使用(destination, customer)作为键
             key = (destination, customer)
@@ -818,21 +819,37 @@ class OrderQuantity(View):
                 destination_stats[key] = {
                     "total_cbm": 0,
                     "total_weight": 0,
+                    "total_weight_lbs": 0,
                     "region": location_to_region.get(destination, "未知区"),
                     "customer": customer
                 }
             
             destination_stats[key]["total_cbm"] += cbm
             destination_stats[key]["total_weight"] += weight
+            destination_stats[key]["total_weight_lbs"] += weight_lbs
 
-        # 转换为列表格式
-        destination_list = []
+        # 按仓点合并统计（不区分客户）
+        destination_stats_merged = {}
         for (destination, customer), stats in destination_stats.items():
+            if destination not in destination_stats_merged:
+                destination_stats_merged[destination] = {
+                    "total_cbm": 0,
+                    "total_weight": 0,
+                    "total_weight_lbs": 0,
+                    "region": stats["region"]
+                }
+            destination_stats_merged[destination]["total_cbm"] += stats["total_cbm"]
+            destination_stats_merged[destination]["total_weight"] += stats["total_weight"]
+            destination_stats_merged[destination]["total_weight_lbs"] += stats["total_weight_lbs"]
+        
+        # 转换为列表格式（按仓点）
+        destination_list = []
+        for destination, stats in destination_stats_merged.items():
             destination_list.append({
                 "destination": destination,
-                "customer": customer,
                 "total_cbm": round(stats["total_cbm"], 2),
                 "total_weight": round(stats["total_weight"], 2),
+                "total_weight_lbs": round(stats["total_weight_lbs"], 2),
                 "region": stats["region"]
             })
         
@@ -844,22 +861,47 @@ class OrderQuantity(View):
                 region_stats[region] = {
                     "total_cbm": 0,
                     "total_weight": 0,
+                    "total_weight_lbs": 0,
                     "destinations": []
                 }
             
             region_stats[region]["total_cbm"] += stats["total_cbm"]
             region_stats[region]["total_weight"] += stats["total_weight"]
+            region_stats[region]["total_weight_lbs"] += stats["total_weight_lbs"]
             region_stats[region]["destinations"].append({
                 "destination": destination,
                 "customer": customer,
                 "total_cbm": round(stats["total_cbm"], 2),
-                "total_weight": round(stats["total_weight"], 2)
+                "total_weight": round(stats["total_weight"], 2),
+                "total_weight_lbs": round(stats["total_weight_lbs"], 2)
+            })
+        
+        # 按客户分组统计
+        customer_stats = {}
+        for (destination, customer), stats in destination_stats.items():
+            if customer not in customer_stats:
+                customer_stats[customer] = {
+                    "total_cbm": 0,
+                    "total_weight": 0,
+                    "total_weight_lbs": 0,
+                    "destinations": []
+                }
+            
+            customer_stats[customer]["total_cbm"] += stats["total_cbm"]
+            customer_stats[customer]["total_weight"] += stats["total_weight"]
+            customer_stats[customer]["total_weight_lbs"] += stats["total_weight_lbs"]
+            customer_stats[customer]["destinations"].append({
+                "destination": destination,
+                "region": stats["region"],
+                "total_cbm": round(stats["total_cbm"], 2),
+                "total_weight": round(stats["total_weight"], 2),
+                "total_weight_lbs": round(stats["total_weight_lbs"], 2)
             })
         
         # 计算总CBM
         total_cbm_all = sum(stats["total_cbm"] for stats in region_stats.values())
         
-        # 转换为列表格式
+        # 转换为列表格式（按区域）
         region_list = []
         for region, stats in region_stats.items():
             # 计算区域占比
@@ -874,7 +916,28 @@ class OrderQuantity(View):
                 "region": region,
                 "total_cbm": round(stats["total_cbm"], 2),
                 "total_weight": round(stats["total_weight"], 2),
+                "total_weight_lbs": round(stats["total_weight_lbs"], 2),
                 "percentage": region_percentage,
+                "destinations": stats["destinations"]
+            })
+        
+        # 转换为列表格式（按客户）
+        customer_list = []
+        for customer, stats in customer_stats.items():
+            # 计算客户占总CBM的比例
+            customer_percentage = round((stats["total_cbm"] / total_cbm_all * 100), 2) if total_cbm_all > 0 else 0
+            
+            # 计算每个仓点占客户的比例
+            for dest in stats["destinations"]:
+                dest_percentage = round((dest["total_cbm"] / stats["total_cbm"] * 100), 2) if stats["total_cbm"] > 0 else 0
+                dest["percentage"] = dest_percentage
+            
+            customer_list.append({
+                "customer": customer,
+                "total_cbm": round(stats["total_cbm"], 2),
+                "total_weight": round(stats["total_weight"], 2),
+                "total_weight_lbs": round(stats["total_weight_lbs"], 2),
+                "percentage": customer_percentage,
                 "destinations": stats["destinations"]
             })
         
@@ -893,7 +956,8 @@ class OrderQuantity(View):
             "area_options": self.area_options,
             "display_type": display_type,
             "destination_list": destination_list,
-            "region_list": region_list
+            "region_list": region_list,
+            "customer_list": customer_list
         }
         print('start_date',start_date)
 
