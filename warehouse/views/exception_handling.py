@@ -481,15 +481,113 @@ class ExceptionHandling(View):
 
     async def handle_recaculate_combine_1w(self, request):
         '''重新计算组合柜费用大于1万'''
-        invoice_items = await sync_to_async(list)(
-            InvoiceItemv2.objects.filter(
-                invoice_type="receivable",
-                item_category="warehouse_public",
-                delivery_type="combine",
-                cbm_ratio__isnull=True
-            )
+        invoices = await sync_to_async(list)(
+            Invoicev2.objects.filter(
+                Q(receivable_delivery_public_amount__gt=10000)
+            ).select_related('container_number')
         )
         
+        success_records = []
+        success_count = 0
+        
+        for invoice in invoices:
+            # 记录修改前的费用
+            old_amount = invoice.receivable_delivery_public_amount
+            
+            # 异步调用更新方法
+            await sync_to_async(self._update_invoice_total)(invoice, invoice.container_number, True)
+            
+            # 重新获取更新后的发票对象
+            updated_invoice = await sync_to_async(Invoicev2.objects.get)(id=invoice.id)
+            
+            # 检查是否修改成功
+            if updated_invoice.receivable_delivery_public_amount < 10000:
+                success_records.append({
+                    'container_number': invoice.container_number.container_number if invoice.container_number else '',
+                    'invoice_number': invoice.invoice_number,
+                    'old_amount': old_amount,
+                    'new_amount': updated_invoice.receivable_delivery_public_amount
+                })
+                success_count += 1
+        
+        context = {
+            'success_messages': f'成功修改了{success_count}条记录！',
+            'combine_1w_recalculate': success_records
+        }
+        return self.template_post_port_status, context
+
+    def _update_invoice_total(self, invoice, container,is_update_remain=False):
+        """更新发票总金额"""
+        # 计算所有费用项的总金额
+        total_amount = 0
+        
+        # 计算其他费用
+        receivable_preport_amount = InvoiceItemv2.objects.filter(
+            invoice_number=invoice,
+            container_number=container,
+            invoice_type="receivable",
+            item_category="preport",
+        ).aggregate(total=models.Sum('amount'))['total'] or 0
+        total_amount += float(receivable_preport_amount)
+
+        receivable_wh_public_amount = InvoiceItemv2.objects.filter(
+            invoice_number=invoice,
+            container_number=container,
+            invoice_type="receivable",
+            item_category="warehouse_public",
+        ).aggregate(total=models.Sum('amount'))['total'] or 0
+        total_amount += float(receivable_wh_public_amount)
+
+        receivable_wh_other_amount = InvoiceItemv2.objects.filter(
+            invoice_number=invoice,
+            container_number=container,
+            invoice_type="receivable",
+            item_category="warehouse_other",
+        ).aggregate(total=models.Sum('amount'))['total'] or 0
+        total_amount += float(receivable_wh_other_amount)
+
+        receivable_delivery_public_amount = InvoiceItemv2.objects.filter(
+            invoice_number=invoice,
+            container_number=container,
+            invoice_type="receivable",
+            item_category="delivery_public",
+        ).aggregate(total=models.Sum('amount'))['total'] or 0
+        total_amount += float(receivable_delivery_public_amount)
+
+        receivable_delivery_other_amount = InvoiceItemv2.objects.filter(
+            invoice_number=invoice,
+            container_number=container,
+            invoice_type="receivable",
+            item_category="delivery_other",
+        ).aggregate(total=models.Sum('amount'))['total'] or 0
+        total_amount += float(receivable_delivery_other_amount)
+
+        activation_items_total = InvoiceItemv2.objects.filter(
+            invoice_number=invoice,
+            container_number=container,
+            invoice_type="receivable",
+            item_category="activation_fee",
+        ).aggregate(total=models.Sum('amount'))['total'] or 0
+        total_amount += float(activation_items_total)
+
+        combina_extra_items_total = InvoiceItemv2.objects.filter(
+            invoice_number=invoice,
+            container_number=container,
+            invoice_type="receivable",
+            item_category="combina_extra_fee",
+        ).aggregate(total=models.Sum('amount'))['total'] or 0
+        total_amount += float(combina_extra_items_total)
+        
+        # 更新发票
+        invoice.receivable_total_amount = total_amount
+        invoice.receivable_preport_amount = receivable_preport_amount
+        invoice.receivable_wh_public_amount = receivable_wh_public_amount
+        invoice.receivable_wh_other_amount = receivable_wh_other_amount
+        invoice.receivable_delivery_public_amount = receivable_delivery_public_amount + activation_items_total
+        invoice.receivable_delivery_other_amount = receivable_delivery_other_amount
+        if is_update_remain:
+            invoice.remain_offset = total_amount
+        invoice.save()
 
     async def handle_get_combine_1w(self, request):
         '''查询Invoicev2表中组合柜费用大于1万的'''

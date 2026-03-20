@@ -724,6 +724,30 @@
         </tbody>
     </table>
 {% endif %}
+
+{% if combine_1w_recalculate %}
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>柜号</th>
+                <th>发票号</th>
+                <th>修改前费用</th>
+                <th>修改后费用</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for record in combine_1w_recalculate %}
+            <tr>
+                <td>{{ record.container_number }}</td>
+                <td>{{ record.invoice_number }}</td>
+                <td>{{ record.old_amount }}</td>
+                <td>{{ record.new_amount }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% endif %}
+
 <form method="post" style="display: inline-block; margin: 2px;">
     {% csrf_token %}
     <input type="hidden" name="step" value="update_shipment_type_to_fleet_type">
@@ -757,7 +781,7 @@
 <form method="post" style="display: inline-block; margin: 2px;">
     {% csrf_token %}
     <input type="hidden" name="step" value="recaculate_combine_1w">
-    <button type="submit" class="search-btn">组合柜费用大于1w的重新计算</button>
+    <button type="submit" class="search-btn">重新计算组合柜费用大于1万的</button>
 </form>
 
 <script>
