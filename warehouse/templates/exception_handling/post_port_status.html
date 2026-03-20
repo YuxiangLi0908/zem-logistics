@@ -697,6 +697,31 @@
     未找到相关数据
 </div>
 {% endif %}
+
+{% if combine_1w_records %}
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>柜号</th>
+                <th>组合柜费用</th>
+                <th>发票号</th>
+                <th>费率</th>
+                <th>CBm占比</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for record in combine_1w_records %}
+            <tr>
+                <td>{{ record.container_number }}</td>
+                <td>{{ record.receivable_wh_public_amount }}</td>
+                <td>{{ record.invoice_number }}</td>
+                <td>{{ record.rate }}</td>
+                <td>{{ record.cbm_ratio }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% endif %}
 <form method="post" style="display: inline-block; margin: 2px;">
     {% csrf_token %}
     <input type="hidden" name="step" value="update_shipment_type_to_fleet_type">
@@ -719,6 +744,12 @@
     {% csrf_token %}
     <input type="hidden" name="step" value="get_cbm_ratio_with_fallback">
     <button type="submit" class="search-btn">查询空的cbm_ratio并且赋值</button>
+</form>
+
+<form method="post">
+    {% csrf_token %}
+    <input type="hidden" name="step" value="get_combine_1w">
+    <button type="submit" class="search-btn">查询组合柜费用大于1万的</button>
 </form>
 
 <script>

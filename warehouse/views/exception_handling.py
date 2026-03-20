@@ -311,6 +311,9 @@ class ExceptionHandling(View):
         elif step == "get_cbm_ratio_with_fallback":
             template, context = await self.handle_get_cbm_ratio_with_fallback(request)
             return await sync_to_async(render)(request, template, context) 
+        elif step == "get_combine_1w":
+            template, context = await self.handle_get_combine_1w(request)
+            return await sync_to_async(render)(request, template, context) 
         elif step == "delete_shipment":
             template, context = await self.handle_delete_shipment(request)
             return await sync_to_async(render)(request, template, context)
@@ -471,6 +474,38 @@ class ExceptionHandling(View):
             'abnormal_receivable_fee': result_list
         }
 
+        return self.template_post_port_status, context
+
+    async def handle_get_combine_1w(self, request):
+        '''查询Invoicev2表中组合柜费用大于1万的'''
+        # 查询Invoicev2表中receivable_wh_public_amount大于10000的记录
+        invoices = await sync_to_async(list)(
+            Invoicev2.objects.filter(
+                Q(receivable_wh_public_amount__gt=10000)
+            ).select_related('container_number')
+        )
+        
+        result_list = []
+        for invoice in invoices:
+            # 查询对应的InvoiceItemv2记录
+            invoice_items = await sync_to_async(list)(
+                InvoiceItemv2.objects.filter(
+                    invoice_number=invoice,
+                    invoice_type="receivable",
+                    item_category="warehouse_public"
+                )
+            )
+            
+            for item in invoice_items:
+                result_list.append({
+                    'container_number': invoice.container_number.container_number if invoice.container_number else '',
+                    'receivable_wh_public_amount': invoice.receivable_wh_public_amount,
+                    'invoice_number': invoice.invoice_number,
+                    'rate': item.rate,
+                    'cbm_ratio': item.cbm_ratio
+                })
+        
+        context = {'combine_1w_records': result_list}
         return self.template_post_port_status, context
 
     async def handle_get_cbm_ratio_with_fallback(self, request):
