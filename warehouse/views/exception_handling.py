@@ -486,7 +486,7 @@ class ExceptionHandling(View):
         '''重新计算组合柜费用和cbm占比异常的'''
         invoice_items = await sync_to_async(list)(
                 InvoiceItemv2.objects.filter(
-                    Q(cbm_ratio__isnull=True) | Q(cbm_ratio=''),
+                    Q(rate=F('regionPrice')), 
                     invoice_type="receivable",
                     item_category="warehouse_public",
                     delivery_type="combine",
