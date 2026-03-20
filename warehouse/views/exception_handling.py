@@ -490,7 +490,7 @@ class ExceptionHandling(View):
                     item_category="warehouse_public",
                     delivery_type="combine",
                     cbm_ratio__isnull=True
-                ).select_related('invoice_number', 'container_number')[:500]
+                ).select_related('invoice_number', 'container_number').order_by('-id')[:500]
             )
         
         # 按invoice分组
@@ -579,7 +579,7 @@ class ExceptionHandling(View):
         invoices = await sync_to_async(list)(
             Invoicev2.objects.filter(
                 Q(receivable_delivery_public_amount__gt=10000)
-            ).select_related('container_number')[:500]
+            ).select_related('container_number').order_by('-id')[:500]
         )
         
         success_records = []
