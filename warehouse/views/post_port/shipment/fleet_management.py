@@ -8,6 +8,7 @@ import os
 import platform
 import re
 import uuid
+from collections import defaultdict
 from datetime import datetime, timedelta
 from decimal import Decimal, ROUND_HALF_UP
 from typing import Any, Tuple
@@ -61,6 +62,7 @@ from warehouse.forms.upload_file import UploadFileForm
 from warehouse.forms.warehouse_form import ZemWarehouseForm
 from warehouse.models.fleet import Fleet
 from warehouse.models.fleet_shipment_pallet import FleetShipmentPallet
+from warehouse.models.invoicev2 import Invoicev2
 from warehouse.models.order import Order
 from warehouse.models.packing_list import PackingList
 from warehouse.models.pallet import Pallet
@@ -1409,6 +1411,47 @@ class FleetManagement(View):
                 await sync_to_async(FleetShipmentPallet.objects.bulk_update)(
                     update_records, ["expense"], batch_size=500
                 )
+
+                container_totals = await sync_to_async(
+                    lambda: list(FleetShipmentPallet.objects.filter(
+                        id__in=[record.id for record in update_records]
+                    ).values('container_number').annotate(
+                        total_expense=Sum('expense')
+                    ))
+                )()
+
+                # 批量创建/更新 Invoicev2
+                current_date = datetime.now().date()
+                invoices_to_create = []
+
+                for item in container_totals:
+                    container_number = item['container_number']
+                    total_expense = item['total_expense'] or Decimal('0.0000')
+
+                    existing_invoice = await sync_to_async(
+                        Invoicev2.objects.filter(container_number_id=container_number).first
+                    )()
+
+                    if existing_invoice:
+                        existing_invoice.invoice_date = current_date
+                        existing_invoice.payable_delivery_amount = total_expense
+                        existing_invoice.payable_total_amount += total_expense
+                        await sync_to_async(existing_invoice.save)(
+                            update_fields=['invoice_date', 'payable_delivery_amount']
+                        )
+                    else:
+                        invoices_to_create.append(Invoicev2(
+                            container_number_id=container_number,
+                            created_at=current_date,
+                            invoice_date=current_date,
+                            payable_delivery_amount=total_expense,
+                            payable_total_amount=total_expense
+                        ))
+
+                if invoices_to_create:
+                    await sync_to_async(Invoicev2.objects.bulk_create)(
+                        invoices_to_create, batch_size=500
+                    )
         except Exception as e:
             # 新增/更新失败时，抛出明确异常，方便排查
             raise RuntimeError(f"成本费用记录创建/分摊失败：{str(e)}") from e
