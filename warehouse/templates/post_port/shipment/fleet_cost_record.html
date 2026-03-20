@@ -243,6 +243,7 @@
                             <input type="number" name="fleet_cost" value="{{ f.fleet_number.fleet_cost }}" style="font-size: 13px; padding: 8px 10px; width: 90px; flex-shrink: 0; border-radius: 4px; border: 1px solid #dcdfe6;">
                             <!-- 关键修复：单条操作传递正确的数字ID -->
                             <input type="hidden" name="fleet_id" value="{{ f.fleet_number.id }}">
+                            <input type="hidden" name="fleet_number" value="{{ f.fleet_number.fleet_number }}">
                             <input type="hidden" name="step" value="fleet_cost_confirm">
                             <input type="hidden" name="area" value="{{ area }}">
                             <button type="submit" class="btn btn-success" style="font-size: 13px; padding: 8px 12px; flex-shrink: 0; border-radius: 4px; transition: all 0.2s;">确认</button>
@@ -273,6 +274,7 @@
                                 <input type="number" name="fleet_cost_back" value="{{ f.fleet_number.fleet_cost_back }}" style="font-size: 13px; padding: 8px 10px; width: 90px; flex-shrink: 0; border-radius: 4px; border: 1px solid #dcdfe6;">
                                 <!-- 关键修复：单条操作传递正确的数字ID -->
                                 <input type="hidden" name="fleet_id" value="{{ f.fleet_number.id }}">
+                                <input type="hidden" name="fleet_number" value="{{ f.fleet_number.fleet_number }}">
                                 <input type="hidden" name="step" value="fleet_cost_confirm_back">
                                 <button type="submit" class="btn btn-success" style="font-size: 13px; padding: 8px 12px; flex-shrink: 0; border-radius: 4px; transition: all 0.2s;">确定</button>
                                 </form>

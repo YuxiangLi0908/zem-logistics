@@ -3253,6 +3253,15 @@ class Accounting(View):
                 train_related=F("fleet_number__train_related"),
                 # 注解：是否有「派送费用+应付+已核销」的InvoiceItemv2记录
                 has_written_off_delivery_itemv2=has_written_off_delivery_itemv2,
+                # ========== 新增：唛头字段 ==========
+                shipping_mark=Subquery(
+                    Pallet.objects.filter(
+                        PO_ID=OuterRef("PO_ID"),
+                        shipment_batch_number=OuterRef("shipment_batch_number"),
+                        container_number=OuterRef("container_number")
+                    ).values("shipping_mark")[:1],
+                    output_field=CharField()
+                ),
             )
             # 核心筛选：排除「有派送费用+应付+已核销记录」的行
             .filter(
@@ -3381,6 +3390,7 @@ class Accounting(View):
                 "cn_per_expense": float(cn_per_expense),  # 4位小数转float（如12.3456）
                 "container_num": order.container_num or "",
                 "pallet_destination": order.pallet_destination or "",
+                "shipping_mark": order.shipping_mark or "",
                 "carrier": deliverys[fleet_id]["carrier"],
                 "fleet_number": deliverys[fleet_id]["fleet_number"],
                 "itemv2_data": itemv2_data,
@@ -3479,6 +3489,15 @@ class Accounting(View):
                 ),
                 # 新增：获取train_related字段
                 train_related=F("fleet_number__train_related"),
+                # ========== 新增：唛头字段 ==========
+                shipping_mark=Subquery(
+                    Pallet.objects.filter(
+                        PO_ID=OuterRef("PO_ID"),
+                        shipment_batch_number=OuterRef("shipment_batch_number"),
+                        container_number=OuterRef("container_number")
+                    ).values("shipping_mark")[:1],
+                    output_field=CharField()
+                ),
             )
             .order_by("train_related", "fleet_number__id", "pickup_number", "container_num")
         )
@@ -3587,6 +3606,7 @@ class Accounting(View):
                 "cn_per_expense": float(cn_per_expense),  # 4位小数
                 "container_num": order.container_num or "",
                 "pallet_destination": order.pallet_destination or "",
+                "shipping_mark": order.shipping_mark or "",
                 "carrier": deliverys_confirm[fleet_id]["carrier"],
                 "fleet_number": deliverys_confirm[fleet_id]["fleet_number"],
                 "itemv2_data": order.container_number.invoice_itemv2.get() if hasattr(order.container_number,
@@ -5822,15 +5842,13 @@ class Accounting(View):
                     container_number_id=container_id_str,
                     defaults={
                         'created_at': current_date,
-                        'invoice_date': current_date,
-                        'payable_delivery_amount': write_off_amount
+                        'invoice_date': current_date
                     }
                 )
                 # 已有记录：更新金额和日期
                 if not invoicev2_created:
                     invoicev2.invoice_date = current_date
-                    invoicev2.payable_delivery_amount = write_off_amount
-                    invoicev2.save(update_fields=['invoice_date', 'payable_delivery_amount'])  # 只更新修改的字段
+                    invoicev2.save(update_fields=['invoice_date'])  # 只更新修改的字段
 
                 # ========== 处理InvoiceItemv2（发票项表） ==========
                 invoiceitemv2, invoiceitemv2_created = InvoiceItemv2.objects.get_or_create(
@@ -5918,16 +5936,14 @@ class Accounting(View):
                             container_number_id=container_id,
                             defaults={
                                 'created_at': current_date,
-                                'invoice_date': current_date,
-                                'payable_delivery_amount': write_off_amount,
+                                'invoice_date': current_date
                             }
                         )
                         # 已有记录：更新
                         if not created:
                             invoicev2.invoice_date = current_date
-                            invoicev2.payable_delivery_amount = write_off_amount
                             invoicev2.note = note  # 更新备注
-                            invoicev2.save(update_fields=['invoice_date', 'payable_delivery_amount', 'note'])
+                            invoicev2.save(update_fields=['invoice_date', 'note'])
 
                         # ========== 处理InvoiceItemv2（发票项表） ==========
                         invoiceitemv2, item_created = InvoiceItemv2.objects.get_or_create(
@@ -7021,7 +7037,7 @@ class Accounting(View):
         # 应付库内费（拆柜费+入库费+拆柜其他费用）
         invoice.payable_warehouse_amount = wh_amount
         # 应付总金额
-        invoice.payable_total_amount = total_amount
+        invoice.payable_total_amount += total_amount
         invoice.save()
         if save_type == "check_confirm":  # 初级审核，可以修改价格确认完就转到财务审核
             invoice_status.finance_status = "tobeconfirmed"

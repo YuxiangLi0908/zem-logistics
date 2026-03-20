@@ -303,44 +303,44 @@
             background-color: #f8f9fa !important;
         }
 
-        /* 待确认账单列宽（14列） */
+        /* 复选框 */
         #delivery-pending .table th:nth-child(1) {
             width: 50px !important;
         }
 
-        /* 复选框 */
-        #delivery-pending .table th:nth-child(2) {
-            width: 100px !important;
-        }
-
         /* 车次 */
-        #delivery-pending .table th:nth-child(3) {
-            width: 120px !important;
+        #delivery-pending .table th:nth-child(2) {
+            width: 150px !important;
         }
 
         /* Carrier */
-        #delivery-pending .table th:nth-child(4) {
+        #delivery-pending .table th:nth-child(3) {
             width: 150px !important;
         }
 
         /* Pickup Number */
+        #delivery-pending .table th:nth-child(4) {
+            width: 250px !important;
+        }
+
+        /* ISA */
         #delivery-pending .table th:nth-child(5) {
             width: 80px !important;
         }
 
-        /* ISA */
+        /* 柜号 */
         #delivery-pending .table th:nth-child(6) {
-            width: 100px !important;
+            width: 130px !important;
         }
 
-        /* 柜号 */
+        /* 目的地 */
         #delivery-pending .table th:nth-child(7) {
             width: 120px !important;
         }
 
-        /* 目的地 */
+        /* 唛头 */
         #delivery-pending .table th:nth-child(8) {
-            width: 80px !important;
+            width: 150px !important;
         }
 
         /* 板数 */
@@ -360,7 +360,7 @@
 
         /* 车次总板数 */
         #delivery-pending .table th:nth-child(12) {
-            width: 100px !important;
+            width: 80px !important;
         }
 
         /* 车次总成本 */
@@ -370,55 +370,56 @@
 
         /* 核销金额 */
         #delivery-pending .table th:nth-child(14) {
-            width: 150px !important;
+            width: 180px !important;
         }
+
 
         /* 为待确认/已确认表格的每一列添加强制固定宽度（补充原有缺失） */
         #delivery-pending .table th:nth-child(15),
         #delivery-confirm .table th:nth-child(16) {
-            width: 150px !important;
-            min-width: 150px !important;
-            max-width: 150px !important;
+            width: 200px !important;
+            min-width: 200px !important;
+            max-width: 200px !important;
         }
 
-        /* 已确认账单列宽（15列，多核销时间） */
+        /* 复选框 */
         #delivery-confirm .table th:nth-child(1) {
             width: 50px !important;
         }
 
-        /* 复选框 */
-        #delivery-confirm .table th:nth-child(2) {
-            width: 100px !important;
-        }
-
         /* 车次 */
-        #delivery-confirm .table th:nth-child(3) {
-            width: 120px !important;
+        #delivery-confirm .table th:nth-child(2) {
+            width: 150px !important;
         }
 
         /* Carrier */
-        #delivery-confirm .table th:nth-child(4) {
+        #delivery-confirm .table th:nth-child(3) {
             width: 150px !important;
         }
 
         /* Pickup Number */
+        #delivery-confirm .table th:nth-child(4) {
+            width: 250px !important;
+        }
+
+        /* ISA */
         #delivery-confirm .table th:nth-child(5) {
             width: 80px !important;
         }
 
-        /* ISA */
+        /* 柜号 */
         #delivery-confirm .table th:nth-child(6) {
-            width: 100px !important;
+            width: 130px !important;
         }
 
-        /* 柜号 */
+        /* 目的地 */
         #delivery-confirm .table th:nth-child(7) {
             width: 120px !important;
         }
 
-        /* 目的地 */
+        /* 唛头 */
         #delivery-confirm .table th:nth-child(8) {
-            width: 80px !important;
+            width: 150px !important;
         }
 
         /* 板数 */
@@ -453,10 +454,13 @@
 
         /* 核销时间 */
         #delivery-confirm .table th:nth-child(15) {
-            width: 150px !important;
+            width: 100px !important;
         }
 
         /* 备注 */
+        #delivery-confirm .table th:nth-child(16) {
+            width: 150px !important;
+        }
 
         /* 表格单元格统一样式，禁止溢出 */
         .table td {
@@ -1230,6 +1234,7 @@
                                             <th class="th" style="vertical-align: middle;">ISA</th>
                                             <th class="th" style="vertical-align: middle;">柜号</th>
                                             <th class="th" style="vertical-align: middle;">目的地</th>
+                                            <th class="th" style="vertical-align: middle;">唛头</th>
                                             <th class="th" style="vertical-align: middle;">板数</th>
                                             <th class="th" style="vertical-align: middle;">价格</th>
                                             <th class="th" style="vertical-align: middle;">单板成本</th>
@@ -1290,8 +1295,16 @@
                                                        data-search-type="multi-text">
                                             </th>
                                             <th class="th">
-                                                <input type="number" class="search-input"
+                                                <input type="text" class="search-input"
                                                        data-column-index="7"
+                                                data-field="唛头"
+                                                placeholder="搜索唛头"
+                                                data-column-name="唛头"
+                                                style="width:100%;box-sizing:border-box;">
+                                            </th>
+                                            <th class="th">
+                                                <input type="number" class="search-input"
+                                                       data-column-index="8"
                                                        data-field="板数"
                                                        min="0"
                                                        placeholder="板数≥"
@@ -1309,7 +1322,7 @@
                                         {% for group in delivery_pending_orders %}
                                             <!-- 新增：一提多卸分组标题行 -->
                                             <tr class="group-header-row {% if group.is_multi_unload %}multi-unload-group{% endif %}">
-                                                <td colspan="14">
+                                                <td colspan="15">
                                                     {% if group.is_multi_unload %}
                                                         <span class="multi-unload-label">一提多卸</span>
                                                     {% endif %}
@@ -1365,6 +1378,8 @@
                                                                     style="vertical-align: middle;">{{ order.container_num }}</td>
                                                                 <td class="td"
                                                                     style="vertical-align: middle;">{{ order.pallet_destination }}</td>
+                                                                <td class="td"
+                                                                    style="vertical-align: middle;">{{ order.shipping_mark }}</td>
                                                                 <td class="td"
                                                                     style="vertical-align: middle;">{{ order.cn_total_pallet }}</td>
                                                                 <td class="td"
@@ -1472,7 +1487,7 @@
 
                                         <!-- 新增：总计行 -->
                                         <tr class="summary-row">
-                                            <td colspan="10" style="text-align: right !important;">总计：</td>
+                                            <td colspan="11" style="text-align: right !important;">总计：</td>
                                             <td id="summary-total-pallet" class="summary-value">0</td>
                                             <td id="summary-total-cost" class="summary-value">$0.00</td>
                                             <td id="summary-writeoff" class="summary-value">0.00</td>
@@ -1611,6 +1626,7 @@
                                             <th class="th" style="vertical-align: middle;">ISA</th>
                                             <th class="th" style="vertical-align: middle;">柜号</th>
                                             <th class="th" style="vertical-align: middle;">目的地</th>
+                                            <th class="th" style="vertical-align: middle;">唛头</th>
                                             <th class="th" style="vertical-align: middle;">板数</th>
                                             <th class="th" style="vertical-align: middle;">价格</th>
                                             <th class="th" style="vertical-align: middle;">单板成本</th>
@@ -1672,8 +1688,16 @@
                                                        data-search-type="multi-text">
                                             </th>
                                             <th class="th">
-                                                <input type="number" class="search-input"
+                                                <input type="text" class="search-input"
                                                        data-column-index="7"
+                                                data-field="唛头"
+                                                placeholder="搜索唛头"
+                                                data-column-name="唛头"
+                                                style="width:100%;box-sizing:border-box;">
+                                            </th>
+                                            <th class="th">
+                                                <input type="number" class="search-input"
+                                                       data-column-index="8"
                                                        data-field="板数"
                                                        min="0"
                                                        placeholder="板数≥"
@@ -1692,7 +1716,7 @@
                                         {% for group in delivery_confirm_orders %}
                                             <!-- 新增：一提多卸分组标题行 -->
                                             <tr class="group-header-row {% if group.is_multi_unload %}multi-unload-group{% endif %}">
-                                                <td colspan="15">
+                                                <td colspan="16">
                                                     {% if group.is_multi_unload %}
                                                         <span class="multi-unload-label">一提多卸</span>
                                                     {% endif %}
@@ -1749,6 +1773,8 @@
                                                                     style="vertical-align: middle;">{{ order.container_num }}</td>
                                                                 <td class="td"
                                                                     style="vertical-align: middle;">{{ order.pallet_destination }}</td>
+                                                                <td class="td"
+                                                                    style="vertical-align: middle;">{{ order.shipping_mark }}</td>
                                                                 <td class="td"
                                                                     style="vertical-align: middle;">{{ order.cn_total_pallet }}</td>
                                                                 <td class="td"
@@ -2074,7 +2100,8 @@
                 'ISA': 5,
                 '柜号': 6,
                 '目的地': 7,
-                '板数': 8
+                '唛头': 8,
+                '板数': 9
             };
 
             // 通用多关键词匹配函数
@@ -2288,7 +2315,8 @@
                 'ISA': 5,
                 '柜号': 6,
                 '目的地': 7,
-                '板数': 8
+                '唛头': 8,
+                '板数': 9
             };
             return fieldMap[fieldName] || 6;
         }
@@ -2393,13 +2421,13 @@
                 if (row.style.display === 'none') return;
 
                 // 【关键修复】列索引从 12/13 改为 11/12（对应页面实际的车次总板数/总成本列）
-                // 车次总板数（第11列）
-                const palletText = row.querySelector('td:nth-child(11)')?.textContent.trim() || '0';
+                // 车次总板数（第12列）
+                const palletText = row.querySelector('td:nth-child(12)')?.textContent.trim() || '0';
                 const pallets = parseFloat(palletText) || 0;
                 totalPallets += pallets;
 
-                // 车次总成本（第12列）
-                const costText = row.querySelector('td:nth-child(12)')?.textContent.trim().replace('$', '') || '0';
+                // 车次总成本（第13列）
+                const costText = row.querySelector('td:nth-child(13)')?.textContent.trim().replace('$', '') || '0';
                 const cost = parseFloat(costText) || 0;
                 totalCost += cost;
 
