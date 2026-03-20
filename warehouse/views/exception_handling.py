@@ -501,7 +501,7 @@ class ExceptionHandling(View):
                     invoice_type="receivable",
                     item_category="delivery_public",
                     delivery_type="combine",                  
-                ).select_related('invoice_number', 'container_number').order_by('-id')[:420]
+                ).select_related('invoice_number', 'container_number').order_by('-id')[:600]
             )
         
         # 按invoice分组
@@ -761,7 +761,8 @@ class ExceptionHandling(View):
                     'invoice_number': invoice.invoice_number,
                     'container_number': invoice.container_number.container_number if invoice.container_number else '',
                     'receivable_delivery_public_amount': invoice.receivable_delivery_public_amount,
-                    'amount': item.amount,                 
+                    'amount': item.amount,    
+                    'regionPrice': item.regionPrice,             
                     'rate': item.rate,
                     'cbm_ratio': item.cbm_ratio
                 })

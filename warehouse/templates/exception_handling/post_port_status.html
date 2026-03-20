@@ -708,7 +708,8 @@
                 <th>发票号</th>
                 <th>柜号</th>
                 <th>组合柜费用</th>     
-                <th>单条费用</th>             
+                <th>单条费用</th>   
+                <th>单条区费用</th>           
                 <th>rate</th>
                 <th>cbm占比</th>
             </tr>
@@ -720,6 +721,7 @@
                 <td>{{ record.container_number }}</td>
                 <td>{{ record.receivable_delivery_public_amount }}</td>
                 <td>{{ record.amount }}</td>
+                <td>{{ record.regionPrice }}</td>
                 <td>{{ record.rate }}</td>
                 <td>{{ record.cbm_ratio }}</td>
             </tr>
@@ -753,7 +755,7 @@
 
 {% if combine_cbm_ratio_records %}
     <div class="search-info">
-        <strong>总记录数:</strong> {{ total_count }} 条记录 (处理了后420条)
+        <strong>总记录数:</strong> {{ total_count }} 条记录 (处理了后600条)
     </div>
     <table class="data-table">
         <thead>
