@@ -494,15 +494,37 @@ class ExceptionHandling(View):
             ).count()
         )()
         
-        # 取最后600条记录
-        invoice_items = await sync_to_async(list)(
-                InvoiceItemv2.objects.filter(
-                    Q(cbm_ratio__isnull=True) | Q(cbm_ratio=0),
-                    invoice_type="receivable",
-                    item_category="delivery_public",
-                    delivery_type="combine",                  
-                ).select_related('invoice_number', 'container_number').order_by('-id')[:600]
+        # 取记录
+        if total_count == 0:
+            # 如果没有符合条件的记录，查询费用大于1万的组合柜
+            invoices = await sync_to_async(list)(
+                Invoicev2.objects.filter(
+                    Q(receivable_delivery_public_amount__gt=10000)
+                ).select_related('container_number')
             )
+            
+            # 获取这些发票对应的InvoiceItemv2记录
+            invoice_items = []
+            for invoice in invoices:
+                items = await sync_to_async(list)(
+                    InvoiceItemv2.objects.filter(
+                        invoice_number=invoice,
+                        invoice_type="receivable",
+                        item_category="delivery_public",
+                        delivery_type="combine"
+                    ).select_related('invoice_number', 'container_number')
+                )
+                invoice_items.extend(items)
+        else:
+            # 取所有记录
+            invoice_items = await sync_to_async(list)(
+                    InvoiceItemv2.objects.filter(
+                        Q(cbm_ratio__isnull=True) | Q(cbm_ratio=0),
+                        invoice_type="receivable",
+                        item_category="delivery_public",
+                        delivery_type="combine",                  
+                    ).select_related('invoice_number', 'container_number').order_by('-id')
+                )
         
         # 按invoice分组
         invoice_groups = {}
@@ -518,101 +540,111 @@ class ExceptionHandling(View):
         
         result_records = []
         
-        for invoice_key, group in invoice_groups.items():
-            success_count = 0
-            failed_count = 0
-            error_messages = []
+        # 分批处理，每批400条
+        batch_size = 400
+        all_groups = list(invoice_groups.items())
+        total_batches = (len(all_groups) + batch_size - 1) // batch_size
+        
+        for batch_idx in range(total_batches):
+            start_idx = batch_idx * batch_size
+            end_idx = min((batch_idx + 1) * batch_size, len(all_groups))
+            batch_groups = all_groups[start_idx:end_idx]
             
-            # 计算整柜的cbm
-            container_number = group['container'].container_number
-            total_container_cbm = await sync_to_async(lambda: 
-                PackingList.objects.filter(
-                    container_number__container_number=container_number
-                ).aggregate(
-                    total_cbm=Sum('cbm')
-                )['total_cbm'] or 0.0
-            )()
-            
-            if total_container_cbm == 0:
-                error_messages.append(f"整柜CBM为0，无法计算占比")
-                failed_count += len(group['items'])
-            else:
-                # 遍历组内的invoice_items记录
-                for item in group['items']:
-                    try:
-                        # 检查是否有cbm值
-                        if not item.cbm:
-                            # 先查询PackingList表计算CBM值
-                            try:
-                                warehouse_code = item.warehouse_code
-                                if warehouse_code:
-                                    # 先从PackingList表查询
-                                    packinglist_cbm = await sync_to_async(lambda: 
-                                        PackingList.objects.filter(
-                                            destination=warehouse_code
-                                        ).aggregate(
-                                            total_cbm=Sum('cbm')
-                                        )['total_cbm'] or 0.0
-                                    )()
-                                    
-                                    if packinglist_cbm > 0:
-                                        item.cbm = packinglist_cbm
-                                    else:
-                                        # 如果PackingList表中无数据，再从Pallet表查询
-                                        pallet_cbm = await sync_to_async(lambda: 
-                                            Pallet.objects.filter(
+            for invoice_key, group in batch_groups:
+                success_count = 0
+                failed_count = 0
+                error_messages = []
+                
+                # 计算整柜的cbm
+                container_number = group['container'].container_number
+                total_container_cbm = await sync_to_async(lambda: 
+                    PackingList.objects.filter(
+                        container_number__container_number=container_number
+                    ).aggregate(
+                        total_cbm=Sum('cbm')
+                    )['total_cbm'] or 0.0
+                )()
+                
+                if total_container_cbm == 0:
+                    error_messages.append(f"整柜CBM为0，无法计算占比")
+                    failed_count += len(group['items'])
+                else:
+                    # 遍历组内的invoice_items记录
+                    for item in group['items']:
+                        try:
+                            # 检查是否有cbm值
+                            if not item.cbm:
+                                # 先查询PackingList表计算CBM值
+                                try:
+                                    warehouse_code = item.warehouse_code
+                                    if warehouse_code:
+                                        # 先从PackingList表查询
+                                        packinglist_cbm = await sync_to_async(lambda: 
+                                            PackingList.objects.filter(
                                                 destination=warehouse_code
                                             ).aggregate(
                                                 total_cbm=Sum('cbm')
                                             )['total_cbm'] or 0.0
                                         )()
-                                        if pallet_cbm > 0:
-                                            item.cbm = pallet_cbm
+                                        
+                                        if packinglist_cbm > 0:
+                                            item.cbm = packinglist_cbm
                                         else:
-                                            error_messages.append(f"记录ID {item.id} 缺少CBM值，且PackingList和Pallet表中均无相关数据")
-                                            failed_count += 1
-                                            continue
-                                else:
-                                    error_messages.append(f"记录ID {item.id} 缺少warehouse_code")
+                                            # 如果PackingList表中无数据，再从Pallet表查询
+                                            pallet_cbm = await sync_to_async(lambda: 
+                                                Pallet.objects.filter(
+                                                    destination=warehouse_code
+                                                ).aggregate(
+                                                    total_cbm=Sum('cbm')
+                                                )['total_cbm'] or 0.0
+                                            )()
+                                            if pallet_cbm > 0:
+                                                item.cbm = pallet_cbm
+                                            else:
+                                                error_messages.append(f"记录ID {item.id} 缺少CBM值，且PackingList和Pallet表中均无相关数据")
+                                                failed_count += 1
+                                                continue
+                                    else:
+                                        error_messages.append(f"记录ID {item.id} 缺少warehouse_code")
+                                        failed_count += 1
+                                        continue
+                                except Exception as e:
+                                    error_messages.append(f"记录ID {item.id} 计算CBM失败: {str(e)}")
                                     failed_count += 1
                                     continue
-                            except Exception as e:
-                                error_messages.append(f"记录ID {item.id} 计算CBM失败: {str(e)}")
-                                failed_count += 1
-                                continue
-                        
-                        # 计算cbm_ratio
-                        cbm = round(float(item.cbm), 2)
-                        cbm_ratio = round(cbm / total_container_cbm, 4)
-                        
-                        # 计算amount（这里需要知道regionPrice，假设从item中获取）
-                        region_price = item.rate or 0
-                        amount = cbm_ratio * region_price
-                        
-                        # 更新记录
-                        item.cbm_ratio = cbm_ratio
-                        item.amount = amount
-                        await sync_to_async(item.save)()
-                        
-                        success_count += 1
-                    except Exception as e:
-                        error_messages.append(f"记录ID {item.id} 处理失败: {str(e)}")
-                        failed_count += 1
-            
-            # 调用_update_invoice_total更新柜子的总值
-            try:
-                await sync_to_async(self._update_invoice_total)(group['invoice'], group['container'], True)
-            except Exception as e:
-                error_messages.append(f"更新发票总值失败: {str(e)}")
-            
-            # 构建结果记录
-            result_records.append({
-                'invoice_number': invoice_key,
-                'container_number': container_number,
-                'success_count': success_count,
-                'failed_count': failed_count,
-                'error_messages': '<br>'.join(error_messages)
-            })
+                            
+                            # 计算cbm_ratio
+                            cbm = round(float(item.cbm), 2)
+                            cbm_ratio = round(cbm / total_container_cbm, 4)
+                            
+                            # 计算amount（使用regionPrice作为单价）
+                            region_price = item.regionPrice or 0
+                            amount = cbm_ratio * region_price
+                            
+                            # 更新记录
+                            item.cbm_ratio = cbm_ratio
+                            item.amount = amount
+                            await sync_to_async(item.save)()
+                            
+                            success_count += 1
+                        except Exception as e:
+                            error_messages.append(f"记录ID {item.id} 处理失败: {str(e)}")
+                            failed_count += 1
+                
+                # 调用_update_invoice_total更新柜子的总值
+                try:
+                    await sync_to_async(self._update_invoice_total)(group['invoice'], group['container'], True)
+                except Exception as e:
+                    error_messages.append(f"更新发票总值失败: {str(e)}")
+                
+                # 构建结果记录
+                result_records.append({
+                    'invoice_number': invoice_key,
+                    'container_number': container_number,
+                    'success_count': success_count,
+                    'failed_count': failed_count,
+                    'error_messages': '<br>'.join(error_messages)
+                })
         
         context = {
             'success_messages': f'处理了{len(invoice_groups)}个发票组！',
