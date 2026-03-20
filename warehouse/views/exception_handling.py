@@ -501,7 +501,7 @@ class ExceptionHandling(View):
                     invoice_type="receivable",
                     item_category="delivery_public",
                     delivery_type="combine",                  
-                ).select_related('invoice_number', 'container_number').order_by('-id')[:600]
+                ).select_related('invoice_number', 'container_number').order_by('-id')[:420]
             )
         
         # 按invoice分组
