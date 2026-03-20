@@ -1119,7 +1119,7 @@ class OrderQuantity(View):
                     "invoice__container_number"
                 ).filter(
                     container_number=container,
-                    invoice_type="receivable",
+                    invoice_type__in=["receivable", "payable"],
                     finance_status="completed"
                 ).order_by('id').first() # 同步环境下用 first()
                 
