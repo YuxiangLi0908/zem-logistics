@@ -17,6 +17,7 @@ from django.db.models.functions import Cast, TruncMonth
 from django.http import Http404, HttpRequest, HttpResponse, HttpResponseForbidden
 from django.shortcuts import render
 from django.views import View
+from django.db import models
 
 from warehouse.models.packing_list import PackingList
 from warehouse.models.pallet import Pallet
@@ -1082,7 +1083,6 @@ class OrderQuantity(View):
             customer_idlist = [item["zem_name"] for item in customer_list]
             criteria &= Q(customer_name__zem_name__in=customer_idlist)
         # 展示财务确认的账单
-        criteria &= Q(receivable_status__stage="confirmed")
         orders = await sync_to_async(list)(
             Order.objects.select_related(
                 "customer_name",
@@ -1106,16 +1106,9 @@ class OrderQuantity(View):
             container_number = order.container_number.container_number
             customer_name = order.customer_name.zem_name
             # 因为都是财务确认的账单，如果是早期的账单或者当前的组合柜账单，都是以invoice_item表为准的，否则是以这三个表为准
-            invoice = await sync_to_async(
-                Invoicev2.objects.select_related("customer", "container_number").get
-            )(container_number__container_number=container_number)
-
-            has_items = await sync_to_async(
-                InvoiceItemv2.objects.filter(
-                    invoice_number__invoice_number=invoice.invoice_number
-                ).exists
-            )()
-
+            invoice = await Invoicev2.objects.select_related("customer", "container_number").filter(container_number__container_number=container_number).order_by('created_at').afirst()
+            if not invoice:
+                continue
             #if not has_items:  # 没有说明是以三个表为准
             receivable_preport = (
                 float(invoice.receivable_preport_amount)
@@ -1145,7 +1138,24 @@ class OrderQuantity(View):
                 else 0.0
             )  # 派送
             receivable_delivery = receivable_pub_delivery + receivable_oth_delivery
-            other_fees = 0
+            
+            activation_items_total = await sync_to_async(
+                lambda: InvoiceItemv2.objects.filter(
+                    invoice_number=invoice,
+                    invoice_type="receivable",
+                    item_category="activation_fee",
+                ).aggregate(total=Sum('amount'))['total'] or 0
+            )()       
+            
+            combina_extra_items_total = await sync_to_async(
+                lambda: InvoiceItemv2.objects.filter(
+                    invoice_number=invoice,
+                    invoice_type="receivable",
+                    item_category="combina_extra_fee",
+                ).aggregate(total=Sum('amount'))['total'] or 0
+            )()   
+
+            other_fees = activation_items_total + combina_extra_items_total
             # else:
             #     items = await sync_to_async(list)(
             #         InvoiceItemv2.objects.filter(
