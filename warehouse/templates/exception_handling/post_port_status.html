@@ -781,6 +781,31 @@
     </table>
 {% endif %}
 
+{% if recalculate_by_container_records %}
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>柜号</th>
+                <th>发票号</th>
+                <th>修改前费用</th>
+                <th>修改后费用</th>
+                <th>错误信息</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for record in recalculate_by_container_records %}
+            <tr>
+                <td>{{ record.container_number }}</td>
+                <td>{{ record.invoice_number }}</td>
+                <td>{{ record.old_amount }}</td>
+                <td>{{ record.new_amount }}</td>
+                <td>{{ record.error }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% endif %}
+
 <form method="post" style="display: inline-block; margin: 2px;">
     {% csrf_token %}
     <input type="hidden" name="step" value="update_shipment_type_to_fleet_type">
@@ -821,6 +846,16 @@
     {% csrf_token %}
     <input type="hidden" name="step" value="recaculate_combine_cbm_ratio">
     <button type="submit" class="search-btn">重新计算组合柜费用和cbm占比</button>
+</form>
+
+<form method="post" style="margin-top: 15px; padding: 15px; background: #f8f9fa; border-radius: 8px;">
+    {% csrf_token %}
+    <input type="hidden" name="step" value="recalculate_by_container_numbers">
+    <div style="margin-bottom: 10px;">
+        <label for="container_numbers" style="display: block; margin-bottom: 5px; font-weight: 600;">批量输入柜号（每行一个或用空格分隔）：</label>
+        <textarea name="container_numbers" id="container_numbers" rows="5" cols="80" style="padding: 8px; border: 1px solid #ddd; border-radius: 4px; resize: vertical;"></textarea>
+    </div>
+    <button type="submit" class="search-btn">重新计算账单数据</button>
 </form>
 
 <script>
