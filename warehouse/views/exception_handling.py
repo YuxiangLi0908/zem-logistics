@@ -485,46 +485,47 @@ class ExceptionHandling(View):
     async def handle_recaculate_combine_cbm_ratio(self, request):
         '''重新计算组合柜费用和cbm占比异常的'''
         # 先统计符合条件的记录总数
-        total_count = await sync_to_async(lambda: 
-            InvoiceItemv2.objects.filter(
-                Q(cbm_ratio__isnull=True) | Q(cbm_ratio=0),
-                invoice_type="receivable",
-                item_category="delivery_public",
-                delivery_type="combine"
-            ).count()
-        )()
+        # 如果没有符合条件的记录，查询费用大于1万的组合柜
+        invoices = await sync_to_async(list)(
+            Invoicev2.objects.filter(
+                Q(receivable_delivery_public_amount__gt=10000)
+            ).select_related('container_number')
+        )
         
-        # 取记录
-        if total_count == 0:
-            # 如果没有符合条件的记录，查询费用大于1万的组合柜
-            invoices = await sync_to_async(list)(
-                Invoicev2.objects.filter(
-                    Q(receivable_delivery_public_amount__gt=10000)
-                ).select_related('container_number')
+        # 获取这些发票对应的InvoiceItemv2记录
+        invoice_items = []
+        for invoice in invoices:
+            items = await sync_to_async(list)(
+                InvoiceItemv2.objects.filter(
+                    invoice_number=invoice,
+                    invoice_type="receivable",
+                    item_category="delivery_public",
+                    delivery_type="combine"
+                ).select_related('invoice_number', 'container_number')
             )
+            invoice_items.extend(items)
+        # total_count = await sync_to_async(lambda: 
+        #     InvoiceItemv2.objects.filter(
+        #         Q(cbm_ratio__isnull=True) | Q(cbm_ratio=0),
+        #         invoice_type="receivable",
+        #         item_category="delivery_public",
+        #         delivery_type="combine"
+        #     ).count()
+        # )()
+        
+        # # 取记录
+        # if total_count == 0:
             
-            # 获取这些发票对应的InvoiceItemv2记录
-            invoice_items = []
-            for invoice in invoices:
-                items = await sync_to_async(list)(
-                    InvoiceItemv2.objects.filter(
-                        invoice_number=invoice,
-                        invoice_type="receivable",
-                        item_category="delivery_public",
-                        delivery_type="combine"
-                    ).select_related('invoice_number', 'container_number')
-                )
-                invoice_items.extend(items)
-        else:
-            # 取所有记录
-            invoice_items = await sync_to_async(list)(
-                    InvoiceItemv2.objects.filter(
-                        Q(cbm_ratio__isnull=True) | Q(cbm_ratio=0),
-                        invoice_type="receivable",
-                        item_category="delivery_public",
-                        delivery_type="combine",                  
-                    ).select_related('invoice_number', 'container_number').order_by('-id')
-                )
+        # else:
+        #     # 取所有记录
+        #     invoice_items = await sync_to_async(list)(
+        #             InvoiceItemv2.objects.filter(
+        #                 Q(cbm_ratio__isnull=True) | Q(cbm_ratio=0),
+        #                 invoice_type="receivable",
+        #                 item_category="delivery_public",
+        #                 delivery_type="combine",                  
+        #             ).select_related('invoice_number', 'container_number').order_by('-id')
+        #         )
         
         # 按invoice分组
         invoice_groups = {}
