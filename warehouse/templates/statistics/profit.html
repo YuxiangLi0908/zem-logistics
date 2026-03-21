@@ -115,8 +115,11 @@
             <h3 class="section-title">详细数据</h3>
             <div style="display: flex; gap: 10px;">
                 <input type="text" id="containerSearch" placeholder="搜索柜号..." style="padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                <input type="text" id="customerSearch" placeholder="搜索客户..." style="padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
                 <button onclick="sortTable('profit')" style="padding: 8px 12px; background-color: #2196F3; color: white; border: none; border-radius: 4px; cursor: pointer;">按利润排序</button>
                 <button onclick="sortTable('margin')" style="padding: 8px 12px; background-color: #FF9800; color: white; border: none; border-radius: 4px; cursor: pointer;">按利润率排序</button>
+                <button onclick="filterNegativeProfit()" style="padding: 8px 12px; background-color: #F44336; color: white; border: none; border-radius: 4px; cursor: pointer;">负利润数据查询</button>
+                <button onclick="resetFilters()" style="padding: 8px 12px; background-color: #9E9E9E; color: white; border: none; border-radius: 4px; cursor: pointer;">重置</button>
                 <button onclick="exportToExcel()" style="padding: 8px 12px; background-color: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer;">导出Excel</button>
             </div>
         </div>
@@ -568,6 +571,7 @@
         document.getElementById('loading-bar').style.display = 'flex';   
     }   
 
+    // 柜号搜索功能
     document.getElementById('containerSearch').addEventListener('input', function() {  
         const searchTerm = this.value.toLowerCase();
         const rows = document.querySelectorAll('#profitTable tbody tr');
@@ -581,6 +585,48 @@
             }
         });
     });
+    
+    // 客户搜索功能
+    document.getElementById('customerSearch').addEventListener('input', function() {  
+        const searchTerm = this.value.toLowerCase();
+        const rows = document.querySelectorAll('#profitTable tbody tr');
+        
+        rows.forEach(row => {
+            const customerName = row.querySelectorAll('td')[1].textContent.toLowerCase();
+            if (customerName.includes(searchTerm)) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
+        });
+    });
+    
+    // 负利润数据查询功能
+    function filterNegativeProfit() {
+        const rows = document.querySelectorAll('#profitTable tbody tr');
+        
+        rows.forEach(row => {
+            const profitValue = parseFloat(row.querySelector('.profit-value').getAttribute('data-profit'));
+            if (profitValue < 0) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
+        });
+    }
+    
+    // 重置筛选功能
+    function resetFilters() {
+        // 显示所有行
+        const rows = document.querySelectorAll('#profitTable tbody tr');
+        rows.forEach(row => {
+            row.style.display = '';
+        });
+        
+        // 清空搜索输入框
+        document.getElementById('containerSearch').value = '';
+        document.getElementById('customerSearch').value = '';
+    }
     
     function sortTable(sortBy) {
         const table = document.getElementById('profitTable');
