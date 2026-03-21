@@ -1243,6 +1243,7 @@ class OrderQuantity(View):
                 {
                     "container_number": container_number,
                     "customer_name": customer_name,
+                    "order_type": order.order_type,
                     "receivable_preport": receivable_preport,
                     "receivable_warehouse": receivable_warehouse,
                     "receivable_delivery": receivable_delivery,
