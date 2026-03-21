@@ -129,6 +129,7 @@
                     <tr>
                         <th>柜号</th>
                         <th>客户</th>
+                        <th>类型</th>
                         <th class="text-right">港前应收</th>
                         <th class="text-right">港前应付</th>
                         <th class="text-right">库内应收</th>
@@ -146,6 +147,7 @@
                     <tr>
                         <td class="container-number">{{ container.container_number }}</td>
                         <td>{{ container.customer_name }}</td>
+                        <td>{{ container.order_type }}</td>
                         <td class="text-right">${{ container.receivable_preport|floatformat:2 }}</td>
                         <td class="text-right expense">${{ container.payable_preport|floatformat:2 }}</td>
                         <td class="text-right">${{ container.receivable_warehouse|floatformat:2 }}</td>
