@@ -651,7 +651,6 @@ class ExceptionHandling(View):
         context = {
             'success_messages': f'处理了{len(invoice_groups)}个发票组！',
             'combine_cbm_ratio_records': result_records,
-            'total_count': total_count
         }
         return self.template_post_port_status, context
 
