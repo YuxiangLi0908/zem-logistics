@@ -616,6 +616,7 @@ class ExceptionHandling(View):
                             
                             # 计算cbm_ratio
                             cbm = round(float(item.cbm), 2)
+                            cbm_ratio = item.cbm_ratio
                             if not cbm_ratio:
                                 cbm_ratio = round(cbm / total_container_cbm, 4)
                                 item.cbm_ratio = cbm_ratio
