@@ -616,14 +616,15 @@ class ExceptionHandling(View):
                             
                             # 计算cbm_ratio
                             cbm = round(float(item.cbm), 2)
-                            cbm_ratio = round(cbm / total_container_cbm, 4)
+                            if not cbm_ratio:
+                                cbm_ratio = round(cbm / total_container_cbm, 4)
+                                item.cbm_ratio = cbm_ratio
                             
                             # 计算amount（使用regionPrice作为单价）
                             region_price = item.regionPrice or 0
                             amount = cbm_ratio * region_price
                             
-                            # 更新记录
-                            item.cbm_ratio = cbm_ratio
+                            # 更新记录                          
                             item.amount = amount
                             await sync_to_async(item.save)()
                             
