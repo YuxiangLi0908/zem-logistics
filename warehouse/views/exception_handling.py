@@ -320,6 +320,9 @@ class ExceptionHandling(View):
         elif step == "recaculate_combine_cbm_ratio":
             template, context = await self.handle_recaculate_combine_cbm_ratio(request)
             return await sync_to_async(render)(request, template, context)
+        elif step == "recalculate_by_container_numbers":
+            template, context = await self.handle_recalculate_by_container_numbers(request)
+            return await sync_to_async(render)(request, template, context)
         elif step == "delete_shipment":
             template, context = await self.handle_delete_shipment(request)
             return await sync_to_async(render)(request, template, context)
@@ -802,6 +805,80 @@ class ExceptionHandling(View):
                 })
         
         context = {'combine_1w_records': result_list}
+        return self.template_post_port_status, context
+
+    async def handle_recalculate_by_container_numbers(self, request):
+        '''批量重新计算指定柜号的账单数据'''
+        container_numbers_str = request.POST.get('container_numbers', '')
+        
+        # 按换行符和空格分割柜号
+        container_numbers = []
+        for line in container_numbers_str.split('\n'):
+            line = line.strip()
+            if line:
+                # 按空格分割
+                for num in line.split():
+                    num = num.strip()
+                    if num:
+                        container_numbers.append(num)
+        
+        # 去重
+        container_numbers = list(set(container_numbers))
+        
+        result_records = []
+        success_count = 0
+        failed_count = 0
+        
+        for container_number in container_numbers:
+            try:
+                # 查询Container表
+                container = await sync_to_async(Container.objects.get)(container_number=container_number)
+                
+                # 查询Invoicev2表
+                invoices = await sync_to_async(list)(
+                    Invoicev2.objects.filter(
+                        container_number=container
+                    ).select_related('container_number')
+                )
+                
+                for invoice in invoices:
+                    try:
+                        # 记录修改前的费用
+                        old_amount = invoice.receivable_total_amount
+                        
+                        # 调用_update_invoice_total方法
+                        await sync_to_async(self._update_invoice_total)(invoice, container, True)
+                        
+                        # 重新获取更新后的发票对象
+                        updated_invoice = await sync_to_async(Invoicev2.objects.get)(id=invoice.id)
+                        new_amount = updated_invoice.receivable_total_amount
+                        
+                        # 构建结果记录
+                        result_records.append({
+                            'container_number': container_number,
+                            'invoice_number': invoice.invoice_number,
+                            'old_amount': old_amount,
+                            'new_amount': new_amount
+                        })
+                        success_count += 1
+                    except Exception as e:
+                        result_records.append({
+                            'container_number': container_number,
+                            'invoice_number': invoice.invoice_number if invoice else '',
+                            'error': f'更新失败: {str(e)}'
+                        })
+                        failed_count += 1
+            except Exception as e:
+                result_records.append({
+                    'container_number': container_number,
+                    'error': f'查询失败: {str(e)}'
+                })
+                failed_count += 1
+        
+        context = {
+            'success_messages': f'成功处理了{success_count}条记录，失败{failed_count}条！',
+            'recalculate_by_container_records': result_records
+        }
         return self.template_post_port_status, context
 
     async def handle_get_cbm_ratio_with_fallback(self, request):
