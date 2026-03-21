@@ -6613,6 +6613,7 @@ class Accounting(View):
         total_amount = data.get("total_amount")
         if not total_amount and total_amount == 0:
             raise ValueError("审核时，数据存储错误")
+        total_amount = float(total_amount)
         pt_amount = 0
         wh_amount = 0
         # 存到invoice表里
@@ -7037,6 +7038,8 @@ class Accounting(View):
         # 应付库内费（拆柜费+入库费+拆柜其他费用）
         invoice.payable_warehouse_amount = wh_amount
         # 应付总金额
+        # 安全累加（确保payable_total_amount不为None）
+        invoice.payable_total_amount = invoice.payable_total_amount or 0.0000
         invoice.payable_total_amount += total_amount
         invoice.save()
         if save_type == "check_confirm":  # 初级审核，可以修改价格确认完就转到财务审核
