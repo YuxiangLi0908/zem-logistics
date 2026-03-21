@@ -1211,7 +1211,7 @@ class OrderQuantity(View):
                 else 0.0
             )
 
-            total_preport_receivable += receivable_preport
+            total_preport_receivable += receivable_preport 
             total_preport_payable += payable_preport
             # 总收入
             total_income_per_container = (
@@ -1221,13 +1221,12 @@ class OrderQuantity(View):
                 + other_fees
             )
             # 提拆的成本
-            total_expense_per_container = payable_preport
+            total_expense_per_container = payable_preport + payable_warehouse + payable_delivery
 
             # 柜子的利润
             profit_per_container = (
                 total_income_per_container
                 - total_expense_per_container
-                - payable_delivery
             )
             # 利润率
             profit_margin = (
