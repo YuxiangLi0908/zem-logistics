@@ -1238,7 +1238,6 @@ class OrderQuantity(View):
             total_income += total_income_per_container
             # 总支出
             total_expense += total_expense_per_container
-            total_expense += payable_delivery
             # 总利润
             total_profit += profit_per_container
             # 所有柜子的利润
