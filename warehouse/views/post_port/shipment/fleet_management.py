@@ -1423,23 +1423,32 @@ class FleetManagement(View):
                 # 批量创建/更新 Invoicev2
                 current_date = datetime.now().date()
                 invoices_to_create = []
-
+                current_date = current_date or timezone.now().date()
                 for item in container_totals:
                     container_number = item['container_number']
                     total_expense = item['total_expense'] or Decimal('0.0000')
 
-                    existing_invoice = await sync_to_async(
-                        Invoicev2.objects.filter(container_number_id=container_number).first
-                    )()
+                    # 核心修复：按 created_at 升序排序，取最早创建的记录
+                    existing_invoices = await sync_to_async(
+                        list  # 转为列表避免多次查询
+                    )(Invoicev2.objects.filter(container_number_id=container_number)
+                      .order_by('created_at')  # 升序排列（更早的在前）
+                      .all())
+
+                    # 取最早创建的记录
+                    existing_invoice = existing_invoices[0] if existing_invoices else None
 
                     if existing_invoice:
                         existed_payable_delivery_amount = existing_invoice.payable_delivery_amount
+                        # 先减去旧值
                         existing_invoice.payable_total_amount -= existed_payable_delivery_amount
+                        # 更新字段
                         existing_invoice.invoice_date = current_date
                         existing_invoice.payable_delivery_amount = total_expense
+                        # 加上新值
                         existing_invoice.payable_total_amount += total_expense
                         await sync_to_async(existing_invoice.save)(
-                            update_fields=['invoice_date', 'payable_delivery_amount']
+                            update_fields=['invoice_date', 'payable_delivery_amount', 'payable_total_amount']
                         )
                     else:
                         invoices_to_create.append(Invoicev2(
