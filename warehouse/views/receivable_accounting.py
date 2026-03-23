@@ -6829,7 +6829,7 @@ class ReceivableAccounting(View):
         self, cbm: float, is_new_rule: bool, is_niche_warehouse: bool, vessel_etd, warehouse
     ) -> float:
         '''板数计算公式'''
-        raw_p = float(cbm) / 1.8
+        raw_p = float(cbm) / 2
         integer_part = int(raw_p)
         decimal_part = raw_p - integer_part
 
