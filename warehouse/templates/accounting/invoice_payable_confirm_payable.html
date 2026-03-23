@@ -1996,7 +1996,7 @@
                                     <th class="th export-checkbox-col">选择</th>
                                     <th class="th">客户</th>
                                     <th class="th">仓点</th>
-                                    <th class="th">供应商</th>
+                                    <th class="th">卸柜供应商</th>
                                     <th class="th">货柜号</th>
                                     <th class="th">拆柜费</th>
                                     <th class="th">入库拆柜费</th>
@@ -2035,8 +2035,15 @@
                                             {{ order.customer_name.zem_name|default:"-" }}{% endfor %}</td>
                                         <td class="td">{% for order in c.container_number.orders.all %}
                                             {{ order.retrieval_id.retrieval_destination_area|default:"-" }}{% endfor %}</td>
-                                        <td class="td">{% for order in c.container_number.orders.all %}
-                                            {{ order.retrieval_id.retrieval_carrier|default:"-" }}{% endfor %}</td>
+                                        <td class="td">
+                                            {% for fee in c.container_number.invoice_itemv2.all %}
+                                                {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
+                                                    {% if '拆柜费用' in fee.description %}
+                                                        {{ fee.carrier|default:"-" }}
+                                                    {% endif %}
+                                                {% endif %}
+                                            {% endfor %}
+                                        </td>
                                         <td class="td">
                                             <a href="/accounting/?step=container_payable_pending_review&container_number={{ c.container_number.container_number }}&start_date_confirm={{ start_date_confirm }}&end_date_confirm={{ end_date_confirm }}&customer={{ customer }}&warehouse_filter={{ warehouse_filter }}"
                                                class="container-link"
@@ -2359,7 +2366,7 @@
                                 <tr>
                                     <th class="th">客户</th>
                                     <th class="th">仓点</th>
-                                    <th class="th">供应商</th>
+                                    <th class="th">卸柜供应商</th>
                                     <th class="th">货柜号</th>
                                     <th class="th">拆柜费</th>
                                     <th class="th">入库拆柜费</th>
@@ -2391,8 +2398,15 @@
                                             {{ order.customer_name.zem_name|default:"-" }}{% endfor %}</td>
                                         <td class="td">{% for order in c.container_number.orders.all %}
                                             {{ order.retrieval_id.retrieval_destination_area|default:"-" }}{% endfor %}</td>
-                                        <td class="td">{% for order in c.container_number.orders.all %}
-                                            {{ order.retrieval_id.retrieval_carrier|default:"-" }}{% endfor %}</td>
+                                        <td class="td">
+                                            {% for fee in c.container_number.invoice_itemv2.all %}
+                                                {% if 'payable' in fee.invoice_type or 'payable_direct' in fee.invoice_type %}
+                                                    {% if '拆柜费用' in fee.description %}
+                                                        {{ fee.carrier|default:"-" }}
+                                                    {% endif %}
+                                                {% endif %}
+                                            {% endfor %}
+                                        </td>
                                         <td class="td">
                                             <!-- 修复链接错误：container_paycontainer_payable_pending_reviewable → container_payable_pending_review -->
                                             <a href="/accounting/?step=container_payable_pending_review&container_number={{ c.container_number.container_number }}&start_date_confirm={{ start_date_confirm }}&end_date_confirm={{ end_date_confirm }}&customer={{ customer }}&warehouse_filter={{ warehouse_filter }}"
