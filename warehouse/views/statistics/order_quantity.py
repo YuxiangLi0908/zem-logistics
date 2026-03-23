@@ -1108,6 +1108,8 @@ class OrderQuantity(View):
         profit_values = []
         total_preport_receivable = 0
         total_preport_payable = 0
+        receivable_delivery = 0
+        payable_delivery = 0
         for order in orders:
             container_number = order.container_number.container_number
             customer_name = order.customer_name.zem_name
@@ -1273,7 +1275,11 @@ class OrderQuantity(View):
             ) / total_preport_receivable
         else:
             preport_profit_margin = 0
-        delivery_profit_margin = 0
+        # 派送利润率
+        if receivable_delivery != 0:
+            delivery_profit_margin = (receivable_delivery - payable_delivery) / receivable_delivery
+        else:
+            delivery_profit_margin = 0
         context = {
             "results": results,
             "total_income": total_income,
