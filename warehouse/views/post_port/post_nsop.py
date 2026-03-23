@@ -5042,9 +5042,10 @@ class PostNsop(View):
         context.update({"success_messages": f'排车成功!批次号是：{fleet_number}'})   
         
         # 分摊成本
-        await fm.insert_fleet_shipment_pallet_fleet_cost(
-            request, fleet_number, fleet_cost_value
-        )
+        if fleet_cost_value > 0:
+            await fm.insert_fleet_shipment_pallet_fleet_cost(
+                request, fleet_number, fleet_cost_value
+            )
         if page == "arm_appointment":
             return await self.handle_unscheduled_pos_post(request,context)
         elif page == "ltl_unscheduledFleet":
