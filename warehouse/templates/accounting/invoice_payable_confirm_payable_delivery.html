@@ -1864,9 +1864,6 @@
     <!-- 引入字体图标（用于直达底部按钮） -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script>
-        // 调试开关：开启后在控制台打印关键数据
-        const DEBUG_MODE = true;
-
         // 全局变量：存储每个行对应的组合行列表
         let combinedRowsMap = new Map();
         // 新增：标记搜索是否已初始化
@@ -2140,29 +2137,16 @@
                 '车次总成本': 13
             };
 
-            // 调试：打印列索引映射
-            if (DEBUG_MODE) {
-                console.log('【调试】列索引映射：', columnNameToIndex);
-            }
-
             // 通用多关键词匹配函数（空格分隔，任一匹配即命中）
             function matchMultiKeywords(fieldValues, searchValue) {
                 const keywords = searchValue.split(' ').filter(k => k.trim());
                 if (keywords.length === 0) return true; // 空值匹配所有
-
-                // 调试：打印匹配参数
-                if (DEBUG_MODE) {
-                    console.log('【调试】匹配关键词：', keywords, '字段值：', Array.from(fieldValues));
-                }
 
                 // 修复：处理空值和特殊字符，确保匹配准确
                 return keywords.some(keyword => {
                     const lowerKeyword = keyword.toLowerCase().trim();
                     return fieldValues.some(val => {
                         const matchResult = val && val.includes(lowerKeyword);
-                        if (DEBUG_MODE && matchResult) {
-                            console.log('【调试】匹配成功：', lowerKeyword, '→', val);
-                        }
                         return matchResult;
                     });
                 });
@@ -2184,27 +2168,14 @@
                     // 2. 收集有效搜索条件（非空）
                     const validConditions = Object.entries(searchConditions).filter(([field, value]) => value.trim());
                     if (validConditions.length === 0) {
-                        if (DEBUG_MODE) {
-                            console.log('【调试】无有效搜索条件，直接显示所有行');
-                        }
                         updateSummaryRow();
                         return; // 无搜索条件，直接返回
-                    }
-
-                    // 调试：打印有效搜索条件
-                    if (DEBUG_MODE) {
-                        console.log('【调试】有效搜索条件：', validConditions);
                     }
 
                     // 3. 构建Fleet数据映射（关联父行/子行/分组行）
                     const fleetFullDataMap = new Map();
                     // 只处理数据行（排除搜索行、总计行、分组标题行）
                     const dataRows = table.querySelectorAll('tbody tr:not(.group-header-row):not(.search-row):not(.summary-row)');
-
-                    // 调试：打印找到的数据行数量
-                    if (DEBUG_MODE) {
-                        console.log('【调试】找到数据行数量：', dataRows.length);
-                    }
 
                     // 核心修复：初始化Fleet数据（遍历所有子行，收集完整字段值）
                     dataRows.forEach((row, rowIndex) => {
@@ -2221,11 +2192,6 @@
                                 break;
                             }
                             currentRow = currentRow.previousElementSibling;
-                        }
-
-                        // 调试：打印每行的Fleet ID查找结果
-                        if (DEBUG_MODE) {
-                            console.log(`【调试】行${rowIndex} - Fleet ID：${fleetId}，父行：${!!parentRow}`);
                         }
 
                         if (!fleetId || !parentRow) return;
@@ -2259,10 +2225,6 @@
                                 const value = row.querySelector(`td:nth-child(${targetCol})`)?.textContent.trim().toLowerCase() || '';
                                 if (value) {
                                     fleetData.fieldValues[colName].add(value);
-                                    // 调试：打印父行收集的字段值
-                                    if (DEBUG_MODE) {
-                                        console.log(`【调试】Fleet ${fleetId} 父行收集 ${colName}：${value}`);
-                                    }
                                 }
                             });
                             // 父行也加入子行列表（确保能被控制显示）
@@ -2274,10 +2236,6 @@
 
                             // 核心修复：根据调试日志硬编码子行的列索引（100%精准）
                             const tds = Array.from(row.querySelectorAll('td'));
-                            // 调试：打印子行的所有td内容
-                            if (DEBUG_MODE) {
-                                console.log(`【调试】Fleet ${fleetId} 子行TD内容：`, tds.map((td, idx) => `${idx + 1}: ${td.textContent.trim()}`));
-                            }
 
                             // 硬编码子行列索引（根据你的调试日志精准匹配）
                             const subColIndex = {
@@ -2294,11 +2252,6 @@
                                 const tdElement = tds[targetCol - 1];
                                 const value = tdElement ? tdElement.textContent.trim().toLowerCase() : '';
 
-                                // 调试：打印子行收集的字段值
-                                if (DEBUG_MODE) {
-                                    console.log(`【调试】Fleet ${fleetId} 子行收集 ${colName}：${value}（精准列索引：${targetCol}）`);
-                                }
-
                                 if (value) {
                                     fleetData.fieldValues[colName].add(value);
                                 }
@@ -2314,19 +2267,6 @@
                         }
                     });
 
-                    // 调试：打印Fleet数据映射
-                    if (DEBUG_MODE) {
-                        console.log('【调试】Fleet数据映射：');
-                        fleetFullDataMap.forEach((data, fleetId) => {
-                            console.log(`  Fleet ${fleetId}：`, {
-                                字段值: Object.fromEntries(
-                                    Object.entries(data.fieldValues).map(([k, v]) => [k, Array.from(v)])
-                                ),
-                                子行数量: data.childRows.length
-                            });
-                        });
-                    }
-
                     // 4. 核心：筛选匹配的Fleet ID（所有条件都满足）
                     const matchedFleetIds = new Set();
                     fleetFullDataMap.forEach((data, fleetId) => {
@@ -2336,31 +2276,46 @@
                         validConditions.forEach(([fieldName, searchValue]) => {
                             if (!isAllMatched) return; // 已有不匹配的条件，跳过
 
-                            const fieldValues = Array.from(data.fieldValues[fieldName] || []);
-                            // 板数特殊处理：数值≥匹配
+                            // ========== 核心修复：板数搜索逻辑 ==========
                             if (fieldName === '板数') {
                                 const inputNum = parseInt(searchValue);
                                 if (!isNaN(inputNum)) {
-                                    isAllMatched = fieldValues.some(val => {
-                                        const numVal = parseInt(val);
-                                        return !isNaN(numVal) && numVal >= inputNum;
+                                    // 遍历该Fleet下所有子行，只要有一个子行板数≥输入值，就匹配成功
+                                    let hasMatchedPallet = false;
+
+                                    // 遍历子行，检查每个子行的板数
+                                    data.childRows.forEach(row => {
+                                        if (hasMatchedPallet) return;
+
+                                        // 获取子行的板数（从TD数组第4位读取，对应子行板数列）
+                                        const tds = Array.from(row.querySelectorAll('td'));
+                                        const palletText = tds[3]?.textContent.trim() || '0'; // 子行第4列=板数
+                                        const palletNum = parseInt(palletText);
+
+                                        if (!isNaN(palletNum) && palletNum >= inputNum) {
+                                            hasMatchedPallet = true;
+                                        }
                                     });
+
+                                    // 如果没有子行满足，再检查父行的总板数
+                                    if (!hasMatchedPallet) {
+                                        const totalPalletText = data.parentRow.querySelector('td:nth-child(12)')?.textContent.trim() || '0';
+                                        const totalPalletNum = parseInt(totalPalletText);
+                                        hasMatchedPallet = !isNaN(totalPalletNum) && totalPalletNum >= inputNum;
+                                    }
+
+                                    isAllMatched = hasMatchedPallet;
                                 }
-                            } else {
-                                // 其他字段：多关键词匹配
+                            }
+                            // ========== 其他字段保持原有逻辑 ==========
+                            else {
+                                const fieldValues = Array.from(data.fieldValues[fieldName] || []);
                                 isAllMatched = matchMultiKeywords(fieldValues, searchValue);
                             }
                         });
 
                         if (isAllMatched) {
                             matchedFleetIds.add(fleetId);
-                            if (DEBUG_MODE) {
-                                console.log(`【调试】Fleet ${fleetId} 匹配所有条件，加入显示列表`);
-                            }
-                        } else {
-                            if (DEBUG_MODE) {
-                                console.log(`【调试】Fleet ${fleetId} 不匹配条件，隐藏`);
-                            }
                         }
                     });
 
@@ -2396,10 +2351,6 @@
                 // 绑定输入事件（实时搜索）
                 input.addEventListener('input', function () {
                     searchConditions[fieldName] = this.value.trim().toLowerCase();
-                    // 调试：打印输入的搜索值
-                    if (DEBUG_MODE) {
-                        console.log(`【调试】搜索框 ${fieldName} 输入值：`, this.value);
-                    }
                     executeSearch();
                 });
 
