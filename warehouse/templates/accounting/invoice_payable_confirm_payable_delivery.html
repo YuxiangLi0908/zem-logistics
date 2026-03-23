@@ -267,16 +267,39 @@
             font-weight: 600;
         }
 
-        /* 彻底锁定表格容器宽度，禁止任何收缩/扩展 */
+        /* 彻底锁定表格容器宽度，禁止任何收缩/扩展 + 新增纵向滚动 */
         .table-container {
             width: 100% !important;
             min-width: 100% !important;
             max-width: 100% !important;
             overflow-x: auto !important;
+            /* 新增纵向滚动：设置最大高度，超出滚动 */
+            max-height: 700px !important;
+            overflow-y: auto !important;
             box-sizing: border-box !important;
             flex: none !important;
             position: relative !important;
             transition: none !important;
+        }
+
+        /* 优化滚动条样式（可选，提升美观度） */
+        .table-container::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        .table-container::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 4px;
+        }
+
+        .table-container::-webkit-scrollbar-thumb {
+            background: #ccc;
+            border-radius: 4px;
+        }
+
+        .table-container::-webkit-scrollbar-thumb:hover {
+            background: #999;
         }
 
         /* 强制表格固定布局，列宽仅由<th>决定 */
@@ -969,17 +992,21 @@
             padding: 10px !important;
         }
 
-        /* 总计行样式 */
+        /* 总计行样式 - 调整为顶部显示更醒目 */
         .summary-row {
             background: #f8f9fa !important;
             font-weight: bold !important;
             color: #b71c1c !important;
+            position: sticky !important;
+            top: 0 !important;
+            z-index: 10 !important;
         }
 
         .summary-row td {
             text-align: center !important;
             vertical-align: middle !important;
             border-top: 2px solid #dee2e6 !important;
+            border-bottom: 2px solid #dee2e6 !important;
             padding: 10px !important;
         }
 
@@ -1319,6 +1346,14 @@
                                             <th class="th"></th>
                                         </tr>
                                         <tbody>
+                                        <!-- 总计行移到顶部 -->
+                                        <tr class="summary-row">
+                                            <td colspan="11" style="text-align: right !important;">总计：</td>
+                                            <td id="summary-total-pallet" class="summary-value">0</td>
+                                            <td id="summary-total-cost" class="summary-value">$0.00</td>
+                                            <td id="summary-writeoff" class="summary-value">0.00</td>
+                                            <td></td>
+                                        </tr>
                                         {% for group in delivery_pending_orders %}
                                             <!-- 新增：一提多卸分组标题行 -->
                                             <tr class="group-header-row {% if group.is_multi_unload %}multi-unload-group{% endif %}">
@@ -1484,15 +1519,6 @@
                                                 {% endfor %}
                                             {% endfor %}
                                         {% endfor %}
-
-                                        <!-- 新增：总计行 -->
-                                        <tr class="summary-row">
-                                            <td colspan="11" style="text-align: right !important;">总计：</td>
-                                            <td id="summary-total-pallet" class="summary-value">0</td>
-                                            <td id="summary-total-cost" class="summary-value">$0.00</td>
-                                            <td id="summary-writeoff" class="summary-value">0.00</td>
-                                            <td></td>
-                                        </tr>
                                         </tbody>
                                     </table>
                                 </form>
@@ -1840,6 +1866,8 @@
     <script>
         // 全局变量：存储每个行对应的组合行列表
         let combinedRowsMap = new Map();
+        // 新增：标记搜索是否已初始化
+        let searchInitialized = false;
 
         // ========== 预加载组合行映射（适配当前页面的表格结构） ==========
         function preloadCombinedRowsMap() {
@@ -2087,10 +2115,13 @@
 
         // ========== 重构：多条件并集搜索（核心修复所有列搜索） ==========
         function initTableSearch() {
+            if (searchInitialized) return;
+            searchInitialized = true;
+
             // 存储所有搜索条件：{字段名: 搜索值}
             let searchConditions = {};
 
-            // 核心映射：字段名 → 表格列索引（1开始）
+            // 核心映射：字段名 → 表格列索引（1开始）【确保和你的表格列完全一致】
             const columnNameToIndex = {
                 '车次': 2,
                 'Carrier': 3,
@@ -2099,16 +2130,26 @@
                 '柜号': 6,
                 '目的地': 7,
                 '唛头': 8,
-                '板数': 9
+                '板数': 9,
+                '价格': 10,
+                '单板成本': 11,
+                '车次总板数': 12,
+                '车次总成本': 13
             };
 
             // 通用多关键词匹配函数（空格分隔，任一匹配即命中）
             function matchMultiKeywords(fieldValues, searchValue) {
                 const keywords = searchValue.split(' ').filter(k => k.trim());
                 if (keywords.length === 0) return true; // 空值匹配所有
-                return keywords.some(keyword =>
-                    fieldValues.some(val => val.includes(keyword.toLowerCase()))
-                );
+
+                // 修复：处理空值和特殊字符，确保匹配准确
+                return keywords.some(keyword => {
+                    const lowerKeyword = keyword.toLowerCase().trim();
+                    return fieldValues.some(val => {
+                        const matchResult = val && val.includes(lowerKeyword);
+                        return matchResult;
+                    });
+                });
             }
 
             // 统一搜索执行函数
@@ -2133,39 +2174,11 @@
 
                     // 3. 构建Fleet数据映射（关联父行/子行/分组行）
                     const fleetFullDataMap = new Map();
+                    // 只处理数据行（排除搜索行、总计行、分组标题行）
                     const dataRows = table.querySelectorAll('tbody tr:not(.group-header-row):not(.search-row):not(.summary-row)');
 
-                    // 读取字段值的通用函数（修复所有列读取）
-                    const getChildRowFieldValue = (row, fieldName, parentRow) => {
-                        const colIndex = columnNameToIndex[fieldName];
-                        // 柜号强制读取第6列
-                        const targetCol = fieldName === '柜号' ? 6 : colIndex;
-
-                        // 1. 读取当前行目标列
-                        const directTd = row.querySelector(`td:nth-child(${targetCol})`);
-                        let value = directTd?.textContent.trim().toLowerCase() || '';
-
-                        // 2. 为空则读取行内非空文本（板数过滤数字）
-                        if (!value) {
-                            const allTexts = Array.from(row.querySelectorAll('td')).map(td => td.textContent.trim().toLowerCase()).filter(t => t);
-                            if (fieldName === '板数') {
-                                value = allTexts.find(t => /^\d+$/.test(t)) || '';
-                            } else {
-                                value = allTexts[0] || '';
-                            }
-                        }
-
-                        // 3. 兜底读取父行值
-                        if (!value && parentRow) {
-                            const parentTd = parentRow.querySelector(`td:nth-child(${targetCol})`);
-                            value = parentTd?.textContent.trim().toLowerCase() || '';
-                        }
-
-                        return value;
-                    };
-
-                    // 初始化Fleet数据
-                    dataRows.forEach(row => {
+                    // 核心修复：初始化Fleet数据（遍历所有子行，收集完整字段值）
+                    dataRows.forEach((row, rowIndex) => {
                         // 找Fleet ID和父行（复选框所在行）
                         let fleetId = null;
                         let parentRow = null;
@@ -2180,6 +2193,7 @@
                             }
                             currentRow = currentRow.previousElementSibling;
                         }
+
                         if (!fleetId || !parentRow) return;
 
                         // 初始化Fleet数据
@@ -2204,20 +2218,51 @@
                         const fleetData = fleetFullDataMap.get(fleetId);
                         const isParentRow = !!row.querySelector('.delivery-pending-checkbox, .delivery-export-checkbox');
 
-                        // 父行：直接读取字段值
+                        // 父行：收集车次/Carrier/Pickup Number/ISA等公共字段
                         if (isParentRow) {
-                            Object.keys(columnNameToIndex).forEach(colName => {
-                                const targetCol = colName === '柜号' ? 6 : columnNameToIndex[colName];
+                            ['车次', 'Carrier', 'Pickup Number', 'ISA'].forEach(colName => {
+                                const targetCol = columnNameToIndex[colName];
                                 const value = row.querySelector(`td:nth-child(${targetCol})`)?.textContent.trim().toLowerCase() || '';
-                                if (value) fleetData.fieldValues[colName].add(value);
+                                if (value) {
+                                    fleetData.fieldValues[colName].add(value);
+                                }
                             });
+                            // 父行也加入子行列表（确保能被控制显示）
+                            fleetData.childRows.push(row);
                         }
-                        // 子行：读取字段值并继承父行
+                        // 子行：收集柜号/目的地/唛头/板数等独有字段 + 继承父行公共字段
                         else {
                             fleetData.childRows.push(row);
-                            Object.keys(columnNameToIndex).forEach(colName => {
-                                const value = getChildRowFieldValue(row, colName, fleetData.parentRow);
-                                if (value) fleetData.fieldValues[colName].add(value);
+
+                            // 核心修复：根据调试日志硬编码子行的列索引（100%精准）
+                            const tds = Array.from(row.querySelectorAll('td'));
+
+                            // 硬编码子行列索引（根据你的调试日志精准匹配）
+                            const subColIndex = {
+                                '柜号': 1,    // 子行第1列 = 柜号
+                                '目的地': 2,  // 子行第2列 = 目的地
+                                '唛头': 3,    // 子行第3列 = 唛头
+                                '板数': 4     // 子行第4列 = 板数
+                            };
+
+                            // 精准读取子行字段值
+                            ['柜号', '目的地', '唛头', '板数'].forEach(colName => {
+                                const targetCol = subColIndex[colName];
+                                // 直接通过TD数组索引读取（数组是0开始，所以-1）
+                                const tdElement = tds[targetCol - 1];
+                                const value = tdElement ? tdElement.textContent.trim().toLowerCase() : '';
+
+                                if (value) {
+                                    fleetData.fieldValues[colName].add(value);
+                                }
+                            });
+
+                            // 继承父行公共字段（确保子行也能匹配父行的搜索条件）
+                            ['车次', 'Carrier', 'Pickup Number', 'ISA'].forEach(colName => {
+                                const parentValue = fleetData.parentRow.querySelector(`td:nth-child(${columnNameToIndex[colName]})`)?.textContent.trim().toLowerCase() || '';
+                                if (parentValue) {
+                                    fleetData.fieldValues[colName].add(parentValue);
+                                }
                             });
                         }
                     });
@@ -2226,26 +2271,47 @@
                     const matchedFleetIds = new Set();
                     fleetFullDataMap.forEach((data, fleetId) => {
                         let isAllMatched = true;
-                        validConditions.forEach(([fieldName, searchValue]) => {
-                            const values = Array.from(data.fieldValues[fieldName]);
-                            const lowerValue = searchValue.toLowerCase().trim();
 
-                            // 板数：数值≥匹配
+                        // 遍历所有搜索条件，必须全部匹配
+                        validConditions.forEach(([fieldName, searchValue]) => {
+                            if (!isAllMatched) return; // 已有不匹配的条件，跳过
+
+                            // ========== 核心修复：板数搜索逻辑 ==========
                             if (fieldName === '板数') {
-                                const inputNum = parseInt(lowerValue);
+                                const inputNum = parseInt(searchValue);
                                 if (!isNaN(inputNum)) {
-                                    isAllMatched = values.some(val => {
-                                        const num = parseInt(val);
-                                        return !isNaN(num) && num >= inputNum;
+                                    // 遍历该Fleet下所有子行，只要有一个子行板数≥输入值，就匹配成功
+                                    let hasMatchedPallet = false;
+
+                                    // 遍历子行，检查每个子行的板数
+                                    data.childRows.forEach(row => {
+                                        if (hasMatchedPallet) return;
+
+                                        // 获取子行的板数（从TD数组第4位读取，对应子行板数列）
+                                        const tds = Array.from(row.querySelectorAll('td'));
+                                        const palletText = tds[3]?.textContent.trim() || '0'; // 子行第4列=板数
+                                        const palletNum = parseInt(palletText);
+
+                                        if (!isNaN(palletNum) && palletNum >= inputNum) {
+                                            hasMatchedPallet = true;
+                                        }
                                     });
+
+                                    // 如果没有子行满足，再检查父行的总板数
+                                    if (!hasMatchedPallet) {
+                                        const totalPalletText = data.parentRow.querySelector('td:nth-child(12)')?.textContent.trim() || '0';
+                                        const totalPalletNum = parseInt(totalPalletText);
+                                        hasMatchedPallet = !isNaN(totalPalletNum) && totalPalletNum >= inputNum;
+                                    }
+
+                                    isAllMatched = hasMatchedPallet;
                                 }
                             }
-                            // 其他字段：多关键词匹配
+                            // ========== 其他字段保持原有逻辑 ==========
                             else {
-                                isAllMatched = matchMultiKeywords(values, lowerValue);
+                                const fieldValues = Array.from(data.fieldValues[fieldName] || []);
+                                isAllMatched = matchMultiKeywords(fieldValues, searchValue);
                             }
-
-                            if (!isAllMatched) return false; // 终止循环
                         });
 
                         if (isAllMatched) {
@@ -2256,9 +2322,18 @@
                     // 5. 控制行显示/隐藏
                     fleetFullDataMap.forEach((data, fleetId) => {
                         const shouldShow = matchedFleetIds.has(fleetId);
-                        if (data.parentRow) data.parentRow.style.display = shouldShow ? '' : 'none';
-                        data.childRows.forEach(row => row.style.display = shouldShow ? '' : 'none');
-                        if (data.groupRow) data.groupRow.style.display = shouldShow ? '' : 'none';
+                        // 控制父行显示
+                        if (data.parentRow) {
+                            data.parentRow.style.display = shouldShow ? '' : 'none';
+                        }
+                        // 控制子行显示
+                        data.childRows.forEach(row => {
+                            row.style.display = shouldShow ? '' : 'none';
+                        });
+                        // 控制分组行显示
+                        if (data.groupRow) {
+                            data.groupRow.style.display = shouldShow ? '' : 'none';
+                        }
                     });
 
                     // 更新总计行
@@ -2455,7 +2530,11 @@
             preloadCombinedRowsMap();  // 预加载组合行映射
             initTabSwitch();           // 标签页切换
             initCheckboxEvents();      // 复选框事件
-            initTableSearch();         // 搜索功能（仅一次！）
+            // 确保只执行一次搜索初始化
+            if (typeof searchInitialized === 'undefined') {
+                initTableSearch();         // 搜索功能（仅一次！）
+                searchInitialized = true;
+            }
             updateSummaryRow();        // 总计行初始化
 
             // 默认激活待确认标签
