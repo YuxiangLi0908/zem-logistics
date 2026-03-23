@@ -3973,7 +3973,13 @@ class ReceivableAccounting(View):
                 for invoice in container_invoices:
                     status_obj = None
                     if hasattr(invoice, 'receivable_status_list') and invoice.receivable_status_list:
-                        status_obj = invoice.receivable_status_list[0]
+                        for status in invoice.receivable_status_list:
+                            if status.invoice_id == invoice.id:
+                                status_obj = status
+                                break
+                        # 如果没有找到匹配的，才取第一个
+                        if not status_obj and invoice.receivable_status_list:
+                            raise ValueError('账单没有状态表')
                     
                     base_data = build_order_data(invoice, status_obj)
                     
@@ -4963,7 +4969,7 @@ class ReceivableAccounting(View):
                                 break
                         # 如果没有找到匹配的，才取第一个
                         if not status_obj and invoice.receivable_status_list:
-                            status_obj = invoice.receivable_status_list[0]
+                            raise ValueError('账单没有状态表!')
                     
                     base_data = build_order_data(invoice, status_obj, False)
 
