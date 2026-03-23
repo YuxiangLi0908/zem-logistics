@@ -4953,12 +4953,17 @@ class ReceivableAccounting(View):
             else:
                 # 有账单逻辑
                 for invoice in container_invoices:
-                    # 因为做了 prefetch_related，这里访问 receivable_statuses 不会查库
-                    # 且 filter(invoice_type='receivable') 已经在 prefetch 中做了，这里取第一个即可
-                    # 注意：invoice_statusesv2 是 OneToMany 还是一对一？模型里是 ForeignKey，所以是 list
+                    # 确保获取与当前invoice对应的status_obj
                     status_obj = None
                     if hasattr(invoice, 'receivable_status_list') and invoice.receivable_status_list:
-                        status_obj = invoice.receivable_status_list[0]
+                        # 查找与当前invoice匹配的status_obj
+                        for status in invoice.receivable_status_list:
+                            if status.invoice_id == invoice.id:
+                                status_obj = status
+                                break
+                        # 如果没有找到匹配的，才取第一个
+                        if not status_obj and invoice.receivable_status_list:
+                            status_obj = invoice.receivable_status_list[0]
                     
                     base_data = build_order_data(invoice, status_obj, False)
 
