@@ -1433,6 +1433,8 @@ class FleetManagement(View):
                     )()
 
                     if existing_invoice:
+                        existed_payable_delivery_amount = existing_invoice.payable_delivery_amount
+                        existing_invoice.payable_total_amount -= existed_payable_delivery_amount
                         existing_invoice.invoice_date = current_date
                         existing_invoice.payable_delivery_amount = total_expense
                         existing_invoice.payable_total_amount += total_expense
