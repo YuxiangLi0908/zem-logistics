@@ -680,13 +680,13 @@
         let html = newTable.outerHTML;
         
         // 创建Blob对象
-        const blob = new Blob(['\ufeff' + html], { type: 'application/vnd.ms-excel' });
+        const blob = new Blob(['\ufeff' + html], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
         const url = URL.createObjectURL(blob);
         
         // 创建下载链接
         const a = document.createElement('a');
         a.href = url;
-        a.download = 'profit_analysis_' + new Date().toISOString().slice(0, 10) + '.xls';
+        a.download = 'profit_analysis_' + new Date().toISOString().slice(0, 10) + '.xlsx';
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
