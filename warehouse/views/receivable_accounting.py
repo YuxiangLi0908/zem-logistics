@@ -5750,7 +5750,9 @@ class ReceivableAccounting(View):
                     if dict_key not in existing_keys:
                         unbilled_groups.append(g)
             else:
-                result_existing = self._separate_existing_items(existing_items, pallet_groups)        
+                result_existing = self._separate_existing_items(existing_items, pallet_groups)     
+                print('------------------')   
+                print('existing_items',existing_items)
                 unbilled_groups = [g for g in pallet_groups if g.get("PO_ID") not in existing_items]
         else:
             result_existing = {
@@ -7426,6 +7428,7 @@ class ReceivableAccounting(View):
         invoice.save()
 
     def handle_invoice_preport_save(self, request:HttpRequest) -> Dict[str, Any]:
+        '''港前账单确认'''
         context = {} 
         save_type = request.POST.get("save_type")    
         if not save_type:
@@ -7515,6 +7518,15 @@ class ReceivableAccounting(View):
 
             self._calculate_invoice_total_amount(invoice)
         
+        receivable_preport_amount = InvoiceItemv2.objects.filter(
+            invoice_number=invoice,
+            container_number=order.container_number,
+            invoice_type="receivable",
+            item_category="preport",
+        ).aggregate(total=models.Sum('amount'))['total'] or 0
+        invoice.receivable_preport_amount = receivable_preport_amount
+        invoice.save()
+
         # 更新港前账单状态
         invoice_status.preport_status = save_type
         if save_type == "rejected":
