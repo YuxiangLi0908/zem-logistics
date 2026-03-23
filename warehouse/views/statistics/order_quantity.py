@@ -703,27 +703,31 @@ class OrderQuantity(View):
         else:
             return f"{'已' if new_value else '未'}{field_name_cn}"
 
-    async def _get_cbm_analysis_criteria(self, start_date, end_date, customer_idlist, warehouse_list, date_type):
+    async def _get_cbm_analysis_criteria(self, start_date, end_date, customer_idlist, warehouse_list, date_type, order_type):
         
         customers = await sync_to_async(
             lambda: {"----": None, **{c.zem_name: c.id for c in Customer.objects.all()}}
-        )()
-        
-
-        
+        )()      
 
         if date_type == "eta":
             criteria = Q(
                 Q(vessel_id__vessel_eta__gte=start_date),
                 Q(vessel_id__vessel_eta__lte=end_date),
-                ~Q(order_type="直送"),
             )
-        else:
+        elif date_type == "etd":
             criteria = Q(
                 Q(vessel_id__vessel_etd__gte=start_date),
                 Q(vessel_id__vessel_etd__lte=end_date),
-                ~Q(order_type="直送"),
             )
+        else:
+            criteria = Q(
+                Q(retrieval_id__actual_retrieval_timestamp__gte=start_date),
+                Q(retrieval_id__actual_retrieval_timestamp__lte=end_date),
+            )
+        if order_type == "直送":
+            criteria &= Q(order_type="直送")
+        else:
+            criteria &= ~Q(order_type="直送")
         if warehouse_list:
             criteria &= Q(retrieval_id__retrieval_destination_area__in=warehouse_list)
         if customer_idlist:
@@ -753,8 +757,9 @@ class OrderQuantity(View):
         end_date = (
             last_month_last_day.strftime("%Y-%m-%d") if not end_date else end_date
         )
-        criteria = await self._get_cbm_analysis_criteria(start_date, end_date, customer_idlist, warehouse_list, date_type)    
-        
+        order_type = request.POST.get("order_type")
+        criteria = await self._get_cbm_analysis_criteria(start_date, end_date, customer_idlist, warehouse_list, date_type, order_type)    
+
         # 获取符合条件的订单
         orders = await sync_to_async(list)(
             Order.objects.select_related(
@@ -959,9 +964,9 @@ class OrderQuantity(View):
             "display_type": display_type,
             "destination_list": destination_list,
             "region_list": region_list,
-            "customer_list": customer_list
+            "customer_list": customer_list,
+            "order_type": order_type,
         }
-        print('start_date',start_date)
 
         return self.template_cbm_analysis, context
 
