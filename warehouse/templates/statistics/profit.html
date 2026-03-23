@@ -661,7 +661,24 @@
     // 导出Excel功能
     function exportToExcel() {
         const table = document.getElementById('profitTable');
-        let html = table.outerHTML;
+        const thead = table.querySelector('thead');
+        const tbody = table.querySelector('tbody');
+        const rows = Array.from(tbody.querySelectorAll('tr'));
+        
+        // 创建新的表格，只包含可见行
+        const newTable = document.createElement('table');
+        newTable.innerHTML = thead.outerHTML;
+        const newTbody = document.createElement('tbody');
+        
+        // 只添加可见的行
+        rows.forEach(row => {
+            if (row.style.display !== 'none') {
+                newTbody.appendChild(row.cloneNode(true));
+            }
+        });
+        
+        newTable.appendChild(newTbody);
+        let html = newTable.outerHTML;
         
         // 创建Blob对象
         const blob = new Blob(['\ufeff' + html], { type: 'application/vnd.ms-excel' });
