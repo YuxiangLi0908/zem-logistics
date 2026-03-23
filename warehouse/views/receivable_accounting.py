@@ -5762,8 +5762,6 @@ class ReceivableAccounting(View):
                         unbilled_groups.append(g)
             else:
                 result_existing = self._separate_existing_items(existing_items, pallet_groups)     
-                print('------------------')   
-                print('existing_items',existing_items)
                 unbilled_groups = [g for g in pallet_groups if g.get("PO_ID") not in existing_items]
         else:
             result_existing = {
@@ -6599,7 +6597,7 @@ class ReceivableAccounting(View):
             # 根据冷热门仓点计算板数
             is_niche_warehouse = dest_fixed in niche_warehouse_fixed
             must_pallet = self._calculate_total_pallet(
-                group_cbm, is_new_rule, is_niche_warehouse
+                group_cbm, is_new_rule, is_niche_warehouse, vessel_etd, warehouse
             )
             item_data = {
                 "id": None,
@@ -6792,12 +6790,12 @@ class ReceivableAccounting(View):
                 rate = 0
                 amount = 0
                 total_pallets = self._calculate_total_pallet(
-                    total_cbm, is_new_rule, is_niche_warehouse
+                    total_cbm, is_new_rule, is_niche_warehouse, vessel_etd, warehouse
                 )   
                 is_niche_warehouse = True
             else:            
                 total_pallets = self._calculate_total_pallet(
-                    total_cbm, is_new_rule, is_niche_warehouse
+                    total_cbm, is_new_rule, is_niche_warehouse, vessel_etd, warehouse
                 )               
                 rate = float(rate) if rate else 0.0
                 total_pallets = float(total_pallets) if total_pallets else 0.0
@@ -6828,25 +6826,51 @@ class ReceivableAccounting(View):
         }
     
     def _calculate_total_pallet(
-        self, cbm: float, is_new_rule: bool, is_niche_warehouse: bool
+        self, cbm: float, is_new_rule: bool, is_niche_warehouse: bool, vessel_etd, warehouse
     ) -> float:
-        
+        '''板数计算公式'''
         raw_p = float(cbm) / 1.8
         integer_part = int(raw_p)
         decimal_part = raw_p - integer_part
+
+        target_date = timezone.make_aware(datetime(2025, 7, 1))
         # 本地派送的按照4.1之前的规则
         if decimal_part > 0:
+            if vessel_etd and vessel_etd > target_date:
+                # 按照LA和NJSAV不同规则去计算
+                if warehouse in ['NJ', 'SAV']:
+                    # NJ 或 SAV 仓库
+                    if is_niche_warehouse:
+                        # 冷门仓点
+                        if decimal_part > 0.5:
+                            additional = 1  # 超过0.5进位整板
+                        else:
+                            additional = 0.5  # 不超过0.5按0.5板计费
+                    else:
+                        # 热门仓点
+                        additional = 1 if decimal_part > 0.5 else 0  # 超过0.5进位整板，否则减免
+                    
+                elif warehouse == 'LA':
+                    # LA 仓库
+                    if is_niche_warehouse:
+                        # 冷门仓点：小数点不足一个板，按照1个板计算
+                        additional = 1 if decimal_part > 0 else 0
+                    else:
+                        # 热门仓点
+                        if decimal_part > 0.9:
+                            additional = 1  # 0.9以上按1个板
+                        else:
+                            additional = 0.5  # 0.1-0.9按0.5个板
             if is_new_rule:  # etd4.1之后的
                 if is_niche_warehouse:
                     additional = 1 if decimal_part > 0.5 else 0.5
                 else:
                     additional = 1 if decimal_part > 0.5 else 0
             else:
-                if decimal_part > 0:
-                    if is_niche_warehouse:
-                        additional = 1
-                    else:
-                        additional = 1 if decimal_part > 0.9 else 0.5
+                if is_niche_warehouse:
+                    additional = 1
+                else:
+                    additional = 1 if decimal_part > 0.9 else 0.5
             total_pallet = integer_part + additional
         elif decimal_part == 0:
             total_pallet = integer_part
@@ -8292,7 +8316,7 @@ class ReceivableAccounting(View):
                         costs = locations["prices"]
                         if not over_count:
                             total_pallet = self._calculate_total_pallet(
-                                pl["total_cbm"], is_new_rule, is_niche_warehouse
+                                pl["total_cbm"], is_new_rule, is_niche_warehouse, vessel_etd, warehouse
                             )
                         else:
                             total_pallet = over_count
@@ -8305,7 +8329,7 @@ class ReceivableAccounting(View):
                 pl["price"] = 0
             if not over_count:
                 total_pallet = self._calculate_total_pallet(
-                    pl["total_cbm"], is_new_rule, is_niche_warehouse
+                    pl["total_cbm"], is_new_rule, is_niche_warehouse, vessel_etd, warehouse
                 )
             else:
                 total_pallet = over_count 
