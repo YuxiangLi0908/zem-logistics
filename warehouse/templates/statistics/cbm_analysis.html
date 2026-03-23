@@ -290,9 +290,10 @@
                     <div class="filter-item">
                         <span class="filter-label">时间类型:</span>
                         <select name="date_type" class="filter-select">
-                            <option value="eta" {% if date_type == "eta" or not date_type %}selected{% endif %}>ETA</option>
+                            <option value="actual_retrieval" {% if date_type == "actual_retrieval" or not data_type %}selected{% endif %}>提柜时间</option>
+                            <option value="eta" {% if date_type == "eta" %}selected{% endif %}>ETA</option>
                             <option value="etd" {% if date_type == "etd" %}selected{% endif %}>ETD</option>
-                            <option value="actual_retrieval" {% if date_type == "actual_retrieval" %}selected{% endif %}>提柜时间</option>
+                            
                         </select>
                     </div>
                     <div class="filter-item">
