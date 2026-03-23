@@ -323,6 +323,9 @@ class ExceptionHandling(View):
         elif step == "recalculate_by_container_numbers":
             template, context = await self.handle_recalculate_by_container_numbers(request)
             return await sync_to_async(render)(request, template, context)
+        elif step == "recalculate_combine_delivery":
+            template, context = await self.handle_recalculate_combine_delivery(request)
+            return await sync_to_async(render)(request, template, context)
         elif step == "delete_shipment":
             template, context = await self.handle_delete_shipment(request)
             return await sync_to_async(render)(request, template, context)
@@ -878,6 +881,267 @@ class ExceptionHandling(View):
         context = {
             'success_messages': f'成功处理了{success_count}条记录，失败{failed_count}条！',
             'recalculate_by_container_records': result_records
+        }
+        return self.template_post_port_status, context
+
+    async def handle_recalculate_combine_delivery(self, request):
+        '''批量重新计算组合柜派送'''
+        container_numbers_str = request.POST.get('combine_container_numbers', '')
+        
+        # 按换行符和空格分割柜号
+        container_numbers = []
+        for line in container_numbers_str.split('\n'):
+            line = line.strip()
+            if line:
+                # 按空格分割
+                for num in line.split():
+                    num = num.strip()
+                    if num:
+                        container_numbers.append(num)
+        
+        # 去重
+        container_numbers = list(set(container_numbers))
+        
+        result_records = []
+        success_count = 0
+        failed_count = 0
+        
+        for container_number in container_numbers:
+            try:
+                # 查询Container表
+                container = await sync_to_async(Container.objects.get)(container_number=container_number)
+                # 查询Order表
+                order = await sync_to_async(Order.objects.get)(container_number=container)
+                # 查询Invoicev2表中created_at最早的记录
+                invoicev2 = await sync_to_async(lambda: 
+                    Invoicev2.objects.filter(
+                        container_number=container
+                    ).order_by('created_at').first()
+                )()
+                
+                if not invoicev2:
+                    result_records.append({
+                        'container_number': container_number,
+                        'error': '未找到对应的发票记录'
+                    })
+                    failed_count += 1
+                    continue
+                
+                # 删除组合柜记录
+                await sync_to_async(lambda: 
+                    InvoiceItemv2.objects.filter(
+                        invoice_number=invoicev2,
+                        delivery_type="combine"
+                    ).delete()
+                )()
+                
+                # 计算整柜的总CBM
+                total_container_cbm = await sync_to_async(lambda: 
+                    PackingList.objects.filter(
+                        container_number__container_number=container_number
+                    ).aggregate(
+                        total_cbm=Sum('cbm')
+                    )['total_cbm'] or 0.0
+                )()
+                
+                if total_container_cbm == 0:
+                    result_records.append({
+                        'container_number': container_number,
+                        'invoice_number': invoicev2.invoice_number,
+                        'error': '整柜CBM为0，无法计算组合柜费用'
+                    })
+                    failed_count += 1
+                    continue
+                
+                # 查询Pallet表
+                query_filters = {
+                    'container_number__container_number': container_number,
+                }
+                ignore_del_type = True  # 不限制delivery_type
+                
+                if not ignore_del_type:
+                    query_filters['delivery_type'] = 'public'
+                
+                base_query = Pallet.objects.filter(
+                    **query_filters
+                ).exclude(
+                    PO_ID__isnull=True
+                ).exclude(
+                    PO_ID=""
+                )
+                
+                group_fields = [
+                    "PO_ID",
+                    "destination",
+                    "zipcode",
+                    "delivery_method",
+                    "location",
+                    "delivery_type",
+                ]
+                
+                delivery_type = "public"  # 默认为public
+                
+                # if delivery_type == "other":
+                #     group_fields.append("shipping_mark")
+                
+                # 按PO_ID分组统计
+                pallet_groups = await sync_to_async(list)(
+                    base_query.values(*group_fields)
+                    .annotate(
+                        total_pallets=models.Count("pallet_id"),
+                        total_cbm=models.Sum("cbm"),
+                        total_weight_lbs=models.Sum("weight_lbs"),
+                        pallet_ids=ArrayAgg("pallet_id"),
+                        shipping_marks=StringAgg("shipping_mark", delimiter=", ", distinct=True),
+                    ).order_by("PO_ID")
+                )
+                
+                # 处理每个分组的cbm
+                for group in pallet_groups:
+                    po_id = group.get("PO_ID")
+                    shipping_marks = group.get("shipping_marks")
+                    if po_id:
+                        if delivery_type == "other":
+                            try:
+                                aggregated = await sync_to_async(lambda: 
+                                    PackingList.objects.filter(
+                                        PO_ID=po_id,
+                                        shipping_mark=shipping_marks
+                                    ).aggregate(
+                                        total_cbm=Sum('cbm'),
+                                        total_weight_lbs=Sum('total_weight_lbs')
+                                    )
+                                )()
+                                
+                                if aggregated['total_cbm'] is not None:
+                                    group['total_cbm'] = aggregated['total_cbm']
+                                if aggregated['total_weight_lbs'] is not None:
+                                    group['total_weight_lbs'] = aggregated['total_weight_lbs']
+                                
+                            except Exception as e:
+                                # 如果查询出错，不修改值
+                                continue
+                        else:
+                            if '_' in po_id:
+                                continue
+                            try:
+                                aggregated = await sync_to_async(lambda: 
+                                    PackingList.objects.filter(
+                                        PO_ID=po_id
+                                    ).aggregate(
+                                        total_cbm=Sum('cbm'),
+                                        total_weight_lbs=Sum('total_weight_lbs')
+                                    )
+                                )()
+                                
+                                if aggregated['total_cbm'] is None and '_' in po_id and group.get('shipping_marks'):
+                                    # 去掉下划线再查，同时匹配 shipping_marks
+                                    po_id_modified = po_id.split('_', 1)[0]
+                                    aggregated = await sync_to_async(lambda: 
+                                        PackingList.objects.filter(
+                                            PO_ID=po_id_modified,
+                                            shipping_mark=shipping_marks
+                                        ).aggregate(
+                                            total_cbm=Sum('cbm'),
+                                            total_weight_lbs=Sum('total_weight_lbs')
+                                        )
+                                    )()
+                                
+                                if aggregated['total_cbm'] is not None:
+                                    group['total_cbm'] = aggregated['total_cbm']
+                                if aggregated['total_weight_lbs'] is not None:
+                                    group['total_weight_lbs'] = aggregated['total_weight_lbs']
+                                
+                            except Exception as e:
+                                # 如果查询出错，不修改值
+                                continue
+                    else:
+                        # 没有PO_ID的情况
+                        result_records.append({
+                            'container_number': container_number,
+                            'invoice_number': invoicev2.invoice_number,
+                            'error': 'pallet缺少PO_ID'
+                        })
+                        failed_count += 1
+                        continue
+                
+                # 定义同步函数处理组合柜计算
+                def process_combine_delivery():
+                    from warehouse.views.receivable_accounting import ReceivableAccounting
+                    receivable_accounting = ReceivableAccounting()
+                    
+                    # 获取费用详情
+                    quotations = receivable_accounting._get_fee_details(order, order.retrieval_id.retrieval_destination_area, order.customer_name.zem_name)
+                    if isinstance(quotations, dict) and quotations.get("error_messages"):
+                        return {'error': quotations["error_messages"]}
+                    
+                    fee_details = quotations['fees']        
+                    # 处理组合柜费用
+                    combina_result = receivable_accounting._process_combina_items_with_grouping(
+                        pallet_groups=pallet_groups,
+                        container=container,
+                        order=order,
+                        fee_details=fee_details,
+                        has_previous_items=False
+                    )
+                    
+                    # 保存到InvoiceItemv2
+                    if 'items' in combina_result:
+                        for item_data in combina_result['items']:
+                            invoice_item = InvoiceItemv2(
+                                invoice_number=invoicev2,
+                                invoice_type="receivable",
+                                item_category="delivery_public",
+                                delivery_type="combine",
+                                PO_ID=item_data['PO_ID'],
+                                warehouse_code=item_data['destination'],
+                                qty=item_data['total_pallets'],
+                                cbm=item_data['total_cbm'],
+                                weight=item_data['total_weight_lbs'],
+                                rate=item_data['rate'],
+                                description=item_data['description'],
+                                surcharges=item_data['surcharges'],
+                                note=item_data['note'],
+                                amount=item_data['amount'],
+                                regionPrice=item_data['combina_price'],
+                                region=item_data['combina_region'],
+                                cbm_ratio=item_data['cbm_ratio'],
+                                container_number=container
+                            )
+                            invoice_item.save()
+                    
+                    # 更新发票总值
+                    self._update_invoice_total(invoicev2, container, True)
+                    return {'success': True}
+                
+                # 异步调用同步函数
+                result = await sync_to_async(process_combine_delivery)()
+                if 'error' in result:
+                    result_records.append({
+                        'container_number': container_number,
+                        'invoice_number': invoicev2.invoice_number,
+                        'error': result['error']
+                    })
+                    failed_count += 1
+                    continue
+                
+                # 构建结果记录
+                result_records.append({
+                    'container_number': container_number,
+                    'invoice_number': invoicev2.invoice_number,
+                    'success': True
+                })
+                success_count += 1
+            except Exception as e:
+                result_records.append({
+                    'container_number': container_number,
+                    'error': f'处理失败: {str(e)}'
+                })
+                failed_count += 1
+        
+        context = {
+            'success_messages': f'成功处理了{success_count}条记录，失败{failed_count}条！',
+            'recalculate_combine_delivery_records': result_records
         }
         return self.template_post_port_status, context
 
