@@ -79,6 +79,7 @@ from warehouse.utils.constants import (
     ACCT_BENEFICIARY_ADDRESS,
     ACCT_BENEFICIARY_NAME,
     ACCT_SWIFT_CODE,
+    WEST_COAST_REGION1,
     APP_ENV,
     CARRIER_FLEET,
     CONTAINER_PICKUP_CARRIER,
@@ -7023,6 +7024,12 @@ class ReceivableAccounting(View):
             context['error_messages'] = error_messages
             return [], [], context
         
+        order = Order.objects.select_related(
+            "retrieval_id", "container_number", "vessel_id"
+        ).get(container_number__container_number=container_number)
+        vessel_eta = order.vessel_id.vessel_eta
+        target_date = datetime(2026, 5, 1).date()
+
         # 对每个PO组，从PackingList表中获取准确的CBM和重量数据
         for group in pallet_groups:
             po_id = group.get("PO_ID")
@@ -7033,10 +7040,16 @@ class ReceivableAccounting(View):
                         aggregated = PackingList.objects.filter(PO_ID=po_id,shipping_mark=shipping_marks).aggregate(
                             total_cbm=Sum('cbm'),
                             total_weight_lbs=Sum('total_weight_lbs')
-                        )                      
-                        
-                        if aggregated['total_cbm'] is not None:
-                            group['total_cbm'] = aggregated['total_cbm']
+                        )  
+                        if vessel_eta.date() == target_date:
+                            if aggregated['total_cbm'] is not None:
+                                # 统一先调用cbm计算方式，试用阶段
+                                group['total_cbm'] = self._calculate_combine_cbm_trial(group.get("destination"), float(aggregated['total_cbm']))
+                            else:
+                                group['total_cbm'] = self._calculate_combine_cbm_trial(group.get("destination"), float(group['total_cbm']))
+                        else:
+                            if aggregated['total_cbm'] is not None:
+                                group['total_cbm'] = aggregated['total_cbm']
                         if aggregated['total_weight_lbs'] is not None:
                             group['total_weight_lbs'] = aggregated['total_weight_lbs']
                         
@@ -7061,8 +7074,15 @@ class ReceivableAccounting(View):
                                 total_cbm=Sum('cbm'),
                                 total_weight_lbs=Sum('total_weight_lbs')
                             )
-                        if aggregated['total_cbm'] is not None:
-                            group['total_cbm'] = aggregated['total_cbm']
+                        if vessel_eta.date() == target_date:
+                            if aggregated['total_cbm'] is not None:
+                                # 统一先调用cbm计算方式，试用阶段
+                                group['total_cbm'] = self._calculate_combine_cbm_trial(group.get("destination"), float(aggregated['total_cbm']))
+                            else:
+                                group['total_cbm'] = self._calculate_combine_cbm_trial(group.get("destination"), float(group['total_cbm']))
+                        else:
+                            if aggregated['total_cbm'] is not None:
+                                group['total_cbm'] = aggregated['total_cbm']
                         if aggregated['total_weight_lbs'] is not None:
                             group['total_weight_lbs'] = aggregated['total_weight_lbs']
                         
@@ -7099,6 +7119,19 @@ class ReceivableAccounting(View):
             context['error_messages'] = error_messages
         return pallet_groups, other_pallet_groups, context
     
+    def _calculate_combine_cbm_trial(
+        self,
+        destination,
+        origin_cbm
+    ):
+        '''根据仓点区域决定是否修改cbm'''
+        # 如果是美西一区，且cbm小于0.5，则修改为0.5
+        if destination in WEST_COAST_REGION1 and float(origin_cbm) < 0.5:
+            return 0.5
+        if destination not in WEST_COAST_REGION1 and float(origin_cbm) < 2.0:
+            return 2.0
+        return origin_cbm
+
     def _get_existing_activation_items(
         self,
         invoice,
