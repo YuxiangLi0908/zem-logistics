@@ -19,6 +19,7 @@ class Fleet(models.Model):
     fleet_type = models.CharField(max_length=255, null=True, blank=True)
     origin = models.CharField(max_length=255, null=True, blank=True)
     carrier = models.CharField(max_length=100, null=True, blank=True)
+    Supplier = models.CharField(max_length=100, null=True, blank=True)
     third_party_address = models.CharField(max_length=500, null=True, blank=True)
     license_plate = models.CharField(max_length=100, null=True, blank=True)
     driver_phone = models.CharField(max_length=100, null=True, blank=True)
