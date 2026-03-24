@@ -1339,8 +1339,8 @@ class FleetManagement(View):
         # 查询该车次下所有FleetShipmentPallet记录，计算分摊
         fleet_shipments = await sync_to_async(list)(
             FleetShipmentPallet.objects.filter(
-                fleet_number__fleet_number=fleet_number, description='成本费用'
-            ).only("id", "PO_ID", "total_pallet", "expense")
+                fleet_number__fleet_number=fleet_number
+            ).only("id", "PO_ID", "total_pallet", "expense", "description")
         )
         if not fleet_shipments:
             # 按PO_ID分组查询该车次下的托盘数据
