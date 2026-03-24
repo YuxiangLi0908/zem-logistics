@@ -1339,8 +1339,8 @@ class FleetManagement(View):
         # 查询该车次下所有FleetShipmentPallet记录，计算分摊
         fleet_shipments = await sync_to_async(list)(
             FleetShipmentPallet.objects.filter(
-                fleet_number__fleet_number=fleet_number
-            ).only("id", "PO_ID", "total_pallet", "expense", "description")
+                fleet_number__fleet_number=fleet_number, description='成本费用'
+            ).only("id", "PO_ID", "total_pallet", "expense")
         )
         if not fleet_shipments:
             # 按PO_ID分组查询该车次下的托盘数据
@@ -1438,23 +1438,29 @@ class FleetManagement(View):
                     # 取最早创建的记录
                     existing_invoice = existing_invoices[0] if existing_invoices else None
 
+                    # 只修改 Invoice 部分，其他完全不变
                     if existing_invoice:
-                        existed_payable_delivery_amount = existing_invoice.payable_delivery_amount
-                        # 先减去旧值
-                        existing_invoice.payable_total_amount -= existed_payable_delivery_amount
-                        # 更新字段
-                        existing_invoice.invoice_date = current_date
-                        existing_invoice.payable_delivery_amount = total_expense
-                        # 加上新值
+                        # 🔥 只更新【成本费用】，不动退回费用
+                        old_cost = existing_invoice.payable_delivery_cost
+                        existing_invoice.payable_total_amount -= old_cost
+
+                        # 新成本
+                        existing_invoice.payable_delivery_cost = total_expense
+                        existing_invoice.payable_delivery_amount = existing_invoice.payable_delivery_cost - existing_invoice.payable_delivery_refund
                         existing_invoice.payable_total_amount += total_expense
+                        existing_invoice.invoice_date = current_date
+
                         await sync_to_async(existing_invoice.save)(
-                            update_fields=['invoice_date', 'payable_delivery_amount', 'payable_total_amount']
+                            update_fields=['invoice_date', 'payable_delivery_cost', 'payable_delivery_amount',
+                                           'payable_total_amount']
                         )
                     else:
                         invoices_to_create.append(Invoicev2(
                             container_number_id=container_number,
                             created_at=current_date,
                             invoice_date=current_date,
+                            payable_delivery_cost=total_expense,  # 成本
+                            payable_delivery_refund=Decimal('0.0000'),
                             payable_delivery_amount=total_expense,
                             payable_total_amount=total_expense
                         ))
@@ -1646,6 +1652,62 @@ class FleetManagement(View):
                 await sync_to_async(FleetShipmentPallet.objects.bulk_update)(
                     update_records, ["expense"], batch_size=500
                 )
+                container_totals = await sync_to_async(
+                    lambda: list(FleetShipmentPallet.objects.filter(
+                        id__in=[record.id for record in update_records]
+                    ).values('container_number').annotate(
+                        total_expense=Sum('expense')
+                    ))
+                )()
+                # 批量创建/更新 Invoicev2
+                current_date = datetime.now().date()
+                invoices_to_create = []
+                current_date = current_date or timezone.now().date()
+                for item in container_totals:
+                    container_number = item['container_number']
+                    total_expense = item['total_expense'] or Decimal('0.0000')
+
+                    # 核心修复：按 created_at 升序排序，取最早创建的记录
+                    existing_invoices = await sync_to_async(
+                        list  # 转为列表避免多次查询
+                    )(Invoicev2.objects.filter(container_number_id=container_number)
+                      .order_by('created_at')  # 升序排列（更早的在前）
+                      .all())
+
+                    # 取最早创建的记录
+                    existing_invoice = existing_invoices[0] if existing_invoices else None
+
+                    # 只修改 Invoice 部分，其他完全不变
+                    if existing_invoice:
+                        # 🔥 只更新【退回费用】，不动成本
+                        old_refund = existing_invoice.payable_delivery_refund
+                        existing_invoice.payable_total_amount -= old_refund
+
+                        # 新退回
+                        existing_invoice.payable_delivery_refund = total_expense
+                        existing_invoice.payable_delivery_amount = existing_invoice.payable_delivery_cost - existing_invoice.payable_delivery_refund
+                        existing_invoice.payable_total_amount += total_expense
+                        existing_invoice.invoice_date = current_date
+
+                        await sync_to_async(existing_invoice.save)(
+                            update_fields=['invoice_date', 'payable_delivery_refund', 'payable_delivery_amount',
+                                           'payable_total_amount']
+                        )
+                    else:
+                        invoices_to_create.append(Invoicev2(
+                            container_number_id=container_number,
+                            created_at=current_date,
+                            invoice_date=current_date,
+                            payable_delivery_cost=Decimal('0.0000'),
+                            payable_delivery_refund=total_expense,  # 退回
+                            payable_delivery_amount=-total_expense,
+                            payable_total_amount=-total_expense
+                        ))
+
+                if invoices_to_create:
+                    await sync_to_async(Invoicev2.objects.bulk_create)(
+                        invoices_to_create, batch_size=500
+                    )
         except Exception as e:
             # 新增/更新失败时，抛出明确异常，方便排查
             raise RuntimeError(f"退回费用记录创建/分摊失败：{str(e)}") from e
