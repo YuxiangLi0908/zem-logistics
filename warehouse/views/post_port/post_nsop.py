@@ -4526,6 +4526,7 @@ class PostNsop(View):
         destination = request.POST.get('destination', '').strip()
         address = request.POST.get('address', '').strip()
         carrier = request.POST.get('carrier', '').strip()
+        supplier = request.POST.get('supplier', '').strip()
         shipment_appointment = request.POST.get('shipment_appointment', '').strip()
         if not shipment_appointment:
             raise ValueError("提货时间不能为空！")
@@ -4583,6 +4584,7 @@ class PostNsop(View):
             fleet = Fleet(
                 **{
                     "carrier": request.POST.get("carrier").strip(),
+                    "Supplier": supplier,
                     "fleet_type": shipment_type,
                     "pickup_number": pickupNumber,
                     "appointment_datetime": shipment_appointment,  # 车次的提货时间
