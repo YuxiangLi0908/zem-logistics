@@ -1343,12 +1343,16 @@ class FleetManagement(View):
             ).only("id", "PO_ID", "total_pallet", "expense")
         )
         if not fleet_shipments:
-            # 按PO_ID分组查询该车次下的托盘数据
+            # ===================== 【核心修改：只按柜号分组】 =====================
             grouped_pallets = await sync_to_async(list)(
                 Pallet.objects.filter(criteria_plt)
-                .values("shipment_batch_number", "PO_ID", "container_number")
-                .annotate(actual_pallets=Count("pallet_id"))
-                .order_by("shipment_batch_number", "PO_ID")
+                .values("container_number")  # 只按柜号分组
+                .annotate(
+                    actual_pallets=Count("pallet_id"),  # 该柜总板数
+                    shipment_batch_number_id=models.F("shipment_batch_number"),  # 取批次
+                    PO_ID=models.F("PO_ID")  # 取PO
+                )
+                .order_by("container_number")
             )
 
             if not grouped_pallets:
@@ -1360,10 +1364,10 @@ class FleetManagement(View):
                 new_record = FleetShipmentPallet(
                     fleet_number=fleet,
                     pickup_number=fleet.pickup_number,
-                    shipment_batch_number_id=group['shipment_batch_number'],
+                    shipment_batch_number_id=group['shipment_batch_number_id'],
                     PO_ID=group["PO_ID"],
-                    total_pallet=group["actual_pallets"],
-                    container_number_id=group["container_number"],
+                    total_pallet=group["actual_pallets"],  # 该柜总板数
+                    container_number_id=group["container_number"],  # 按柜号
                     is_recorded=False,
                     cost_input_time=datetime.now(),
                     operator=request.user,
@@ -1586,27 +1590,31 @@ class FleetManagement(View):
             ).only("id", "PO_ID", "total_pallet", "expense")
         )
         if not fleet_shipments:
-            # 按PO_ID分组查询该车次下的托盘数据
+            # ===================== 【核心修改：只按柜号分组】 =====================
             grouped_pallets = await sync_to_async(list)(
                 Pallet.objects.filter(criteria_plt)
-                .values("shipment_batch_number", "PO_ID", "container_number")
-                .annotate(actual_pallets=Count("pallet_id"))
-                .order_by("shipment_batch_number", "PO_ID")
+                .values("container_number")  # 只按柜号分组
+                .annotate(
+                    actual_pallets=Count("pallet_id"),  # 该柜总板数
+                    shipment_batch_number_id=models.F("shipment_batch_number"),  # 取批次
+                    PO_ID=models.F("PO_ID")  # 取PO
+                )
+                .order_by("container_number")
             )
 
             if not grouped_pallets:
                 raise ValueError(f"车次 {fleet_number} 无有效托盘数据，无法创建退回费用记录")
 
-            # 批量创建标注"退回费用"的FleetShipmentPallet记录
+            # 批量创建标注"成本费用"的FleetShipmentPallet记录
             new_fleet_shipment_pallets = []
             for group in grouped_pallets:
                 new_record = FleetShipmentPallet(
                     fleet_number=fleet,
                     pickup_number=fleet.pickup_number,
-                    shipment_batch_number_id=group["shipment_batch_number"],
+                    shipment_batch_number_id=group['shipment_batch_number_id'],
                     PO_ID=group["PO_ID"],
-                    total_pallet=group["actual_pallets"],
-                    container_number_id=group["container_number"],
+                    total_pallet=group["actual_pallets"],  # 该柜总板数
+                    container_number_id=group["container_number"],  # 按柜号
                     is_recorded=False,
                     cost_input_time=datetime.now(),
                     operator=request.user,
