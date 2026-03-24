@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from django.db import models
 from django.db.models import JSONField
 from simple_history.models import HistoricalRecords
@@ -35,7 +37,9 @@ class Invoicev2(models.Model):
     payable_preport_amount = models.FloatField(null=True, blank=True)
     payable_warehouse_amount = models.FloatField(null=True, blank=True)
     payable_delivery_amount = models.FloatField(null=True, blank=True)
- 
+    payable_delivery_cost = models.DecimalField(null=True, blank=True, max_digits=15, decimal_places=4, default=Decimal('0.0000'), verbose_name="派送成本费用")
+    payable_delivery_refund  = models.DecimalField(null=True, blank=True, max_digits=15, decimal_places=4, default=Decimal('0.0000'), verbose_name="派送退回费用")
+
     history = HistoricalRecords()
 
     def __str__(self) -> str:
