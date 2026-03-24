@@ -253,8 +253,9 @@
                                 <th>目的地</th>
                                 <th>地址</th>
                                 <th>承运公司</th>
+                                <th>供应商</th>
                                 <th>提货时间</th>
-                                <th colspan="2">车次成本</th>
+                                <th>车次成本</th>
                             </tr>
                             <tr>
                                 <td>
@@ -270,10 +271,16 @@
                                     <div class="field-hint">手动填写</div>
                                 </td>
                                 <td>
+                                    <select name="supplier" id="supplier" class="form-select">
+                                        <option value="">请选择</option>
+                                    </select>
+                                    <div class="field-hint">根据目的地自动生成</div>
+                                </td>
+                                <td>
                                     <input type="datetime-local" id="pickup-time-input" name="shipment_appointment" class="form-input" required>
                                     <div class="field-hint">自动从选中记录获取，如不同则需手动填写</div>
                                 </td>
-                                <td colspan="2">
+                                <td>
                                     <input type="text" name="fleet_cost" id="fleet_cost" class="form-input">
                                     <div class="field-hint">需要自动排车时录入</div>
                                 </td>
@@ -433,6 +440,55 @@
                     }
                 }
             });
+        }
+    }
+
+    // 全局变量，存储供应商映射
+    const SUPPLIER_MAPPING = {
+        "ARM": "ARM",
+        "ASH": "ASH",
+        "Lifeng": "Lifeng",
+        "ZEM": "ZEM",
+        "TRANSITO INC": "TRANSITO INC",
+        "ISSY TRUCKING": "ISSY TRUCKING",
+        "LLT Freight Inc": "LLT Freight Inc",
+        "AMF": "AMF",
+        "FWT": "FWT",
+        "Fastline": "Fastline",
+        "fortune": "fortune",
+        "FOREST SHIPPING USA INC": "FOREST SHIPPING USA INC",
+        "Forest Shipping New York INC": "Forest Shipping New York INC",
+        "FUTURE": "FUTURE",
+        "EAZ": "EAZ"
+    };
+
+    // 根据目的地更新供应商下拉框
+    function updateSupplierOptions() {
+        const destinationInput = document.getElementById('ftl-destination');
+        const supplierSelect = document.getElementById('supplier');
+        
+        if (!destinationInput || !supplierSelect) return;
+        
+        const destination = destinationInput.value || '';
+        
+        // 清空现有选项
+        supplierSelect.innerHTML = '<option value="">请选择</option>';
+        
+        // 检查目的地是否包含"自提"
+        if (destination.includes('自提')) {
+            // 只添加"client pickup"选项
+            const option = document.createElement('option');
+            option.value = 'client pickup';
+            option.textContent = 'client pickup';
+            supplierSelect.appendChild(option);
+        } else {
+            // 添加所有供应商选项
+            for (const [key, value] of Object.entries(SUPPLIER_MAPPING)) {
+                const option = document.createElement('option');
+                option.value = value;
+                option.textContent = value;
+                supplierSelect.appendChild(option);
+            }
         }
     }
 
@@ -648,6 +704,14 @@
         
         if (pros.size > 0 && armProInput) {
             armProInput.value = Array.from(pros).join('-');
+        }
+        
+        // 初始化供应商下拉框
+        if (destinationInput) {
+            // 添加目的地输入变化监听器
+            destinationInput.addEventListener('input', updateSupplierOptions);
+            // 初始更新
+            updateSupplierOptions();
         }
         
         // 提货时间
