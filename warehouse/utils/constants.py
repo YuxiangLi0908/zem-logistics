@@ -504,6 +504,12 @@ MODEL_CHOICES = {
     },
 }
 
+WEST_COAST_REGION1 = [
+    "ONT8", "ONT9", "LAX9", "LGB8", "SBD1", "POC1", "POC2", "POC3",
+    "IUSJ", "IUSP", "IUSQ", "IUTI", "IUSW",
+    "LGB4", "LGB6", "SBD2", "SNA4", "XLX7", "PSP3"
+]
+
 CARRIER_FLEET = {
     "": "",
     "Arm-AMF": "Arm-AMF",
