@@ -8061,6 +8061,8 @@ class Accounting(View):
                 carrier_match = any(item.carrier == select_carrier for item in invoice_items)
             elif order.retrieval_id.retrieval_destination_area == "LA" and order.order_type == "转运" and order.retrieval_id.retrieval_carrier == "Eric":
                 carrier_match = True
+            elif order.retrieval_id.retrieval_carrier == "客户自送":
+                carrier_match = True
             else:
                 s_carrier = {
                     "ARM": "大方广",
@@ -8096,13 +8098,13 @@ class Accounting(View):
                 "拆柜其他费用": {},
             }
 
-            # ========== 新增核心逻辑：判断是否为LA+转运+Eric订单 ==========
+            # ========== 新增核心逻辑：判断是否为LA+转运+Eric订单 或者为客户自送==========
             is_eric_la_transfer = (
                     order.retrieval_id and
                     order.retrieval_id.retrieval_destination_area == "LA" and
                     order.order_type == "转运" and
                     order.retrieval_id.retrieval_carrier == "Eric"
-            )
+            ) or (order.retrieval_id.retrieval_carrier == "客户自送")
 
             # 临时存储Eric订单的入库费金额
             eric_unload_fee = 0.0
@@ -12207,7 +12209,7 @@ class Accounting(View):
                 warehouse == "LA"
                 and order.order_type == "转运"
                 and retrieval_carrier == "Eric"
-        )
+        ) or retrieval_carrier == "客户自送"
 
         # 查找报价表（仅非Eric订单执行）
         quotation = None
@@ -12247,7 +12249,7 @@ class Accounting(View):
         FS = {}
 
         # ========== 修改：仅非Eric订单读取报价表费用 ==========
-        if not is_eric_la_transfer and retrieval_carrier != "Eric":
+        if not is_eric_la_transfer and retrieval_carrier != "Eric" and retrieval_carrier != "客户自送":
             fee_detail = self._get_feetail(act_pick_time, "PAYABLE")
 
             # 计算提拆费
@@ -12465,7 +12467,7 @@ class Accounting(View):
                     'rate': 900.00,  # 金额固定900
                     'surcharges': 0,
                     'amount': 900.00,  # 总金额=数量*单价
-                    'note': 'LA转运Eric自动添加的入库费（无报价表配置）',  # 备注说明来源
+                    'note': 'LA转运Eric/客户自送 自动添加的入库费（无报价表配置）',  # 备注说明来源
                     "carrier": "大方广",  # 关联供应商
                 })
         # ======================================================================================
