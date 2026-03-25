@@ -3491,7 +3491,8 @@ class PostNsop(View):
         for po in combined_list:
             # 遍历依次查找报价
             container_number = po['container_number__container_number']
-            destination = po['destination']
+            destination_str = po['destination']
+            _, destination = await self._process_destination_wlm(destination_str)
             order = await sync_to_async(
                 lambda cn=container_number: Order.objects.select_related(
                     'retrieval_id',  # 预加载retrieval_id
@@ -3659,6 +3660,14 @@ class PostNsop(View):
             return JsonResponse({"success": True, "html": html})
         return await self.handle_td_shipment_post(request, context)
     
+    async def _process_destination_wlm(self,destination):
+        """处理目的地字段"""
+        if destination and '-' in destination:
+            parts = destination.split('-')
+            if len(parts) > 1:
+                return parts[1]
+        return destination
+        
     async def _process_combina_quote(self, po, cbm, total_cbm, rules, container_type_temp, warehouse, filename):
         """按组合柜方式查找仓点报价 """
 
