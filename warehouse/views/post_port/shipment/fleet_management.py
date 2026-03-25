@@ -2049,14 +2049,11 @@ class FleetManagement(View):
             Shipment.objects
             .select_related("fleet_number")
             .filter(criteria)
-            # 关键排序：NULL/空字符串 → 排在前面；有值 → 排在后面
+            # 最终正确排序：未核实在上、已核实在下；每组内无供应商在前、有供应商在后
             .order_by(
-                # 第一层：Supplier 为空的在前（NULL=True 排前面）
-                F("fleet_number__Supplier").desc(nulls_first=True),
-                # 第二层：核实状态排序
-                "fleet_number__fleet_verify_status",
-                # 第三层：发货时间排序
-                "shipped_at"
+                "fleet_number__fleet_verify_status",  # 未核实(0) → 已核实(1)
+                F("fleet_number__Supplier").desc(nulls_first=True),  # 空Supplier在前
+                "shipped_at"  # 时间排序
             )
         )
 
