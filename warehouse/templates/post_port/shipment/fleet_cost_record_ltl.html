@@ -412,87 +412,29 @@
                                 <input type="checkbox" id="select-all-verify" onchange="toggleAllVerifySelection(this)">
                             </th>
                         {% endif %}
-                        <th class="th"
-                            style="padding: 10px 12px; text-align: left; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 110px;">
-                            柜号
-                        </th>
-                        <th class="th"
-                            style="padding: 10px 12px; text-align: center; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 80px;">
-                            一提多卸
-                        </th>
-                        <th class="th"
-                            style="padding: 10px 12px; text-align: center; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 120px; color: #ff4d4f; font-weight: 700;">
-                            一提多卸总成本
-                        </th>
-                        <th class="th"
-                            style="padding: 10px 12px; text-align: left; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 110px;">
-                            目的仓库
-                        </th>
-                        <th class="th"
-                            style="padding: 10px 12px; text-align: left; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 130px;">
-                            目的地
-                        </th>
-                        <th class="th"
-                            style="padding: 10px 12px; text-align: left; border: 1px solid #eee; font-size:14px; width: 200px !important; min-width: 200px; max-width: 200px; white-space: normal; word-wrap: break-word;">
-                            唛头
-                        </th>
-                        <th class="th"
-                            style="padding: 10px 12px; text-align: center; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 90px;">
-                            总件数
-                        </th>
-                        <th class="th"
-                            style="padding: 10px 12px; text-align: center; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 90px;">
-                            总卡板数
-                        </th>
-                        <th class="th"
-                            style="padding: 10px 12px; border: 1px solid #eee; white-space: nowrap; font-size:14px;">
-                            车次费用
-                        </th>
-                        <th class="th"
-                            style="padding: 10px 12px; text-align: center; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 120px;">
-                            分摊价格
-                        </th>
-                        <th class="th"
-                            style="padding: 10px 12px; text-align: left; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 170px;">
-                            实际出库时间
-                        </th>
-                        <th class="th"
-                            style="padding: 10px 12px; text-align: left; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 170px;">
-                            拆柜时间
-                        </th>
-                        <th class="th"
-                            style="padding: 10px 12px; text-align: left; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 140px;">
-                            出库批次
-                        </th>
-                        <th class="th"
-                            style="padding: 10px 12px; text-align: left; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 140px;">
-                            预约批次
-                        </th>
-                        <th class="th"
-                            style="padding: 10px 12px; text-align: left; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 160px;">
-                            供应商
-                        </th>
-                        <th class="th"
-                            style="padding: 10px 12px; text-align: left; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 130px;">
-                            Carrier
-                        </th>
-                        <th class="th"
-                            style="padding: 10px 12px; text-align: left; border: 1px solid #eee; font-size:14px; width: 200px !important; min-width: 200px; max-width: 200px; white-space: normal; word-wrap: break-word;">
-                            备注
-                        </th>
+                        <!-- 调整后表头顺序 -->
+                        <th class="th" style="padding: 10px 12px; text-align: left; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 110px;">柜号</th>
+                        <th class="th" style="padding: 10px 12px; text-align: left; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 110px;">目的仓库</th>
+                        <th class="th" style="padding: 10px 12px; text-align: left; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 130px;">目的地</th>
+                        <th class="th" style="padding: 10px 12px; text-align: left; border: 1px solid #eee; font-size:14px; width: 200px !important; min-width: 200px; max-width: 200px; white-space: normal; word-wrap: break-word;">唛头</th>
+                        <th class="th" style="padding: 10px 12px; text-align: left; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 160px;">供应商</th>
+                        <th class="th" style="padding: 10px 12px; text-align: center; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 90px;">总件数</th>
+                        <th class="th" style="padding: 10px 12px; text-align: center; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 90px;">总卡板数</th>
+                        <th class="th" style="padding: 10px 12px; border: 1px solid #eee; white-space: nowrap; font-size:14px;">车次费用</th>
+                        <th class="th" style="padding: 10px 12px; text-align: center; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 120px;">分摊价格</th>
+                        <th class="th" style="padding: 10px 12px; text-align: center; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 80px;">一提多卸</th>
+                        <th class="th" style="padding: 10px 12px; text-align: center; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 120px; color: #ff4d4f; font-weight: 700;">一提多卸总成本</th>
+                        <!-- 原有剩余列 -->
+                        <th class="th" style="padding: 10px 12px; text-align: left; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 170px;">实际出库时间</th>
+                        <th class="th" style="padding: 10px 12px; text-align: left; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 170px;">拆柜时间</th>
+                        <th class="th" style="padding: 10px 12px; text-align: left; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 140px;">出库批次</th>
+                        <th class="th" style="padding: 10px 12px; text-align: left; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 140px;">预约批次</th>
+                        <th class="th" style="padding: 10px 12px; text-align: left; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 130px;">Carrier</th>
+                        <th class="th" style="padding: 10px 12px; text-align: left; border: 1px solid #eee; font-size:14px; width: 200px !important; min-width: 200px; max-width: 200px; white-space: normal; word-wrap: break-word;">备注</th>
                         {% if shipment_type == '已录入内容' %}
-                            <th class="th"
-                                style="padding: 10px 12px; text-align: left; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 190px;">
-                                退回费用
-                            </th>
-                            <th class="th"
-                                style="padding: 10px 12px; text-align: center; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 120px;">
-                                核实状态
-                            </th>
-                            <th class="th"
-                                style="padding: 10px 12px; text-align: center; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 120px;">
-                                操作
-                            </th>
+                            <th class="th" style="padding: 10px 12px; text-align: left; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 190px;">退回费用</th>
+                            <th class="th" style="padding: 10px 12px; text-align: center; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 120px;">核实状态</th>
+                            <th class="th" style="padding: 10px 12px; text-align: center; border: 1px solid #eee; font-size:14px; white-space: nowrap; min-width: 120px;">操作</th>
                         {% endif %}
                     </tr>
                     <tr style="position: sticky; top: 40px; background: #f9f9f9;" id="fleet-table-filter">
@@ -502,52 +444,25 @@
                         {% if shipment_type == '已录入内容' %}
                             <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 60px;"></th>
                         {% endif %}
-                        <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 110px;"><input
-                                type="text" placeholder="搜索柜号..." class="filter-input" data-col="container"
-                                style="font-size: 14px; width: 100%;"></th>
-                        <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 120px;">
-                            <input type="text" placeholder="搜索一提多卸..." class="filter-input"
-                                   data-col="multi-unload"
-                                   style="font-size: 14px; width: 100%;">
-                        </th>
-                        <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 80px;"></th>
-                        <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 110px;"><input
-                                type="text" placeholder="搜索目的仓库..." class="filter-input" data-col="warehouse"
-                                style="font-size: 14px; width: 100%;"></th>
-                        <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 130px;"><input
-                                type="text" placeholder="搜索目的地..." class="filter-input" data-col="destination"
-                                style="font-size: 14px; width: 100%;"></th>
-                        <th class="th"
-                            style="padding: 8px 12px; border: 1px solid #eee; width: 200px !important; min-width: 200px; max-width: 200px;">
-                            <input type="text" placeholder="搜索唛头..." class="filter-input" data-col="mark"
-                                   style="font-size: 14px; width: 100%;"></th>
+                        <!-- 筛选框同步调整顺序 -->
+                        <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 110px;"><input type="text" placeholder="搜索柜号..." class="filter-input" data-col="container" style="font-size: 14px; width: 100%;"></th>
+                        <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 110px;"><input type="text" placeholder="搜索目的仓库..." class="filter-input" data-col="warehouse" style="font-size: 14px; width: 100%;"></th>
+                        <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 130px;"><input type="text" placeholder="搜索目的地..." class="filter-input" data-col="destination" style="font-size: 14px; width: 100%;"></th>
+                        <th class="th" style="padding: 8px 12px; border: 1px solid #eee; width: 200px !important; min-width: 200px; max-width: 200px;"><input type="text" placeholder="搜索唛头..." class="filter-input" data-col="mark" style="font-size: 14px; width: 100%;"></th>
+                        <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 160px;"><input type="text" placeholder="搜索供应商..." class="filter-input" data-col="supplier" style="font-size: 14px; width: 100%;"></th>
                         <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 90px;"></th>
                         <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 90px;"></th>
                         <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 190px;"></th>
                         <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 120px;"></th>
-                        <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 170px;"><input
-                                type="text" placeholder="搜索出库时间..." class="filter-input" data-col="shipout"
-                                style="font-size: 14px; width: 100%;"></th>
-                        <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 170px;"><input
-                                type="text" placeholder="搜索拆柜时间..." class="filter-input" data-col="unload"
-                                style="font-size: 14px; width: 100%;"></th>
-                        <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 140px;"><input
-                                type="text" placeholder="搜索出库批次..." class="filter-input" data-col="batch"
-                                style="font-size: 14px; width: 100%;"></th>
-                        <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 140px;"><input
-                                type="text" placeholder="搜索预约批次..." class="filter-input" data-col="appointment"
-                                style="font-size: 14px; width: 100%;"></th>
-                        <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 160px;">
-                            <input type="text" placeholder="搜索供应商..." class="filter-input" data-col="supplier"
-                                   style="font-size: 14px; width: 100%;">
-                        </th>
-                        <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 130px;"><input
-                                type="text" placeholder="搜索Carrier..." class="filter-input" data-col="carrier"
-                                style="font-size: 14px; width: 100%;"></th>
-                        <th class="th"
-                            style="padding: 8px 12px; border: 1px solid #eee; width: 200px !important; min-width: 200px; max-width: 200px;">
-                            <input type="text" placeholder="搜索备注..." class="filter-input" data-col="note"
-                                   style="font-size: 14px; width: 100%;"></th>
+                        <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 80px;"><input type="text" placeholder="搜索一提多卸..." class="filter-input" data-col="multi-unload" style="font-size: 14px; width: 100%;"></th>
+                        <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 120px;"></th>
+                        <!-- 剩余筛选框 -->
+                        <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 170px;"><input type="text" placeholder="搜索出库时间..." class="filter-input" data-col="shipout" style="font-size: 14px; width: 100%;"></th>
+                        <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 170px;"><input type="text" placeholder="搜索拆柜时间..." class="filter-input" data-col="unload" style="font-size: 14px; width: 100%;"></th>
+                        <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 140px;"><input type="text" placeholder="搜索出库批次..." class="filter-input" data-col="batch" style="font-size: 14px; width: 100%;"></th>
+                        <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 140px;"><input type="text" placeholder="搜索预约批次..." class="filter-input" data-col="appointment" style="font-size: 14px; width: 100%;"></th>
+                        <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 130px;"><input type="text" placeholder="搜索Carrier..." class="filter-input" data-col="carrier" style="font-size: 14px; width: 100%;"></th>
+                        <th class="th" style="padding: 8px 12px; border: 1px solid #eee; width: 200px !important; min-width: 200px; max-width: 200px;"><input type="text" placeholder="搜索备注..." class="filter-input" data-col="note" style="font-size: 14px; width: 100%;"></th>
                         {% if shipment_type == '已录入内容' %}
                             <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 190px;"></th>
                             <th class="th" style="padding: 8px 12px; border: 1px solid #eee; min-width: 120px;"></th>
@@ -580,381 +495,159 @@
                                            onchange="handleMultiUnloadVerifySelection(this)">
                                 </td>
                             {% endif %}
-                            <td class="td" data-col="container"
-                                style="padding: 10px 12px; border: 1px solid #eee; white-space: nowrap; font-size:14px;">
-                                {{ f.container_number|default_if_none:"-" }}
-                            </td>
-                            <td class="td" data-col="multi-unload"
-                                style="padding: 10px 12px; border: 1px solid #eee; text-align: center; white-space: nowrap; font-size:14px;">
-                                {% if f.fleet_number.train_related %}
-                                    <span class="multi-unload-tag">是</span>
+                            <!-- 调整后数据列顺序 -->
+                            <td class="td" data-col="container" style="padding: 10px 12px; border: 1px solid #eee; white-space: nowrap; font-size:14px;">{{ f.container_number|default_if_none:"-" }}</td>
+                            <td class="td" data-col="warehouse" style="padding: 10px 12px; border: 1px solid #eee; white-space: nowrap; font-size:14px;">{{ f.all_locations|default_if_none:"-" }}</td>
+                            <td class="td" data-col="destination" style="padding: 10px 12px; border: 1px solid #eee; white-space: nowrap; font-size:14px;">{{ f.destination|default_if_none:"-" }}</td>
+                            <td class="td" data-col="mark" style="padding: 10px 12px; border: 1px solid #eee; width: 200px !important; min-width: 200px; max-width: 200px; font-size:14px; white-space: normal; word-wrap: break-word; line-height: 1.2;">{{ f.shipping_mark|default_if_none:"-" }}</td>
+                            <td class="td" data-col="supplier" style="padding: 10px 12px; border: 1px solid #eee; white-space: nowrap; font-size:14px;">
+                                {% if shipment_type == '已录入内容' %}
+                                    <form action="" method="post" style="margin: 0; display: flex; gap: 6px; align-items: center;">
+                                        {% csrf_token %}
+                                        <select name="supplier" style="width: 180px; font-size: 14px; padding: 6px; border: 1px solid #ddd; border-radius: 4px;">
+                                            <option value="">-- 请选择供应商 --</option>
+                                            <option value="ARM" {% if f.fleet_number.Supplier == "ARM" %}selected{% endif %}>ARM</option>
+                                            <option value="ASH" {% if f.fleet_number.Supplier == "ASH" %}selected{% endif %}>ASH</option>
+                                            <option value="Lifeng" {% if f.fleet_number.Supplier == "Lifeng" %}selected{% endif %}>Lifeng</option>
+                                            <option value="ZEM" {% if f.fleet_number.Supplier == "ZEM" %}selected{% endif %}>ZEM</option>
+                                            <option value="TRANSITO INC" {% if f.fleet_number.Supplier == "TRANSITO INC" %}selected{% endif %}>TRANSITO INC</option>
+                                            <option value="ISSY TRUCKING" {% if f.fleet_number.Supplier == "ISSY TRUCKING" %}selected{% endif %}>ISSY TRUCKING</option>
+                                            <option value="LLT Freight Inc" {% if f.fleet_number.Supplier == "LLT Freight Inc" %}selected{% endif %}>LLT Freight Inc</option>
+                                            <option value="AMF" {% if f.fleet_number.Supplier == "AMF" %}selected{% endif %}>AMF</option>
+                                            <option value="FWT" {% if f.fleet_number.Supplier == "FWT" %}selected{% endif %}>FWT</option>
+                                            <option value="Fastline" {% if f.fleet_number.Supplier == "Fastline" %}selected{% endif %}>Fastline</option>
+                                            <option value="fortune" {% if f.fleet_number.Supplier == "fortune" %}selected{% endif %}>fortune</option>
+                                            <option value="FOREST SHIPPING USA INC" {% if f.fleet_number.Supplier == "FOREST SHIPPING USA INC" %}selected{% endif %}>FOREST SHIPPING USA INC</option>
+                                            <option value="Forest Shipping New York INC" {% if f.fleet_number.Supplier == "Forest Shipping New York INC" %}selected{% endif %}>Forest Shipping New York INC</option>
+                                            <option value="FUTURE" {% if f.fleet_number.Supplier == "FUTURE" %}selected{% endif %}>FUTURE</option>
+                                            <option value="EAZ" {% if f.fleet_number.Supplier == "EAZ" %}selected{% endif %}>EAZ</option>
+                                            <option value="client pickup" {% if f.fleet_number.Supplier == "client pickup" %}selected{% endif %}>client pickup</option>
+                                        </select>
+                                        <input type="hidden" name="fleet_number" value="{{ f.fleet_number.id }}">
+                                        <input type="hidden" name="step" value="update_fleet_supplier">
+                                        <input type="hidden" name="status" value="unrecord">
+                                        <input type="hidden" name="start_time" value="{{ start_time }}">
+                                        <input type="hidden" name="end_time" value="{{ end_time }}">
+                                        <button type="submit" class="btn btn-success btn-sm" onclick="showLoadingBar()">保存</button>
+                                    </form>
                                 {% else %}
-                                    <span class="text-muted">否</span>
+                                    <form action="" method="post" style="margin: 0; display: flex; gap: 6px; align-items: center;">
+                                        {% csrf_token %}
+                                        <select name="supplier" style="width: 180px; font-size: 14px; padding: 6px; border: 1px solid #ddd; border-radius: 4px;">
+                                            <option value="">-- 请选择供应商 --</option>
+                                            <option value="ARM" {% if f.fleet_number.Supplier == "ARM" %}selected{% endif %}>ARM</option>
+                                            <option value="ASH" {% if f.fleet_number.Supplier == "ASH" %}selected{% endif %}>ASH</option>
+                                            <option value="Lifeng" {% if f.fleet_number.Supplier == "Lifeng" %}selected{% endif %}>Lifeng</option>
+                                            <option value="ZEM" {% if f.fleet_number.Supplier == "ZEM" %}selected{% endif %}>ZEM</option>
+                                            <option value="TRANSITO INC" {% if f.fleet_number.Supplier == "TRANSITO INC" %}selected{% endif %}>TRANSITO INC</option>
+                                            <option value="ISSY TRUCKING" {% if f.fleet_number.Supplier == "ISSY TRUCKING" %}selected{% endif %}>ISSY TRUCKING</option>
+                                            <option value="LLT Freight Inc" {% if f.fleet_number.Supplier == "LLT Freight Inc" %}selected{% endif %}>LLT Freight Inc</option>
+                                            <option value="AMF" {% if f.fleet_number.Supplier == "AMF" %}selected{% endif %}>AMF</option>
+                                            <option value="FWT" {% if f.fleet_number.Supplier == "FWT" %}selected{% endif %}>FWT</option>
+                                            <option value="Fastline" {% if f.fleet_number.Supplier == "Fastline" %}selected{% endif %}>Fastline</option>
+                                            <option value="fortune" {% if f.fleet_number.Supplier == "fortune" %}selected{% endif %}>fortune</option>
+                                            <option value="FOREST SHIPPING USA INC" {% if f.fleet_number.Supplier == "FOREST SHIPPING USA INC" %}selected{% endif %}>FOREST SHIPPING USA INC</option>
+                                            <option value="Forest Shipping New York INC" {% if f.fleet_number.Supplier == "Forest Shipping New York INC" %}selected{% endif %}>Forest Shipping New York INC</option>
+                                            <option value="FUTURE" {% if f.fleet_number.Supplier == "FUTURE" %}selected{% endif %}>FUTURE</option>
+                                            <option value="EAZ" {% if f.fleet_number.Supplier == "EAZ" %}selected{% endif %}>EAZ</option>
+                                            <option value="client pickup" {% if f.fleet_number.Supplier == "client pickup" %}selected{% endif %}>client pickup</option>
+                                        </select>
+                                        <input type="hidden" name="fleet_number" value="{{ f.fleet_number.id }}">
+                                        <input type="hidden" name="step" value="update_fleet_supplier">
+                                        <input type="hidden" name="status" value="record">
+                                        <input type="hidden" name="start_time" value="{{ start_time }}">
+                                        <input type="hidden" name="end_time" value="{{ end_time }}">
+                                        <button type="submit" class="btn btn-success btn-sm" onclick="showLoadingBar()">保存</button>
+                                    </form>
                                 {% endif %}
                             </td>
-                            <td class="td multi-unload-total-cost"
-                                style="padding: 10px 12px; border: 1px solid #eee; text-align: center; white-space: nowrap; font-size:14px; color: #ff4d4f; font-weight: 600;">
-                                {{ f.multi_unload_total_cost|default_if_none:0|floatformat:2 }}
-                            </td>
-                            <td class="td" data-col="warehouse"
-                                style="padding: 10px 12px; border: 1px solid #eee; white-space: nowrap; font-size:14px;">
-                                {{ f.all_locations|default_if_none:"-" }}
-                            </td>
-                            <td class="td" data-col="destination"
-                                style="padding: 10px 12px; border: 1px solid #eee; white-space: nowrap; font-size:14px;">
-                                {{ f.destination|default_if_none:"-" }}
-                            </td>
-                            <td class="td" data-col="mark"
-                                style="padding: 10px 12px; border: 1px solid #eee; width: 200px !important; min-width: 200px; max-width: 200px; font-size:14px; white-space: normal; word-wrap: break-word; line-height: 1.2;">
-                                {{ f.shipping_mark|default_if_none:"-" }}
-                            </td>
-                            <td class="td"
-                                style="padding: 10px 12px; border: 1px solid #eee; text-align: center; white-space: nowrap; font-size:14px;">
-                                {{ f.shipped_pcs|default_if_none:0|floatformat:0 }}
-                            </td>
-                            <td class="td"
-                                style="padding: 10px 12px; border: 1px solid #eee; text-align: center; white-space: nowrap; font-size:14px;">
-                                {{ f.shipped_pallet|default_if_none:0|floatformat:0 }}
-                            </td>
-                            {% if shipment_type == '已录入内容' %}
-                                <td class="td"
-                                style="padding: 10px 12px; border: 1px solid #eee; white-space: nowrap; font-size:14px;">
-                                <form action="" method="post"
-                                      style="margin: 0; display: flex; gap: 6px; align-items: center;">
+                            <td class="td" style="padding: 10px 12px; border: 1px solid #eee; text-align: center; white-space: nowrap; font-size:14px;">{{ f.shipped_pcs|default_if_none:0|floatformat:0 }}</td>
+                            <td class="td" style="padding: 10px 12px; border: 1px solid #eee; text-align: center; white-space: nowrap; font-size:14px;">{{ f.shipped_pallet|default_if_none:0|floatformat:0 }}</td>
+                            <td class="td" style="padding: 10px 12px; border: 1px solid #eee; white-space: nowrap; font-size:14px;">
+                                <form action="" method="post" style="margin: 0; display: flex; gap: 6px; align-items: center;">
                                     {% csrf_token %}
-                                    <input type="number" step="0.01" name="fleet_cost"
-                                           value="{{ f.fleet_number.fleet_cost|default_if_none:0 }}"
-                                           style="width: 100px; font-size: 14px; padding: 6px; border: 1px solid #ddd; border-radius: 4px;">
-                                    <input type="hidden" name="fleet_number"
-                                           value="{{ f.fleet_number|default_if_none:'' }}">
+                                    <input type="number" step="0.01" name="fleet_cost" value="{{ f.fleet_number.fleet_cost|default_if_none:0 }}" style="width: 100px; font-size: 14px; padding: 6px; border: 1px solid #ddd; border-radius: 4px;">
+                                    <input type="hidden" name="fleet_number" value="{{ f.fleet_number|default_if_none:'' }}">
                                     <input type="hidden" name="step" value="fleet_cost_confirm_ltl">
-                                    <input type="hidden" name="status" value="unrecord">
+                                    <input type="hidden" name="status" value="{% if shipment_type == '已录入内容' %}unrecord{% else %}record{% endif %}">
                                     <input type="hidden" name="area" value="{{ area }}">
                                     <input type="hidden" name="start_time" value="{{ start_time }}">
                                     <input type="hidden" name="end_time" value="{{ end_time }}">
-                                    <button type="submit" class="btn btn-success"
-                                            style="font-size: 14px; padding: 6px 10px; border: none; border-radius: 4px; background: #28a745; color: white; cursor: pointer;"
-                                            onclick="showLoadingBar()">
-                                        确认
-                                    </button>
+                                    <button type="submit" class="btn btn-success" style="font-size: 14px; padding: 6px 10px; border: none; border-radius: 4px; background: #28a745; color: white; cursor: pointer;" onclick="showLoadingBar()">确认</button>
                                 </form>
                             </td>
-                            {% else %}
-                                <td class="td"
-                                style="padding: 10px 12px; border: 1px solid #eee; white-space: nowrap; font-size:14px;">
-                                <form action="" method="post"
-                                      style="margin: 0; display: flex; gap: 6px; align-items: center;">
+                            <td class="td" style="padding: 10px 12px; border: 1px solid #eee; text-align: center; white-space: nowrap; font-size:14px; color: #ff4d4f; font-weight: 600;">{{ f.allocation_price|default_if_none:0|floatformat:2 }}</td>
+                            <td class="td" data-col="multi-unload" style="padding: 10px 12px; border: 1px solid #eee; text-align: center; white-space: nowrap; font-size:14px;">
+                                {% if f.fleet_number.train_related %}<span class="multi-unload-tag">是</span>{% else %}<span class="text-muted">否</span>{% endif %}
+                            </td>
+                            <td class="td multi-unload-total-cost" style="padding: 10px 12px; border: 1px solid #eee; text-align: center; white-space: nowrap; font-size:14px; color: #ff4d4f; font-weight: 600;">{{ f.multi_unload_total_cost|default_if_none:0|floatformat:2 }}</td>
+                            <!-- 剩余数据列 -->
+                            <td class="td" data-col="shipout" style="padding: 10px 12px; border: 1px solid #eee; white-space: nowrap; font-size:14px;">{{ f.shipped_at|default_if_none:"-"|date:"Y-m-d H:i" }}</td>
+                            <td class="td" data-col="unload" style="padding: 10px 12px; border: 1px solid #eee; white-space: nowrap; font-size:14px;">{{ f.offload_at|default_if_none:"-"|date:"Y-m-d H:i" }}</td>
+                            <td class="td" data-col="batch" style="padding: 10px 12px; border: 1px solid #eee; white-space: nowrap; font-size:14px;">{{ f.fleet_number.fleet_number|default_if_none:"-" }}</td>
+                            <td class="td" data-col="appointment" style="padding: 10px 12px; border: 1px solid #eee; white-space: nowrap; font-size:14px;">{{ f.shipment_batch_number|default_if_none:"-" }}</td>
+                            <td class="td" data-col="carrier" style="padding: 10px 12px; border: 1px solid #eee; white-space: nowrap; font-size:14px;">{{ f.carrier|default_if_none:"-" }}</td>
+                            <td class="td" data-col="note" style="padding: 10px 12px; border: 1px solid #eee; width: 200px !important; min-width: 200px; max-width: 200px; font-size:14px; white-space: normal; word-wrap: break-word; line-height: 1.2;">
+                                <form action="" method="post" style="margin: 0; display: flex; gap: 6px; align-items: flex-start; flex-wrap: wrap;">
                                     {% csrf_token %}
-                                    <input type="number" step="0.01" name="fleet_cost"
-                                           value="{{ f.fleet_number.fleet_cost|default_if_none:0 }}"
-                                           style="width: 100px; font-size: 14px; padding: 6px; border: 1px solid #ddd; border-radius: 4px;">
-                                    <input type="hidden" name="fleet_number"
-                                           value="{{ f.fleet_number|default_if_none:'' }}">
-                                    <input type="hidden" name="step" value="fleet_cost_confirm_ltl">
-                                    <input type="hidden" name="status" value="record">
-                                    <input type="hidden" name="area" value="{{ area }}">
-                                    <input type="hidden" name="start_time" value="{{ start_time }}">
-                                    <input type="hidden" name="end_time" value="{{ end_time }}">
-                                    <button type="submit" class="btn btn-success"
-                                            style="font-size: 14px; padding: 6px 10px; border: none; border-radius: 4px; background: #28a745; color: white; cursor: pointer;"
-                                            onclick="showLoadingBar()">
-                                        确认
-                                    </button>
-                                </form>
-                            </td>
-                            {% endif %}
-                            <td class="td"
-                                style="padding: 10px 12px; border: 1px solid #eee; text-align: center; white-space: nowrap; font-size:14px; color: #ff4d4f; font-weight: 600;">
-                                {{ f.allocation_price|default_if_none:0|floatformat:2 }}
-                            </td>
-                            <td class="td" data-col="shipout"
-                                style="padding: 10px 12px; border: 1px solid #eee; white-space: nowrap; font-size:14px;">
-                                {{ f.shipped_at|default_if_none:"-"|date:"Y-m-d H:i" }}
-                            </td>
-                            <td class="td" data-col="unload"
-                                style="padding: 10px 12px; border: 1px solid #eee; white-space: nowrap; font-size:14px;">
-                                {{ f.offload_at|default_if_none:"-"|date:"Y-m-d H:i" }}
-                            </td>
-                            <td class="td" data-col="batch"
-                                style="padding: 10px 12px; border: 1px solid #eee; white-space: nowrap; font-size:14px;">
-                                {{ f.fleet_number.fleet_number|default_if_none:"-" }}
-                            </td>
-                            <td class="td" data-col="appointment"
-                                style="padding: 10px 12px; border: 1px solid #eee; white-space: nowrap; font-size:14px;">
-                                {{ f.shipment_batch_number|default_if_none:"-" }}
-                            </td>
-                            {% if shipment_type == '已录入内容' %}
-                                <td class="td" data-col="supplier"
-                                    style="padding: 10px 12px; border: 1px solid #eee; white-space: nowrap; font-size:14px;">
-                                    <form action="" method="post"
-                                          style="margin: 0; display: flex; gap: 6px; align-items: center;">
-                                        {% csrf_token %}
-                                        <select name="supplier"
-                                                style="width: 180px; font-size: 14px; padding: 6px; border: 1px solid #ddd; border-radius: 4px;">
-                                            <option value="">-- 请选择供应商 --</option>
-                                            <option value="ARM" {% if f.fleet_number.Supplier == "ARM" %}selected{% endif %}>ARM
-                                            </option>
-                                            <option value="ASH" {% if f.fleet_number.Supplier == "ASH" %}selected{% endif %}>ASH
-                                            </option>
-                                            <option value="Lifeng" {% if f.fleet_number.Supplier == "Lifeng" %}selected{% endif %}>
-                                                Lifeng
-                                            </option>
-                                            <option value="ZEM" {% if f.fleet_number.Supplier == "ZEM" %}selected{% endif %}>ZEM
-                                            </option>
-                                            <option value="TRANSITO INC"
-                                                    {% if f.fleet_number.Supplier == "TRANSITO INC" %}selected{% endif %}>TRANSITO
-                                                INC
-                                            </option>
-                                            <option value="ISSY TRUCKING"
-                                                    {% if f.fleet_number.Supplier == "ISSY TRUCKING" %}selected{% endif %}>ISSY
-                                                TRUCKING
-                                            </option>
-                                            <option value="LLT Freight Inc"
-                                                    {% if f.fleet_number.Supplier == "LLT Freight Inc" %}selected{% endif %}>LLT
-                                                Freight Inc
-                                            </option>
-                                            <option value="AMF" {% if f.fleet_number.Supplier == "AMF" %}selected{% endif %}>AMF
-                                            </option>
-                                            <option value="FWT" {% if f.fleet_number.Supplier == "FWT" %}selected{% endif %}>FWT
-                                            </option>
-                                            <option value="Fastline"
-                                                    {% if f.fleet_number.Supplier == "Fastline" %}selected{% endif %}>Fastline
-                                            </option>
-                                            <option value="fortune" {% if f.fleet_number.Supplier == "fortune" %}selected{% endif %}>
-                                                fortune
-                                            </option>
-                                            <option value="FOREST SHIPPING USA INC"
-                                                    {% if f.fleet_number.Supplier == "FOREST SHIPPING USA INC" %}selected{% endif %}>
-                                                FOREST SHIPPING USA INC
-                                            </option>
-                                            <option value="Forest Shipping New York INC"
-                                                    {% if f.fleet_number.Supplier == "Forest Shipping New York INC" %}selected{% endif %}>
-                                                Forest Shipping New York INC
-                                            </option>
-                                            <option value="FUTURE" {% if f.fleet_number.Supplier == "FUTURE" %}selected{% endif %}>
-                                                FUTURE
-                                            </option>
-                                            <option value="EAZ" {% if f.fleet_number.Supplier == "EAZ" %}selected{% endif %}>EAZ
-                                            </option>
-                                            <option value="client pickup"
-                                                    {% if f.fleet_number.Supplier == "client pickup" %}selected{% endif %}>client
-                                                pickup
-                                            </option>
-                                        </select>
-                                        <input type="hidden" name="fleet_number" value="{{ f.fleet_number.id }}">
-                                        <input type="hidden" name="step" value="update_fleet_supplier">
-
-                                        <!-- 已录入页面 = 提交 unrecord（你是对的） -->
-                                        <input type="hidden" name="status" value="unrecord">
-
-                                        <input type="hidden" name="start_time" value="{{ start_time }}">
-                                        <input type="hidden" name="end_time" value="{{ end_time }}">
-                                        <button type="submit" class="btn btn-success btn-sm" onclick="showLoadingBar()">
-                                            保存
-                                        </button>
-                                    </form>
-                                </td>
-                            {% else %}
-                                <td class="td" data-col="supplier"
-                                    style="padding: 10px 12px; border: 1px solid #eee; white-space: nowrap; font-size:14px;">
-                                    <form action="" method="post"
-                                          style="margin: 0; display: flex; gap: 6px; align-items: center;">
-                                        {% csrf_token %}
-                                        <select name="supplier"
-                                                style="width: 180px; font-size: 14px; padding: 6px; border: 1px solid #ddd; border-radius: 4px;">
-                                            <option value="">-- 请选择供应商 --</option>
-                                            <option value="ARM" {% if f.fleet_number.Supplier == "ARM" %}selected{% endif %}>ARM
-                                            </option>
-                                            <option value="ASH" {% if f.fleet_number.Supplier == "ASH" %}selected{% endif %}>ASH
-                                            </option>
-                                            <option value="Lifeng" {% if f.fleet_number.Supplier == "Lifeng" %}selected{% endif %}>
-                                                Lifeng
-                                            </option>
-                                            <option value="ZEM" {% if f.fleet_number.Supplier == "ZEM" %}selected{% endif %}>ZEM
-                                            </option>
-                                            <option value="TRANSITO INC"
-                                                    {% if f.fleet_number.Supplier == "TRANSITO INC" %}selected{% endif %}>TRANSITO
-                                                INC
-                                            </option>
-                                            <option value="ISSY TRUCKING"
-                                                    {% if f.fleet_number.Supplier == "ISSY TRUCKING" %}selected{% endif %}>ISSY
-                                                TRUCKING
-                                            </option>
-                                            <option value="LLT Freight Inc"
-                                                    {% if f.fleet_number.Supplier == "LLT Freight Inc" %}selected{% endif %}>LLT
-                                                Freight Inc
-                                            </option>
-                                            <option value="AMF" {% if f.fleet_number.Supplier == "AMF" %}selected{% endif %}>AMF
-                                            </option>
-                                            <option value="FWT" {% if f.fleet_number.Supplier == "FWT" %}selected{% endif %}>FWT
-                                            </option>
-                                            <option value="Fastline"
-                                                    {% if f.fleet_number.Supplier == "Fastline" %}selected{% endif %}>Fastline
-                                            </option>
-                                            <option value="fortune" {% if f.fleet_number.Supplier == "fortune" %}selected{% endif %}>
-                                                fortune
-                                            </option>
-                                            <option value="FOREST SHIPPING USA INC"
-                                                    {% if f.fleet_number.Supplier == "FOREST SHIPPING USA INC" %}selected{% endif %}>
-                                                FOREST SHIPPING USA INC
-                                            </option>
-                                            <option value="Forest Shipping New York INC"
-                                                    {% if f.fleet_number.Supplier == "Forest Shipping New York INC" %}selected{% endif %}>
-                                                Forest Shipping New York INC
-                                            </option>
-                                            <option value="FUTURE" {% if f.fleet_number.Supplier == "FUTURE" %}selected{% endif %}>
-                                                FUTURE
-                                            </option>
-                                            <option value="EAZ" {% if f.fleet_number.Supplier == "EAZ" %}selected{% endif %}>EAZ
-                                            </option>
-                                            <option value="client pickup"
-                                                    {% if f.fleet_number.Supplier == "client pickup" %}selected{% endif %}>client
-                                                pickup
-                                            </option>
-                                        </select>
-                                        <input type="hidden" name="fleet_number" value="{{ f.fleet_number.id }}">
-                                        <input type="hidden" name="step" value="update_fleet_supplier">
-
-                                        <!-- 未录入页面 = 提交 record（你是对的） -->
-                                        <input type="hidden" name="status" value="record">
-
-                                        <input type="hidden" name="start_time" value="{{ start_time }}">
-                                        <input type="hidden" name="end_time" value="{{ end_time }}">
-                                        <button type="submit" class="btn btn-success btn-sm" onclick="showLoadingBar()">
-                                            保存
-                                        </button>
-                                    </form>
-                                </td>
-                            {% endif %}
-                            <td class="td" data-col="carrier"
-                                style="padding: 10px 12px; border: 1px solid #eee; white-space: nowrap; font-size:14px;">
-                                {{ f.carrier|default_if_none:"-" }}
-                            </td>
-                            {% if shipment_type == '已录入内容' %}
-                                <td class="td" data-col="note"
-                                style="padding: 10px 12px; border: 1px solid #eee; width: 200px !important; min-width: 200px; max-width: 200px; font-size:14px; white-space: normal; word-wrap: break-word; line-height: 1.2;">
-                                <form action="" method="post"
-                                      style="margin: 0; display: flex; gap: 6px; align-items: flex-start; flex-wrap: wrap;">
-                                    {% csrf_token %}
-                                    <textarea name="note" placeholder="请输入备注内容..."
-                                              style="width: 150px; font-size: 14px; padding: 6px; border: 1px solid #ddd; border-radius: 4px; resize: vertical; min-height: 60px; margin-bottom: 5px;">{{ f.note|default_if_none:"" }}</textarea>
-                                    <input type="hidden" name="fleet_number"
-                                           value="{{ f.fleet_number|default_if_none:'' }}">
+                                    <textarea name="note" placeholder="请输入备注内容..." style="width: 150px; font-size: 14px; padding: 6px; border: 1px solid #ddd; border-radius: 4px; resize: vertical; min-height: 60px; margin-bottom: 5px;">{{ f.note|default_if_none:"" }}</textarea>
+                                    <input type="hidden" name="fleet_number" value="{{ f.fleet_number|default_if_none:'' }}">
                                     <input type="hidden" name="shipment_id" value="{{ f.id }}">
                                     <input type="hidden" name="step" value="update_fleet_note">
-                                    <input type="hidden" name="status" value="unrecord">
+                                    <input type="hidden" name="status" value="{% if shipment_type == '已录入内容' %}unrecord{% else %}record{% endif %}">
                                     <input type="hidden" name="area" value="{{ area }}">
                                     <input type="hidden" name="start_time" value="{{ start_time }}">
                                     <input type="hidden" name="end_time" value="{{ end_time }}">
-                                    <button type="submit" class="btn btn-success"
-                                            style="font-size: 14px; padding: 6px 10px; border: none; border-radius: 4px; background: #28a745; color: white; cursor: pointer;"
-                                            onclick="showLoadingBar()">
-                                        保存备注
-                                    </button>
+                                    <button type="submit" class="btn btn-success" style="font-size: 14px; padding: 6px 10px; border: none; border-radius: 4px; background: #28a745; color: white; cursor: pointer;" onclick="showLoadingBar()">保存备注</button>
                                 </form>
                             </td>
-                            {% else %}
-                                <td class="td" data-col="note"
-                                style="padding: 10px 12px; border: 1px solid #eee; width: 200px !important; min-width: 200px; max-width: 200px; font-size:14px; white-space: normal; word-wrap: break-word; line-height: 1.2;">
-                                <form action="" method="post"
-                                      style="margin: 0; display: flex; gap: 6px; align-items: flex-start; flex-wrap: wrap;">
-                                    {% csrf_token %}
-                                    <textarea name="note" placeholder="请输入备注内容..."
-                                              style="width: 150px; font-size: 14px; padding: 6px; border: 1px solid #ddd; border-radius: 4px; resize: vertical; min-height: 60px; margin-bottom: 5px;">{{ f.note|default_if_none:"" }}</textarea>
-                                    <input type="hidden" name="fleet_number"
-                                           value="{{ f.fleet_number|default_if_none:'' }}">
-                                    <input type="hidden" name="shipment_id" value="{{ f.id }}">
-                                    <input type="hidden" name="step" value="update_fleet_note">
-                                    <input type="hidden" name="status" value="record">
-                                    <input type="hidden" name="area" value="{{ area }}">
-                                    <input type="hidden" name="start_time" value="{{ start_time }}">
-                                    <input type="hidden" name="end_time" value="{{ end_time }}">
-                                    <button type="submit" class="btn btn-success"
-                                            style="font-size: 14px; padding: 6px 10px; border: none; border-radius: 4px; background: #28a745; color: white; cursor: pointer;"
-                                            onclick="showLoadingBar()">
-                                        保存备注
-                                    </button>
-                                </form>
-                            </td>
-                            {% endif %}
                             {% if shipment_type == '已录入内容' %}
-                                <td class="td"
-                                    style="padding: 10px 12px; border: 1px solid #eee; white-space: nowrap; font-size:14px;">
-                                    <form action="" method="post"
-                                          style="margin: 0; display: flex; gap: 6px; align-items: center;">
+                                <td class="td" style="padding: 10px 12px; border: 1px solid #eee; white-space: nowrap; font-size:14px;">
+                                    <form action="" method="post" style="margin: 0; display: flex; gap: 6px; align-items: center;">
                                         {% csrf_token %}
-                                        <input type="number" step="0.01" name="fleet_cost_back"
-                                               value="{{ f.fleet_number.fleet_cost_back|default_if_none:0 }}"
-                                               style="width: 100px; font-size: 14px; padding: 6px; border: 1px solid #ddd; border-radius: 4px;">
-                                        <input type="hidden" name="fleet_number"
-                                               value="{{ f.fleet_number|default_if_none:'' }}">
+                                        <input type="number" step="0.01" name="fleet_cost_back" value="{{ f.fleet_number.fleet_cost_back|default_if_none:0 }}" style="width: 100px; font-size: 14px; padding: 6px; border: 1px solid #ddd; border-radius: 4px;">
+                                        <input type="hidden" name="fleet_number" value="{{ f.fleet_number|default_if_none:'' }}">
                                         <input type="hidden" name="step" value="fleet_cost_confirm_back_ltl">
                                         <input type="hidden" name="status" value="unrecord">
                                         <input type="hidden" name="start_time" value="{{ start_time }}">
                                         <input type="hidden" name="end_time" value="{{ end_time }}">
-                                        <button type="submit" class="btn btn-success"
-                                                style="font-size: 14px; padding: 6px 10px; border: none; border-radius: 4px; background: #28a745; color: white; cursor: pointer;"
-                                                onclick="showLoadingBar()">
-                                            确定
-                                        </button>
+                                        <button type="submit" class="btn btn-success" style="font-size: 14px; padding: 6px 10px; border: none; border-radius: 4px; background: #28a745; color: white; cursor: pointer;" onclick="showLoadingBar()">确定</button>
                                     </form>
                                 </td>
-                                <td class="td verify-status-cell {% if f.fleet_number.fleet_verify_status %}verified-cell{% endif %}"
-                                    style="padding: 10px 12px; border: 1px solid #eee; text-align: center; white-space: nowrap; font-size:14px;">
+                                <td class="td verify-status-cell {% if f.fleet_number.fleet_verify_status %}verified-cell{% endif %}" style="padding: 10px 12px; border: 1px solid #eee; text-align: center; white-space: nowrap; font-size:14px;">
                                     <form action="" method="post" style="margin: 0;">
                                         {% csrf_token %}
-                                        <input type="hidden" name="fleet_number"
-                                               value="{{ f.fleet_number|default_if_none:'' }}">
+                                        <input type="hidden" name="fleet_number" value="{{ f.fleet_number|default_if_none:'' }}">
                                         <input type="hidden" name="step" value="update_fleet_verify_status">
                                         <input type="hidden" name="status" value="unrecord">
                                         <input type="hidden" name="start_time" value="{{ start_time }}">
                                         <input type="hidden" name="end_time" value="{{ end_time }}">
-                                        <input type="hidden" name="is_verified"
-                                               id="is-verified-{{ f.fleet_number|default_if_none:'' }}"
-                                               value="{% if f.fleet_number.fleet_verify_status %}true{% else %}false{% endif %}">
-
+                                        <input type="hidden" name="is_verified" id="is-verified-{{ f.fleet_number|default_if_none:'' }}" value="{% if f.fleet_number.fleet_verify_status %}true{% else %}false{% endif %}">
                                         {% if f.fleet_number.fleet_verify_status %}
                                             <span style="color: #28a745; font-weight: 600;">✓ 已核实</span>
-                                            <button type="submit" class="btn btn-sm btn-outline-secondary"
-                                                    style="font-size: 12px; padding: 4px 8px; margin-top: 4px; border-radius: 4px; cursor: pointer;"
-                                                    onclick="this.form.querySelector('[name=is_verified]').value='false'; showLoadingBar();">
-                                                取消核实
-                                            </button>
+                                            <button type="submit" class="btn btn-sm btn-outline-secondary" style="font-size: 12px; padding: 4px 8px; margin-top: 4px; border-radius: 4px; cursor: pointer;" onclick="this.form.querySelector('[name=is_verified]').value='false'; showLoadingBar();">取消核实</button>
                                         {% else %}
                                             <span style="color: #dc3545; font-weight: 600;">✗ 未核实</span>
-                                            <button type="submit" class="btn btn-sm btn-primary verify-btn"
-                                                    style="font-size: 12px; padding: 4px 8px; border: none; border-radius: 4px; background: #007bff; color: white; cursor: pointer;"
-                                                    onclick="this.form.querySelector('[name=is_verified]').value='true'; showLoadingBar();">
-                                                确认核实
-                                            </button>
+                                            <button type="submit" class="btn btn-sm btn-primary verify-btn" style="font-size: 12px; padding: 4px 8px; border: none; border-radius: 4px; background: #007bff; color: white; cursor: pointer;" onclick="this.form.querySelector('[name=is_verified]').value='true'; showLoadingBar();">确认核实</button>
                                         {% endif %}
                                     </form>
                                 </td>
-                                <td class="td"
-                                    style="padding: 10px 12px; border: 1px solid #eee; text-align: center; white-space: nowrap; font-size:14px;">
+                                <td class="td" style="padding: 10px 12px; border: 1px solid #eee; text-align: center; white-space: nowrap; font-size:14px;">
                                     <form action="" method="post" style="margin: 0; margin-bottom: 4px;">
                                         {% csrf_token %}
-                                        <input type="hidden" name="fleet_number"
-                                               value="{{ f.fleet_number|default_if_none:'' }}">
+                                        <input type="hidden" name="fleet_number" value="{{ f.fleet_number|default_if_none:'' }}">
                                         <input type="hidden" name="step" value="rollback_fleet_status">
                                         <input type="hidden" name="status" value="unrecord">
                                         <input type="hidden" name="start_time" value="{{ start_time }}">
                                         <input type="hidden" name="end_time" value="{{ end_time }}">
-                                        <button type="submit" class="btn btn-sm btn-danger"
-                                                style="font-size: 12px; padding: 4px 8px; border: none; border-radius: 4px; background: #dc3545; color: white; cursor: pointer;"
-                                                onclick="if(!confirm('确认将该记录退回未录入状态？')){event.preventDefault();} else {showLoadingBar();}">
-                                            退回未录入
-                                        </button>
+                                        <button type="submit" class="btn btn-sm btn-danger" style="font-size: 12px; padding: 4px 8px; border: none; border-radius: 4px; background: #dc3545; color: white; cursor: pointer;" onclick="if(!confirm('确认将该记录退回未录入状态？')){event.preventDefault();} else {showLoadingBar();}">退回未录入</button>
                                     </form>
                                 </td>
                             {% endif %}
                         </tr>
                     {% empty %}
                         <tr class="empty-row">
-                            <td colspan="{% if shipment_type == '已录入内容' %}22{% elif shipment_type == '未录入内容' %}18{% else %}16{% endif %}"
-                                style="padding: 20px; text-align: center; color: #999; border: 1px solid #eee; white-space: nowrap; font-size:14px;">
-                                暂无数据
-                            </td>
+                            <td colspan="{% if shipment_type == '已录入内容' %}22{% elif shipment_type == '未录入内容' %}18{% else %}16{% endif %}" style="padding: 20px; text-align: center; color: #999; border: 1px solid #eee; white-space: nowrap; font-size:14px;">暂无数据</td>
                         </tr>
                     {% endfor %}
                     </tbody>

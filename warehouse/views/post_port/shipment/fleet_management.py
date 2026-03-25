@@ -2044,11 +2044,20 @@ class FleetManagement(View):
                     criteria &= Q(id__in=[])
 
         # 核心修改：新增按核实状态排序（未核实在前）
+        # 核心修改：正确实现 Supplier 为空在前，有值在后
         shipment = await sync_to_async(list)(
             Shipment.objects
             .select_related("fleet_number")
             .filter(criteria)
-            .order_by("fleet_number__fleet_verify_status", "shipped_at")
+            # 关键排序：NULL/空字符串 → 排在前面；有值 → 排在后面
+            .order_by(
+                # 第一层：Supplier 为空的在前（NULL=True 排前面）
+                F("fleet_number__Supplier").desc(nulls_first=True),
+                # 第二层：核实状态排序
+                "fleet_number__fleet_verify_status",
+                # 第三层：发货时间排序
+                "shipped_at"
+            )
         )
 
         # ========== 新增：按车次统计总板数 ==========
