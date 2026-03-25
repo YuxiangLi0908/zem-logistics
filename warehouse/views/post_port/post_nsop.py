@@ -3492,7 +3492,7 @@ class PostNsop(View):
             # 遍历依次查找报价
             container_number = po['container_number__container_number']
             destination_str = po['destination']
-            _, destination = await self._process_destination_wlm(destination_str)
+            destination = await self._process_destination_wlm(destination_str)
             order = await sync_to_async(
                 lambda cn=container_number: Order.objects.select_related(
                     'retrieval_id',  # 预加载retrieval_id
