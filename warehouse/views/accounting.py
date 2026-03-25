@@ -6476,8 +6476,8 @@ class Accounting(View):
         """
         data = request.POST.copy()
         save_type = data.get("save_type")
-        start_date_confirm = request.POST.get("start_date_confirm")
-        end_date_confirm = request.POST.get("end_date_confirm")
+        start_date_confirm = request.POST.get("start_date_confirm") or request.POST.get("start_date")
+        end_date_confirm = request.POST.get("end_date_confirm") or request.POST.get("end_date")
         # 财务待审核驳回到客服阶段
         if save_type == "reject":
             container_numbers = data.getlist("containers") or data.getlist("container_number")
@@ -6863,9 +6863,10 @@ class Accounting(View):
                     unified_name = fee_name
                 else:
                     unified_name = f"提柜其他费用-{fee_name.strip()}"
+                # 支持负数
                 submitted_pickup_fees.append({
                     "name": unified_name,
-                    "amount": float(fee_amount) if fee_amount.strip().replace('.', '').isdigit() else 0.0
+                    "amount": float(fee_amount) if fee_amount.strip() else 0.0
                 })
 
         # 查询数据库中当前柜号+发票下的所有提柜其他费用记录
@@ -6888,7 +6889,8 @@ class Accounting(View):
             fee_name = fee["name"]
             fee_amount = fee["amount"]
 
-            if fee_amount <= 0:  # 过滤无效金额
+            # ✅ 允许负值，不移除
+            if not fee_name.strip() or not str(fee_amount).strip():
                 continue
 
             try:
