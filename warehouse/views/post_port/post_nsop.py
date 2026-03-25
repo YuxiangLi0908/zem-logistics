@@ -3667,7 +3667,7 @@ class PostNsop(View):
             if len(parts) > 1:
                 return parts[1]
         return destination
-        
+    
     async def _process_combina_quote(self, po, cbm, total_cbm, rules, container_type_temp, warehouse, filename):
         """按组合柜方式查找仓点报价 """
 
