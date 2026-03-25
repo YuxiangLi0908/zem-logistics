@@ -1347,13 +1347,14 @@ class FleetManagement(View):
         fleet_shipments = await sync_to_async(list)(
             FleetShipmentPallet.objects.filter(
                 fleet_number__fleet_number=fleet_number, description='成本费用'
-            ).only("id", "PO_ID", "total_pallet", "expense")
+            ).only("id", "PO_ID", "total_pallet", "expense", "container_number")
         )
+
         if not fleet_shipments:
             # ===================== 【核心修改：只按柜号分组】 =====================
             grouped_pallets = await sync_to_async(list)(
                 Pallet.objects.filter(criteria_plt)
-                .values("container_number")  # 只按柜号分组
+                .values("container_number")
                 .annotate(
                     actual_pallets=Count("pallet_id"),  # 该柜总板数
                     shipment_batch_number_id=models.F("shipment_batch_number"),  # 取批次
@@ -1367,6 +1368,7 @@ class FleetManagement(View):
 
             # 批量创建标注"成本费用"的FleetShipmentPallet记录
             new_fleet_shipment_pallets = []
+            now_time = timezone.now()
             for group in grouped_pallets:
                 new_record = FleetShipmentPallet(
                     fleet_number=fleet,
@@ -1376,45 +1378,46 @@ class FleetManagement(View):
                     total_pallet=group["actual_pallets"],  # 该柜总板数
                     container_number_id=group["container_number"],  # 按柜号
                     is_recorded=False,
-                    cost_input_time=datetime.now(),
+                    cost_input_time=now_time,
                     operator=request.user,
                     description="成本费用"
                 )
                 new_fleet_shipment_pallets.append(new_record)
+
             await sync_to_async(FleetShipmentPallet.objects.bulk_create)(
                 new_fleet_shipment_pallets, batch_size=500
             )
 
-            # 关键修复：创建后重新查询并赋值fleet_shipments
+            # 重新查询
             fleet_shipments = await sync_to_async(list)(
                 FleetShipmentPallet.objects.filter(
                     fleet_number__fleet_number=fleet_number, description='成本费用'
-                ).only("id", "PO_ID", "total_pallet", "expense")
+                ).only("id", "PO_ID", "total_pallet", "expense", "container_number")
             )
 
-            # 二次校验：若创建后仍为空，抛出异常
             if not fleet_shipments:
                 raise RuntimeError(f"车次 {fleet_number} 创建成本费用记录后，查询结果为空")
 
         try:
-            # 计算总托盘数（过滤空值）
+            # 计算总托盘数
             total_pallets_in_fleet = sum(
-                [fs.total_pallet for fs in fleet_shipments if fs.total_pallet]
+                [fs.total_pallet for fs in fleet_shipments if fs.total_pallet is not None]
             )
-            if total_pallets_in_fleet == 0:
+            if total_pallets_in_fleet <= 0:
                 raise ValueError(f"车次 {fleet_number} 下无有效托盘数，无法分摊成本费用")
 
-            total_pallets_decimal = Decimal(str(total_pallets_in_fleet))  # 转为Decimal
-            fleet_cost = Decimal(str(fleet_cost))
-            # 计算每托盘分摊金额
+            # 高精度 Decimal 计算
+            total_pallets_decimal = Decimal(str(total_pallets_in_fleet))
+            fleet_cost = Decimal(str(fleet_cost)) if fleet_cost not in (None, '') else Decimal('0.0000')
+
             cost_per_pallet = (fleet_cost / total_pallets_decimal).quantize(
-                Decimal("0.0000"), rounding=ROUND_HALF_UP  # 保留2位小数，财务标准
+                Decimal("0.0000"), rounding=ROUND_HALF_UP
             )
 
-            # 批量更新分摊后的费用
+            # 批量更新分摊
             update_records = []
             for shipment in fleet_shipments:
-                if shipment.total_pallet:
+                if shipment.total_pallet is not None and shipment.total_pallet > 0:
                     shipment.expense = cost_per_pallet * Decimal(shipment.total_pallet)
                     update_records.append(shipment)
 
@@ -1423,54 +1426,52 @@ class FleetManagement(View):
                     update_records, ["expense"], batch_size=500
                 )
 
+                # 按柜号汇总费用
                 container_totals = await sync_to_async(
                     lambda: list(FleetShipmentPallet.objects.filter(
-                        id__in=[record.id for record in update_records]
+                        id__in=[r.id for r in update_records]
                     ).values('container_number').annotate(
                         total_expense=Sum('expense')
                     ))
                 )()
 
-                # 批量创建/更新 Invoicev2
-                current_date = datetime.now().date()
+                current_date = timezone.now().date()
                 invoices_to_create = []
-                current_date = current_date or timezone.now().date()
+
                 for item in container_totals:
-                    container_number = item['container_number']
-                    total_expense = item['total_expense'] or Decimal('0.0000')
+                    container_id = item['container_number']
+                    total_expense = item.get('total_expense') or Decimal('0.0000')
 
-                    # 核心修复：按 created_at 升序排序，取最早创建的记录
-                    existing_invoices = await sync_to_async(
-                        list  # 转为列表避免多次查询
-                    )(Invoicev2.objects.filter(container_number_id=container_number)
-                      .order_by('created_at')  # 升序排列（更早的在前）
-                      .all())
-
-                    # 取最早创建的记录
+                    # 取最早的发票
+                    existing_invoices = await sync_to_async(list)(
+                        Invoicev2.objects.filter(container_number_id=container_id)
+                        .order_by('created_at')
+                    )
                     existing_invoice = existing_invoices[0] if existing_invoices else None
 
-                    # 只修改 Invoice 部分，其他完全不变
                     if existing_invoice:
-                        # 🔥 只更新【成本费用】，不动退回费用
-                        old_cost = existing_invoice.payable_delivery_cost
-                        existing_invoice.payable_total_amount -= old_cost
+                        # 安全处理 None 值
+                        old_cost = existing_invoice.payable_delivery_cost or Decimal('0.0000')
+                        refund = existing_invoice.payable_delivery_refund or Decimal('0.0000')
+                        total = existing_invoice.payable_total_amount or Decimal('0.0000')
 
-                        # 新成本
+                        # 重新计算，避免 None + Decimal 报错
+                        existing_invoice.payable_total_amount = total - old_cost
                         existing_invoice.payable_delivery_cost = total_expense
-                        existing_invoice.payable_delivery_amount = existing_invoice.payable_delivery_cost - existing_invoice.payable_delivery_refund
+                        existing_invoice.payable_delivery_amount = total_expense - refund
                         existing_invoice.payable_total_amount += total_expense
                         existing_invoice.invoice_date = current_date
 
                         await sync_to_async(existing_invoice.save)(
-                            update_fields=['invoice_date', 'payable_delivery_cost', 'payable_delivery_amount',
-                                           'payable_total_amount']
+                            update_fields=['invoice_date', 'payable_delivery_cost',
+                                           'payable_delivery_amount', 'payable_total_amount']
                         )
                     else:
                         invoices_to_create.append(Invoicev2(
-                            container_number_id=container_number,
+                            container_number_id=container_id,
                             created_at=current_date,
                             invoice_date=current_date,
-                            payable_delivery_cost=total_expense,  # 成本
+                            payable_delivery_cost=total_expense,
                             payable_delivery_refund=Decimal('0.0000'),
                             payable_delivery_amount=total_expense,
                             payable_total_amount=total_expense
@@ -1480,9 +1481,9 @@ class FleetManagement(View):
                     await sync_to_async(Invoicev2.objects.bulk_create)(
                         invoices_to_create, batch_size=500
                     )
+
         except Exception as e:
-            # 新增/更新失败时，抛出明确异常，方便排查
-            raise RuntimeError(f"成本费用记录创建/分摊失败：{str(e)}") from e
+            raise RuntimeError(f"成本费用记录创建/分摊失败：{str(e)}")
 
     async def insert_fleet_shipment_pallet_fleet_cost_transfer(self, request, pallet_ids, fleet_number, fleet_cost):
         """
@@ -1594,7 +1595,7 @@ class FleetManagement(View):
         fleet_shipments = await sync_to_async(list)(
             FleetShipmentPallet.objects.filter(
                 fleet_number__fleet_number=fleet_number, description='退回费用'
-            ).only("id", "PO_ID", "total_pallet", "expense")
+            ).only("id", "PO_ID", "total_pallet", "expense", "container_number")
         )
         if not fleet_shipments:
             # ===================== 【核心修改：只按柜号分组】 =====================
@@ -1603,8 +1604,8 @@ class FleetManagement(View):
                 .values("container_number")  # 只按柜号分组
                 .annotate(
                     actual_pallets=Count("pallet_id"),  # 该柜总板数
-                    shipment_batch_number_id=models.F("shipment_batch_number"),  # 取批次
-                    PO_ID=models.F("PO_ID")  # 取PO
+                    shipment_batch_number_id=F("shipment_batch_number"),  # 取批次
+                    PO_ID=F("PO_ID")  # 取PO
                 )
                 .order_by("container_number")
             )
@@ -1612,8 +1613,9 @@ class FleetManagement(View):
             if not grouped_pallets:
                 raise ValueError(f"车次 {fleet_number} 无有效托盘数据，无法创建退回费用记录")
 
-            # 批量创建标注"成本费用"的FleetShipmentPallet记录
+            # 批量创建标注"退回费用"的FleetShipmentPallet记录
             new_fleet_shipment_pallets = []
+            now_time = timezone.now()
             for group in grouped_pallets:
                 new_record = FleetShipmentPallet(
                     fleet_number=fleet,
@@ -1623,7 +1625,7 @@ class FleetManagement(View):
                     total_pallet=group["actual_pallets"],  # 该柜总板数
                     container_number_id=group["container_number"],  # 按柜号
                     is_recorded=False,
-                    cost_input_time=datetime.now(),
+                    cost_input_time=now_time,
                     operator=request.user,
                     description="退回费用"
                 )
@@ -1636,7 +1638,7 @@ class FleetManagement(View):
             fleet_shipments = await sync_to_async(list)(
                 FleetShipmentPallet.objects.filter(
                     fleet_number__fleet_number=fleet_number, description='退回费用'
-                ).only("id", "PO_ID", "total_pallet", "expense")
+                ).only("id", "PO_ID", "total_pallet", "expense", "container_number")
             )
 
             # 二次校验：若创建后仍为空，抛出异常
@@ -1644,22 +1646,22 @@ class FleetManagement(View):
                 raise RuntimeError(f"车次 {fleet_number} 创建退回费用记录后，查询结果为空")
         try:
             total_pallets_in_fleet = sum(
-                [fs.total_pallet for fs in fleet_shipments if fs.total_pallet]
+                [fs.total_pallet for fs in fleet_shipments if fs.total_pallet is not None]
             )
             if total_pallets_in_fleet == 0:
                 raise ValueError(f"车次 {fleet_number} 下无有效托盘数，无法分摊退回费用")
 
             total_pallets_decimal = Decimal(str(total_pallets_in_fleet))  # 转为Decimal
-            fleet_cost_back = Decimal(str(fleet_cost_back))
+            fleet_cost_back = Decimal(str(fleet_cost_back)) if fleet_cost_back not in (None, '') else Decimal('0.0000')
             # 计算每托盘分摊金额
             cost_per_pallet = (fleet_cost_back / total_pallets_decimal).quantize(
-                Decimal("0.00"), rounding=ROUND_HALF_UP  # 保留2位小数，财务标准
+                Decimal("0.0000"), rounding=ROUND_HALF_UP  # 保留4位小数，统一精度
             )
 
             # 批量更新分摊后的费用
             update_records = []
             for shipment in fleet_shipments:
-                if shipment.total_pallet:
+                if shipment.total_pallet is not None and shipment.total_pallet > 0:
                     shipment.expense = cost_per_pallet * Decimal(shipment.total_pallet)
                     update_records.append(shipment)
 
@@ -1675,19 +1677,17 @@ class FleetManagement(View):
                     ))
                 )()
                 # 批量创建/更新 Invoicev2
-                current_date = datetime.now().date()
+                current_date = timezone.now().date()
                 invoices_to_create = []
-                current_date = current_date or timezone.now().date()
                 for item in container_totals:
                     container_number = item['container_number']
-                    total_expense = item['total_expense'] or Decimal('0.0000')
+                    total_expense = item.get('total_expense') or Decimal('0.0000')
 
                     # 核心修复：按 created_at 升序排序，取最早创建的记录
-                    existing_invoices = await sync_to_async(
-                        list  # 转为列表避免多次查询
-                    )(Invoicev2.objects.filter(container_number_id=container_number)
-                      .order_by('created_at')  # 升序排列（更早的在前）
-                      .all())
+                    existing_invoices = await sync_to_async(list)(
+                        Invoicev2.objects.filter(container_number_id=container_number)
+                        .order_by('created_at')
+                    )
 
                     # 取最早创建的记录
                     existing_invoice = existing_invoices[0] if existing_invoices else None
@@ -1695,12 +1695,13 @@ class FleetManagement(View):
                     # 只修改 Invoice 部分，其他完全不变
                     if existing_invoice:
                         # 🔥 只更新【退回费用】，不动成本
-                        old_refund = existing_invoice.payable_delivery_refund
-                        existing_invoice.payable_total_amount -= old_refund
+                        old_refund = existing_invoice.payable_delivery_refund or Decimal('0.0000')
+                        old_total = existing_invoice.payable_total_amount or Decimal('0.0000')
+                        old_cost = existing_invoice.payable_delivery_cost or Decimal('0.0000')
 
-                        # 新退回
+                        existing_invoice.payable_total_amount = old_total - old_refund
                         existing_invoice.payable_delivery_refund = total_expense
-                        existing_invoice.payable_delivery_amount = existing_invoice.payable_delivery_cost - existing_invoice.payable_delivery_refund
+                        existing_invoice.payable_delivery_amount = old_cost - total_expense
                         existing_invoice.payable_total_amount += total_expense
                         existing_invoice.invoice_date = current_date
 
@@ -1719,10 +1720,10 @@ class FleetManagement(View):
                             payable_total_amount=-total_expense
                         ))
 
-                if invoices_to_create:
-                    await sync_to_async(Invoicev2.objects.bulk_create)(
-                        invoices_to_create, batch_size=500
-                    )
+                    if invoices_to_create:
+                        await sync_to_async(Invoicev2.objects.bulk_create)(
+                            invoices_to_create, batch_size=500
+                        )
         except Exception as e:
             # 新增/更新失败时，抛出明确异常，方便排查
             raise RuntimeError(f"退回费用记录创建/分摊失败：{str(e)}") from e
