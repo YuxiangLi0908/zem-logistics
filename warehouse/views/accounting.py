@@ -3148,7 +3148,7 @@ class Accounting(View):
 
         return self.template_invoice_payable_confirm_payable, context
 
-    def handle_invoice_confirm_get_v1_delivery(
+        def handle_invoice_confirm_get_v1_delivery(
             self,
             request: HttpRequest,
             start_date_confirm: str = None,
@@ -3609,9 +3609,9 @@ class Accounting(View):
                 "shipping_mark": order.shipping_mark or "",
                 "carrier": deliverys_confirm[fleet_id]["carrier"],
                 "fleet_number": deliverys_confirm[fleet_id]["fleet_number"],
-                "itemv2_data": order.container_number.invoice_itemv2.get() if hasattr(order.container_number,
-                                                                                      'invoice_itemv2') else None,
-                "train_related": train_related,  # 新增：携带分组标识
+                "itemv2_data": order.container_number.invoice_itemv2.first() if hasattr(order.container_number,
+                                                                                        'invoice_itemv2') else None,
+                "train_related": train_related,
             }
 
             # 累加统计
