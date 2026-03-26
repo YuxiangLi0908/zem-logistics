@@ -39,6 +39,7 @@ class Invoicev2(models.Model):
     payable_delivery_amount = models.FloatField(null=True, blank=True)
     payable_delivery_cost = models.DecimalField(null=True, blank=True, max_digits=15, decimal_places=4, default=Decimal('0.0000'), verbose_name="派送成本费用")
     payable_delivery_refund  = models.DecimalField(null=True, blank=True, max_digits=15, decimal_places=4, default=Decimal('0.0000'), verbose_name="派送退回费用")
+    payable_delivery_transfer  = models.DecimalField(null=True, blank=True, max_digits=15, decimal_places=4, default=Decimal('0.0000'), verbose_name="派送转仓费用")
 
     history = HistoricalRecords()
 
