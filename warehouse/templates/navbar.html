@@ -10,6 +10,15 @@
                 {% if not generous_and_wide %}
                     <li class="nav-item">
                         <div class="dropdown">
+                            <a class="nav-link">客户管理</a>
+                            <div class="dropdown-content">
+                                <a href="{% url 'customer_management' %}" target="_blank">添加客户</a>
+                                <a href="{% url 'customer_management' %}?step=customer_balance" target="_blank">余额管理</a>
+                            </div>
+                        </div>
+                    </li>
+                    <li class="nav-item">
+                        <div class="dropdown">
                             <a class="nav-link">港前操作</a>
                             <div class="dropdown-content">
                                 <div class="nested-dropdown" >
@@ -98,24 +107,6 @@
                     </li>
                     <li class="nav-item">
                         <div class="dropdown">
-                            <a class="nav-link">订单管理</a>
-                            <div class="dropdown-content">
-                                <a href="{% url 'create_order' %}?step=order_management_list" target="_blank">订单列表</a>
-                                <a href="{% url 'po' %}" target="_blank">PO导出</a>
-                                <div class="nested-dropdown">
-                                    <a>PO校验</a>
-                                    <div class="nested-dropdown-content">
-                                        <a href="{% url 'po' %}?step=po_check_eta" target="_blank">到港前一周</a>
-                                        <a href="{% url 'po' %}?step=po_check_retrieval" target="_blank">提柜前一天</a>
-                                    </div>
-                                </div>
-                                <a href="{% url 'po' %}?step=po_invalid" target="_blank">PO失效</a>
-                                <a href="{% url 'po' %}?step=po_list" target="_blank">PO校验总表</a>
-                            </div>
-                        </div>
-                    </li>
-                    <li class="nav-item">
-                        <div class="dropdown">
                             <a class="nav-link">工作一览</a>
                             <div class="dropdown-content">
                                 <div class="nested-dropdown">
@@ -150,16 +141,23 @@
                     </li>
                     <li class="nav-item">
                         <div class="dropdown">
-                            <a class="nav-link">报表汇总</a>
+                            <a class="nav-link">订单管理</a>
                             <div class="dropdown-content">
-                                <a href="{% url 'order_statistics' %}" target="_blank">订单量统计</a>
-                                <a href="{% url 'order_statistics' %}?step=profit_analysis" target="_blank">订单利润统计</a>
-                                <a href="{% url 'order_statistics' %}?step=cbm_analysis" target="_blank">CBM统计</a>
-                                <a href="{% url 'order_statistics' %}?step=profit_analysis_personalized" target="_blank">派送账单成本详情</a>
-                                <a href="{% url 'order_statistics' %}?step=historical_query" target="_blank">历史操作查询</a>
+                                <a href="{% url 'create_order' %}?step=order_management_list" target="_blank">订单列表</a>
+                                <a href="{% url 'po' %}" target="_blank">PO导出</a>
+                                <div class="nested-dropdown">
+                                    <a>PO校验</a>
+                                    <div class="nested-dropdown-content">
+                                        <a href="{% url 'po' %}?step=po_check_eta" target="_blank">到港前一周</a>
+                                        <a href="{% url 'po' %}?step=po_check_retrieval" target="_blank">提柜前一天</a>
+                                    </div>
+                                </div>
+                                <a href="{% url 'po' %}?step=po_invalid" target="_blank">PO失效</a>
+                                <a href="{% url 'po' %}?step=po_list" target="_blank">PO校验总表</a>
                             </div>
                         </div>
                     </li>
+
                     <!--
                     <li class="nav-item">
                         <div class="dropdown">
@@ -170,15 +168,7 @@
                         </div>
                     </li>
                     -->
-                    <li class="nav-item">
-                        <div class="dropdown">
-                            <a class="nav-link">客户管理</a>
-                            <div class="dropdown-content">
-                                <a href="{% url 'customer_management' %}" target="_blank">添加客户</a>
-                                <a href="{% url 'customer_management' %}?step=customer_balance" target="_blank">余额管理</a>
-                            </div>
-                        </div>
-                    </li>
+                    
                     <li class="nav-item">
                         <div class="dropdown">
                             <a class="nav-link">旧版财务系统</a>
@@ -257,7 +247,18 @@
                         </div>
                     </li>
                     
-
+                    <li class="nav-item">
+                        <div class="dropdown">
+                            <a class="nav-link">报表汇总</a>
+                            <div class="dropdown-content">
+                                <a href="{% url 'order_statistics' %}" target="_blank">订单量统计</a>
+                                <a href="{% url 'order_statistics' %}?step=profit_analysis" target="_blank">订单利润统计</a>
+                                <a href="{% url 'order_statistics' %}?step=cbm_analysis" target="_blank">CBM统计</a>
+                                <a href="{% url 'order_statistics' %}?step=profit_analysis_personalized" target="_blank">派送账单成本详情</a>
+                                <a href="{% url 'order_statistics' %}?step=historical_query" target="_blank">历史操作查询</a>
+                            </div>
+                        </div>
+                    </li>
                     <li class="nav-item">
                         <div class="dropdown">
                             <a class="nav-link">异常处理</a>
