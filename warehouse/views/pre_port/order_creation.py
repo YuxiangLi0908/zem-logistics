@@ -1215,6 +1215,8 @@ class OrderCreation(View):
             "note": '',
         }
         container = Container(**container_data)
+        await sync_to_async(container.save)()
+
         retrieval_data = {
             "retrieval_id": retrieval_id,
             "retrieval_destination_area": (request.POST.get("warehouse")),
@@ -1230,6 +1232,29 @@ class OrderCreation(View):
             'empty_returned_at': created_at,
         }
         retrieval = Retrieval(**retrieval_data)
+        await sync_to_async(retrieval.save)()
+
+        def generate_mbl(letter_length=4, digit_length=13):
+            """前4位随机大写字母（不重复），后13位随机数字"""
+            random_letters = ''.join(random.sample(string.ascii_uppercase, letter_length))
+            random_digits = ''.join(random.choices(string.digits, k=digit_length))
+            return random_letters + random_digits
+
+        mbl = generate_mbl()
+        vessel_id = str(
+            uuid.uuid3(uuid.NAMESPACE_DNS, container_number + (mbl or ""))
+        )
+        etd = date.today()
+        eta = date.today()
+        vessel_data = {
+            "vessel_id": vessel_id,
+            "master_bill_of_lading": mbl,
+            "vessel_etd": etd,  # 可为None
+            "vessel_eta": eta,  # 必传，已通过前端验证
+        }
+        vessel = Vessel(**vessel_data)
+        await sync_to_async(vessel.save)()
+
         offload_data = {
             "offload_id": offload_id,
             "offload_at": created_at,
@@ -1237,6 +1262,8 @@ class OrderCreation(View):
             'total_pallet': pallets,
         }
         offload = Offload(**offload_data)
+        await sync_to_async(offload.save)()
+
         warehouse = await sync_to_async(ZemWarehouse.objects.get)(name=warehouse_code)
         order_data = {
             "order_id": order_id,
@@ -1245,17 +1272,16 @@ class OrderCreation(View):
             "order_type": order_type,
             "container_number": container,
             "retrieval_id": retrieval,
+            "vessel_id": vessel,
             "offload_id": offload,
             'warehouse': warehouse,
             'add_to_t49': 'True',
             "packing_list_updloaded": True,
             "unpacking_priority": 'P4',  #因为这是同行的货，都是卡派，默认就是P4，等到录完数据有约时，会自动判断改成P3
         }
-        order = Order(**order_data)
-        await sync_to_async(container.save)()
-        await sync_to_async(retrieval.save)()
-        await sync_to_async(offload.save)()
+        order = Order(**order_data)   
         await sync_to_async(order.save)()
+        
         #然后要构建Packinglist和Pallet表
         order = await sync_to_async(
             Order.objects.select_related(
@@ -2273,7 +2299,7 @@ class OrderCreation(View):
             # 删除空行
             df = df.dropna(how='all') 
             #除柜号外，缺值报错并提醒，不核实FBA是因为沃尔玛的可以没有FBA
-            columns_to_check = ['收货地址', '板数', 'PO号码', '重量(kg)', 'CBM', '件数']
+            columns_to_check = ['收货地址', '板数', 'PO号码', '重量(lbs)', 'CBM', '件数']
             #缺了这些列也报错
             missing_columns = [col for col in columns_to_check if col not in df.columns]
             if missing_columns:
@@ -2303,6 +2329,119 @@ class OrderCreation(View):
                 raise ValueError(error_message)
             df = df.replace(np.nan, '')
             
+            # 处理重量列：转换lbs到kg，并提取纯数字
+            if '重量(lbs)' in df.columns:
+                def convert_weight(weight_value):
+                    if pd.isna(weight_value) or weight_value == '':
+                        return weight_value
+                    
+                    weight_str = str(weight_value).strip()
+                    
+                    # 检查是否包含 lbs（不区分大小写）
+                    if 'kg' in weight_str.lower():
+                        # 提取数字部分（处理逗号分隔的千分位）
+                        numbers = re.findall(r'[\d,]+\.?\d*', weight_str)
+                        if numbers:
+                            # 移除逗号并转换为浮点数
+                            num_str = numbers[0].replace(',', '')
+                            lbs_value = float(num_str)
+                            # lbs 转 kg：除以 2.20462
+                            kg_value = lbs_value * 2.20462
+                            return round(kg_value, 2)
+                        else:
+                            return weight_value
+                    else:
+                        # 没有 lbs，提取纯数字部分
+                        numbers = re.findall(r'[\d,]+\.?\d*', weight_str)
+                        if numbers:
+                            # 移除逗号并转换为数字
+                            num_str = numbers[0].replace(',', '')
+                            return float(num_str) if '.' in num_str else int(num_str)
+                        else:
+                            return weight_value
+                
+                df['重量(lbs)'] = df['重量(lbs)'].apply(convert_weight)
+            
+            # 定义邮编到仓库代码的映射
+            ZIPCODE_TO_WAREHOUSE = {
+                '07001': 'NJ-07001',
+                '31326': 'SAV-31326',
+                '91761': 'LA-91761',
+            }
+            
+            if '接货仓库' in df.columns:
+                def process_warehouse(warehouse_value):
+                    if pd.isna(warehouse_value) or warehouse_value == '':
+                        return warehouse_value
+                    
+                    warehouse_str = str(warehouse_value).strip()
+                    
+                    # 提取数字部分（邮编）
+                    numbers = re.findall(r'\d+', warehouse_str)
+                    
+                    if numbers:
+                        # 取第一个找到的数字作为邮编
+                        zipcode = numbers[0]
+                        
+                        # 检查是否在映射表中
+                        if zipcode in ZIPCODE_TO_WAREHOUSE:
+                            # 返回格式化的仓库名：代码-邮编
+                            print(f"{ZIPCODE_TO_WAREHOUSE[zipcode]}")
+                            return f"{ZIPCODE_TO_WAREHOUSE[zipcode]}"
+                        else:
+                            # 不在映射表中，抛出异常
+                            raise ValueError(f"接货仓库列中的邮编 '{zipcode}' 无法识别。请使用以下邮编：{', '.join(ZIPCODE_TO_WAREHOUSE.keys())}，或直接输入完整的仓库名（如 NJ-07001）")
+                    else:
+                        # 如果没有提取到数字，检查是否已经是完整格式（如 NJ-07001）
+                        if '-' in warehouse_str and any(part.isdigit() for part in warehouse_str.split('-')):
+                            # 可能是完整格式，直接返回
+                            return warehouse_str
+                        else:
+                            # 既没有邮编也不是完整格式，抛出异常
+                            raise ValueError(f"接货仓库列中的值 '{warehouse_str}' 无法识别。请输入邮编（如 07001）或完整仓库名（如 NJ-07001）")
+                
+                # 应用处理函数到接货仓库列
+                try:
+                    df['接货仓库'] = df['接货仓库'].apply(process_warehouse)
+                except ValueError as e:
+                    # 重新抛出异常，保持错误信息清晰
+                    raise ValueError(f"接货仓库格式错误：{str(e)}")
+            
+            ZIPCODE_TO_DESTINATION = {
+                '07001': 'NJ-07001',
+                '31326': 'SAV-31326',
+                '91761': 'LA-91761',
+            }
+            
+            if '收货地址' in df.columns:
+                def process_destination(destination_value):
+                    if pd.isna(destination_value) or destination_value == '':
+                        return destination_value
+                    
+                    destination_str = str(destination_value).strip()
+                    
+                    # 检查是否包含指定的邮编
+                    for zipcode, formatted_address in ZIPCODE_TO_DESTINATION.items():
+                        if zipcode in destination_str:
+                            # 如果包含指定邮编，返回对应的格式化地址
+                            return formatted_address
+                    
+                    # 如果没有匹配到任何邮编
+                    # 检查是否已经是完整格式（如 NJ-07001）
+                    if any(zipcode in destination_str for zipcode in ZIPCODE_TO_DESTINATION.keys()):
+                        # 如果包含邮编但不在映射表中（理论上不会发生，因为上面已经检查过了）
+                        raise ValueError(f"收货地址列中的值 '{destination_str}' 包含邮编但无法识别。请使用以下邮编：{', '.join(ZIPCODE_TO_DESTINATION.keys())}")
+                    else:
+                        # 完全不包含任何指定邮编，抛出异常
+                        raise ValueError(f"收货地址列中的值 '{destination_str}' 不包含任何指定的邮编。请确保地址中包含以下邮编之一：{', '.join(ZIPCODE_TO_DESTINATION.keys())}")
+                
+                # 应用处理函数到收货地址列
+                try:
+                    df['收货地址'] = df['收货地址'].apply(process_destination)
+                except ValueError as e:
+                    # 重新抛出异常，保持错误信息清晰
+                    raise ValueError(f"收货地址格式错误：{str(e)}")
+                
             #字符串类型的去掉前后空格
             for col in df.columns:
                 try:
@@ -2314,7 +2453,7 @@ class OrderCreation(View):
                 '柜号': 'container_number',
                 '客户名': 'customer_name', 
                 '件数': 'total_pcs',
-                '重量(kg)': 'total_weight',
+                '重量(lbs)': 'total_weight',
                 'CBM': 'total_cbm',
                 'FBA号码': 'fba_id',
                 'PO号码': 'ref_id',
