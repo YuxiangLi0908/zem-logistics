@@ -5802,181 +5802,177 @@ class Accounting(View):
         return self.handle_invoice_confirm_get_v1(request, start_date_confirm, end_date_confirm, customer, warehouse)
 
     def write_off_amount_post_delivery(self, request):
-        """单个派送确认核销"""
-        # 1. 获取前端参数
-        container_id_str = request.POST.get('container_id')  # 单个柜号ID
-        write_off_amount_str = request.POST.getlist('write_off_amount')[0]
+        """单个派送确认核销（支持一车多柜 组合行）"""
+
+        # 1. 获取参数
+        fleet_id = request.POST.get("fleet_id")
+        write_off_amount_str = request.POST.get("write_off_amount")
+
         start_date_confirm = request.POST.get("start_date_confirm")
         end_date_confirm = request.POST.get("end_date_confirm")
-        warehouse = request.POST.get("warehouse_filter")
-        customer = None
+        warehouse_filter = request.POST.get("warehouse_filter")
+        customer_id = request.POST.get("customer_name")
 
-        # 2. 处理表单验证（简化，避免表单无效导致customer为空）
-        order_form = OrderForm(request.POST)
-        if order_form.is_valid():
-            customer = order_form.cleaned_data.get("customer_name")
-
-        # 3. 基础校验：柜号ID为空直接返回
-        if not container_id_str:
-            return self.handle_invoice_confirm_get_v1_delivery(request, start_date_confirm, end_date_confirm, customer,
-                                                      warehouse)
-
-        # 4. 校验并转换核销金额
+        # 2. 金额校验
         try:
             write_off_amount = float(write_off_amount_str)
-            # 金额≤0时直接返回（无效金额）
             if write_off_amount <= 0:
-                return self.handle_invoice_confirm_get_v1_delivery(request, start_date_confirm, end_date_confirm, customer,
-                                                          warehouse)
+                return self.handle_invoice_confirm_get_v1_delivery(
+                    request, start_date_confirm, end_date_confirm, customer_id, warehouse_filter
+                )
         except (ValueError, TypeError):
-            # 金额非数字/为空时，直接返回
-            return self.handle_invoice_confirm_get_v1_delivery(request, start_date_confirm, end_date_confirm, customer,
-                                                      warehouse)
+            return self.handle_invoice_confirm_get_v1_delivery(
+                request, start_date_confirm, end_date_confirm, customer_id, warehouse_filter
+            )
 
-        # 5. 核心逻辑：创建/更新发票记录（使用事务保证数据一致性）
         current_date = datetime.now().date()
-        try:
-            with transaction.atomic():  # 事务：要么全成功，要么全回滚
-                # ========== 处理Invoicev2（发票主表） ==========
-                invoicev2, invoicev2_created = Invoicev2.objects.get_or_create(
-                    container_number_id=container_id_str,
-                    defaults={
-                        'created_at': current_date,
-                        'invoice_date': current_date
-                    }
-                )
-                # 已有记录：更新金额和日期
-                if not invoicev2_created:
-                    invoicev2.invoice_date = current_date
-                    invoicev2.save(update_fields=['invoice_date'])  # 只更新修改的字段
 
-                # ========== 处理InvoiceItemv2（发票项表） ==========
-                invoiceitemv2, invoiceitemv2_created = InvoiceItemv2.objects.get_or_create(
-                    description='派送费用',
-                    container_number_id=container_id_str,
-                    invoice_type='payable',
+        try:
+            # ========== 【正确】获取该车次下所有柜号 ID
+            container_ids = list(FleetShipmentPallet.objects.filter(
+                fleet_number_id=fleet_id
+            ).values_list('container_number_id', flat=True))
+
+            if not container_ids:
+                return self.handle_invoice_confirm_get_v1_delivery(
+                    request, start_date_confirm, end_date_confirm, customer_id, warehouse_filter
+                )
+
+            # ========== 一车多柜 → 循环每个柜号核销
+            for container_id in container_ids:
+                # 发票主表
+                invoicev2, _ = Invoicev2.objects.get_or_create(
+                    container_number_id=container_id,
+                    defaults={"invoice_date": current_date}
+                )
+
+                # 发票项（核销）
+                InvoiceItemv2.objects.update_or_create(
+                    container_number_id=container_id,
+                    description="派送费用",
+                    invoice_type="payable",
                     defaults={
-                        'write_off_amount': write_off_amount,
-                        'write_off_time': current_date,
-                        'invoice_number': invoicev2,
+                        "write_off_amount": write_off_amount,
+                        "write_off_time": current_date,
+                        "invoice_number": invoicev2,
                     }
                 )
-                # 已有记录：更新核销信息
-                if not invoiceitemv2_created:
-                    invoiceitemv2.write_off_amount = write_off_amount
-                    invoiceitemv2.write_off_time = current_date
-                    invoiceitemv2.invoice_number = invoicev2
-                    # 只更新修改的字段，提升性能
-                    invoiceitemv2.save(update_fields=['write_off_amount', 'write_off_time', 'invoice_number'])
 
         except Exception as e:
             import logging
-            logger = logging.getLogger('django')
-            logger.error(f"派送费用核销失败：柜号ID={container_id_str}，错误={str(e)}")
-            return self.handle_invoice_confirm_get_v1_delivery(request, start_date_confirm, end_date_confirm, customer,warehouse)
+            logger = logging.getLogger(__name__)
+            logger.error(f"派送核销失败：{str(e)}")
 
-        return self.handle_invoice_confirm_get_v1_delivery(request, start_date_confirm, end_date_confirm, customer, warehouse)
+        return self.handle_invoice_confirm_get_v1_delivery(
+            request, start_date_confirm, end_date_confirm, customer_id, warehouse_filter
+        )
 
     def batch_writeoff_delivery(self, request):
-        """批量核销派送账单：逐行处理金额和备注"""
-        # 1. 获取前端参数
+        """批量核销派送账单（支持一车多柜）"""
         batch_writeoff_items = request.POST.get('batch_writeoff_items')
         start_date_confirm = request.POST.get("start_date_confirm")
         end_date_confirm = request.POST.get("end_date_confirm")
         warehouse = request.POST.get("warehouse_filter")
         customer = None
 
-        # 2. 表单验证（获取客户信息）
         order_form = OrderForm(request.POST)
         if order_form.is_valid():
             customer = order_form.cleaned_data.get("customer_name")
 
-        # 3. 基础校验：批量数据为空
         if not batch_writeoff_items:
             return self.handle_invoice_confirm_get_v1_delivery(
                 request, start_date_confirm, end_date_confirm, customer, warehouse
             )
 
         try:
-            # 解析逐行数据（JSON字符串转列表）
             batch_items = json.loads(batch_writeoff_items)
             if not isinstance(batch_items, list) or len(batch_items) == 0:
                 return self.handle_invoice_confirm_get_v1_delivery(
                     request, start_date_confirm, end_date_confirm, customer, warehouse
                 )
-
         except json.JSONDecodeError as e:
             return self.handle_invoice_confirm_get_v1_delivery(
                 request, start_date_confirm, end_date_confirm, customer, warehouse
             )
 
-        # 4. 核心逻辑：逐行处理（事务保证原子性）
         current_date = datetime.now().date()
         success_count = 0
         failed_items = []
 
         try:
             with transaction.atomic():
-                # 遍历每一行数据处理
                 for item in batch_items:
-                    # 提取单行数据
                     fleet_id = item.get('fleet_id')
-                    container_id = item.get('container_id')
                     write_off_amount = item.get('write_off_amount', 0)
                     note = item.get('note', '').strip()
 
-                    # 单行数据校验
-                    if not container_id or write_off_amount <= 0:
-                        failed_items.append(f"柜号ID={container_id}：金额无效或柜号为空")
+                    # 金额转换
+                    try:
+                        write_off_amount = float(write_off_amount)
+                    except:
+                        write_off_amount = 0
+
+                    if write_off_amount <= 0:
+                        failed_items.append(f"车次{fleet_id}：金额无效")
                         continue
 
-                    try:
-                        # ========== 处理Invoicev2（发票主表） ==========
-                        invoicev2, created = Invoicev2.objects.get_or_create(
-                            container_number_id=container_id,
-                            defaults={
-                                'created_at': current_date,
-                                'invoice_date': current_date
-                            }
-                        )
-                        # 已有记录：更新
-                        if not created:
-                            invoicev2.invoice_date = current_date
-                            invoicev2.note = note  # 更新备注
-                            invoicev2.save(update_fields=['invoice_date', 'note'])
+                    # ========== 【正确】获取该车次下所有柜号
+                    container_ids = list(FleetShipmentPallet.objects.filter(
+                        fleet_number_id=fleet_id
+                    ).values_list('container_number_id', flat=True))
 
-                        # ========== 处理InvoiceItemv2（发票项表） ==========
-                        invoiceitemv2, item_created = InvoiceItemv2.objects.get_or_create(
-                            description='派送费用',
-                            container_number_id=container_id,
-                            invoice_type='payable',
-                            defaults={
-                                'write_off_amount': write_off_amount,
-                                'write_off_time': current_date,
-                                'invoice_number': invoicev2,
-                                'note': note,  # 逐行备注
-                            }
-                        )
-                        # 已有记录：更新
-                        if not item_created:
-                            invoiceitemv2.write_off_amount = write_off_amount
-                            invoiceitemv2.note = note  # 更新备注
-                            invoiceitemv2.write_off_time = current_date
-                            invoiceitemv2.invoice_number = invoicev2
-                            invoiceitemv2.save(
-                                update_fields=['write_off_amount', 'write_off_time', 'invoice_number', 'note'])
+                    if not container_ids:
+                        failed_items.append(f"车次{fleet_id}：无关联柜号")
+                        continue
 
-                        success_count += 1
+                    # ========== 一车多柜 → 循环核销每个柜号
+                    for container_id in container_ids:
+                        try:
+                            # 发票主表
+                            invoicev2, created = Invoicev2.objects.get_or_create(
+                                container_number_id=container_id,
+                                defaults={
+                                    'created_at': current_date,
+                                    'invoice_date': current_date,
+                                }
+                            )
+                            if not created:
+                                invoicev2.invoice_date = current_date
+                                invoicev2.note = note
+                                invoicev2.save(update_fields=['invoice_date'])
 
-                    except Exception as e:
-                        failed_items.append(f"柜号ID={container_id}：处理失败 - {str(e)}")
+                            # 发票项
+                            invoiceitemv2, item_created = InvoiceItemv2.objects.get_or_create(
+                                container_number_id=container_id,
+                                description='派送费用',
+                                invoice_type='payable',
+                                defaults={
+                                    'write_off_amount': write_off_amount,
+                                    'write_off_time': current_date,
+                                    'invoice_number': invoicev2,
+                                    'note': note,
+                                }
+                            )
+
+                            if not item_created:
+                                invoiceitemv2.write_off_amount = write_off_amount
+                                invoiceitemv2.write_off_time = current_date
+                                invoiceitemv2.note = note
+                                invoiceitemv2.invoice_number = invoicev2
+                                invoiceitemv2.save(update_fields=[
+                                    'write_off_amount', 'write_off_time', 'invoice_number', 'note'
+                                ])
+
+                        except Exception as e:
+                            failed_items.append(f"车次{fleet_id} 柜号{container_id} 失败：{str(e)}")
+
+                    success_count += 1
+
         except Exception as e:
-            # 事务回滚，返回原页面
             return self.handle_invoice_confirm_get_v1_delivery(
                 request, start_date_confirm, end_date_confirm, customer, warehouse
             )
 
-        # 5. 返回原页面（可添加消息提示，如Django messages）
         return self.handle_invoice_confirm_get_v1_delivery(
             request, start_date_confirm, end_date_confirm, customer, warehouse
         )
