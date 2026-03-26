@@ -3149,14 +3149,15 @@ class Accounting(View):
         return self.template_invoice_payable_confirm_payable, context
 
         def handle_invoice_confirm_get_v1_delivery(
-            self,
-            request: HttpRequest,
-            start_date_confirm: str = None,
-            end_date_confirm: str = None,
-            customer: str = None,
-            warehouse: str = None,
-    ) -> tuple[Any, Any]:
-        """财务派送 待确认 已确认（新增train_related分组逻辑）"""
+                self,
+                request: HttpRequest,
+                start_date_confirm: str = None,
+                end_date_confirm: str = None,
+                customer: str = None,
+                warehouse: str = None,
+        ) -> tuple[Any, Any]:
+            """财务派送 待确认 已确认（新增train_related分组逻辑）"""
+
         logger = logging.getLogger(__name__)
         current_date = datetime.now().date()
         start_date_confirm = (
