@@ -3215,7 +3215,7 @@ class Accounting(View):
             InvoiceItemv2.objects.filter(
                 container_number_id=OuterRef("container_number_id"),
                 description__contains='派送费用',
-                invoice_type='payable',
+                invoice_type__in=('payable', 'payable_direct'),
                 write_off_amount__isnull=False  # 核销金额不为空 → 已核销
             )
         )
@@ -3507,7 +3507,7 @@ class Accounting(View):
             container_number_id__in=container_ids,
             write_off_amount__isnull=False,
             description='派送费用',
-            invoice_type='payable'
+            invoice_type__in=('payable', 'payable_direct'),
         ).values_list("container_number_id", flat=True).distinct()
 
         delivery_confirm_orders = base_delivery_orders.filter(container_number_id__in=itemv2_valid_container_ids)

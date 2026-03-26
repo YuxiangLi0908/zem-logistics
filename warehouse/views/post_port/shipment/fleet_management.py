@@ -1440,7 +1440,7 @@ class FleetManagement(View):
 
                 for item in container_totals:
                     container_id = item['container_number']
-                    total_expense = item.get('total_expense') or Decimal('0.0000')
+                    total_expense = Decimal(item.get('total_expense')) or Decimal('0.0000')
 
                     # 取最早的发票
                     existing_invoice = await sync_to_async(
@@ -1583,7 +1583,7 @@ class FleetManagement(View):
 
                 for item in container_totals:
                     container_id = item['container_number']
-                    transfer_cost = item.get('total_expense') or Decimal('0.0000')
+                    transfer_cost = Decimal(item.get('total_expense')) or Decimal('0.0000')
 
                     existing_invoice = await sync_to_async(
                         Invoicev2.objects.filter(container_number_id=container_id)
@@ -1740,7 +1740,7 @@ class FleetManagement(View):
                 invoices_to_create = []
                 for item in container_totals:
                     container_number = item['container_number']
-                    total_expense = item.get('total_expense') or Decimal('0.0000')
+                    total_expense = Decimal(item.get('total_expense')) or Decimal('0.0000')
 
                     # 核心修复：按 created_at 升序排序，取最早创建的记录
                     existing_invoice = await sync_to_async(
