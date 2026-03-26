@@ -3215,7 +3215,7 @@ class Accounting(View):
             InvoiceItemv2.objects.filter(
                 container_number_id=OuterRef("container_number_id"),
                 description__contains='派送费用',
-                invoice_type__in=('payable', 'payable_direct'),
+                invoice_type='payable',
                 write_off_amount__isnull=False  # 核销金额不为空 → 已核销
             )
         )
@@ -3472,6 +3472,18 @@ class Accounting(View):
                 "shipment_batch_number",
                 "container_number",
             )
+            # ✅【关键修复】预加载 已核销的派送费用应付账单
+            .prefetch_related(
+                Prefetch(
+                    "container_number__invoice_itemv2",
+                    queryset=InvoiceItemv2.objects.filter(
+                        description="派送费用",
+                        invoice_type="payable",
+                        write_off_amount__isnull=False
+                    ),
+                    to_attr="itemv2_list"
+                )
+            )
             .filter(
                 fleet_number__isnull=False,
                 expense__isnull=False,
@@ -3507,7 +3519,7 @@ class Accounting(View):
             container_number_id__in=container_ids,
             write_off_amount__isnull=False,
             description='派送费用',
-            invoice_type__in=('payable', 'payable_direct'),
+            invoice_type='payable',
         ).values_list("container_number_id", flat=True).distinct()
 
         delivery_confirm_orders = base_delivery_orders.filter(container_number_id__in=itemv2_valid_container_ids)
@@ -3599,6 +3611,12 @@ class Accounting(View):
 
             cn_total_pallet = int(order.total_pallet) if order.total_pallet else 0
 
+            # 【修复】已确认订单：正确获取 派送费用｜应付｜已核销 的记录
+            itemv2_data = None
+            if hasattr(order.container_number, 'itemv2_list') and order.container_number.itemv2_list:
+                # 直接从预加载的列表里取第一条（已筛选：派送+应付+已核销）
+                itemv2_data = order.container_number.itemv2_list[0]
+
             order_data = {
                 "object": order,
                 "cn_total_pallet": cn_total_pallet,
@@ -3609,8 +3627,7 @@ class Accounting(View):
                 "shipping_mark": order.shipping_mark or "",
                 "carrier": deliverys_confirm[fleet_id]["carrier"],
                 "fleet_number": deliverys_confirm[fleet_id]["fleet_number"],
-                "itemv2_data": order.container_number.invoice_itemv2.first() if hasattr(order.container_number,
-                                                                                      'invoice_itemv2') else None,
+                "itemv2_data": itemv2_data,
                 "train_related": train_related,  # 新增：携带分组标识
             }
 
