@@ -1436,40 +1436,20 @@
                                                                         rowspan="{{ pickup_data.total_rows }}"
                                                                         style="vertical-align: middle;">
                                                                         <div class="delivery-input-group">
-                                                                            <input type="number" name="write_off_amount"
+                                                                            <input type="number"
+                                                                                   name="write_off_amount"
                                                                                    class="write-off-amount"
-                                                                                   data-container-id="{{ order.object.container_number.id }}"
+                                                                                   data-fleet-id="{{ fleet_id }}"
                                                                                    step="0.01" min="0"
-                                                                                   placeholder="输入核销金额"
-                                                                                   style="padding: 4px 8px; border: 1px solid #ced4da; border-radius: 4px; text-align: center;">
-                                                                            <form action="" method="post"
-                                                                                  class="single-writeoff-form"
-                                                                                  style="margin: 0;">
-                                                                                {% csrf_token %}
-                                                                                <input type="hidden" name="step"
-                                                                                       value="write_off_amount_post_delivery">
-                                                                                <input type="hidden" name="container_id"
-                                                                                       value="{{ order.object.container_number.id }}">
-                                                                                <input type="hidden"
-                                                                                       name="write_off_type"
-                                                                                       value="pick-x">
-                                                                                <input type="hidden"
-                                                                                       name="start_date_confirm"
-                                                                                       value="{{ start_date_confirm }}">
-                                                                                <input type="hidden"
-                                                                                       name="end_date_confirm"
-                                                                                       value="{{ end_date_confirm }}">
-                                                                                <input type="hidden"
-                                                                                       name="warehouse_filter"
-                                                                                       value="{{ warehouse_filter }}">
-                                                                                <input type="hidden"
-                                                                                       name="customer_name"
-                                                                                       value="{{ selected_customer_id|default:'' }}">
-                                                                                <button type="submit"
-                                                                                        class="btn btn-success btn-sm">
-                                                                                    确认
-                                                                                </button>
-                                                                            </form>
+                                                                                   placeholder="输入核销金额">
+
+                                                                            <!-- 修复：按钮不嵌套表单，用JS提交 -->
+                                                                            <button type="button"
+                                                                                    class="btn btn-success btn-sm submit-single-writeoff"
+                                                                                    data-fleet-id="{{ fleet_id }}"
+                                                                                    data-container-id="{{ order.object.container_number.id }}">
+                                                                                确认
+                                                                            </button>
                                                                         </div>
                                                                     </td>
                                                                     <td class="td"
@@ -2016,14 +1996,17 @@
                 const fleetId = checkbox.value;
                 const fleetRow = checkbox.closest('tr');
                 // 获取车次信息
-                const fleetNumber = fleetRow.querySelector('td:nth-child(3)')?.textContent || '未知车次';
-                const carrier = fleetRow.querySelector('td:nth-child(4)')?.textContent || '未知承运商';
+                const fleetNumber = fleetRow.querySelector('td:nth-child(2)')?.textContent || '未知车次';
+                const carrier = fleetRow.querySelector('td:nth-child(3)')?.textContent || '未知承运商';
                 const totalCost = fleetRow.querySelector('td:nth-child(13)')?.textContent || '$0.00';
+                const container_id = fleetRow.querySelector('td:nth-child(6)')?.textContent || '未知柜号';
+                const note = fleetRow.querySelector('td:nth-child(15)')?.textContent || '';
 
                 // 构建核销项
                 const item = {
                     fleet_id: fleetId,
                     fleet_number: fleetNumber,
+                    container_id: container_id,
                     carrier: carrier,
                     total_cost: totalCost.replace('$', ''),
                     write_off_amount: '',
@@ -2069,48 +2052,46 @@
         // 提交批量核销表单
         function submitBatchWriteoff() {
             const batchItemsInput = document.getElementById('batch_writeoff_items');
-            const batchNoteInput = document.getElementById('batch_note');
             const amountInputs = document.querySelectorAll('.batch-writeoff-amount');
             const noteInputs = document.querySelectorAll('.batch-writeoff-note');
 
-            // 验证并更新核销金额和备注
             let batchItems = JSON.parse(batchItemsInput.value || '[]');
             let hasEmptyAmount = false;
 
+            // 遍历模态框里的所有核销金额输入框
             amountInputs.forEach(input => {
                 const fleetId = input.getAttribute('data-fleet-id');
-                const amount = input.value.trim();
-                const note = noteInputs.find(n => n.getAttribute('data-fleet-id') === fleetId)?.value.trim() || '';
+                const writeAmount = input.value.trim();
+                const noteInput = document.querySelector(`.batch-writeoff-note[data-fleet-id="${fleetId}"]`);
+                const note = noteInput ? noteInput.value.trim() : '';
 
-                // 找到对应项并更新
+                // 找到对应的 item，把输入的值赋值过去！
                 const item = batchItems.find(i => i.fleet_id === fleetId);
                 if (item) {
-                    item.write_off_amount = amount;
+                    // ✅ 关键：把输入的核销金额赋值给 item
+                    item.write_off_amount = writeAmount;
+                    // ✅ 关键：把输入的备注赋值给 item
                     item.note = note;
+                }
 
-                    // 验证金额
-                    if (!amount || isNaN(amount) || parseFloat(amount) < 0) {
-                        hasEmptyAmount = true;
-                        input.style.border = '1px solid red';
-                    } else {
-                        input.style.border = '';
-                    }
+                // 校验金额
+                if (!writeAmount || isNaN(writeAmount) || parseFloat(writeAmount) <= 0) {
+                    input.style.border = '2px solid red';
+                    hasEmptyAmount = true;
+                } else {
+                    input.style.border = '';
                 }
             });
 
-            // 验证不通过则阻止提交
             if (hasEmptyAmount) {
-                alert('请填写有效的核销金额（大于等于0的数字）！');
+                alert('请填写有效的核销金额（必须大于 0）！');
                 return false;
             }
 
-            // 更新隐藏字段值
+            // 把赋值好的正确数据重新塞回表单
             batchItemsInput.value = JSON.stringify(batchItems);
-            batchNoteInput.value = JSON.stringify(
-                batchItems.map(item => ({fleet_id: item.fleet_id, note: item.note}))
-            );
 
-            return confirm('确认要批量核销选中的记录吗？');
+            return confirm('确认批量核销？');
         }
 
         // ========== 重构：多条件并集搜索（核心修复所有列搜索） ==========
@@ -2542,6 +2523,42 @@
             if (pendingSubTab) {
                 pendingSubTab.classList.add('active');
                 document.getElementById('delivery-pending').classList.add('active');
+            }
+        });
+
+        // 单个核销按钮提交（修复版）
+        document.addEventListener('click', function (e) {
+            if (e.target.classList.contains('submit-single-writeoff')) {
+                const btn = e.target;
+                const fleetId = btn.getAttribute('data-fleet-id');
+                const containerId = btn.getAttribute('data-container-id');
+
+                // 【核心修复】正确获取核销金额
+                const amountInput = document.querySelector(`input.write-off-amount[data-fleet-id="${fleetId}"]`);
+                const write_off_amount = amountInput?.value.trim();
+
+                if (!write_off_amount || isNaN(write_off_amount) || parseFloat(write_off_amount) < 0) {
+                    alert('请输入有效的核销金额');
+                    return;
+                }
+
+                // 创建临时表单提交（字段完全正确）
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.style.display = 'none';
+                form.innerHTML = `
+            {% csrf_token %}
+            <input name="step" value="write_off_amount_post_delivery">
+            <input name="fleet_id" value="${fleetId}">                  <!-- 车次ID -->
+            <input name="container_id" value="${containerId}">
+            <input name="write_off_amount" value="${write_off_amount}"> <!-- 正确的核销金额 -->
+            <input name="start_date_confirm" value="{{ start_date_confirm }}">
+            <input name="end_date_confirm" value="{{ end_date_confirm }}">
+            <input name="warehouse_filter" value="{{ warehouse_filter }}">
+            <input name="customer_name" value="{{ selected_customer_id|default:'' }}">
+        `;
+                document.body.appendChild(form);
+                form.submit();
             }
         });
     </script>
