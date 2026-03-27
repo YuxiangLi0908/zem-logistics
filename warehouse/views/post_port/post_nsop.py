@@ -2827,31 +2827,20 @@ class PostNsop(View):
                 raw_value = request.POST.get(key)  # 例如 '5,2'
                 parts = [v.strip() for v in raw_value.split(",") if v.strip()]
                 request.POST.setlist(key, parts)
-        if "batch_number" in request.POST:
-            raw_value = request.POST.get("batch_number")  # 例如 '23487532,43324296'
-            try:
-                parts = [int(v.strip()) for v in raw_value.split(",") if v.strip()]
-                parts = list(set(parts))
-                shipments = await sync_to_async(Shipment.objects.filter)(
-                    appointment_id__in=parts
-                )
-                batch_numbers = await sync_to_async(list)(
-                    shipments.values_list('shipment_batch_number', flat=True)
-                )
-            except ValueError:
-                raise ValueError("⚠️ batch_number 转换为 int 出错，原始值:", raw_value)
-        else:
-            #LTL那边确认出库时，没有batch_number
-            raw_plt_ids = request.POST.get("plt_ids")
-            plt_ids_int = [int(x) for x in raw_plt_ids.split(",") if x.strip()]
+        
+        fleet_num_str = request.POST.get("fleet_number")
+        if fleet_num_str:
             batch_numbers = await sync_to_async(
                 lambda: list(
-                    Pallet.objects
-                    .filter(id__in=plt_ids_int, shipment_batch_number__isnull=False)
-                    .values_list('shipment_batch_number__shipment_batch_number', flat=True)
+                    Shipment.objects
+                    .filter(fleet_number__fleet_number=fleet_num_str)  # 跨表查询 Fleet 模型的 fleet_number 字段
+                    .exclude(shipment_batch_number__isnull=True)       # 排除空值
+                    .values_list('shipment_batch_number', flat=True)
                     .distinct()
                 )
             )()
+        else:
+            raise ValueError('缺少fleet_number值')
 
         request.POST = request.POST.copy()
         request.POST.setlist('batch_number', batch_numbers)
@@ -4221,6 +4210,16 @@ class PostNsop(View):
         vessel_etd = order.vessel_id.vessel_etd
         
         # 先查找用户专属报价表
+        quotation = await sync_to_async(
+            lambda: QuotationMaster.objects.filter(
+                effective_date__lte=vessel_etd,
+                is_user_exclusive=True,
+                exclusive_user=customer_name,
+                quote_type=quote_type,
+            )
+            .order_by("-effective_date")
+            .first()
+        )()
         quotation = await sync_to_async(
             lambda: QuotationMaster.objects.filter(
                 effective_date__lte=vessel_etd,
