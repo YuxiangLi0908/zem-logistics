@@ -759,6 +759,7 @@ class OrderQuantity(View):
         region = request.POST.get("region")
         start_date = request.POST.get("start_date")
         end_date = request.POST.get("end_date")
+        show_batch = request.POST.get("show_batch", "false") == "true"
         
         # 设置默认时间范围：过去一个月到今天
         today = datetime.today()
@@ -787,64 +788,149 @@ class OrderQuantity(View):
         shipments = await sync_to_async(list)(
             Shipment.objects.filter(
                 shipment_appointment__gte=start_date,
-                shipment_appointment__lte=end_date
+                shipment_appointment__lte=end_date,
+                shipped_at__isnull=False  # 出库时间不为空
             ).select_related("fleet_number")
         )
         
-        # 按目的地区分组处理数据
-        destination_stats = {}
-        for destination in warehouses:
-            destination_stats[destination] = {
-                "shipped_days": [],
-                "arrived_days": []
+        if show_batch:
+            # 按仓点和批次分组
+            batch_results = []
+            for shipment in shipments:
+                destination = shipment.destination
+                if destination and destination in warehouses:
+                    # 计算出库时效和送达时效
+                    shipped_days = None
+                    if shipment.shipped_at and shipment.shipment_appointment:
+                        shipped_delta = shipment.shipped_at - shipment.shipment_appointment
+                        shipped_days = shipped_delta.days
+                    
+                    arrived_days = None
+                    if shipment.arrived_at and shipment.shipment_appointment:
+                        arrived_delta = shipment.arrived_at - shipment.shipment_appointment
+                        arrived_days = arrived_delta.days
+                    
+                    # 格式化日期（只显示到天）
+                    appointment_date = shipment.shipment_appointment.strftime("%Y-%m-%d") if shipment.shipment_appointment else ""
+                    shipped_date = shipment.shipped_at.strftime("%Y-%m-%d") if shipment.shipped_at else ""
+                    arrived_date = shipment.arrived_at.strftime("%Y-%m-%d") if shipment.arrived_at else ""
+                    
+                    batch_results.append({
+                        "destination": destination,
+                        "batch_number": shipment.shipment_batch_number or "",
+                        "appointment_date": appointment_date,
+                        "shipped_date": shipped_date,
+                        "arrived_date": arrived_date,
+                        "shipped_days": shipped_days,
+                        "arrived_days": arrived_days
+                    })
+            
+            # 计算每个仓点的平均时效
+            destination_avgs = {}
+            for item in batch_results:
+                dest = item["destination"]
+                if dest not in destination_avgs:
+                    destination_avgs[dest] = {
+                        "shipped_days": [],
+                        "arrived_days": []
+                    }
+                if item["shipped_days"] is not None:
+                    destination_avgs[dest]["shipped_days"].append(item["shipped_days"])
+                if item["arrived_days"] is not None:
+                    destination_avgs[dest]["arrived_days"].append(item["arrived_days"])
+            
+            # 计算平均值
+            for dest, stats in destination_avgs.items():
+                avg_shipped = sum(stats["shipped_days"]) / len(stats["shipped_days"]) if stats["shipped_days"] else 0
+                avg_arrived = sum(stats["arrived_days"]) / len(stats["arrived_days"]) if stats["arrived_days"] else 0
+                destination_avgs[dest]["avg_shipped"] = avg_shipped
+                destination_avgs[dest]["avg_arrived"] = avg_arrived
+            
+            # 为每个批次结果添加平均时效信息
+            for batch in batch_results:
+                dest = batch["destination"]
+                if dest in destination_avgs:
+                    batch["avg_shipped"] = destination_avgs[dest]["avg_shipped"]
+                    batch["avg_arrived"] = destination_avgs[dest]["avg_arrived"]
+                else:
+                    batch["avg_shipped"] = 0
+                    batch["avg_arrived"] = 0
+            
+            # 按目的地排序
+            batch_results.sort(key=lambda x: x["destination"])
+            
+            # 计算每个目的地的批次数量
+            destination_counts = {}
+            for batch in batch_results:
+                dest = batch["destination"]
+                if dest not in destination_counts:
+                    destination_counts[dest] = 0
+                destination_counts[dest] += 1
+            
+            context = {
+                "batch_results": batch_results,
+                "destination_counts": destination_counts,
+                "region": region,
+                "start_date": start_date,
+                "end_date": end_date,
+                "show_batch": show_batch
             }
-        
-        # 计算时效
-        for shipment in shipments:
-            # 获取目的地区：使用shipment的destination
-            destination = shipment.destination
+        else:
+            # 按目的地区分组处理数据
+            destination_stats = {}
+            for destination in warehouses:
+                destination_stats[destination] = {
+                    "shipped_days": [],
+                    "arrived_days": []
+                }
             
-            # 只处理属于当前区域的目的地区
-            if destination and destination in warehouses:
-                # 计算出库时效：shipped_at - shipment_appointment（只计算天数差）
-                if shipment.shipped_at and shipment.shipment_appointment:
-                    shipped_delta = shipment.shipped_at - shipment.shipment_appointment
-                    shipped_days = shipped_delta.days
-                    destination_stats[destination]["shipped_days"].append(shipped_days)
+            # 计算时效
+            for shipment in shipments:
+                # 获取目的地区：使用shipment的destination
+                destination = shipment.destination
                 
-                # 计算送达时效：arrived_at - shipment_appointment（只计算天数差）
-                if shipment.arrived_at and shipment.shipment_appointment:
-                    arrived_delta = shipment.arrived_at - shipment.shipment_appointment
-                    arrived_days = arrived_delta.days
-                    destination_stats[destination]["arrived_days"].append(arrived_days)
-        
-        # 计算平均时效并构建结果
-        results = []
-        for destination, stats in destination_stats.items():
-            # 计算平均出库时效
-            avg_shipped_days = 0
-            if stats["shipped_days"]:
-                avg_shipped_days = sum(stats["shipped_days"]) / len(stats["shipped_days"])
+                # 只处理属于当前区域的目的地区
+                if destination and destination in warehouses:
+                    # 计算出库时效：shipped_at - shipment_appointment（只计算天数差）
+                    if shipment.shipped_at and shipment.shipment_appointment:
+                        shipped_delta = shipment.shipped_at - shipment.shipment_appointment
+                        shipped_days = shipped_delta.days
+                        destination_stats[destination]["shipped_days"].append(shipped_days)
+                    
+                    # 计算送达时效：arrived_at - shipment_appointment（只计算天数差）
+                    if shipment.arrived_at and shipment.shipment_appointment:
+                        arrived_delta = shipment.arrived_at - shipment.shipment_appointment
+                        arrived_days = arrived_delta.days
+                        destination_stats[destination]["arrived_days"].append(arrived_days)
             
-            # 计算平均送达时效
-            avg_arrived_days = 0
-            if stats["arrived_days"]:
-                avg_arrived_days = sum(stats["arrived_days"]) / len(stats["arrived_days"])
+            # 计算平均时效并构建结果
+            results = []
+            for destination, stats in destination_stats.items():
+                # 计算平均出库时效
+                avg_shipped_days = 0
+                if stats["shipped_days"]:
+                    avg_shipped_days = sum(stats["shipped_days"]) / len(stats["shipped_days"])
+                
+                # 计算平均送达时效
+                avg_arrived_days = 0
+                if stats["arrived_days"]:
+                    avg_arrived_days = sum(stats["arrived_days"]) / len(stats["arrived_days"])
+                
+                results.append({
+                    "destination": destination,
+                    "shipped_days": stats["shipped_days"],
+                    "arrived_days": stats["arrived_days"],
+                    "avg_shipped_days": avg_shipped_days,
+                    "avg_arrived_days": avg_arrived_days
+                })
             
-            results.append({
-                "destination": destination,
-                "shipped_days": stats["shipped_days"],
-                "arrived_days": stats["arrived_days"],
-                "avg_shipped_days": avg_shipped_days,
-                "avg_arrived_days": avg_arrived_days
-            })
-        
-        context = {
-            "results": results,
-            "region": region,
-            "start_date": start_date,
-            "end_date": end_date
-        }
+            context = {
+                "results": results,
+                "region": region,
+                "start_date": start_date,
+                "end_date": end_date,
+                "show_batch": show_batch
+            }
         
         return self.template_timeliness_statistics, context
 

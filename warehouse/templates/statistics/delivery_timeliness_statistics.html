@@ -239,6 +239,14 @@
                         <input type="date" name="end_date" id="end_date" class="filter-input" value="{{ end_date }}">
                     </div>
                     
+                    <div class="filter-item">
+                        <span class="filter-label">展示批次：</span>
+                        <select name="show_batch" id="show_batch" class="filter-select">
+                            <option value="false" {% if not show_batch %}selected{% endif %}>否</option>
+                            <option value="true" {% if show_batch %}selected{% endif %}>是</option>
+                        </select>
+                    </div>
+                    
                     <div class="filter-item" style="margin-left: auto;">
                         <button type="submit" class="btn btn-primary">查询</button>
                     </div>
@@ -251,7 +259,42 @@
         </div>
         
         <!-- 数据表格卡片 -->
-        {% if results %}
+        {% if batch_results %}
+        <div class="cbm-card">
+            <div class="table-container">
+                <table class="data-table" id="timelinessTable">
+                    <thead>
+                        <tr>
+                            <th class="text-left">目的地</th>
+                            <th class="text-right" style="width: 140px;">平均出库时效</th>
+                            <th class="text-right" style="width: 140px;">平均送达时效</th>
+                            <th class="text-left">批次号</th>
+                            <th class="text-center">预约时间</th>
+                            <th class="text-center">出库时间</th>
+                            <th class="text-center">确认送达时间</th>
+                            <th class="text-right" style="width: 120px;">出库时效（天）</th>
+                            <th class="text-right" style="width: 120px;">送达时效（天）</th>
+                        </tr>
+                    </thead>
+                    <tbody id="batchTableBody">
+                        {% for batch in batch_results %}
+                        <tr data-destination="{{ batch.destination }}" data-avg-shipped="{{ batch.avg_shipped|floatformat:2 }}" data-avg-arrived="{{ batch.avg_arrived|floatformat:2 }}">
+                            <td class="text-left destination-cell">{{ batch.destination }}</td>
+                            <td class="text-right avg-shipped-cell" style="font-weight: bold;">{{ batch.avg_shipped|floatformat:2 }}</td>
+                            <td class="text-right avg-arrived-cell" style="font-weight: bold;">{{ batch.avg_arrived|floatformat:2 }}</td>
+                            <td class="text-left">{{ batch.batch_number }}</td>
+                            <td class="text-center">{{ batch.appointment_date }}</td>
+                            <td class="text-center">{{ batch.shipped_date }}</td>
+                            <td class="text-center">{{ batch.arrived_date }}</td>
+                            <td class="text-right {% if batch.shipped_days < 0 %}negative{% endif %}">{{ batch.shipped_days|default:"-" }}</td>
+                            <td class="text-right {% if batch.arrived_days < 0 %}negative{% endif %}">{{ batch.arrived_days|default:"-" }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% elif results %}
         <div class="cbm-card">
             <div class="table-container">
                 <table class="data-table" id="timelinessTable">
@@ -260,8 +303,8 @@
                             <th class="text-left">目的地</th>
                             <th class="sortable text-right" data-sort="shipped_days">出库时效（天）</th>
                             <th class="sortable text-right" data-sort="arrived_days">送达时效（天）</th>
-                            <th class="sortable text-right" data-sort="avg_shipped_days" data-default="desc">平均出库时效</th>
-                            <th class="sortable text-right" data-sort="avg_arrived_days">平均送达时效</th>
+                            <th class="sortable text-right" data-sort="avg_shipped_days" data-default="desc" style="width: 140px;">平均出库时效</th>
+                            <th class="sortable text-right" data-sort="avg_arrived_days" style="width: 140px;">平均送达时效</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -295,7 +338,18 @@
 </div>
 
 <script>
+    // 自定义模板过滤器替代
+    function get_item(obj, key) {
+        return obj[key];
+    }
+    
     document.addEventListener('DOMContentLoaded', function() {
+        // 行合并功能 - 只在批次模式下启用
+        const batchTableBody = document.getElementById('batchTableBody');
+        if (batchTableBody) {
+            mergeRows();
+        }
+        
         // 导出Excel功能
         document.getElementById('exportBtn').addEventListener('click', function() {
             const table = document.getElementById('timelinessTable');
@@ -330,91 +384,136 @@
             URL.revokeObjectURL(url);
         });
         
-        // 排序功能
+        // 排序功能 - 只在非批次模式下启用
         const sortableHeaders = document.querySelectorAll('.sortable');
-        let currentSort = {
-            field: 'avg_shipped_days',
-            direction: 'desc'
-        };
-        
-        // 初始化排序状态
-        document.querySelector('[data-sort="avg_shipped_days"]').classList.add('sort-desc');
-        
-        sortableHeaders.forEach(header => {
-            header.addEventListener('click', function() {
-                const field = this.getAttribute('data-sort');
+        if (sortableHeaders.length > 0) {
+            let currentSort = {
+                field: 'avg_shipped_days',
+                direction: 'desc'
+            };
+            
+            // 初始化排序状态
+            document.querySelector('[data-sort="avg_shipped_days"]').classList.add('sort-desc');
+            
+            sortableHeaders.forEach(header => {
+                header.addEventListener('click', function() {
+                    const field = this.getAttribute('data-sort');
+                    
+                    // 重置所有排序状态
+                    sortableHeaders.forEach(h => {
+                        h.classList.remove('sort-asc', 'sort-desc');
+                    });
+                    
+                    // 确定排序方向
+                    if (currentSort.field === field) {
+                        currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
+                    } else {
+                        currentSort.direction = 'asc';
+                    }
+                    
+                    // 更新当前排序状态
+                    currentSort.field = field;
+                    
+                    // 添加排序图标
+                    this.classList.add(currentSort.direction === 'asc' ? 'sort-asc' : 'sort-desc');
+                    
+                    // 排序表格行
+                    sortTable(field, currentSort.direction);
+                });
+            });
+            
+            function sortTable(field, direction) {
+                const tbody = document.querySelector('#timelinessTable tbody');
+                const rows = Array.from(tbody.querySelectorAll('tr'));
                 
-                // 重置所有排序状态
-                sortableHeaders.forEach(h => {
-                    h.classList.remove('sort-asc', 'sort-desc');
+                rows.sort((a, b) => {
+                    // 优先将有数据的记录排在前面
+                    const aHasData = !a.querySelector('.no-data');
+                    const bHasData = !b.querySelector('.no-data');
+                    
+                    if (aHasData && !bHasData) return -1;
+                    if (!aHasData && bHasData) return 1;
+                    if (!aHasData && !bHasData) return 0;
+                    
+                    // 有数据的记录按指定字段排序
+                    let aValue, bValue;
+                    
+                    if (field === 'shipped_days' || field === 'arrived_days') {
+                        // 处理数组类型的值，取平均值进行排序
+                        const aText = a.querySelector(`td:nth-child(${field === 'shipped_days' ? 2 : 3})`).textContent;
+                        const bText = b.querySelector(`td:nth-child(${field === 'shipped_days' ? 2 : 3})`).textContent;
+                        
+                        const aDays = aText.split(',').map(d => parseFloat(d.trim()));
+                        const bDays = bText.split(',').map(d => parseFloat(d.trim()));
+                        
+                        aValue = aDays.reduce((sum, d) => sum + d, 0) / aDays.length;
+                        bValue = bDays.reduce((sum, d) => sum + d, 0) / bDays.length;
+                    } else {
+                        // 处理数值类型的值
+                        const aText = a.querySelector(`td:nth-child(${field === 'avg_shipped_days' ? 4 : 5})`).textContent;
+                        const bText = b.querySelector(`td:nth-child(${field === 'avg_shipped_days' ? 4 : 5})`).textContent;
+                        
+                        aValue = parseFloat(aText) || 0;
+                        bValue = parseFloat(bText) || 0;
+                    }
+                    
+                    if (direction === 'asc') {
+                        return aValue - bValue;
+                    } else {
+                        return bValue - aValue;
+                    }
                 });
                 
-                // 确定排序方向
-                if (currentSort.field === field) {
-                    currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
-                } else {
-                    currentSort.direction = 'asc';
-                }
-                
-                // 更新当前排序状态
-                currentSort.field = field;
-                
-                // 添加排序图标
-                this.classList.add(currentSort.direction === 'asc' ? 'sort-asc' : 'sort-desc');
-                
-                // 排序表格行
-                sortTable(field, currentSort.direction);
-            });
-        });
-        
-        function sortTable(field, direction) {
-            const tbody = document.querySelector('#timelinessTable tbody');
-            const rows = Array.from(tbody.querySelectorAll('tr'));
+                // 重新排列行
+                rows.forEach(row => tbody.appendChild(row));
+            }
             
-            rows.sort((a, b) => {
-                // 优先将有数据的记录排在前面
-                const aHasData = !a.querySelector('.no-data');
-                const bHasData = !b.querySelector('.no-data');
-                
-                if (aHasData && !bHasData) return -1;
-                if (!aHasData && bHasData) return 1;
-                if (!aHasData && !bHasData) return 0;
-                
-                // 有数据的记录按指定字段排序
-                let aValue, bValue;
-                
-                if (field === 'shipped_days' || field === 'arrived_days') {
-                    // 处理数组类型的值，取平均值进行排序
-                    const aText = a.querySelector(`td:nth-child(${field === 'shipped_days' ? 2 : 3})`).textContent;
-                    const bText = b.querySelector(`td:nth-child(${field === 'shipped_days' ? 2 : 3})`).textContent;
-                    
-                    const aDays = aText.split(',').map(d => parseFloat(d.trim()));
-                    const bDays = bText.split(',').map(d => parseFloat(d.trim()));
-                    
-                    aValue = aDays.reduce((sum, d) => sum + d, 0) / aDays.length;
-                    bValue = bDays.reduce((sum, d) => sum + d, 0) / bDays.length;
-                } else {
-                    // 处理数值类型的值
-                    const aText = a.querySelector(`td:nth-child(${field === 'avg_shipped_days' ? 4 : 5})`).textContent;
-                    const bText = b.querySelector(`td:nth-child(${field === 'avg_shipped_days' ? 4 : 5})`).textContent;
-                    
-                    aValue = parseFloat(aText) || 0;
-                    bValue = parseFloat(bText) || 0;
-                }
-                
-                if (direction === 'asc') {
-                    return aValue - bValue;
-                } else {
-                    return bValue - aValue;
-                }
-            });
-            
-            // 重新排列行
-            rows.forEach(row => tbody.appendChild(row));
+            // 初始化默认排序
+            sortTable('avg_shipped_days', 'desc');
         }
         
-        // 初始化默认排序
-        sortTable('avg_shipped_days', 'desc');
+        // 行合并函数
+        function mergeRows() {
+            const table = document.getElementById('timelinessTable');
+            const tbody = table.querySelector('tbody');
+            const rows = Array.from(tbody.querySelectorAll('tr'));
+            
+            if (rows.length === 0) return;
+            
+            let currentDestination = rows[0].dataset.destination;
+            let currentRowSpan = 1;
+            
+            for (let i = 1; i < rows.length; i++) {
+                const row = rows[i];
+                const destination = row.dataset.destination;
+                
+                if (destination === currentDestination) {
+                    currentRowSpan++;
+                    // 隐藏当前行的前三列
+                    row.querySelector('.destination-cell').style.display = 'none';
+                    row.querySelector('.avg-shipped-cell').style.display = 'none';
+                    row.querySelector('.avg-arrived-cell').style.display = 'none';
+                } else {
+                    // 设置上一组的行合并
+                    if (currentRowSpan > 1) {
+                        rows[i - currentRowSpan].querySelector('.destination-cell').rowSpan = currentRowSpan;
+                        rows[i - currentRowSpan].querySelector('.avg-shipped-cell').rowSpan = currentRowSpan;
+                        rows[i - currentRowSpan].querySelector('.avg-arrived-cell').rowSpan = currentRowSpan;
+                    }
+                    
+                    // 重置当前组
+                    currentDestination = destination;
+                    currentRowSpan = 1;
+                }
+            }
+            
+            // 处理最后一组
+            if (currentRowSpan > 1) {
+                rows[rows.length - currentRowSpan].querySelector('.destination-cell').rowSpan = currentRowSpan;
+                rows[rows.length - currentRowSpan].querySelector('.avg-shipped-cell').rowSpan = currentRowSpan;
+                rows[rows.length - currentRowSpan].querySelector('.avg-arrived-cell').rowSpan = currentRowSpan;
+            }
+        }
     });
 </script>
 {% endblock %}
