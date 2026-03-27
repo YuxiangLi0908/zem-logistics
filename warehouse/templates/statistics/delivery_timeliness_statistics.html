@@ -286,8 +286,8 @@
                             <td class="text-center">{{ batch.appointment_date }}</td>
                             <td class="text-center">{{ batch.shipped_date }}</td>
                             <td class="text-center">{{ batch.arrived_date }}</td>
-                            <td class="text-right {% if batch.shipped_days < 0 %}negative{% endif %}">{{ batch.shipped_days|default:"-" }}</td>
-                            <td class="text-right {% if batch.arrived_days < 0 %}negative{% endif %}">{{ batch.arrived_days|default:"-" }}</td>
+                            <td class="text-right {% if batch.shipped_days < 0 %}negative{% endif %}">{% if batch.shipped_days is not None %}{{ batch.shipped_days }}{% else %}-{% endif %}</td>
+                            <td class="text-right {% if batch.arrived_days < 0 %}negative{% endif %}">{% if batch.arrived_days is not None %}{{ batch.arrived_days }}{% else %}-{% endif %}</td>
                         </tr>
                         {% endfor %}
                     </tbody>
