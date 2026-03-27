@@ -2163,7 +2163,12 @@ class FleetManagement(View):
                 ).first()
 
                 if latest_rec:
-                    fleet_expense_map[fleet_id] = latest_rec.expense or 0
+                    # ✅ 按【车次CODE】存储，才能和前面匹配成功
+                    fleet_code = next(
+                        (fs.fleet_number.fleet_number for fs in fleet_shipments if fs.fleet_number_id == fleet_id),
+                        None)
+                    if fleet_code:
+                        fleet_expense_map[fleet_code] = latest_rec.expense or 0
 
             return fleet_pallet_map, fleet_expense_map
 
@@ -2318,24 +2323,27 @@ class FleetManagement(View):
                     shipment_copy.fleet_number_code = shipment_copy.fleet_number.fleet_number if (
                             shipment_copy.fleet_number and shipment_copy.fleet_number.fleet_number) else "-"
 
-                    # ========== 新增：计算分摊价格 ==========
+                    # ========== 修复：分摊价格逻辑（KEY FIX） ==========
                     # 1. 获取当前车次总板数
                     fleet_code = shipment_copy.fleet_number_code
                     total_pallets_of_fleet = fleet_total_pallets.get(fleet_code, 0)
-                    # 2. 获取当前柜子的板数
+
+                    # 2. 当前柜子板数
                     current_pallet_count = shipment_copy.shipped_pallet
-                    # 3. 获取车次总成本
+
+                    # 3. ✅ 修复：优先取最新费用表，没有再取fleet_cost
                     fleet_total_cost = fleet_expense_map.get(
-                        shipment_copy.fleet_number_id,
-                        shipment_copy.fleet_number.fleet_cost if (
-                                    shipment_copy.fleet_number and shipment_copy.fleet_number.fleet_cost) else 0
+                        shipment_copy.fleet_number_id,  # 按 fleet ID 取最新费用
+                        shipment_copy.fleet_number.fleet_cost or 0
                     )
-                    # 4. 计算分摊价格（总成本 / 总板数 * 当前柜子板数）
-                    if total_pallets_of_fleet > 0 and fleet_total_cost > 0:
+
+                    # 4. ✅ 修复：只要有成本就计算，不再判断 fleet_total_cost>0
+                    if total_pallets_of_fleet > 0 and current_pallet_count > 0:
                         allocation_price = (fleet_total_cost / total_pallets_of_fleet) * current_pallet_count
-                        shipment_copy.allocation_price = round(allocation_price, 2)  # 保留2位小数
+                        shipment_copy.allocation_price = round(allocation_price, 2)
                     else:
-                        shipment_copy.allocation_price = 0  # 无成本或无板数时默认0
+                        # 兜底显示真实成本，不直接归 0
+                        shipment_copy.allocation_price = round(fleet_total_cost, 2) if fleet_total_cost else 0
 
                     # ========== 修复：挂载一提多卸相关信息（核心修改） ==========
                     # 判断是否属于一提多卸（train_related不为空/空字符串）
