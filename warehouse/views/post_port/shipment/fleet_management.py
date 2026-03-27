@@ -42,7 +42,7 @@ from django.db.models import (
     Q,
     Sum,
     Value,
-    When, Prefetch,
+    When, Prefetch, Max,
 )
 from django.db.models.functions import Cast, Round
 from django.http import HttpRequest, HttpResponse
@@ -2117,13 +2117,14 @@ class FleetManagement(View):
         # ========== 新增：按车次统计总板数 ==========
         @sync_to_async
         def get_fleet_total_pallets():
-            """统计每个车次的总板数"""
+            """统计每个车次的总板数 + 获取 fleetshipmentpallet 最新一条费用记录（按ID最大取最新）"""
             # 先获取所有涉及的车次号
             fleet_numbers = [s.fleet_number.fleet_number for s in shipment if s.fleet_number]
             fleet_pallet_map = {}
+            fleet_expense_map = {}  # 存储每个车次【最新】的 expense
 
             if not fleet_numbers:
-                return fleet_pallet_map
+                return fleet_pallet_map, fleet_expense_map
 
             # 查询每个车次关联的所有shipment
             fleet_shipments = Shipment.objects.filter(
@@ -2142,10 +2143,32 @@ class FleetManagement(View):
                     fleet_pallet_map[fleet_code] = 0
                 fleet_pallet_map[fleet_code] += pallet_count
 
-            return fleet_pallet_map
+            # ======================
+            # 核心修复：按 ID 最大取最新费用（无创建时间专用）
+            # ======================
+            from django.db.models import Max
+            # 1. 获取每个 fleet_number_id 对应的最大 ID（最新记录）
+            fleet_latest = FleetShipmentPallet.objects.filter(
+                fleet_number_id__in=[fs.fleet_number_id for fs in fleet_shipments if fs.fleet_number]
+            ).values('fleet_number_id').annotate(
+                latest_id=Max('id')  # 用 id 最大 = 最新
+            )
+
+            # 2. 取出最新记录的 expense
+            for item in fleet_latest:
+                fleet_id = item['fleet_number_id']
+                latest_rec = FleetShipmentPallet.objects.filter(
+                    fleet_number_id=fleet_id,
+                    id=item['latest_id']
+                ).first()
+
+                if latest_rec:
+                    fleet_expense_map[fleet_id] = latest_rec.expense or 0
+
+            return fleet_pallet_map, fleet_expense_map
 
         # 获取车次总板数字典
-        fleet_total_pallets = await get_fleet_total_pallets()
+        fleet_total_pallets, fleet_expense_map = await get_fleet_total_pallets()
 
         # ========== 修复：一提多卸分组和总成本计算（核心修改） ==========
         @sync_to_async
@@ -2302,9 +2325,11 @@ class FleetManagement(View):
                     # 2. 获取当前柜子的板数
                     current_pallet_count = shipment_copy.shipped_pallet
                     # 3. 获取车次总成本
-                    fleet_total_cost = shipment_copy.fleet_number.fleet_cost if (
-                            shipment_copy.fleet_number and shipment_copy.fleet_number.fleet_cost
-                    ) else 0
+                    fleet_total_cost = fleet_expense_map.get(
+                        shipment_copy.fleet_number_id,
+                        shipment_copy.fleet_number.fleet_cost if (
+                                    shipment_copy.fleet_number and shipment_copy.fleet_number.fleet_cost) else 0
+                    )
                     # 4. 计算分摊价格（总成本 / 总板数 * 当前柜子板数）
                     if total_pallets_of_fleet > 0 and fleet_total_cost > 0:
                         allocation_price = (fleet_total_cost / total_pallets_of_fleet) * current_pallet_count
