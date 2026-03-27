@@ -240,7 +240,15 @@
                     </div>
                     
                     <div class="filter-item">
-                        <span class="filter-label">展示批次：</span>
+                        <span class="filter-label">日期类型：</span>
+                        <select name="date_type" id="date_type" class="filter-select">
+                            <option value="etd" {% if date_type == 'etd' or not date_type %}selected{% endif %}>ETD</option>
+                            <option value="eta" {% if date_type == 'eta' %}selected{% endif %}>ETA</option>
+                        </select>
+                    </div>
+                    
+                    <div class="filter-item">
+                        <span class="filter-label">展示柜号：</span>
                         <select name="show_batch" id="show_batch" class="filter-select">
                             <option value="false" {% if not show_batch %}selected{% endif %}>否</option>
                             <option value="true" {% if show_batch %}selected{% endif %}>是</option>
@@ -259,35 +267,41 @@
         </div>
         
         <!-- 数据表格卡片 -->
-        {% if batch_results %}
+        {% if container_results %}
         <div class="cbm-card">
             <div class="table-container">
                 <table class="data-table" id="timelinessTable">
                     <thead>
                         <tr>
                             <th class="text-left">目的地</th>
+                            <th class="text-right" style="width: 140px;">平均预约时效</th>
                             <th class="text-right" style="width: 140px;">平均出库时效</th>
                             <th class="text-right" style="width: 140px;">平均送达时效</th>
-                            <th class="text-left">批次号</th>
+                            <th class="text-left">柜号</th>
+                            <th class="text-center">入库时间</th>
                             <th class="text-center">预约时间</th>
                             <th class="text-center">出库时间</th>
                             <th class="text-center">确认送达时间</th>
+                            <th class="text-right" style="width: 120px;">预约时效（天）</th>
                             <th class="text-right" style="width: 120px;">出库时效（天）</th>
                             <th class="text-right" style="width: 120px;">送达时效（天）</th>
                         </tr>
                     </thead>
-                    <tbody id="batchTableBody">
-                        {% for batch in batch_results %}
-                        <tr data-destination="{{ batch.destination }}" data-avg-shipped="{{ batch.avg_shipped|floatformat:2 }}" data-avg-arrived="{{ batch.avg_arrived|floatformat:2 }}">
-                            <td class="text-left destination-cell">{{ batch.destination }}</td>
-                            <td class="text-right avg-shipped-cell" style="font-weight: bold;">{{ batch.avg_shipped|floatformat:2 }}</td>
-                            <td class="text-right avg-arrived-cell" style="font-weight: bold;">{{ batch.avg_arrived|floatformat:2 }}</td>
-                            <td class="text-left">{{ batch.batch_number }}</td>
-                            <td class="text-center">{{ batch.appointment_date }}</td>
-                            <td class="text-center">{{ batch.shipped_date }}</td>
-                            <td class="text-center">{{ batch.arrived_date }}</td>
-                            <td class="text-right {% if batch.shipped_days < 0 %}negative{% endif %}">{% if batch.shipped_days is not None %}{{ batch.shipped_days }}{% else %}-{% endif %}</td>
-                            <td class="text-right {% if batch.arrived_days < 0 %}negative{% endif %}">{% if batch.arrived_days is not None %}{{ batch.arrived_days }}{% else %}-{% endif %}</td>
+                    <tbody id="containerTableBody">
+                        {% for container in container_results %}
+                        <tr data-destination="{{ container.destination }}" data-container="{{ container.container_number }}" data-avg-appointment="{{ container.avg_appointment|floatformat:2 }}" data-avg-shipped="{{ container.avg_shipped|floatformat:2 }}" data-avg-arrived="{{ container.avg_arrived|floatformat:2 }}">
+                            <td class="text-left destination-cell">{{ container.destination }}</td>
+                            <td class="text-right avg-appointment-cell" style="font-weight: bold;">{{ container.avg_appointment|floatformat:2 }}</td>
+                            <td class="text-right avg-shipped-cell" style="font-weight: bold;">{{ container.avg_shipped|floatformat:2 }}</td>
+                            <td class="text-right avg-arrived-cell" style="font-weight: bold;">{{ container.avg_arrived|floatformat:2 }}</td>
+                            <td class="text-left container-cell">{{ container.container_number }}</td>
+                            <td class="text-center">{{ container.offload_date }}</td>
+                            <td class="text-center">{{ container.appointment_date }}</td>
+                            <td class="text-center">{{ container.shipped_date }}</td>
+                            <td class="text-center">{{ container.arrived_date }}</td>
+                            <td class="text-right {% if container.appointment_days < 0 %}negative{% endif %}">{% if container.appointment_days is not None %}{{ container.appointment_days }}{% else %}-{% endif %}</td>
+                            <td class="text-right {% if container.shipped_days < 0 %}negative{% endif %}">{% if container.shipped_days is not None %}{{ container.shipped_days }}{% else %}-{% endif %}</td>
+                            <td class="text-right {% if container.arrived_days < 0 %}negative{% endif %}">{% if container.arrived_days is not None %}{{ container.arrived_days }}{% else %}-{% endif %}</td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -301,8 +315,10 @@
                     <thead>
                         <tr>
                             <th class="text-left">目的地</th>
+                            <th class="sortable text-right" data-sort="appointment_days">预约时效（天）</th>
                             <th class="sortable text-right" data-sort="shipped_days">出库时效（天）</th>
                             <th class="sortable text-right" data-sort="arrived_days">送达时效（天）</th>
+                            <th class="sortable text-right" data-sort="avg_appointment_days" style="width: 140px;">平均预约时效</th>
                             <th class="sortable text-right" data-sort="avg_shipped_days" data-default="desc" style="width: 140px;">平均出库时效</th>
                             <th class="sortable text-right" data-sort="avg_arrived_days" style="width: 140px;">平均送达时效</th>
                         </tr>
@@ -311,6 +327,13 @@
                         {% for result in results %}
                         <tr>
                             <td class="text-left">{{ result.destination }}</td>
+                            <td class="text-right {% if result.appointment_days %}{% for day in result.appointment_days %}{% if day < 0 %}negative{% endif %}{% endfor %}{% else %}no-data{% endif %}">
+                                {% if result.appointment_days %}
+                                    {{ result.appointment_days|join:", " }}
+                                {% else %}
+                                    无数据
+                                {% endif %}
+                            </td>
                             <td class="text-right {% if result.shipped_days %}{% for day in result.shipped_days %}{% if day < 0 %}negative{% endif %}{% endfor %}{% else %}no-data{% endif %}">
                                 {% if result.shipped_days %}
                                     {{ result.shipped_days|join:", " }}
@@ -325,6 +348,7 @@
                                     无数据
                                 {% endif %}
                             </td>
+                            <td class="text-right {% if result.avg_appointment_days < 0 %}negative{% endif %}">{{ result.avg_appointment_days|floatformat:2 }}</td>
                             <td class="text-right {% if result.avg_shipped_days < 0 %}negative{% endif %}">{{ result.avg_shipped_days|floatformat:2 }}</td>
                             <td class="text-right {% if result.avg_arrived_days < 0 %}negative{% endif %}">{{ result.avg_arrived_days|floatformat:2 }}</td>
                         </tr>
@@ -344,9 +368,9 @@
     }
     
     document.addEventListener('DOMContentLoaded', function() {
-        // 行合并功能 - 只在批次模式下启用
-        const batchTableBody = document.getElementById('batchTableBody');
-        if (batchTableBody) {
+        // 行合并功能 - 只在展示柜号模式下启用
+        const containerTableBody = document.getElementById('containerTableBody');
+        if (containerTableBody) {
             mergeRows();
         }
         
@@ -481,28 +505,33 @@
             if (rows.length === 0) return;
             
             let currentDestination = rows[0].dataset.destination;
+            let currentContainer = rows[0].dataset.container;
             let currentRowSpan = 1;
             
             for (let i = 1; i < rows.length; i++) {
                 const row = rows[i];
                 const destination = row.dataset.destination;
+                const container = row.dataset.container;
                 
-                if (destination === currentDestination) {
-                    currentRowSpan++;
-                    // 隐藏当前行的前三列
-                    row.querySelector('.destination-cell').style.display = 'none';
-                    row.querySelector('.avg-shipped-cell').style.display = 'none';
-                    row.querySelector('.avg-arrived-cell').style.display = 'none';
-                } else {
-                    // 设置上一组的行合并
-                    if (currentRowSpan > 1) {
-                        rows[i - currentRowSpan].querySelector('.destination-cell').rowSpan = currentRowSpan;
-                        rows[i - currentRowSpan].querySelector('.avg-shipped-cell').rowSpan = currentRowSpan;
-                        rows[i - currentRowSpan].querySelector('.avg-arrived-cell').rowSpan = currentRowSpan;
-                    }
+                if (destination === currentDestination && container === currentContainer) {
+                currentRowSpan++;
+                // 隐藏当前行的前四列
+                row.querySelector('.destination-cell').style.display = 'none';
+                row.querySelector('.avg-appointment-cell').style.display = 'none';
+                row.querySelector('.avg-shipped-cell').style.display = 'none';
+                row.querySelector('.avg-arrived-cell').style.display = 'none';
+            } else {
+                // 设置上一组的行合并
+                if (currentRowSpan > 1) {
+                    rows[i - currentRowSpan].querySelector('.destination-cell').rowSpan = currentRowSpan;
+                    rows[i - currentRowSpan].querySelector('.avg-appointment-cell').rowSpan = currentRowSpan;
+                    rows[i - currentRowSpan].querySelector('.avg-shipped-cell').rowSpan = currentRowSpan;
+                    rows[i - currentRowSpan].querySelector('.avg-arrived-cell').rowSpan = currentRowSpan;
+                }
                     
                     // 重置当前组
                     currentDestination = destination;
+                    currentContainer = container;
                     currentRowSpan = 1;
                 }
             }
@@ -510,6 +539,7 @@
             // 处理最后一组
             if (currentRowSpan > 1) {
                 rows[rows.length - currentRowSpan].querySelector('.destination-cell').rowSpan = currentRowSpan;
+                rows[rows.length - currentRowSpan].querySelector('.avg-appointment-cell').rowSpan = currentRowSpan;
                 rows[rows.length - currentRowSpan].querySelector('.avg-shipped-cell').rowSpan = currentRowSpan;
                 rows[rows.length - currentRowSpan].querySelector('.avg-arrived-cell').rowSpan = currentRowSpan;
             }
