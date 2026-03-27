@@ -814,7 +814,6 @@ class OrderQuantity(View):
                 shipment_batch_number__shipped_at__isnull=False  # 绑定的shipment的shipped_at不为空
             ).select_related("container_number", "shipment_batch_number")
         )
-        print('pallets',pallets)
         # 按container_number和destination分组
         container_destination_groups = {}
         for pallet in pallets:
