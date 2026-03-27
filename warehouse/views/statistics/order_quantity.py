@@ -30,6 +30,7 @@ from warehouse.models.invoice import Invoice, InvoiceItem
 from warehouse.models.invoicev2 import Invoicev2, InvoiceStatusv2, InvoiceItemv2
 from warehouse.models.invoice_details import InvoiceDelivery
 from warehouse.models.order import Order
+from warehouse.models.shipment import Shipment
 from warehouse.models.retrieval import HistoricalRetrieval, Retrieval
 from warehouse.utils.constants import MODEL_CHOICES
 
@@ -40,6 +41,7 @@ class OrderQuantity(View):
     template_profit = "statistics/profit.html"
     template_cbm_analysis = "statistics/cbm_analysis.html"
     template_delivery_cost_status = "statistics/delivery_cost_status.html"
+    template_timeliness_statistics = "statistics/delivery_timeliness_statistics.html"
     area_options = {"NJ": "NJ", "SAV": "SAV", "LA": "LA"}
 
     async def get(self, request: HttpRequest, **kwargs) -> HttpResponse:
@@ -67,7 +69,18 @@ class OrderQuantity(View):
             customers = {"----": None, **customers}
             context = {"area_options": self.area_options, "customers": customers}
             return await sync_to_async(render)(request, self.template_cbm_analysis, context)
-        elif step == "profit_analysis_personalized":
+        elif step == "delivery_timeliness_analysis":
+            if not await self._validate_user_profit(request.user):
+                return HttpResponseForbidden(
+                    "You are not authenticated to access this page!"
+                )
+            customers = await sync_to_async(list)(Customer.objects.all())
+            customers = {c.zem_name: c.id for c in customers}
+            customers["----"] = None
+            customers = {"----": None, **customers}
+            context = {"area_options": self.area_options, "customers": customers}
+            return await sync_to_async(render)(request, self.template_timeliness_statistics, context)
+        elif step == "delivery_timeliness":
             if not await self._validate_user_profit(request.user):
                 return HttpResponseForbidden(
                     "You are not authenticated to access this page!"
@@ -110,6 +123,9 @@ class OrderQuantity(View):
             return await sync_to_async(render)(request, template, context)
         elif step == "cbm_analysis_selection":
             template, context = await self.handle_analysis_cbm(request)
+            return await sync_to_async(render)(request, template, context)
+        elif step == "delivery_timeliness_selection":
+            template, context = await self.handle_delivery_timeliness_analysis(request)
             return await sync_to_async(render)(request, template, context)
 
     async def _get_orders(self, request) -> list:
@@ -737,6 +753,101 @@ class OrderQuantity(View):
             customer_idlist = [item["zem_name"] for item in customer_list]
             criteria &= Q(customer_name__zem_name__in=customer_idlist)
         return criteria
+    async def handle_delivery_timeliness_analysis(
+        self, request: HttpRequest
+    ) -> tuple[str, dict[str, Any]]:
+        region = request.POST.get("region")
+        start_date = request.POST.get("start_date")
+        end_date = request.POST.get("end_date")
+        
+        # 设置默认时间范围：过去一个月到今天
+        today = datetime.today()
+        one_month_ago = today - timedelta(days=30)
+        
+        if not start_date:
+            start_date = one_month_ago.strftime("%Y-%m-%d")
+        if not end_date:
+            end_date = today.strftime("%Y-%m-%d")
+        
+        # 区域到仓点的映射
+        region_warehouse_mapping = {
+            "美西一区": ["ONT8", "ONT9", "LAX9", "LGB8", "SBD1", "POC1", "POC2", "POC3", "IUSI", "IUSP", "IUSQ", "IUTI", "IUSW", "LGB4", "LGB6", "SBD2", "SNAA4", "XLX7", "PSP3"],
+            "美西二区": ["LAS1", "VT2", "MIT2", "IUTE", "HLI2", "SMF3", "SCK4", "GYR2", "GYR3", "GEU2", "GEU3", "GEU5", "TCY1", "TCY2", "SCK8", "QXY5", "QXY8", "LAS6", "PHX5", "PHX7", "SMF6", "SCK1", "OAK3", "MCE1", "FAT2", "MCC1"],
+            "美西三区 (HT)": ["ABQ2", "SLC2", "FTW1", "FTW5", "HOU8", "IAH3", "SAT4", "AMA1", "OKC2"],
+            "美西四区 (MO)": ["PSC2", "GEG2", "PDX7", "FOE1", "LIT2", "DEN", "IND9", "MQJ1", "FWA4", "ORD2", "RFD2", "STL3", "MEM11"],
+            "美西五区 (SAV)": ["CLT2", "MCO2", "TPA2", "TPA3", "GSO1", "CLT3", "CLT6", "SAV3", "RYY2", "JAX3", "XLX6", "PB13", "RDU2", "RDU4", "MGE3", "TMB8", "HSV1", "IUSR"],
+            "美西六区 (NJ)": ["TEB3", "TEB4", "TEB6", "TEB9", "ACY2", "ABE3", "ABE4", "ABE8", "AVP1", "XEW5", "ORF2", "CHO1", "RMN3", "BWI4", "ILG1", "HGR6", "XLX1", "DCA6", "ALB1", "XRI3", "BOS7", "PIT2", "PHL4", "PHL5", "HL6", "MDT1", "MDT4", "LBE1", "HIA1", "SWF1", "SWF2"],
+            "美西七区": ["整柜 UPS/FedEx"]
+        }
+        
+        # 获取该区域的所有仓点
+        warehouses = region_warehouse_mapping.get(region, [])
+        
+        # 查询符合条件的shipment记录
+        shipments = await sync_to_async(list)(
+            Shipment.objects.filter(
+                shipment_appointment__gte=start_date,
+                shipment_appointment__lte=end_date
+            ).select_related("fleet_number")
+        )
+        
+        # 按目的地区分组处理数据
+        destination_stats = {}
+        for destination in warehouses:
+            destination_stats[destination] = {
+                "shipped_days": [],
+                "arrived_days": []
+            }
+        
+        # 计算时效
+        for shipment in shipments:
+            # 获取目的地区：使用shipment的destination
+            destination = shipment.destination
+            
+            # 只处理属于当前区域的目的地区
+            if destination and destination in warehouses:
+                # 计算出库时效：shipped_at - shipment_appointment（只计算天数差）
+                if shipment.shipped_at and shipment.shipment_appointment:
+                    shipped_delta = shipment.shipped_at - shipment.shipment_appointment
+                    shipped_days = shipped_delta.days
+                    destination_stats[destination]["shipped_days"].append(shipped_days)
+                
+                # 计算送达时效：arrived_at - shipment_appointment（只计算天数差）
+                if shipment.arrived_at and shipment.shipment_appointment:
+                    arrived_delta = shipment.arrived_at - shipment.shipment_appointment
+                    arrived_days = arrived_delta.days
+                    destination_stats[destination]["arrived_days"].append(arrived_days)
+        
+        # 计算平均时效并构建结果
+        results = []
+        for destination, stats in destination_stats.items():
+            # 计算平均出库时效
+            avg_shipped_days = 0
+            if stats["shipped_days"]:
+                avg_shipped_days = sum(stats["shipped_days"]) / len(stats["shipped_days"])
+            
+            # 计算平均送达时效
+            avg_arrived_days = 0
+            if stats["arrived_days"]:
+                avg_arrived_days = sum(stats["arrived_days"]) / len(stats["arrived_days"])
+            
+            results.append({
+                "destination": destination,
+                "shipped_days": stats["shipped_days"],
+                "arrived_days": stats["arrived_days"],
+                "avg_shipped_days": avg_shipped_days,
+                "avg_arrived_days": avg_arrived_days
+            })
+        
+        context = {
+            "results": results,
+            "region": region,
+            "start_date": start_date,
+            "end_date": end_date
+        }
+        
+        return self.template_timeliness_statistics, context
+
     async def handle_analysis_cbm(
         self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:

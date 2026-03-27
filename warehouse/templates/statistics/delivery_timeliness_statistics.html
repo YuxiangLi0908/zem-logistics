@@ -1,0 +1,420 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+    /* 全局样式 */
+    .cbm-container {
+        min-height: 100vh;
+        background-color: #f5f5f5;
+        padding: 20px;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+    
+    .cbm-content {
+        max-width: 1200px;
+        width: 100%;
+        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+        border-radius: 10px;
+        overflow: hidden;
+    }
+    
+    /* 卡片样式 */
+    .cbm-card {
+        background-color: #ffffff;
+        padding: 20px;
+    }
+    
+    /* 标题样式 */
+    .cbm-title {
+        font-size: 24px;
+        font-weight: bold;
+        color: #333333;
+        margin-bottom: 20px;
+    }
+    
+    /* 筛选栏样式 */
+    .filter-bar {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        flex-wrap: wrap;
+        padding: 15px 0;
+        border-bottom: 1px solid #e8e8e8;
+        margin-bottom: 15px;
+    }
+    
+    .filter-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .filter-label {
+        font-weight: bold;
+        color: #333333;
+        white-space: nowrap;
+    }
+    
+    /* 输入控件样式 */
+    .filter-input,
+    .filter-select {
+        padding: 8px 12px;
+        border: 1px solid #d9d9d9;
+        border-radius: 4px;
+        font-size: 14px;
+        transition: all 0.3s;
+    }
+    
+    .filter-input:focus,
+    .filter-select:focus {
+        outline: none;
+        border-color: #1677ff;
+        box-shadow: 0 0 0 2px rgba(22, 119, 255, 0.2);
+    }
+    
+    /* 按钮样式 */
+    .btn {
+        padding: 8px 16px;
+        border: none;
+        border-radius: 4px;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+    
+    .btn-primary {
+        background-color: #1677ff;
+        color: white;
+    }
+    
+    .btn-primary:hover {
+        background-color: #0a66e0;
+    }
+    
+    .btn-success {
+        background-color: #52C41A;
+        color: white;
+    }
+    
+    .btn-success:hover {
+        background-color: #389E0D;
+    }
+    
+    /* 表格样式 */
+    .table-container {
+        overflow-x: auto;
+    }
+    
+    .data-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 14px;
+    }
+    
+    .data-table thead {
+        background: linear-gradient(to right, #2c3e50, #3a83b4);
+    }
+    
+    .data-table th {
+        color: white;
+        padding: 14px 12px;
+        text-align: center;
+        font-weight: bold;
+        position: relative;
+        border-bottom: 2px solid #1677ff;
+        cursor: pointer;
+    }
+    
+    .data-table th:hover {
+        background: rgba(255, 255, 255, 0.1);
+    }
+    
+    .data-table th.sortable::after {
+        content: '';
+        position: absolute;
+        right: 8px;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 0;
+        height: 0;
+        border-left: 4px solid transparent;
+        border-right: 4px solid transparent;
+    }
+    
+    .data-table th.sort-asc::after {
+        border-bottom: 6px solid white;
+    }
+    
+    .data-table th.sort-desc::after {
+        border-top: 6px solid white;
+    }
+    
+    .data-table td {
+        padding: 12px;
+        border-bottom: 1px solid #e8e8e8;
+        height: 44px;
+        vertical-align: middle;
+    }
+    
+    .data-table tr:nth-child(even) {
+        background-color: #f0f7ff;
+    }
+    
+    .data-table tr:hover {
+        background-color: #e6f2ff;
+    }
+    
+    .data-table .text-left {
+        text-align: left;
+    }
+    
+    .data-table .text-right {
+        text-align: right;
+    }
+    
+    /* 无数据单元格样式 */
+    .no-data {
+        color: #909399;
+        text-align: center;
+    }
+    
+    /* 负数值样式 */
+    .negative {
+        color: #FF4D4F;
+    }
+    
+    /* 响应式设计 */
+    @media (max-width: 768px) {
+        .cbm-container {
+            padding: 10px;
+        }
+        
+        .filter-bar {
+            gap: 10px;
+        }
+        
+        .filter-item {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 4px;
+        }
+    }
+</style>
+
+<div class="cbm-container">
+    <div class="cbm-content">
+        <!-- 筛选卡片 -->
+        <div class="cbm-card" style="position: sticky; top: 0; z-index: 50;">
+            <h2 class="cbm-title">时效统计</h2>
+            
+            <form method="post">
+                {% csrf_token %}
+                <div class="filter-bar">
+                    <input type="hidden" name="step" value="delivery_timeliness_selection">
+                    
+                    <div class="filter-item">
+                        <span class="filter-label">区域：</span>
+                        <select name="region" id="region" class="filter-select" required>
+                            <option value="">请选择区域</option>
+                            <option value="美西一区" {% if region == '美西一区' %}selected{% endif %}>美西一区</option>
+                            <option value="美西二区" {% if region == '美西二区' %}selected{% endif %}>美西二区</option>
+                            <option value="美西三区 (HT)" {% if region == '美西三区 (HT)' %}selected{% endif %}>美西三区 (HT)</option>
+                            <option value="美西四区 (MO)" {% if region == '美西四区 (MO)' %}selected{% endif %}>美西四区 (MO)</option>
+                            <option value="美西五区 (SAV)" {% if region == '美西五区 (SAV)' %}selected{% endif %}>美西五区 (SAV)</option>
+                            <option value="美西六区 (NJ)" {% if region == '美西六区 (NJ)' %}selected{% endif %}>美西六区 (NJ)</option>
+                            <option value="美西七区" {% if region == '美西七区' %}selected{% endif %}>美西七区</option>
+                        </select>
+                    </div>
+                    
+                    <div class="filter-item">
+                        <span class="filter-label">开始日期：</span>
+                        <input type="date" name="start_date" id="start_date" class="filter-input" value="{{ start_date }}">
+                    </div>
+                    
+                    <div class="filter-item">
+                        <span class="filter-label">结束日期：</span>
+                        <input type="date" name="end_date" id="end_date" class="filter-input" value="{{ end_date }}">
+                    </div>
+                    
+                    <div class="filter-item" style="margin-left: auto;">
+                        <button type="submit" class="btn btn-primary">查询</button>
+                    </div>
+                    
+                    <div class="filter-item">
+                        <button type="button" id="exportBtn" class="btn btn-success">导出Excel</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+        
+        <!-- 数据表格卡片 -->
+        {% if results %}
+        <div class="cbm-card">
+            <div class="table-container">
+                <table class="data-table" id="timelinessTable">
+                    <thead>
+                        <tr>
+                            <th class="text-left">目的地</th>
+                            <th class="sortable text-right" data-sort="shipped_days">出库时效（天）</th>
+                            <th class="sortable text-right" data-sort="arrived_days">送达时效（天）</th>
+                            <th class="sortable text-right" data-sort="avg_shipped_days" data-default="desc">平均出库时效</th>
+                            <th class="sortable text-right" data-sort="avg_arrived_days">平均送达时效</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for result in results %}
+                        <tr>
+                            <td class="text-left">{{ result.destination }}</td>
+                            <td class="text-right {% if result.shipped_days %}{% for day in result.shipped_days %}{% if day < 0 %}negative{% endif %}{% endfor %}{% else %}no-data{% endif %}">
+                                {% if result.shipped_days %}
+                                    {{ result.shipped_days|join:", " }}
+                                {% else %}
+                                    无数据
+                                {% endif %}
+                            </td>
+                            <td class="text-right {% if result.arrived_days %}{% for day in result.arrived_days %}{% if day < 0 %}negative{% endif %}{% endfor %}{% else %}no-data{% endif %}">
+                                {% if result.arrived_days %}
+                                    {{ result.arrived_days|join:", " }}
+                                {% else %}
+                                    无数据
+                                {% endif %}
+                            </td>
+                            <td class="text-right {% if result.avg_shipped_days < 0 %}negative{% endif %}">{{ result.avg_shipped_days|floatformat:2 }}</td>
+                            <td class="text-right {% if result.avg_arrived_days < 0 %}negative{% endif %}">{{ result.avg_arrived_days|floatformat:2 }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // 导出Excel功能
+        document.getElementById('exportBtn').addEventListener('click', function() {
+            const table = document.getElementById('timelinessTable');
+            const thead = table.querySelector('thead');
+            const tbody = table.querySelector('tbody');
+            const rows = Array.from(tbody.querySelectorAll('tr'));
+            
+            // 创建新的表格，只包含可见行
+            const newTable = document.createElement('table');
+            newTable.innerHTML = thead.outerHTML;
+            const newTbody = document.createElement('tbody');
+            
+            // 添加所有行
+            rows.forEach(row => {
+                newTbody.appendChild(row.cloneNode(true));
+            });
+            
+            newTable.appendChild(newTbody);
+            let html = newTable.outerHTML;
+            
+            // 创建Blob对象
+            const blob = new Blob(['\ufeff' + html], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+            const url = URL.createObjectURL(blob);
+            
+            // 创建下载链接
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'delivery_timeliness_statistics_' + new Date().toISOString().slice(0, 10) + '.xlsx';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        });
+        
+        // 排序功能
+        const sortableHeaders = document.querySelectorAll('.sortable');
+        let currentSort = {
+            field: 'avg_shipped_days',
+            direction: 'desc'
+        };
+        
+        // 初始化排序状态
+        document.querySelector('[data-sort="avg_shipped_days"]').classList.add('sort-desc');
+        
+        sortableHeaders.forEach(header => {
+            header.addEventListener('click', function() {
+                const field = this.getAttribute('data-sort');
+                
+                // 重置所有排序状态
+                sortableHeaders.forEach(h => {
+                    h.classList.remove('sort-asc', 'sort-desc');
+                });
+                
+                // 确定排序方向
+                if (currentSort.field === field) {
+                    currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
+                } else {
+                    currentSort.direction = 'asc';
+                }
+                
+                // 更新当前排序状态
+                currentSort.field = field;
+                
+                // 添加排序图标
+                this.classList.add(currentSort.direction === 'asc' ? 'sort-asc' : 'sort-desc');
+                
+                // 排序表格行
+                sortTable(field, currentSort.direction);
+            });
+        });
+        
+        function sortTable(field, direction) {
+            const tbody = document.querySelector('#timelinessTable tbody');
+            const rows = Array.from(tbody.querySelectorAll('tr'));
+            
+            rows.sort((a, b) => {
+                // 优先将有数据的记录排在前面
+                const aHasData = !a.querySelector('.no-data');
+                const bHasData = !b.querySelector('.no-data');
+                
+                if (aHasData && !bHasData) return -1;
+                if (!aHasData && bHasData) return 1;
+                if (!aHasData && !bHasData) return 0;
+                
+                // 有数据的记录按指定字段排序
+                let aValue, bValue;
+                
+                if (field === 'shipped_days' || field === 'arrived_days') {
+                    // 处理数组类型的值，取平均值进行排序
+                    const aText = a.querySelector(`td:nth-child(${field === 'shipped_days' ? 2 : 3})`).textContent;
+                    const bText = b.querySelector(`td:nth-child(${field === 'shipped_days' ? 2 : 3})`).textContent;
+                    
+                    const aDays = aText.split(',').map(d => parseFloat(d.trim()));
+                    const bDays = bText.split(',').map(d => parseFloat(d.trim()));
+                    
+                    aValue = aDays.reduce((sum, d) => sum + d, 0) / aDays.length;
+                    bValue = bDays.reduce((sum, d) => sum + d, 0) / bDays.length;
+                } else {
+                    // 处理数值类型的值
+                    const aText = a.querySelector(`td:nth-child(${field === 'avg_shipped_days' ? 4 : 5})`).textContent;
+                    const bText = b.querySelector(`td:nth-child(${field === 'avg_shipped_days' ? 4 : 5})`).textContent;
+                    
+                    aValue = parseFloat(aText) || 0;
+                    bValue = parseFloat(bText) || 0;
+                }
+                
+                if (direction === 'asc') {
+                    return aValue - bValue;
+                } else {
+                    return bValue - aValue;
+                }
+            });
+            
+            // 重新排列行
+            rows.forEach(row => tbody.appendChild(row));
+        }
+        
+        // 初始化默认排序
+        sortTable('avg_shipped_days', 'desc');
+    });
+</script>
+{% endblock %}
