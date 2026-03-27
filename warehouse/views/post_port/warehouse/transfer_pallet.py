@@ -95,6 +95,9 @@ class TransferPallet(View):
             return render(request, template, context)
         elif step == "export_bol_transfer":
             return await self.handle_export_bol_transfer_post(request)
+        elif step == "update_fleet_cost":
+            template, context = await self.handle_update_fleet_cost_post(request)
+            return render(request, template, context)
 
     async def handle_transfer_warehouse_post(
         self, request: HttpRequest
@@ -231,6 +234,8 @@ class TransferPallet(View):
 
         for t in not_arrived_raw:
             pickup_number = t.fleet_number.pickup_number if t.fleet_number else ""
+            fleet_cost = t.fleet_number.fleet_cost if t.fleet_number else None
+            fleet_id = t.fleet_number.id if t.fleet_number else None
             if t.plt_ids:
                 try:
                     plt_id_list = literal_eval(t.plt_ids)
@@ -264,6 +269,8 @@ class TransferPallet(View):
                         "transfer": t,
                         "pairs": pairs,
                         "pickup_number": pickup_number,
+                        "fleet_cost": fleet_cost,
+                        "fleet_id": fleet_id,
                     }
                 )
             else:
@@ -272,6 +279,8 @@ class TransferPallet(View):
                         "transfer": t,
                         "pairs": "",
                         "pickup_number": pickup_number,
+                        "fleet_cost": fleet_cost,
+                        "fleet_id": fleet_id,
                     }
                 )
 
@@ -292,6 +301,8 @@ class TransferPallet(View):
                 plt_id_list = []
 
             pickup_number = t.fleet_number.pickup_number if t.fleet_number else ""
+            fleet_cost = t.fleet_number.fleet_cost if t.fleet_number else None
+            fleet_id = t.fleet_number.id if t.fleet_number else None
             if plt_id_list:
                 pallets = await sync_to_async(list)(
                     Pallet.objects.filter(id__in=plt_id_list)
@@ -317,6 +328,8 @@ class TransferPallet(View):
                         "transfer": t,
                         "pairs": pairs,
                         "pickup_number": pickup_number,
+                        "fleet_cost": fleet_cost,
+                        "fleet_id": fleet_id,
                     }
                 )
             else:
@@ -325,6 +338,8 @@ class TransferPallet(View):
                         "transfer": t,
                         "pairs": "",
                         "pickup_number": pickup_number,
+                        "fleet_cost": fleet_cost,
+                        "fleet_id": fleet_id,
                     }
                 )
         context = {
@@ -465,6 +480,33 @@ class TransferPallet(View):
                 new_fleet_shipment_pallets, batch_size=500
             )
         await sync_to_async(fleet.save)()
+        return await self.handle_transfer_history_warehouse_post(request)
+
+    async def handle_update_fleet_cost_post(
+        self, request: HttpRequest
+    ) -> tuple[Any, Any]:
+        fleet_id = request.POST.get("fleet_id")
+        fleet_cost = request.POST.get("fleet_cost")
+        warehouse = request.POST.get("warehouse")
+
+        # 更新Fleet表的fleet_cost
+        fleet = await sync_to_async(Fleet.objects.get)(id=fleet_id)
+        try:
+            fleet.fleet_cost = float(fleet_cost) if fleet_cost else 0.0
+        except (ValueError, TypeError):
+            fleet.fleet_cost = 0.0
+        await sync_to_async(fleet.save)()
+
+        # 找到对应的TransferLocation记录
+        transfer = await sync_to_async(TransferLocation.objects.get)(fleet_number_id=fleet_id)
+        # 获取plt_ids
+        plt_ids = ast.literal_eval(transfer.plt_ids)
+
+        # 调用FleetManagement的方法
+        fm = FleetManagement()
+        await fm.insert_fleet_shipment_pallet_fleet_cost_transfer(request, plt_ids, fleet.fleet_number, fleet.fleet_cost)
+
+        # 返回历史记录页面
         return await self.handle_transfer_history_warehouse_post(request)
 
     async def handle_operation_get(self) -> tuple[str, dict[str, Any]]:
