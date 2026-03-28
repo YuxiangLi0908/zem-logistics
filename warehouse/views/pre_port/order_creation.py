@@ -1176,8 +1176,7 @@ class OrderCreation(View):
         warehouse = request.POST.get("warehouse")
         # 现在用户直接选择完整的仓库代码，所以不需要转换
         warehouse_code = warehouse
-        
-
+        warehouse_des = warehouse.split("-")[0]
         
         #更新基本信息
         customer = await sync_to_async(Customer.objects.get)(
@@ -1224,7 +1223,7 @@ class OrderCreation(View):
 
         retrieval_data = {
             "retrieval_id": retrieval_id,
-            "retrieval_destination_area": (request.POST.get("warehouse")),
+            "retrieval_destination_area": warehouse_des,
             'retrieval_destination_precise': warehouse_code,
             'retrieval_carrier': '自取',
             'target_retrieval_timestamp': created_at,
@@ -1365,7 +1364,7 @@ class OrderCreation(View):
             po_ids,
             request.POST.getlist("delivery_window_start") or [''],
             request.POST.getlist("delivery_window_end") or [''],
-            ["公仓"] * max(len(request.POST.getlist("delivery_method") or []), 1)
+            ["public"] * max(len(request.POST.getlist("delivery_method") or []), 1)
         ]
         #填充空列和最长的长度相同
         max_length = max(len(field) for field in fields)
@@ -1385,9 +1384,9 @@ class OrderCreation(View):
                 fba_id=d[2].strip(),
                 ref_id=d[3].strip(),
                 destination=d[4],
-                pcs=int(float(d[5])),
-                total_weight_kg=d[6],
-                total_weight_lbs=d[7],
+                pcs=int(float(d[5])),              
+                total_weight_lbs=d[6],
+                total_weight_kg=d[7],
                 cbm=d[8],
                 PO_ID=d[10],
                 delivery_window_start = d[11] if d[11].strip() else None,
