@@ -402,6 +402,7 @@ class OrderCreation(View):
             "customers": customers,
             "order_type": self.order_type,
             "area": self.area,
+            "peer_customer": self.peer_customer,
         })
 
         return self.template_peer_pallet_create_base, context
@@ -1173,7 +1174,11 @@ class OrderCreation(View):
         container_number = request.POST.get("container_number")
         customer_name = request.POST.get("customer_name")
         warehouse = request.POST.get("warehouse")
-        warehouse_code = 'NJ-07001' if warehouse == 'NJ' else 'SAV-31326' if warehouse == 'SAV' else 'LA-91761' if warehouse == 'LA' else warehouse
+        # 现在用户直接选择完整的仓库代码，所以不需要转换
+        warehouse_code = warehouse
+        
+
+        
         #更新基本信息
         customer = await sync_to_async(Customer.objects.get)(
             models.Q(zem_name=customer_name) | models.Q(accounting_name=customer_name)
@@ -2386,7 +2391,6 @@ class OrderCreation(View):
                         # 检查是否在映射表中
                         if zipcode in ZIPCODE_TO_WAREHOUSE:
                             # 返回格式化的仓库名：代码-邮编
-                            print(f"{ZIPCODE_TO_WAREHOUSE[zipcode]}")
                             return f"{ZIPCODE_TO_WAREHOUSE[zipcode]}"
                         else:
                             # 不在映射表中，抛出异常
@@ -2420,21 +2424,11 @@ class OrderCreation(View):
                     
                     destination_str = str(destination_value).strip()
                     
-                    # 检查是否包含指定的邮编
-                    for zipcode, formatted_address in ZIPCODE_TO_DESTINATION.items():
-                        if zipcode in destination_str:
-                            # 如果包含指定邮编，返回对应的格式化地址
-                            return formatted_address
-                    
-                    # 如果没有匹配到任何邮编
-                    # 检查是否已经是完整格式（如 NJ-07001）
-                    if any(zipcode in destination_str for zipcode in ZIPCODE_TO_DESTINATION.keys()):
-                        # 如果包含邮编但不在映射表中（理论上不会发生，因为上面已经检查过了）
-                        raise ValueError(f"收货地址列中的值 '{destination_str}' 包含邮编但无法识别。请使用以下邮编：{', '.join(ZIPCODE_TO_DESTINATION.keys())}")
+                    # 检查收货地址长度是否超过18个字符
+                    if len(destination_str) > 18:
+                        raise ValueError(f"收货地址列中的值 '{destination_str}' 字符超过18个，请修改！")
                     else:
-                        # 完全不包含任何指定邮编，抛出异常
-                        raise ValueError(f"收货地址列中的值 '{destination_str}' 不包含任何指定的邮编。请确保地址中包含以下邮编之一：{', '.join(ZIPCODE_TO_DESTINATION.keys())}")
-                
+                        return destination_str                                 
                 # 应用处理函数到收货地址列
                 try:
                     df['收货地址'] = df['收货地址'].apply(process_destination)
@@ -2462,16 +2456,10 @@ class OrderCreation(View):
                 '最早派送时间': 'delivery_window_start',
                 '最晚派送时间': 'delivery_window_end',
             })
-            warehouses = df['warehouses'].replace('', pd.NA).dropna().unique()
-            warehouses = warehouses.tolist()
-            if len(warehouses) > 1:
-                #值多不行，现在模板一次就建一个客户一个仓库的
-                raise ValueError(f"'接货仓库'列有多个不同的值：{warehouses}。请确保所有行的柜号相同。")
-            elif len(warehouses) == 1:
-                warehouse = warehouses[0].split('-')[0]
-            else:
-                #说明没有提供值，那就默认为NJ
-                warehouse = 'NJ'
+            # 仓库由用户手动选择，不再从表格中读取
+            # 这里仍然处理接货仓库列，因为货物信息列表需要显示这个数据
+            # 但不使用它来设置warehouse变量
+            warehouse = None
 
             customer_names = df['customer_name'].dropna().unique()
             if len(customer_names) > 1:
