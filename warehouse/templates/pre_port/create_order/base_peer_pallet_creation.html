@@ -455,6 +455,11 @@
         {% csrf_token %}
         <input type="hidden" name="step" value="peer_po_save">
         <div class="peer-main-content">
+            {% if error_message %}
+            <div style="background-color: #f8d7da; color: #721c24; padding: 15px; border-radius: 5px; margin-bottom: 20px; border: 1px solid #f5c6cb;">
+                <strong>错误：</strong>{{ error_message }}
+            </div>
+            {% endif %}
             <div class="peer-section">
                 <div class="peer-section-title">
                     <i class="fas fa-info-circle"></i>
@@ -469,22 +474,22 @@
                     
                     <div class="peer-form-group">
                         <label for="customer" class="peer-label">客户名</label>
-                        {% if customer_name %}
-                            <input type="text" name="customer_name" class="peer-form-control"
-                                placeholder="请输入客户名" value="{{ customer_name }}">
-                        {% else %}
-                            <select name="customer_name" id="customer_select" class="peer-form-control">
-                                <option value="">请选择客户</option>
-                                {% for key, value in peer_customer.items %}
-                                    <option value="{{ key }}" data-fullname="{{ value }}">{{ value }}</option>
-                                {% endfor %}
-                            </select>
-                        {% endif %}
+                        <select name="customer_name" id="customer_select" class="peer-form-control" required>
+                            <option value="">请选择客户</option>
+                            {% for key, value in peer_customer.items %}
+                                <option value="{{ key }}" data-fullname="{{ value }}">{{ value }}</option>
+                            {% endfor %}
+                        </select>
                     </div>
                     
                     <div class="peer-form-group">
                         <label for="warehouse" class="peer-label">仓库</label>
-                        <input type="text" name="warehouse" class="peer-form-control" placeholder="请输入仓库名称" value="{{ warehouse }}">
+                        <select name="warehouse" id="warehouse" class="peer-form-control" required>
+                            <option value="">请选择仓库</option>
+                            <option value="NJ-07001" {% if warehouse == 'NJ-07001' or warehouse == 'NJ' %}selected{% endif %}>NJ-07001</option>
+                            <option value="SAV-31326" {% if warehouse == 'SAV-31326' or warehouse == 'SAV' %}selected{% endif %}>SAV-31326</option>
+                            <option value="LA-91761" {% if warehouse == 'LA-91761' or warehouse == 'LA' %}selected{% endif %}>LA-91761</option>
+                        </select>
                     </div>
                 </div>
             </div>
@@ -500,11 +505,12 @@
                         <thead>
                             <tr>
                                 <th>仓库</th>
+                                <th>收货地址</th>
                                 <th>派送方式</th>
                                 <th>FBA号码</th>
                                 <th>REF号码</th>
                                 <th>箱数</th>
-                                <th>重量 (lbs)</th>                          
+                                <th>重量 (lbs)</th>                         
                                 <th>CBM</th>
                                 <th>板数</th>
                                 <th>最早派送时间</th>
@@ -514,7 +520,7 @@
                         <tbody>
                             {% if not orders %}
                             <tr>
-                                <td colspan="10" style="text-align: center; padding: 30px; color: #7f8c8d;">
+                                <td colspan="11" style="text-align: center; padding: 30px; color: #7f8c8d;">
                                     <i class="fas fa-inbox" style="font-size: 40px; margin-bottom: 15px; display: block;"></i>
                                     暂无数据，请添加货物信息或上传文件
                                 </td>
@@ -522,13 +528,14 @@
                             {% else %}
                                 {% for o in orders %}
                                 <tr>
+                                    <td><input type="text" name="warehouse" style="width: 100%; padding: 5px;" value="{{ o.warehouses }}"></td>
                                     <td><input type="text" name="destination" style="width: 100%; padding: 5px;" value="{{ o.destination }}"></td>
                                     <td><input type="text" name="delivery_method" style="width: 100%; padding: 5px;" value="卡车派送"></td>
                                     <td><input type="text" name="fba_id" style="padding: 5px; width:120px;" value="{{ o.fba_id }}"></td>
                                     <td><input type="text" name="ref_id"style="padding: 5px; width:120px;" value="{{ o.ref_id }}"></td>
                                     <td><input type="text" name="total_pcs" style="width: 100%; padding: 5px;" value="{{ o.total_pcs }}"></td>
                                     <td><input type="text" name="total_weight" style="width: 100%; padding: 5px;" value="{{ o.total_weight }}"></td>     
-                                    <td><input type="text" name="total_cbm" style="width: 100%; padding: 5px;" value="{{ o.total_cbm }}"></td>                          
+                                    <td><input type="text" name="total_cbm" style="width: 100%; padding: 5px;" value="{{ o.total_cbm }}"></td>                         
                                     <td><input type="text" name="total_pallet" style="width: 100%; padding: 5px;" value="{{ o.total_pallet }}"></td>
                                     <td><input type="date" name="delivery_window_start" style="width: 100%; padding: 5px;" {% if o.delivery_window_start %} value="{{ o.delivery_window_start |date:'Y-m-d' }}"{% endif %}></td>
                                     <td><input type="date" name="delivery_window_end" style="width: 100%; padding: 5px;" {% if o.delivery_window_end %}value="{{ o.delivery_window_end |date:'Y-m-d' }}"{% endif %}></td>
@@ -644,15 +651,26 @@
                 if (!firstInvalid) firstInvalid = el;
                 el.style.border = "2px solid red";
             } else {
-                el.style.border = "";
+                // 验证收货地址长度不超过18个字符
+                if (el.name === 'destination' && el.value.length > 18) {
+                    isValid = false;
+                    if (!firstInvalid) firstInvalid = el;
+                    el.style.border = "2px solid red";
+                    alert("收货地址字符超过18个，请修改！");
+                } else {
+                    el.style.border = "";
+                }
             }
         });
 
         if (!isValid) {
-            alert("请填写或选择所有必填项！");
-            firstInvalid.focus();
+            if (!firstInvalid) {
+                alert("请填写或选择所有必填项！");
+            }
+            if (firstInvalid) firstInvalid.focus();
         } else {
-            
+            // 验证通过，提交表单
+            document.querySelector('form').submit();
         }
     }
 </script>
