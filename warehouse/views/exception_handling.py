@@ -356,6 +356,9 @@ class ExceptionHandling(View):
         elif step =="update_invoice_status":
             template, context = await self.handle_update_invoice_status(request)
             return await sync_to_async(render)(request, template, context)
+        elif step == "assign_invoice_number":
+            template, context = await self.handle_assign_invoice_number(request)
+            return await sync_to_async(render)(request, template, context)
         elif step == "overweight_single_save":
             template, context = await self.handle_overweight_single_save(request)
             return await sync_to_async(render)(request, template, context)
@@ -566,6 +569,70 @@ class ExceptionHandling(View):
             'success_count': success_count,
             'failure_count': failure_count,
             'total_count': len(fleet_results)
+        }
+        return self.template_post_port_status, context
+
+    async def handle_assign_invoice_number(self, request):
+        '''为invoicev2表中invoice_number为空的记录赋值'''
+        def perform_sync():
+            # 查找invoicev2表中invoice_number值为空的记录
+            invoices_to_process = Invoicev2.objects.filter(invoice_number__isnull=True).select_related('container_number')
+            
+            results = []
+            success_count = 0
+            
+            for invoice in invoices_to_process:
+                result = {
+                    'invoice_id': invoice.id,
+                    'container_number': invoice.container_number.container_number if invoice.container_number else '',
+                    'success': False,
+                    'message': '',
+                    'invoice_number': ''
+                }
+                
+                try:
+                    container = invoice.container_number
+                    if not container:
+                        result['message'] = '未找到对应的container记录'
+                    else:
+                        # 查找Order表中对应的记录
+                        order = Order.objects.filter(container_number=container).first()
+                        if not order:
+                            result['message'] = '未找到对应的Order记录'
+                        else:
+                            # 生成invoice_number
+                            current_date = datetime.now().date()
+                            order_id = str(order.id)
+                            customer_id = order.customer_name.id
+                            invoice_number = f"{current_date.strftime('%Y-%m-%d').replace('-', '')}C{customer_id}{order_id}"
+                            
+                            # 赋值并保存
+                            invoice.invoice_number = invoice_number
+                            invoice.save()
+                            
+                            result['success'] = True
+                            result['message'] = '成功赋值invoice_number'
+                            result['invoice_number'] = invoice_number
+                            success_count += 1
+                except Exception as e:
+                    result['message'] = f'处理失败：{str(e)}'
+                
+                results.append(result)
+            
+            return results, success_count
+
+        # 将整个同步逻辑包装在一次 sync_to_async 中
+        results, success_count = await sync_to_async(perform_sync)()
+    
+        # 计算失败的数量
+        failure_count = len(results) - success_count
+    
+        context = {
+            'success_messages': f'成功为{success_count}条记录赋值invoice_number！',
+            'invoice_number_results': results,
+            'success_count': success_count,
+            'failure_count': failure_count,
+            'total_count': len(results)
         }
         return self.template_post_port_status, context
 
