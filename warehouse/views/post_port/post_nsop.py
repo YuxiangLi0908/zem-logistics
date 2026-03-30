@@ -4175,6 +4175,8 @@ class PostNsop(View):
         regions = list(matched_regions.keys())
         # LA仓库的特殊规则：CDEF区不能混
         if warehouse == "LA":
+            if vessel_etd.year > 2025: 
+                return False
             if vessel_etd.month > 7 or (
                 vessel_etd.month == 7 and vessel_etd.day >= 15
             ):  # 715之后没有混区限制
