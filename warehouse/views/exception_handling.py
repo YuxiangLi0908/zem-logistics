@@ -505,24 +505,33 @@ class ExceptionHandling(View):
                     'fleet_number': fleet.fleet_number,
                     'success': False,
                     'message': '',
-                    'arrived_at': None
+                    'departured_at': None,
+                    'shipment_batch_number': None
                 }
                 
                 try:
-                    # 直接在Shipment表中查询fleet_number指向这条fleet且arrived_at不为空的记录
-                    shipment = Shipment.objects.filter(fleet_number=fleet, shipped_at__isnull=False).first()
+                    # 直接在Shipment表中查询fleet_number指向这条fleet的记录
+                    shipment = Shipment.objects.filter(fleet_number=fleet).first()
                     
-                    if shipment:
-                        # 把shipment的arrived_at赋值给fleet的arrived_at
-                        fleet.departured_at = shipment.shipped_at
-                        # 保存fleet记录
-                        fleet.save()
-                        
-                        result['success'] = True
-                        result['message'] = '成功更新出库时间'
-                        result['arrived_at'] = fleet.arrived_at
+                    if not shipment:
+                        # 未找到对应的shipment记录
+                        result['message'] = '未找到对应的shipment记录'
                     else:
-                        result['message'] = '未找到对应的shipment记录或shipment的shipped_at为空'
+                        # 找到了shipment记录，检查shipped_at是否为空
+                        if shipment.shipped_at:
+                            # 把shipment的shipped_at赋值给fleet的departured_at
+                            fleet.departured_at = shipment.shipped_at
+                            # 保存fleet记录
+                            fleet.save()
+                            
+                            result['success'] = True
+                            result['message'] = '成功更新出库时间'
+                            result['departured_at'] = fleet.departured_at
+                            result['shipment_batch_number'] = shipment.shipment_batch_number
+                        else:
+                            # 找到了shipment记录但shipped_at为空
+                            result['message'] = '找到shipment记录但shipped_at为空'
+                            result['shipment_batch_number'] = shipment.shipment_batch_number
                 except Exception as e:
                     result['message'] = f'处理失败：{str(e)}'
                 

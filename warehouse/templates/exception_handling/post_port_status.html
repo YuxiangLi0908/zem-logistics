@@ -914,7 +914,8 @@
                         <th>车次ID</th>
                         <th>车次编号</th>
                         <th>处理结果</th>
-                        <th>送达时间</th>
+                        <th>出库时间</th>
+                        <th>批次号</th>
                         <th>备注</th>
                     </tr>
                 </thead>
@@ -924,7 +925,8 @@
                         <td>{{ result.fleet_id }}</td>
                         <td>{{ result.fleet_number }}</td>
                         <td>{% if result.success %}成功{% else %}失败{% endif %}</td>
-                        <td>{{ result.arrived_at|date:'Y-m-d H:i:s' }}</td>
+                        <td>{{ result.departured_at|date:'Y-m-d H:i:s' }}</td>
+                        <td>{{ result.shipment_batch_number }}</td>
                         <td>{{ result.message }}</td>
                     </tr>
                     {% endfor %}
