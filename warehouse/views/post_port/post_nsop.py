@@ -3515,6 +3515,7 @@ class PostNsop(View):
             fee_details = quotations['fees']
             
             is_combina = False
+            is_combina_reason = None
             if order.order_type == "转运组合":
                 container = await sync_to_async(
                     lambda: Container.objects.get(container_number=container_number)
@@ -3538,7 +3539,7 @@ class PostNsop(View):
                         return await self.handle_td_shipment_post(request, context)
             
             non_combina_table = True
-            is_combina_reason = None
+            
             if is_combina:
                 #组合柜计算
                 combina_key = f"{warehouse}_COMBINA"
