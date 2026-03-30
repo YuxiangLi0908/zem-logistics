@@ -207,6 +207,10 @@ class PO(View):
         if form.is_valid():
             file = request.FILES["file"]
             df = self.read_csv_smart(file)
+            # 1. 先删除完全空白的行
+            # 2. 只保留 check_id 有值的行（空行直接丢掉，不处理）
+            df = df.dropna(how="all").loc[df["check_id"].notna()]
+            
             if "check_id" in df.columns and "is_valid" in df.columns:
                 # 检查 check_id 列空值
                 check_id_null_mask = df['check_id'].isna() | (df['check_id'] == '') | (df['check_id'].isnull())
