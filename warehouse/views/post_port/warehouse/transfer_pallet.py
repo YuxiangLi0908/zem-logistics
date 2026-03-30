@@ -181,7 +181,7 @@ class TransferPallet(View):
                 "total_pallet": len(pallets),
                 "total_pcs": total_pcs,
                 "origin": receiving_warehouse,
-                "fleet_cost": fleet_cost,
+                "fleet_transfer_cost": fleet_cost,
             }
         )
         await sync_to_async(fleet.save)()
