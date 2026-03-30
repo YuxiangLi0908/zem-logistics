@@ -962,19 +962,6 @@ class FleetManagement(View):
                         error_messages.append(f"第{row_number}行: 缺少车次识别信息")
                         continue
 
-                    # 检查费用是否已登记
-                    if hasattr(fleet, 'fleet_cost') and fleet.fleet_cost is not None:
-                        # 检查是否有相关的FleetShipmentPallet记录且已记录
-                        existing_records = await sync_to_async(list)(
-                            FleetShipmentPallet.objects.filter(
-                                models.Q(fleet_number=fleet) |
-                                models.Q(pickup_number=fleet.pickup_number)
-                            )
-                        )
-                        if existing_records and any(record.is_recorded for record in existing_records):
-                            error_messages.append(f"第{row_number}行 ({search_criteria}): 费用已经登记过，不能修改")
-                            continue
-
                     # 更新车次费用
                     fleet.fleet_cost = fleet_cost
                     await sync_to_async(fleet.save)()
