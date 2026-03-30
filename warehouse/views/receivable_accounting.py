@@ -6087,7 +6087,7 @@ class ReceivableAccounting(View):
                 pallet_group = next(
                     (
                         g for g in pallet_groups 
-                        if g.get("PO_ID") == po_id and g.get("shipping_mark") == existing_item.get("shipping_marks")
+                        if f"{g.get('PO_ID')}-{g.get('shipping_mark')}" == po_id
                     ), 
                     None
                 )
@@ -8588,11 +8588,13 @@ class ReceivableAccounting(View):
         )
         
         # 2、组合柜相关信息
-        self_pallet_groups, _, _ = self._get_pallet_groups_by_po(container_number, "public", invoice, True)
+        self_pallet_groups, _, _ = self._get_pallet_groups_by_po(container_number, "other", invoice, True)
         pallet_groups, _, _ = self._get_pallet_groups_by_po(container_number, "public", invoice, True)
         existing_items = self._get_existing_invoice_items_combine(invoice)
+        
         result_existing = self._separate_existing_items(existing_items, self_pallet_groups + pallet_groups)
         combina_groups = result_existing['combina_groups']
+        
         if len(combina_groups) == 0:
             raise ValueError("该柜子满足组合柜条件，但是没有找到任何组合柜的已录入项目，请联系公仓派送相关人员录入。")
         base_fee = result_existing['combina_info']['base_fee']        
