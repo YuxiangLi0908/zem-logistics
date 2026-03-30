@@ -495,7 +495,7 @@ class ExceptionHandling(View):
         # 定义同步查询逻辑：处理fleet的arrived_at
         def perform_sync():
             # 查找Fleet表arrived_at为空的记录
-            fleets_to_process = Fleet.objects.filter(arrived_at__isnull=True).distinct()
+            fleets_to_process = Fleet.objects.filter(departured_at__isnull=True)
             
             results = []
             
@@ -510,19 +510,19 @@ class ExceptionHandling(View):
                 
                 try:
                     # 直接在Shipment表中查询fleet_number指向这条fleet且arrived_at不为空的记录
-                    shipment = Shipment.objects.filter(fleet_number=fleet, arrived_at__isnull=False).first()
+                    shipment = Shipment.objects.filter(fleet_number=fleet, shipped_at__isnull=False).first()
                     
                     if shipment:
                         # 把shipment的arrived_at赋值给fleet的arrived_at
-                        fleet.arrived_at = shipment.arrived_at
+                        fleet.departured_at = shipment.shipped_at
                         # 保存fleet记录
                         fleet.save()
                         
                         result['success'] = True
-                        result['message'] = '成功更新送达时间'
+                        result['message'] = '成功更新出库时间'
                         result['arrived_at'] = fleet.arrived_at
                     else:
-                        result['message'] = '未找到对应的shipment记录或shipment的arrived_at为空'
+                        result['message'] = '未找到对应的shipment记录或shipment的shipped_at为空'
                 except Exception as e:
                     result['message'] = f'处理失败：{str(e)}'
                 
