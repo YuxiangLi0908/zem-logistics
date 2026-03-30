@@ -4298,9 +4298,15 @@ class PostNsop(View):
             ) 
             appointment_id_new = request.POST.get('appointment_id', '').strip()
         else:
+            shipment_id = request.POST.get('shipment_id', '').strip()
             appointment_id_old = request.POST.get('appointment_id', '').strip()
             shipment_batch_number = request.POST.get('shipment_batch_number', '').strip()
-            if appointment_id_old:
+            if shipment_id:
+                old_shipments = await sync_to_async(list)(
+                    Shipment.objects.filter(id=shipment_id)
+                )
+                appointment_id_old = old_shipments[0].appointment_id
+            elif appointment_id_old:
                 old_shipments = await sync_to_async(list)(
                     Shipment.objects.filter(appointment_id=appointment_id_old)
                 )
@@ -4308,15 +4314,16 @@ class PostNsop(View):
                 old_shipments = await sync_to_async(list)(
                     Shipment.objects.filter(shipment_batch_number=shipment_batch_number)
                 )
+                appointment_id_old = old_shipments[0].appointment_id
             else:
                 old_shipments = []
             appointment_id_new = request.POST.get('appointment_id_input', '').strip()
         if not old_shipments:
-            key = appointment_id_old or shipment_batch_number
-            context.update({'error_messages':f"未找到 ISA={key}!"})     
+            key = shipment_id or appointment_id_old or shipment_batch_number
+            context.update({'error_messages':f"未找到 ID={key}!"})     
         if len(old_shipments) > 1:
-            key = appointment_id_old or shipment_batch_number
-            context.update({'error_messages':f"找到多条相同 ISA={key}的记录，请检查数据!"})   
+            key = shipment_id or appointment_id_old or shipment_batch_number
+            context.update({'error_messages':f"找到多条相同 ID={key}的记录，请检查数据!"})   
         
         old_shipment = old_shipments[0]
         if name == "fleet_departure":
@@ -5065,9 +5072,9 @@ class PostNsop(View):
     async def handle_appointment_time(
         self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
-        appointmentId = request.POST.get("appointmentId")
+        shipment_id = request.POST.get("shipment_id")
         shipment = await sync_to_async(Shipment.objects.get)(
-            appointment_id=appointmentId
+            id=shipment_id
         )
         operation = request.POST.get("operation")
         if operation == "edit":
