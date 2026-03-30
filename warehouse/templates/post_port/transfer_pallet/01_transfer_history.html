@@ -193,13 +193,15 @@
         <table class="table" id="notArrivedTable">
             <thead>
                 <tr>
-                    <th>批次号</th>                 
+                    <th>批次号</th>    
+                    <th>车次号</th>               
                     <th>柜号</th>
                     <th>PickupNumber</th>
                     <th>卡板数</th>
                     <th>重量</th>
                     <th>体积</th>
-                    <th>成本</th>
+                    <th>转仓成本</th>
+                    <th>车次成本</th>
                     <th>备注</th>
                     <th>下载BOL</th>
                     <th>确认送达</th>
@@ -209,6 +211,7 @@
                 {% for t in not_arrived %}
                 <tr>
                     <td style="width:120px;">{{ t.transfer }}</td>
+                    <td>{{ t.fleet_number }}</td>
                     <td>
                         <div class="pairs-grid">
                             {% for pair in t.pairs %}
@@ -216,10 +219,23 @@
                             {% endfor %}
                         </div>
                     </td>
+                    
                     <td>{{ t.pickup_number }}</td>
                     <td>{{ t.transfer.total_pallet }}</td>
                     <td>{{ t.transfer.total_weight|floatformat:2 }}</td>
                     <td>{{ t.transfer.total_cbm|floatformat:2 }}</td>
+                    <td>
+                        <div class="cost-edit">
+                            <form method="post" style="display:inline;">
+                                {% csrf_token %}
+                                <input type="hidden" name="step" value="update_fleet_transfer_cost">
+                                <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                                <input type="hidden" name="fleet_id" value="{{ t.fleet_id|default_if_none:'' }}">
+                                <input type="number" name="fleet_transfer_cost" value="{{ t.fleet_transfer_cost|default_if_none:'' }}" class="date-input" step="0.01">
+                                <button type="submit" class="action-btn confirm-btn">保存</button>
+                            </form>
+                        </div>
+                    </td>
                     <td>
                         <div class="cost-edit">
                             <form method="post" style="display:inline;">
@@ -265,13 +281,15 @@
         <table class="table" id="arrivedTable">
             <thead>
                 <tr>
-                    <th>批次号</th>                  
+                    <th>批次号</th>   
+                    <th>车次号</th>                
                     <th>柜号</th>
                     <th>PickupNumber</th>
                     <th>卡板数</th>
                     <th>重量</th>
                     <th>体积</th>
-                    <th>成本</th>
+                    <th>转仓成本</th>
+                    <th>车次成本</th>
                     <th>备注</th>
                     <th>下载BOL</th>
                 </tr>
@@ -280,6 +298,7 @@
                 {% for t in arrived %}
                 <tr>
                     <td style="width:120px;">{{ t.transfer }}</td>
+                    <td>{{ t.fleet_number }}</td>
                     <td>
                         <div class="pairs-grid">
                             {% for pair in t.pairs %}
@@ -287,10 +306,23 @@
                             {% endfor %}
                         </div>
                     </td>
+                    
                     <td>{{ t.pickup_number }}</td>
                     <td>{{ t.transfer.total_pallet }}</td>
                     <td>{{ t.transfer.total_weight|floatformat:2 }}</td>
                     <td>{{ t.transfer.total_cbm|floatformat:2 }}</td>
+                    <td>
+                        <div class="cost-edit">
+                            <form method="post" style="display:inline;">
+                                {% csrf_token %}
+                                <input type="hidden" name="step" value="update_fleet_transfer_cost">
+                                <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                                <input type="hidden" name="fleet_id" value="{{ t.fleet_id|default_if_none:'' }}">
+                                <input type="number" name="fleet_transfer_cost" value="{{ t.fleet_transfer_cost|default_if_none:'' }}" class="date-input" step="0.01">
+                                <button type="submit" class="action-btn confirm-btn">保存</button>
+                            </form>
+                        </div>
+                    </td>
                     <td>
                         <div class="cost-edit">
                             <form method="post" style="display:inline;">
