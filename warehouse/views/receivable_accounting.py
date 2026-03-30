@@ -8628,7 +8628,6 @@ class ReceivableAccounting(View):
         plts_by_destination = self._calculate_delivery_fee_cost(
             fee_details, warehouse, plts_by_destination, over_count, vessel_etd
         )
-        print('计算的超板费用表格',plts_by_destination)
         max_price = 0
         max_single_price = 0
         for plt_d in plts_by_destination:
@@ -8638,7 +8637,6 @@ class ReceivableAccounting(View):
             else:
                 max_price = max(float(plt_d["price"]) * over_count, max_price)
                 max_single_price = max(float(plt_d["price"]), max_single_price)
-        print('查找最高的单价费用',plts_by_destination)
         overpallets_fee = max_price
 
         # 5、超区费用
@@ -9398,7 +9396,6 @@ class ReceivableAccounting(View):
 
         # 填充超板费详细信息，不超板也要展示详情，因为前端可以修改超的板数
         # if total_pallets > max_pallets:
-        print('要展示前的消息',plts_by_destination)
         for plt in plts_by_destination:
             display_data["extra_fees"]["overpallets"]["pallet_details"].append(
                 {
