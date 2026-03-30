@@ -91,7 +91,7 @@
 </style>
 
 <div id="quotationModal" class="modal" style="display: none;">
-    <div class="modal-content" style="width: 90%; max-width: 1200px;">
+    <div class="modal-content" style="width: 90%; max-width: 1500px;">
         <div class="modal-header">
             <h3><i class="fas fa-search-dollar"></i> 板子报价查询结果</h3>
             <span class="close" onclick="closeQuotationModal()">&times;</span>
@@ -102,6 +102,8 @@
                     <tr>
                         <th style="width: 40px; text-align: center;"><input type="checkbox" id="selectAllQuote" checked></th>
                         <th>仓库</th>
+                        <th>预报类型</th>
+                        <th>查找类型</th>
                         <th>柜号</th>
                         <th>仓点</th>
                         <th>CBM</th>
@@ -124,6 +126,14 @@
                                    data-amount="{{ item.amount|default:0 }}">
                         </td>
                         <td>{{ item.warehouse|default:"-" }}</td>
+                        <td>{{ item.order_type }}</td>
+                        <td>
+                            {% if item.is_combina %}
+                                <span style="color: green;">✔</span>
+                            {% else %}
+                                <span style="color: red;">✘</span>
+                            {% endif %}
+                        </td>
                         <td>{{ item.container_number|default:"-" }}</td>
                         <td>{{ item.destination|default:"-" }}</td>
                         <td>{{ item.cbm|floatformat:2 }}</td>
@@ -157,6 +167,8 @@
                                 <span style="background-color: #ff9900; color: white; padding: 2px 6px; border-radius: 3px;">Amazon</span>
                             {% elif item.type == 'walmart' %}
                                 <span style="background-color: #0071ce; color: white; padding: 2px 6px; border-radius: 3px;">Walmart</span>
+                            {% elif item.type == '组合柜' %}
+                                <span style="background-color: #08c560; color: white; padding: 2px 6px; border-radius: 3px;">组合柜</span>
                             {% else %}
                                 <span style="background-color: #6c757d; color: white; padding: 2px 6px; border-radius: 3px;">{{ item.type }}</span>
                             {% endif %}
