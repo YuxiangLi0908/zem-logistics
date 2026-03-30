@@ -61,6 +61,7 @@ from xhtml2pdf import pisa
 from warehouse.forms.upload_file import UploadFileForm
 from warehouse.forms.warehouse_form import ZemWarehouseForm
 from warehouse.models.fleet import Fleet
+from warehouse.models.fleet_dose_not import FleetDoseNot
 from warehouse.models.fleet_shipment_pallet import FleetShipmentPallet
 from warehouse.models.invoicev2 import Invoicev2
 from warehouse.models.order import Order
@@ -910,6 +911,8 @@ class FleetManagement(View):
                             error_messages.append(f"第{row_number}行: PickUp Number '{pickup_number}' 对应多个车次")
                             continue
                         if not fleet_query:
+                            await sync_to_async(FleetDoseNot.objects.create)(pickup_number=pickup_number,
+                                                                             user=request.user)
                             error_messages.append(
                                 f"第{row_number}行: 未找到 PickUp Number '{pickup_number}' 对应的车次")
                             continue
@@ -924,6 +927,8 @@ class FleetManagement(View):
                             )
                             fleet = await sync_to_async(getattr)(shipment, 'fleet_number', None)
                             if not fleet:
+                                await sync_to_async(FleetDoseNot.objects.create)(shipment_batch_number=shipment_batch_number,
+                                                                                 user=request.user)
                                 error_messages.append(
                                     f"第{row_number}行: 预约批次 '{shipment_batch_number}' 未关联车次")
                                 continue
@@ -939,6 +944,9 @@ class FleetManagement(View):
                             shipment = await sync_to_async(Shipment.objects.get)(appointment_id=ISA)
                             fleet = await sync_to_async(getattr)(shipment, 'fleet_number', None)
                             if not fleet:
+                                await sync_to_async(FleetDoseNot.objects.create)(
+                                    appointment_id=ISA,
+                                    user=request.user)
                                 error_messages.append(f"第{row_number}行: ISA '{ISA}' 未关联车次")
                                 continue
                             search_criteria = f"ISA: {ISA}"
