@@ -7312,8 +7312,11 @@ class PostNsop(View):
             if fleet_group["total_cargos"] <= 0:
                 fleet_group["total_cargos"] = 1
             # 只有有数据的fleet才返回
-            #if fleet_group['shipments']:
-            grouped_data.append(fleet_group)
+            if fleet_group['shipments']:
+                grouped_data.append(fleet_group)
+            else:
+                # 如果没有对应的shipment，从数据库中删除该fleet
+                await sync_to_async(fleet.delete)()
         # 按 appointment_datetime 排序，时间早的排在前面
         grouped_data.sort(
             key=lambda x: (
