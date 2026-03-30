@@ -3480,6 +3480,7 @@ class PostNsop(View):
         for po in combined_list:
             # 遍历依次查找报价
             container_number = po['container_number__container_number']
+            
             destination_str = po['destination']
             destination = await self._process_destination_wlm(destination_str)
             order = await sync_to_async(
@@ -3523,7 +3524,7 @@ class PostNsop(View):
                 elif container.manually_order_type == "转运":
                     is_combina = False
                 else:
-                    combina_context, is_combina, _ = await self._is_combina(
+                    combina_context, is_combina, is_combina_reason = await self._is_combina(
                         container, order, warehouse
                     )
                     if (
@@ -3537,6 +3538,7 @@ class PostNsop(View):
                         return await self.handle_td_shipment_post(request, context)
             
             non_combina_table = True
+            is_combina_reason = None
             if is_combina:
                 #组合柜计算
                 combina_key = f"{warehouse}_COMBINA"
@@ -3611,6 +3613,9 @@ class PostNsop(View):
                     rate = float(rate) if rate else 0.0
                     quotation_table_data.append({
                         'container_number': po['container_number__container_number'],
+                        'order_type': order.order_type,
+                        'is_combina': is_combina,
+                        'is_combina_reason': is_combina_reason,
                         'destination': destination,                         
                         'cbm': po['total_cbm'],
                         'total_pallets': po['total_pallets'], 
@@ -3626,12 +3631,15 @@ class PostNsop(View):
                 else:            
                     quotation_table_data.append({
                         'container_number': po['container_number__container_number'],
+                        'order_type': order.order_type,
+                        'is_combina': is_combina,
+                        'is_combina_reason': is_combina_reason,
                         'destination': destination,                         
                         'cbm': po['total_cbm'],
                         'total_pallets': po['total_pallets'], 
                         'rate': None, 
                         'amount': None,
-                        'type': delivery_category,
+                        'type': '未找到',
                         'region': None,
                         'warehouse': warehouse, 
                         'is_niche_warehouse': None,  
