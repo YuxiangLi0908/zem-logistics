@@ -131,7 +131,7 @@
                             {% if item.is_combina %}
                                 <span style="color: green;">✔</span>
                             {% else %}
-                                <span style="color: red;">✘</span>
+                                {{ item.is_combina_reason }}
                             {% endif %}
                         </td>
                         <td>{{ item.container_number|default:"-" }}</td>
