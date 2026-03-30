@@ -6082,7 +6082,17 @@ class ReceivableAccounting(View):
         combina_total_cbm = 0.0
         for po_id, existing_item in existing_items.items():
             # 找到对应的pallet组
-            pallet_group = next((g for g in pallet_groups if g.get("PO_ID") == po_id), None)
+            if existing_item.item_category == 'delivery_other':
+                # 私仓的组合柜要PO_ID和唛头都相等
+                pallet_group = next(
+                    (
+                        g for g in pallet_groups 
+                        if g.get("PO_ID") == po_id and g.get("shipping_mark") == existing_item.get("shipping_marks")
+                    ), 
+                    None
+                )
+            else:
+                pallet_group = next((g for g in pallet_groups if g.get("PO_ID") == po_id), None)
             if pallet_group:
                 item_data = self._create_item_from_existing(existing_item, pallet_group)
                 # 根据类型分类
@@ -8578,9 +8588,10 @@ class ReceivableAccounting(View):
         )
         
         # 2、组合柜相关信息
-        pallet_groups, other_pallet_groups, ctx = self._get_pallet_groups_by_po(container_number, "public", invoice, True)
+        self_pallet_groups, _, _ = self._get_pallet_groups_by_po(container_number, "public", invoice, True)
+        pallet_groups, _, _ = self._get_pallet_groups_by_po(container_number, "public", invoice, True)
         existing_items = self._get_existing_invoice_items_combine(invoice)
-        result_existing = self._separate_existing_items(existing_items, pallet_groups)
+        result_existing = self._separate_existing_items(existing_items, self_pallet_groups + pallet_groups)
         combina_groups = result_existing['combina_groups']
         if len(combina_groups) == 0:
             raise ValueError("该柜子满足组合柜条件，但是没有找到任何组合柜的已录入项目，请联系公仓派送相关人员录入。")
