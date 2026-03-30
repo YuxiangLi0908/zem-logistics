@@ -482,7 +482,7 @@
             <form id="editAppointmentForm" method="post">
                 {% csrf_token %}
                 <input type="hidden" name="step" value="edit_appointment">
-                <input type="hidden" name="appointment_id" id="editModalAppointmentId">
+                <input type="hidden" name="shipment_id" id="editModalAppointmentId">
                 <input type="hidden" name="warehouse" value="{{ warehouse }}">
                 <input type="hidden" name="page" value="01_appointment">          
                 <input type="hidden" name="active_tab" value="appointments">
@@ -623,21 +623,21 @@
                         {{ s.shipment_appointment|date:'Y-m-d' }} {{ s.shipment_appointment|time:'H:i' }}
                     </span>
                     {% endif %}
-                    <select style="font-size:.75rem; padding:.25rem.5rem; line-height:1.5; border-radius:.2rem;" onchange="handleAppointmentSelectChange(this, '{{ s.appointment_id }}', '{{ forloop.counter }}')">
+                    <select style="font-size:.75rem; padding:.25rem.5rem; line-height:1.5; border-radius:.2rem;" onchange="handleAppointmentSelectChange(this, '{{ s.id }}', '{{ forloop.counter }}')">
                         <option value="">操作</option>
                         <option value="delete">删除</option>
                         <option value="edit">编辑</option>
                     </select>
 
                     <input type="datetime-local" class="appointment-edit-input" id="editAppointmentInput_{{ forloop.counter }}" style="display: none;">
-                    <button class="btn btn-success btn-sm appointment-confirm-btn" id="confirm_{{ forloop.counter }}" onclick="confirmAppointment(this, '{{ s.appointment_id }}', '{{ forloop.counter }}')" style="display: none;">确认</button>
+                    <button class="btn btn-success btn-sm appointment-confirm-btn" id="confirm_{{ forloop.counter }}" onclick="confirmAppointment(this, '{{ s.id }}', '{{ forloop.counter }}')" style="display: none;">确认</button>
                 </td>
                 <td>
                     {{ s.load_type|default_if_none:"" }}
                 </td>
                 <td>{% if s.origin %}{{ s.origin }}{% endif %}</td>
                 <td>
-                    <button type="button" class="btn btn-warning" onclick="openEditModal('{{ s.appointment_id }}', '{{ s.shipment_account }}', '{{ s.shipment_cargo_id|default_if_none:"" }}', '{{ s.destination }}', '{{ s.pickup_time|date:"Y-m-d\\TH:i" }}', '{{ s.pickup_number }}', '{{ s.shipment_appointment|date:"Y-m-d\\TH:i" }}', '{{ s.load_type }}', '{{ s.origin }}')">
+                    <button type="button" class="btn btn-warning" onclick="openEditModal('{{ s.id }}', '{{ s.appointment_id|default_if_none:"" }}', '{{ s.shipment_account }}', '{{ s.shipment_cargo_id|default_if_none:"" }}', '{{ s.destination }}', '{{ s.pickup_time|date:"Y-m-d\\TH:i" }}', '{{ s.pickup_number }}', '{{ s.shipment_appointment|date:"Y-m-d\\TH:i" }}', '{{ s.load_type }}', '{{ s.origin }}')">
                         <i class="fas fa-edit"></i> 修改
                     </button>
                 </td>
@@ -656,7 +656,7 @@
 <!-- 修改约的表单 -->
 <form method="post" action="" id="appointmentHiddenForm" style="display: none;">
     {% csrf_token %}
-    <input type="hidden" id="appointmentId" name="appointmentId">
+    <input type="hidden" id="shipmentId" name="shipment_id">
     <input type="hidden" id="operation" name="operation">
     <input type="hidden" id="appointmentTime" name="appointmentTime">
     <input type="hidden" id="warehouse" name="warehouse">
@@ -796,10 +796,10 @@
         return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     }
     // 打开修改模态框并填充数据
-    function openEditModal(appointmentId, shipmentAccount, shipmentCargoId, destination, pickupTime, pickupNumber, shipmentAppointment, loadType, origin) {
+    function openEditModal(shipmentId, appointmentId, shipmentAccount, shipmentCargoId, destination, pickupTime, pickupNumber, shipmentAppointment, loadType, origin) {
         // 填充到模态框
         const safePickupNumber = (pickupNumber === 'None' || pickupNumber === 'null' || pickupNumber === '') ? '' : pickupNumber;
-        document.getElementById('editModalAppointmentId').value = appointmentId;
+        document.getElementById('editModalAppointmentId').value = shipmentId;
         document.getElementById('editModalAppointmentInput').value = appointmentId;
         document.getElementById('editModalScheduledTime').value = shipmentAppointment;
         document.getElementById('editModalDestination').value = destination;
@@ -926,23 +926,23 @@
     };
 
     // handler 由模板内联调用：handleAppointmentSelectChange(this, '{{ s.appointment_id }}', '{{ forloop.counter }}')
-    function handleAppointmentSelectChange(select, appointmentId, counter) {
+    function handleAppointmentSelectChange(select, shipmentId, counter) {
         var value = select.value;
         if (value === 'edit') {
-            editAppointment(select, appointmentId, counter);
+            editAppointment(select, shipmentId, counter);
         } else if (value === 'delete') {
-            deleteAppointment(select, appointmentId, counter);
+            deleteAppointment(select, shipmentId, counter);
         }
     }
 
-    function editAppointment(select, appointmentId, counter) {
+    function editAppointment(select, shipmentId, counter) {
         const span = document.getElementById('appointment_' + counter);
         const input = document.getElementById('editAppointmentInput_' + counter);
         const confirmButton = document.getElementById('confirm_' + counter);
 
         if (!span || !input || !confirmButton) {
             // 找不到对应元素 -> 打印日志方便排查
-            console.warn('[appointment] missing elements for counter=', counter, 'appointmentId=', appointmentId);
+            console.warn('[appointment] missing elements for counter=', counter, 'shipmentId=', shipmentId);
             return;
         }
 
@@ -980,7 +980,7 @@
         try { input.focus(); } catch (e) { /* ignore */ }
     }
 
-    function confirmAppointment(button, appointmentId, counter) {
+    function confirmAppointment(button, shipmentId, counter) {
         const input = document.getElementById('editAppointmentInput_' + counter);
         if (!input) return;
 
@@ -994,18 +994,26 @@
         const form = document.getElementById('appointmentHiddenForm');
         form.querySelector('#operation').value = 'edit';
         form.querySelector('#appointmentTime').value = newTime;
-        form.querySelector('#appointmentId').value = appointmentId;
-        form.querySelector('#warehouse').value = document.querySelector('input[name="warehouse"]').value;
+        form.querySelector('#shipmentId').value = shipmentId;
+        // 确保warehouse值存在
+        const warehouseInput = document.querySelector('input[name="warehouse"]');
+        if (warehouseInput) {
+            form.querySelector('#warehouse').value = warehouseInput.value;
+        }
         form.submit();
     }
 
-    function deleteAppointment(button, appointmentId, counter) {
+    function deleteAppointment(button, shipmentId, counter) {
         if (!confirm('确定要删除这个预约吗？此操作不可撤销！')) return;
 
         const form = document.getElementById('appointmentHiddenForm');
         form.querySelector('#operation').value = 'delete';
-        form.querySelector('#appointmentId').value = appointmentId;
-        form.querySelector('#warehouse').value = document.querySelector('input[name="warehouse"]').value;
+        form.querySelector('#shipmentId').value = shipmentId;
+        // 确保warehouse值存在
+        const warehouseInput = document.querySelector('input[name="warehouse"]');
+        if (warehouseInput) {
+            form.querySelector('#warehouse').value = warehouseInput.value;
+        }
         form.submit();
     }
 
