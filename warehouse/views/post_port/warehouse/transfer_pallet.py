@@ -98,6 +98,9 @@ class TransferPallet(View):
         elif step == "update_fleet_cost":
             template, context = await self.handle_update_fleet_cost_post(request)
             return render(request, template, context)
+        elif step == "update_fleet_transfer_cost":
+            template, context = await self.handle_update_fleet_transfer_cost_post(request)
+            return render(request, template, context)
 
     async def handle_transfer_warehouse_post(
         self, request: HttpRequest
@@ -110,6 +113,7 @@ class TransferPallet(View):
         note = request.POST.get("note", None)
         eta = request.POST.get("ETA", None)
         fleet_cost = request.POST.get("fleet_cost", None)
+        fleet_transfer_cost = request.POST.get("fleet_transfer_cost", None)
         selectedIds = request.POST.getlist("plt_ids")
         ids = []
 
@@ -166,6 +170,7 @@ class TransferPallet(View):
             )
         
         fleet_cost = float(fleet_cost) if fleet_cost else 0.0
+        fleet_transfer_cost = float(fleet_transfer_cost) if fleet_cost else 0.0
         fleet_number = "FO"+ current_time.strftime("%m%d%H%M%S")+ str(uuid.uuid4())[:2].upper()
         fleet = Fleet(
             **{
@@ -181,7 +186,8 @@ class TransferPallet(View):
                 "total_pallet": len(pallets),
                 "total_pcs": total_pcs,
                 "origin": receiving_warehouse,
-                "fleet_transfer_cost": fleet_cost,
+                "fleet_cost": fleet_cost,
+                "fleet_transfer_cost": fleet_transfer_cost,
             }
         )
         await sync_to_async(fleet.save)()
@@ -208,6 +214,7 @@ class TransferPallet(View):
         # 记录车次成本到fleet_shipment_pallet表
         fm = FleetManagement()
         await fm.insert_fleet_shipment_pallet_fleet_cost_transfer(request, ids, fleet_number, fleet_cost)
+        await fm.insert_fleet_shipment_pallet_fleet_cost_transfer(request, ids, fleet_number, fleet_transfer_cost)
         mutable_get = request.GET.copy()
         mutable_get["warehouse"] = request.POST.get("warehouse")
         request.GET = mutable_get
@@ -222,6 +229,7 @@ class TransferPallet(View):
     async def handle_transfer_history_warehouse_post(
         self, request: HttpRequest
     ) -> tuple[Any, Any]:
+        '''转仓历史记录查询'''
         warehouse = request.POST.get("warehouse")
         not_arrived_raw = await sync_to_async(list)(
             TransferLocation.objects.filter(
@@ -234,7 +242,9 @@ class TransferPallet(View):
 
         for t in not_arrived_raw:
             pickup_number = t.fleet_number.pickup_number if t.fleet_number else ""
+            fleet_number = t.fleet_number.fleet_number if t.fleet_number else ""
             fleet_cost = t.fleet_number.fleet_cost if t.fleet_number else None
+            fleet_transfer_cost = t.fleet_number.fleet_transfer_cost if t.fleet_number else None
             fleet_id = t.fleet_number.id if t.fleet_number else None
             if t.plt_ids:
                 try:
@@ -267,8 +277,10 @@ class TransferPallet(View):
                 not_arrived.append(
                     {
                         "transfer": t,
+                        "fleet_number": fleet_number,
                         "pairs": pairs,
                         "pickup_number": pickup_number,
+                        "fleet_transfer_cost": fleet_transfer_cost,
                         "fleet_cost": fleet_cost,
                         "fleet_id": fleet_id,
                     }
@@ -277,8 +289,10 @@ class TransferPallet(View):
                 not_arrived.append(
                     {
                         "transfer": t,
+                        "fleet_number": fleet_number,
                         "pairs": "",
                         "pickup_number": pickup_number,
+                        "fleet_transfer_cost": fleet_transfer_cost,
                         "fleet_cost": fleet_cost,
                         "fleet_id": fleet_id,
                     }
@@ -301,7 +315,9 @@ class TransferPallet(View):
                 plt_id_list = []
 
             pickup_number = t.fleet_number.pickup_number if t.fleet_number else ""
+            fleet_number = t.fleet_number.fleet_number if t.fleet_number else ""
             fleet_cost = t.fleet_number.fleet_cost if t.fleet_number else None
+            fleet_transfer_cost = t.fleet_number.fleet_transfer_cost if t.fleet_number else None
             fleet_id = t.fleet_number.id if t.fleet_number else None
             if plt_id_list:
                 pallets = await sync_to_async(list)(
@@ -326,8 +342,10 @@ class TransferPallet(View):
                 arrived.append(
                     {
                         "transfer": t,
+                        "fleet_number": fleet_number,
                         "pairs": pairs,
                         "pickup_number": pickup_number,
+                        "fleet_transfer_cost": fleet_transfer_cost,
                         "fleet_cost": fleet_cost,
                         "fleet_id": fleet_id,
                     }
@@ -336,8 +354,10 @@ class TransferPallet(View):
                 arrived.append(
                     {
                         "transfer": t,
+                        "fleet_number": fleet_number,
                         "pairs": "",
                         "pickup_number": pickup_number,
+                        "fleet_transfer_cost": fleet_transfer_cost,
                         "fleet_cost": fleet_cost,
                         "fleet_id": fleet_id,
                     }
@@ -482,6 +502,32 @@ class TransferPallet(View):
         await sync_to_async(fleet.save)()
         return await self.handle_transfer_history_warehouse_post(request)
 
+    async def handle_update_fleet_transfer_cost_post(
+        self, request: HttpRequest
+    ) -> tuple[Any, Any]:
+        fleet_id = request.POST.get("fleet_id")
+        fleet_transfer_cost = request.POST.get("fleet_transfer_cost")
+
+        # 更新Fleet表的fleet_cost
+        fleet = await sync_to_async(Fleet.objects.get)(id=fleet_id)
+        try:
+            fleet.fleet_transfer_cost = float(fleet_transfer_cost) if fleet_transfer_cost else 0.0
+        except (ValueError, TypeError):
+            fleet.fleet_transfer_cost = 0.0
+        await sync_to_async(fleet.save)()
+
+        # 找到对应的TransferLocation记录
+        transfer = await sync_to_async(TransferLocation.objects.get)(fleet_number_id=fleet_id)
+        # 获取plt_ids
+        plt_ids = ast.literal_eval(transfer.plt_ids)
+
+        # 调用FleetManagement的方法
+        fm = FleetManagement()
+        await fm.insert_fleet_shipment_pallet_fleet_cost_transfer(request, plt_ids, fleet.fleet_number, fleet.fleet_cost)
+
+        # 返回历史记录页面
+        return await self.handle_transfer_history_warehouse_post(request)
+    
     async def handle_update_fleet_cost_post(
         self, request: HttpRequest
     ) -> tuple[Any, Any]:
