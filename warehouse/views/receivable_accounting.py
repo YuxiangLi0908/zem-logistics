@@ -8767,6 +8767,18 @@ class ReceivableAccounting(View):
                 "addition_fee": addition_fee,
             },
         }
+        # 超板详情展示
+        for plt in plts_by_destination:
+            display_data["extra_fees"]["overpallets"]["pallet_details"].append(
+                {
+                    "destination": plt["destination"],
+                    "price": plt["price"],
+                    "is_fixed_price": plt["is_fixed_price"],
+                    "is_max_used": float(plt["price"])
+                    == max_single_price,  # 标记是否被采用
+                }
+            )
+        display_data["extra_fees"]["overpallets"]["max_price_used"] = max_price
         # 总费用
         total_amount = (
             base_fee
