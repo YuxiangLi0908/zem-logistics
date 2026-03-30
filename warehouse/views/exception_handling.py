@@ -175,6 +175,15 @@ class ExceptionHandling(View):
         elif step == "update_shipment_in_use":
             template, context = await self.handle_update_shipment_in_use(request)
             return await sync_to_async(render)(request, template, context)
+        elif step == "update_shipment_appointment":
+            template, context = await self.handle_update_shipment_appointment(request)
+            return await sync_to_async(render)(request, template, context)
+        elif step == "update_shipment_shipped_at":
+            template, context = await self.handle_update_shipment_shipped_at(request)
+            return await sync_to_async(render)(request, template, context)
+        elif step == "update_shipment_arrived_at":
+            template, context = await self.handle_update_shipment_arrived_at(request)
+            return await sync_to_async(render)(request, template, context)
         elif step == "update_fleet_type":
             template, context = await self.handle_update_fleet_type(request)
             return await sync_to_async(render)(request, template, context) 
@@ -186,6 +195,12 @@ class ExceptionHandling(View):
             return await sync_to_async(render)(request, template, context)
         elif step == "update_fleet_is_canceled":
             template, context = await self.handle_update_fleet_is_canceled(request)
+            return await sync_to_async(render)(request, template, context)
+        elif step == "update_fleet_departured_at":
+            template, context = await self.handle_update_fleet_departured_at(request)
+            return await sync_to_async(render)(request, template, context)
+        elif step == "update_fleet_arrived_at":
+            template, context = await self.handle_update_fleet_arrived_at(request)
             return await sync_to_async(render)(request, template, context)
         elif step == "update_shipment_is_canceled":
             template, context = await self.handle_update_shipment_is_canceled(request)
@@ -3585,6 +3600,60 @@ class ExceptionHandling(View):
         else:
             messages.error(request, f"未找到 ID 为 {fleet_id} 的车次")
         return await self.handle_search_shipment(request)
+
+    async def handle_update_fleet_departured_at(self, request: HttpRequest):
+        fleet_id = request.POST.get('fleet_id')
+        departured_at_str = request.POST.get('departured_at')
+        
+        fleet = await sync_to_async(
+            lambda: Fleet.objects.filter(id=fleet_id).first()
+        )()
+        
+        if fleet:
+            from datetime import datetime
+            if departured_at_str:
+                # 解析日期时间字符串
+                departured_at = datetime.strptime(departured_at_str, '%Y-%m-%dT%H:%M')
+                fleet.departured_at = departured_at
+                await sync_to_async(fleet.save)()
+                
+                messages.success(request, f"成功更新车次 {fleet.fleet_number} 的出库时间")
+            else:
+                # 清空出库时间
+                fleet.departured_at = None
+                await sync_to_async(fleet.save)()
+                
+                messages.success(request, f"成功清空车次 {fleet.fleet_number} 的出库时间")
+        else:
+            messages.error(request, f"未找到 ID 为 {fleet_id} 的车次")
+        return await self.handle_search_shipment(request)
+
+    async def handle_update_fleet_arrived_at(self, request: HttpRequest):
+        fleet_id = request.POST.get('fleet_id')
+        arrived_at_str = request.POST.get('arrived_at')
+        
+        fleet = await sync_to_async(
+            lambda: Fleet.objects.filter(id=fleet_id).first()
+        )()
+        
+        if fleet:
+            from datetime import datetime
+            if arrived_at_str:
+                # 解析日期时间字符串
+                arrived_at = datetime.strptime(arrived_at_str, '%Y-%m-%dT%H:%M')
+                fleet.arrived_at = arrived_at
+                await sync_to_async(fleet.save)()
+                
+                messages.success(request, f"成功更新车次 {fleet.fleet_number} 的送达时间")
+            else:
+                # 清空送达时间
+                fleet.arrived_at = None
+                await sync_to_async(fleet.save)()
+                
+                messages.success(request, f"成功清空车次 {fleet.fleet_number} 的送达时间")
+        else:
+            messages.error(request, f"未找到 ID 为 {fleet_id} 的车次")
+        return await self.handle_search_shipment(request)
     
     async def handle_update_shipment_in_use(self, request: HttpRequest):
         shipment_id = request.POST.get('shipment_id')
@@ -3600,6 +3669,85 @@ class ExceptionHandling(View):
             
             # 添加成功消息
             messages.success(request, f"成功更新 Shipment ID {shipment_id} 的使用状态为: {'是' if in_use_bool else '否'}")
+        else:
+            messages.error(request, f"未找到 ID 为 {shipment_id} 的 Shipment")
+        return await self.handle_search_shipment(request)
+
+    async def handle_update_shipment_appointment(self, request: HttpRequest):
+        shipment_id = request.POST.get('shipment_id')
+        shipment_appointment_str = request.POST.get('shipment_appointment')
+        
+        shipment = await sync_to_async(
+            lambda: Shipment.objects.select_related('fleet_number').filter(id=shipment_id).first()
+        )()
+        
+        if shipment:
+            if shipment_appointment_str:
+                # 解析日期时间字符串
+                shipment_appointment = datetime.strptime(shipment_appointment_str, '%Y-%m-%dT%H:%M')
+                shipment.shipment_appointment = shipment_appointment
+                await sync_to_async(shipment.save)()
+                
+                messages.success(request, f"成功更新 Shipment ID {shipment_id} 的预约时间")
+            else:
+                # 清空预约时间
+                shipment.shipment_appointment = None
+                await sync_to_async(shipment.save)()
+                
+                messages.success(request, f"成功清空 Shipment ID {shipment_id} 的预约时间")
+        else:
+            messages.error(request, f"未找到 ID 为 {shipment_id} 的 Shipment")
+        return await self.handle_search_shipment(request)
+
+    async def handle_update_shipment_shipped_at(self, request: HttpRequest):
+        shipment_id = request.POST.get('shipment_id')
+        shipped_at_str = request.POST.get('shipped_at')
+        
+        shipment = await sync_to_async(
+            lambda: Shipment.objects.select_related('fleet_number').filter(id=shipment_id).first()
+        )()
+        
+        if shipment:
+            from datetime import datetime
+            if shipped_at_str:
+                # 解析日期时间字符串
+                shipped_at = datetime.strptime(shipped_at_str, '%Y-%m-%dT%H:%M')
+                shipment.shipped_at = shipped_at
+                await sync_to_async(shipment.save)()
+                
+                messages.success(request, f"成功更新 Shipment ID {shipment_id} 的发货时间")
+            else:
+                # 清空发货时间
+                shipment.shipped_at = None
+                await sync_to_async(shipment.save)()
+                
+                messages.success(request, f"成功清空 Shipment ID {shipment_id} 的发货时间")
+        else:
+            messages.error(request, f"未找到 ID 为 {shipment_id} 的 Shipment")
+        return await self.handle_search_shipment(request)
+
+    async def handle_update_shipment_arrived_at(self, request: HttpRequest):
+        shipment_id = request.POST.get('shipment_id')
+        arrived_at_str = request.POST.get('arrived_at')
+        
+        shipment = await sync_to_async(
+            lambda: Shipment.objects.select_related('fleet_number').filter(id=shipment_id).first()
+        )()
+        
+        if shipment:
+            if arrived_at_str:
+                # 解析日期时间字符串
+                arrived_at = datetime.strptime(arrived_at_str, '%Y-%m-%dT%H:%M')
+                shipment.arrived_at = arrived_at
+                await sync_to_async(shipment.save)()
+                
+                messages.success(request, f"成功更新 Shipment ID {shipment_id} 的送达时间")
+            else:
+                # 清空送达时间
+                shipment.arrived_at = None
+                await sync_to_async(shipment.save)()
+                
+                messages.success(request, f"成功清空 Shipment ID {shipment_id} 的送达时间")
         else:
             messages.error(request, f"未找到 ID 为 {shipment_id} 的 Shipment")
         return await self.handle_search_shipment(request)
