@@ -896,6 +896,45 @@
         </form>
     </div>
 {% endif %}
+
+<!-- 车次送达时间修复结果 -->
+{% if fleet_results %}
+<div class="card mt-4">
+    <div class="card-header">
+        <h4>车次送达时间修复结果</h4>
+        <p class="text-muted">
+            总计处理: {{ total_count }} 条，成功: {{ success_count }} 条，失败: {{ failure_count }} 条
+        </p>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>车次ID</th>
+                        <th>车次编号</th>
+                        <th>处理结果</th>
+                        <th>送达时间</th>
+                        <th>备注</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for result in fleet_results %}
+                    <tr>
+                        <td>{{ result.fleet_id }}</td>
+                        <td>{{ result.fleet_number }}</td>
+                        <td>{% if result.success %}成功{% else %}失败{% endif %}</td>
+                        <td>{{ result.arrived_at|date:'Y-m-d H:i:s' }}</td>
+                        <td>{{ result.message }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endif %}
+
 <script>
 // 自动隐藏消息提示
 setTimeout(() => {
