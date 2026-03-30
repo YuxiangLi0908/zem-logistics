@@ -18,10 +18,10 @@ class PoCheckEtaSeven(models.Model):
     packing_list = models.ForeignKey(
         PackingList, null=True, blank=True, on_delete=models.SET_NULL
     )
-    shipping_mark = models.CharField(max_length=400, null=True, blank=True)
-    fba_id = models.CharField(max_length=400, null=True, blank=True)
+    shipping_mark = models.CharField(max_length=4000, null=True, blank=True)
+    fba_id = models.CharField(max_length=4000, null=True, blank=True)
     destination = models.CharField(max_length=255, null=True, blank=True)
-    ref_id = models.CharField(max_length=400, null=True, blank=True)
+    ref_id = models.CharField(max_length=4000, null=True, blank=True)
     # pl有效无效，默认是false，如果未查验的话是根据checktime去确定
     last_eta_status = models.BooleanField(default=False)
     last_retrieval_status = models.BooleanField(default=False)
