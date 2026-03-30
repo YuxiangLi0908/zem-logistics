@@ -492,34 +492,56 @@ class ExceptionHandling(View):
         return self.template_post_port_status, context
 
     async def handle_modify_fleet_arrive_at(self,request):
-        # 1. 定义同步查询逻辑：找到所有需要修复的 Fleet
+        # 定义同步查询逻辑：处理fleet的arrived_at
         def perform_sync():
-            fleets_to_fix = Fleet.objects.filter(
-                arrived_at__isnull=True,
-                shipment__arrived_at__isnull=False
-            ).annotate(
-                # 找到该车次下所有货物的“最后送达时间”
-                max_shipment_time=Max('shipment__arrived_at')
-            ).distinct()
-
-            updated_count = 0
-            for fleet in fleets_to_fix:
-                if fleet.max_shipment_time:
-                    fleet.arrived_at = fleet.max_shipment_time
-                    # 💡 专业建议：补全时间的同时，通常需要同步更新仓库处理状态
-                    if hasattr(fleet, 'warehouse_process_status'):
-                        fleet.warehouse_process_status = 'shipped' # 或对应的送达状态码
-                    
-                    fleet.save()
-                    updated_count += 1
+            # 查找Fleet表arrived_at为空的记录
+            fleets_to_process = Fleet.objects.filter(arrived_at__isnull=True).distinct()
             
-            return updated_count
+            results = []
+            
+            for fleet in fleets_to_process:
+                result = {
+                    'fleet_id': fleet.id,
+                    'fleet_number': fleet.fleet_number,
+                    'success': False,
+                    'message': '',
+                    'arrived_at': None
+                }
+                
+                try:
+                    # 直接在Shipment表中查询fleet_number指向这条fleet且arrived_at不为空的记录
+                    shipment = Shipment.objects.filter(fleet_number=fleet, arrived_at__isnull=False).first()
+                    
+                    if shipment:
+                        # 把shipment的arrived_at赋值给fleet的arrived_at
+                        fleet.arrived_at = shipment.arrived_at
+                        # 保存fleet记录
+                        fleet.save()
+                        
+                        result['success'] = True
+                        result['message'] = '成功更新送达时间'
+                        result['arrived_at'] = fleet.arrived_at
+                    else:
+                        result['message'] = '未找到对应的shipment记录或shipment的arrived_at为空'
+                except Exception as e:
+                    result['message'] = f'处理失败：{str(e)}'
+                
+                results.append(result)
+            
+            return results
 
-        # 将整个同步逻辑包装在一次 sync_to_async 中，避免异步循环的开销
-        total_repaired = await sync_to_async(perform_sync)()
+        # 将整个同步逻辑包装在一次 sync_to_async 中
+        fleet_results = await sync_to_async(perform_sync)()
+    
+        # 计算成功和失败的数量
+        success_count = sum(1 for r in fleet_results if r['success'])
+        failure_count = len(fleet_results) - success_count
     
         context = {
-            'success_messages': f'处理了{total_repaired}条车次送达时间！',
+            'fleet_results': fleet_results,
+            'success_count': success_count,
+            'failure_count': failure_count,
+            'total_count': len(fleet_results)
         }
         return self.template_post_port_status, context
 
