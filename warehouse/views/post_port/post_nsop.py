@@ -3695,6 +3695,8 @@ class PostNsop(View):
             '''按组合柜计费'''
             return ({
                 'container_number': po['container_number__container_number'],
+                'order_type': po['order_type'],
+                'is_combina': '转运组合',
                 'destination': po['destination'],                         
                 'cbm': cbm,
                 'total_pallets': po['total_pallets'], 
