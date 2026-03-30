@@ -63,6 +63,7 @@ class Fleet(models.Model):
     is_virtual = models.BooleanField(default=False, null=True, blank=True)
     ltl_shipping_tracking = models.CharField(max_length=1000, null=True, blank=True, verbose_name='LTL物流跟踪进度')
     fleet_cost_back = models.FloatField(null=True, blank=True, verbose_name="退回费用")
+    fleet_transfer_cost = models.FloatField(null=True, blank=True, verbose_name="转仓费用")
     fleet_verify_status = models.BooleanField(default=False, null=True, blank=True, verbose_name="ltl录入成本页面核实状态")
     train_related = models.CharField(max_length=50, null=True, blank=True, verbose_name="ltl关联车次为一提多卸")
     history = HistoricalRecords()
