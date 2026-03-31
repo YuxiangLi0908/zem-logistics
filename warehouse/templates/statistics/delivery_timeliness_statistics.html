@@ -126,10 +126,12 @@
         position: relative;
         border-bottom: 2px solid #1677ff;
         cursor: pointer;
+        background: transparent;
     }
     
     .data-table th:hover {
-        background: rgba(255, 255, 255, 0.1);
+        background: linear-gradient(to right, #2c3e50, #3a83b4) !important;
+        color: white !important;
     }
     
     .data-table th.sortable::after {
@@ -208,7 +210,7 @@
     <div class="cbm-content">
         <!-- 筛选卡片 -->
         <div class="cbm-card" style="position: sticky; top: 0; z-index: 50;">
-            <h2 class="cbm-title">时效统计</h2>
+            <h2 class="cbm-title">仓点时效统计</h2>
             
             <form method="post">
                 {% csrf_token %}
@@ -216,16 +218,39 @@
                     <input type="hidden" name="step" value="delivery_timeliness_selection">
                     
                     <div class="filter-item">
+                        <span class="filter-label">仓库：</span>
+                        <select name="warehouse" id="warehouse" class="filter-select" required>
+                            <option value="">请选择仓库</option>
+                            <option value="NJ" {% if warehouse == 'NJ' %}selected{% endif %}>NJ</option>
+                            <option value="SAV" {% if warehouse == 'SAV' %}selected{% endif %}>SAV</option>
+                            <option value="LA" {% if warehouse == 'LA' %}selected{% endif %}>LA</option>
+                        </select>
+                    </div>
+                    
+                    <div class="filter-item">
                         <span class="filter-label">区域：</span>
                         <select name="region" id="region" class="filter-select" required>
                             <option value="">请选择区域</option>
+                            {% if warehouse == 'LA' %}
                             <option value="美西一区" {% if region == '美西一区' %}selected{% endif %}>美西一区</option>
                             <option value="美西二区" {% if region == '美西二区' %}selected{% endif %}>美西二区</option>
                             <option value="美西三区 (HT)" {% if region == '美西三区 (HT)' %}selected{% endif %}>美西三区 (HT)</option>
                             <option value="美西四区 (MO)" {% if region == '美西四区 (MO)' %}selected{% endif %}>美西四区 (MO)</option>
-                            <option value="美西五区 (SAV)" {% if region == '美西五区 (SAV)' %}selected{% endif %}>美西五区 (SAV)</option>
-                            <option value="美西六区 (NJ)" {% if region == '美西六区 (NJ)' %}selected{% endif %}>美西六区 (NJ)</option>
                             <option value="美西七区" {% if region == '美西七区' %}selected{% endif %}>美西七区</option>
+                            {% elif warehouse == 'NJ' %}
+                            <option value="美东一区(1)" {% if region == '美东一区(1)' %}selected{% endif %}>美东一区(1)</option>
+                            <option value="美东一区(2)" {% if region == '美东一区(2)' %}selected{% endif %}>美东一区(2)</option>
+                            <option value="美东二区" {% if region == '美东二区' %}selected{% endif %}>美东二区</option>
+                            <option value="美东三区" {% if region == '美东三区' %}selected{% endif %}>美东三区</option>
+                            <option value="美东四区" {% if region == '美东四区' %}selected{% endif %}>美东四区</option>
+                            <option value="美东五区" {% if region == '美东五区' %}selected{% endif %}>美东五区</option>
+                            {% elif warehouse == 'SAV' %}
+                            <option value="萨瓦纳一区" {% if region == '萨瓦纳一区' %}selected{% endif %}>萨瓦纳一区</option>
+                            <option value="萨瓦纳二区" {% if region == '萨瓦纳二区' %}selected{% endif %}>萨瓦纳二区</option>
+                            <option value="萨瓦纳三区" {% if region == '萨瓦纳三区' %}selected{% endif %}>萨瓦纳三区</option>
+                            <option value="萨瓦纳四区" {% if region == '萨瓦纳四区' %}selected{% endif %}>萨瓦纳四区</option>
+                            <option value="萨瓦纳五区" {% if region == '萨瓦纳五区' %}selected{% endif %}>萨瓦纳五区</option>
+                            {% endif %}
                         </select>
                     </div>
                     
@@ -368,6 +393,67 @@
     }
     
     document.addEventListener('DOMContentLoaded', function() {
+        // 仓库和区域的映射
+        const warehouseRegionMapping = {
+            "LA": [
+                { value: "美西一区", label: "美西一区" },
+                { value: "美西二区", label: "美西二区" },
+                { value: "美西三区 (HT)", label: "美西三区 (HT)" },
+                { value: "美西四区 (MO)", label: "美西四区 (MO)" },
+                { value: "美西七区", label: "美西七区" }
+            ],
+            "NJ": [
+                { value: "美东一区(1)", label: "美东一区(1)" },
+                { value: "美东一区(2)", label: "美东一区(2)" },
+                { value: "美东二区", label: "美东二区" },
+                { value: "美东三区", label: "美东三区" },
+                { value: "美东四区", label: "美东四区" },
+                { value: "美东五区", label: "美东五区" }
+            ],
+            "SAV": [
+                { value: "萨瓦纳一区", label: "萨瓦纳一区" },
+                { value: "萨瓦纳二区", label: "萨瓦纳二区" },
+                { value: "萨瓦纳三区", label: "萨瓦纳三区" },
+                { value: "萨瓦纳四区", label: "萨瓦纳四区" },
+                { value: "萨瓦纳五区", label: "萨瓦纳五区" }
+            ]
+        };
+        
+        // 仓库选择变化事件
+        const warehouseSelect = document.getElementById('warehouse');
+        const regionSelect = document.getElementById('region');
+        
+        if (warehouseSelect && regionSelect) {
+            warehouseSelect.addEventListener('change', function() {
+                const selectedWarehouse = this.value;
+                // 保存当前选择的区域值
+                const currentRegionValue = regionSelect.value;
+                
+                // 清空区域选择
+                regionSelect.innerHTML = '<option value="">请选择区域</option>';
+                
+                // 根据选择的仓库添加对应的区域选项
+                if (selectedWarehouse && warehouseRegionMapping[selectedWarehouse]) {
+                    const regions = warehouseRegionMapping[selectedWarehouse];
+                    regions.forEach(region => {
+                        const option = document.createElement('option');
+                        option.value = region.value;
+                        option.textContent = region.label;
+                        // 如果当前区域值在新的选项中，保持选中状态
+                        if (region.value === currentRegionValue) {
+                            option.selected = true;
+                        }
+                        regionSelect.appendChild(option);
+                    });
+                }
+            });
+            
+            // 初始加载时触发一次，确保区域选项正确显示
+            if (warehouseSelect.value) {
+                warehouseSelect.dispatchEvent(new Event('change'));
+            }
+        }
+        
         // 行合并功能 - 只在展示柜号模式下启用
         const containerTableBody = document.getElementById('containerTableBody');
         if (containerTableBody) {
