@@ -78,7 +78,8 @@ class OrderQuantity(View):
             customers = {c.zem_name: c.id for c in customers}
             customers["----"] = None
             customers = {"----": None, **customers}
-            context = {"area_options": self.area_options, "customers": customers}
+            warehouse = request.GET.get("warehouse", "")
+            context = {"area_options": self.area_options, "customers": customers, "warehouse": warehouse}
             return await sync_to_async(render)(request, self.template_timeliness_statistics, context)
         elif step == "delivery_timeliness":
             if not await self._validate_user_profit(request.user):
@@ -127,6 +128,8 @@ class OrderQuantity(View):
         elif step == "delivery_timeliness_selection":
             template, context = await self.handle_delivery_timeliness_analysis(request)
             return await sync_to_async(render)(request, template, context)
+        else:
+            raise ValueError('ERROR STEP')
 
     async def _get_orders(self, request) -> list:
         start_date = request.POST.get("start_date")
@@ -756,6 +759,8 @@ class OrderQuantity(View):
     async def handle_delivery_timeliness_analysis(
         self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
+        '''仓点的时效统计'''
+        warehouse = request.POST.get("warehouse")
         region = request.POST.get("region")
         start_date = request.POST.get("start_date")
         end_date = request.POST.get("end_date")
@@ -773,17 +778,39 @@ class OrderQuantity(View):
         
         # 区域到仓点的映射
         region_warehouse_mapping = {
+            # LA仓库区域
             "美西一区": ["ONT8", "ONT9", "LAX9", "LGB8", "SBD1", "POC1", "POC2", "POC3", "IUSI", "IUSP", "IUSQ", "IUTI", "IUSW", "LGB4", "LGB6", "SBD2", "SNAA4", "XLX7", "PSP3"],
             "美西二区": ["LAS1", "VT2", "MIT2", "IUTE", "HLI2", "SMF3", "SCK4", "GYR2", "GYR3", "GEU2", "GEU3", "GEU5", "TCY1", "TCY2", "SCK8", "QXY5", "QXY8", "LAS6", "PHX5", "PHX7", "SMF6", "SCK1", "OAK3", "MCE1", "FAT2", "MCC1"],
             "美西三区 (HT)": ["ABQ2", "SLC2", "FTW1", "FTW5", "HOU8", "IAH3", "SAT4", "AMA1", "OKC2"],
-            "美西四区 (MO)": ["PSC2", "GEG2", "PDX7", "FOE1", "LIT2", "DEN", "IND9", "MQJ1", "FWA4", "ORD2", "RFD2", "STL3", "MEM11"],
-            "美西五区 (SAV)": ["CLT2", "MCO2", "TPA2", "TPA3", "GSO1", "CLT3", "CLT6", "SAV3", "RYY2", "JAX3", "XLX6", "PB13", "RDU2", "RDU4", "MGE3", "TMB8", "HSV1", "IUSR"],
-            "美西六区 (NJ)": ["TEB3", "TEB4", "TEB6", "TEB9", "ACY2", "ABE3", "ABE4", "ABE8", "AVP1", "XEW5", "ORF2", "CHO1", "RMN3", "BWI4", "ILG1", "HGR6", "XLX1", "DCA6", "ALB1", "XRI3", "BOS7", "PIT2", "PHL4", "PHL5", "HL6", "MDT1", "MDT4", "LBE1", "HIA1", "SWF1", "SWF2"],
-            "美西七区": ["整柜 UPS/FedEx"]
+            "美西四区 (MO)": ["PSC2", "GEG2", "PDX7", "FOE1", "LIT2", "DEN", "IND9", "MQJ1", "FWA4", "ORD2", "RFD2", "STL3", "MEM1"],
+            "美西七区": ["整柜 UPS/FedEx"],
+            # NJ仓库区域
+            "美东一区(1)": ["TEB6", "TEB9", "ACY2"],
+            "美东一区(2)": ["TEB3", "TEB4", "XEW5", "ABE5", "ABE4"],
+            "美东二区": ["SWF1", "SWF2", "AVP1", "MDT4", "BDT1"],
+            "美东三区": ["DCA6", "HIA1", "HGR2", "RMN3", "IST"],
+            "美东四区": ["BOS7", "ORF2", "CHO1", "XLX1", "PIT2", "RDJ2"],
+            "美东五区": ["DET1", "DET2", "XLX6", "CLT6", "CMH2", "CMH3"],
+            # SAV仓库区域
+            "萨瓦纳一区": ["MGE3", "JAX3", "CLT3", "XLX6", "RYY2"],
+            "萨瓦纳二区": ["RDU2", "RDU4", "GSO1", "IUSR"],
+            "萨瓦纳三区": ["TPA2", "TPA3", "PB13", "MCO2", "XPO2"],
+            "萨瓦纳四区": ["HSV1", "HSV2", "BNA3", "NA6"],
+            "萨瓦纳五区": ["MEM1", "MEM8", "CHA2", "TMB8"]
         }
         
         # 获取该区域的所有仓点
-        warehouses = region_warehouse_mapping.get(region, [])
+        destinations = region_warehouse_mapping.get(region, [])
+        # 处理仓点值，对于包含-的，只保留-后面的部分
+        processed_destinations = []
+        for destination in destinations:
+            if '-' in destination:
+                # 以-分组，只保留后面的部分
+                processed_destination = destination.split('-')[-1]
+                processed_destinations.append(processed_destination)
+            else:
+                processed_destinations.append(destination)
+        destinations = processed_destinations
         
         # 查询符合条件的Pallet记录，按container_number和destination归类
         # 首先获取所有相关的Order记录，根据date_type筛选
@@ -807,24 +834,39 @@ class OrderQuantity(View):
         container_numbers = [order.container_number.container_number for order in orders if order.container_number]
         
         # 获取与这些Container相关的Pallet记录，且绑定的shipment的shipped_at不为空
+        # 构建destination的筛选条件，处理包含-的情况
+        destination_filter = Q()
+        for destination in destinations:
+            # 匹配精确相等的情况
+            destination_filter |= Q(destination=destination)
+            # 匹配destination包含-的情况，如"destination-xxx"
+            destination_filter |= Q(destination__startswith=f"{destination}-")
+        
         pallets = await sync_to_async(list)(
             Pallet.objects.filter(
-                container_number__container_number__in=container_numbers,
-                destination__in=warehouses,
+                destination_filter,
+                container_number__container_number__in=container_numbers,             
                 shipment_batch_number__shipped_at__isnull=False  # 绑定的shipment的shipped_at不为空
             ).select_related("container_number", "shipment_batch_number")
         )
+        print('查到的板子数据',pallets)
         # 按container_number和destination分组
         container_destination_groups = {}
         for pallet in pallets:
             if not pallet.container_number or not pallet.destination:
                 continue
             
-            key = (pallet.container_number.container_number, pallet.destination)
+            # 处理destination值，去掉-后用于分组
+            processed_destination = pallet.destination
+            if '-' in processed_destination:
+                # 以-分组，只保留后面的部分
+                processed_destination = processed_destination.split('-')[-1]
+            
+            key = (pallet.container_number.container_number, processed_destination)
             if key not in container_destination_groups:
                 container_destination_groups[key] = {
                     "container_number": pallet.container_number.container_number,
-                    "destination": pallet.destination,
+                    "destination": processed_destination,
                     "pallets": [],
                     "shipments": set()
                 }
@@ -837,8 +879,8 @@ class OrderQuantity(View):
         destination_stats = {}
         
         # 初始化所有目的地的统计信息
-        for warehouse in warehouses:
-            destination_stats[warehouse] = {
+        for destination in destinations:
+            destination_stats[destination] = {
                 "appointment_days": [],
                 "shipped_days": [],
                 "arrived_days": []
@@ -945,6 +987,7 @@ class OrderQuantity(View):
             context = {
                 "container_results": container_results,
                 "destination_counts": destination_counts,
+                "warehouse": warehouse,
                 "region": region,
                 "start_date": start_date,
                 "end_date": end_date,
@@ -967,6 +1010,7 @@ class OrderQuantity(View):
             
             context = {
                 "results": results,
+                "warehouse": warehouse,
                 "region": region,
                 "start_date": start_date,
                 "end_date": end_date,
