@@ -510,6 +510,9 @@ class Accounting(View):
         elif step == "batch_writeoff_delivery":
             template, context = self.batch_writeoff_delivery(request)
             return render(request, template, context)
+        elif step == "batch_cancel_writeoff_delivery":
+            template, context = self.batch_cancel_writeoff_delivery(request)
+            return render(request, template, context)
         elif step == "note_post_delivery":
             template, context = self.note_post_delivery(request)
             return render(request, template, context)
@@ -5990,6 +5993,77 @@ class Accounting(View):
                 request, start_date_confirm, end_date_confirm, customer, warehouse
             )
 
+        return self.handle_invoice_confirm_get_v1_delivery(
+            request, start_date_confirm, end_date_confirm, customer, warehouse
+        )
+
+    def batch_cancel_writeoff_delivery(self, request):
+        """
+        派送账单 - 批量取消核销（已确认页面专用）
+        与 batch_writeoff_delivery 保持完全一致的结构
+        """
+        selected_fleet_ids = request.POST.get("selected_fleet_ids", "")
+        start_date_confirm = request.POST.get("start_date_confirm")
+        end_date_confirm = request.POST.get("end_date_confirm")
+        warehouse = request.POST.get("warehouse_filter")
+        customer = None
+
+        order_form = OrderForm(request.POST)
+        if order_form.is_valid():
+            customer = order_form.cleaned_data.get("customer_name")
+
+        # 没有选中ID直接返回
+        if not selected_fleet_ids:
+            return self.handle_invoice_confirm_get_v1_delivery(
+                request, start_date_confirm, end_date_confirm, customer, warehouse
+            )
+
+        fleet_id_list = [fid.strip() for fid in selected_fleet_ids.split(",") if fid.strip()]
+        if not fleet_id_list:
+            return self.handle_invoice_confirm_get_v1_delivery(
+                request, start_date_confirm, end_date_confirm, customer, warehouse
+            )
+
+        success_count = 0
+        failed_items = []
+
+        try:
+            with transaction.atomic():
+                # 遍历选中的车次，逐个取消核销
+                for fleet_id in fleet_id_list:
+                    try:
+                        # ========== 【和你核销逻辑一致】获取该车次下所有柜号
+                        container_ids = list(FleetShipmentPallet.objects.filter(
+                            fleet_number_id=fleet_id
+                        ).values_list('container_number_id', flat=True))
+
+                        if not container_ids:
+                            failed_items.append(f"车次{fleet_id}：无关联柜号")
+                            continue
+
+                        # ========== 一车多柜 → 逐个取消核销
+                        for container_id in container_ids:
+                            # 取消核销：清空核销金额、时间、备注
+                            InvoiceItemv2.objects.filter(
+                                container_number_id=container_id,
+                                description='派送费用',
+                                invoice_type='payable',
+                            ).update(
+                                write_off_amount=None,
+                                write_off_time=None,
+                            )
+
+                        success_count += 1
+
+                    except Exception as e:
+                        failed_items.append(f"车次{fleet_id} 取消失败：{str(e)}")
+
+        except Exception as e:
+            return self.handle_invoice_confirm_get_v1_delivery(
+                request, start_date_confirm, end_date_confirm, customer, warehouse
+            )
+
+        # 统一返回原页面
         return self.handle_invoice_confirm_get_v1_delivery(
             request, start_date_confirm, end_date_confirm, customer, warehouse
         )

@@ -1610,6 +1610,12 @@
                                             <i class="fas fa-file-excel"></i> 导出Excel
                                         </button>
                                     </form>
+
+                                    <!-- 🔥 新增：批量取消核销按钮 -->
+                                    <button type="button" class="btn btn-danger btn-sm batch-writeoff-btn"
+                                            onclick="openBatchCancelWriteoffModal()">
+                                        <i class="fas fa-undo"></i> 批量取消核销
+                                    </button>
                                 </div>
 
                                 <form method="post" id="delivery-confirm-form">
@@ -2562,5 +2568,34 @@
                 form.submit();
             }
         });
+
+        // ========== 🔥 批量取消核销（已确认页面专用） ==========
+        function openBatchCancelWriteoffModal() {
+            const checkboxes = document.querySelectorAll('.delivery-export-checkbox:checked');
+            if (checkboxes.length === 0) {
+                alert('请先选择需要取消核销的记录！');
+                return;
+            }
+
+            if (!confirm(`确认取消选中【${checkboxes.length}条】记录的核销？`)) {
+                return false;
+            }
+
+            const fleetIds = Array.from(checkboxes).map(cb => cb.value).filter(Boolean);
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.style.display = 'none';
+            form.innerHTML = `
+        {% csrf_token %}
+        <input name="step" value="batch_cancel_writeoff_delivery">
+        <input name="selected_fleet_ids" value="${fleetIds.join(',')}">
+        <input name="start_date_confirm" value="{{ start_date_confirm }}">
+        <input name="end_date_confirm" value="{{ end_date_confirm }}">
+        <input name="warehouse_filter" value="{{ warehouse_filter }}">
+        <input name="customer_name" value="{{ selected_customer_id|default:'' }}">
+    `;
+            document.body.appendChild(form);
+            form.submit();
+        }
     </script>
 {% endblock %}
