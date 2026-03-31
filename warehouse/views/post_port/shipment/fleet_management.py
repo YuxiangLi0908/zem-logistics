@@ -1272,7 +1272,7 @@ class FleetManagement(View):
         # 重置请求参数，返回原有逻辑
         request.POST = request.POST.copy()
         request.POST["fleet_number"] = ""
-        return await self.handle_fleet_cost_record_get(request)
+        return await self.handle_fleet_cost_record_get(request, None, 0)
 
     async def handle_fleet_cost_confirm_get_ltl(
             self, request: HttpRequest
@@ -2136,6 +2136,21 @@ class FleetManagement(View):
             self, request: HttpRequest, error_messages=None, success_count=0
     ) -> tuple[str, dict[str, Any]]:
         """ftl页面"""
+        # 获取当前时间（带时区）
+        now = timezone.now()
+        # 最近一个月的起始时间
+        default_start_time = now - timedelta(days=30)
+        start_time = request.POST.get("start_time", default_start_time.strftime("%Y-%m-%d"))
+        end_time = request.POST.get("end_time", now.strftime("%Y-%m-%d"))
+        start_datetime = None
+        end_datetime = None
+        if start_time:
+            naive_start = datetime.strptime(start_time, "%Y-%m-%d")
+            start_datetime = timezone.make_aware(naive_start, timezone.get_current_timezone())
+
+        if end_time:
+            naive_end = datetime.strptime(end_time, "%Y-%m-%d") + timedelta(days=1) - timedelta(seconds=1)
+            end_datetime = timezone.make_aware(naive_end, timezone.get_current_timezone())
         pickup_number = request.POST.get("pickup_number", "")
         fleet_number = request.POST.get("fleet_number", "")
         batch_number = request.POST.get("batch_number", "")
@@ -2151,6 +2166,9 @@ class FleetManagement(View):
                 shipment_schduled_at__gte="2025-05-01",
                 fleet_number__fleet_cost__isnull=False,
                 fleet_number__fleet_type='FTL',
+                shipped_at__gte=start_datetime,
+                shipped_at__lte=end_datetime,
+
             )
             shipment_type = '已录入内容'
         else:
@@ -2161,7 +2179,9 @@ class FleetManagement(View):
                 arrived_at__isnull=False,
                 shipment_schduled_at__gte="2025-05-01",
                 fleet_number__fleet_cost__isnull=True,
-                fleet_number__fleet_type='FTL'
+                fleet_number__fleet_type='FTL',
+                shipped_at__gte=start_datetime,
+                shipped_at__lte=end_datetime,
             )
             shipment_type = '未录入内容'
 
@@ -2244,6 +2264,8 @@ class FleetManagement(View):
         shipment = await process_shipment_data(shipment_list)
 
         context = {
+            "start_time": start_time,
+            "end_time": end_time,
             "shipment_type": shipment_type,
             "pickup_number": pickup_number,
             "fleet_number": fleet_number,
@@ -2291,7 +2313,7 @@ class FleetManagement(View):
             criteria &= Q(fleet_number__fleet_cost__isnull=True)
             shipment_type = '未录入内容'
 
-        # 提柜时间过滤逻辑（保留原有）
+        # 出库时间过滤逻辑（保留原有）
         if start_time or end_time:
             start_datetime = None
             end_datetime = None

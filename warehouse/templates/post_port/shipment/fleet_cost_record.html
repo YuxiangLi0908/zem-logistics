@@ -22,35 +22,55 @@
     {% endif %}
 
     <!-- 搜索卡片 -->
-    <div class="search-card" style="background: #ffffff; border-radius: 12px; padding: 20px; margin-bottom: 20px; box-shadow: 0 3px 12px rgba(0,0,0,0.08); border: 1px solid #f0f2f5;">
+    <div class="search-card"
+         style="background: #ffffff; border-radius: 12px; padding: 20px; margin-bottom: 20px; box-shadow: 0 3px 12px rgba(0,0,0,0.08); border: 1px solid #f0f2f5;">
         <form method="post" action="">
             {% csrf_token %}
             <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 18px; align-items: center;">
+                <!-- 🔥 新增：出库时间 开始 -->
+                <div>
+                    <label class="filter-label"><b>出库时间 从</b></label>
+                    <input type="date" name="start_time" value="{{ start_time }}" class="form-input"
+                           style="font-size: 14px; padding: 12px 14px; border-radius: 6px; border: 1px solid #dcdfe6; transition: border 0.2s;">
+                </div>
+                <!-- 🔥 新增：出库时间 结束 -->
+                <div>
+                    <label class="filter-label"><b>出库时间 至</b></label>
+                    <input type="date" name="end_time" value="{{ end_time }}" class="form-input"
+                           style="font-size: 14px; padding: 12px 14px; border-radius: 6px; border: 1px solid #dcdfe6; transition: border 0.2s;">
+                </div>
                 <div>
                     <label class="filter-label"><b>PickUp Number</b></label>
-                    <input type="text" name="pickup_number" value="{{ pickup_number }}" class="form-input" style="font-size: 14px; padding: 12px 14px; border-radius: 6px; border: 1px solid #dcdfe6; transition: border 0.2s;">
+                    <input type="text" name="pickup_number" value="{{ pickup_number }}" class="form-input"
+                           style="font-size: 14px; padding: 12px 14px; border-radius: 6px; border: 1px solid #dcdfe6; transition: border 0.2s;">
                 </div>
                 <div>
                     <label class="filter-label"><b>出库批次</b></label>
-                    <input type="text" name="fleet_number" value="{{ fleet_number }}" class="form-input" style="font-size: 14px; padding: 12px 14px; border-radius: 6px; border: 1px solid #dcdfe6; transition: border 0.2s;">
+                    <input type="text" name="fleet_number" value="{{ fleet_number }}" class="form-input"
+                           style="font-size: 14px; padding: 12px 14px; border-radius: 6px; border: 1px solid #dcdfe6; transition: border 0.2s;">
                 </div>
                 <div>
                     <label class="filter-label"><b>预约批次</b></label>
-                    <input type="text" name="batch_number" value="{{ batch_number }}" class="form-input" style="font-size: 14px; padding: 12px 14px; border-radius: 6px; border: 1px solid #dcdfe6; transition: border 0.2s;">
+                    <input type="text" name="batch_number" value="{{ batch_number }}" class="form-input"
+                           style="font-size: 14px; padding: 12px 14px; border-radius: 6px; border: 1px solid #dcdfe6; transition: border 0.2s;">
                 </div>
                 <div>
                     <label class="filter-label"><b>所属仓</b></label>
-                    <select name="area" class="form-select" style="font-size: 14px; padding: 12px 14px; border-radius: 6px; border: 1px solid #dcdfe6; transition: border 0.2s;">
+                    <select name="area" class="form-select"
+                            style="font-size: 14px; padding: 12px 14px; border-radius: 6px; border: 1px solid #dcdfe6; transition: border 0.2s;">
                         {% for k, v in warehouse_options.items %}
-                        <option value="{{ v }}" {% if k == area %}selected{% endif %}>{{ k }}</option>
+                            <option value="{{ v }}" {% if k == area %}selected{% endif %}>{{ k }}</option>
                         {% endfor %}
                     </select>
                 </div>
+
                 <div style="align-self: end; display: flex; gap: 10px; flex-wrap: wrap;">
-                    <button type="submit" name="status" value="record" class="search-btn" style="font-size: 14px; padding: 12px 24px; border-radius: 6px; background: #1890ff; color: white; border: none; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 6px;">
+                    <button type="submit" name="status" value="record" class="search-btn"
+                            style="font-size: 14px; padding: 12px 24px; border-radius: 6px; background: #1890ff; color: white; border: none; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 6px;">
                         <i class="bi bi-search"></i> 查询
                     </button>
-                    <button type="submit" name="status" value="unrecord" class="search-btn" style="background: #28a745; font-size: 14px; padding: 12px 24px; border-radius: 6px; color: white; border: none; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 6px;">
+                    <button type="submit" name="status" value="unrecord" class="search-btn"
+                            style="background: #28a745; font-size: 14px; padding: 12px 24px; border-radius: 6px; color: white; border: none; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 6px;">
                         <i class="bi bi-check-circle"></i> 已录查询
                     </button>
                 </div>
@@ -97,6 +117,8 @@
                         <input type="file" name="file" id="batch-upload-file" style="display: none; font-size: 14px;" onchange="this.form.submit()">
                         <input type="hidden" name="step" value="upload_fleet_cost">
                         <input type="hidden" name="area" value="{{ area }}">
+                        <input type="hidden" name="start_time" value="{{ start_time }}">
+                        <input type="hidden" name="end_time" value="{{ end_time }}">
                         <small style="color: #666; margin-left: 8px; font-size: 12px; white-space: nowrap;">
                             （每行的PickUp Number、出库批次和预约批次填一个就行）
                         </small>
@@ -109,6 +131,8 @@
                     <form method="post" enctype="multipart/form-data" style="font-size:14px; display: inline-flex; align-items: center;">
                         {% csrf_token %}
                         <input type="hidden" name="step" value="download_fleet_cost_template">
+                        <input type="hidden" name="start_time" value="{{ start_time }}">
+                        <input type="hidden" name="end_time" value="{{ end_time }}">
                         <button type="submit" class="btn btn-primary" style="height: 40px; font-size: 14px; padding: 0 20px; border-radius: 6px; display: flex; align-items: center; gap: 6px; transition: all 0.2s;">
                             <i class="bi bi-download"></i> 下载模版
                         </button>
@@ -120,6 +144,8 @@
                             {% csrf_token %}
                             <input type="hidden" name="step" value="download_recorded_fleet_cost">
                             <input type="hidden" name="area" value="{{ area }}">
+                            <input type="hidden" name="start_time" value="{{ start_time }}">
+                            <input type="hidden" name="end_time" value="{{ end_time }}">
                             <input type="hidden" name="pickup_number" value="{{ pickup_number }}">
                             <input type="hidden" name="fleet_number" value="{{ fleet_number }}">
                             <input type="hidden" name="batch_number" value="{{ batch_number }}">
@@ -140,6 +166,8 @@
                     <form id="batch-verify-form" method="post" action="" style="display: inline-flex; align-items: center;">
                         {% csrf_token %}
                         <input type="hidden" name="step" value="batch_confirm_verify">
+                        <input type="hidden" name="start_time" value="{{ start_time }}">
+                        <input type="hidden" name="end_time" value="{{ end_time }}">
                         <input type="hidden" name="area" value="{{ area }}">
                         <button type="submit" class="btn btn-primary" style="height: 40px; font-size: 14px; padding: 0 20px; border-radius: 6px; display: flex; align-items: center; gap: 6px; transition: all 0.2s;">
                             <i class="bi bi-check2-all"></i> 批量确认核实
@@ -150,6 +178,8 @@
                         {% csrf_token %}
                         <input type="hidden" name="step" value="batch_cancel_verify">
                         <input type="hidden" name="area" value="{{ area }}">
+                        <input type="hidden" name="start_time" value="{{ start_time }}">
+                        <input type="hidden" name="end_time" value="{{ end_time }}">
                         <button type="submit" class="btn btn-warning" style="height: 40px; font-size: 14px; padding: 0 20px; border-radius: 6px; display: flex; align-items: center; gap: 6px; transition: all 0.2s;">
                             <i class="bi bi-x-circle"></i> 批量取消核实
                         </button>
@@ -246,13 +276,15 @@
                             <input type="hidden" name="fleet_number" value="{{ f.fleet_number.fleet_number }}">
                             <input type="hidden" name="step" value="fleet_cost_confirm">
                             <input type="hidden" name="area" value="{{ area }}">
+                            <input type="hidden" name="start_time" value="{{ start_time }}">
+                            <input type="hidden" name="end_time" value="{{ end_time }}">
                             <button type="submit" class="btn btn-success" style="font-size: 13px; padding: 8px 12px; flex-shrink: 0; border-radius: 4px; transition: all 0.2s;">确认</button>
                             </form>
                         </td>
                         <td class="td" data-field="fleet_number" style="max-width: 130px; word-break: break-all; padding: 12px 10px; font-size: 14px; border-right: 1px solid #e5e6eb; border-bottom: 1px solid #e5e6eb; color: #555;">{{ f.fleet_number.fleet_number }}</td>
                         <td class="td" data-field="batch_number" style="padding: 12px 10px; font-size: 14px; border-right: 1px solid #e5e6eb; border-bottom: 1px solid #e5e6eb; color: #555;">{{ f.shipment_batch_number }}</td>
                         <td class="td" data-field="appointment_id" style="padding: 12px 10px; font-size: 14px; border-right: 1px solid #e5e6eb; border-bottom: 1px solid #e5e6eb; color: #555;">{{ f.appointment_id|default_if_none:"" }}</td>
-                        <td class="td" data-field="carrier" style="padding: 12px 10px; font-size: 14px; border-right: 1px solid #e5e6eb; border-bottom: 1px solid #e5e6eb; color: #555;">{{ f.carrier|default_if_none:"" }}</td>
+                        <td class="td" data-field="carrier" style="padding: 12px 10px; font-size: 14px; border-right: 1px solid #e5e6eb; border-bottom: 1px solid #e5e6eb; color: #555;">{{ f.fleet_number.carrier|default_if_none:"" }}</td>
                         <td class="td" style="padding: 12px 10px; font-size: 14px; border-right: 1px solid #e5e6eb; border-bottom: 1px solid #e5e6eb; color: #555;">{{ f.fleet_number.appointment_datetime|date:"M-j" }}</td>
                         <td class="td" style="padding: 12px 10px; font-size: 14px; border-right: 1px solid #e5e6eb; border-bottom: 1px solid #e5e6eb; color: #555;">
                             {% if f.arrival_status == "past_due" %}
@@ -276,6 +308,8 @@
                                 <input type="hidden" name="fleet_id" value="{{ f.fleet_number.id }}">
                                 <input type="hidden" name="fleet_number" value="{{ f.fleet_number.fleet_number }}">
                                 <input type="hidden" name="step" value="fleet_cost_confirm_back">
+                                <input type="hidden" name="start_time" value="{{ start_time }}">
+                                <input type="hidden" name="end_time" value="{{ end_time }}">
                                 <button type="submit" class="btn btn-success" style="font-size: 13px; padding: 8px 12px; flex-shrink: 0; border-radius: 4px; transition: all 0.2s;">确定</button>
                                 </form>
                             </td>
