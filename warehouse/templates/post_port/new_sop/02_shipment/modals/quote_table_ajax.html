@@ -180,7 +180,7 @@
                 <tfoot>
                     {% if quotation_table_data %}
                     <tr style="background-color: #f8f9fa; font-weight: bold;">
-                        <td colspan="4" style="text-align: right;">总计：</td>
+                        <td colspan="6" style="text-align: right;">总计：</td>
                         <td id="sum-cbm-ajax">
                             {{ quotation_table_data|sum_numeric:"cbm"|floatformat:2 }}
                         </td>
