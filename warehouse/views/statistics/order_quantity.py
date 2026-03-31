@@ -918,11 +918,11 @@ class OrderQuantity(View):
                         arrived_days = arrived_delta.days
                         destination_stats[destination]["arrived_days"].append(arrived_days)
                     
-                    # 格式化日期
-                    offload_date = offload_at.strftime("%Y-%m-%d") if offload_at else ""
-                    appointment_date = shipment.shipment_appointment.strftime("%Y-%m-%d") if shipment.shipment_appointment else ""
-                    shipped_date = shipment.shipped_at.strftime("%Y-%m-%d") if shipment.shipped_at else ""
-                    arrived_date = shipment.arrived_at.strftime("%Y-%m-%d") if shipment.arrived_at else ""
+                    # 格式化日期，只显示月日
+                    offload_date = offload_at.strftime("%m-%d") if offload_at else ""
+                    appointment_date = shipment.shipment_appointment.strftime("%m-%d") if shipment.shipment_appointment else ""
+                    shipped_date = shipment.shipped_at.strftime("%m-%d") if shipment.shipped_at else ""
+                    arrived_date = shipment.arrived_at.strftime("%m-%d") if shipment.arrived_at else ""
                     
                     container_results.append({
                         "container_number": container_number,
