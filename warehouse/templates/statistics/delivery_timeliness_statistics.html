@@ -231,6 +231,7 @@
                         <span class="filter-label">区域：</span>
                         <select name="region" id="region" class="filter-select" required>
                             <option value="">请选择区域</option>
+                            <option value="不分区" {% if region == '不分区' %}selected{% endif %}>不分区</option>
                             {% if warehouse == 'LA' %}
                             <option value="美西一区" {% if region == '美西一区' %}selected{% endif %}>美西一区</option>
                             <option value="美西二区" {% if region == '美西二区' %}selected{% endif %}>美西二区</option>
@@ -269,6 +270,7 @@
                         <select name="date_type" id="date_type" class="filter-select">
                             <option value="etd" {% if date_type == 'etd' or not date_type %}selected{% endif %}>ETD</option>
                             <option value="eta" {% if date_type == 'eta' %}selected{% endif %}>ETA</option>
+                            <option value="offload_at" {% if date_type == 'offload_at' %}selected{% endif %}>入库时间</option>
                         </select>
                     </div>
                     
@@ -298,6 +300,9 @@
                 <table class="data-table" id="timelinessTable">
                     <thead>
                         <tr>
+                            {% if region == '不分区' %}
+                            <th class="text-left">区域</th>
+                            {% endif %}
                             <th class="text-left">目的地</th>
                             <th class="text-right" style="width: 140px;">平均预约时效</th>
                             <th class="text-right" style="width: 140px;">平均出库时效</th>
@@ -315,6 +320,9 @@
                     <tbody id="containerTableBody">
                         {% for container in container_results %}
                         <tr data-destination="{{ container.destination }}" data-container="{{ container.container_number }}" data-avg-appointment="{{ container.avg_appointment|floatformat:2 }}" data-avg-shipped="{{ container.avg_shipped|floatformat:2 }}" data-avg-arrived="{{ container.avg_arrived|floatformat:2 }}">
+                            {% if region == '不分区' %}
+                            <td class="text-left region-cell">{{ container.region }}</td>
+                            {% endif %}
                             <td class="text-left destination-cell">{{ container.destination }}</td>
                             <td class="text-right avg-appointment-cell" style="font-weight: bold;">{{ container.avg_appointment|floatformat:2 }}</td>
                             <td class="text-right avg-shipped-cell" style="font-weight: bold;">{{ container.avg_shipped|floatformat:2 }}</td>
@@ -429,8 +437,15 @@
                 // 保存当前选择的区域值
                 const currentRegionValue = regionSelect.value;
                 
-                // 清空区域选择
+                // 清空区域选择，添加默认选项和"不分区"选项
                 regionSelect.innerHTML = '<option value="">请选择区域</option>';
+                const noRegionOption = document.createElement('option');
+                noRegionOption.value = '不分区';
+                noRegionOption.textContent = '不分区';
+                if (currentRegionValue === '不分区') {
+                    noRegionOption.selected = true;
+                }
+                regionSelect.appendChild(noRegionOption);
                 
                 // 根据选择的仓库添加对应的区域选项
                 if (selectedWarehouse && warehouseRegionMapping[selectedWarehouse]) {
