@@ -1899,6 +1899,7 @@ class FleetManagement(View):
                 arrived_at__isnull=False,
                 shipment_schduled_at__gte="2025-05-01",
                 fleet_number__fleet_cost__isnull=False,
+                fleet_number__fleet_type='FTL',
             )
             shipment_type = '已录入内容'
         else:
@@ -1909,6 +1910,7 @@ class FleetManagement(View):
                 arrived_at__isnull=False,
                 shipment_schduled_at__gte="2025-05-01",
                 fleet_number__fleet_cost__isnull=True,
+                fleet_number__fleet_type='FTL'
             )
             shipment_type = '未录入内容'
 
