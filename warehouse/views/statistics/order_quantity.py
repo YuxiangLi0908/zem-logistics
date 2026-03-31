@@ -799,18 +799,21 @@ class OrderQuantity(View):
             "萨瓦纳五区": ["MEM1", "MEM8", "CHA2", "TMB8"]
         }
         
-        # 获取该区域的所有仓点
-        destinations = region_warehouse_mapping.get(region, [])
-        # 处理仓点值，对于包含-的，只保留-后面的部分
-        processed_destinations = []
-        for destination in destinations:
-            if '-' in destination:
-                # 以-分组，只保留后面的部分
-                processed_destination = destination.split('-')[-1]
-                processed_destinations.append(processed_destination)
-            else:
-                processed_destinations.append(destination)
-        destinations = processed_destinations
+        # 处理"不分区"的情况
+        destinations = []
+        if region != "不分区":
+            # 获取该区域的所有仓点
+            destinations = region_warehouse_mapping.get(region, [])
+            # 处理仓点值，对于包含-的，只保留-后面的部分
+            processed_destinations = []
+            for destination in destinations:
+                if '-' in destination:
+                    # 以-分组，只保留后面的部分
+                    processed_destination = destination.split('-')[-1]
+                    processed_destinations.append(processed_destination)
+                else:
+                    processed_destinations.append(destination)
+            destinations = processed_destinations
         
         # 查询符合条件的Pallet记录，按container_number和destination归类
         # 首先获取所有相关的Order记录，根据date_type筛选
@@ -819,12 +822,21 @@ class OrderQuantity(View):
                 vessel_id__vessel_eta__gte=start_date,
                 vessel_id__vessel_eta__lte=end_date
             )
-        else:  # etd
+        elif date_type == "etd":  # etd
             order_criteria = Q(
                 vessel_id__vessel_etd__gte=start_date,
                 vessel_id__vessel_etd__lte=end_date
             )
+        else:
+            
+            order_criteria = Q(
+                offload_id__offload_at__gte=start_date,
+                offload_id__offload_at__lte=end_date
+            )
         
+        # 添加warehouse筛选条件
+        if warehouse:
+            order_criteria &= Q(warehouse__name__contains=warehouse)
         # 获取符合条件的Order记录
         orders = await sync_to_async(list)(
             Order.objects.filter(order_criteria).select_related("container_number", "vessel_id", "offload_id")
@@ -834,21 +846,29 @@ class OrderQuantity(View):
         container_numbers = [order.container_number.container_number for order in orders if order.container_number]
         
         # 获取与这些Container相关的Pallet记录，且绑定的shipment的shipped_at不为空
-        # 构建destination的筛选条件，处理包含-的情况
-        destination_filter = Q()
-        for destination in destinations:
-            # 匹配精确相等的情况
-            destination_filter |= Q(destination=destination)
-            # 匹配destination包含-的情况，如"destination-xxx"
-            destination_filter |= Q(destination__startswith=f"{destination}-")
+        # 构建基础查询条件
+        base_filter = Q(
+            container_number__container_number__in=container_numbers,
+            shipment_batch_number__shipped_at__isnull=False  # 绑定的shipment的shipped_at不为空
+        )
+        
+        # 如果不是"不分区"，添加destination筛选条件
+        if region != "不分区":
+            # 构建destination的筛选条件，处理包含-的情况
+            destination_filter = Q()
+            for destination in destinations:
+                # 匹配精确相等的情况
+                destination_filter |= Q(destination=destination)
+                # 匹配destination包含-的情况，如"destination-xxx"
+                destination_filter |= Q(destination__startswith=f"{destination}-")
+            base_filter &= destination_filter
         
         pallets = await sync_to_async(list)(
             Pallet.objects.filter(
-                destination_filter,
-                container_number__container_number__in=container_numbers,             
-                shipment_batch_number__shipped_at__isnull=False  # 绑定的shipment的shipped_at不为空
+                base_filter
             ).select_related("container_number", "shipment_batch_number")
         )
+
         # 按container_number和destination分组
         container_destination_groups = {}
         for pallet in pallets:
@@ -888,6 +908,14 @@ class OrderQuantity(View):
         for key, group in container_destination_groups.items():
             container_number, destination = key
             
+            # 确保destination_stats中存在该目的地的统计信息
+            if destination not in destination_stats:
+                destination_stats[destination] = {
+                    "appointment_days": [],
+                    "shipped_days": [],
+                    "arrived_days": []
+                }
+            
             # 处理每个shipment
             for shipment in group["shipments"]:
                 # 获取关联的Order，用于获取offload_at
@@ -924,9 +952,26 @@ class OrderQuantity(View):
                     shipped_date = shipment.shipped_at.strftime("%m-%d") if shipment.shipped_at else ""
                     arrived_date = shipment.arrived_at.strftime("%m-%d") if shipment.arrived_at else ""
                     
+                    # 查找destination对应的区域
+                    region_name = ""
+                    if region == "不分区":
+                        for region_key, destinations_list in region_warehouse_mapping.items():
+                            # 检查destination是否在该区域的仓点列表中
+                            if destination in destinations_list:
+                                region_name = region_key
+                                break
+                            # 检查处理后的destination是否在该区域的仓点列表中
+                            for dest in destinations_list:
+                                if '-' in dest and destination == dest.split('-')[-1]:
+                                    region_name = region_key
+                                    break
+                            if region_name:
+                                break
+                    
                     container_results.append({
                         "container_number": container_number,
                         "destination": destination,
+                        "region": region_name,
                         "offload_date": offload_date,
                         "appointment_date": appointment_date,
                         "shipped_date": shipped_date,
@@ -938,6 +983,13 @@ class OrderQuantity(View):
                 else:
                     # 没有offload_id时，至少记录shipped_days
                     if shipment.shipped_at:
+                        # 确保destination_stats中存在该目的地的统计信息
+                        if destination not in destination_stats:
+                            destination_stats[destination] = {
+                                "appointment_days": [],
+                                "shipped_days": [],
+                                "arrived_days": []
+                            }
                         # 使用shipment_appointment作为参考时间
                         if shipment.shipment_appointment:
                             shipped_delta = shipment.shipped_at - shipment.shipment_appointment
