@@ -3159,7 +3159,7 @@ class Accounting(View):
             customer: str = None,
             warehouse: str = None,
     ) -> tuple[Any, Any]:
-        """财务派送 待确认 已确认（新增train_related分组逻辑）"""
+        """财务派送 待确认 已确认（已修改：使用Pallet.ltl_correlation_id分组）"""
         logger = logging.getLogger(__name__)
         current_date = datetime.now().date()
         start_date_confirm = (
@@ -3177,14 +3177,12 @@ class Accounting(View):
             if warehouse == "直送":
                 criteria &= models.Q(order_type="直送")
             else:
-                # 非直送的筛选
                 criteria &= models.Q(
                     retrieval_id__retrieval_destination_precise=warehouse
                 )
         if customer:
             criteria &= models.Q(customer_name__zem_name=customer)
 
-        # 待确认账单应付
         selected_customer_id = request.POST.get("customer_name", "")
         order_form = OrderForm(
             initial={
@@ -3197,7 +3195,6 @@ class Accounting(View):
             retrieval_id__actual_retrieval_timestamp__lte=end_date_confirm,
         )
 
-        # 派送
         container_numbers = Order.objects.filter(criteria).values_list(
             "container_number", flat=True
         )
@@ -3207,23 +3204,23 @@ class Accounting(View):
             .distinct()
         )
 
-        # 派送待确认（待核销）
         itemv2_queryset = InvoiceItemv2.objects.select_related("container_number").only(
             "id", "container_number_id", "write_off_amount", "rate", "description", "write_off_time",
             "note", "invoice_type"
         )
 
-        # 定义：筛选「派送费用+应付+已核销」的InvoiceItemv2的Exists查询
         has_written_off_delivery_itemv2 = Exists(
             InvoiceItemv2.objects.filter(
                 container_number_id=OuterRef("container_number_id"),
                 description__contains='派送费用',
                 invoice_type='payable',
-                write_off_amount__isnull=False  # 核销金额不为空 → 已核销
+                write_off_amount__isnull=False
             )
         )
 
-        # 筛选：排除「派送费用+应付+已核销」的记录
+        # ======================
+        # 核心修改：获取 ltl_correlation_id 替代 train_related
+        # ======================
         delivery_pending_orders = (
             FleetShipmentPallet.objects.select_related(
                 "fleet_number",
@@ -3234,7 +3231,7 @@ class Accounting(View):
                 Prefetch(
                     "container_number__invoice_itemv2",
                     queryset=itemv2_queryset,
-                    to_attr="itemv2_list"  # 自定义属性名
+                    to_attr="itemv2_list"
                 )
             )
             .filter(
@@ -3252,11 +3249,14 @@ class Accounting(View):
                     ).values("destination")[:1],
                     output_field=CharField()
                 ),
-                # 新增：获取fleet的train_related字段
-                train_related=F("fleet_number__train_related"),
-                # 注解：是否有「派送费用+应付+已核销」的InvoiceItemv2记录
-                has_written_off_delivery_itemv2=has_written_off_delivery_itemv2,
-                # ========== 新增：唛头字段 ==========
+                ltl_correlation_id=Subquery(
+                    Pallet.objects.filter(
+                        PO_ID=OuterRef("PO_ID"),
+                        shipment_batch_number=OuterRef("shipment_batch_number"),
+                        container_number=OuterRef("container_number")
+                    ).values("ltl_correlation_id")[:1],
+                    output_field=CharField()
+                ),
                 shipping_mark=Subquery(
                     Pallet.objects.filter(
                         PO_ID=OuterRef("PO_ID"),
@@ -3265,55 +3265,47 @@ class Accounting(View):
                     ).values("shipping_mark")[:1],
                     output_field=CharField()
                 ),
+                # ✅ 就加这一行！！！
+                has_written_off_delivery_itemv2=has_written_off_delivery_itemv2,
             )
-            # 核心筛选：排除「有派送费用+应付+已核销记录」的行
-            .filter(
-                has_written_off_delivery_itemv2=False
-            )
-            .order_by("train_related", "fleet_number__id", "pickup_number", "container_num")
+            .filter(has_written_off_delivery_itemv2=False)
+            .order_by("ltl_correlation_id", "fleet_number__id", "pickup_number", "container_num")
         )
 
-        # 分批转换为列表
         delivery_pending_orders_list = list(delivery_pending_orders.iterator(chunk_size=200))
 
-        # ========== 新增：按train_related分组的核心逻辑 ==========
-        # 第一步：构建train_related到fleet_id的映射
-        train_related_map = {}
+        # ======================
+        # 分组逻辑：使用 ltl_correlation_id
+        # ======================
+        correlation_map = {}
         for order in delivery_pending_orders_list:
-            # 获取train_related（无则用fleet_id）
-            train_related = order.train_related or f"fleet_{order.fleet_number_id or 'unknown'}"
+            corr_id = order.ltl_correlation_id or f"fleet_{order.fleet_number_id or 'unknown'}"
             fleet_id = order.fleet_number_id or "unknown"
 
-            if train_related not in train_related_map:
-                train_related_map[train_related] = {
-                    "fleet_ids": set(),  # 该分组下的所有fleet_id
-                    "is_multi_unload": train_related != f"fleet_{fleet_id}",  # 是否是一提多卸分组
-                    "fleet_numbers": set(),  # 该分组下的所有车次号
-                    "carriers": set(),  # 该分组下的所有carrier
+            if corr_id not in correlation_map:
+                correlation_map[corr_id] = {
+                    "fleet_ids": set(),
+                    "is_multi_unload": order.ltl_correlation_id is not None and order.ltl_correlation_id != "",
+                    "fleet_numbers": set(),
+                    "carriers": set(),
                 }
 
-            train_related_map[train_related]["fleet_ids"].add(fleet_id)
+            correlation_map[corr_id]["fleet_ids"].add(fleet_id)
             if order.fleet_number:
-                train_related_map[train_related]["fleet_numbers"].add(order.fleet_number.fleet_number or "")
-                train_related_map[train_related]["carriers"].add(order.fleet_number.carrier or "")
+                correlation_map[corr_id]["fleet_numbers"].add(order.fleet_number.fleet_number or "")
+                correlation_map[corr_id]["carriers"].add(order.fleet_number.carrier or "")
 
-        # ========== 第二步：数据组装/统计逻辑（兼容train_related分组） ==========
-        # 外层按train_related分组
-        train_related_groups = {}
-        # 内层仍保留原fleet_id层级
+        correlation_groups = {}
         deliverys = {}
 
         for order in delivery_pending_orders_list:
-            # 核心：获取分组key（train_related优先，无则用fleet_id）
-            train_related = order.train_related or f"fleet_{order.fleet_number_id or 'unknown'}"
+            corr_id = order.ltl_correlation_id or f"fleet_{order.fleet_number_id or 'unknown'}"
             fleet_id = order.fleet_number_id or "unknown"
 
-            # 初始化train_related分组
-            if train_related not in train_related_groups:
-                # 获取该分组的基础信息
-                group_info = train_related_map[train_related]
-                train_related_groups[train_related] = {
-                    "group_key": train_related,
+            if corr_id not in correlation_groups:
+                group_info = correlation_map[corr_id]
+                correlation_groups[corr_id] = {
+                    "group_key": corr_id,
                     "is_multi_unload": group_info["is_multi_unload"],
                     "fleet_ids": list(group_info["fleet_ids"]),
                     "fleet_numbers": list(group_info["fleet_numbers"]),
@@ -3321,10 +3313,9 @@ class Accounting(View):
                     "total_pallets": 0,
                     "total_expense": Decimal("0.0000"),
                     "total_rows": 0,
-                    "fleets": {},  # 原fleet_id层级数据
+                    "fleets": {},
                 }
 
-            # 初始化fleet_id层级（原有逻辑）
             if fleet_id not in deliverys:
                 carrier = order.fleet_number.carrier if (order.fleet_number and order.fleet_number.carrier) else None
                 fleet_number = order.fleet_number.fleet_number if (
@@ -3332,12 +3323,12 @@ class Accounting(View):
                 deliverys[fleet_id] = {
                     "fleets": {},
                     "total_pallets": 0,
-                    "total_expense": Decimal("0.0000"),  # 初始化为4位小数
+                    "total_expense": Decimal("0.0000"),
                     "total_rows": 0,
                     "carrier": carrier,
                     "fleet_number": fleet_number,
                     "fleet_id": fleet_id,
-                    "train_related": train_related,  # 关联到分组key
+                    "ltl_correlation_id": corr_id,
                 }
 
             pickup_number = order.pickup_number or "unknown"
@@ -3345,7 +3336,7 @@ class Accounting(View):
                 deliverys[fleet_id]["fleets"][pickup_number] = {
                     "appointments": {},
                     "ISA_total_pallets": 0,
-                    "ISA_total_expense": Decimal("0.00"),  # 车次总成本初始化为2位小数
+                    "ISA_total_expense": Decimal("0.00"),
                     "total_rows": 0,
                 }
 
@@ -3354,24 +3345,14 @@ class Accounting(View):
                 deliverys[fleet_id]["fleets"][pickup_number]["appointments"][appointment_id] = {
                     "orders": [],
                     "total_pallets": 0,
-                    "total_expense": Decimal("0.0000"),  # 预约级总成本4位小数
+                    "total_expense": Decimal("0.0000"),
                     "rowspan": 0
                 }
 
-            # 1. 基础数据转换（精准化）
             total_pallet = int(order.total_pallet) if (order.total_pallet and order.total_pallet != 0) else 1
-            expense = Decimal(str(order.expense or 0))  # 转为精准Decimal
-
-            # 2. 价格（cn_total_expense）：强制保留4位小数
+            expense = Decimal(str(order.expense or 0))
             cn_total_expense = expense.quantize(Decimal("0.0000"), rounding=ROUND_HALF_UP)
-
-            # 3. 单板成本（cn_per_expense）：强制保留4位小数
-            cn_per_expense = (expense / Decimal(str(total_pallet))).quantize(
-                Decimal("0.0000"),  # 严格4位小数
-                rounding=ROUND_HALF_UP  # 四舍五入
-            )
-
-            # 4. 卡板数
+            cn_per_expense = (expense / Decimal(str(total_pallet))).quantize(Decimal("0.0000"), rounding=ROUND_HALF_UP)
             cn_total_pallet = int(order.total_pallet) if order.total_pallet else 0
 
             itemv2_data = None
@@ -3385,97 +3366,82 @@ class Accounting(View):
                 if filtered_items:
                     itemv2_data = filtered_items[0]
 
-            # 组装订单数据（保留Decimal类型，最终转float前保证小数位）
             order_data = {
                 "object": order,
                 "cn_total_pallet": cn_total_pallet,
-                "cn_total_expense": float(cn_total_expense),  # 4位小数转float（如123.4567）
-                "cn_per_expense": float(cn_per_expense),  # 4位小数转float（如12.3456）
+                "cn_total_expense": float(cn_total_expense),
+                "cn_per_expense": float(cn_per_expense),
                 "container_num": order.container_num or "",
                 "pallet_destination": order.pallet_destination or "",
                 "shipping_mark": order.shipping_mark or "",
                 "carrier": deliverys[fleet_id]["carrier"],
                 "fleet_number": deliverys[fleet_id]["fleet_number"],
                 "itemv2_data": itemv2_data,
-                "train_related": train_related,  # 新增：携带分组标识
+                "ltl_correlation_id": corr_id,
             }
 
-            # 累加统计（精准Decimal累加）
             appointment_data = deliverys[fleet_id]["fleets"][pickup_number]["appointments"][appointment_id]
             appointment_data["orders"].append(order_data)
             appointment_data["total_pallets"] += cn_total_pallet
-            appointment_data["total_expense"] += cn_total_expense  # 4位小数累加
+            appointment_data["total_expense"] += cn_total_expense
             appointment_data["rowspan"] += 1
 
-            # 车次级统计（ISA_total_expense = 所有订单cn_total_expense之和，保留2位）
             fleet_pickup_data = deliverys[fleet_id]["fleets"][pickup_number]
             fleet_pickup_data["ISA_total_pallets"] += cn_total_pallet
-            # 先累加4位小数的cn_total_expense，再量化为2位小数
             fleet_pickup_data["ISA_total_expense"] = (
                     fleet_pickup_data["ISA_total_expense"] + cn_total_expense).quantize(Decimal("0.00"),
                                                                                         rounding=ROUND_HALF_UP)
             fleet_pickup_data["total_rows"] += 1
 
-            # 车队级统计
             fleet_data = deliverys[fleet_id]
             fleet_data["total_pallets"] += cn_total_pallet
-            fleet_data["total_expense"] += cn_total_expense  # 4位小数累加
+            fleet_data["total_expense"] += cn_total_expense
             fleet_data["total_rows"] += 1
 
-            # 新增：累加train_related分组级统计
-            train_group = train_related_groups[train_related]
-            train_group["total_pallets"] += cn_total_pallet
-            train_group["total_expense"] += cn_total_expense
-            train_group["total_rows"] += 1
-            # 将fleet数据挂载到分组下
-            train_group["fleets"][fleet_id] = deliverys[fleet_id]
+            group = correlation_groups[corr_id]
+            group["total_pallets"] += cn_total_pallet
+            group["total_expense"] += cn_total_expense
+            group["total_rows"] += 1
+            group["fleets"][fleet_id] = deliverys[fleet_id]
 
-        # ========== 第三步：转换train_related分组数据结构（供前端渲染勾选框） ==========
-        delivery_pending_orders = []
-        for train_related, group_data in train_related_groups.items():
-            # 处理分组下的fleet数据
-            processed_fleets = {}
-            for fleet_id, fleet_data in group_data["fleets"].items():
-                fleet_processed_fleets = {}
-                for pickup_num, pickup_data in fleet_data["fleets"].items():
-                    # 车次总成本：已保证2位小数，转float
-                    pickup_data["ISA_total_expense"] = float(pickup_data["ISA_total_expense"])
+        final_pending = []
+        for corr_id, group in correlation_groups.items():
+            processed = {}
+            for fid, fdata in group["fleets"].items():
+                fp = {}
+                for pid, pdata in fdata["fleets"].items():
+                    pdata["ISA_total_expense"] = float(pdata["ISA_total_expense"])
+                    apps = {}
+                    for aid, adata in pdata["appointments"].items():
+                        adata["total_expense"] = float(adata["total_expense"].quantize(Decimal("0.0000")))
+                        apps[aid] = adata
+                    pdata["appointments"] = apps
+                    fp[pid] = pdata
+                fdata["fleets"] = fp
+                fdata["total_expense"] = float(fdata["total_expense"].quantize(Decimal("0.0000")))
+                processed[fid] = fdata
 
-                    # 处理预约级数据
-                    processed_appointments = {}
-                    for appt_id, appt_data in pickup_data["appointments"].items():
-                        # 预约级总成本：4位小数转float
-                        appt_data["total_expense"] = float(appt_data["total_expense"].quantize(Decimal("0.0000")))
-                        processed_appointments[appt_id] = appt_data
-                    pickup_data["appointments"] = processed_appointments
-                    fleet_processed_fleets[pickup_num] = pickup_data
-
-                # 更新fleet数据
-                fleet_data["fleets"] = fleet_processed_fleets
-                fleet_data["total_expense"] = float(fleet_data["total_expense"].quantize(Decimal("0.0000")))
-                processed_fleets[fleet_id] = fleet_data
-
-            # 组装最终分组数据
-            delivery_pending_orders.append({
-                "group_key": group_data["group_key"],
-                "is_multi_unload": group_data["is_multi_unload"],
-                "fleet_ids": group_data["fleet_ids"],
-                "fleet_numbers": group_data["fleet_numbers"],
-                "carriers": group_data["carriers"],
-                "total_pallets": group_data["total_pallets"],
-                "total_expense": float(group_data["total_expense"].quantize(Decimal("0.0000"))),
-                "total_rows": group_data["total_rows"],
-                "fleets": processed_fleets,  # 包含所有关联的fleet数据
+            final_pending.append({
+                "group_key": group["group_key"],
+                "is_multi_unload": group["is_multi_unload"],
+                "fleet_ids": group["fleet_ids"],
+                "fleet_numbers": group["fleet_numbers"],
+                "carriers": group["carriers"],
+                "total_pallets": group["total_pallets"],
+                "total_expense": float(group["total_expense"].quantize(Decimal("0.0000"))),
+                "total_rows": group["total_rows"],
+                "fleets": processed,
             })
 
-        # ========== 已确认订单逻辑（同步新增train_related分组） ==========
+        # ======================
+        # 已确认订单：同样替换为 ltl_correlation_id
+        # ======================
         base_delivery_orders = (
             FleetShipmentPallet.objects.select_related(
                 "fleet_number",
                 "shipment_batch_number",
                 "container_number",
             )
-            # ✅【关键修复】预加载 已核销的派送费用应付账单
             .prefetch_related(
                 Prefetch(
                     "container_number__invoice_itemv2",
@@ -3502,9 +3468,15 @@ class Accounting(View):
                     ).values("destination")[:1],
                     output_field=CharField()
                 ),
-                # 新增：获取train_related字段
-                train_related=F("fleet_number__train_related"),
-                # ========== 新增：唛头字段 ==========
+                # ✅ 替换
+                ltl_correlation_id=Subquery(
+                    Pallet.objects.filter(
+                        PO_ID=OuterRef("PO_ID"),
+                        shipment_batch_number=OuterRef("shipment_batch_number"),
+                        container_number=OuterRef("container_number")
+                    ).values("ltl_correlation_id")[:1],
+                    output_field=CharField()
+                ),
                 shipping_mark=Subquery(
                     Pallet.objects.filter(
                         PO_ID=OuterRef("PO_ID"),
@@ -3514,214 +3486,170 @@ class Accounting(View):
                     output_field=CharField()
                 ),
             )
-            .order_by("train_related", "fleet_number__id", "pickup_number", "container_num")
+            .order_by("ltl_correlation_id", "fleet_number__id", "pickup_number", "container_num")
         )
 
         container_ids = base_delivery_orders.values_list("container_number_id", flat=True).distinct()
-        itemv2_valid_container_ids = InvoiceItemv2.objects.filter(
+        valid_cids = InvoiceItemv2.objects.filter(
             container_number_id__in=container_ids,
             write_off_amount__isnull=False,
             description='派送费用',
             invoice_type='payable',
-        ).values_list("container_number_id", flat=True).distinct()
+        ).values_list("container_number_id", flat=True)
 
-        delivery_confirm_orders = base_delivery_orders.filter(container_number_id__in=itemv2_valid_container_ids)
-        delivery_confirm_orders_list = list(delivery_confirm_orders.iterator(chunk_size=200))
+        confirmed = base_delivery_orders.filter(container_number_id__in=valid_cids)
+        confirmed_list = list(confirmed.iterator(chunk_size=200))
 
-        # ========== 已确认订单：按train_related分组 ==========
-        # 构建train_related映射
-        confirm_train_related_map = {}
-        for order in delivery_confirm_orders_list:
-            train_related = order.train_related or f"fleet_{order.fleet_number_id or 'unknown'}"
-            fleet_id = order.fleet_number_id or "unknown"
-
-            if train_related not in confirm_train_related_map:
-                confirm_train_related_map[train_related] = {
+        confirm_corr_map = {}
+        for o in confirmed_list:
+            cid = o.ltl_correlation_id or f"fleet_{o.fleet_number_id or 'unknown'}"
+            fid = o.fleet_number_id or "unknown"
+            if cid not in confirm_corr_map:
+                confirm_corr_map[cid] = {
                     "fleet_ids": set(),
-                    "is_multi_unload": train_related != f"fleet_{fleet_id}",
+                    "is_multi_unload": o.ltl_correlation_id is not None and o.ltl_correlation_id != "",
                     "fleet_numbers": set(),
                     "carriers": set(),
                 }
+            confirm_corr_map[cid]["fleet_ids"].add(fid)
+            if o.fleet_number:
+                confirm_corr_map[cid]["fleet_numbers"].add(o.fleet_number.fleet_number or "")
+                confirm_corr_map[cid]["carriers"].add(o.fleet_number.carrier or "")
 
-            confirm_train_related_map[train_related]["fleet_ids"].add(fleet_id)
-            if order.fleet_number:
-                confirm_train_related_map[train_related]["fleet_numbers"].add(order.fleet_number.fleet_number or "")
-                confirm_train_related_map[train_related]["carriers"].add(order.fleet_number.carrier or "")
+        confirm_groups = {}
+        confirm_fleets = {}
 
-        # 初始化分组和fleet数据
-        confirm_train_related_groups = {}
-        deliverys_confirm = {}
+        for o in confirmed_list:
+            cid = o.ltl_correlation_id or f"fleet_{o.fleet_number_id or 'unknown'}"
+            fid = o.fleet_number_id or "unknown"
 
-        for order in delivery_confirm_orders_list:
-            train_related = order.train_related or f"fleet_{order.fleet_number_id or 'unknown'}"
-            fleet_id = order.fleet_number_id or "unknown"
-
-            # 初始化train_related分组
-            if train_related not in confirm_train_related_groups:
-                group_info = confirm_train_related_map[train_related]
-                confirm_train_related_groups[train_related] = {
-                    "group_key": train_related,
-                    "is_multi_unload": group_info["is_multi_unload"],
-                    "fleet_ids": list(group_info["fleet_ids"]),
-                    "fleet_numbers": list(group_info["fleet_numbers"]),
-                    "carriers": list(group_info["carriers"]),
+            if cid not in confirm_groups:
+                gi = confirm_corr_map[cid]
+                confirm_groups[cid] = {
+                    "group_key": cid,
+                    "is_multi_unload": gi["is_multi_unload"],
+                    "fleet_ids": list(gi["fleet_ids"]),
+                    "fleet_numbers": list(gi["fleet_numbers"]),
+                    "carriers": list(gi["carriers"]),
                     "total_pallets": 0,
                     "total_expense": Decimal("0.0000"),
                     "total_rows": 0,
                     "fleets": {},
                 }
 
-            # 初始化fleet_id层级
-            if fleet_id not in deliverys_confirm:
-                carrier = order.fleet_number.carrier if (order.fleet_number and order.fleet_number.carrier) else ""
-                fleet_number = order.fleet_number.fleet_number if (
-                        order.fleet_number and order.fleet_number.fleet_number) else ""
-                deliverys_confirm[fleet_id] = {
+            if fid not in confirm_fleets:
+                carrier = o.fleet_number.carrier if (o.fleet_number and o.fleet_number.carrier) else ""
+                fnum = o.fleet_number.fleet_number if (o.fleet_number and o.fleet_number.fleet_number) else ""
+                confirm_fleets[fid] = {
                     "fleets": {},
                     "total_pallets": 0,
                     "total_expense": Decimal("0.0000"),
                     "total_rows": 0,
                     "carrier": carrier,
-                    "fleet_number": fleet_number,
-                    "fleet_id": fleet_id,
-                    "train_related": train_related,
+                    "fleet_number": fnum,
+                    "fleet_id": fid,
+                    "ltl_correlation_id": cid,
                 }
 
-            pickup_number = order.pickup_number or "unknown"
-            if pickup_number not in deliverys_confirm[fleet_id]["fleets"]:
-                deliverys_confirm[fleet_id]["fleets"][pickup_number] = {
-                    "appointments": {},
-                    "ISA_total_pallets": 0,
-                    "ISA_total_expense": Decimal("0.00"),
-                    "total_rows": 0,
+            pn = o.pickup_number or "unknown"
+            if pn not in confirm_fleets[fid]["fleets"]:
+                confirm_fleets[fid]["fleets"][pn] = {
+                    "appointments": {}, "ISA_total_pallets": 0, "ISA_total_expense": Decimal("0.00"), "total_rows": 0
                 }
 
-            appointment_id = order.appointment_id or "unknown"
-            if appointment_id not in deliverys_confirm[fleet_id]["fleets"][pickup_number]["appointments"]:
-                deliverys_confirm[fleet_id]["fleets"][pickup_number]["appointments"][appointment_id] = {
+            aid = o.appointment_id or "unknown"
+            if aid not in confirm_fleets[fid]["fleets"][pn]["appointments"]:
+                confirm_fleets[fid]["fleets"][pn]["appointments"][aid] = {
                     "orders": [], "total_pallets": 0, "total_expense": Decimal("0.0000"), "rowspan": 0
                 }
 
-            # 已确认订单严格遵循相同的小数位规则
-            total_pallet = int(order.total_pallet) if (order.total_pallet and order.total_pallet != 0) else 1
-            expense = Decimal(str(order.expense or 0))
+            tp = int(o.total_pallet) if (o.total_pallet and o.total_pallet != 0) else 1
+            ex = Decimal(str(o.expense or 0))
+            cte = ex.quantize(Decimal("0.0000"), rounding=ROUND_HALF_UP)
+            cpe = (ex / Decimal(str(tp))).quantize(Decimal("0.0000"), rounding=ROUND_HALF_UP)
+            ctp = int(o.total_pallet) if o.total_pallet else 0
 
-            # 价格（cn_total_expense）：4位小数
-            cn_total_expense = expense.quantize(Decimal("0.0000"), rounding=ROUND_HALF_UP)
+            itemv2_data = o.container_number.itemv2_list[0] if hasattr(o.container_number,
+                                                                       'itemv2_list') and o.container_number.itemv2_list else None
 
-            # 单板成本（cn_per_expense）：4位小数
-            cn_per_expense = (expense / Decimal(str(total_pallet))).quantize(Decimal("0.0000"), rounding=ROUND_HALF_UP)
-
-            cn_total_pallet = int(order.total_pallet) if order.total_pallet else 0
-
-            # 【修复】已确认订单：正确获取 派送费用｜应付｜已核销 的记录
-            itemv2_data = None
-            if hasattr(order.container_number, 'itemv2_list') and order.container_number.itemv2_list:
-                # 直接从预加载的列表里取第一条（已筛选：派送+应付+已核销）
-                itemv2_data = order.container_number.itemv2_list[0]
-
-            order_data = {
-                "object": order,
-                "cn_total_pallet": cn_total_pallet,
-                "cn_total_expense": float(cn_total_expense),  # 4位小数
-                "cn_per_expense": float(cn_per_expense),  # 4位小数
-                "container_num": order.container_num or "",
-                "pallet_destination": order.pallet_destination or "",
-                "shipping_mark": order.shipping_mark or "",
-                "carrier": deliverys_confirm[fleet_id]["carrier"],
-                "fleet_number": deliverys_confirm[fleet_id]["fleet_number"],
+            od = {
+                "object": o,
+                "cn_total_pallet": ctp,
+                "cn_total_expense": float(cte),
+                "cn_per_expense": float(cpe),
+                "container_num": o.container_num or "",
+                "pallet_destination": o.pallet_destination or "",
+                "shipping_mark": o.shipping_mark or "",
+                "carrier": confirm_fleets[fid]["carrier"],
+                "fleet_number": confirm_fleets[fid]["fleet_number"],
                 "itemv2_data": itemv2_data,
-                "train_related": train_related,  # 新增：携带分组标识
+                "ltl_correlation_id": cid,
             }
 
-            # 累加统计
-            appointment_data = deliverys_confirm[fleet_id]["fleets"][pickup_number]["appointments"][appointment_id]
-            appointment_data["orders"].append(order_data)
-            appointment_data["total_pallets"] += cn_total_pallet
-            appointment_data["total_expense"] += cn_total_expense
-            appointment_data["rowspan"] += 1
+            ad = confirm_fleets[fid]["fleets"][pn]["appointments"][aid]
+            ad["orders"].append(od)
+            ad["total_pallets"] += ctp
+            ad["total_expense"] += cte
+            ad["rowspan"] += 1
 
-            fleet_pickup_data = deliverys_confirm[fleet_id]["fleets"][pickup_number]
-            fleet_pickup_data["ISA_total_pallets"] += cn_total_pallet
-            # 车次总成本累加后保留2位小数
-            fleet_pickup_data["ISA_total_expense"] = (
-                    fleet_pickup_data["ISA_total_expense"] + cn_total_expense).quantize(Decimal("0.00"),
-                                                                                        rounding=ROUND_HALF_UP)
-            fleet_pickup_data["total_rows"] += 1
+            pd = confirm_fleets[fid]["fleets"][pn]
+            pd["ISA_total_pallets"] += ctp
+            pd["ISA_total_expense"] = (pd["ISA_total_expense"] + cte).quantize(Decimal("0.00"), rounding=ROUND_HALF_UP)
+            pd["total_rows"] += 1
 
-            fleet_data = deliverys_confirm[fleet_id]
-            fleet_data["total_pallets"] += cn_total_pallet
-            fleet_data["total_expense"] += cn_total_expense
-            fleet_data["total_rows"] += 1
+            fd = confirm_fleets[fid]
+            fd["total_pallets"] += ctp
+            fd["total_expense"] += cte
+            fd["total_rows"] += 1
 
-            # 新增：累加train_related分组级统计
-            train_group = confirm_train_related_groups[train_related]
-            train_group["total_pallets"] += cn_total_pallet
-            train_group["total_expense"] += cn_total_expense
-            train_group["total_rows"] += 1
-            train_group["fleets"][fleet_id] = deliverys_confirm[fleet_id]
+            g = confirm_groups[cid]
+            g["total_pallets"] += ctp
+            g["total_expense"] += cte
+            g["total_rows"] += 1
+            g["fleets"][fid] = confirm_fleets[fid]
 
-        # 转换已确认订单的分组数据结构
-        delivery_confirm_orders = []
-        for train_related, group_data in confirm_train_related_groups.items():
-            processed_fleets = {}
-            for fleet_id, fleet_data in group_data["fleets"].items():
-                fleet_processed_fleets = {}
-                for pickup_num, pickup_data in fleet_data["fleets"].items():
-                    # 车次总成本2位小数转float
-                    pickup_data["ISA_total_expense"] = float(pickup_data["ISA_total_expense"])
-                    processed_appointments = {}
-                    for appt_id, appt_data in pickup_data["appointments"].items():
-                        # 预约级总成本4位小数转float
-                        appt_data["total_expense"] = float(appt_data["total_expense"].quantize(Decimal("0.0000")))
-                        processed_appointments[appt_id] = appt_data
-                    pickup_data["appointments"] = processed_appointments
-                    fleet_processed_fleets[pickup_num] = pickup_data
+        final_confirmed = []
+        for cid, g in confirm_groups.items():
+            proc = {}
+            for fid, fd in g["fleets"].items():
+                fproc = {}
+                for pid, pd in fd["fleets"].items():
+                    pd["ISA_total_expense"] = float(pd["ISA_total_expense"])
+                    aps = {}
+                    for aid, ad in pd["appointments"].items():
+                        ad["total_expense"] = float(ad["total_expense"].quantize(Decimal("0.0000")))
+                        aps[aid] = ad
+                    pd["appointments"] = aps
+                    fproc[pid] = pd
+                fd["fleets"] = fproc
+                fd["total_expense"] = float(fd["total_expense"].quantize(Decimal("0.0000")))
+                proc[fid] = fd
 
-                fleet_data["fleets"] = fleet_processed_fleets
-                fleet_data["total_expense"] = float(fleet_data["total_expense"].quantize(Decimal("0.0000")))
-                processed_fleets[fleet_id] = fleet_data
-
-            delivery_confirm_orders.append({
-                "group_key": group_data["group_key"],
-                "is_multi_unload": group_data["is_multi_unload"],
-                "fleet_ids": group_data["fleet_ids"],
-                "fleet_numbers": group_data["fleet_numbers"],
-                "carriers": group_data["carriers"],
-                "total_pallets": group_data["total_pallets"],
-                "total_expense": float(group_data["total_expense"].quantize(Decimal("0.0000"))),
-                "total_rows": group_data["total_rows"],
-                "fleets": processed_fleets,
+            final_confirmed.append({
+                "group_key": g["group_key"],
+                "is_multi_unload": g["is_multi_unload"],
+                "fleet_ids": g["fleet_ids"],
+                "fleet_numbers": g["fleet_numbers"],
+                "carriers": g["carriers"],
+                "total_pallets": g["total_pallets"],
+                "total_expense": float(g["total_expense"].quantize(Decimal("0.0000"))),
+                "total_rows": g["total_rows"],
+                "fleets": proc,
             })
 
-        # 页面上下文数据
         start_date_export = (current_date + timedelta(days=-15)).strftime("%Y-%m-%d")
         end_date_export = current_date.strftime("%Y-%m-%d")
-        pickup_carriers = {
-            "Kars": "Kars",
-            "东海岸": "东海岸",
-            "ARM": "ARM",
-            "GM": "GM",
-            "BEST": "BEST",
-        }
-        unload_carriers = {
-            "BBR": "BBR",
-            "KNO": "KNO",
-            "JOHN": "JOHN",
-            "unload": "UNLOAD",
-        }
-        warehouse_carriers = {
-            "BBR": "BBR",
-            "KNO": "KNO",
-        }
+        pickup_carriers = {"Kars": "Kars", "东海岸": "东海岸", "ARM": "ARM", "GM": "GM", "BEST": "BEST"}
+        unload_carriers = {"BBR": "BBR", "KNO": "KNO", "JOHN": "JOHN", "unload": "UNLOAD"}
+        warehouse_carriers = {"BBR": "BBR", "KNO": "KNO"}
         existing_customers = Customer.objects.all().order_by("zem_name")
 
         context = {
             "pickup_carriers": pickup_carriers,
             "unload_carriers": unload_carriers,
             "warehouse_carriers": warehouse_carriers,
-            "delivery_pending_orders": delivery_pending_orders,  # 按train_related分组后的数据
-            "delivery_confirm_orders": delivery_confirm_orders,  # 按train_related分组后的数据
+            "delivery_pending_orders": final_pending,
+            "delivery_confirm_orders": final_confirmed,
             "delivery_confirmed_orders": None,
             "warehouse_options": self.warehouse_options,
             "existing_customers": existing_customers,
