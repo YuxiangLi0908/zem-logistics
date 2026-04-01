@@ -178,7 +178,7 @@
                 <div>
                     <form method="post" enctype="multipart/form-data" style="font-size: 11px;">
                         {% csrf_token %}
-                        导入模版: 
+                        导入模版:
                         {{ packing_list_upload_form.file }}
                         <input type="hidden" name="step" value="upload_template">
                         <input type="hidden" name="source" value="order_management">
@@ -194,12 +194,16 @@
                     </form>
                 </div>
             </div>
-            <div class="text-right" style="min-width: 200px">
+            <div class="text-right" style="min-width: 400px">
                 <button type="button" id="add-more-btn" class="btn btn-success" style="height: 35px; font-size: 12px; margin: 5px;" onclick="addRowBelow()">
                     <i class="bi bi-plus-lg"></i> 添加行
                 </button>
                 <button type="button" id="remove-last-btn" class="btn btn-danger" style="height: 35px; font-size: 12px; margin: 5px;" onclick="rmLastRow()">
                     <i class="bi bi-dash-lg"></i> 删除行
+                </button>
+                <!-- 移动到顶部的更新按钮 -->
+                <button type="submit" form="packing-list-form" id="submit-btn-update-basic-info" class="btn btn-primary" style="width: 180px; height: 35px; font-size: 12px; margin: 5px;" onclick="processForm()">
+                    更新PackingList信息
                 </button>
             </div>
         </div>
@@ -377,14 +381,10 @@
                         </table>
                     </div>
                 </div>
-                <div class="text-right" style="position: fixed;; top: 161px; left: 500px; z-index: 99;">
-                    <input type="hidden" name="step" value="update_order_packing_list_info">
-                    <input type="hidden" name="source" value="order_management">
-                    <input type="hidden" name="container_number" value="{{ selected_order.container_number.container_number }}">
-                    <button id="submit-btn-update-basic-info" type="submit" class="btn btn-primary" style="width: 200px; height: 35px; font-size: 12px;" onclick="processForm()">
-                        更新packinglist信息
-                    </button>
-                </div>
+                <!-- 底部原来的按钮已删除 -->
+                <input type="hidden" name="step" value="update_order_packing_list_info">
+                <input type="hidden" name="source" value="order_management">
+                <input type="hidden" name="container_number" value="{{ selected_order.container_number.container_number }}">
             </form>
         </div>
     </div>
@@ -526,7 +526,7 @@
     function toggleAllCheckboxes() {
         var selectAllCheckbox = document.getElementById('selectAllCheckbox');
         var checkboxes = document.querySelectorAll('#packing-list-row input[type="checkbox"][name="is_packing_list_selected"]');
-        
+
         checkboxes.forEach(function(checkbox) {
             var tr = checkbox.closest('tr');
             if (tr.style.display !== 'none') {
@@ -535,7 +535,7 @@
                     tr.style.backgroundColor = '#ADD8E6'; // Change to your desired color
                 } else {
                     tr.style.backgroundColor = ''; // Reset to default color
-                } 
+                }
             }
         });
     };
