@@ -377,12 +377,12 @@
                         </table>
                     </div>
                 </div>
-                <div class="text-right">
+                <div class="text-right" style="position: fixed;; top: 161px; left: 500px; z-index: 99;">
                     <input type="hidden" name="step" value="update_order_packing_list_info">
                     <input type="hidden" name="source" value="order_management">
                     <input type="hidden" name="container_number" value="{{ selected_order.container_number.container_number }}">
-                    <button id="submit-btn-update-basic-info" type="submit" class="btn btn-primary" style="width: 90px; height: 30px; margin-left: 20px; font-size: 13px;" onclick="processForm()">
-                        更新信息
+                    <button id="submit-btn-update-basic-info" type="submit" class="btn btn-primary" style="width: 200px; height: 35px; font-size: 12px;" onclick="processForm()">
+                        更新packinglist信息
                     </button>
                 </div>
             </form>
