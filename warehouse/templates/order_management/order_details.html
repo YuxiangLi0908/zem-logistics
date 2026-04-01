@@ -296,7 +296,7 @@
             </div>
         </form>
     </div>
-    
+
     <div id="order-packing-list-info-sec" style="display: none;">
         <div style="display: flex;">
             {% if not selected_order.offload_id.offload_at %}
@@ -304,7 +304,7 @@
                 <div>
                     <form method="post" id='upload-form' enctype="multipart/form-data" style="font-size: 11px;">
                         {% csrf_token %}
-                        导入模版: 
+                        导入模版:
                         {{ packing_list_upload_form.file }}
                         <input type="hidden" name="step" value="upload_template">
                         <input type="hidden" name="source" value="order_management">
@@ -335,7 +335,7 @@
                             <div>
                                 <form method="post" id='upload-form' enctype="multipart/form-data" style="font-size: 11px;">
                                     {% csrf_token %}
-                                    导入模版: 
+                                    导入模版:
                                     {{ packing_list_upload_form.file }}
                                     <input type="hidden" name="step" value="upload_template">
                                     <input type="hidden" name="source" value="order_management">
@@ -538,28 +538,32 @@
                         </table>
                     </div>
                 </div>
-                {% if not offload_at %}                   
-                    <div class="text-right">
+                {% if not offload_at %}
+                    <div class="text-right"
+                         style="position: fixed;; top: 161px; left: 500px; z-index: 99;">
                         <input type="hidden" name="step" value="update_order_packing_list_info">
                         <input type="hidden" name="source" value="order_management">
-                        <input type="hidden" name="container_number" value="{{ selected_order.container_number.container_number }}">
-                        <button id="submit-btn-update-basic-info" type="submit" class="btn btn-primary" style="width: 90px; height: 30px; margin-left: 20px; font-size: 13px;" onclick="processForm()">
-                            更新信息
+                        <input type="hidden" name="container_number"
+                               value="{{ selected_order.container_number.container_number }}">
+                        <button type="submit" class="btn btn-primary"
+                                style="width: 200px; height: 35px; font-size: 12px;">
+                            更新PackingList信息
                         </button>
                     </div>
                 {% else %}
-                    {% if user.is_authenticated %}
-                        {% if user.is_staff or cancel_access %}
-                            <div class="text-right">
-                                <input type="hidden" name="step" value="update_order_packing_list_info">
-                                <input type="hidden" name="source" value="order_management">
-                                <input type="hidden" name="container_number" value="{{ selected_order.container_number.container_number }}">
-                                <button id="submit-btn-update-basic-info" type="submit" class="btn btn-primary" style="width: 90px; height: 30px; margin-left: 20px; font-size: 13px;" onclick="processForm()">
-                                    更新信息
-                                </button>
-                            </div>
-                        {% endif %}   
-                    {% endif %}             
+                    {% if user.is_staff or cancel_access %}
+                        <div class="text-right"
+                             style="position: fixed;; top: 161px; left: 500px; z-index: 99;">
+                            <input type="hidden" name="step" value="update_order_packing_list_info">
+                            <input type="hidden" name="source" value="order_management">
+                            <input type="hidden" name="container_number"
+                                   value="{{ selected_order.container_number.container_number }}">
+                            <button type="submit" class="btn btn-primary"
+                                    style="width: 200px; height: 35px; font-size: 12px;">
+                                更新PackingList信息
+                            </button>
+                        </div>
+                    {% endif %}
                 {% endif %}
             </form>
         </div>
@@ -619,7 +623,7 @@
                                         <option value="{{ v }}">{{ k }}</option>
                                     {% endif %}
                                 {% endfor %}
-                            </select>                            
+                            </select>
                         </td>
                         <td class="td">
                             {% if selected_order.order_type == "直送" %}
