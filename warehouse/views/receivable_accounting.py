@@ -8689,13 +8689,7 @@ class ReceivableAccounting(View):
         overregion_pickup_fee = round(non_combina_cbm_ratio * pickup_fee, 3)
 
         # 6、超仓点的加收费用
-        addition_fee = {
-                        "min_points": 0,
-                        "region_count": 0,
-                        "max_points": 99,
-                        "add_fee": 0.0,
-                        "type":'Fixed'
-                    }
+        
         # 看实际录入，多少仓点归入到组合柜
         region_count = InvoiceItemv2.objects.filter(
             invoice_type="receivable",
@@ -8704,6 +8698,14 @@ class ReceivableAccounting(View):
             item_category__in=["delivery_public", "delivery_other"],
             delivery_type="combine"
         ).values('warehouse_code').distinct().count()
+
+        addition_fee = {
+                        "min_points": 0,
+                        "region_count": region_count,
+                        "max_points": 99,
+                        "add_fee": 0.0,
+                        "type":'initial'
+                    }
 
         if "tiered_pricing" in stipulate:
             if warehouse in stipulate["tiered_pricing"]:
@@ -8731,6 +8733,22 @@ class ReceivableAccounting(View):
                                 "add_fee": rule.get("fee"),
                                 "type":'Fixed',
                             }
+            else:
+                addition_fee = {
+                    "min_points": 0,
+                    "region_count": region_count,
+                    "max_points": 99,
+                    "add_fee": 0.0,
+                    "type":f'仓库{warehouse}缺少tiered_pricing'
+                }
+        else:
+            addition_fee = {
+                "min_points": 0,
+                "region_count": region_count,
+                "max_points": 99,
+                "add_fee": 0.0,
+                "type":'缺少tiered_pricing'
+            }
         display_data = {
             # 基础信息
             "plts_by_destination": plts_by_destination,
