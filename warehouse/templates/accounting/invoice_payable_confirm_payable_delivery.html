@@ -1022,12 +1022,6 @@
             max-width: 100px !important;
         }
 
-        /* 批量核销模态框样式 */
-        #batchWriteoffModal .modal-content {
-            width: 600px !important;
-            padding: 25px !important;
-        }
-
         #batchWriteoffModal .modal-footer {
             display: flex !important;
             justify-content: flex-end !important;
@@ -1722,7 +1716,6 @@
                                             <th class="th"></th>
                                             <th class="th"></th>
                                             <th class="th"></th>
-                                            <th class="th"></th>
                                         </tr>
                                         <tbody>
                                         {% for group in delivery_confirm_orders %}
@@ -2394,7 +2387,6 @@
 
         // ========== 页面初始化 ==========
         document.addEventListener('DOMContentLoaded', function () {
-            initTableSearch();
             updateSummaryRow();
 
             const pendingSubTab = document.querySelector('[data-subtab="delivery-pending"]');
@@ -2491,19 +2483,18 @@
                 const row = checkbox.closest('tr');
                 if (row.style.display === 'none') return;
 
-                // 【关键修复】列索引从 12/13 改为 11/12（对应页面实际的车次总板数/总成本列）
-                // 车次总板数（第12列）
+                // 总板数
                 const palletText = row.querySelector('td:nth-child(12)')?.textContent.trim() || '0';
                 const pallets = parseFloat(palletText) || 0;
                 totalPallets += pallets;
 
-                // 车次总成本（第13列）
+                // 总成本
                 const costText = row.querySelector('td:nth-child(13)')?.textContent.trim().replace('$', '') || '0';
                 const cost = parseFloat(costText) || 0;
                 totalCost += cost;
 
-                // 核销金额（第13列）
-                const writeoffInput = row.querySelector('input.write-off-amount');
+                // 核销金额（第14列）
+                const writeoffInput = row.querySelector('td:nth-child(14) input.write-off-amount');
                 const writeoff = writeoffInput ? (parseFloat(writeoffInput.value) || 0) : 0;
                 totalWriteoff += writeoff;
             });
@@ -2538,7 +2529,8 @@
             if (e.target.classList.contains('submit-single-writeoff')) {
                 const btn = e.target;
                 const fleetId = btn.getAttribute('data-fleet-id');
-                const containerId = btn.getAttribute('data-container-id');
+                const row = btn.closest('tr');
+                const containerId = row.querySelector('td:nth-child(6)')?.textContent.trim() || '';
 
                 // 【核心修复】正确获取核销金额
                 const amountInput = document.querySelector(`input.write-off-amount[data-fleet-id="${fleetId}"]`);

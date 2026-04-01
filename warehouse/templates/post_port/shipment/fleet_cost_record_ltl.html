@@ -577,8 +577,10 @@
                                 </form>
                             </td>
                             <td class="td" style="padding: 10px 12px; border: 1px solid #eee; text-align: center; white-space: nowrap; font-size:14px; color: #ff4d4f; font-weight: 600;">{{ f.allocation_price|default_if_none:0|floatformat:2 }}</td>
-                            <td class="td" data-col="multi-unload" style="padding: 10px 12px; border: 1px solid #eee; text-align: center; white-space: nowrap; font-size:14px;">
-                                {% if f.fleet_number.train_related %}<span class="multi-unload-tag">是</span>{% else %}<span class="text-muted">否</span>{% endif %}
+                            <td class="td" data-col="multi-unload"
+                                style="padding: 10px 12px; border: 1px solid #eee; text-align: center; white-space: nowrap; font-size:14px;">
+                                {% if f.is_multi_unload %}<span class="multi-unload-tag">是</span>{% else %}
+                                    <span class="text-muted">否</span>{% endif %}
                             </td>
                             <td class="td multi-unload-total-cost" style="padding: 10px 12px; border: 1px solid #eee; text-align: center; white-space: nowrap; font-size:14px; color: #ff4d4f; font-weight: 600;">{{ f.multi_unload_total_cost|default_if_none:0|floatformat:2 }}</td>
                             <!-- 剩余数据列 -->

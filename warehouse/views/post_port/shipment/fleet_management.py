@@ -1074,7 +1074,8 @@ class FleetManagement(View):
         df = pd.DataFrame([
             {
                 '柜号': item.container_number,
-                '一提多卸': '是' if item.fleet_number and item.fleet_number.train_related else '否',
+                # ✅ 【已修复】一提多卸：判断当前车次是否在分组中
+                '一提多卸': '是' if hasattr(item, 'is_multi_unload') and item.is_multi_unload else '否',
                 '目的仓库': item.all_locations,
                 '目的地': item.destination,
                 '唛头': item.shipping_mark,
@@ -1085,12 +1086,12 @@ class FleetManagement(View):
                 '实际出库时间': item.shipped_at.strftime("%Y-%m-%d %H:%M") if item.shipped_at else '-',
                 '拆柜时间': item.offload_at.strftime("%Y-%m-%d %H:%M") if item.offload_at else '-',
                 '出库批次': item.fleet_number.fleet_number if (
-                            item.fleet_number and item.fleet_number.fleet_number) else '-',
+                        item.fleet_number and item.fleet_number.fleet_number) else '-',
                 '预约批次': item.shipment_batch_number,
                 'Carrier': item.carrier,
                 '备注': item.note,
                 '退回费用': item.fleet_number.fleet_cost_back if (
-                            item.fleet_number and item.fleet_number.fleet_cost_back) else 0,
+                        item.fleet_number and item.fleet_number.fleet_cost_back) else 0,
                 '核实状态': '已核实' if (item.fleet_number and item.fleet_number.fleet_verify_status) else '未核实'
             }
             for item in processed_data
@@ -2448,49 +2449,70 @@ class FleetManagement(View):
         # ========== 修复：一提多卸分组和总成本计算（核心修改） ==========
         @sync_to_async
         def get_multi_unload_groups():
-            """获取一提多卸分组及总成本（修复格式：车次号→同组车次列表）"""
-            # 步骤1：查询所有包含一提多卸标识的记录（train_related不为空）
-            multi_unload_records = Shipment.objects.filter(
-                fleet_number__train_related__isnull=False,  # 不为空即为一提多卸
-                fleet_number__fleet_type__in=['LTL', '客户自提']
-            ).select_related('fleet_number')
+            """
+            【已修复】
+            一提多卸分组规则：
+            Pallet 表中 ltl_correlation_id 相同 → 视为同一组
+            """
+            # 步骤1：获取所有有 ltl_correlation_id 的 Pallet（不为空、不为空字符串）
+            pallets = Pallet.objects.filter(
+                ltl_correlation_id__isnull=False
+            ).exclude(ltl_correlation_id="")
 
-            # 步骤2：按 train_related 分组（相同字符串为同一组）
-            group_map = {}  # group_id → {total_cost, fleet_numbers}
-            for record in multi_unload_records:
-                group_id = record.fleet_number.train_related
-                fleet_number = record.fleet_number.fleet_number
+            # 步骤2：按 ltl_correlation_id 分组（相同值 = 同一提多卸组）
+            group_map = {}  # ltl_correlation_id → 组信息
+            for pallet in pallets:
+                group_id = pallet.ltl_correlation_id
+                if not group_id:
+                    continue
+
+                # 获取该托盘对应的 ShipmentBatchNumber
+                shipment_id = pallet.shipment_batch_number_id
+                if not shipment_id:
+                    continue
+
+                # 获取该 shipment 对应的 车次
+                shipment_obj = Shipment.objects.filter(id=shipment_id).first()
+                if not shipment_obj or not shipment_obj.fleet_number:
+                    continue
+
+                fleet_number = shipment_obj.fleet_number.fleet_number
+                fleet_cost = shipment_obj.fleet_number.fleet_cost or 0
+
+                # 初始化分组
                 if group_id not in group_map:
                     group_map[group_id] = {
-                        'total_cost': 0,
-                        'fleet_numbers': []
+                        "total_cost": 0,
+                        "fleet_numbers": []
                     }
-                group_map[group_id]['total_cost'] += record.fleet_number.fleet_cost or 0
-                if fleet_number not in group_map[group_id]['fleet_numbers']:
-                    group_map[group_id]['fleet_numbers'].append(fleet_number)
 
-            # 步骤3：构建前端需要的映射格式（车次号→同组所有车次号）
-            fleet_to_group_map = {}  # 原有的车次→分组信息映射
-            multi_unload_map = {}  # 新增：车次号→同组车次列表（前端用）
+                # 累加成本 & 加入车次
+                group = group_map[group_id]
+                if fleet_number not in group["fleet_numbers"]:
+                    group["fleet_numbers"].append(fleet_number)
+                    group["total_cost"] += fleet_cost
+
+            # 步骤3：构建前端需要的映射
+            fleet_to_group_map = {}
+            multi_unload_map = {}
+
             for group_id, group_info in group_map.items():
-                fleet_numbers = group_info['fleet_numbers']
-                total_cost = group_info['total_cost']
-                # 为每个车次绑定同组所有车次
-                for fleet_num in fleet_numbers:
-                    multi_unload_map[fleet_num] = fleet_numbers  # 核心修改：直接赋值同组列表
-                    fleet_to_group_map[fleet_num] = {
-                        'group_id': group_id,
-                        'total_cost': total_cost,
-                        'member_ids': [
-                            s.id for s in multi_unload_records
-                            if s.fleet_number.fleet_number in fleet_numbers
-                        ]
+                fleet_numbers = group_info["fleet_numbers"]
+                total_cost = group_info["total_cost"]
+
+                # 每个车次都指向同组所有车次
+                for fn in fleet_numbers:
+                    multi_unload_map[fn] = fleet_numbers
+                    fleet_to_group_map[fn] = {
+                        "group_id": group_id,
+                        "total_cost": total_cost,
+                        "member_ids": []  # 不需要ID，保持兼容即可
                     }
 
             return {
-                'group_map': group_map,  # 保留原有分组信息
-                'fleet_map': fleet_to_group_map,  # 保留原有车次→分组信息
-                'multi_unload_map': multi_unload_map  # 新增：前端联动勾选用的映射
+                "group_map": group_map,
+                "fleet_map": fleet_to_group_map,
+                "multi_unload_map": multi_unload_map
             }
 
         # 调用函数并获取正确格式的 multi_unload_map
@@ -2615,25 +2637,20 @@ class FleetManagement(View):
                         # 兜底显示真实成本，不直接归 0
                         shipment_copy.allocation_price = round(fleet_total_cost, 2) if fleet_total_cost else 0
 
-                    # ========== 修复：挂载一提多卸相关信息（核心修改） ==========
-                    # 判断是否属于一提多卸（train_related不为空/空字符串）
+                    # ========== ✅ 最终修复：按 Pallet.ltl_correlation_id 判断一提多卸 ==========
                     is_multi_unload = False
                     multi_unload_total_cost = 0
                     multi_unload_group_id = ""
                     multi_unload_member_ids = []
 
-                    if s.fleet_number and s.fleet_number.train_related:
-                        train_related = s.fleet_number.train_related
-                        # 非空且非空字符串即为一提多卸
-                        if train_related is not None and train_related != '':
-                            is_multi_unload = True
-                            # 从映射中获取分组总成本
-                            fleet_num = s.fleet_number.fleet_number
-                            if fleet_num in fleet_to_group_map:
-                                group_info = fleet_to_group_map[fleet_num]
-                                multi_unload_total_cost = group_info['total_cost']
-                                multi_unload_group_id = group_info['group_id']
-                                multi_unload_member_ids = group_info['member_ids']
+                    # 判断当前车次是否在一提多卸分组中
+                    fleet_num = shipment_copy.fleet_number_code
+                    if fleet_num in fleet_to_group_map:
+                        is_multi_unload = True
+                        group_info = fleet_to_group_map[fleet_num]
+                        multi_unload_total_cost = group_info['total_cost']
+                        multi_unload_group_id = group_info['group_id']
+                        multi_unload_member_ids = group_info['member_ids']
 
                     # 挂载到对象
                     shipment_copy.is_multi_unload = is_multi_unload
@@ -2663,9 +2680,9 @@ class FleetManagement(View):
 
                     # ========== 修复：空条目一提多卸信息 ==========
                     is_multi_unload = False
-                    if s.fleet_number and s.fleet_number.train_related:
-                        if s.fleet_number.train_related is not None and s.fleet_number.train_related != '':
-                            is_multi_unload = True
+                    fleet_num = shipment_copy.fleet_number_code
+                    if fleet_num in fleet_to_group_map:
+                        is_multi_unload = True
 
                     shipment_copy.is_multi_unload = is_multi_unload
                     shipment_copy.multi_unload_total_cost = 0
@@ -2696,7 +2713,7 @@ class FleetManagement(View):
         return self.template_fleet_cost_record_ltl, context
 
     async def handle_bind_multi_unload(self, request: HttpRequest):
-        """绑定一提多卸（批量更新train_related字段）"""
+        """绑定一提多卸（批量更新 Pallet.ltl_correlation_id 字段）"""
         logger = logging.getLogger(__name__)
         try:
             # 获取选中的车次号
@@ -2708,24 +2725,34 @@ class FleetManagement(View):
                 return await self.handle_fleet_cost_record_get_ltl(request, error_messages, 0)
 
             # 生成随机唯一标识
-            train_related = str(uuid.uuid4())[:8]  # 取8位UUID
+            correlation_id = str(uuid.uuid4())[:8]
 
-            # 批量更新train_related字段
+            # 批量更新 Pallet 的 ltl_correlation_id
             @sync_to_async
-            def update_train_related():
+            def update_pallet_correlation():
                 with transaction.atomic():
-                    # 只更新未核实的车次
-                    updated_count = Fleet.objects.filter(
-                        fleet_number__in=fleet_numbers,
-                        fleet_verify_status=False
-                    ).update(train_related=train_related)
-                return updated_count
+                    # 1. 找到这些车次对应的 Shipment
+                    shipment_ids = list(Shipment.objects.filter(
+                        fleet_number__fleet_number__in=fleet_numbers
+                    ).values_list('id', flat=True))
 
-            updated_count = await update_train_related()
+                    if not shipment_ids:
+                        return 0
+
+                    # 2. 更新这些 Shipment 下所有 Pallet 的 ltl_correlation_id
+                    updated_count = Pallet.objects.filter(
+                        shipment_batch_number__in=shipment_ids
+                    ).update(ltl_correlation_id=correlation_id)
+
+                    return updated_count
+
+            updated_count = await update_pallet_correlation()
 
             error_messages = []
-            if updated_count != len(fleet_numbers):
-                error_messages.append(f'仅成功绑定{updated_count}个车次（部分车次已核实，无法修改）')
+            if updated_count == 0:
+                error_messages.append('绑定失败：未找到任何托盘数据')
+            else:
+                error_messages.append(f'绑定成功：共更新 {updated_count} 个托盘数据')
 
             return await self.handle_fleet_cost_record_get_ltl(
                 request, error_messages, updated_count
@@ -2736,7 +2763,7 @@ class FleetManagement(View):
             return await self.handle_fleet_cost_record_get_ltl(request, error_messages, 0)
 
     async def handle_unbind_multi_unload(self, request: HttpRequest):
-        """解绑一提多卸（清空train_related字段）"""
+        """解绑一提多卸（清空 Pallet.ltl_correlation_id）"""
         logger = logging.getLogger(__name__)
         try:
             # 获取选中的车次号
@@ -2747,22 +2774,32 @@ class FleetManagement(View):
                 error_messages = ['请选择需要解绑的车次']
                 return await self.handle_fleet_cost_record_get_ltl(request, error_messages, 0)
 
-            # 批量清空train_related字段
+            # 批量清空 Pallet 的 ltl_correlation_id
             @sync_to_async
-            def clear_train_related():
+            def clear_pallet_correlation():
                 with transaction.atomic():
-                    # 只更新未核实的车次
-                    updated_count = Fleet.objects.filter(
-                        fleet_number__in=fleet_numbers,
-                        fleet_verify_status=False
-                    ).update(train_related=None)
-                return updated_count
+                    # 1. 找到这些车次对应的 Shipment
+                    shipment_ids = list(Shipment.objects.filter(
+                        fleet_number__fleet_number__in=fleet_numbers
+                    ).values_list('id', flat=True))
 
-            updated_count = await clear_train_related()
+                    if not shipment_ids:
+                        return 0
+
+                    # 2. 清空这些 Shipment 下所有 Pallet 的 ltl_correlation_id
+                    updated_count = Pallet.objects.filter(
+                        shipment_batch_number__in=shipment_ids
+                    ).update(ltl_correlation_id=None)
+
+                    return updated_count
+
+            updated_count = await clear_pallet_correlation()
 
             error_messages = []
-            if updated_count != len(fleet_numbers):
-                error_messages.append(f'仅成功解绑{updated_count}个车次（部分车次已核实，无法修改）')
+            if updated_count == 0:
+                error_messages.append('解绑失败：未找到任何托盘数据')
+            else:
+                error_messages.append(f'解绑成功：共清空 {updated_count} 个托盘数据')
 
             return await self.handle_fleet_cost_record_get_ltl(
                 request, error_messages, updated_count
