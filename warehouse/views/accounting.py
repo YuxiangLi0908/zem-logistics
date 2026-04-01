@@ -9442,9 +9442,11 @@ class Accounting(View):
                     output_field=IntegerField(),
                 )
             )
-            # 排序：待录入优先 + 待录入内部按reject_priority排序（原逻辑）
+            # 先按 container_number_id + id 去重（取最早）
+            .order_by("container_number_id", "id")
+            .distinct("container_number_id")
+            # 排序：待录入优先 + 待录入内部按reject_priority排序
             .order_by("record_type", "reject_priority")
-            .distinct()  # 保留原逻辑的distinct
         )
 
         # ===================== 内存拆分数据 =====================
