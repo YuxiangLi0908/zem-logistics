@@ -1193,199 +1193,158 @@ class Palletization(View):
         data = []
         container_number = request.POST.get("container_number")
         customerInfo = request.POST.get("customerInfo")
+
+        # ======================
+        # 唛头超长截断（保留）
+        # ======================
+        def truncate_shipping_marks(marks_str, max_lines=10, max_chars=80):
+            if not marks_str:
+                return marks_str
+            if "TTT" in marks_str:
+                marks_str = marks_str.split("TTT")[0]
+            lines = marks_str.split('\n')
+            truncated = []
+            for line in lines[:max_lines]:
+                if len(line) > max_chars:
+                    truncated.append(line[:max_chars] + "...")
+                else:
+                    truncated.append(line)
+            if len(lines) > max_lines:
+                truncated.append("...")
+            return '\n'.join(truncated)
+
         if customerInfo:
             customer_info = json.loads(customerInfo)
-            packing_list = []
             for row in customer_info:
-                if len(row) > 10:
-                    is_hold = row[10].strip()
-                else:
-                    is_hold = row[8].strip()
+                # -------- 基础数据读取 --------
+                is_hold = row[10].strip() if len(row) > 10 else row[8].strip()
                 date_str = row[7].strip()
                 parts = date_str.split("-")
                 month_day = f"{parts[1]}-{parts[2]}"
-
-                destination = f"{row[4].strip()}"
+                destination = row[4].strip()
                 shipping_marks = row[2].strip()
+                new_marks = None
+
+                # -------- 处理目的地 & 唛头 --------
                 if "客户自提" in destination or "自提" in destination:
                     destination = "S/P"
                     marks = row[2].strip()
                     if marks:
                         array = marks.split(",")
                         if len(array) > 2:
-                            parts = []
-                            for i in range(0, len(array), 2):
-                                part = ",".join(array[i : i + 2])
-                                parts.append(part)
-                            new_marks = "\n".join(parts)
-                            newline_count = new_marks.count("\n") + 1
-                            new_marks = new_marks + str("TTT") + str(newline_count)
+                            parts_mark = [",".join(array[i:i + 2]) for i in range(0, len(array), 2)]
+                            new_marks = "\n".join(parts_mark) + "TTT" + str(len(parts_mark))
                         else:
-                            new_marks = shipping_marks + str("TTT") + str(1)
+                            new_marks = marks + "TTT1"
                 elif is_hold == "是":
                     new_marks = shipping_marks
                 else:
-                    destination = destination.replace("Walmart", "WMT-")
-                    destination = destination.replace("沃尔玛", "WMT-")
-                    destination = destination.replace("WALMART", "WMT-")
+                    destination = destination.replace("Walmart", "WMT-").replace("沃尔玛", "WMT-").replace("WALMART",
+                                                                                                           "WMT-")
                     new_marks = None
-                for num in range(int(row[6])):
-                    num += 1
-                    # 生成条形码
-                    barcode_type = "code128"
-                    barcode_class = barcode.get_barcode_class(barcode_type)
-                    barcode_content = f"{row[0].strip()}|{destination}-{num}"
-                    my_barcode = barcode_class(
-                        barcode_content, writer=ImageWriter()
-                    )  # 将条形码转换为图像形式
-                    buffer = io.BytesIO()  # 创建缓冲区
-                    my_barcode.write(buffer, options={"dpi": 600})  # 缓冲区存储图像
-                    buffer.seek(0)
-                    barcode_base64 = base64.b64encode(buffer.read()).decode(
-                        "utf-8"
-                    )  # 编码
 
-                    if is_hold == "是":
-                        fba_ids = row[3].strip()
-                    else:
-                        fba_ids = None
+                # -------- 截断唛头 --------
+                if new_marks:
+                    new_marks = truncate_shipping_marks(new_marks)
+
+                # -------- 生成数量 --------
+                total_count = int(row[6])
+
+                # -------- 【关键】只生成一次，不重复添加！--------
+                for num in range(1, total_count + 1):
+                    barcode_content = f"{row[0].strip()}|{destination}-{num}"
+                    barcode_class = barcode.get_barcode_class('code128')
+                    my_barcode = barcode_class(barcode_content, writer=ImageWriter())
+                    buffer = io.BytesIO()
+                    my_barcode.write(buffer, options={"dpi": 600})
+                    buffer.seek(0)
+                    barcode_base64 = base64.b64encode(buffer.read()).decode("utf-8")
+
                     new_data = {
                         "container_number": row[0].strip(),
                         "destination": f"{destination}-{num}",
                         "date": month_day,
                         "customer": row[1].strip(),
                         "hold": (is_hold == "是"),
-                        "fba_ids": fba_ids,
+                        "fba_ids": row[3].strip() if is_hold == "是" else None,
                         "barcode": barcode_base64,
                         "shipping_marks": new_marks,
+                        "has_delivery_window": len(row) > 10,
+                        "dw_st": row[8].split("-", 1)[1] if len(row) > 10 and row[8] else None,
+                        "dw_end": row[9].split("-", 1)[1] if len(row) > 10 and row[9] else None,
                     }
-                    if len(row) > 10:
-                        new_data.update(
-                            {
-                                "has_delivery_window": True,
-                                "dw_st": row[8].split("-", 1)[1] if row[8] else None,
-                                "dw_end": row[9].split("-", 1)[1] if row[8] else None,
-                            }
-                        )
-                    else:
-                        new_data.update(
-                            {
-                                "has_delivery_window": False,
-                                "dw_st": None,
-                                "dw_end": None,
-                            }
-                        )
-                    for i in range(4):
-                        data.append(new_data)
+                    data.append(new_data)  # 只加一次！！！
+
         else:
             customer_name = request.POST.get("customer_name")
             status = request.POST.get("status")
-            n_label = int(request.POST.get("n_label"))
+            n_label = int(request.POST.get("n_label", 1))
             retrieval = await sync_to_async(Retrieval.objects.get)(
-                order__container_number__container_number=container_number
-            )
-            retrieval_date = retrieval.target_retrieval_timestamp
-            if retrieval_date:
-                retrieval_date = retrieval_date.date()
-            else:
-                retrieval_date = datetime.now().date()
+                order__container_number__container_number=container_number)
+            retrieval_date = retrieval.target_retrieval_timestamp.date() if retrieval.target_retrieval_timestamp else datetime.now().date()
             retrieval_date = retrieval_date.strftime("%m/%d")
-            packing_list = await self._get_packing_list(
-                container_number=container_number, status=status
-            )
+            packing_list = await self._get_packing_list(container_number=container_number, status=status)
+
             for pl in packing_list:
-                delivery_method = pl.get("custom_delivery_method") or pl.get(
-                    "delivery_method", ""
-                )
-                cbm = pl.get("cbm")
+                delivery_method = pl.get("custom_delivery_method") or pl.get("delivery_method", "")
+                cbm = pl.get("cbm", 0)
                 remainder = cbm % 1
                 cbm = int(cbm)
                 if cbm % 2:
                     cbm += cbm % 2
                 elif remainder:
                     cbm += 2
-                cbm /= 2
-                cbm *= n_label
-                cbm = int(cbm)
-                if (
-                    "客户自提" in pl.get("destination")
-                    or "自提" in pl.get("destination")
-                    or "客户自提" in delivery_method
-                    or "other" in pl.get("delivery_type")
-                    or "暂扣留仓" in delivery_method.split("-")[0]
-                ):
-                    if (
-                        "客户自提" in pl.get("destination")
-                        or "自提" in pl.get("destination")
-                    ): 
-                        destination = "S/P"
-                    else:
-                        destination = pl.get("destination")
+                cbm = int((cbm / 2) * n_label)
+                new_marks = None
+
+                # -------- 处理目的地 & 唛头 --------
+                if any(key in pl.get("destination", "") or key in delivery_method for key in
+                       ["客户自提", "自提", "暂扣留仓"]):
+                    destination = "S/P" if "自提" in pl.get("destination", "") else pl.get("destination", "")
                     marks = pl.get("shipping_marks") or pl.get("shipping_mark")
                     if marks:
                         array = marks.split(",")
                         if len(array) > 2:
-                            parts = []
-                            for i in range(0, len(array), 2):
-                                part = ",".join(array[i : i + 2])
-                                parts.append(part)
-                            new_marks = "\n".join(parts)  # 换行符表示有几行
-                            newline_count = new_marks.count("\n") + 1
-                            new_marks = new_marks + str("TTT") + str(newline_count)
+                            parts_mark = [",".join(array[i:i + 2]) for i in range(0, len(array), 2)]
+                            new_marks = "\n".join(parts_mark) + "TTT" + str(len(parts_mark))
                         else:
-                            new_marks = marks + str("TTT") + str(1)
-
+                            new_marks = marks + "TTT1"
                 else:
-                    destination = pl.get("destination").replace("沃尔玛", "WMT-")
-                    destination = destination.replace("Walmart", "WMT-")
-                    destination = destination.replace("沃尔玛", "WMT-")
-                    destination = destination.replace("WALMART", "WMT-")
+                    destination = pl.get("destination", "").replace("沃尔玛", "WMT-").replace("Walmart",
+                                                                                              "WMT-").replace("WALMART",
+                                                                                                              "WMT-")
                     new_marks = None
-                # if "暂扣留仓" in delivery_method.split("-")[0]:
-                #     fba_ids = pl.get("fba_ids")
-                # else:
-                #     fba_ids = None
-                dw_st = (
-                    pl.get("delivery_window_start").strftime("%m/%d")
-                    if pl.get("delivery_window_start")
-                    else None
-                )
-                dw_end = (
-                    pl.get("delivery_window_end").strftime("%m/%d")
-                    if pl.get("delivery_window_end")
-                    else None
-                )
+
+                # -------- 截断唛头 --------
+                if new_marks:
+                    new_marks = truncate_shipping_marks(new_marks)
+
+                dw_st = pl.get("delivery_window_start").strftime("%m/%d") if pl.get("delivery_window_start") else None
+                dw_end = pl.get("delivery_window_end").strftime("%m/%d") if pl.get("delivery_window_end") else None
+
+                # -------- 【关键】只生成一次 --------
                 for num in range(cbm):
                     i = num // n_label + 1
-                    barcode_type = "code128"
-                    barcode_class = barcode.get_barcode_class(barcode_type)
-                    destination = destination.replace('\xa0', ' ')
-                    barcode_content = f"{pl.get('container_number__container_number')}|{destination}-{i}"
+                    dest_clean = destination.replace('\xa0', ' ')
+                    barcode_content = f"{pl.get('container_number__container_number')}|{dest_clean}-{i}"
                     try:
-                        my_barcode = barcode_class(
-                            barcode_content, writer=ImageWriter()
-                        )  # 将条形码转换为图像形式 
+                        barcode_class = barcode.get_barcode_class('code128')
+                        my_barcode = barcode_class(barcode_content, writer=ImageWriter())
                     except:
                         barcode_content = barcode_content.encode("ascii", "ignore").decode()
-                        my_barcode = barcode_class(
-                            barcode_content, writer=ImageWriter()
-                        )  #
-                    buffer = io.BytesIO()  # 创建缓冲区
-                    my_barcode.write(buffer, options={"dpi": 600})  # 缓冲区存储图像
+                        barcode_class = barcode.get_barcode_class('code128')
+                        my_barcode = barcode_class(barcode_content, writer=ImageWriter())
+                    buffer = io.BytesIO()
+                    my_barcode.write(buffer, options={"dpi": 600})
                     buffer.seek(0)
-                    barcode_base64 = base64.b64encode(buffer.read()).decode(
-                        "utf-8"
-                    )  # 编码
+                    barcode_base64 = base64.b64encode(buffer.read()).decode("utf-8")
 
                     new_data = {
-                        "container_number": pl.get(
-                            "container_number__container_number"
-                        ),
-                        "destination": f"{destination}-{i}",
+                        "container_number": pl.get("container_number__container_number"),
+                        "destination": f"{dest_clean}-{i}",
                         "date": retrieval_date,
                         "customer": customer_name,
-                        "hold": ("暂扣留仓" in delivery_method.split("-")[0]),
-                        # "fba_ids": fba_ids,
+                        "hold": "暂扣留仓" in delivery_method.split("-")[0],
                         "barcode": barcode_base64,
                         "shipping_marks": new_marks,
                         "pcs": pl.get("pcs"),
@@ -1394,19 +1353,14 @@ class Palletization(View):
                         "dw_end": dw_end,
                     }
                     data.append(new_data)
+
+        # -------- 极速渲染PDF --------
         context = {"data": data}
         template = get_template(self.template_pallet_label)
         html = template.render(context)
         response = HttpResponse(content_type="application/pdf")
-        response["Content-Disposition"] = (
-            f'attachment; filename="pallet_label_{container_number}.pdf"'
-        )
-        pisa_status = pisa.CreatePDF(html, dest=response)
-        if pisa_status.err:
-            raise ValueError(
-                "Error during PDF generation: %s" % pisa_status.err,
-                content_type="text/plain",
-            )
+        response["Content-Disposition"] = f'attachment; filename="pallet_label_{container_number}.pdf"'
+        pisa.CreatePDF(html, dest=response)
         return response
 
     async def warehouse_zone_get(
