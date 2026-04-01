@@ -8691,8 +8691,10 @@ class ReceivableAccounting(View):
         # 6、超仓点的加收费用
         addition_fee = {
                         "min_points": 0,
+                        "region_count": 0,
                         "max_points": 99,
                         "add_fee": 0.0,
+                        "type":'Fixed'
                     }
         # 看实际录入，多少仓点归入到组合柜
         region_count = InvoiceItemv2.objects.filter(
@@ -8718,6 +8720,7 @@ class ReceivableAccounting(View):
                                 "max_points": None,
                                 "region_count": region_count,
                                 "add_fee": add_fee,
+                                "type":'multiple',
                             }
                     else:
                         if int(min_points) <= region_count <= int(max_points):
@@ -8726,6 +8729,7 @@ class ReceivableAccounting(View):
                                 "max_points": int(max_points),
                                 "region_count": region_count,
                                 "add_fee": rule.get("fee"),
+                                "type":'Fixed',
                             }
         display_data = {
             # 基础信息
