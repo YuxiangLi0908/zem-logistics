@@ -8716,6 +8716,7 @@ class ReceivableAccounting(View):
                             addition_fee = {
                                 "min_points": int(min_points),
                                 "max_points": None,
+                                "region_count": region_count,
                                 "add_fee": add_fee,
                             }
                     else:
@@ -8723,6 +8724,7 @@ class ReceivableAccounting(View):
                             addition_fee = {
                                 "min_points": int(min_points),
                                 "max_points": int(max_points),
+                                "region_count": region_count,
                                 "add_fee": rule.get("fee"),
                             }
         display_data = {
