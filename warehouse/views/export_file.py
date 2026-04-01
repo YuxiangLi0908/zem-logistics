@@ -115,7 +115,7 @@ async def export_palletization_list_v2(request: HttpRequest) -> HttpResponse:
     except (ValueError, TypeError):
         warehouse_unpacking_time = "未获取到时间"
 
-    TARGET_WAREHOUSES = {"GEU2", "GEU3", "GYR2", "GYR3", "IUSP", "ONT8", "LAX9", "LGB8", "SBD1"}  # 指定9个仓点
+    TARGET_WAREHOUSES = {"GEU3", "GYR2", "GYR3", "LAX9", "LGB8", "SBD1"}  # 指定9个仓点
     UTC_TZ = pytz.UTC
     BASE_ETA = UTC_TZ.localize(datetime(2026, 1, 19))  # 带UTC时区的基准时间
 
