@@ -366,9 +366,9 @@ class ReceivableAccounting(View):
             id=quote_id
         )
         fee_types = {
-            "NJ": ["NJ_LOCAL", "NJ_PUBLIC", "NJ_COMBINA"],
-            "SAV": ["SAV_PUBLIC", "SAV_COMBINA"],
-            "LA": ["LA_PUBLIC", "LA_COMBINA"],
+            "NJ": ["NJ_LOCAL", "NJ_PUBLIC", "NJ_COMBINA","COMBINA_STIPULATE"],
+            "SAV": ["SAV_PUBLIC", "SAV_COMBINA","COMBINA_STIPULATE"],
+            "LA": ["LA_PUBLIC", "LA_COMBINA","COMBINA_STIPULATE"],
         }.get(warehouse, [])
 
         fee_details = list(
@@ -8422,9 +8422,9 @@ class ReceivableAccounting(View):
                 return context
             id = quotation.id
             fee_types = {
-                "NJ": ["NJ_LOCAL", "NJ_PUBLIC", "NJ_COMBINA"],
-                "SAV": ["SAV_PUBLIC", "SAV_COMBINA"],
-                "LA": ["LA_PUBLIC", "LA_COMBINA"],
+                "NJ": ["NJ_LOCAL", "NJ_PUBLIC", "NJ_COMBINA","COMBINA_STIPULATE"],
+                "SAV": ["SAV_PUBLIC", "SAV_COMBINA","COMBINA_STIPULATE"],
+                "LA": ["LA_PUBLIC", "LA_COMBINA","COMBINA_STIPULATE"],
             }.get(warehouse, [])
 
             return {
