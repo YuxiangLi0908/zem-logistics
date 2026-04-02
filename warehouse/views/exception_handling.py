@@ -4341,6 +4341,8 @@ class ExceptionHandling(View):
         invoice_number = request.POST.get("invoice_number", "").strip()
 
         invoicev2 = await sync_to_async(lambda: Invoicev2.objects.filter(invoice_number=invoice_number).first())()
+        invoicev2.receivable_is_locked = False
+        await sync_to_async(invoicev2.save)()
         try:
             # 删除 InvoiceDelivery
             await sync_to_async(
