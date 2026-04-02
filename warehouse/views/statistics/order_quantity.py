@@ -32,6 +32,7 @@ from warehouse.models.invoice_details import InvoiceDelivery
 from warehouse.models.order import Order
 from warehouse.models.shipment import Shipment
 from warehouse.models.retrieval import HistoricalRetrieval, Retrieval
+from warehouse.models.maersk_price_rate import MaerskPriceRate
 from warehouse.utils.constants import MODEL_CHOICES
 
 
@@ -42,11 +43,22 @@ class OrderQuantity(View):
     template_cbm_analysis = "statistics/cbm_analysis.html"
     template_delivery_cost_status = "statistics/delivery_cost_status.html"
     template_timeliness_statistics = "statistics/delivery_timeliness_statistics.html"
+    template_maersk_rate = "statistics/maersk_rate.html"
     area_options = {"NJ": "NJ", "SAV": "SAV", "LA": "LA"}
 
     async def get(self, request: HttpRequest, **kwargs) -> HttpResponse:
         step = request.GET.get("step", None)
-        if step == "historical_query":
+        if step == "maersk_rate":
+            # 获取所有MaerskPriceRate记录
+            maersk_rates = await sync_to_async(list)(MaerskPriceRate.objects.all())
+            # 获取所有客户信息
+            customers = await sync_to_async(list)(Customer.objects.all())
+            context = {
+                "maersk_rates": maersk_rates,
+                "customers": customers
+            }
+            return await sync_to_async(render)(request, self.template_maersk_rate, context)
+        elif step == "historical_query":
             context = {"model_choices": MODEL_CHOICES}
             return await sync_to_async(render)(
                 request, self.template_historical, context
@@ -92,6 +104,17 @@ class OrderQuantity(View):
             customers = {"----": None, **customers}
             context = {"area_options": self.area_options, "customers": customers}
             return await sync_to_async(render)(request, self.template_delivery_cost_status, context)
+        elif step == "maersk_rate":
+            if not await self._validate_user_profit(request.user):
+                return HttpResponseForbidden(
+                    "You are not authenticated to access this page!"
+                )
+            customers = await sync_to_async(list)(Customer.objects.all())
+            customers = {c.zem_name: c.id for c in customers}
+            customers["----"] = None
+            customers = {"----": None, **customers}
+            context = {"area_options": self.area_options, "customers": customers}
+            return await sync_to_async(render)(request, self.template_maersk_rate, context)
         else:
             if not await self._validate_user_group(request.user):
                 return HttpResponseForbidden(
@@ -107,7 +130,100 @@ class OrderQuantity(View):
     async def post(self, request: HttpRequest) -> HttpResponse:
 
         step = request.POST.get("step")
-        if step == "selection":
+        if step == "maersk_rate_add":
+            # 处理新增MaerskPriceRate记录
+            is_user_exclusive = request.POST.get("is_user_exclusive") == "on"
+            exclusive_user = request.POST.get("exclusive_user")
+            effective_date = request.POST.get("effective_date")
+            increase_percentage = request.POST.get("increase_percentage")
+            
+            # 验证必填字段
+            if not effective_date or not increase_percentage:
+                maersk_rates = await sync_to_async(list)(MaerskPriceRate.objects.all())
+                customers = await sync_to_async(list)(Customer.objects.all())
+                context = {
+                    "maersk_rates": maersk_rates,
+                    "customers": customers,
+                    "error": "请填写所有必填字段"
+                }
+                return await sync_to_async(render)(request, self.template_maersk_rate, context)
+            
+            # 自动生成rate_id
+            # 获取当前最大的id值，然后自增1
+            max_rate = await sync_to_async(lambda: MaerskPriceRate.objects.order_by('-id').first())()
+            if max_rate:
+                new_id = max_rate.id + 1
+            else:
+                new_id = 1
+            rate_id = f"R{new_id:05d}"
+            
+            # 创建新记录
+            try:
+                new_rate = MaerskPriceRate(
+                    rate_id=rate_id,
+                    is_user_exclusive=is_user_exclusive,
+                    exclusive_user=exclusive_user if is_user_exclusive else None,
+                    effective_date=datetime.strptime(effective_date, "%Y-%m-%d"),
+                    increase_percentage=float(increase_percentage)
+                )
+                await sync_to_async(new_rate.save)()
+            except Exception as e:
+                maersk_rates = await sync_to_async(list)(MaerskPriceRate.objects.all())
+                customers = await sync_to_async(list)(Customer.objects.all())
+                context = {
+                    "maersk_rates": maersk_rates,
+                    "customers": customers,
+                    "error": f"创建失败：{str(e)}"
+                }
+                return await sync_to_async(render)(request, self.template_maersk_rate, context)
+            
+            # 重新获取所有记录并返回
+            maersk_rates = await sync_to_async(list)(MaerskPriceRate.objects.all())
+            customers = await sync_to_async(list)(Customer.objects.all())
+            context = {
+                "maersk_rates": maersk_rates,
+                "customers": customers,
+                "success": "创建成功"
+            }
+            return await sync_to_async(render)(request, self.template_maersk_rate, context)
+        elif step == "maersk_rate_delete":
+            # 处理删除MaerskPriceRate记录
+            rate_id = request.POST.get("rate_id")
+            
+            if not rate_id:
+                maersk_rates = await sync_to_async(list)(MaerskPriceRate.objects.all())
+                customers = await sync_to_async(list)(Customer.objects.all())
+                context = {
+                    "maersk_rates": maersk_rates,
+                    "customers": customers,
+                    "error": "请提供要删除的记录ID"
+                }
+                return await sync_to_async(render)(request, self.template_maersk_rate, context)
+            
+            try:
+                # 查找并删除记录
+                rate = await sync_to_async(MaerskPriceRate.objects.get)(id=rate_id)
+                await sync_to_async(rate.delete)()
+            except Exception as e:
+                maersk_rates = await sync_to_async(list)(MaerskPriceRate.objects.all())
+                customers = await sync_to_async(list)(Customer.objects.all())
+                context = {
+                    "maersk_rates": maersk_rates,
+                    "customers": customers,
+                    "error": f"删除失败：{str(e)}"
+                }
+                return await sync_to_async(render)(request, self.template_maersk_rate, context)
+            
+            # 重新获取所有记录并返回
+            maersk_rates = await sync_to_async(list)(MaerskPriceRate.objects.all())
+            customers = await sync_to_async(list)(Customer.objects.all())
+            context = {
+                "maersk_rates": maersk_rates,
+                "customers": customers,
+                "success": "删除成功"
+            }
+            return await sync_to_async(render)(request, self.template_maersk_rate, context)
+        elif step == "selection":
             template, context = await self.handle_order_quantity_get(request)
             return await sync_to_async(render)(request, template, context)
         elif step == "historical_selection":
