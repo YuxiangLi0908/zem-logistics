@@ -40,6 +40,7 @@ from warehouse.models.terminal49_webhook_raw import T49Raw
 from warehouse.models.transaction import Transaction
 from warehouse.models.transfer_location import TransferLocation
 from warehouse.models.vessel import Vessel
+from warehouse.models.maersk_price_rate import MaerskPriceRate
 from warehouse.models.warehouse import ZemWarehouse
 
 # Register your models here.
@@ -77,3 +78,4 @@ admin.site.register(PalletDestroyed, SimpleHistoryAdmin)
 admin.site.register(Invoicev2, SimpleHistoryAdmin)
 admin.site.register(InvoiceItemv2, SimpleHistoryAdmin)
 admin.site.register(InvoiceStatusv2, SimpleHistoryAdmin)
+admin.site.register(MaerskPriceRate, SimpleHistoryAdmin)

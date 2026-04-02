@@ -1,0 +1,130 @@
+{% extends 'base.html' %}
+{% load custom_filters %}
+{% block content %}
+
+<div style="padding: 20px; background: #f8f9fa; position: relative; z-index: 1;">
+    <h3 style="text-align: center; margin-bottom: 20px; color: #333;">Maersk 价格费率管理</h3>
+    
+    <!-- 错误和成功消息 -->
+    {% if error %}
+    <div class="alert alert-danger" style="margin-bottom: 20px;">{{ error }}</div>
+    {% endif %}
+    {% if success %}
+    <div class="alert alert-success" style="margin-bottom: 20px;">{{ success }}</div>
+    {% endif %}
+    
+    <div style="display: flex; gap: 20px; height: 600px;">
+        <!-- 左侧：新增记录表单 -->
+        <div style="flex: 0 0 350px; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); overflow-y: auto;">
+            <form method="post">
+                {% csrf_token %}     
+                <h4 style="margin-bottom: 15px; color: #333; font-size: 16px;">新增费率记录</h4>
+                <div style="display: flex; flex-direction: column; gap: 15px; font-size: 12px;">
+                    <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                        <label style="display: flex; align-items: center; gap: 5px; font-size: 12px;">
+                            <input type="checkbox" name="is_user_exclusive" id="is_user_exclusive" style="margin: 0;">
+                            <span style="white-space: nowrap;">用户专属</span>
+                        </label>
+                        <div style="margin: 5px 0; display: none; width: 100%;" id="user_selection">
+                            <b style="margin-right: 5px; font-size: 12px;">客户:</b>
+                            <select name="exclusive_user" style="padding: 6px; border: 1px solid #ddd; font-size: 12px; border-radius: 4px; width: 100%;">
+                                <option value="">请选择客户</option>
+                                {% for customer in customers %}
+                                <option value="{{ customer.zem_name }}">{{ customer.zem_name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+
+                    <div style="display: flex; align-items: center; gap: 5px;">
+                        <span style="white-space: nowrap; margin-right: 5px; font-size: 12px;">生效日期:</span>
+                        <input type="date" name="effective_date" required style="padding: 6px; border: 1px solid #ddd; flex: 1; font-size: 12px;">
+                    </div>
+
+                    <div style="display: flex; align-items: center; gap: 5px; flex-wrap: wrap;">
+                        <span style="white-space: nowrap; margin-right: 5px; font-size: 12px;">涨幅百分比:</span>
+                        <input type="number" name="increase_percentage" step="0.1" required style="padding: 6px; border: 1px solid #ddd; width: 80px; font-size: 12px;">
+                        <span style="white-space: nowrap; font-size: 11px; color: #666;">例如: 1.2</span>
+                    </div>
+
+                    <button type="submit" class="btn btn-success" style="padding: 8px 20px; font-size: 14px; background: #28a745; border-color: #28a745; width: 100%; margin-top: 10px;">
+                        新增记录
+                    </button>
+                    <input type="hidden" name="step" value="maersk_rate_add">
+                </div>
+            </form>
+        </div>
+        
+        <!-- 右侧：费率记录列表 -->
+        <div style="flex: 1; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); overflow-y: auto;">
+            <h4 style="margin-bottom: 20px; color: #333; font-size: 16px;">费率记录列表</h4>
+            <table id="maersk-rate-table" class="table" style="font-size: 13px; width: 100%; border-collapse: collapse;table-layout: fixed;">
+                <thead style="background: #e9ecef;">
+                    <tr>
+                        <th style="padding: 12px; border-bottom: 2px solid #dee2e6; text-align: center; display: none;">ID</th>
+                        <th style="padding: 12px; border-bottom: 2px solid #dee2e6; text-align: center;">Rate ID</th>
+                        <th style="padding: 12px; border-bottom: 2px solid #dee2e6; text-align: center;">用户专属</th>
+                        <th style="padding: 12px; border-bottom: 2px solid #dee2e6; text-align: center;">专属客户</th>
+                        <th style="padding: 12px; border-bottom: 2px solid #dee2e6; text-align: center;">生效日期</th>
+                        <th style="padding: 12px; border-bottom: 2px solid #dee2e6; text-align: center;">涨幅百分比</th>
+                        <th style="padding: 12px; border-bottom: 2px solid #dee2e6; text-align: center;">操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for rate in maersk_rates %}
+                    <tr style="background: {% cycle '#ffffff' '#f8f9fa' %}">
+                        <td style="padding: 12px; text-align: center; display: none;">{{ rate.id }}</td>
+                        <td style="padding: 12px; text-align: center;">{{ rate.rate_id }}</td>
+                        <td style="padding: 12px; text-align: center;">{{ rate.is_user_exclusive|yesno:"是,否" }}</td>
+                        <td style="padding: 12px; text-align: center;">{{ rate.exclusive_user|default:"" }}</td>
+                        <td style="padding: 12px; text-align: center;">{{ rate.effective_date|date:"Y-m-d" }}</td>
+                        <td style="padding: 12px; text-align: center;">{{ rate.increase_percentage }}</td>
+                        <td style="padding: 12px; text-align: center;">
+                            <form method="post" style="display: inline-block;">
+                                {% csrf_token %}
+                                <input type="hidden" name="rate_id" value="{{ rate.id }}">
+                                <input type="hidden" name="step" value="maersk_rate_delete">
+                                <button type="submit" class="btn btn-danger" style="padding: 5px 12px; font-size: 12px; width:70px; background: #dc3545; border-color: #dc3545;" onclick="return confirm('确定要删除这条记录吗？');">
+                                    删除
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<style>
+    .btn-success:hover {
+        background: #218838 !important;
+        border-color: #1e7a31 !important;
+    }
+    .btn-danger:hover {
+        background: #c82333 !important;
+        border-color: #bd2130 !important;
+    }
+    th, td {
+        border-bottom: 1px solid #dee2e6;
+    }
+    tr:last-child td {
+        border-bottom: none;
+    }
+</style>
+
+<script>
+    document.getElementById('is_user_exclusive').addEventListener('change', function() {
+        const userSelection = document.getElementById('user_selection');
+        if (this.checked) {
+            userSelection.style.display = 'block';
+            userSelection.querySelector('select').setAttribute('required', 'required');
+        } else {
+            userSelection.style.display = 'none';
+            userSelection.querySelector('select').removeAttribute('required');
+        }
+    });
+</script>
+
+{% endblock %}

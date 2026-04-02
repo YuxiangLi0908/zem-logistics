@@ -6188,6 +6188,7 @@ class ReceivableAccounting(View):
                 return {"error_messages": quotations["error_messages"]}
             
             fee_details = quotations['fees']
+            
             quotation_info = quotations['quotation']
             if is_combina:
                 combina_result = self._process_combina_items_with_grouping(
@@ -6384,6 +6385,9 @@ class ReceivableAccounting(View):
             return (context, [])  # 返回错误，空列表
 
         stipulate = fee_details.get("COMBINA_STIPULATE").details
+        # 查找cbm_per_pl
+        cbm_per_pl = stipulate['global_rules']['cbm_per_pl']['default']
+
         warehouse_specific_key = f'{warehouse}_max_mixed'
         if warehouse_specific_key in stipulate.get("global_rules", {}):
             combina_threshold = stipulate["global_rules"][warehouse_specific_key]["default"]
@@ -6608,7 +6612,7 @@ class ReceivableAccounting(View):
             # 根据冷热门仓点计算板数
             is_niche_warehouse = dest_fixed in niche_warehouse_fixed
             must_pallet = self._calculate_total_pallet(
-                group_cbm, is_new_rule, is_niche_warehouse, vessel_etd, warehouse
+                group_cbm, is_new_rule, is_niche_warehouse, vessel_etd, warehouse, cbm_per_pl
             )
             item_data = {
                 "id": None,
@@ -6745,6 +6749,11 @@ class ReceivableAccounting(View):
         total_cbm = group.get("total_cbm")
         total_weight_lbs = group.get("total_weight_lbs")
         need_manual_input = False
+
+        # 查找cbm_per_pl
+        stipulates = fee_details.get("COMBINA_STIPULATE").details
+        cbm_per_pl = stipulates['global_rules']['cbm_per_pl']['default']
+  
         # 1. 确定派送类型
         total_pallets = group.get("total_pallets")  
         if delivery_method and any(courier in delivery_method.upper() 
@@ -6801,12 +6810,12 @@ class ReceivableAccounting(View):
                 rate = 0
                 amount = 0
                 total_pallets = self._calculate_total_pallet(
-                    total_cbm, is_new_rule, is_niche_warehouse, vessel_etd, warehouse
+                    total_cbm, is_new_rule, is_niche_warehouse, vessel_etd, warehouse, cbm_per_pl
                 )   
                 is_niche_warehouse = True
             else:            
                 total_pallets = self._calculate_total_pallet(
-                    total_cbm, is_new_rule, is_niche_warehouse, vessel_etd, warehouse
+                    total_cbm, is_new_rule, is_niche_warehouse, vessel_etd, warehouse, cbm_per_pl
                 )               
                 rate = float(rate) if rate else 0.0
                 total_pallets = float(total_pallets) if total_pallets else 0.0
@@ -6837,10 +6846,10 @@ class ReceivableAccounting(View):
         }
     
     def _calculate_total_pallet(
-        self, cbm: float, is_new_rule: bool, is_niche_warehouse: bool, vessel_etd, warehouse
+        self, cbm: float, is_new_rule: bool, is_niche_warehouse: bool, vessel_etd, warehouse, cbm_per_pl
     ) -> float:
         '''板数计算公式'''
-        raw_p = float(cbm) / 2
+        raw_p = float(cbm) / float(cbm_per_pl)
         integer_part = int(raw_p)
         decimal_part = raw_p - integer_part
 
@@ -8303,6 +8312,10 @@ class ReceivableAccounting(View):
             vessel_etd = timezone.make_aware(vessel_etd)
         is_new_rule = vessel_etd >= cutoff_datetime
         
+        # 查找cbm_per_pl
+        stipulates = fee_details.get("COMBINA_STIPULATE").details
+        cbm_per_pl = stipulates['global_rules']['cbm_per_pl']['default']
+
         is_niche_warehouse = True
         if "LA" in warehouse:
             amazon_data = fee_details.get(f"{warehouse}_PUBLIC").details
@@ -8359,7 +8372,7 @@ class ReceivableAccounting(View):
                         costs = locations["prices"]
                         if not over_count:
                             total_pallet = self._calculate_total_pallet(
-                                pl["total_cbm"], is_new_rule, is_niche_warehouse, vessel_etd, warehouse
+                                pl["total_cbm"], is_new_rule, is_niche_warehouse, vessel_etd, warehouse, cbm_per_pl
                             )
                         else:
                             total_pallet = over_count
@@ -8372,7 +8385,7 @@ class ReceivableAccounting(View):
                 pl["price"] = 0
             if not over_count:
                 total_pallet = self._calculate_total_pallet(
-                    pl["total_cbm"], is_new_rule, is_niche_warehouse, vessel_etd, warehouse
+                    pl["total_cbm"], is_new_rule, is_niche_warehouse, vessel_etd, warehouse, cbm_per_pl
                 )
             else:
                 total_pallet = over_count 
