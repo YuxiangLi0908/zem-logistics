@@ -4686,14 +4686,20 @@ class PostNsop(View):
         
         if packinglist_ids:
             # 直接使用update()方法批量更新
-            await sync_to_async(PackingList.objects.filter(id__in=packinglist_ids).update)(
-                shipment_batch_number=shipment
+            await sync_to_async(
+                PackingList.objects.filter(id__in=packinglist_ids).update
+            )(
+                shipment_batch_number=shipment,
+                master_shipment_batch_number=shipment
             )
 
         if pallet_ids:
             # 直接使用update()方法批量更新
-            await sync_to_async(Pallet.objects.filter(id__in=pallet_ids).update)(
-                shipment_batch_number=shipment
+            await sync_to_async(
+                Pallet.objects.filter(id__in=pallet_ids).update
+            )(
+                shipment_batch_number=shipment,
+                master_shipment_batch_number=shipment
             )
         
         success_msg = f'预约出库绑定成功! <br>批次号是:{batch_number}!'
