@@ -406,7 +406,8 @@
                                     <td class="th">Amazon Reference ID</td>
                                     <th class="th">派送方式</th>
                                     <th class="th">快递单号</th>
-                                    <th class="th">备注</th>
+                                    <th class="th">仓库备注</th>
+                                    <th class="th">客服备注</th>
                                     <th class="th">最早配送时间</th>
                                     <th class="th">最晚配送时间</th>
                                 </tr>
@@ -427,6 +428,7 @@
                                     <th class="th"></th>
                                     <th class="th"><input type="text" id="fbaSearchInput" placeholder="搜索fba号..." oninput="filterTable(this, 4, true)"></th>
                                     <th class="th"><input type="text" id="refSearchInput" placeholder="搜索ref..." oninput="filterTable(this, 5, true)"></th>
+                                    <th class="th"></th>
                                     <th class="th"></th>
                                     <th class="th"></th>
                                     <th class="th"></th>
@@ -467,6 +469,7 @@
                                     </td>
                                     <td class="td"><input type="text" name="express_number"></td>
                                     <td class="td"><input type="text" name="note"></td>
+                                    <td class="td"><input type="text" name="office_note"></td>
                                     <td class="td"><input type="date" name="delivery_window_start"></td>
                                     <td class="td"><input type="date" name="delivery_window_end"></td>
                                 </tr>
@@ -503,6 +506,7 @@
                                     </td>
                                     <td class="td"><input type="text" name="express_number" {% if pl.express_number %}value="{{ pl.express_number }}"{% endif %}></td>
                                     <td class="td"><input type="text" name="note" {% if pl.note %}value="{{ pl.note }}"{% endif %}></td>
+                                    <td class="td"><input type="text" name="office_note" {% if pl.office_note %}value="{{ pl.office_note }}"{% endif %}></td>
                                     <td class="td">
                                         <input type="date" name="delivery_window_start" {% if pl.delivery_window_start %}value="{{ pl.delivery_window_start |date:'Y-m-d' }}"{% endif %}>
                                     </td>
@@ -531,6 +535,7 @@
                                     <td class="td"></td>
                                     <td class="td"></td>
                                     <td class="td"></td>
+                                    <td class="td"></td>
                                 </tr>
                                 <tr id="table_summary" style="position: sticky; bottom: 0; background-color: #f2f2f2;">
                                     <td class="td" id="table_summary_cnt"><b>总计</b></td>
@@ -539,6 +544,7 @@
                                     <td class="td" id="table_summary_weight_kg">0</td>
                                     <td class="td" id="table_summary_weight">0</td>
                                     <td class="td" id="table_summary_cbm">0</td>
+                                    <td class="td"></td>
                                     <td class="td"></td>
                                     <td class="td"></td>
                                     <td class="td"></td>
