@@ -1593,6 +1593,7 @@ class OrderCreation(View):
                 pl.destination = destination_list[idx]
                 pl.address = request.POST.getlist("address")[idx]
                 pl.note = request.POST.getlist("note")[idx]
+                pl.office_note = request.POST.getlist("office_note")[idx]
                 long = request.POST.getlist("long")[idx]
                 pl.long = Decimal(long) if long else None
                 width = request.POST.getlist("width")[idx]
@@ -1625,6 +1626,7 @@ class OrderCreation(View):
                     "destination",
                     "address",
                     "note",
+                    "office_note"
                     "long",
                     "width",
                     "height",
@@ -1718,6 +1720,7 @@ class OrderCreation(View):
                 request.POST.getlist("total_weight_lbs"),
                 request.POST.getlist("cbm"),
                 request.POST.getlist("note"),
+                request.POST.getlist("office_note"),
                 request.POST.getlist("long"),
                 request.POST.getlist("width"),
                 request.POST.getlist("height"),
@@ -1751,14 +1754,15 @@ class OrderCreation(View):
                     total_weight_lbs=d[8],
                     cbm=d[9],
                     note=d[10],
-                    long=parse_decimal(d[11]),
-                    width=parse_decimal(d[12]),
-                    height=parse_decimal(d[13]),
-                    express_number=d[14],
-                    PO_ID=d[15],
-                    delivery_window_start=d[16] if d[16].strip() else None,
-                    delivery_window_end=d[17] if d[17].strip() else None,
-                    delivery_type=d[18],
+                    office_note=d[11],
+                    long=parse_decimal(d[12]),
+                    width=parse_decimal(d[13]),
+                    height=parse_decimal(d[14]),
+                    express_number=d[15],
+                    PO_ID=d[16],
+                    delivery_window_start=d[17] if d[17].strip() else None,
+                    delivery_window_end=d[18] if d[18].strip() else None,
+                    delivery_type=d[19],
                 )
                 for d in pl_data
             ]
