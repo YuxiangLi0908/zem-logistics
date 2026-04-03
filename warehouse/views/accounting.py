@@ -2771,8 +2771,8 @@ class Accounting(View):
         )
         criteria &= models.Q(
             cancel_notification=False,
-            vessel_id__vessel_etd__gte=start_date_confirm,
-            vessel_id__vessel_etd__lte=end_date_confirm,
+            retrieval_id__actual_retrieval_timestamp__gte=start_date_confirm,
+            retrieval_id__actual_retrieval_timestamp__lte=end_date_confirm,
         )
 
         # 子查询：判断订单是否存在
