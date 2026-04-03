@@ -1195,14 +1195,31 @@ class Palletization(View):
         customerInfo = request.POST.get("customerInfo")
 
         # ======================
-        # 唛头超长截断（保留）
+        # 唛头不超长就保留原样，只在超长时截断
         # ======================
-        def truncate_shipping_marks(marks_str, max_lines=10, max_chars=80):
+        def truncate_shipping_marks(marks_str, max_lines=3, max_chars=80):
             if not marks_str:
                 return marks_str
+
+            # --------------- 关键：保留 TTT 后缀，不删除！---------------
+            raw_marks = marks_str
+            ttt_part = ""
             if "TTT" in marks_str:
-                marks_str = marks_str.split("TTT")[0]
+                parts = marks_str.split("TTT")
+                marks_str = parts[0]
+                ttt_part = "TTT" + parts[1]
+
+            # 按行判断
             lines = marks_str.split('\n')
+            total_lines = len(lines)
+
+            # ==============================================
+            # 核心：如果没超长，直接返回原始字符串！！！
+            # ==============================================
+            if total_lines <= max_lines and all(len(line) <= max_chars for line in lines):
+                return raw_marks  # 直接返回原来的，不动！
+
+            # 超长才截断
             truncated = []
             for line in lines[:max_lines]:
                 if len(line) > max_chars:
@@ -1211,7 +1228,9 @@ class Palletization(View):
                     truncated.append(line)
             if len(lines) > max_lines:
                 truncated.append("...")
-            return '\n'.join(truncated)
+
+            # 拼接回去
+            return '\n'.join(truncated) + ttt_part
 
         if customerInfo:
             customer_info = json.loads(customerInfo)
