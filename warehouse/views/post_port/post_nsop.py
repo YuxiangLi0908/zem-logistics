@@ -1234,7 +1234,6 @@ class PostNsop(View):
     
     async def handle_batch_shipment_confirm(self, request: HttpRequest):
         '''处理批量预约出库确认和单个分组预约出库'''
-        print('传给后端的完整数据是',request.POST)
         context = {}
         
         try:
@@ -1525,7 +1524,6 @@ class PostNsop(View):
                             
                             # 更新request.POST
                             request.POST = ltl_post_data
-                            print('私仓预约出库信息准备',request.POST)
                             # 调用私仓绑定逻辑
                             #_, context = await self.handle_ltl_bind_group_shipment(request)
                             context =  {'success': '预约出库成功'}
@@ -3549,7 +3547,6 @@ class PostNsop(View):
                 + current_time.strftime("%m%d%H%M%S")
                 + str(uuid.uuid4())[:2].upper()
             )
-            print('batch_id',batch_id)
             batch_number = batch_id.replace(" ", "").replace("/", "-").upper()      
             exists = await sync_to_async(
                 Shipment.objects.filter(shipment_batch_number=batch_number).exists
