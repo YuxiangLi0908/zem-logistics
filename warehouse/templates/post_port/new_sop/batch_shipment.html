@@ -289,6 +289,15 @@
                 <input type="hidden" name="group_{{ forloop.counter }}_appointment_account" value="{{ group.appointment_account }}">
                 <input type="hidden" name="group_{{ forloop.counter }}_appointment_type" value="{{ group.appointment_type }}">
                 <input type="hidden" name="group_{{ forloop.counter }}_loading_type" value="{{ group.loading_type }}">
+                <input type="hidden" name="group_{{ forloop.counter }}_car_group" value="{{ group.car_group }}">
+                <input type="hidden" name="group_{{ forloop.counter }}_destination" value="{{ group.destination|default:'' }}">
+                <input type="hidden" name="group_{{ forloop.counter }}_total_weight" value="{{ group.total_weight|default:0 }}">
+                <input type="hidden" name="group_{{ forloop.counter }}_total_pcs" value="{{ group.total_pcs|default:0 }}">
+                <input type="hidden" name="group_{{ forloop.counter }}_total_cbm" value="{{ group.total_cbm|default:0 }}">
+                <input type="hidden" name="group_{{ forloop.counter }}_total_pallet" value="{{ group.total_pallet|default:0 }}">
+                <input type="hidden" name="group_{{ forloop.counter }}_pallet_only" value="{{ group.pallet_only|default:True }}">
+                <input type="hidden" name="group_{{ forloop.counter }}_note" value="{{ group.note|default:'' }}">
+                <input type="hidden" name="group_{{ forloop.counter }}_origin" value="{{ group.origin|default:'' }}">
                 <input type="hidden" name="group_{{ forloop.counter }}_container_count" value="{{ group.containers|length }}">
                 {% for container in group.containers %}
                 <input type="hidden" name="group_{{ forloop.parentloop.counter }}_container_{{ forloop.counter }}_ids" value="{{ container.validation.ids|join:',' }}">
@@ -301,7 +310,7 @@
             <div class="card" style="margin-bottom: 24px; border-left: 4px solid {% if group.validation_errors %}#dc3545{% else %}#007bff{% endif %};">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
                     <div>
-                        <h5 style="font-size: 14px; font-weight: 600; color: #333333;">分组 {{ forloop.counter }}</h5>
+                        <h5 style="font-size: 14px; font-weight: 600; color: #333333;">车组{{ group.car_group }} - 分组 {{ forloop.counter }}</h5>
                         {% if group.validation_errors %}
                         <div style="margin-top: 4px; font-size: 12px; color: #dc3545;">
                             <span style="font-weight: 500;">验证错误:</span> {{ group.validation_errors|join:', ' }}
@@ -310,21 +319,31 @@
                     </div>
                     <form method="post" style="display: inline-block;">
                         {% csrf_token %}
-                        <button type="submit" class="btn btn-primary" style="padding: 6px 16px; font-size: 12px; {% if group.validation_errors %}opacity: 0.6; cursor: not-allowed;{% endif %}{% for container in group.containers %}{% if container.validation.status == '错误' %}opacity: 0.6; cursor: not-allowed;{% endif %}{% endfor %}" {% if group.validation_errors %}disabled onclick="alert('请重新修改预约信息')"{% endif %}{% for container in group.containers %}{% if container.validation.status == '错误' %}disabled onclick="alert('请重新修改预约信息')"{% endif %}{% endfor %}>
+                        <button type="submit" class="btn btn-primary" style="padding: 6px 16px; font-size: 12px; {% if group.validation_errors or group.car_group_has_error %}opacity: 0.6; cursor: not-allowed;{% endif %}{% for container in group.containers %}{% if container.validation.status == '错误' %}opacity: 0.6; cursor: not-allowed;{% endif %}{% endfor %}" {% if group.validation_errors or group.car_group_has_error %}disabled onclick="alert('车组内存在错误，请先修正')"{% endif %}{% for container in group.containers %}{% if container.validation.status == '错误' %}disabled onclick="alert('请重新修改预约信息')"{% endif %}{% endfor %}>
                             预约出库
                         </button>
                         <input type="hidden" name="step" value="batch_shipment_confirm">
-                        <input type="hidden" name="group_appointment_time" value="{{ group.appointment_time }}">
-                        <input type="hidden" name="group_isa" value="{{ group.isa }}">
-                        <input type="hidden" name="group_pickup_time" value="{{ group.pickup_time|default:'' }}">
-                        <input type="hidden" name="group_pickup_number" value="{{ group.pickup_number|default:'' }}">
-                        <input type="hidden" name="group_shipment_id" value="{{ group.shipment_id|default:'' }}">
-                        <input type="hidden" name="group_appointment_account" value="{{ group.appointment_account }}">
-                        <input type="hidden" name="group_appointment_type" value="{{ group.appointment_type }}">
-                        <input type="hidden" name="group_loading_type" value="{{ group.loading_type }}">
-                        <input type="hidden" name="group_container_count" value="{{ group.containers|length }}">
+                        <input type="hidden" name="group_count" value="1">
+                        <input type="hidden" name="group_1_appointment_time" value="{{ group.appointment_time }}">
+                        <input type="hidden" name="group_1_isa" value="{{ group.isa }}">
+                        <input type="hidden" name="group_1_pickup_time" value="{{ group.pickup_time|default:'' }}">
+                        <input type="hidden" name="group_1_pickup_number" value="{{ group.pickup_number|default:'' }}">
+                        <input type="hidden" name="group_1_shipment_id" value="{{ group.shipment_id|default:'' }}">
+                        <input type="hidden" name="group_1_appointment_account" value="{{ group.appointment_account }}">
+                        <input type="hidden" name="group_1_appointment_type" value="{{ group.appointment_type }}">
+                        <input type="hidden" name="group_1_loading_type" value="{{ group.loading_type }}">
+                        <input type="hidden" name="group_1_car_group" value="{{ group.car_group }}">
+                        <input type="hidden" name="group_1_destination" value="{{ group.destination|default:'' }}">
+                        <input type="hidden" name="group_1_total_weight" value="{{ group.total_weight|default:0 }}">
+                        <input type="hidden" name="group_1_total_pcs" value="{{ group.total_pcs|default:0 }}">
+                        <input type="hidden" name="group_1_total_cbm" value="{{ group.total_cbm|default:0 }}">
+                        <input type="hidden" name="group_1_total_pallet" value="{{ group.total_pallet|default:0 }}">
+                        <input type="hidden" name="group_1_pallet_only" value="{{ group.pallet_only|default:True }}">
+                        <input type="hidden" name="group_1_note" value="{{ group.note|default:'' }}">
+                        <input type="hidden" name="group_1_origin" value="{{ group.origin|default:'' }}">
+                        <input type="hidden" name="group_1_container_count" value="{{ group.containers|length }}">
                         {% for container in group.containers %}
-                        <input type="hidden" name="group_container_{{ forloop.counter }}_ids" value="{{ container.validation.ids|join:',' }}">
+                        <input type="hidden" name="group_1_container_{{ forloop.counter }}_ids" value="{{ container.validation.ids|join:',' }}">
                         {% endfor %}
                     </form>
                 </div>
@@ -364,6 +383,34 @@
                         <div>
                             <span style="font-size: 12px; color: #86909C;">装车类型:</span>
                             <p style="font-size: 14px; font-weight: 500; {% if group.field_errors.loading_type %}color: #dc3545; border: 1px solid #dc3545; padding: 4px 8px; border-radius: 4px; background: #f8d7da; font-weight: 600;{% endif %}">{{ group.loading_type }}</p>
+                        </div>
+                        <div>
+                            <span style="font-size: 12px; color: #86909C;">目的地:</span>
+                            <p style="font-size: 14px; font-weight: 500;">{{ group.destination|default:'-' }}</p>
+                        </div>
+                        <div>
+                            <span style="font-size: 12px; color: #86909C;">备注:</span>
+                            <p style="font-size: 14px; font-weight: 500;">{{ group.note|default:'-' }}</p>
+                        </div>
+                        <div>
+                            <span style="font-size: 12px; color: #86909C;">仓库:</span>
+                            <p style="font-size: 14px; font-weight: 500; {% if group.field_errors.origin %}color: #dc3545; border: 1px solid #dc3545; padding: 4px 8px; border-radius: 4px; background: #f8d7da; font-weight: 600;{% endif %}">{{ group.origin|default:'-' }}</p>
+                        </div>
+                        <div>
+                            <span style="font-size: 12px; color: #86909C;">总重量:</span>
+                            <p style="font-size: 14px; font-weight: 500;">{{ group.total_weight|default:0 }}</p>
+                        </div>
+                        <div>
+                            <span style="font-size: 12px; color: #86909C;">总件数:</span>
+                            <p style="font-size: 14px; font-weight: 500;">{{ group.total_pcs|default:0 }}</p>
+                        </div>
+                        <div>
+                            <span style="font-size: 12px; color: #86909C;">总CBM:</span>
+                            <p style="font-size: 14px; font-weight: 500;">{{ group.total_cbm|default:0 }}</p>
+                        </div>
+                        <div>
+                            <span style="font-size: 12px; color: #86909C;">总板数:</span>
+                            <p style="font-size: 14px; font-weight: 500;">{{ group.total_pallet|default:0 }} {% if not group.pallet_only %}<span style="font-size: 10px; color: #86909C;">(预估)</span>{% else %}<span style="font-size: 10px; color: #86909C;">(实际)</span>{% endif %}</p>
                         </div>
                     </div>
                 </div>
@@ -420,14 +467,16 @@
                 <thead>
                     <tr>
                         <th>分组编号</th>
+                        <th>车组号</th>
                         <th>预约时间</th>
                         <th>ISA</th>
                         <th>pickup time</th>
                         <th>PickUp number</th>
                         <th>预约账号</th>
                         <th>预约类型</th>
-                        <th>装车类型</th>
                         <th>柜号数量</th>
+                        <th>批次号</th>
+                        <th>车次号</th>
                         <th>状态</th>
                     </tr>
                 </thead>
@@ -435,14 +484,16 @@
                     {% for result in results %}
                     <tr>
                         <td>{{ result.group_index }}</td>
+                        <td>{{ result.car_group }}</td>
                         <td>{{ result.appointment_time }}</td>
                         <td>{{ result.isa }}</td>
                         <td>{{ result.pickup_time|default:'-' }}</td>
                         <td>{{ result.pickup_number|default:'-' }}</td>
                         <td>{{ result.appointment_account }}</td>
                         <td>{{ result.appointment_type }}</td>
-                        <td>{{ result.loading_type }}</td>
                         <td>{{ result.container_count }}</td>
+                        <td>{{ result.shipment_batch_number }}</td>
+                        <td>{{ result.fleet_number|default:'-' }}</td>
                         <td>
                             <span class="status-badge {% if result.status == '成功' %}status-success{% else %}status-error{% endif %}">
                                 {{ result.status }}
@@ -456,58 +507,6 @@
     </div>
     {% endif %}
 </div>
-
-{% if results %}
-<div class="card" style="margin-top: 20px;">
-    <div class="card-header" style="background: linear-gradient(135deg, #1976d2 0%, #2196f3 100%); color: white; font-weight: 600; padding: 12px 20px;">
-        预约结果
-    </div>
-    <div class="card-body" style="padding: 20px;">
-        <div class="table-responsive">
-            <table class="table table-hover" style="font-size: 12px;">
-                <thead style="background: linear-gradient(135deg, #f5f7fa 0%, #e5e6eb 100%);">
-                    <tr>
-                        <th style="background: transparent; border-bottom: 1px solid #dee2e6; padding: 8px; text-align: center;">分组</th>
-                        <th style="background: transparent; border-bottom: 1px solid #dee2e6; padding: 8px; text-align: center;">预约时间</th>
-                        <th style="background: transparent; border-bottom: 1px solid #dee2e6; padding: 8px; text-align: center;">ISA</th>
-                        <th style="background: transparent; border-bottom: 1px solid #dee2e6; padding: 8px; text-align: center;">pickup time</th>
-                        <th style="background: transparent; border-bottom: 1px solid #dee2e6; padding: 8px; text-align: center;">PickUp number</th>
-                        <th style="background: transparent; border-bottom: 1px solid #dee2e6; padding: 8px; text-align: center;">预约账号</th>
-                        <th style="background: transparent; border-bottom: 1px solid #dee2e6; padding: 8px; text-align: center;">预约类型</th>
-                        <th style="background: transparent; border-bottom: 1px solid #dee2e6; padding: 8px; text-align: center;">装车类型</th>
-                        <th style="background: transparent; border-bottom: 1px solid #dee2e6; padding: 8px; text-align: center;">柜子数量</th>
-                        <th style="background: transparent; border-bottom: 1px solid #dee2e6; padding: 8px; text-align: center;">批次号</th>
-                        <th style="background: transparent; border-bottom: 1px solid #dee2e6; padding: 8px; text-align: center;">状态</th>
-                        <th style="background: transparent; border-bottom: 1px solid #dee2e6; padding: 8px; text-align: center;">失败原因</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for result in results %}
-                    <tr>
-                        <td style="padding: 8px; text-align: center;">{{ result.group_index }}</td>
-                        <td style="padding: 8px; text-align: center;">{{ result.appointment_time }}</td>
-                        <td style="padding: 8px; text-align: center;">{{ result.isa }}</td>
-                        <td style="padding: 8px; text-align: center;">{{ result.pickup_time|default:'-' }}</td>
-                        <td style="padding: 8px; text-align: center;">{{ result.pickup_number|default:'-' }}</td>
-                        <td style="padding: 8px; text-align: center;">{{ result.appointment_account }}</td>
-                        <td style="padding: 8px; text-align: center;">{{ result.appointment_type }}</td>
-                        <td style="padding: 8px; text-align: center;">{{ result.loading_type }}</td>
-                        <td style="padding: 8px; text-align: center;">{{ result.container_count }}</td>
-                        <td style="padding: 8px; text-align: center;">{{ result.shipment_batch_number }}</td>
-                        <td style="padding: 8px; text-align: center;">
-                            <span style="padding: 4px 8px; border-radius: 4px; font-weight: 500; {% if result.status == '成功' %}background: #e8f5e8; color: #28a745; border: 1px solid #28a745;{% else %}background: #f8d7da; color: #dc3545; border: 1px solid #dc3545;{% endif %}">
-                                {{ result.status }}
-                            </span>
-                        </td>
-                        <td style="padding: 8px; text-align: center;">{{ result.message|default:'-' }}</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    </div>
-</div>
-{% endif %}
 
 <script>
     // 文件上传处理
