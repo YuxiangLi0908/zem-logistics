@@ -946,7 +946,7 @@ class PostNsop(View):
                                 existing_dest = existed_appointment.destination.replace("Walmart", "").replace("WALMART", "").replace("-", "").upper()
                                 current_dest = group.get('destination').replace("Walmart", "").replace("WALMART", "").replace("-", "").upper()
                                 if existing_dest != current_dest:
-                                    validation_errors.append(f'ISA {isa_int} 登记的目的地是 {existed_appointment.destination} ，此次登记的目的地是 {group.get('destination')}!')
+                                    validation_errors.append(f"ISA {isa_int} 登记的目的地是 {existed_appointment.destination} ，此次登记的目的地是 {group.get('destination')}!")
                                     field_errors['isa'] = True
                         except Shipment.DoesNotExist:
                             # ISA不存在，继续处理
