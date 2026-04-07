@@ -115,9 +115,9 @@ async def export_palletization_list_v2(request: HttpRequest) -> HttpResponse:
     except (ValueError, TypeError):
         warehouse_unpacking_time = "未获取到时间"
 
-    TARGET_WAREHOUSES = {"GEU3", "GYR2", "GYR3", "LAX9", "LGB8", "SBD1"}  # 指定9个仓点
+    TARGET_WAREHOUSES = {"GEU3", "GYR2", "GYR3", "LAX9", "LGB8", "SBD1"}
     UTC_TZ = pytz.UTC
-    BASE_ETA = UTC_TZ.localize(datetime(2026, 1, 19))  # 带UTC时区的基准时间
+    BASE_ETA = UTC_TZ.localize(datetime(2026, 1, 19))
 
     if status == "non_palletized":
         vessel_prefetch_queryset = Vessel.objects.all()
@@ -178,7 +178,7 @@ async def export_palletization_list_v2(request: HttpRequest) -> HttpResponse:
                 "PO_ID",
                 "delivery_type",
                 "shipment_batch_number__load_type",
-                "vessel_eta",  # 带时区的datetime值
+                "vessel_eta",
             )
             .annotate(
                 fba_ids=StringAgg("str_fba_id", delimiter=",", distinct=True),
@@ -202,43 +202,48 @@ async def export_palletization_list_v2(request: HttpRequest) -> HttpResponse:
 
     data = [i for i in packing_list]
     df = pd.DataFrame.from_records(data)
-    df["拆柜备注"] = ""  # 初始化拆柜备注为空
+    df["拆柜备注"] = ""
 
     if not df.empty:
         df["vessel_eta_dt"] = pd.to_datetime(df["vessel_eta"], errors="coerce", utc=True)
-
-        # 2. 定义判断条件（时区一致，可直接比较）
         mask = (
-                (df["shipment_batch_number__load_type"] != "卡板")  # 卡板类型
-                & (df["vessel_eta_dt"] >= BASE_ETA)  # 带时区的时间比较，无类型错误
-                & (df["destination"].isin(TARGET_WAREHOUSES))  # 仓点在指定9个列表内
+            (df["shipment_batch_number__load_type"] != "卡板")
+            & (df["vessel_eta_dt"] >= BASE_ETA)
+            & (df["destination"].isin(TARGET_WAREHOUSES))
         )
-
         df.loc[mask, "拆柜备注"] = "100 height"
 
-        # ===================== 核心修改：合并note到拆柜备注 =====================
-        # 1. 处理note空值：将NaN/None转为空字符串
         df["note"] = df["note"].fillna("").astype(str)
 
-        # 2. 定义拼接逻辑：
-        # - 拆柜备注是100 height + note非空 → "100 height, note内容"
-        # - 拆柜备注是空 + note非空 → "note内容"
-        # - 其他情况保持原拆柜备注
-        def merge_note_to_remark(remark, note):
-            if note.strip() == "":  # note为空，直接返回原备注
-                return remark
-            if remark == "100 height":  # 有100 height，加逗号拼接
-                return f"{remark}, {note.strip()}"
-            else:  # 无100 height，直接用note
-                return note.strip()
+        # ===================== ✅ 只加这里：暂扣留仓(HOLD) 追加 唛头 + FBA =====================
+        def merge_note_to_remark(row):
+            remark = str(row["拆柜备注"] or "").strip()
+            note = str(row["note"] or "").strip()
+            delivery_method = str(row["custom_delivery_method"] or "").strip()
+            shipping_mark = str(row["shipping_marks"] or "").strip()
+            fba_id = str(row["fba_ids"] or "").strip()
 
-        # 应用拼接逻辑到拆柜备注列
-        df["拆柜备注"] = df.apply(
-            lambda row: merge_note_to_remark(row["拆柜备注"], row["note"]),
-            axis=1
-        )
+            # 原有逻辑：拼接note
+            if note.strip():
+                if remark == "100 height":
+                    remark = f"{remark}, {note.strip()}"
+                else:
+                    remark = note.strip()
 
-        # 3. 清空原note列
+            # ✅ 只对 暂扣留仓(HOLD) 追加唛头 + FBA
+            if "暂扣留仓(HOLD)" in delivery_method:
+                parts = []
+                if remark:
+                    parts.append(remark)
+                if shipping_mark:
+                    parts.append(f"唛头:{shipping_mark}")
+                if fba_id:
+                    parts.append(f"FBA:{fba_id}")
+                remark = ", ".join(parts)
+
+            return remark
+
+        df["拆柜备注"] = df.apply(merge_note_to_remark, axis=1)
         df["note"] = ""
 
     if not df.empty:
@@ -252,15 +257,13 @@ async def export_palletization_list_v2(request: HttpRequest) -> HttpResponse:
             axis=1,
         )
         df["delivery_method"] = df["delivery_method"].apply(
-            lambda x: x.split("-")[0] if x and isinstance(x, str) else x
+            lambda x: x.split("-")[0] if isinstance(x, str) else x
         )
-        df["pcs_original"] = df["pcs"].astype(str)  # 保存pcs原始值
+        df["pcs_original"] = df["pcs"].astype(str)
         df["pcs"] = df["pcs_original"].copy()
 
-        # 清空pcs和shipping_mark的逻辑（调整后）
         mask_base = (df["delivery_method"] == "卡车派送") & (df["delivery_type"] == "public")
 
-        # 1. 从拆柜备注提取原note内容
         def extract_original_note(remark):
             if not isinstance(remark, str) or remark.strip() == "":
                 return ""
@@ -269,19 +272,14 @@ async def export_palletization_list_v2(request: HttpRequest) -> HttpResponse:
 
         df["original_note_from_remark"] = df["拆柜备注"].apply(extract_original_note)
 
-        # 2. 判断特操
-        mask_tecao = df["original_note_from_remark"].apply(
-            lambda x: "特操" in x if x else False
-        )
+        mask_tecao = df["original_note_from_remark"].apply(lambda x: "特操" in x if x else False)
         mask_clear_pcs = mask_base & (~mask_tecao)
         df.loc[mask_clear_pcs, "pcs"] = ""
 
-        # 3. 判断note是否为空
         mask_note_empty = (df["original_note_from_remark"] == "")
         mask_clear_mark = mask_base & mask_note_empty
         df.loc[mask_clear_mark, "shipping_mark"] = ""
 
-        # 4. 清理临时列
         df = df.drop("original_note_from_remark", axis=1)
 
         df["pl"] = ""  # 清空打板数字段
@@ -313,8 +311,7 @@ async def export_palletization_list_v2(request: HttpRequest) -> HttpResponse:
     # 第一行合并单元格（柜号）
     ws.merge_cells('A1:C1')
     for col_idx in range(1, 4):
-        cell = ws.cell(row=1, column=col_idx)
-        cell.border = thin_border
+        ws.cell(1, col_idx).border = thin_border
     ws['A1'] = container_number or "未指定柜号"
     ws['A1'].font = header1_font
     ws['A1'].alignment = left_alignment
@@ -323,8 +320,7 @@ async def export_palletization_list_v2(request: HttpRequest) -> HttpResponse:
     # 第一行合并单元格（拆柜时间）
     ws.merge_cells('D1:E1')
     for col_idx in range(4, 6):
-        cell = ws.cell(row=1, column=col_idx)
-        cell.border = thin_border
+        ws.cell(1, col_idx).border = thin_border
     ws['D1'] = warehouse_unpacking_time
     ws['D1'].font = header1_font
     ws['D1'].alignment = center_alignment
@@ -332,8 +328,7 @@ async def export_palletization_list_v2(request: HttpRequest) -> HttpResponse:
     # 第一行合并单元格（dock）
     ws.merge_cells('F1:G1')
     for col_idx in range(6, 8):
-        cell = ws.cell(row=1, column=col_idx)
-        cell.border = thin_border
+        ws.cell(1, col_idx).border = thin_border
     ws['F1'] = 'dock'
     ws['F1'].font = header1_font
     ws['F1'].alignment = center_alignment
@@ -341,8 +336,7 @@ async def export_palletization_list_v2(request: HttpRequest) -> HttpResponse:
     # 表头行（第二行）
     column_names = ["destination", "delivery_method", "shipping_mark", "拆柜备注", "pcs", "pl", "note"]
     for col_idx, name in enumerate(column_names, 1):
-        cell = ws.cell(row=2, column=col_idx)
-        cell.value = name
+        cell = ws.cell(2, col_idx, name)
         cell.font = header2_font
         cell.border = thin_border
         cell.alignment = center_alignment
@@ -352,36 +346,16 @@ async def export_palletization_list_v2(request: HttpRequest) -> HttpResponse:
     for row_idx, row in enumerate(dataframe_to_rows(df, index=False, header=False), 3):
         ws.row_dimensions[row_idx].height = UNIFIED_ROW_HEIGHT
         for col_idx, value in enumerate(row, 1):
-            cell = ws.cell(row=row_idx, column=col_idx)
-            cell.value = value if pd.notna(value) else ""
+            cell = ws.cell(row=row_idx, column=col_idx, value=value if pd.notna(value) else "")
             cell.font = data_font
             cell.border = thin_border
-            if col_idx == 6:  # pl列左对齐
-                cell.alignment = left_alignment
-            else:
-                cell.alignment = center_alignment
+            cell.alignment = left_alignment if col_idx == 6 else center_alignment
 
-    # 调整列宽
-    total_columns = len(column_names)
-    for col_idx in range(1, total_columns + 1):
-        max_length = 0
-        column_letter = get_column_letter(col_idx)
-        for row_idx in range(1, ws.max_row + 1):
-            cell = ws[f"{column_letter}{row_idx}"]
-            if isinstance(cell, openpyxl.cell.cell.MergedCell):
-                continue
-            cell_value = str(cell.value) if cell.value is not None else ""
-            if len(cell_value) > max_length:
-                max_length = len(cell_value)
+    for col_idx in range(1, len(column_names)+1):
+        letter = get_column_letter(col_idx)
+        max_len = max(len(str(ws.cell(row, col_idx).value or "")) for row in range(1, ws.max_row+1))
+        ws.column_dimensions[letter].width = min(max_len + 2, 25)
 
-        # 列宽适配
-        if col_idx == 6:
-            adjusted_width = max(10, min(max_length + 5, 30))
-        else:
-            adjusted_width = max(8, min(max_length + 2, 20))
-        ws.column_dimensions[column_letter].width = adjusted_width
-
-    # 保存并返回响应
     wb.save(buffer)
     buffer.seek(0)
 
@@ -391,7 +365,6 @@ async def export_palletization_list_v2(request: HttpRequest) -> HttpResponse:
     )
     filename = f"{container_number if container_number else '拆柜单'}.xlsx"
     response["Content-Disposition"] = f"attachment; filename={filename}"
-
     return response
 
 async def export_palletization_list(request: HttpRequest) -> HttpResponse:
