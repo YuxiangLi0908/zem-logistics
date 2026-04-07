@@ -1,0 +1,541 @@
+{% extends 'base.html' %}
+{% load custom_filters %}
+{% block content %}
+
+<style>
+    /* 全局样式 */
+    .batch-shipment-container {
+        padding: 32px 24px;
+        background: #F5F7FA;
+        min-height: 100vh;
+    }
+    
+    .card {
+        background: #FFFFFF;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        padding: 24px;
+        margin-bottom: 24px;
+        border: none;
+    }
+    
+    /* 标题样式 */
+    .page-title {
+        font-size: 20px;
+        font-weight: 600;
+        color: #333333;
+        text-align: center;
+        margin-bottom: 24px;
+        padding-bottom: 16px;
+        border-bottom: 1px solid #E5E6EB;
+    }
+    
+    /* 模块标题 */
+    .module-title {
+        font-size: 16px;
+        font-weight: 600;
+        color: #333333;
+        margin-bottom: 16px;
+    }
+    
+    /* 自定义文件上传 */
+    .file-upload-container {
+        position: relative;
+        margin-bottom: 16px;
+    }
+    
+    .file-upload-label {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 12px 16px;
+        background: #F5F7FA;
+        border: 1px solid #E5E6EB;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+    
+    .file-upload-label:hover {
+        background: #E5E6EB;
+    }
+    
+    .file-upload-label:active {
+        transform: translateY(1px);
+    }
+    
+    .file-upload-input {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        opacity: 0;
+        cursor: pointer;
+    }
+    
+    .file-placeholder {
+        color: #86909C;
+        font-size: 14px;
+    }
+    
+    .file-name {
+        color: #333333;
+        font-size: 14px;
+        font-weight: 500;
+    }
+    
+    .clear-file {
+        color: #007bff;
+        font-size: 12px;
+        cursor: pointer;
+    }
+    
+    /* 按钮样式 */
+    .btn {
+        border-radius: 8px;
+        padding: 12px 24px;
+        font-size: 14px;
+        font-weight: 500;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-success {
+        background: #28a745;
+        border: none;
+    }
+    
+    .btn-success:hover {
+        background: #218838;
+    }
+    
+    .btn-primary {
+        background: #007bff;
+        border: none;
+    }
+    
+    .btn-primary:hover {
+        background: #0069d9;
+    }
+    
+    /* 按钮容器 */
+    .button-container {
+        display: flex;
+        gap: 16px;
+        margin-top: 24px;
+    }
+    
+    .button-container .btn {
+        flex: 1;
+        text-align: center;
+    }
+    
+    /* 格式要求 */
+    .format-requirements {
+        font-size: 14px;
+        color: #666666;
+        background: #F5F7FA;
+        padding: 16px;
+        border-radius: 8px;
+        margin-top: 16px;
+    }
+    
+    .format-requirements ul {
+        margin-top: 8px;
+        padding-left: 20px;
+    }
+    
+    .format-requirements li {
+        margin-bottom: 8px;
+    }
+    
+    /* 结果表格 */
+    .result-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 14px;
+    }
+    
+    .result-table th {
+        background: #F5F7FA;
+        padding: 12px;
+        text-align: center;
+        font-weight: 600;
+        color: #333333;
+        border-bottom: 2px solid #E5E6EB;
+    }
+    
+    .result-table td {
+        padding: 12px;
+        text-align: center;
+        border-bottom: 1px solid #E5E6EB;
+    }
+    
+    .result-table tr:nth-child(even) {
+        background: #F9FAFB;
+    }
+    
+    /* 状态标签 */
+    .status-badge {
+        display: inline-block;
+        padding: 4px 12px;
+        border-radius: 12px;
+        font-size: 12px;
+        font-weight: 500;
+    }
+    
+    .status-success {
+        background: #E8F5E8;
+        color: #28a745;
+    }
+    
+    .status-error {
+        background: #F8D7DA;
+        color: #dc3545;
+    }
+    
+    /* 响应式设计 */
+    @media (max-width: 768px) {
+        .batch-shipment-container {
+            padding: 16px;
+        }
+        
+        .card {
+            padding: 16px;
+        }
+        
+        .button-container {
+            flex-direction: column;
+        }
+        
+        .result-table {
+            font-size: 12px;
+        }
+        
+        .result-table th,
+        .result-table td {
+            padding: 8px;
+        }
+    }
+</style>
+
+<div class="batch-shipment-container">
+    <div class="card">
+        <h3 class="page-title">批量预约出库</h3>
+        
+        <!-- 错误和成功消息 -->
+        {% if error %}
+        <div class="alert alert-danger" style="margin-bottom: 24px;">{{ error }}</div>
+        {% endif %}
+        {% if success %}
+        <div class="alert alert-success" style="margin-bottom: 24px;">{{ success }}</div>
+        {% endif %}
+        
+        <!-- 文件上传表单 -->
+        <form method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+            <h4 class="module-title">上传 Excel 文件</h4>
+            
+            <div style="display: flex; align-items: center; gap: 16px; margin-bottom: 16px;">
+                <div class="file-upload-container" style="flex: 1;">
+                    <label class="file-upload-label">
+                        <span id="file-name" class="file-placeholder">未选择文件</span>
+                        <span id="clear-file" class="clear-file" style="display: none;">清除</span>
+                        <input type="file" name="excel_file" accept=".xlsx, .xls" required class="file-upload-input" id="file-input">
+                    </label>
+                </div>
+                <button type="submit" class="btn btn-success" style="flex: 0 0 120px;">
+                    上传并解析
+                </button>
+            </div>
+            
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px;">
+                <div class="format-requirements" style="flex: 1; margin-right: 16px;">
+                    <strong>文件格式要求:</strong>
+                    <ul>
+                        <li>表头必须包含：柜号、仓点、CBM、卡板、预约时间、ISA、pickup time、PickUp number、Shipment ID、预约账号、预约类型、装车类型</li>
+                        <li>Shipment ID为非必填项，其他字段为必填项</li>
+                        <li>分组通过空行识别，每组包含一组预约信息和多个柜号信息</li>
+                    </ul>
+                </div>
+                <a href="?step=download_batch_shipment_template" class="btn btn-primary" style="flex: 0 0 120px; align-self: flex-start;">
+                    下载模板
+                </a>
+            </div>
+            
+            <input type="hidden" name="step" value="batch_shipment_upload">
+        </form>
+        
+        <!-- 解析结果展示 -->
+        {% if groups %}
+        <div style="margin-top: 32px;">
+            <h4 class="module-title">解析结果</h4>
+            <p style="margin-bottom: 16px; color: #666666;">共解析出 {{ groups|length }} 组预约数据</p>
+            
+            <!-- 批量预约按钮 -->
+            <form method="post" style="margin-bottom: 24px;">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-success" style="width: 200px; {% for group in groups %}{% if group.validation_errors %}opacity: 0.6; cursor: not-allowed;{% endif %}{% for container in group.containers %}{% if container.validation.status == '错误' %}opacity: 0.6; cursor: not-allowed;{% endif %}{% endfor %}{% endfor %}" {% for group in groups %}{% if group.validation_errors %}disabled onclick="alert('请重新修改预约信息')"{% endif %}{% for container in group.containers %}{% if container.validation.status == '错误' %}disabled onclick="alert('请重新修改预约信息')"{% endif %}{% endfor %}{% endfor %}>
+                    确认批量预约
+                </button>
+                <input type="hidden" name="step" value="batch_shipment_confirm">
+                <input type="hidden" name="group_count" value="{{ groups|length }}">
+                {% for group in groups %}
+                <input type="hidden" name="group_{{ forloop.counter }}_appointment_time" value="{{ group.appointment_time }}">
+                <input type="hidden" name="group_{{ forloop.counter }}_isa" value="{{ group.isa }}">
+                <input type="hidden" name="group_{{ forloop.counter }}_pickup_time" value="{{ group.pickup_time|default:'' }}">
+                <input type="hidden" name="group_{{ forloop.counter }}_pickup_number" value="{{ group.pickup_number|default:'' }}">
+                <input type="hidden" name="group_{{ forloop.counter }}_shipment_id" value="{{ group.shipment_id|default:'' }}">
+                <input type="hidden" name="group_{{ forloop.counter }}_appointment_account" value="{{ group.appointment_account }}">
+                <input type="hidden" name="group_{{ forloop.counter }}_appointment_type" value="{{ group.appointment_type }}">
+                <input type="hidden" name="group_{{ forloop.counter }}_loading_type" value="{{ group.loading_type }}">
+                <input type="hidden" name="group_{{ forloop.counter }}_container_count" value="{{ group.containers|length }}">
+                {% for container in group.containers %}
+                <input type="hidden" name="group_{{ forloop.parentloop.counter }}_container_{{ forloop.counter }}_ids" value="{{ container.validation.ids|join:',' }}">
+                {% endfor %}
+                {% endfor %}
+            </form>
+            
+            <!-- 分组数据展示 -->
+            {% for group in groups %}
+            <div class="card" style="margin-bottom: 24px; border-left: 4px solid {% if group.validation_errors %}#dc3545{% else %}#007bff{% endif %};">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                    <div>
+                        <h5 style="font-size: 14px; font-weight: 600; color: #333333;">分组 {{ forloop.counter }}</h5>
+                        {% if group.validation_errors %}
+                        <div style="margin-top: 4px; font-size: 12px; color: #dc3545;">
+                            <span style="font-weight: 500;">验证错误:</span> {{ group.validation_errors|join:', ' }}
+                        </div>
+                        {% endif %}
+                    </div>
+                    <form method="post" style="display: inline-block;">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-primary" style="padding: 6px 16px; font-size: 12px; {% if group.validation_errors %}opacity: 0.6; cursor: not-allowed;{% endif %}{% for container in group.containers %}{% if container.validation.status == '错误' %}opacity: 0.6; cursor: not-allowed;{% endif %}{% endfor %}" {% if group.validation_errors %}disabled onclick="alert('请重新修改预约信息')"{% endif %}{% for container in group.containers %}{% if container.validation.status == '错误' %}disabled onclick="alert('请重新修改预约信息')"{% endif %}{% endfor %}>
+                            预约出库
+                        </button>
+                        <input type="hidden" name="step" value="batch_shipment_confirm">
+                        <input type="hidden" name="group_appointment_time" value="{{ group.appointment_time }}">
+                        <input type="hidden" name="group_isa" value="{{ group.isa }}">
+                        <input type="hidden" name="group_pickup_time" value="{{ group.pickup_time|default:'' }}">
+                        <input type="hidden" name="group_pickup_number" value="{{ group.pickup_number|default:'' }}">
+                        <input type="hidden" name="group_shipment_id" value="{{ group.shipment_id|default:'' }}">
+                        <input type="hidden" name="group_appointment_account" value="{{ group.appointment_account }}">
+                        <input type="hidden" name="group_appointment_type" value="{{ group.appointment_type }}">
+                        <input type="hidden" name="group_loading_type" value="{{ group.loading_type }}">
+                        <input type="hidden" name="group_container_count" value="{{ group.containers|length }}">
+                        {% for container in group.containers %}
+                        <input type="hidden" name="group_container_{{ forloop.counter }}_ids" value="{{ container.validation.ids|join:',' }}">
+                        {% endfor %}
+                    </form>
+                </div>
+                
+                <!-- 预约信息 -->
+                <div style="background: #F5F7FA; padding: 16px; border-radius: 8px; margin-bottom: 16px;">
+                    <h6 style="font-size: 12px; font-weight: 600; color: #666666; margin-bottom: 12px;">预约信息</h6>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px;">
+                        <div>
+                            <span style="font-size: 12px; color: #86909C;">预约时间:</span>
+                            <p style="font-size: 14px; font-weight: 500; {% if group.field_errors.appointment_time %}color: #dc3545; border: 1px solid #dc3545; padding: 4px 8px; border-radius: 4px; background: #f8d7da; font-weight: 600;{% endif %}">{{ group.appointment_time }}</p>
+                        </div>
+                        <div>
+                            <span style="font-size: 12px; color: #86909C;">ISA:</span>
+                            <p style="font-size: 14px; font-weight: 500; {% if group.field_errors.isa %}color: #dc3545; border: 1px solid #dc3545; padding: 4px 8px; border-radius: 4px; background: #f8d7da; font-weight: 600;{% endif %}">{{ group.isa }}</p>
+                        </div>
+                        <div>
+                            <span style="font-size: 12px; color: #86909C;">pickup time:</span>
+                            <p style="font-size: 14px; font-weight: 500; {% if group.field_errors.pickup_time %}color: #dc3545; border: 1px solid #dc3545; padding: 4px 8px; border-radius: 4px; background: #f8d7da; font-weight: 600;{% endif %}">{{ group.pickup_time|default:'-' }}</p>
+                        </div>
+                        <div>
+                            <span style="font-size: 12px; color: #86909C;">PickUp number:</span>
+                            <p style="font-size: 14px; font-weight: 500;">{{ group.pickup_number|default:'-' }}</p>
+                        </div>
+                        <div>
+                            <span style="font-size: 12px; color: #86909C;">Shipment ID:</span>
+                            <p style="font-size: 14px; font-weight: 500;">{{ group.shipment_id|default:"无" }}</p>
+                        </div>
+                        <div>
+                            <span style="font-size: 12px; color: #86909C;">预约账号:</span>
+                            <p style="font-size: 14px; font-weight: 500; {% if group.field_errors.appointment_account %}color: #dc3545; border: 1px solid #dc3545; padding: 4px 8px; border-radius: 4px; background: #f8d7da; font-weight: 600;{% endif %}">{{ group.appointment_account }}</p>
+                        </div>
+                        <div>
+                            <span style="font-size: 12px; color: #86909C;">预约类型:</span>
+                            <p style="font-size: 14px; font-weight: 500; {% if group.field_errors.appointment_type %}color: #dc3545; border: 1px solid #dc3545; padding: 4px 8px; border-radius: 4px; background: #f8d7da; font-weight: 600;{% endif %}">{{ group.appointment_type }}</p>
+                        </div>
+                        <div>
+                            <span style="font-size: 12px; color: #86909C;">装车类型:</span>
+                            <p style="font-size: 14px; font-weight: 500; {% if group.field_errors.loading_type %}color: #dc3545; border: 1px solid #dc3545; padding: 4px 8px; border-radius: 4px; background: #f8d7da; font-weight: 600;{% endif %}">{{ group.loading_type }}</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 柜子信息 -->
+                <div>
+                    <h6 style="font-size: 12px; font-weight: 600; color: #666666; margin-bottom: 12px;">柜子信息 ({{ group.containers|length }} 个柜)</h6>
+                    <div class="table-responsive">
+                        <table class="result-table" style="font-size: 12px;">
+                            <thead>
+                                <tr>
+                                    <th style="padding: 8px;">柜号</th>
+                                    <th style="padding: 8px;">仓点</th>
+                                    <th style="padding: 8px;">CBM</th>
+                                    <th style="padding: 8px;">卡板</th>
+                                    <th style="padding: 8px;">状态</th>
+                                    <th style="padding: 8px;">ID</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for container in group.containers %}
+                                <tr>
+                                    <td style="padding: 8px;">{{ container.container_number }}</td>
+                                    <td style="padding: 8px;">{{ container.warehouse }}</td>
+                                    <td style="padding: 8px;">{{ container.cbm }}</td>
+                                    <td style="padding: 8px;">{{ container.pallet }}</td>
+                                    <td style="padding: 8px; display: flex; align-items: center; gap: 8px;">
+                                        <span style="padding: 4px 8px; border-radius: 4px; font-weight: 500; {% if container.validation.status == '错误' %}background: #f8d7da; color: #dc3545; border: 1px solid #dc3545;{% else %}background: #e8f5e8; color: #28a745; border: 1px solid #28a745;{% endif %}">
+                                            {% if container.validation.status == '正确' %}✓{% else %}✗{% endif %}
+                                        </span>
+                                        {% if container.validation.message %}
+                                        <span style="font-size: 10px; color: #666;">{{ container.validation.message }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td style="padding: 8px; font-size: 10px; word-break: break-all; max-width: 200px;">{{ container.validation.ids|join:', ' }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+    
+    <!-- 处理结果表格 -->
+    {% if results %}
+    <div class="card">
+        <h4 class="module-title">处理结果</h4>
+        <div class="table-responsive">
+            <table class="result-table">
+                <thead>
+                    <tr>
+                        <th>分组编号</th>
+                        <th>预约时间</th>
+                        <th>ISA</th>
+                        <th>pickup time</th>
+                        <th>PickUp number</th>
+                        <th>预约账号</th>
+                        <th>预约类型</th>
+                        <th>装车类型</th>
+                        <th>柜号数量</th>
+                        <th>状态</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for result in results %}
+                    <tr>
+                        <td>{{ result.group_index }}</td>
+                        <td>{{ result.appointment_time }}</td>
+                        <td>{{ result.isa }}</td>
+                        <td>{{ result.pickup_time|default:'-' }}</td>
+                        <td>{{ result.pickup_number|default:'-' }}</td>
+                        <td>{{ result.appointment_account }}</td>
+                        <td>{{ result.appointment_type }}</td>
+                        <td>{{ result.loading_type }}</td>
+                        <td>{{ result.container_count }}</td>
+                        <td>
+                            <span class="status-badge {% if result.status == '成功' %}status-success{% else %}status-error{% endif %}">
+                                {{ result.status }}
+                            </span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+{% if results %}
+<div class="card" style="margin-top: 20px;">
+    <div class="card-header" style="background: linear-gradient(135deg, #1976d2 0%, #2196f3 100%); color: white; font-weight: 600; padding: 12px 20px;">
+        预约结果
+    </div>
+    <div class="card-body" style="padding: 20px;">
+        <div class="table-responsive">
+            <table class="table table-hover" style="font-size: 12px;">
+                <thead style="background: linear-gradient(135deg, #f5f7fa 0%, #e5e6eb 100%);">
+                    <tr>
+                        <th style="background: transparent; border-bottom: 1px solid #dee2e6; padding: 8px; text-align: center;">分组</th>
+                        <th style="background: transparent; border-bottom: 1px solid #dee2e6; padding: 8px; text-align: center;">预约时间</th>
+                        <th style="background: transparent; border-bottom: 1px solid #dee2e6; padding: 8px; text-align: center;">ISA</th>
+                        <th style="background: transparent; border-bottom: 1px solid #dee2e6; padding: 8px; text-align: center;">pickup time</th>
+                        <th style="background: transparent; border-bottom: 1px solid #dee2e6; padding: 8px; text-align: center;">PickUp number</th>
+                        <th style="background: transparent; border-bottom: 1px solid #dee2e6; padding: 8px; text-align: center;">预约账号</th>
+                        <th style="background: transparent; border-bottom: 1px solid #dee2e6; padding: 8px; text-align: center;">预约类型</th>
+                        <th style="background: transparent; border-bottom: 1px solid #dee2e6; padding: 8px; text-align: center;">装车类型</th>
+                        <th style="background: transparent; border-bottom: 1px solid #dee2e6; padding: 8px; text-align: center;">柜子数量</th>
+                        <th style="background: transparent; border-bottom: 1px solid #dee2e6; padding: 8px; text-align: center;">批次号</th>
+                        <th style="background: transparent; border-bottom: 1px solid #dee2e6; padding: 8px; text-align: center;">状态</th>
+                        <th style="background: transparent; border-bottom: 1px solid #dee2e6; padding: 8px; text-align: center;">失败原因</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for result in results %}
+                    <tr>
+                        <td style="padding: 8px; text-align: center;">{{ result.group_index }}</td>
+                        <td style="padding: 8px; text-align: center;">{{ result.appointment_time }}</td>
+                        <td style="padding: 8px; text-align: center;">{{ result.isa }}</td>
+                        <td style="padding: 8px; text-align: center;">{{ result.pickup_time|default:'-' }}</td>
+                        <td style="padding: 8px; text-align: center;">{{ result.pickup_number|default:'-' }}</td>
+                        <td style="padding: 8px; text-align: center;">{{ result.appointment_account }}</td>
+                        <td style="padding: 8px; text-align: center;">{{ result.appointment_type }}</td>
+                        <td style="padding: 8px; text-align: center;">{{ result.loading_type }}</td>
+                        <td style="padding: 8px; text-align: center;">{{ result.container_count }}</td>
+                        <td style="padding: 8px; text-align: center;">{{ result.shipment_batch_number }}</td>
+                        <td style="padding: 8px; text-align: center;">
+                            <span style="padding: 4px 8px; border-radius: 4px; font-weight: 500; {% if result.status == '成功' %}background: #e8f5e8; color: #28a745; border: 1px solid #28a745;{% else %}background: #f8d7da; color: #dc3545; border: 1px solid #dc3545;{% endif %}">
+                                {{ result.status }}
+                            </span>
+                        </td>
+                        <td style="padding: 8px; text-align: center;">{{ result.message|default:'-' }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<script>
+    // 文件上传处理
+    const fileInput = document.getElementById('file-input');
+    const fileName = document.getElementById('file-name');
+    const clearFile = document.getElementById('clear-file');
+    
+    fileInput.addEventListener('change', function(e) {
+        if (e.target.files.length > 0) {
+            fileName.textContent = e.target.files[0].name;
+            fileName.classList.remove('file-placeholder');
+            fileName.classList.add('file-name');
+            clearFile.style.display = 'inline';
+        } else {
+            fileName.textContent = '未选择文件';
+            fileName.classList.remove('file-name');
+            fileName.classList.add('file-placeholder');
+            clearFile.style.display = 'none';
+        }
+    });
+    
+    clearFile.addEventListener('click', function() {
+        fileInput.value = '';
+        fileName.textContent = '未选择文件';
+        fileName.classList.remove('file-name');
+        fileName.classList.add('file-placeholder');
+        clearFile.style.display = 'none';
+    });
+</script>
+
+{% endblock %}

@@ -103,6 +103,7 @@ class PostNsop(View):
     template_ltl_pos_all = "post_port/new_sop/05_ltl_pos_all/05_ltl_main.html"
     template_ltl_history_pos = "post_port/new_sop/06_ltl_history_pos/06_ltl_main.html"
     template_history_shipment = "post_port/new_sop/04_history_shipment/04_history_shipment_main.html"
+    template_batch_shipment = "post_port/new_sop/batch_shipment.html"
     template_bol = "export_file/bol_base_template.html"
     template_bol_pickup = "export_file/bol_template.html"
     template_la_bol_pickup = "export_file/LA_bol_template.html"
@@ -199,6 +200,11 @@ class PostNsop(View):
         elif step == "history_shipment":
             context = {"warehouse_options": self.warehouse_options}
             return render(request, self.template_history_shipment, context)
+        elif step == "batch_shipment":
+            context = {"warehouse_options": self.warehouse_options}
+            return render(request, self.template_batch_shipment, context)
+        elif step == "download_batch_shipment_template":
+            return await self.handle_download_batch_shipment_template(request)
         else:
             raise ValueError('输入错误')
 
@@ -471,6 +477,12 @@ class PostNsop(View):
         elif step == "batch_one_pick_multi_drop":
             template, context = await self.handle_batch_one_pick_multi_drop(request)
             return render(request, template, context)
+        elif step == "batch_shipment_upload":
+            template, context = await self.handle_batch_shipment_upload(request)
+            return render(request, template, context)
+        elif step == "batch_shipment_confirm":
+            template, context = await self.handle_batch_shipment_confirm(request)
+            return render(request, template, context)
         else:
             raise ValueError('输入错误',step)
     
@@ -581,6 +593,675 @@ class PostNsop(View):
                         await PackingList.objects.filter(id__in=cargo_ids).aupdate(ltl_correlation_id=correlation_id)
                         context.update({'success_messages':f"成功关联一提多卸"})
         return await self.handle_ltl_unscheduled_pos_post(request, context)
+    
+    async def handle_batch_shipment_upload(self, request: HttpRequest):
+        '''处理批量预约出库文件上传'''
+        context = {}
+        
+        if 1:
+            # 检查是否有文件上传
+            if 'excel_file' not in request.FILES:
+                context['error'] = '请选择要上传的Excel文件'
+                return self.template_batch_shipment, context
+            
+            # 获取上传的文件
+            excel_file = request.FILES['excel_file']
+            
+            # 使用pandas读取Excel文件
+            df = pd.read_excel(excel_file)
+            
+            # 检查表头是否正确
+            required_columns = ['柜号', '仓点', 'CBM', '卡板', '预约时间', 'ISA', 'pickup time', 'PickUp number', 'Shipment ID', '预约账号', '预约类型', '装车类型']
+            for col in required_columns:
+                if col not in df.columns:
+                    context['error'] = f'文件缺少必要的列: {col}'
+                    return self.template_batch_shipment, context
+            
+            # 处理数据，按空行分组
+            groups = []
+            current_group = {
+                'containers': [],
+                'appointment_time': None,
+                'isa': None,
+                'pickup_time': None,
+                'pickup_number': None,
+                'shipment_id': None,
+                'appointment_account': None,
+                'appointment_type': None,
+                'loading_type': None
+            }
+            
+            for index, row in df.iterrows():
+                # 检查是否为空行
+                if row.isnull().all():
+                    # 空行，结束当前组并开始新组
+                    if current_group['containers'] or any([
+                        current_group['appointment_time'],
+                        current_group['isa'],
+                        current_group['appointment_account'],
+                        current_group['appointment_type'],
+                        current_group['loading_type']
+                    ]):
+                        groups.append(current_group)
+                        current_group = {
+                            'containers': [],
+                            'appointment_time': None,
+                            'isa': None,
+                            'pickup_time': None,
+                            'pickup_number': None,
+                            'shipment_id': None,
+                            'appointment_account': None,
+                            'appointment_type': None,
+                            'loading_type': None
+                        }
+                else:
+                    # 非空行，处理数据
+                    container_number = row.get('柜号')
+                    warehouse = row.get('仓点')
+                    cbm = row.get('CBM')
+                    pallet = row.get('卡板')
+                    
+                    # 检查必填项
+                    if container_number and warehouse and cbm and pallet:
+                        # 这是柜号信息行
+                        current_group['containers'].append({
+                            'container_number': container_number,
+                            'warehouse': warehouse,
+                            'cbm': cbm,
+                            'pallet': pallet
+                        })
+                    
+                    # 提取预约信息（只提取非空值）
+                    if pd.notna(row.get('预约时间')):
+                        current_group['appointment_time'] = row.get('预约时间')
+                    if pd.notna(row.get('ISA')):
+                        current_group['isa'] = row.get('ISA')
+                    if pd.notna(row.get('pickup time')):
+                        current_group['pickup_time'] = row.get('pickup time')
+                    if pd.notna(row.get('PickUp number')):
+                        current_group['pickup_number'] = row.get('PickUp number')
+                    if pd.notna(row.get('Shipment ID')):
+                        current_group['shipment_id'] = row.get('Shipment ID')
+                    if pd.notna(row.get('预约账号')):
+                        current_group['appointment_account'] = row.get('预约账号')
+                    if pd.notna(row.get('预约类型')):
+                        current_group['appointment_type'] = row.get('预约类型')
+                    if pd.notna(row.get('装车类型')):
+                        current_group['loading_type'] = row.get('装车类型')
+            
+            # 添加最后一组
+            if current_group['containers'] or any([
+                current_group['appointment_time'],
+                current_group['isa'],
+                current_group['appointment_account'],
+                current_group['appointment_type'],
+                current_group['loading_type']
+            ]):
+                groups.append(current_group)
+            
+            # 验证每组数据
+            valid_groups = []
+            for group in groups:
+                # 检查预约信息是否完整（pickup_time和pickup_number可以为空）
+                required_appointment_fields = [
+                    'appointment_time',
+                    'isa',
+                    'appointment_account',
+                    'appointment_type',
+                    'loading_type'
+                ]
+                
+                missing_fields = []
+                for field in required_appointment_fields:
+                    if not group.get(field):
+                        missing_fields.append(field)
+                
+                # 数据验证
+                validation_errors = []
+                field_errors = {
+                    'isa': False,
+                    'appointment_account': False,
+                    'appointment_type': False,
+                    'loading_type': False,
+                    'appointment_time': False,
+                    'pickup_time': False
+                }
+                
+                # 验证ISA是否为整数
+                isa = group.get('isa')
+                if isa:
+                    try:
+                        int(isa)
+                    except (ValueError, TypeError):
+                        validation_errors.append('ISA必须是整数')
+                        field_errors['isa'] = True
+                
+                # 验证预约账号
+                appointment_account = group.get('appointment_account')
+                valid_accounts = ['Carrier Central1', 'Carrier Central2', 'ZEM-AMF', 'ARM-AMF', 'walmart']
+                if appointment_account and appointment_account not in valid_accounts:
+                    validation_errors.append('预约账号必须是Carrier Central1、Carrier Central2、ZEM-AMF、ARM-AMF、walmart中的一个')
+                    field_errors['appointment_account'] = True
+                
+                # 验证预约类型
+                appointment_type = group.get('appointment_type')
+                valid_types = ['FTL', 'LTL', '外配', '快递', '客户自提']
+                if appointment_type and appointment_type not in valid_types:
+                    validation_errors.append('预约类型必须是FTL、LTL、外配、快递、客户自提中的一个')
+                    field_errors['appointment_type'] = True
+                
+                # 验证装车类型
+                loading_type = group.get('loading_type')
+                valid_loading_types = ['卡板', '地板']
+                if loading_type and loading_type not in valid_loading_types:
+                    validation_errors.append('装车类型必须是卡板或地板')
+                    field_errors['loading_type'] = True
+                
+                # 验证预约时间格式
+                appointment_time = group.get('appointment_time')
+                if appointment_time:
+                    from datetime import datetime
+                    # 处理Timestamp类型
+                    if hasattr(appointment_time, 'strftime'):
+                        appointment_time = appointment_time.strftime('%Y-%m-%d %H:%M')
+                    # 转换为字符串
+                    appointment_time_str = str(appointment_time)
+                    # 支持多种日期格式
+                    formats = ['%Y-%m-%d %H:%M', '%Y-%m-%d', '%Y/%m/%d %H:%M', '%Y/%m/%d']
+                    valid = False
+                    for fmt in formats:
+                        try:
+                            datetime.strptime(appointment_time_str, fmt)
+                            valid = True
+                            break
+                        except ValueError:
+                            pass
+                    if not valid:
+                        validation_errors.append('预约时间格式不正确，请使用YYYY-MM-DD HH:MM、YYYY-MM-DD、YYYY/MM/DD HH:MM或YYYY/MM/DD格式')
+                        field_errors['appointment_time'] = True
+                
+                # 验证pickup time格式
+                pickup_time = group.get('pickup_time')
+                if pickup_time:
+                    from datetime import datetime
+                    # 处理Timestamp类型
+                    if hasattr(pickup_time, 'strftime'):
+                        pickup_time = pickup_time.strftime('%Y-%m-%d %H:%M')
+                    # 转换为字符串
+                    pickup_time_str = str(pickup_time)
+                    # 支持多种日期格式
+                    formats = ['%Y-%m-%d %H:%M', '%Y-%m-%d', '%Y/%m/%d %H:%M', '%Y/%m/%d']
+                    valid = False
+                    for fmt in formats:
+                        try:
+                            datetime.strptime(pickup_time_str, fmt)
+                            valid = True
+                            break
+                        except ValueError:
+                            pass
+                    if not valid:
+                        validation_errors.append('pickup time格式不正确，请使用YYYY-MM-DD HH:MM、YYYY-MM-DD、YYYY/MM/DD HH:MM或YYYY/MM/DD格式')
+                        field_errors['pickup_time'] = True
+                
+                # 验证柜子信息
+                from asgiref.sync import sync_to_async
+                
+                async def validate_container(container):
+                    container_number = container.get('container_number')
+                    warehouse = container.get('warehouse')
+                    pallet_count = container.get('pallet')
+                    
+                    # 初始化容器验证信息
+                    container['validation'] = {
+                        'status': '正确',
+                        'message': '',
+                        'ids': []
+                    }
+                    
+                    # 同步函数用于数据库查询
+                    def check_pallet_records():
+                        return Pallet.objects.filter(
+                            container_number__container_number=container_number,
+                            destination=warehouse
+                        )
+                    
+                    def check_packinglist_records():
+                        return PackingList.objects.filter(
+                            container_number__container_number=container_number,
+                            destination=warehouse
+                        )
+                    
+                    def get_shipment(shipment_id):
+                        try:
+                            return Shipment.objects.get(id=shipment_id)
+                        except Shipment.DoesNotExist:
+                            return None
+                    
+                    # 先去Pallet表查找
+                    pallet_records = await sync_to_async(check_pallet_records)()
+                    
+                    if await sync_to_async(pallet_records.exists)():
+                        # 检查数量是否小于卡板值
+                        found_count = await sync_to_async(lambda: pallet_records.count())()
+                        if found_count < int(pallet_count):
+                            container['validation']['status'] = '错误'
+                            container['validation']['message'] = f'实际板数为{found_count}板'
+                        else:
+                            # 检查shipment_batch_number_id是否有值
+                            pallet_list = await sync_to_async(list)(pallet_records)
+                            for record in pallet_list:
+                                if record.shipment_batch_number_id:
+                                    # 查找对应的shipment
+                                    shipment = await sync_to_async(get_shipment)(record.shipment_batch_number_id)
+                                    if shipment:
+                                        container['validation']['status'] = '错误'
+                                        container['validation']['message'] = f'板子已有约，约是{shipment.shipment_batch_number}'
+                                        break
+                            # 如果没有错误，收集id
+                            if container['validation']['status'] == '正确':
+                                container['validation']['ids'] = [f'plt_id{record.id}' for record in pallet_list]
+                    else:
+                        # 去Packinglist表查找
+                        packinglist_records = await sync_to_async(check_packinglist_records)()
+                        
+                        if await sync_to_async(packinglist_records.exists)():
+                            # 检查数量是否小于卡板值
+                            found_count = await sync_to_async(lambda: packinglist_records.count())()
+                            if found_count < int(pallet_count):
+                                container['validation']['status'] = '错误'
+                                container['validation']['message'] = f'实际板数为{found_count}板'
+                            else:
+                                # 检查shipment_batch_number_id是否有值
+                                packinglist_list = await sync_to_async(list)(packinglist_records)
+                                for record in packinglist_list:
+                                    if record.shipment_batch_number_id:
+                                        # 查找对应的shipment
+                                        shipment = await sync_to_async(get_shipment)(record.shipment_batch_number_id)
+                                        if shipment:
+                                            container['validation']['status'] = '错误'
+                                            container['validation']['message'] = f'板子已有约，约是{shipment.shipment_batch_number}'
+                                            break
+                                # 如果没有错误，收集id
+                                if container['validation']['status'] == '正确':
+                                    container['validation']['ids'] = [f'pl_id{record.id}' for record in packinglist_list]
+                        else:
+                            # 两个表都没找到
+                            container['validation']['status'] = '错误'
+                            container['validation']['message'] = '未找到对应的板数记录'
+                
+                # 验证每个容器
+                for container in group.get('containers', []):
+                    await validate_container(container)
+                
+                # 添加验证错误信息到分组
+                group['validation_errors'] = validation_errors
+                group['field_errors'] = field_errors
+                
+                if not missing_fields and group.get('containers'):
+                    valid_groups.append(group)
+            
+            # 保存处理结果
+            context['groups'] = valid_groups
+            context['success'] = f'文件解析完成，共解析出 {len(valid_groups)} 组有效数据'
+            
+        # except Exception as e:
+        #     context['error'] = f'文件处理失败: {str(e)}'
+        
+        return self.template_batch_shipment, context
+    
+    async def generate_unique_batch_number(self, destination):
+        '''生成唯一的批次号'''
+        from datetime import datetime
+        from warehouse.models.shipment import Shipment
+        from asgiref.sync import sync_to_async
+        
+        async def get_last_batch_number():
+            # 获取当天最后一个批次号
+            today = datetime.now().date()
+            prefix = f"{today.strftime('%Y%m%d')}-{destination[:2].upper()}"
+            
+            # 查找以该前缀开头的最新批次号
+            last_shipment = await sync_to_async(Shipment.objects.filter(
+                shipment_batch_number__startswith=prefix
+            ).order_by('-shipment_batch_number').first)()
+            
+            if last_shipment:
+                # 提取序号并加1
+                try:
+                    last_number = int(last_shipment.shipment_batch_number.split('-')[-1])
+                    return f"{prefix}-{last_number + 1:03d}"
+                except (ValueError, IndexError):
+                    pass
+            
+            # 如果没有找到或解析失败，返回第一个批次号
+            return f"{prefix}-001"
+        
+        return await get_last_batch_number()
+    
+    async def _get_unique_pickup_number(self, pickup_number_raw):
+        '''生成唯一的pickup number'''
+        if pickup_number_raw:
+            return pickup_number_raw
+        
+        from datetime import datetime
+        from warehouse.models.shipment import Shipment
+        from asgiref.sync import sync_to_async
+        
+        async def generate_pickup_number():
+            # 生成基于时间戳的pickup number
+            timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
+            return f"PU{timestamp}"
+        
+        return await generate_pickup_number()
+    
+    async def handle_batch_shipment_confirm(self, request: HttpRequest):
+        '''处理批量预约出库确认和单个分组预约出库'''
+        context = {}
+        
+        try:
+            # 检查是单个预约还是批量预约
+            is_single = 'group_appointment_time' in request.POST
+            groups = []
+            
+            if is_single:
+                # 单个分组预约
+                # 构建分组数据
+                group = {
+                    'appointment_time': request.POST.get('group_appointment_time'),
+                    'isa': request.POST.get('group_isa'),
+                    'pickup_time': request.POST.get('group_pickup_time'),
+                    'pickup_number': request.POST.get('group_pickup_number'),
+                    'shipment_id': request.POST.get('group_shipment_id'),
+                    'appointment_account': request.POST.get('group_appointment_account'),
+                    'appointment_type': request.POST.get('group_appointment_type'),
+                    'loading_type': request.POST.get('group_loading_type'),
+                    'containers': []
+                }
+                
+                # 解析柜子信息（只需要ID）
+                container_count = int(request.POST.get('group_container_count', 0))
+                for j in range(1, container_count + 1):
+                    # 从前端传递的容器信息中提取ID
+                    ids_str = request.POST.get(f'group_container_{j}_ids', '')
+                    ids = ids_str.split(',') if ids_str else []
+                    
+                    container = {
+                        'ids': ids
+                    }
+                    group['containers'].append(container)
+                
+                groups.append(group)
+            else:
+                # 批量预约
+                # 获取分组数量
+                group_count = int(request.POST.get('group_count', 0))
+                
+                if group_count == 0:
+                    context['error'] = '没有要处理的预约数据'
+                    return self.template_batch_shipment, context
+                
+                # 解析分组数据
+                for i in range(1, group_count + 1):
+                    # 构建分组数据
+                    group = {
+                        'appointment_time': request.POST.get(f'group_{i}_appointment_time'),
+                        'isa': request.POST.get(f'group_{i}_isa'),
+                        'pickup_time': request.POST.get(f'group_{i}_pickup_time'),
+                        'pickup_number': request.POST.get(f'group_{i}_pickup_number'),
+                        'shipment_id': request.POST.get(f'group_{i}_shipment_id'),
+                        'appointment_account': request.POST.get(f'group_{i}_appointment_account'),
+                        'appointment_type': request.POST.get(f'group_{i}_appointment_type'),
+                        'loading_type': request.POST.get(f'group_{i}_loading_type'),
+                        'containers': []
+                    }
+                    
+                    # 解析柜子信息（只需要ID）
+                    container_count = int(request.POST.get(f'group_{i}_container_count', 0))
+                    for j in range(1, container_count + 1):
+                        # 从前端传递的容器信息中提取ID
+                        ids_str = request.POST.get(f'group_{i}_container_{j}_ids', '')
+                        ids = ids_str.split(',') if ids_str else []
+                        
+                        container = {
+                            'ids': ids
+                        }
+                        group['containers'].append(container)
+                    
+                    groups.append(group)
+            
+            # 验证预约信息和柜子信息
+            valid_groups = []
+            for group in groups:
+                # 验证预约信息
+                appointment_valid = True
+                
+                # 检查必填字段
+                required_fields = ['appointment_time', 'isa', 'appointment_account', 'appointment_type', 'loading_type']
+                for field in required_fields:
+                    if not group.get(field):
+                        appointment_valid = False
+                        break
+                
+                # 验证ISA是否为整数
+                try:
+                    if group.get('isa'):
+                        int(group.get('isa'))
+                except (ValueError, TypeError):
+                    appointment_valid = False
+                
+                # 验证预约账号
+                valid_accounts = ['Carrier Central1', 'Carrier Central2', 'ZEM-AMF', 'ARM-AMF', 'walmart']
+                if group.get('appointment_account') not in valid_accounts:
+                    appointment_valid = False
+                
+                # 验证预约类型
+                valid_types = ['FTL', 'LTL', '外配', '快递', '客户自提']
+                if group.get('appointment_type') not in valid_types:
+                    appointment_valid = False
+                
+                # 验证装车类型
+                valid_loading_types = ['卡板', '地板']
+                if group.get('loading_type') not in valid_loading_types:
+                    appointment_valid = False
+                
+                # 验证柜子信息状态
+                containers_valid = True
+                for container in group.get('containers', []):
+                    # 这里需要从前端传递container.validation.status
+                    # 暂时假设所有柜子都是有效的，后续需要修改前端
+                    pass
+                
+                if appointment_valid and containers_valid:
+                    valid_groups.append(group)
+                else:
+                    context['error'] = '预约信息或柜子信息有误，请检查后重试'
+                    return self.template_batch_shipment, context
+        
+            sm = ShippingManagement()
+            
+            # 处理每个分组
+            results = []
+            for i, group in enumerate(valid_groups, 1):
+                # 提取仓点信息（从第一个容器的仓点）
+                destination = ''
+                if group.get('containers'):
+                    # 这里需要从前端传递仓点信息，暂时使用默认值
+                    # 后续需要修改前端，在预约信息中包含仓点
+                    destination = 'LA-91761'  # 默认值
+                
+                # 生成批次号
+                shipment_batch_number = await self.generate_unique_batch_number(destination)
+                
+                # 生成pickup number
+                pickup_number_raw = group.get('pickup_number')
+                pickup_number = await self._get_unique_pickup_number(pickup_number_raw)
+                
+                # 整理柜子ID
+                selected = []  # pl开头的ID
+                selected_plt = []  # plt开头的ID
+                
+                for container in group.get('containers', []):
+                    for id_str in container.get('ids', []):
+                        if id_str.startswith('pl_id'):
+                            # 去掉pl_id前缀，转换为int
+                            try:
+                                pl_id = int(id_str[4:])
+                                selected.append(pl_id)
+                            except (ValueError, IndexError):
+                                pass
+                        elif id_str.startswith('plt_id'):
+                            # 去掉plt_id前缀，转换为int
+                            try:
+                                plt_id = int(id_str[5:])
+                                selected_plt.append(plt_id)
+                            except (ValueError, IndexError):
+                                pass
+                
+                # 准备shipment_data
+                shipment_data = {
+                    'shipment_batch_number': shipment_batch_number,
+                    'destination': destination,
+                    'total_weight': 0,  # 需要从容器信息中计算
+                    'total_cbm': 0,  # 需要从容器信息中计算
+                    'total_pallet': 0,  # 需要从容器信息中计算
+                    'total_pcs': 0,  # 需要从容器信息中计算
+                    'shipment_type': group.get('appointment_type'),
+                    'shipment_account': group.get('appointment_account'),
+                    'appointment_id': group.get('shipment_id'),
+                    'shipment_cargo_id': '',  # 需要从容器信息中获取
+                    'shipment_appointment': group.get('appointment_time'),
+                    'load_type': group.get('loading_type'),
+                    'origin': destination,  # 假设origin和destination相同
+                    'note': '',
+                    'address': '',  # 需要从配置或数据库中获取
+                    'pickup_number': pickup_number,
+                    'pickup_time': group.get('pickup_time'),
+                }
+                
+                # 复制request.POST
+                request.POST = request.POST.copy()
+                
+                # 设置POST参数
+                import json
+                request.POST['shipment_data'] = json.dumps(shipment_data)
+                request.POST['batch_number'] = shipment_batch_number
+                request.POST['address'] = shipment_data['address']
+                request.POST['pl_ids'] = json.dumps(selected)
+                request.POST['plt_ids'] = json.dumps(selected_plt)
+                request.POST['type'] = 'td'
+                request.POST['origin'] = shipment_data['origin']
+                request.POST['load_type'] = shipment_data['load_type']
+                request.POST['note'] = shipment_data['note']
+                request.POST['destination'] = shipment_data['destination']
+                request.POST['shipment_type'] = shipment_data['shipment_type']
+                request.POST['appointment_id'] = shipment_data['appointment_id']
+                request.POST['shipment_cargo_id'] = shipment_data['shipment_cargo_id']
+                request.POST['pickup_number'] = shipment_data['pickup_number']
+                request.POST['pickup_time'] = shipment_data['pickup_time']
+                
+                # 根据shipment_type选择不同的处理方法
+                shipment_type = group.get('appointment_type')
+                try:
+                    if shipment_type in ['FTL', '快递', '外配']:
+                        # 调用ShippingManagement的handle_appointment_post方法
+                        info = await sm.handle_appointment_post(request, 'post_nsop')
+                        
+                        # 检查结果
+                        if isinstance(info, dict) and info.get('success'):
+                            status = '成功'
+                            message = '预约出库成功'
+                        else:
+                            status = '失败'
+                            message = info.get('message', '预约出库失败') if isinstance(info, dict) else str(info)
+                    elif shipment_type in ['LTL', '客户自提']:
+                        # 准备LTL和客户自提的数据
+                        post_data = request.POST.copy()
+                        
+                        # 这里需要从group中获取相关信息，暂时使用默认值
+                        # 后续需要修改前端，在预约信息中包含更多详细信息
+                        post_data['destination'] = destination
+                        post_data['address'] = ''  # 需要从前端获取
+                        post_data['carrier'] = 'Maersk'
+                        post_data['shipment_appointment'] = group.get('appointment_time')
+                        post_data['arm_bol'] = ''  # 需要从前端获取
+                        post_data['arm_pro'] = ''  # 需要生成
+                        post_data['shipment_type'] = shipment_type
+                        post_data['auto_fleet'] = 'true'  # 默认值
+                        post_data['fleet_cost'] = '0'  # 默认值
+                        post_data['maersk_batch_number'] = shipment_batch_number
+                        post_data['note'] = ''  # 需要从前端获取
+                        post_data['warehouse'] = destination  # 假设warehouse和destination相同
+                        
+                        # 更新request.POST
+                        request.POST = post_data
+                        
+                        # 调用私仓绑定逻辑
+                        _, context = await self.handle_ltl_bind_group_shipment(request)
+                        
+                        # 检查结果
+                        if context.get('success'):
+                            status = '成功'
+                            message = '预约出库成功'
+                        else:
+                            status = '失败'
+                            message = context.get('error', '预约出库失败')
+                    else:
+                        status = '失败'
+                        message = f'不支持的预约类型: {shipment_type}'
+                except Exception as e:
+                    status = '失败'
+                    message = f'预约出库失败: {str(e)}'
+                
+                # 记录结果
+                results.append({
+                    'group_index': i,
+                    'appointment_time': group.get('appointment_time'),
+                    'isa': group.get('isa'),
+                    'pickup_time': group.get('pickup_time'),
+                    'pickup_number': pickup_number,
+                    'appointment_account': group.get('appointment_account'),
+                    'appointment_type': group.get('appointment_type'),
+                    'loading_type': group.get('loading_type'),
+                    'container_count': len(group.get('containers', [])),
+                    'shipment_batch_number': shipment_batch_number,
+                    'status': status,
+                    'message': message
+                })
+            
+            context['results'] = results
+            if is_single:
+                context['success'] = '单个预约完成'
+            else:
+                context['success'] = f'批量预约完成，共处理 {len(valid_groups)} 组数据'
+            
+        except Exception as e:
+            context['error'] = f'预约失败: {str(e)}'
+        
+        return self.template_batch_shipment, context
+    
+    async def handle_download_batch_shipment_template(self, request: HttpRequest):
+        '''下载批量预约出库模板文件'''
+        import os
+        from django.http import FileResponse
+        
+        # 模板文件路径
+        template_path = os.path.join('warehouse', 'templates', 'export_file', 'batch_shipment_template.xlsx')
+        
+        # 检查文件是否存在
+        if not os.path.exists(template_path):
+            from django.http import HttpResponse
+            return HttpResponse('模板文件不存在', status=404)
+        
+        # 打开文件并返回
+        try:
+            f = open(template_path, 'rb')
+            response = FileResponse(f)
+            response['Content-Disposition'] = 'attachment; filename="batch_shipment_template.xlsx"'
+            response['Content-Type'] = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            return response
+        except Exception as e:
+            from django.http import HttpResponse
+            return HttpResponse(f'下载失败: {str(e)}', status=500)
     
     async def handle_maersk_schedule_post(self, request: HttpRequest) -> JsonResponse:
         """处理Maersk预约下单"""

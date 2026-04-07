@@ -153,7 +153,7 @@ class ShippingManagement(View):
         if not await self._user_authenticate(request):
             return redirect("login")
         step = request.POST.get("step")
-        print('step',step)
+        print('POST step',step)
         if step == "warehouse":
             template, context = await self.handle_warehouse_post(request)
             return render(request, template, context)
@@ -999,6 +999,7 @@ class ShippingManagement(View):
     async def handle_warehouse_post(
         self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
+        '''旧版预约出库的预约管理页面初始化'''
         if request.POST.get("area"):
             area = request.POST.get("area")
         elif request.POST.get("warehouse"):
