@@ -96,6 +96,8 @@ class PostportDash(View):
     async def handle_summary_warehouse_post(
         self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
+        '''报表汇总的查询'''
+
         area = request.POST.get("area")
         start_date = request.POST.get("start_date")
         end_date = request.POST.get("end_date")
@@ -145,6 +147,11 @@ class PostportDash(View):
             if not end_date
             else end_date
         )
+        pickup_number = (
+            request.POST.get("pickup_number").strip()
+            if request.POST.get("pickup_number")
+            else None
+        )
         criteria = models.Q(
             (
                 models.Q(container_number__orders__order_type="转运")
@@ -163,6 +170,7 @@ class PostportDash(View):
             or shipping_marks
             or fba_ids
             or ref_ids
+            or pickup_number
         ):
             if shipment_batch_number:
                 criteria &= models.Q(
@@ -218,6 +226,11 @@ class PostportDash(View):
                     ref_id__contains=ref_ids,
                     container_number__orders__offload_id__offload_at__isnull=False,
                 )
+            elif pickup_number:
+                criteria &= models.Q(
+                    shipment_batch_number__pickup_number=pickup_number
+                )
+
             if not destination and not shipping_marks and not fba_ids and not ref_ids and not act_destination:
                 pl_criteria = criteria & models.Q(
                     container_number__orders__offload_id__offload_at__isnull=True,
@@ -279,6 +292,8 @@ class PostportDash(View):
             context["act_destination"] = act_destination
         if appointment_id:
             context["appointment_id"] = appointment_id
+        if pickup_number:
+            context["pickup_number"] = pickup_number
         return self.template_main_dash, context
 
     async def handle_export_report_post(self, request: HttpRequest) -> HttpResponse:
