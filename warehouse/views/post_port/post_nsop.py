@@ -1363,17 +1363,17 @@ class PostNsop(View):
                 # 验证预约账号
                 valid_accounts = ['Carrier Central1', 'Carrier Central2', 'ZEM-AMF', 'ARM-AMF', 'walmart']
                 if group.get('appointment_account') not in valid_accounts:
-                    errors.append(f'预约账号必须是以下之一: {', '.join(valid_accounts)}')
+                    errors.append(f"预约账号必须是以下之一: {', '.join(valid_accounts)}")
                 
                 # 验证预约类型
                 valid_types = ['FTL', 'LTL', '外配', '快递', '客户自提']
                 if group.get('appointment_type') not in valid_types:
-                    errors.append(f'预约类型必须是以下之一: {', '.join(valid_types)}')
+                    errors.append(f"预约类型必须是以下之一: {', '.join(valid_types)}")
                 
                 # 验证装车类型
                 valid_loading_types = ['卡板', '地板']
                 if group.get('load_type') not in valid_loading_types:
-                    errors.append(f'装车类型必须是以下之一: {', '.join(valid_loading_types)}')
+                    errors.append(f"装车类型必须是以下之一: {', '.join(valid_loading_types)}")
                 
                 # 验证发货仓库
                 valid_origins = ['NJ-07001', 'SAV-31326', 'LA-91761']
@@ -1381,7 +1381,7 @@ class PostNsop(View):
                 if not origin:
                     errors.append('发货仓库不能为空')
                 elif origin not in valid_origins:
-                    errors.append(f'发货仓库必须是以下之一: {', '.join(valid_origins)}')
+                    errors.append(f"发货仓库必须是以下之一: {', '.join(valid_origins)}")
                 
                 # 验证柜子信息
                 if not group.get('containers') or len(group.get('containers', [])) == 0:
