@@ -1967,7 +1967,7 @@ class FleetManagement(View):
                 # 下面是新车分摊
                 # 高精度 Decimal 计算
                 total_pallets_decimal = Decimal(str(total_pallets_in_fleet))
-                fleet_cost = Decimal(str(fleet_cost)) if fleet_cost not in (None, '') else Decimal('0.0000')
+                fleet_cost = Decimal(str(fleet_cost_back)) if fleet_cost_back not in (None, '') else Decimal('0.0000')
 
                 cost_per_pallet = (fleet_cost / total_pallets_decimal).quantize(
                     Decimal("0.0000"), rounding=ROUND_HALF_UP
