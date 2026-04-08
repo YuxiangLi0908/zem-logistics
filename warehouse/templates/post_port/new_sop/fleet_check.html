@@ -1,0 +1,324 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<style>
+    /* 表头样式 */
+    .table-header {
+        background-color: #165DFF !important;
+        color: white !important;
+    }
+    
+    .table-header th {
+        font-weight: 700 !important;
+    }
+    
+    /* 搜索行样式 */
+    .search-row {
+        background-color: #F5F7FA !important;
+    }
+</style>
+<div class="container-fluid" style="padding-left: 10%; padding-right: 10%; padding-top: 20px; padding-bottom: 20px;">
+    <!-- 标题区域 -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 style="font-size: 24px; font-weight: 700; color: #0F4C81; margin: 0; text-align: center; flex: 1;">车次组长核对</h2>
+        <!-- 操作栏 -->
+        <div class="d-flex gap-2">
+            <div class="input-group input-group-sm" style="width: 200px;">
+                <input type="text" class="form-control" placeholder="全局搜索" id="global-search">
+                <button class="btn btn-outline-secondary" type="button">
+                    <i class="bi bi-search"></i>
+                </button>
+            </div>
+            <button class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-filter"></i> 筛选
+            </button>
+            <button class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-download"></i> 导出
+            </button>
+        </div>
+    </div>
+    <!-- 分割线 -->
+    <div style="height: 1px; background-color: #E5E7EB; margin-bottom: 20px;"></div>
+    
+    {% if messages %}
+    <div class="alert alert-success mb-4">
+        {% for message in messages %}
+        {{ message }}
+        {% endfor %}
+    </div>
+    {% endif %}
+    
+    {% if fleets %}
+    <div class="table-responsive" style="width: 100%; overflow-x: auto; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+        <table class="table table-bordered" id="fleetTable" style="width: 100%; min-width: 750px; border-collapse: separate; border-spacing: 0;">
+            <thead>
+                <tr class="table-header">
+                    <th style="min-width: 200px; vertical-align: middle; border-top-left-radius: 8px;">车次号</th>
+                    <th style="min-width: 150px; vertical-align: middle;">预约时间</th>
+                    <th style="min-width: 150px; vertical-align: middle;">预约批次号</th>
+                    <th style="min-width: 100px; vertical-align: middle;">ISA</th>
+                    <th style="min-width: 120px; vertical-align: middle;">柜号</th>
+                    <th style="min-width: 120px; vertical-align: middle; border-top-right-radius: 8px;">目的地</th>
+                </tr>
+                <!-- 搜索行 -->
+                <tr class="search-row">
+                    <th style="border: none; border-bottom: 1px solid #E5E7EB;"><input type="text" class="form-control form-control-sm" placeholder="搜索车次号" id="search-fleet"></th>
+                    <th style="border: none; border-bottom: 1px solid #E5E7EB;"><input type="text" class="form-control form-control-sm" placeholder="搜索预约时间" id="search-time"></th>
+                    <th style="border: none; border-bottom: 1px solid #E5E7EB;"><input type="text" class="form-control form-control-sm" placeholder="搜索批次号" id="search-batch"></th>
+                    <th style="border: none; border-bottom: 1px solid #E5E7EB;"><input type="text" class="form-control form-control-sm" placeholder="搜索ISA" id="search-isa"></th>
+                    <th style="border: none; border-bottom: 1px solid #E5E7EB;"><input type="text" class="form-control form-control-sm" placeholder="搜索柜号" id="search-container"></th>
+                    <th style="border: none; border-bottom: 1px solid #E5E7EB;"><input type="text" class="form-control form-control-sm" placeholder="搜索目的地" id="search-destination"></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for fleet in fleets %}
+                    {% for shipment in fleet.shipments %}
+                        {% for plt in shipment.pallets %}
+                        <tr data-fleet="{{ fleet.fleet_number }}" data-shipment="{{ shipment.shipment_batch_number }}" style="height: 48px;">
+                            <td class="fleet-number" style="vertical-align: middle; border: none; border-bottom: 1px solid #E5E7EB;">{{ fleet.fleet_number }}</td>
+                            <td class="appointment-time" style="vertical-align: middle; border: none; border-bottom: 1px solid #E5E7EB;">{{ fleet.appointment_datetime|date:"Y/m/d h:i a" }}</td>
+                            <td class="shipment-batch" style="vertical-align: middle; border: none; border-bottom: 1px solid #E5E7EB;">{{ shipment.shipment_batch_number }}</td>
+                            <td class="isa" style="vertical-align: middle; border: none; border-bottom: 1px solid #E5E7EB;">{{ shipment.appointment_id }}</td>
+                            <td style="vertical-align: middle; border: none; border-bottom: 1px solid #E5E7EB;">{{ plt.container_number }}</td>
+                            <td style="vertical-align: middle; border: none; border-bottom: 1px solid #E5E7EB;">{{ plt.destination }}</td>
+                        </tr>
+                        {% endfor %}
+                    {% endfor %}
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="alert alert-info">
+        没有需要核对的车次
+    </div>
+    {% endif %}
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const table = document.getElementById('fleetTable');
+        if (!table) return;
+        
+        const tbody = table.querySelector('tbody');
+        const rows = tbody.querySelectorAll('tr');
+        
+        // 应用斑马纹样式
+        rows.forEach((row, index) => {
+            if (index % 2 === 0) {
+                row.style.backgroundColor = '#FFFFFF';
+            } else {
+                row.style.backgroundColor = '#F5F7FA';
+            }
+        });
+        
+        // 合并车次号和预约时间
+        let currentFleet = null;
+        let fleetRowSpan = 0;
+        let fleetStartRow = null;
+        
+        // 合并预约批次号和ISA
+        let currentShipment = null;
+        let shipmentRowSpan = 0;
+        let shipmentStartRow = null;
+        
+        // 记录每个车次的最后一行
+        const fleetLastRows = {};
+        
+        rows.forEach((row, index) => {
+            const fleet = row.dataset.fleet;
+            const shipment = row.dataset.shipment;
+            
+            // 处理车次合并
+            if (fleet !== currentFleet) {
+                // 完成上一个车次的合并
+                if (currentFleet && fleetStartRow) {
+                    const fleetCells = fleetStartRow.querySelectorAll('.fleet-number, .appointment-time');
+                    fleetCells.forEach(cell => {
+                        cell.rowSpan = fleetRowSpan;
+                    });
+                }
+                
+                // 开始新的车次
+                currentFleet = fleet;
+                fleetRowSpan = 1;
+                fleetStartRow = row;
+                fleetLastRows[fleet] = row;
+            } else {
+                fleetRowSpan++;
+                fleetLastRows[fleet] = row;
+                
+                // 隐藏当前行的车次号和预约时间
+                const fleetCells = row.querySelectorAll('.fleet-number, .appointment-time');
+                fleetCells.forEach(cell => {
+                    cell.style.display = 'none';
+                });
+            }
+            
+            // 处理shipment合并
+            if (shipment !== currentShipment) {
+                // 完成上一个shipment的合并
+                if (currentShipment && shipmentStartRow) {
+                    const shipmentCells = shipmentStartRow.querySelectorAll('.shipment-batch, .isa');
+                    shipmentCells.forEach(cell => {
+                        cell.rowSpan = shipmentRowSpan;
+                    });
+                }
+                
+                // 开始新的shipment
+                currentShipment = shipment;
+                shipmentRowSpan = 1;
+                shipmentStartRow = row;
+            } else {
+                shipmentRowSpan++;
+                
+                // 隐藏当前行的预约批次号和ISA
+                const shipmentCells = row.querySelectorAll('.shipment-batch, .isa');
+                shipmentCells.forEach(cell => {
+                    cell.style.display = 'none';
+                });
+            }
+        });
+        
+        // 处理最后一个车次
+        if (currentFleet && fleetStartRow) {
+            const fleetCells = fleetStartRow.querySelectorAll('.fleet-number, .appointment-time');
+            fleetCells.forEach(cell => {
+                cell.rowSpan = fleetRowSpan;
+            });
+        }
+        
+        // 处理最后一个shipment
+        if (currentShipment && shipmentStartRow) {
+            const shipmentCells = shipmentStartRow.querySelectorAll('.shipment-batch, .isa');
+            shipmentCells.forEach(cell => {
+                cell.rowSpan = shipmentRowSpan;
+            });
+        }
+        
+        // 在每个车次的车次号单元格中添加操作标签
+        const fleetNumbers = document.querySelectorAll('.fleet-number');
+        const processedFleets = new Set();
+        
+        fleetNumbers.forEach(cell => {
+            const fleetNumber = cell.textContent.trim();
+            if (!fleetNumber || processedFleets.has(fleetNumber)) return;
+            
+            processedFleets.add(fleetNumber);
+            
+            // 创建操作标签
+            const form = document.createElement('form');
+            form.method = 'post';
+            form.style.marginTop = '8px';
+            form.innerHTML = `
+                {% csrf_token %}
+                <input type="hidden" name="step" value="fleet_leader_check">
+                <input type="hidden" name="fleet_number" value="${fleetNumber}">
+                <button type="submit" class="btn" style="background-color: #36D399; color: white; border: none; border-radius: 16px; padding: 4px 12px; font-size: 12px; font-weight: 500;">已核对无误</button>
+            `;
+            
+            cell.appendChild(form);
+        });
+        
+        // 添加搜索功能
+        const searchFields = [
+            { id: 'search-fleet', column: 0 },
+            { id: 'search-time', column: 1 },
+            { id: 'search-batch', column: 2 },
+            { id: 'search-isa', column: 3 },
+            { id: 'search-container', column: 4 },
+            { id: 'search-destination', column: 5 }
+        ];
+        
+        searchFields.forEach(field => {
+            const input = document.getElementById(field.id);
+            if (input) {
+                input.addEventListener('input', function() {
+                    const searchTerm = this.value.toLowerCase();
+                    
+                    // 遍历所有行
+                    rows.forEach(row => {
+                        // 获取当前行的所有单元格
+                        const cells = row.querySelectorAll('td');
+                        if (cells.length > field.column) {
+                            const cell = cells[field.column];
+                            // 检查单元格内容是否匹配搜索词
+                            const cellText = cell.textContent.toLowerCase();
+                            
+                            // 找到当前行所在的整个车次组
+                            const fleet = row.dataset.fleet;
+                            const fleetRows = document.querySelectorAll(`tr[data-fleet="${fleet}"]`);
+                            
+                            // 检查当前车次组是否有匹配的行
+                            let hasMatch = false;
+                            fleetRows.forEach(fleetRow => {
+                                const fleetCells = fleetRow.querySelectorAll('td');
+                                if (fleetCells.length > field.column) {
+                                    const fleetCellText = fleetCells[field.column].textContent.toLowerCase();
+                                    if (fleetCellText.includes(searchTerm)) {
+                                        hasMatch = true;
+                                    }
+                                }
+                            });
+                            
+                            // 显示或隐藏整个车次组
+                            fleetRows.forEach(fleetRow => {
+                                if (hasMatch) {
+                                    fleetRow.style.display = '';
+                                } else {
+                                    fleetRow.style.display = 'none';
+                                }
+                            });
+                        }
+                    });
+                });
+            }
+        });
+        
+        // 全局搜索功能
+        const globalSearch = document.getElementById('global-search');
+        if (globalSearch) {
+            globalSearch.addEventListener('input', function() {
+                const searchTerm = this.value.toLowerCase();
+                
+                rows.forEach(row => {
+                    const fleet = row.dataset.fleet;
+                    const fleetRows = document.querySelectorAll(`tr[data-fleet="${fleet}"]`);
+                    
+                    let hasMatch = false;
+                    fleetRows.forEach(fleetRow => {
+                        const cells = fleetRow.querySelectorAll('td');
+                        cells.forEach(cell => {
+                            if (cell.textContent.toLowerCase().includes(searchTerm)) {
+                                hasMatch = true;
+                            }
+                        });
+                    });
+                    
+                    fleetRows.forEach(fleetRow => {
+                        if (hasMatch) {
+                            fleetRow.style.display = '';
+                        } else {
+                            fleetRow.style.display = 'none';
+                        }
+                    });
+                });
+            });
+        }
+        
+        // 调整表格宽度
+        function adjustTableWidth() {
+            const container = document.querySelector('.table-responsive');
+            if (container) {
+                container.style.width = '100%';
+            }
+        }
+        
+        // 初始调整
+        adjustTableWidth();
+        
+        // 窗口大小改变时调整
+        window.addEventListener('resize', adjustTableWidth);
+    });
+</script>
+{% endblock %}
