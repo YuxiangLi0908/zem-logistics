@@ -6673,18 +6673,15 @@ class PostNsop(View):
 
             shipment_data = []
             for shipment in shipments:
-                
-                # 获取相关的pallet，按PO_ID和shipment_batch_number分组统计板数
-                from django.db.models import Count
-                
                 # 直接使用values和annotate进行分组统计
                 pallets = await sync_to_async(list)(Pallet.objects.filter(
                     shipment_batch_number__shipment_batch_number=shipment.shipment_batch_number,
                     container_number__orders__offload_id__offload_at__isnull=False
-                ).values(
+                ).select_related('container_number')
+                .values(
                     'PO_ID', 
                     'shipment_batch_number__shipment_batch_number',
-                    'container_number',
+                    'container_number__container_number',
                     'destination'
                 ).annotate(
                     pallet_count=Count('id')
