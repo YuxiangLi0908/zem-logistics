@@ -80,6 +80,7 @@ class Home(View):
             'container_number': request.POST.get("container_number", "").strip() or None,
             'shipment_batch_number': request.POST.get("shipment_batch_number", "").strip() or None,
             'appointment_id': request.POST.get("appointment_id", "").strip() or None,
+            'pickup_number': request.POST.get("pickup_number", "").strip() or None,
             'destination': request.POST.get("act_destination", "").strip() or None,
             'shipping_marks': request.POST.get("shipping_marks", "").strip() or None,
             'fba_ids': request.POST.get("fba_ids", "").strip() or None,
@@ -140,6 +141,11 @@ class Home(View):
                 elif query_params['appointment_id']:
                     pl_criteria &= models.Q(shipment_batch_number__appointment_id=query_params['appointment_id'])
                     plt_criteria &= models.Q(shipment_batch_number__appointment_id=query_params['appointment_id'])
+            elif bool(query_params['pickup_number']):
+                pl_criteria &= models.Q(shipment_batch_number__fleet_number__pickup_number=query_params['pickup_number'])
+                plt_criteria &= models.Q(shipment_batch_number__fleet_number__pickup_number=query_params['pickup_number'])
+            else:
+                raise ValueError('输入错误')
             #查后端信息
             temp = await self._get_post_port_data(pl_criteria,plt_criteria) 
             context['post_port_data'] = temp['warehouses']
