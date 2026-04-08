@@ -2822,7 +2822,7 @@ class PostNsop(View):
             
             # 如果是生成 PDF/打印，建议用 <br>
             return mark_safe("<br>".join([escape(line) for line in lines]))
-        is_multi_arm_pickup = len(arm_pickup_groups) > 1
+        is_multi_arm_pickup = len(arm_pickup_groups['rows']) > 1
         raise ValueError('是否是多组一提多卸',is_multi_arm_pickup)
         if is_multi_arm_pickup:
             # 一提多卸用单独模板
