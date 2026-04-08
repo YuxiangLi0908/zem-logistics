@@ -6654,7 +6654,7 @@ class PostNsop(View):
     ) -> tuple[str, dict[str, Any]]:
         """获取需要核对的车队信息"""
         # 查找需要核对的fleet记录
-        cutoff_date = timezone.datetime(2024, 4, 6, tzinfo=timezone.utc)
+        cutoff_date = timezone.datetime(2026, 4, 6, tzinfo=timezone.utc)
         fleets = await sync_to_async(list)(Fleet.objects.filter(
             check_by_leader=False,
             fleet_type__in=['FTL','外配','快递'],
