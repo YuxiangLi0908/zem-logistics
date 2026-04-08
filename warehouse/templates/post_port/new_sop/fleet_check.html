@@ -2,25 +2,33 @@
 
 {% block content %}
 <style>
-    /* 表头样式 */
-    .table-header {
-        background-color: #165DFF !important;
+    /* 强制覆盖Bootstrap表头样式 */
+    table#fleetTable > thead > tr:first-child {
+        background-color: #2c3e50 !important;
         color: white !important;
     }
     
-    .table-header th {
+    table#fleetTable > thead > tr:first-child > th {
+        background-color: #2c3e50 !important;
+        color: white !important;
         font-weight: 700 !important;
+        border-color: #2c3e50 !important;
     }
     
-    /* 搜索行样式 */
-    .search-row {
+    table#fleetTable > thead > tr.search-row {
         background-color: #F5F7FA !important;
+    }
+    
+    /* 移除Bootstrap默认表头样式 */
+    table#fleetTable > thead > tr:first-child > th {
+        background-image: none !important;
+        background-color: #2c3e50 !important;
     }
 </style>
 <div class="container-fluid" style="padding-left: 10%; padding-right: 10%; padding-top: 20px; padding-bottom: 20px;">
     <!-- 标题区域 -->
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2 style="font-size: 24px; font-weight: 700; color: #0F4C81; margin: 0; text-align: center; flex: 1;">车次组长核对</h2>
+        <h2 style="font-size: 24px; font-weight: 700; color: #2c3e50; margin: 0; text-align: center; flex: 1;">车次组长核对</h2>
         <!-- 操作栏 -->
         <div class="d-flex gap-2">
             <div class="input-group input-group-sm" style="width: 200px;">
@@ -29,12 +37,6 @@
                     <i class="bi bi-search"></i>
                 </button>
             </div>
-            <button class="btn btn-outline-secondary btn-sm">
-                <i class="bi bi-filter"></i> 筛选
-            </button>
-            <button class="btn btn-outline-secondary btn-sm">
-                <i class="bi bi-download"></i> 导出
-            </button>
         </div>
     </div>
     <!-- 分割线 -->
@@ -51,14 +53,15 @@
     {% if fleets %}
     <div class="table-responsive" style="width: 100%; overflow-x: auto; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
         <table class="table table-bordered" id="fleetTable" style="width: 100%; min-width: 750px; border-collapse: separate; border-spacing: 0;">
-            <thead>
-                <tr class="table-header">
-                    <th style="min-width: 200px; vertical-align: middle; border-top-left-radius: 8px;">车次号</th>
-                    <th style="min-width: 150px; vertical-align: middle;">预约时间</th>
-                    <th style="min-width: 150px; vertical-align: middle;">预约批次号</th>
-                    <th style="min-width: 100px; vertical-align: middle;">ISA</th>
-                    <th style="min-width: 120px; vertical-align: middle;">柜号</th>
-                    <th style="min-width: 120px; vertical-align: middle; border-top-right-radius: 8px;">目的地</th>
+            <thead style="background-color: #165DFF !important; color: white;">
+                <tr style="background-color: #165DFF !important; color: white;">
+                    <th style="min-width: 200px; vertical-align: middle; font-weight: 700; color: white; border-top-left-radius: 8px;">车次号</th>
+                    <th style="min-width: 150px; vertical-align: middle; font-weight: 700; color: white;">预约时间</th>
+                    <th style="min-width: 150px; vertical-align: middle; font-weight: 700; color: white;">预约批次号</th>
+                    <th style="min-width: 100px; vertical-align: middle; font-weight: 700; color: white;">ISA</th>
+                    <th style="min-width: 120px; vertical-align: middle; font-weight: 700; color: white;">柜号</th>
+                    <th style="min-width: 120px; vertical-align: middle; font-weight: 700; color: white;">目的地</th>
+                    <th style="min-width: 80px; vertical-align: middle; font-weight: 700; color: white; border-top-right-radius: 8px;">板数</th>
                 </tr>
                 <!-- 搜索行 -->
                 <tr class="search-row">
@@ -68,6 +71,7 @@
                     <th style="border: none; border-bottom: 1px solid #E5E7EB;"><input type="text" class="form-control form-control-sm" placeholder="搜索ISA" id="search-isa"></th>
                     <th style="border: none; border-bottom: 1px solid #E5E7EB;"><input type="text" class="form-control form-control-sm" placeholder="搜索柜号" id="search-container"></th>
                     <th style="border: none; border-bottom: 1px solid #E5E7EB;"><input type="text" class="form-control form-control-sm" placeholder="搜索目的地" id="search-destination"></th>
+                    <th style="border: none; border-bottom: 1px solid #E5E7EB;"><input type="text" class="form-control form-control-sm" placeholder="搜索板数" id="search-pallet"></th>
                 </tr>
             </thead>
             <tbody>
@@ -75,12 +79,13 @@
                     {% for shipment in fleet.shipments %}
                         {% for plt in shipment.pallets %}
                         <tr data-fleet="{{ fleet.fleet_number }}" data-shipment="{{ shipment.shipment_batch_number }}" style="height: 48px;">
-                            <td class="fleet-number" style="vertical-align: middle; border: none; border-bottom: 1px solid #E5E7EB;">{{ fleet.fleet_number }}</td>
+                            <td class="fleet-number" style="vertical-align: middle; border: none; border-bottom: 1px solid #E5E7EB; padding-left: 2px; padding-right: 2px;">{{ fleet.fleet_number }}</td>
                             <td class="appointment-time" style="vertical-align: middle; border: none; border-bottom: 1px solid #E5E7EB;">{{ fleet.appointment_datetime|date:"Y/m/d h:i a" }}</td>
                             <td class="shipment-batch" style="vertical-align: middle; border: none; border-bottom: 1px solid #E5E7EB;">{{ shipment.shipment_batch_number }}</td>
-                            <td class="isa" style="vertical-align: middle; border: none; border-bottom: 1px solid #E5E7EB;">{{ shipment.appointment_id }}</td>
+                            <td class="isa" style="vertical-align: middle; border: none; border-bottom: 1px solid #E5E7EB;">{{ shipment.appointment_id|default_if_none:"" }}</td>
                             <td style="vertical-align: middle; border: none; border-bottom: 1px solid #E5E7EB;">{{ plt.container_number }}</td>
                             <td style="vertical-align: middle; border: none; border-bottom: 1px solid #E5E7EB;">{{ plt.destination }}</td>
+                            <td style="vertical-align: middle; border: none; border-bottom: 1px solid #E5E7EB; text-align: center;">{{ plt.pallet_count }}</td>
                         </tr>
                         {% endfor %}
                     {% endfor %}
@@ -103,13 +108,22 @@
         const tbody = table.querySelector('tbody');
         const rows = tbody.querySelectorAll('tr');
         
-        // 应用斑马纹样式
-        rows.forEach((row, index) => {
-            if (index % 2 === 0) {
-                row.style.backgroundColor = '#FFFFFF';
-            } else {
-                row.style.backgroundColor = '#F5F7FA';
+        // 按车次号分组应用颜色
+        let currentFleetGroup = null;
+        let groupColorIndex = 0;
+        const groupColors = ['#FFFFFF', '#F5F7FA'];
+        
+        rows.forEach((row) => {
+            const fleet = row.dataset.fleet;
+            
+            if (fleet !== currentFleetGroup) {
+                // 切换到新的车次组
+                currentFleetGroup = fleet;
+                groupColorIndex = (groupColorIndex + 1) % groupColors.length;
             }
+            
+            // 应用当前组的颜色
+            row.style.backgroundColor = groupColors[groupColorIndex];
         });
         
         // 合并车次号和预约时间
@@ -227,7 +241,8 @@
             { id: 'search-batch', column: 2 },
             { id: 'search-isa', column: 3 },
             { id: 'search-container', column: 4 },
-            { id: 'search-destination', column: 5 }
+            { id: 'search-destination', column: 5 },
+            { id: 'search-pallet', column: 6 }
         ];
         
         searchFields.forEach(field => {

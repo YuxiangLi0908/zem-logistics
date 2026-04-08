@@ -6653,63 +6653,63 @@ class PostNsop(View):
         self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
         """获取需要核对的车队信息"""
-        if 1:
-            # 查找需要核对的fleet记录
-            cutoff_date = timezone.datetime(2024, 4, 6, tzinfo=timezone.utc)
-            fleets = await sync_to_async(list)(Fleet.objects.filter(
-                check_by_leader=False,
-                fleet_type__in=['FTL','外配','快递'],
-                appointment_datetime__gt=cutoff_date
+        # 查找需要核对的fleet记录
+        cutoff_date = timezone.datetime(2024, 4, 6, tzinfo=timezone.utc)
+        fleets = await sync_to_async(list)(Fleet.objects.filter(
+            check_by_leader=False,
+            fleet_type__in=['FTL','外配','快递'],
+            appointment_datetime__gt=cutoff_date
+        ))
+        
+        # 为每个fleet获取相关的shipment、packinglist和pallet
+        fleet_data = []
+        for fleet in fleets:
+            # 获取相关的shipment
+            shipments = await sync_to_async(list)(Shipment.objects.filter(
+                fleet_number__fleet_number=fleet.fleet_number
             ))
-            
-            # 为每个fleet获取相关的shipment、packinglist和pallet
-            fleet_data = []
-            for fleet in fleets:
-                # 获取相关的shipment
-                shipments = await sync_to_async(list)(Shipment.objects.filter(
-                    fleet_number__fleet_number=fleet.fleet_number
-                ))
 
-                shipment_data = []
-                for shipment in shipments:
-                    
-                    # 获取相关的pallet，预加载container_number
-                    pallets = await sync_to_async(list)(Pallet.objects.select_related('container_number').filter(
-                        shipment_batch_number__shipment_batch_number=shipment.shipment_batch_number,
-                        container_number__orders__offload_id__offload_at__isnull=False
-                    ))
-                    
-                    shipment_data.append({
-                        'shipment_batch_number': shipment.shipment_batch_number,
-                        'appointment_id': shipment.appointment_id,
-                        'pallets': pallets
-                    })
+            shipment_data = []
+            for shipment in shipments:
                 
+                # 获取相关的pallet，按PO_ID和shipment_batch_number分组统计板数
+                from django.db.models import Count
                 
-                fleet_data.append({
-                    'fleet_number': fleet.fleet_number,
-                    'appointment_datetime': fleet.appointment_datetime,
-                    'shipments': shipment_data
+                # 直接使用values和annotate进行分组统计
+                pallets = await sync_to_async(list)(Pallet.objects.filter(
+                    shipment_batch_number__shipment_batch_number=shipment.shipment_batch_number,
+                    container_number__orders__offload_id__offload_at__isnull=False
+                ).values(
+                    'PO_ID', 
+                    'shipment_batch_number__shipment_batch_number',
+                    'container_number',
+                    'destination'
+                ).annotate(
+                    pallet_count=Count('id')
+                ))
+                
+                shipment_data.append({
+                    'shipment_batch_number': shipment.shipment_batch_number,
+                    'appointment_id': shipment.appointment_id,
+                    'pallets': pallets
                 })
             
-            context = {
-                'fleets': fleet_data,
-                'warehouse_options': self.warehouse_options
-            }
-            return self.template_fleet_check, context
-        # except Exception as e:
-        #     context = {
-        #         'error': f'获取车队核对信息失败: {str(e)}',
-        #         'warehouse_options': self.warehouse_options
-        #     }
-        #     return self.template_fleet_check, context
+            
+            fleet_data.append({
+                'fleet_number': fleet.fleet_number,
+                'appointment_datetime': fleet.appointment_datetime,
+                'shipments': shipment_data
+            })
+        
+        context = {
+            'fleets': fleet_data,
+            'warehouse_options': self.warehouse_options
+        }
+        return self.template_fleet_check, context
     
     async def handle_fleet_leader_check_post(self, request):
         """处理车队队长核对提交"""
         try:
-            from warehouse.models import Fleet
-            from django.contrib import messages
-            
             fleet_number = request.POST.get('fleet_number')
             if not fleet_number:
                 messages.error(request, '车次号不能为空')
@@ -6726,11 +6726,6 @@ class PostNsop(View):
             return template, context
         except Fleet.DoesNotExist:
             messages.error(request, f'车次 {fleet_number} 不存在')
-            template, context = await self.handle_fleet_leader_check_get(request)
-            return template, context
-        except Exception as e:
-            logger.error(f"车队核对失败: {e}")
-            messages.error(request, f'车队核对失败: {str(e)}')
             template, context = await self.handle_fleet_leader_check_get(request)
             return template, context
         
