@@ -464,8 +464,7 @@ class PostportDash(View):
                 warehouse=F(
                     "container_number__orders__retrieval_id__retrieval_destination_precise"
                 ),
-            )
-            .annotate(
+            ).annotate(
                 custom_delivery_method=F("delivery_method"),
                 fba_ids=F("fba_id"),
                 ref_ids=F("ref_id"),
@@ -478,6 +477,27 @@ class PostportDash(View):
                 total_weight_lbs=Sum("weight_lbs", output_field=FloatField()),
                 total_n_pallet_act=Count("pallet_id", distinct=True),
                 label=Value("ACT"),
+                # 添加状态字段
+                status=Case(
+                    When(
+                        shipment_batch_number__pod_link__isnull=False,
+                        then=Value("已完成")
+                    ),
+                    When(
+                        shipment_batch_number__arrived_at__isnull=False,
+                        then=Value("已送达")
+                    ),
+                    When(
+                        shipment_batch_number__shipped_at__isnull=False,
+                        then=Value("已出库")
+                    ),
+                    When(
+                        shipment_batch_number__shipment_appointment__isnull=False,
+                        then=Value("已预约")
+                    ),
+                    default=Value("未预约"),
+                    output_field=CharField()
+                )
             )
             .order_by("container_number__orders__offload_id__offload_at")
         )
@@ -620,6 +640,27 @@ class PostportDash(View):
                             output_field=CharField(),
                         )
                     ),
+                    # 添加状态字段
+                    status=Case(
+                        When(
+                            shipment_batch_number__pod_link__isnull=False,
+                            then=Value("已完成")
+                        ),
+                        When(
+                            shipment_batch_number__arrived_at__isnull=False,
+                            then=Value("已送达")
+                        ),
+                        When(
+                            shipment_batch_number__shipped_at__isnull=False,
+                            then=Value("已出库")
+                        ),
+                        When(
+                            shipment_batch_number__shipment_appointment__isnull=False,
+                            then=Value("已预约")
+                        ),
+                        default=Value("未预约"),
+                        output_field=CharField()
+                    )
                 )
                 .distinct()
             )
