@@ -4537,16 +4537,18 @@ class PostNsop(View):
                     container_number__container_number=cn
                 ).first()
             )()
-            if po['source'] == 'packinglist':
-                warehouse = order.retrieval_id.retrieval_destination_area
-            else:
-                warehouse = po['location'].split('-')[0]
-                if not warehouse:
-                    message = f"{container_number}的板子缺少实际仓库位置！"
-                    if is_ajax:
-                        return JsonResponse({"success": False, "message": message}, status=400)
-                    context = {"error_messages": message}
-                    return await self.handle_td_shipment_post(request, context)
+            # 2026/4/8 claire说报价应该都要按照预报的仓库查找，不按照实际所在地查找
+            warehouse = order.retrieval_id.retrieval_destination_area
+            # if po['source'] == 'packinglist':
+            #     warehouse = order.retrieval_id.retrieval_destination_area
+            # else:
+            #     warehouse = po['location'].split('-')[0]
+            #     if not warehouse:
+            #         message = f"{container_number}的板子缺少实际仓库位置！"
+            #         if is_ajax:
+            #             return JsonResponse({"success": False, "message": message}, status=400)
+            #         context = {"error_messages": message}
+            #         return await self.handle_td_shipment_post(request, context)
 
             customer_name = order.customer_name.zem_name if order.customer_name else None
             #查找报价表
