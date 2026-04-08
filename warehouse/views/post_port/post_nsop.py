@@ -8612,6 +8612,7 @@ class PostNsop(View):
         pl_criteria: models.Q | None = None,
         plt_criteria: models.Q | None = None,
     ) -> list[Any]:
+        '''LTL港后的数据查询'''
         pl_criteria &= models.Q(container_number__orders__cancel_notification=False)& ~models.Q(container_number__orders__order_type='直送')
         plt_criteria &= models.Q(container_number__orders__cancel_notification=False)& ~models.Q(container_number__orders__order_type='直送')
         
@@ -8838,7 +8839,7 @@ class PostNsop(View):
                     vessel_name=F("container_number__orders__vessel_id__vessel"),
                     actual_retrieval_time=F("container_number__orders__retrieval_id__actual_retrieval_timestamp"),
                     arm_time=F("container_number__orders__retrieval_id__generous_and_wide_target_retrieval_timestamp"),
-                    estimated_time=F("container_number__orders__retrieval_id__target_retrieval_timestamp"),
+                    estimated_time=F("container_number__orders__retrieval_id__planned_release_time"),
                     offload_at=Case(
                         When(
                             container_number__orders__retrieval_id__actual_retrieval_timestamp__isnull=False,
@@ -8850,9 +8851,9 @@ class PostNsop(View):
                             )
                         ),
                         When(
-                            container_number__orders__retrieval_id__target_retrieval_timestamp__isnull=False,
+                            container_number__orders__retrieval_id__planned_release_time__isnull=False,
                             then=Func(
-                                F("container_number__orders__retrieval_id__target_retrieval_timestamp"),
+                                F("container_number__orders__retrieval_id__planned_release_time"),
                                 Value("MM-DD"),
                                 function="to_char",
                                 output_field=CharField(),
@@ -8872,8 +8873,8 @@ class PostNsop(View):
                             then=Value("实际")
                         ),
                         When(
-                            container_number__orders__retrieval_id__target_retrieval_timestamp__isnull=False,
-                            then=Value("预计")
+                            container_number__orders__retrieval_id__planned_release_time__isnull=False,
+                            then=Value("放行")
                         ),
                         default=Value("ETA")
                     )
