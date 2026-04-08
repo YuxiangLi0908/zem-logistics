@@ -83,7 +83,7 @@
                             <td class="appointment-time" style="vertical-align: middle; border: none; border-bottom: 1px solid #E5E7EB;">{{ fleet.appointment_datetime|date:"Y/m/d h:i a" }}</td>
                             <td class="shipment-batch" style="vertical-align: middle; border: none; border-bottom: 1px solid #E5E7EB;">{{ shipment.shipment_batch_number }}</td>
                             <td class="isa" style="vertical-align: middle; border: none; border-bottom: 1px solid #E5E7EB;">{{ shipment.appointment_id|default_if_none:"" }}</td>
-                            <td style="vertical-align: middle; border: none; border-bottom: 1px solid #E5E7EB;">{{ plt.container_number }}</td>
+                            <td style="vertical-align: middle; border: none; border-bottom: 1px solid #E5E7EB;">{{ plt.container_number__container_number }}</td>
                             <td style="vertical-align: middle; border: none; border-bottom: 1px solid #E5E7EB;">{{ plt.destination }}</td>
                             <td style="vertical-align: middle; border: none; border-bottom: 1px solid #E5E7EB; text-align: center;">{{ plt.pallet_count }}</td>
                         </tr>
