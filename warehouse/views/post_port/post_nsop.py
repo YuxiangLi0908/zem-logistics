@@ -2734,6 +2734,7 @@ class PostNsop(View):
                     "shipping_mark",
                     "shipment_batch_number__note",
                     "slot",
+                    "shipment_batch_number__shipment_batch_number",  # 添加 shipment_batch_number
                 )
                 .annotate(
                     total_pcs=Sum("pcs"),
@@ -2743,9 +2744,22 @@ class PostNsop(View):
                 )
             )
             if arm_pickup:
-                arm_pickup_groups = [
-                    {"rows": arm_pickup, "contact_flag": contact_flag, "contact": contact}
-                ]
+                # 按照 shipment_batch_number 进行分组
+                grouped_by_batch = {}
+                for item in arm_pickup:
+                    batch_number = item.get("shipment_batch_number__shipment_batch_number")
+                    if batch_number not in grouped_by_batch:
+                        grouped_by_batch[batch_number] = []
+                    grouped_by_batch[batch_number].append(item)
+                
+                # 构建 arm_pickup_groups
+                arm_pickup_groups = []
+                for batch_number, rows in grouped_by_batch.items():
+                    arm_pickup_groups.append({
+                        "rows": rows, 
+                        "contact_flag": contact_flag, 
+                        "contact": contact
+                    })
 
         fleet = await sync_to_async(Fleet.objects.get)(fleet_number=fleet_number)
         pickup_time_str = fleet.appointment_datetime
