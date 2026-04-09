@@ -2032,7 +2032,7 @@ class ReceivableAccounting(View):
             context = {'success_messages': f'{container_number}港前补开成功，编号为{invoice2.invoice_number}！'}
 
             context = self.handle_preport_entry_post(request, context)
-            return self.template_warehouse_entry, context
+            return self.template_preport_entry, context
             
         
         invoices = Invoicev2.objects.filter(container_number__container_number=container_number)
