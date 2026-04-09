@@ -1,0 +1,396 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<style>
+    .fleet-po-check {
+        max-width: 98%;
+        margin: 20px auto;
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+        overflow: hidden;
+    }
+
+    .fleet-po-header {
+        background: linear-gradient(135deg, #2c3e50, #34495e);
+        color: white;
+        padding: 25px 30px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .fleet-po-logo {
+        display: flex;
+        align-items: center;
+        font-size: 1.5rem;
+        font-weight: bold;
+    }
+
+    .fleet-po-logo i {
+        margin-right: 12px;
+        font-size: 1.8rem;
+    }
+
+    .search-controls {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 15px;
+        background: rgba(255, 255, 255, 0.95);
+        padding: 20px;
+        border-radius: 10px;
+        margin-top: 15px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        border: 1px solid #e0e0e0;
+        width: 80%;
+        margin-left: auto;
+        margin-right: auto;
+    }
+
+    .search-group {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+        min-width: 150px;
+    }
+
+    .search-group label {
+        font-weight: 600;
+        font-size: 0.9rem;
+        color: white;
+    }
+
+    .search-controls input {
+        padding: 8px 12px;
+        border: 1px solid #ced4da;
+        border-radius: 6px;
+        background: white;
+        font-size: 0.9rem;
+        min-width: 150px;
+    }
+
+    .search-controls button {
+        padding: 10px 20px;
+        background: #3498db;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        align-self: flex-end;
+        margin-top: 20px;
+    }
+
+    .search-controls button:hover {
+        background: #2980b9;
+        transform: translateY(-1px);
+    }
+
+    .results-section {
+        padding: 25px;
+    }
+
+    .group-table {
+        width: 80%;
+        border-collapse: collapse;
+        margin-bottom: 30px;
+        background: white;
+        border-radius: 8px;
+        overflow: hidden;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        margin-left: auto;
+        margin-right: auto;
+    }
+
+    .group-table th {
+        background: #f8f9fa;
+        padding: 12px 8px;
+        text-align: left;
+        font-weight: 600;
+        border-bottom: 2px solid #dee2e6;
+        font-size: 0.9rem;
+    }
+
+    .search-row {
+        background: #f1f3f4;
+    }
+
+    .search-row td {
+        padding: 6px 4px;
+        border-bottom: 1px solid #dee2e6;
+    }
+
+    .table-search-input {
+        width: 100%;
+        padding: 4px 6px;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+        font-size: 0.8rem;
+        box-sizing: border-box;
+    }
+
+    .table-search-input:focus {
+        outline: none;
+        border-color: #3498db;
+        box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+    }
+
+    .group-table td {
+        padding: 10px 8px;
+        border-bottom: 1px solid #e9ecef;
+        font-size: 0.85rem;
+    }
+
+    .group-table tr:hover {
+        background-color: #f8f9fa;
+    }
+
+    .group-header {
+        background: #e3f2fd !important;
+        font-weight: bold;
+        font-size: 1rem !important;
+    }
+
+    .actual-pallets-input {
+        width: 60px;
+        padding: 4px 6px;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+        text-align: center;
+    }
+
+    .delete-btn {
+        padding: 4px 8px;
+        background: #dc3545;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 0.8rem;
+    }
+
+    .delete-btn:hover {
+        background: #c82333;
+    }
+
+    .no-results {
+        text-align: center;
+        padding: 40px;
+        color: #6c757d;
+        font-size: 1.1rem;
+    }
+</style>
+
+<div class="fleet-po-check">
+    <div class="fleet-po-header">
+        <div class="fleet-po-logo">
+            <i class="fas fa-truck-loading"></i>
+            <span>车队PO核对</span>
+        </div>
+    </div>
+
+    <form method="POST" id="searchForm">
+        {% csrf_token %}
+        <input type="hidden" name="step" value="fleet_po_search">
+        
+        <div class="search-controls">
+            <div class="search-group">
+                <label for="fleet_number">车次号</label>
+                <input type="text" id="fleet_number" name="fleet_number" placeholder="输入车次号" value="{{ fleet_number|default:'' }}">
+            </div>
+            
+            <div class="search-group">
+                <label for="pickup_number">Pickup Number</label>
+                <input type="text" id="pickup_number" name="pickup_number" placeholder="输入Pickup Number" value="{{ pickup_number|default:'' }}">
+            </div>
+            
+            <div class="search-group">
+                <label for="container_number">柜号</label>
+                <input type="text" id="container_number" name="container_number" placeholder="输入柜号" value="{{ container_number|default:'' }}">
+            </div>
+            
+            <div class="search-group">
+                <label for="destination">仓点</label>
+                <input type="text" id="destination" name="destination" placeholder="输入仓点" value="{{ destination|default:'' }}">
+            </div>
+            
+            <div class="search-group">
+                <label for="shipment_batch_number">预约批次号</label>
+                <input type="text" id="shipment_batch_number" name="shipment_batch_number" placeholder="输入预约批次号" value="{{ shipment_batch_number|default:'' }}">
+            </div>
+            
+            <div class="search-group">
+                <label for="isa">ISA</label>
+                <input type="text" id="isa" name="isa" placeholder="输入ISA" value="{{ isa|default:'' }}">
+            </div>
+            
+            <button type="submit">确认搜索</button>
+        </div>
+    </form>
+
+    <div class="results-section">
+        {% if search_results %}
+            <table class="group-table">
+                <thead>
+                    <tr>
+                        <th>车次号</th>
+                        <th>Pickup Number</th>
+                        <th>预约批次</th>
+                        <th>Appointment ID</th>
+                        <th>柜号</th>
+                        <th>仓点</th>
+                        <th>板数</th>
+                        <th>实际板数</th>
+                        <th>操作</th>
+                    </tr>
+                    <tr class="search-row">
+                        <td><input type="text" class="table-search-input" placeholder="搜索车次号"></td>
+                        <td><input type="text" class="table-search-input" placeholder="搜索Pickup Number"></td>
+                        <td><input type="text" class="table-search-input" placeholder="搜索预约批次"></td>
+                        <td><input type="text" class="table-search-input" placeholder="搜索Appointment ID"></td>
+                        <td><input type="text" class="table-search-input" placeholder="搜索柜号"></td>
+                        <td><input type="text" class="table-search-input" placeholder="搜索仓点"></td>
+                        <td><input type="text" class="table-search-input" placeholder="搜索板数"></td>
+                        <td></td>
+                        <td></td>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for group in search_results %}
+                        {% for item in group.items %}
+                        <tr>
+                            <td>{{ group.fleet_number|default:"-" }}</td>
+                            <td>{{ item.pickup_number|default:"-" }}</td>
+                            <td>{{ group.shipment_batch_number|default:"-" }}</td>
+                            <td>{{ item.appointment_id|default:"-" }}</td>
+                            <td>{{ item.container_number|default:"-" }}</td>
+                            <td>{{ item.destination|default:"-" }}</td>
+                            <td>{{ item.pallet_count|default:"-" }}</td>
+                            <td>
+                                <input type="number" class="actual-pallets-input" 
+                                       name="actual_pallets_{{ item.pallet_ids|join:'_' }}" 
+                                       min="0" max="{{ item.pallet_count }}" 
+                                       value="{{ item.pallet_count }}">
+                            </td>
+                            <td>
+                                <button class="delete-btn" onclick="deletePallets('{{ item.pallet_ids|join:"," }}', '{{ item.shipment_id }}', this)">删除</button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <div class="no-results">
+                <i class="fas fa-search" style="font-size: 3rem; margin-bottom: 15px;"></i>
+                <p>请输入搜索条件进行查询</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+    function deletePallets(palletIds, shipmentId, button) {
+        const row = button.closest('tr');
+        const actualPalletsInput = row.querySelector('.actual-pallets-input');
+        const actualPallets = parseInt(actualPalletsInput.value);
+        const totalPallets = parseInt(row.cells[6].textContent);
+        
+        if (isNaN(actualPallets) || actualPallets < 0 || actualPallets > totalPallets) {
+            alert('请输入有效的实际板数（0-' + totalPallets + '）');
+            return;
+        }
+        
+        if (!confirm('确定要删除这组记录吗？此操作不可撤销！')) {
+            return;
+        }
+        
+        // 创建表单提交
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '';
+        
+        // 添加CSRF token
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+        const csrfInput = document.createElement('input');
+        csrfInput.type = 'hidden';
+        csrfInput.name = 'csrfmiddlewaretoken';
+        csrfInput.value = csrfToken;
+        form.appendChild(csrfInput);
+        
+        // 添加step参数
+        const stepInput = document.createElement('input');
+        stepInput.type = 'hidden';
+        stepInput.name = 'step';
+        stepInput.value = 'fleet_po_delete';
+        form.appendChild(stepInput);
+        
+        // 添加原有的搜索条件
+        const searchInputs = document.querySelectorAll('.search-controls input[type="text"]');
+        searchInputs.forEach(input => {
+            const hiddenInput = document.createElement('input');
+            hiddenInput.type = 'hidden';
+            hiddenInput.name = input.name;
+            hiddenInput.value = input.value;
+            form.appendChild(hiddenInput);
+        });
+        
+        // 添加pallet_ids参数
+        const palletIdsInput = document.createElement('input');
+        palletIdsInput.type = 'hidden';
+        palletIdsInput.name = 'pallet_ids';
+        palletIdsInput.value = palletIds;
+        form.appendChild(palletIdsInput);
+        
+        // 添加shipment_id参数
+        const shipmentIdInput = document.createElement('input');
+        shipmentIdInput.type = 'hidden';
+        shipmentIdInput.name = 'shipment_id';
+        shipmentIdInput.value = shipmentId;
+        form.appendChild(shipmentIdInput);
+        
+        // 添加actual_pallets参数
+        const actualPalletsHiddenInput = document.createElement('input');
+        actualPalletsHiddenInput.type = 'hidden';
+        actualPalletsHiddenInput.name = 'actual_pallets';
+        actualPalletsHiddenInput.value = actualPallets;
+        form.appendChild(actualPalletsHiddenInput);
+        
+        // 提交表单
+        document.body.appendChild(form);
+        form.submit();
+    }
+
+    // 表格搜索功能
+    document.addEventListener('DOMContentLoaded', function() {
+        const searchInputs = document.querySelectorAll('.table-search-input');
+        const table = document.querySelector('.group-table');
+        
+        if (table) {
+            const rows = table.querySelectorAll('tbody tr');
+            
+            searchInputs.forEach((input, index) => {
+                input.addEventListener('input', function() {
+                    const searchValue = this.value.toLowerCase();
+                    
+                    rows.forEach(row => {
+                        const cell = row.cells[index];
+                        if (cell) {
+                            const cellText = cell.textContent.toLowerCase();
+                            if (cellText.includes(searchValue)) {
+                                row.style.display = '';
+                            } else {
+                                row.style.display = 'none';
+                            }
+                        }
+                    });
+                });
+            });
+        }
+    });
+</script>
+
+{% endblock %}
