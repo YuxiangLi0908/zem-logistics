@@ -2015,6 +2015,25 @@ class ReceivableAccounting(View):
         container_number = container_number.strip()
 
         status = request.POST.get("status")
+        if status == "preport_status":
+            # 如果是港前补开的话，要单独建一个账单，非主账单，是用于出滞港费的
+            invoices = Invoicev2.objects.filter(container_number__container_number=container_number)
+            
+            # 如果查不到结果，先创建一份主账单
+            if not invoices.exists():
+                invoice, invoice_status = self._create_new_invoice_and_status(container_number, True)
+            
+            # 创建一份非主账单
+            invoice2, invoice_status2 = self._create_new_invoice_and_status(container_number, False)
+            
+            # 更新账单状态
+            self._update_invoice_status(invoice_status2, status)
+            
+            context = {'success_messages': f'{container_number}港前补开成功，编号为{invoice2.invoice_number}！'}
+
+            context = self.handle_preport_entry_post(request, context)
+            return self.template_warehouse_entry, context
+            
         
         invoices = Invoicev2.objects.filter(container_number__container_number=container_number)
         if not invoices.exists():
@@ -2051,7 +2070,7 @@ class ReceivableAccounting(View):
                         context = self.handle_warehouse_entry_post(request, context)
                         return self.template_warehouse_entry, context
         #创建一份新的账单
-        invoice, invoice_status = self._create_new_invoice_and_status(container_number)
+        invoice, invoice_status = self._create_new_invoice_and_status(container_number, False)
         self._update_invoice_status(invoice_status, status)
 
         context = {'success_messages': f'{container_number}补开成功，编号为{invoice.invoice_number}！'}
@@ -2062,7 +2081,7 @@ class ReceivableAccounting(View):
             context = self.handle_warehouse_entry_post(request, context)
             return self.template_warehouse_entry, context
     
-    def _create_new_invoice_and_status(self, container_number: str) -> tuple[Invoicev2, InvoiceStatusv2]:
+    def _create_new_invoice_and_status(self, container_number: str, is_master: bool = True) -> tuple[Invoicev2, InvoiceStatusv2]:
         """创建账单和状态记录"""
         order = Order.objects.select_related(
             "customer_name", "container_number"
@@ -2077,6 +2096,7 @@ class ReceivableAccounting(View):
             container_number=order.container_number,
             invoice_number=f"{current_date.strftime('%Y-%m-%d').replace('-', '')}C{customer_id}{order_id}",
             created_at=current_date,
+            is_master_bill=is_master,
         )
         
         # 创建 InvoiceStatusv2
@@ -3558,7 +3578,8 @@ class ReceivableAccounting(View):
                     'invoice_created_at': created_at,
                     'preport_status': status_obj.preport_status if status_obj else None,
                     'finance_status': status_obj.finance_status if status_obj else None,
-                    'has_invoice': bool(inv)
+                    'has_invoice': bool(inv),
+                    'is_master_bill': inv.is_master_bill if inv else True  # 默认主账单
                 }
 
             if not container_invoices:

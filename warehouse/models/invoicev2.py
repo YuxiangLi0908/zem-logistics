@@ -17,6 +17,7 @@ class Invoicev2(models.Model):
         Customer, null=True, blank=True, on_delete=models.SET_NULL
     )
     container_number = models.ForeignKey(Container, null=True, blank=True, on_delete=models.SET_NULL, related_name="invoicesv2")
+    is_master_bill = models.BooleanField(default=False, verbose_name="是否是主账单")
 
     receivable_total_amount = models.FloatField(null=True, blank=True)
     receivable_preport_amount = models.FloatField(null=True, blank=True)
