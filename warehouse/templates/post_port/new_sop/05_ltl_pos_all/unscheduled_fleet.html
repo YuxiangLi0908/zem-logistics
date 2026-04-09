@@ -150,6 +150,7 @@
                 <th style="min-width: 80px;">总CBM</th>
                 <th style="min-width: 80px;">总卡板数</th>
                 <th style="min-width: 150px;">备注</th>
+                <th style="min-width: 100px;">操作</th>
             </tr>
             <tr class="search-row">
                 <td></td>
@@ -162,6 +163,7 @@
                 <td><input data-col="7" class="col-search-input" placeholder="搜索CBM"></td>
                 <td><input data-col="8" class="col-search-input" placeholder="搜索板数"></td>
                 <td><input data-col="9" class="col-search-input" placeholder="搜索备注"></td>
+                <td></td>
             </tr>
         </thead>
         <tbody>
@@ -221,6 +223,11 @@
                     {% if s.note %}
                         {{ s.note|truncatechars:30 }}
                     {% endif %}
+                </td>
+                <td>
+                    <button class="btn btn-danger btn-sm" onclick="deleteShipment('{{ s.id }}')" style="padding: 4px 8px; font-size: 0.75rem;">
+                        删除约
+                    </button>
                 </td>
             </tr>
             {% endfor %}
@@ -351,6 +358,51 @@
 </div>
 
 <script>
+    // 删除约函数
+    function deleteShipment(sId) {
+        if (!confirm('确定要删除这个预约吗？此操作不可撤销！')) {
+            return;
+        }
+        
+        // 创建表单
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '';
+        
+        // 添加CSRF token
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+        const csrfInput = document.createElement('input');
+        csrfInput.type = 'hidden';
+        csrfInput.name = 'csrfmiddlewaretoken';
+        csrfInput.value = csrfToken;
+        form.appendChild(csrfInput);
+        
+        // 添加step参数
+        const stepInput = document.createElement('input');
+        stepInput.type = 'hidden';
+        stepInput.name = 'step';
+        stepInput.value = 'ltl_cancel_shipment';
+        form.appendChild(stepInput);
+        
+        // 添加shipment_id参数
+        const idInput = document.createElement('input');
+        idInput.type = 'hidden';
+        idInput.name = 's_id';
+        idInput.value = sId;
+        form.appendChild(idInput);
+        
+        // 添加warehouse参数
+        const warehouseInput = document.createElement('input');
+        warehouseInput.type = 'hidden';
+        warehouseInput.name = 'warehouse';
+        warehouseInput.value = '{{ warehouse }}';
+        form.appendChild(warehouseInput);
+        
+        // 提交表单
+        document.body.appendChild(form);
+        form.submit();
+    }
+
     // 定义初始化函数
     function initializeUnscheduledFleetSection() {
         console.log('未排车页面初始化');
