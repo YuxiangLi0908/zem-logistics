@@ -105,8 +105,10 @@ class PostNsop(View):
     template_ltl_pos_all = "post_port/new_sop/05_ltl_pos_all/05_ltl_main.html"
     template_ltl_history_pos = "post_port/new_sop/06_ltl_history_pos/06_ltl_main.html"
     template_history_shipment = "post_port/new_sop/04_history_shipment/04_history_shipment_main.html"
-    template_batch_shipment = "post_port/new_sop/batch_shipment.html"
-    template_fleet_check = "post_port/new_sop/fleet_check.html"
+    template_batch_shipment = "post_port/new_sop/leader_check/batch_shipment.html"
+    template_fleet_check = "post_port/new_sop/leader_check/fleet_check.html"
+    template_master_shipment_check = "post_port/new_sop/leader_check/master_shipment_check.html"
+    template_fleet_po_check = "post_port/new_sop/leader_check/fleet_po_check.html"
     template_bol = "export_file/bol_base_template.html"
     template_bol_pickup = "export_file/bol_template.html"
     template_la_bol_pickup = "export_file/LA_bol_template.html"
@@ -189,6 +191,11 @@ class PostNsop(View):
             return render(request, template, context)
         elif step == "fleet_leader_check":
             template, context = await self.handle_fleet_leader_check_get(request)
+            return render(request, template, context)         
+        elif step == "fleet_po_check":
+            return render(request, self.template_fleet_po_check, {}) 
+        elif step == "master_shipment_check":
+            template, context = await self.handle_master_shipment_check_post(request)
             return render(request, template, context)
         elif step == "unscheduled_pos_all":
             template, context = await self.handle_unscheduled_pos_all_get(request)
@@ -211,6 +218,7 @@ class PostNsop(View):
             return render(request, self.template_batch_shipment, context)
         elif step == "download_batch_shipment_template":
             return await self.handle_download_batch_shipment_template(request)
+        
         else:
             raise ValueError('输入错误')
 
@@ -494,6 +502,12 @@ class PostNsop(View):
             return render(request, template, context)
         elif step == "fleet_leader_check":
             template, context = await self.handle_fleet_leader_check_post(request)
+            return render(request, template, context)
+        elif step == "fleet_po_search":
+            template, context = await self.handle_fleet_po_search_post(request)
+            return render(request, template, context)
+        elif step == "fleet_po_delete":
+            template, context = await self.handle_fleet_po_delete_post(request)
             return render(request, template, context)
         else:
             raise ValueError('输入错误',step)
@@ -12052,6 +12066,202 @@ class PostNsop(View):
                     best_shipment = shipment
         
         return best_shipment
+
+    async def handle_fleet_po_search_post(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
+        """车队PO核对搜索功能"""
+        context = {}
+        
+        # 获取搜索条件
+        fleet_number = request.POST.get('fleet_number', '').strip()
+        pickup_number = request.POST.get('pickup_number', '').strip()
+        container_number = request.POST.get('container_number', '').strip()
+        destination = request.POST.get('destination', '').strip()
+        shipment_batch_number = request.POST.get('shipment_batch_number', '').strip()
+        isa = request.POST.get('isa', '').strip()
+        
+        # 将搜索条件传递到前端
+        context.update({
+            'fleet_number': fleet_number,
+            'pickup_number': pickup_number,
+            'container_number': container_number,
+            'destination': destination,
+            'shipment_batch_number': shipment_batch_number,
+            'isa': isa
+        })
+        
+        # 构建查询条件
+        criteria = Q()
+        
+        # 根据不同的搜索条件构建filter
+        if fleet_number:
+            criteria &= Q(shipment_batch_number__fleet_number__fleet_number__icontains=fleet_number)
+        elif pickup_number:
+            criteria &= Q(shipment_batch_number__pickup_number__icontains=pickup_number)
+        elif shipment_batch_number:
+            criteria &= Q(shipment_batch_number__shipment_batch_number__icontains=shipment_batch_number)
+        elif isa:
+            criteria &= Q(shipment_batch_number__appointment_id__icontains=isa)
+        elif container_number:
+            criteria &= Q(container_number__container_number__icontains=container_number)
+        elif destination:
+            criteria &= Q(destination__icontains=destination)
+        
+        # 如果没有任何搜索条件，返回空结果
+        if not any([fleet_number, pickup_number, container_number, destination, shipment_batch_number, isa]):
+            context['search_results'] = []
+            return self.template_fleet_po_check, context
+        
+        # 查询Pallet数据
+        pallets = await sync_to_async(list)(
+            Pallet.objects.select_related(
+                'container_number',
+                'shipment_batch_number',
+                'shipment_batch_number__fleet_number'
+            )
+            .filter(criteria)
+            .values(
+                'id',
+                'PO_ID',
+                'container_number__container_number',
+                'destination',
+                'shipment_batch_number__shipment_batch_number',
+                'shipment_batch_number__fleet_number__fleet_number',
+                'shipment_batch_number__pickup_number',
+                'shipment_batch_number__appointment_id',
+                'shipment_batch_number_id'
+            )
+        )
+        
+        # 按PO_ID和shipment_batch_number进行分组
+        grouped_results = {}
+        for pallet in pallets:
+            po_id = pallet.get('PO_ID', '无PO_ID')
+            batch_number = pallet.get('shipment_batch_number__shipment_batch_number', '无批次号')
+            group_key = f"{po_id}_{batch_number}"
+            
+            if group_key not in grouped_results:
+                grouped_results[group_key] = {
+                    'po_id': po_id,
+                    'shipment_batch_number': batch_number,
+                    'fleet_number': pallet.get('shipment_batch_number__fleet_number__fleet_number', ''),
+                    'items': [],
+                    'pallet_ids': [],
+                    'total_pallets': 0
+                }
+            
+            # 添加pallet信息到组中
+            grouped_results[group_key]['items'].append({
+                'fleet_number': pallet.get('shipment_batch_number__fleet_number__fleet_number', ''),
+                'fleet_number_detail': pallet.get('shipment_batch_number__fleet_number__fleet_number', ''),
+                'pickup_number': pallet.get('shipment_batch_number__pickup_number', ''),
+                'shipment_batch_number': batch_number,
+                'appointment_id': pallet.get('shipment_batch_number__appointment_id', ''),
+                'container_number': pallet.get('container_number__container_number', ''),
+                'destination': pallet.get('destination', ''),
+                'pallet_count': 1,  # 每个pallet算1板
+                'pallet_ids': [pallet['id']],
+                'shipment_id': pallet.get('shipment_batch_number_id')
+            })
+            
+            grouped_results[group_key]['pallet_ids'].append(pallet['id'])
+            grouped_results[group_key]['total_pallets'] += 1
+        
+        # 为每个组内的item计算pallet_count
+        for group in grouped_results.values():
+            # 按container_number和destination进一步分组
+            sub_grouped = {}
+            for item in group['items']:
+                sub_key = f"{item['container_number']}_{item['destination']}"
+                if sub_key not in sub_grouped:
+                    sub_grouped[sub_key] = {
+                        'fleet_number': item['fleet_number'],
+                        'fleet_number_detail': item['fleet_number_detail'],
+                        'shipment_batch_number': item['shipment_batch_number'],
+                        'appointment_id': item['appointment_id'],
+                        'container_number': item['container_number'],
+                        'destination': item['destination'],
+                        'pallet_count': 0,
+                        'pallet_ids': [],
+                        'shipment_id': item['shipment_id']
+                    }
+                
+                sub_grouped[sub_key]['pallet_count'] += 1
+                sub_grouped[sub_key]['pallet_ids'].extend(item['pallet_ids'])
+            
+            # 更新组的items为子分组结果
+            group['items'] = list(sub_grouped.values())
+        
+        context['search_results'] = list(grouped_results.values())
+        return self.template_fleet_po_check, context
+
+    async def handle_fleet_po_delete_post(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
+        """车队PO核对删除功能"""
+        context = {}
+        
+        # 获取删除参数
+        pallet_ids_str = request.POST.get('pallet_ids', '').strip()
+        shipment_id = request.POST.get('shipment_id', '').strip()
+        actual_pallets = int(request.POST.get('actual_pallets', 0))
+        
+        # 保存原有的搜索条件
+        fleet_number = request.POST.get('fleet_number', '').strip()
+        pickup_number = request.POST.get('pickup_number', '').strip()
+        container_number = request.POST.get('container_number', '').strip()
+        destination = request.POST.get('destination', '').strip()
+        shipment_batch_number = request.POST.get('shipment_batch_number', '').strip()
+        isa = request.POST.get('isa', '').strip()
+        
+        if not pallet_ids_str or not shipment_id:
+            context['error_messages'] = '缺少必要的参数'
+            return self.template_fleet_po_check, context
+        
+        # 解析pallet_ids
+        pallet_ids = [int(pid.strip()) for pid in pallet_ids_str.split(',') if pid.strip()]
+        
+        if actual_pallets < 0 or actual_pallets > len(pallet_ids):
+            context['error_messages'] = f'实际板数必须在0-{len(pallet_ids)}之间'
+            return self.template_fleet_po_check, context
+        
+        # 计算需要删除的pallet数量
+        pallets_to_delete = len(pallet_ids) - actual_pallets
+        
+        if pallets_to_delete > 0:
+            # 获取前pallets_to_delete个pallet的ID
+            pallet_ids_to_delete = pallet_ids[:pallets_to_delete]
+            # 将这些pallet的shipment_batch_number设置为空
+            await sync_to_async(Pallet.objects.filter(id__in=pallet_ids_to_delete).update)(
+                shipment_batch_number=None
+            )
+            
+            context['success_messages'] = f'成功删除{pallets_to_delete}个托盘记录'
+        else:
+            context['success_messages'] = '无需删除任何托盘记录'
+        
+        # 重新调用搜索功能以刷新页面，并传递原有的搜索条件
+        # 创建一个新的HttpRequest对象来模拟搜索请求
+        from django.http import QueryDict
+        
+        # 构建包含原有搜索条件的POST数据
+        post_data = QueryDict(mutable=True)
+        post_data.update({
+            'step': 'fleet_po_search',
+            'fleet_number': fleet_number,
+            'pickup_number': pickup_number,
+            'container_number': container_number,
+            'destination': destination,
+            'shipment_batch_number': shipment_batch_number,
+            'isa': isa
+        })
+        
+        # 创建新的请求对象
+        new_request = HttpRequest()
+        new_request.method = 'POST'
+        new_request.POST = post_data
+        new_request.FILES = request.FILES
+        new_request.user = request.user
+        
+        # 调用搜索功能
+        return await self.handle_fleet_po_search_post(new_request)
 
     async def get_used_pallets(self, shipment):
         """异步计算预约已使用的板数 - 适配新的数据结构"""
