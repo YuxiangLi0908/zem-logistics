@@ -265,6 +265,9 @@ class PostNsop(View):
             return render(request, template, context) 
         elif step == "cancel_maersk_shipment":
             return await self.handle_cancel_maersk_shipment(request)
+        elif step == "ltl_cancel_shipment":
+            template, context = await self.handle_ltl_cancel_shipment_post(request)
+            return render(request, template, context)
         elif step == "cancel_fleet":
             fm = FleetManagement()
             context = await fm.handle_cancel_fleet_post(request,'post_nsop')
@@ -10306,6 +10309,32 @@ class PostNsop(View):
         release_cargos.sort(key=lambda x: (x.get('ltl_verify', False),))
         
         return release_cargos, selfpick_cargos, selfdel_cargos
+
+    async def handle_ltl_cancel_shipment_post(
+        self, request: HttpRequest
+    ) -> tuple[str, dict[str, Any]]:
+        '''删除LTL预约批次'''
+        s_id = request.POST.get("s_id")
+        
+        if not s_id:
+            context = {"error_messages": "未提供预约批次ID"}
+            return await self.handle_ltl_unscheduled_pos_post(request, context)
+        
+        try:
+            # 查找并删除Shipment记录
+            shipment = await sync_to_async(Shipment.objects.get)(id=s_id)
+            await sync_to_async(shipment.delete)()
+            
+            # 删除成功后调用handle_ltl_unscheduled_pos_post刷新页面
+            context = {"success_messages": f"预约批次 {shipment.shipment_batch_number} 删除成功！"}
+            return await self.handle_ltl_unscheduled_pos_post(request, context)
+            
+        except Shipment.DoesNotExist:
+            context = {"error_messages": "未找到对应的预约批次记录"}
+            return await self.handle_ltl_unscheduled_pos_post(request, context)
+        except Exception as e:
+            context = {"error_messages": f"删除预约批次失败: {str(e)}"}
+            return await self.handle_ltl_unscheduled_pos_post(request, context)
 
     async def handle_ltl_unscheduled_pos_post(
         self, request: HttpRequest, context: dict| None = None,
