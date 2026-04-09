@@ -2667,24 +2667,31 @@ class PostNsop(View):
                         grouped_order = []
                         for r in group_rows:
                             group_id = ""
-                            for possible_key in (
-                                "arm_pickup_group",
-                                "pickup_group",
-                                "group_id",
-                                "group",
-                                "pickup_number",
-                                "bol_group",
-                            ):
-                                if r.get(possible_key):
-                                    group_id = str(r.get(possible_key)).strip()
-                                    break
-                            arm_pro_value = r.get("shipment_batch_number__ARM_PRO", "")
-                            if group_id:
-                                key = f"GROUP::{group_id}"
-                            elif arm_pro_value and arm_pro_value != "None":
-                                key = f"ARM_PRO::{arm_pro_value}"
+                            # 优先使用 shipment_batch_number 进行分组
+                            shipment_batch_number = r.get("shipment_batch_number__shipment_batch_number", "")
+                            if shipment_batch_number and shipment_batch_number != "None":
+                                key = f"BATCH::{shipment_batch_number}"
                             else:
-                                key = f"CN_DEST::{r.get('container_number__container_number','')}|{r.get('destination','')}"
+                                # 如果没有 shipment_batch_number，使用原有的分组逻辑
+                                for possible_key in (
+                                    "arm_pickup_group",
+                                    "pickup_group",
+                                    "group_id",
+                                    "group",
+                                    "pickup_number",
+                                    "bol_group",
+                                ):
+                                    if r.get(possible_key):
+                                        group_id = str(r.get(possible_key)).strip()
+                                        break
+                                arm_pro_value = r.get("shipment_batch_number__ARM_PRO", "")
+                                if group_id:
+                                    key = f"GROUP::{group_id}"
+                                elif arm_pro_value and arm_pro_value != "None":
+                                    key = f"ARM_PRO::{arm_pro_value}"
+                                else:
+                                    key = f"CN_DEST::{r.get('container_number__container_number','')}|{r.get('destination','')}"
+                            
                             if key not in grouped:
                                 grouped[key] = []
                                 grouped_order.append(key)
