@@ -613,12 +613,11 @@
                                         <td class="td">{{ item.order.customer_name.zem_name }}</td>
                                         <td class="td">
                                             {% if item.is_master_bill %}
+                                                <span class="invoice-date" style="color: var(--danger-color);">副账单:</span>
+                                            {% endif %}
                                                 <a href="/receivable_accounting/?step=container_preport&container_number={{ item.order.container_number.container_number }}&start_date={{ start_date }}&end_date={{ end_date }}&warehouse_filter={{ warehouse_filter }}" class="container-link">
                                                     {{ item.order.container_number.container_number }}
                                                 </a>
-                                            {% else %}
-                                                <span class="invoice-date" style="color: var(--danger-color);">副账单: {{ item.order.container_number.container_number }}</span>
-                                            {% endif %}
                                         </td>
                                         <td class="td" style="width:60px;">{{ item.order.order_type }}</td>
                                         <td class="td">
@@ -708,12 +707,12 @@
                                         <td class="td">{{ item.order.customer_name.zem_name }}</td>
                                         <td class="td">
                                             {% if item.is_master_bill %}
+                                                <span class="invoice-date" style="color: var(--danger-color);">副账单:</span>                                            
+                                            {% endif %}
                                                 <a href="/receivable_accounting/?step=container_preport&container_number={{ item.order.container_number.container_number }}&start_date={{ start_date }}&end_date={{ end_date }}&warehouse_filter={{ warehouse_filter }}" class="container-link">
                                                     {{ item.order.container_number.container_number }}
                                                 </a>
-                                            {% else %}
-                                                <span class="invoice-date" style="color: var(--danger-color);">副账单: {{ item.order.container_number.container_number }}</span>
-                                            {% endif %}
+                                            
                                         </td>
                                         <td class="td">
                                             {% if item.order.retrieval_time %}
@@ -828,12 +827,12 @@
                                         <td class="td">{{ item.order.customer_name.zem_name }}</td>
                                         <td class="td">
                                             {% if item.is_master_bill %}
+                                                <span class="invoice-date" style="color: var(--danger-color);">副账单: </span>
+                                            {% endif %}
                                                 <a href="/receivable_accounting/?step=container_preport&container_number={{ item.order.container_number.container_number }}&start_date={{ start_date }}&end_date={{ end_date }}&warehouse_filter={{ warehouse_filter }}" class="container-link">
                                                     {{ item.order.container_number.container_number }}
                                                 </a>
-                                            {% else %}
-                                                <span class="invoice-date" style="color: var(--danger-color);">副账单: {{ item.order.container_number.container_number }}</span>
-                                            {% endif %}
+                                            
                                         </td>
                                         <td class="td">
                                             {% if item.order.retrieval_time %}
@@ -923,12 +922,12 @@
                                         <td class="td">{{ item.order.customer_name.zem_name }}</td>
                                         <td class="td">
                                             {% if item.is_master_bill %}
-                                                <a href="/receivable_accounting/?step=container_preport&container_number={{ item.order.container_number.container_number }}&start_date={{ start_date }}&end_date={{ end_date }}&warehouse_filter={{ warehouse_filter }}" class="container-link">
-                                                    {{ item.order.container_number.container_number }}
-                                                </a>
-                                            {% else %}
-                                                <span class="invoice-date" style="color: var(--danger-color);">副账单: {{ item.order.container_number.container_number }}</span>
+                                                <span class="invoice-date" style="color: var(--danger-color);">副账单: </span>
                                             {% endif %}
+                                            <a href="/receivable_accounting/?step=container_preport&container_number={{ item.order.container_number.container_number }}&start_date={{ start_date }}&end_date={{ end_date }}&warehouse_filter={{ warehouse_filter }}" class="container-link">
+                                                {{ item.order.container_number.container_number }}
+                                            </a>
+                                            
                                         </td>
                                         <td class="td">
                                             {% if item.order.retrieval_time %}
