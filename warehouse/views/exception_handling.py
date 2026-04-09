@@ -2275,6 +2275,7 @@ class ExceptionHandling(View):
             'FeeDetail': FeeDetail,
             'FleetShipmentPallet': FleetShipmentPallet,
             'Fleet': Fleet,
+            'Shipment': Shipment,
             'InvoicePreport': InvoicePreport,
             'InvoiceWarehouse': InvoiceWarehouse,
             'InvoiceDelivery': InvoiceDelivery,
@@ -2545,6 +2546,10 @@ class ExceptionHandling(View):
                 ('id', 'ID'),
                 ('fleet_number', 'fleet_number'),
                 ('pickup_number', 'pickup_number')
+            ],
+            'Shipment': [
+                ['id', 'ID'],
+                ['shipment_batch_number', '预约批次号'],
             ],
             'InvoicePreport': [
                 ('id', 'ID'),

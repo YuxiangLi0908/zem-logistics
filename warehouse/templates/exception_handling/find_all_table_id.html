@@ -284,6 +284,7 @@
                 <option value="FeeDetail" {% if table_name == 'FeeDetail' %}selected{% endif %}>FeeDetail - 费用详情</option>
                 <option value="FleetShipmentPallet" {% if table_name == 'FleetShipmentPallet' %}selected{% endif %}>FleetShipmentPallet - 车次货盘</option>
                 <option value="Fleet" {% if table_name == 'Fleet' %}selected{% endif %}>Fleet - 车次信息</option>
+                <option value="Shipment" {% if table_name == 'Shipment' %}selected{% endif %}>Shipment - Shipment信息</option>
                 <option value="InvoicePreport" {% if table_name == 'InvoicePreport' %}selected{% endif %}>InvoicePreport - 发票港前</option>
                 <option value="InvoiceWarehouse" {% if table_name == 'InvoiceWarehouse' %}selected{% endif %}>InvoiceWarehouse - 发票仓库</option>
                 <option value="InvoiceDelivery" {% if table_name == 'InvoiceDelivery' %}selected{% endif %}>InvoiceDelivery - 发票派送</option>
@@ -483,6 +484,11 @@
                 ['fleet_number', '车队编号'],
                 ['pickup_number', '提货号']
             ],
+            'Shipment': [
+                ['id', 'ID'],
+                ['shipment_batch_number', '预约批次号'],
+            ],
+
             'InvoicePreport': [
                 ['id', 'ID'],
                 ['invoice_number', '发票号码']
