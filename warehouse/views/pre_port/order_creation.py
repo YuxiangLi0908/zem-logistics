@@ -1708,7 +1708,7 @@ class OrderCreation(View):
             )
             container.weight_lbs = total_weight_lbs_sum  # 假设Container模型有weight_lbs字段
             await sync_to_async(container.save)()
-            pl_data = zip(
+            pl_data = zip_longest(
                 request.POST.getlist("delivery_method"),
                 request.POST.getlist("shipping_mark"),
                 request.POST.getlist("fba_id"),
@@ -1729,7 +1729,7 @@ class OrderCreation(View):
                 request.POST.getlist("delivery_window_start"),
                 request.POST.getlist("delivery_window_end"),
                 request.POST.getlist("delivery_type"),
-                strict=True,
+                fillvalue=""
             )
 
             def parse_decimal(value):

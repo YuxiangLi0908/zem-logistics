@@ -442,7 +442,8 @@
                                     <td>Amazon Reference ID</td>
                                     <th>派送方式</th>
                                     <th>快递单号</th>
-                                    <th>备注</th>
+                                    <th>仓库备注</th>
+                                    <th>客服备注</th>
                                     <th>最早配送时间</th>
                                     <th>最晚配送时间</th>
                                 </tr>
@@ -477,6 +478,7 @@
                                     </td>
                                     <td><input type="text" name="express_number"></td>
                                     <td><input type="text" name="note"></td>
+                                    <td><input type="text" name="office_note"></td>
                                     <td><input type="date" name="delivery_window_start"></td>
                                     <td><input type="date" name="delivery_window_end"></td>
                                 </tr>
@@ -510,6 +512,7 @@
                                     </td>
                                     <td><input type="text" name="express_number" {% if pl.express_number %}value="{{ pl.express_number }}"{% endif %}></td>
                                     <td><input type="text" name="note" {% if pl.note %}value="{{ pl.note }}"{% endif %}></td>
+                                    <td><input type="text" name="office_note" {% if pl.office_note %}value="{{ pl.office_note }}"{% endif %}></td>
                                     <td>
                                         <input type="date" name="delivery_window_start" {% if pl.delivery_window_start %}value="{{ pl.delivery_window_start |date:'Y-m-d' }}"{% endif %}>
                                     </td>
