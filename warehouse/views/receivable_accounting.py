@@ -7808,6 +7808,7 @@ class ReceivableAccounting(View):
             container_number=order.container_number,
             invoice_number=f"{current_date.strftime('%Y%m%d')}C{customer_id}{order_id}",
             created_at=current_date,
+            is_master_bill=True,
         )
 
         # 4.2 新建应收状态
