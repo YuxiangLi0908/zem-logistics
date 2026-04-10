@@ -612,7 +612,7 @@
                                         data-empty="{% if item.order.empty_returned_time %}{{ item.order.empty_returned_time|date:'Y-m-d' }}{% endif %}">
                                         <td class="td">{{ item.order.customer_name.zem_name }}</td>
                                         <td class="td">
-                                            {% if item.is_master_bill %}
+                                            {% if not item.is_master_bill %}
                                                 <span class="invoice-date" style="color: var(--danger-color);">副账单:</span>
                                             {% endif %}
                                                 <a href="/receivable_accounting/?step=container_preport&container_number={{ item.order.container_number.container_number }}&start_date={{ start_date }}&end_date={{ end_date }}&warehouse_filter={{ warehouse_filter }}" class="container-link">
@@ -706,7 +706,7 @@
                                         data-status="{% if item.preport_status != 'completed' %}{% if item.preport_status == 'unstarted' %}未开始{% elif item.preport_status == 'in_progress' %}录入中{% elif item.preport_status == 'pending_review' %}待审核{% elif item.preport_status == 'rejected' %}已驳回{% endif %}{% else %}{% if item.finance_status == 'unstarted' %}财务未确认{% elif item.finance_status == 'tobeconfirmed' %}财务未确认{% elif item.finance_status == 'completed' %}财务已确认{% endif %}{% endif %}">
                                         <td class="td">{{ item.order.customer_name.zem_name }}</td>
                                         <td class="td">
-                                            {% if item.is_master_bill %}
+                                            {% if not item.is_master_bill %}
                                                 <span class="invoice-date" style="color: var(--danger-color);">副账单:</span>                                            
                                             {% endif %}
                                                 <a href="/receivable_accounting/?step=container_preport&container_number={{ item.order.container_number.container_number }}&start_date={{ start_date }}&end_date={{ end_date }}&warehouse_filter={{ warehouse_filter }}" class="container-link">
@@ -826,7 +826,7 @@
                                         data-status="待审核">
                                         <td class="td">{{ item.order.customer_name.zem_name }}</td>
                                         <td class="td">
-                                            {% if item.is_master_bill %}
+                                            {% if not item.is_master_bill %}
                                                 <span class="invoice-date" style="color: var(--danger-color);">副账单: </span>
                                             {% endif %}
                                                 <a href="/receivable_accounting/?step=container_preport&container_number={{ item.order.container_number.container_number }}&start_date={{ start_date }}&end_date={{ end_date }}&warehouse_filter={{ warehouse_filter }}" class="container-link">
@@ -921,7 +921,7 @@
                                         data-status="{% if item.finance_status == 'unstarted' %}财务未确认{% elif item.finance_status == 'tobeconfirmed' %}财务未确认{% elif item.finance_status == 'completed' %}财务已确认{% endif %}">
                                         <td class="td">{{ item.order.customer_name.zem_name }}</td>
                                         <td class="td">
-                                            {% if item.is_master_bill %}
+                                            {% if not item.is_master_bill %}
                                                 <span class="invoice-date" style="color: var(--danger-color);">副账单: </span>
                                             {% endif %}
                                             <a href="/receivable_accounting/?step=container_preport&container_number={{ item.order.container_number.container_number }}&start_date={{ start_date }}&end_date={{ end_date }}&warehouse_filter={{ warehouse_filter }}" class="container-link">

@@ -188,7 +188,7 @@
     <div class="fleet-po-header">
         <div class="fleet-po-logo">
             <i class="fas fa-truck-loading"></i>
-            <span>车队PO核对</span>
+            <span>实际货物核对</span>
         </div>
     </div>
 
@@ -271,9 +271,9 @@
                             <td>{{ item.pallet_count|default:"-" }}</td>
                             <td>
                                 <input type="number" class="actual-pallets-input" 
-                                       name="actual_pallets_{{ item.pallet_ids|join:'_' }}" 
-                                       min="0" max="{{ item.pallet_count }}" 
-                                       value="{{ item.pallet_count }}">
+                                        name="actual_pallets_{{ item.pallet_ids|join:'_' }}" 
+                                        min="0" max="{{ item.pallet_count }}" 
+                                        value="{{ item.pallet_count }}">
                             </td>
                             <td>
                                 <button class="delete-btn" onclick="deletePallets('{{ item.pallet_ids|join:"," }}', '{{ item.shipment_id }}', this)">删除</button>
@@ -286,9 +286,10 @@
         {% else %}
             <div class="no-results">
                 <i class="fas fa-search" style="font-size: 3rem; margin-bottom: 15px;"></i>
-                <p>请输入搜索条件进行查询</p>
+                <p>没有查询到任何货物信息</p>
             </div>
         {% endif %}
+        
     </div>
 </div>
 
