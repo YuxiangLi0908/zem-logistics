@@ -6767,6 +6767,11 @@ class ReceivableAccounting(View):
 
         # 获取结果，如果为空则设置为0.0
         total_cbm = group.get("total_cbm")
+        # 3/25之后的要按规定重新计算板数
+        target_date = datetime(2026, 3, 25).date()
+        if vessel_etd.date() > target_date:
+            total_cbm = self._calculate_combine_cbm_trial(destination,total_cbm)
+
         total_weight_lbs = group.get("total_weight_lbs")
         need_manual_input = False
 
@@ -7067,7 +7072,6 @@ class ReceivableAccounting(View):
             "retrieval_id", "container_number", "vessel_id"
         ).get(container_number__container_number=container_number)
         vessel_eta = order.vessel_id.vessel_eta
-        target_date = datetime(2026, 5, 1).date()
 
         # 对每个PO组，从PackingList表中获取准确的CBM和重量数据
         for group in pallet_groups:
@@ -7080,15 +7084,8 @@ class ReceivableAccounting(View):
                             total_cbm=Sum('cbm'),
                             total_weight_lbs=Sum('total_weight_lbs')
                         )  
-                        if vessel_eta.date() == target_date:
-                            if aggregated['total_cbm'] is not None:
-                                # 统一先调用cbm计算方式，试用阶段
-                                group['total_cbm'] = self._calculate_combine_cbm_trial(group.get("destination"), float(aggregated['total_cbm']))
-                            else:
-                                group['total_cbm'] = self._calculate_combine_cbm_trial(group.get("destination"), float(group['total_cbm']))
-                        else:
-                            if aggregated['total_cbm'] is not None:
-                                group['total_cbm'] = aggregated['total_cbm']
+                        if aggregated['total_cbm'] is not None:
+                            group['total_cbm'] = aggregated['total_cbm']
                         if aggregated['total_weight_lbs'] is not None:
                             group['total_weight_lbs'] = aggregated['total_weight_lbs']
                         
@@ -7113,15 +7110,8 @@ class ReceivableAccounting(View):
                                 total_cbm=Sum('cbm'),
                                 total_weight_lbs=Sum('total_weight_lbs')
                             )
-                        if vessel_eta.date() == target_date:
-                            if aggregated['total_cbm'] is not None:
-                                # 统一先调用cbm计算方式，试用阶段
-                                group['total_cbm'] = self._calculate_combine_cbm_trial(group.get("destination"), float(aggregated['total_cbm']))
-                            else:
-                                group['total_cbm'] = self._calculate_combine_cbm_trial(group.get("destination"), float(group['total_cbm']))
-                        else:
-                            if aggregated['total_cbm'] is not None:
-                                group['total_cbm'] = aggregated['total_cbm']
+                        if aggregated['total_cbm'] is not None:
+                            group['total_cbm'] = aggregated['total_cbm']
                         if aggregated['total_weight_lbs'] is not None:
                             group['total_weight_lbs'] = aggregated['total_weight_lbs']
                         
