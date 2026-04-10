@@ -12105,7 +12105,7 @@ class PostNsop(View):
             criteria &= Q(container_number__container_number__icontains=container_number)
         elif destination:
             criteria &= Q(destination__icontains=destination)
-        
+
         # 如果没有任何搜索条件，返回空结果
         if not any([fleet_number, pickup_number, container_number, destination, shipment_batch_number, isa]):
             context['search_results'] = []
