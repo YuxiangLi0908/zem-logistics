@@ -12618,11 +12618,27 @@ class PostNsop(View):
         shipping_warehouse = request.POST.get('shipping_warehouse', '')
         loading_type = request.POST.get('loading_type', '')
         pickup_number = request.POST.get('pickup_number', '')
-        destination = request.POST.get('destination', '')
+        destination = request.POST.get('sp_destination', '')
         address = request.POST.get('address', '')
         note = request.POST.get('note', '')
         shipment_id = request.POST.get('shipment_id', '')
         
+        # 先检查一下这个ISA有没有用过
+        if not appointment_number and appointment_type == "FTL":
+            # 没有值，创建随机的11位数
+            while True:
+                # 生成11位随机数（第一位不能是0）
+                appointment_number = str(random.randint(10000000000, 99999999999))
+                # 检查是否已存在
+                if not await sync_to_async(Shipment.objects.filter(appointment_id=appointment_number).exists)():
+                    break
+        else:
+            # 有值，检查是否已存在
+            if await sync_to_async(Shipment.objects.filter(appointment_id=appointment_number).exists()):
+                template, search_context = await self.handle_master_shipment_check_post(request)
+                context.update(search_context)
+                return template, context
+
         # 创建新的Shipment记录
         new_shipment = Shipment()
         
@@ -12677,8 +12693,7 @@ class PostNsop(View):
         context = {
             'success_messages': '虚构主约创建成功!'
         }
-            
-        
+                  
         # 重新调用搜索功能
         template, search_context = await self.handle_master_shipment_check_post(request)
         context.update(search_context)
