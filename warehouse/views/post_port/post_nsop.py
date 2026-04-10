@@ -52,7 +52,7 @@ from django.db.models import (
 from warehouse.utils.config import app_config
 import asyncio
 import aiohttp
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponseForbidden
 from io import BytesIO
 from django.core.exceptions import MultipleObjectsReturned
 from django.db.models.functions import Cast, Concat
@@ -190,11 +190,23 @@ class PostNsop(View):
             template, context = await self.handle_fleet_management_get(request)
             return render(request, template, context)
         elif step == "fleet_leader_check":
+            if not await self._validate_user_check_po_group(request.user):
+                return HttpResponseForbidden(
+                    "You are not authenticated to access this page!"
+                )
             template, context = await self.handle_fleet_leader_check_get(request)
             return render(request, template, context)         
         elif step == "fleet_po_check":
+            if not await self._validate_user_check_po_group(request.user):
+                return HttpResponseForbidden(
+                    "You are not authenticated to access this page!"
+                )
             return render(request, self.template_fleet_po_check, {}) 
         elif step == "master_shipment_check":
+            if not await self._validate_user_check_po_group(request.user):
+                return HttpResponseForbidden(
+                    "You are not authenticated to access this page!"
+                )
             template, context = await self.handle_master_shipment_check_post(request)
             return render(request, template, context)
         elif step == "unscheduled_pos_all":
@@ -517,6 +529,14 @@ class PostNsop(View):
             return render(request, template, context)
         else:
             raise ValueError('输入错误',step)
+    
+    async def _validate_user_check_po_group(self, user: User) -> bool:
+        is_staff = await sync_to_async(lambda: user.is_staff)()
+        if is_staff:
+            return True
+        return await sync_to_async(
+            lambda: user.groups.filter(name="shipment_po_check").exists()
+        )()
     
     async def handle_batch_update_delivery_method(self, request: HttpRequest):
         '''批量保存派送方式'''
