@@ -207,8 +207,7 @@ class PostNsop(View):
                 return HttpResponseForbidden(
                     "You are not authenticated to access this page!"
                 )
-            template, context = await self.handle_master_shipment_check_post(request)
-            return render(request, template, context)
+            return render(request, self.template_master_shipment_check, {})
         elif step == "unscheduled_pos_all":
             template, context = await self.handle_unscheduled_pos_all_get(request)
             return render(request, template, context)
@@ -517,6 +516,12 @@ class PostNsop(View):
             return render(request, template, context)
         elif step == "fleet_po_search":
             template, context = await self.handle_fleet_po_search_post(request)
+            return render(request, template, context)
+        elif step == "master_shipment_search":
+            template, context = await self.handle_master_shipment_check_post(request)
+            return render(request, template, context)
+        elif step == "create_fictional_master":
+            template, context = await self.handle_create_fictional_master_post(request)
             return render(request, template, context)
         elif step == "fleet_po_delete":
             template, context = await self.handle_fleet_po_delete_post(request)
@@ -12443,3 +12448,299 @@ class PostNsop(View):
         
         # 调用搜索功能
         return await self.handle_fleet_po_search_post(new_request, context)
+
+    async def handle_master_shipment_check_post(self, request: HttpRequest, context: str | None = None) -> tuple[str, dict[str, Any]]:
+        """客户端约详情搜索功能"""  
+        if not context:
+            context = {}
+        
+        # 获取搜索条件
+        start_date = request.POST.get('start_date', '').strip()
+        end_date = request.POST.get('end_date', '').strip()
+        container_number = request.POST.get('container_number', '').strip()
+        destination = request.POST.get('destination', '').strip()
+        warehouse = request.POST.get('warehouse', '').strip()
+        
+        # 将搜索条件传递到前端
+        context.update({
+            'start_date': start_date,
+            'end_date': end_date,
+            'container_number': container_number,
+            'destination': destination,
+            'warehouse': warehouse
+        })
+        
+        # 如果没有输入任何值，默认最近三个月
+        if not any([start_date, end_date, container_number, destination, warehouse]):
+            today = datetime.now().date()
+            three_months_ago = today - timedelta(days=90)
+            start_date = three_months_ago.strftime('%Y-%m-%d')
+            end_date = today.strftime('%Y-%m-%d')
+            context['start_date'] = start_date
+            context['end_date'] = end_date
+        
+        # 构建统一的查询条件
+        base_criteria = Q()
+        
+        # 时间查询 - 通过container_number->orders->offload_id->offload_at
+        if start_date:
+            base_criteria &= Q(container_number__orders__offload_id__offload_at__gte=start_date)
+        if end_date:
+            base_criteria &= Q(container_number__orders__offload_id__offload_at__lte=end_date)
+        
+        # 柜号查询
+        if container_number:
+            base_criteria &= Q(container_number__container_number__icontains=container_number)
+        
+        # 仓点查询
+        if destination:
+            base_criteria &= Q(destination__icontains=destination)
+        
+        # 仓库查询 - 通过container_number->orders->retrieval_id->retrieval_destination_area
+        if warehouse:
+            base_criteria &= Q(container_number__orders__retrieval_id__retrieval_destination_area=warehouse)
+        
+        # 分别构建Pallet和PackingList的查询条件
+        pallet_criteria = base_criteria & Q(container_number__orders__offload_id__offload_at__isnull=False)
+        packinglist_criteria = base_criteria & Q(container_number__orders__offload_id__offload_at__isnull=True)
+        
+        results = []
+        
+        try:
+            # 查询Pallet数据
+            pallets = await sync_to_async(list)(
+                Pallet.objects.select_related(
+                    'container_number',
+                    'master_shipment_batch_number'
+                )
+                .filter(pallet_criteria)
+            )
+            
+            # 查询PackingList数据
+            packinglists = await sync_to_async(list)(
+                PackingList.objects.select_related(
+                    'container_number',
+                    'master_shipment_batch_number'
+                )
+                .filter(packinglist_criteria)
+            )
+            
+            # 将两个列表合并，标记源类型
+            all_items = []
+            for pallet in pallets:
+                all_items.append({
+                    'item': pallet,
+                    'type': 'pallet'
+                })
+            for packinglist in packinglists:
+                all_items.append({
+                    'item': packinglist,
+                    'type': 'packinglist'
+                })
+            
+            # 统一处理分组
+            combined_dict = {}
+            for item_data in all_items:
+                item = item_data['item']
+                item_type = item_data['type']
+                
+                # 获取分组key
+                po_id = item.PO_ID or ''
+                container_number = item.container_number.container_number if item.container_number else ''
+                destination = item.destination or ''
+                master_id = item.master_shipment_batch_number_id
+                
+                if master_id:
+                    key = f"master_{master_id}"
+                elif po_id and container_number and destination:
+                    key = f"{po_id}_{container_number}_{destination}"
+                elif container_number and destination:
+                    key = f"{container_number}_{destination}"
+                else:
+                    key = f"{item_type}_{item.id}"
+                
+                if key not in combined_dict:
+                    # 转换为字典格式
+                    item_dict = {
+                        'PO_ID': item.PO_ID,
+                        'master_shipment_batch_number_id': item.master_shipment_batch_number_id,
+                        'container_number__container_number': container_number,
+                        'destination': destination,
+                        'master_shipment_batch_number__shipment_batch_number': item.master_shipment_batch_number.shipment_batch_number if item.master_shipment_batch_number else None,
+                        'master_shipment_batch_number__appointment_id': item.master_shipment_batch_number.appointment_id if item.master_shipment_batch_number else None,
+                        'master_shipment_batch_number__pod_link': item.master_shipment_batch_number.pod_link if item.master_shipment_batch_number else None,
+                        'master_shipment_batch_number__pod_uploaded_at': item.master_shipment_batch_number.pod_uploaded_at if item.master_shipment_batch_number else None,
+                        'master_shipment_batch_number__arrived_at': item.master_shipment_batch_number.arrived_at if item.master_shipment_batch_number else None,
+                        'master_shipment_batch_number__shipped_at': item.master_shipment_batch_number.shipped_at if item.master_shipment_batch_number else None,
+                        'master_shipment_batch_number__shipment_appointment': item.master_shipment_batch_number.shipment_appointment if item.master_shipment_batch_number else None
+                    }
+                    combined_dict[key] = self._process_master_shipment_item(item_dict, item_type)
+                    combined_dict[key]['pallet_count'] = 0
+                    combined_dict[key]['ids'] = []
+                
+                # 计算板数
+                if item_type == 'pallet':
+                    combined_dict[key]['pallet_count'] += 1
+                    combined_dict[key]['ids'].append(f"plt_{item.id}")
+                else:
+                    total_cbm = item.cbm or 0
+                    pl_count = math.ceil(total_cbm / 1.8) if total_cbm else 0
+                    if pl_count > combined_dict[key]['pallet_count']:
+                        combined_dict[key]['pallet_count'] = pl_count
+                    combined_dict[key]['ids'].append(f"pl_{item.id}")
+            
+            # 转换ids为字符串，并添加其他字段
+            for key, value in combined_dict.items():
+                value['ids_string'] = ','.join(value['ids'])
+                value['has_master_shipment'] = bool(value.get('shipment_batch_number'))
+            
+            results = list(combined_dict.values())
+            
+        except Exception as e:
+            context['error_messages'] = f'查询失败: {str(e)}'
+        
+        context['results'] = results
+        return self.template_master_shipment_check, context
+    
+    async def handle_create_fictional_master_post(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
+        """创建虚构主约"""       
+        # 获取表单数据
+        print(request.POST)
+        ids_string = request.POST.get('ids_string', '')
+        appointment_type = request.POST.get('appointment_type', '')
+        appointment_account = request.POST.get('appointment_account', '')
+        appointment_number = request.POST.get('appointment_number', '')
+        scheduled_time = request.POST.get('scheduled_time', '')
+        pickup_time = request.POST.get('pickup_time', '')
+        shipping_warehouse = request.POST.get('shipping_warehouse', '')
+        loading_type = request.POST.get('loading_type', '')
+        pickup_number = request.POST.get('pickup_number', '')
+        destination = request.POST.get('destination', '')
+        address = request.POST.get('address', '')
+        note = request.POST.get('note', '')
+        shipment_id = request.POST.get('shipment_id', '')
+        
+        # 创建新的Shipment记录
+        new_shipment = Shipment()
+        
+        new_shipment.shipment_type = appointment_type
+        new_shipment.shipment_account = appointment_account
+        new_shipment.appointment_id = appointment_number
+        if scheduled_time:
+            new_shipment.shipment_schduled_at = scheduled_time
+        if pickup_time:
+            new_shipment.pickup_time = pickup_time
+        new_shipment.origin = shipping_warehouse
+        new_shipment.load_type = loading_type
+        new_shipment.pickup_number = pickup_number
+        new_shipment.destination = destination
+        new_shipment.address = address
+        new_shipment.note = note
+        new_shipment.shipment_batch_number = shipment_id
+        new_shipment.is_virtual_sp = True
+        
+        # 生成shipment_batch_number（如果没有提供）
+        if not new_shipment.shipment_batch_number:
+            timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
+            new_shipment.shipment_batch_number = f"FIC-{timestamp}"
+        
+        await sync_to_async(new_shipment.save)()
+        
+        # 解析ids_string
+        ids_list = ids_string.split(',') if ids_string else []
+        
+        pallet_ids = []
+        packinglist_ids = []
+        
+        for id_str in ids_list:
+            if id_str.startswith('plt_'):
+                pallet_ids.append(id_str.replace('plt_', ''))
+            elif id_str.startswith('pl_'):
+                packinglist_ids.append(id_str.replace('pl_', ''))
+        
+        # 更新Pallet记录
+        if pallet_ids:
+            await sync_to_async(Pallet.objects.filter(id__in=pallet_ids).update)(
+                master_shipment_batch_number=new_shipment
+            )
+        
+        # 更新PackingList记录
+        if packinglist_ids:
+            await sync_to_async(PackingList.objects.filter(id__in=packinglist_ids).update)(
+                master_shipment_batch_number=new_shipment
+            )
+        
+        # 重新调用搜索功能，保留原有的搜索条件
+        context = {
+            'success_messages': '虚构主约创建成功!'
+        }
+            
+        
+        # 重新调用搜索功能
+        template, search_context = await self.handle_master_shipment_check_post(request)
+        context.update(search_context)
+        
+        return template, context
+    
+    def _process_master_shipment_item(self, item, source_type):
+        """处理单个master_shipment项目，计算状态和格式化日期"""
+        from datetime import datetime
+        
+        # 获取shipment相关字段
+        shipment_batch_number = item.get('master_shipment_batch_number__shipment_batch_number', '')
+        appointment_id = item.get('master_shipment_batch_number__appointment_id', '')
+        pod_link = item.get('master_shipment_batch_number__pod_link', '')
+        pod_uploaded_at = item.get('master_shipment_batch_number__pod_uploaded_at')
+        arrived_at = item.get('master_shipment_batch_number__arrived_at')
+        shipped_at = item.get('master_shipment_batch_number__shipped_at')
+        shipment_appointment = item.get('master_shipment_batch_number__shipment_appointment')
+        
+        # 计算状态
+        status = '未预约'
+        status_class = 'unappointed'
+        
+        if pod_link and pod_uploaded_at:
+            status = '已完成'
+            status_class = 'completed'
+        elif arrived_at:
+            status = '已送达'
+            status_class = 'arrived'
+        elif shipped_at:
+            status = '已出库'
+            status_class = 'shipped'
+        elif shipment_appointment:
+            status = '已预约'
+            status_class = 'appointed'
+        
+        # 格式化日期（完整格式）
+        def format_date(dt):
+            if not dt:
+                return ''
+            if hasattr(dt, 'strftime'):
+                return dt.strftime('%Y-%m-%d %H:%M:%S')
+            return str(dt)
+        
+        # 只格式化年月日
+        def format_date_only(dt):
+            if not dt:
+                return ''
+            if hasattr(dt, 'strftime'):
+                return dt.strftime('%Y-%m-%d')
+            return str(dt)
+        
+        return {
+            'container_number': item.get('container_number__container_number', ''),
+            'destination': item.get('destination', ''),
+            'shipment_batch_number': shipment_batch_number,
+            'appointment_id': appointment_id,
+            'status': status,
+            'status_class': status_class,
+            'shipment_appointment': format_date(shipment_appointment),
+            'shipment_appointment_date': format_date_only(shipment_appointment),
+            'shipped_at': format_date(shipped_at),
+            'shipped_at_date': format_date_only(shipped_at),
+            'arrived_at': format_date(arrived_at),
+            'arrived_at_date': format_date_only(arrived_at),
+            'pod_link': pod_link,
+            'source_type': source_type
+        }
