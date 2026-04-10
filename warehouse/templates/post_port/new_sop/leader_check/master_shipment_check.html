@@ -1,0 +1,635 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<style>
+    .master-shipment-check {
+        max-width: 98%;
+        margin: 20px auto;
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+        overflow: hidden;
+    }
+
+    .master-shipment-header {
+        background: linear-gradient(135deg, #2c3e50, #34495e);
+        color: white;
+        padding: 25px 30px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .master-shipment-logo {
+        display: flex;
+        align-items: center;
+        font-size: 1.5rem;
+        font-weight: bold;
+    }
+
+    .master-shipment-logo i {
+        margin-right: 12px;
+        font-size: 1.8rem;
+    }
+
+    .combined-search-section {
+        width: 98%;
+        margin: 20px auto;
+        background: white;
+        padding: 20px;
+        border-radius: 10px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .search-controls {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 15px;
+        padding: 0;
+        margin-top: 0;
+        width: 100%;
+    }
+
+    .search-group {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+        min-width: 150px;
+    }
+
+    .search-group label {
+        font-weight: 600;
+        font-size: 0.9rem;
+        color: #2c3e50;
+    }
+
+    .search-controls input,
+    .search-controls select {
+        padding: 8px 12px;
+        border: 1px solid #ced4da;
+        border-radius: 6px;
+        background: white;
+        font-size: 0.9rem;
+        min-width: 150px;
+    }
+
+    .search-controls button {
+        padding: 10px 20px;
+        background: #3498db;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        align-self: flex-end;
+        margin-top: 20px;
+    }
+
+    .search-controls button:hover {
+        background: #2980b9;
+        transform: translateY(-1px);
+    }
+
+    .results-section {
+        padding: 25px;
+    }
+
+    .group-table {
+        width: 98%;
+        border-collapse: collapse;
+        margin-bottom: 30px;
+        background: white;
+        border-radius: 8px;
+        overflow: hidden;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        margin-left: auto;
+        margin-right: auto;
+    }
+
+    .group-table th {
+        background: #f8f9fa;
+        padding: 12px 8px;
+        text-align: left;
+        font-weight: 600;
+        border-bottom: 2px solid #dee2e6;
+        font-size: 0.9rem;
+    }
+
+    .search-row {
+        background: #f1f3f4;
+    }
+
+    .search-row td {
+        padding: 6px 4px;
+        border-bottom: 1px solid #dee2e6;
+    }
+
+    .table-search-input,
+    .table-search-select {
+        width: 100%;
+        padding: 4px 6px;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+        font-size: 0.8rem;
+        box-sizing: border-box;
+    }
+
+    .table-search-input:focus,
+    .table-search-select:focus {
+        outline: none;
+        border-color: #3498db;
+        box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+    }
+
+    .group-table td {
+        padding: 10px 8px;
+        border-bottom: 1px solid #e9ecef;
+        font-size: 0.85rem;
+    }
+
+    .group-table tr:hover {
+        background-color: #f8f9fa;
+    }
+
+    .group-header {
+        background: #e3f2fd !important;
+        font-weight: bold;
+        font-size: 1rem !important;
+    }
+
+    .status-badge {
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        display: inline-block;
+    }
+
+    .status-completed {
+        background: #d4edda;
+        color: #155724;
+    }
+
+    .status-arrived {
+        background: #d1ecf1;
+        color: #0c5460;
+    }
+
+    .status-shipped {
+        background: #fff3cd;
+        color: #856404;
+    }
+
+    .status-appointed {
+        background: #cce5ff;
+        color: #004085;
+    }
+
+    .status-unappointed {
+        background: #f8d7da;
+        color: #721c24;
+    }
+
+    .pod-link {
+        color: #3498db;
+        text-decoration: none;
+        font-weight: 500;
+    }
+
+    .pod-link:hover {
+        text-decoration: underline;
+    }
+
+    .no-results {
+        text-align: center;
+        padding: 40px;
+        color: #6c757d;
+        font-size: 1.1rem;
+    }
+
+    .table-wrapper {
+        overflow-x: auto;
+        width: 98%;
+        margin: 0 auto;
+    }
+    
+    .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        display: none;
+        justify-content: center;
+        align-items: center;
+        z-index: 1000;
+    }
+    
+    .modal-overlay.active {
+        display: flex;
+    }
+    
+    .modal-content {
+        background: white;
+        border-radius: 12px;
+        padding: 30px;
+        width: 90%;
+        max-width: 1200px;
+        max-height: 90vh;
+        overflow-y: auto;
+    }
+    
+    .modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 25px;
+        padding-bottom: 15px;
+        border-bottom: 1px solid #e9ecef;
+    }
+    
+    .modal-title {
+        font-size: 1.4rem;
+        font-weight: bold;
+        color: #2c3e50;
+    }
+    
+    .modal-close {
+        background: none;
+        border: none;
+        font-size: 1.8rem;
+        cursor: pointer;
+        color: #6c757d;
+    }
+    
+    .modal-close:hover {
+        color: #2c3e50;
+    }
+    
+    .modal-form-group {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 20px;
+        margin-bottom: 20px;
+    }
+    
+    .modal-form-item {
+        flex: 1;
+        min-width: 200px;
+    }
+    
+    .modal-form-item label {
+        display: block;
+        font-weight: 600;
+        margin-bottom: 8px;
+        color: #2c3e50;
+    }
+    
+    .modal-form-item input,
+    .modal-form-item select {
+        width: 100%;
+        padding: 10px 12px;
+        border: 1px solid #ced4da;
+        border-radius: 6px;
+        font-size: 0.95rem;
+    }
+    
+    .modal-form-item input:focus,
+    .modal-form-item select:focus {
+        outline: none;
+        border-color: #3498db;
+        box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+    }
+    
+    .modal-footer {
+        display: flex;
+        justify-content: flex-end;
+        gap: 15px;
+        margin-top: 25px;
+        padding-top: 20px;
+        border-top: 1px solid #e9ecef;
+    }
+    
+    .btn-cancel {
+        padding: 10px 25px;
+        background: #6c757d;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-weight: 600;
+    }
+    
+    .btn-cancel:hover {
+        background: #5a6268;
+    }
+    
+    .btn-confirm {
+        padding: 10px 25px;
+        background: #28a745;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-weight: 600;
+    }
+    
+    .btn-confirm:hover {
+        background: #218838;
+    }
+    
+    .create-fictional-btn {
+        padding: 6px 16px;
+        background: #ffc107;
+        color: #212529;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-weight: 500;
+        font-size: 0.85rem;
+    }
+    
+    .create-fictional-btn:hover {
+        background: #e0a800;
+    }
+</style>
+
+<div class="master-shipment-check">
+    <div class="master-shipment-header">
+        <div class="master-shipment-logo">
+            <i class="fas fa-truck-loading"></i>
+            客户端的约详情
+        </div>
+    </div>
+
+    <div class="combined-search-section">
+        <form method="POST" id="searchForm">
+            {% csrf_token %}
+            <input type="hidden" name="step" value="master_shipment_search">
+            
+            <div class="search-controls">
+                <div class="search-group">
+                    <label for="start_date">开始时间</label>
+                    <input type="date" id="start_date" name="start_date" value="{{ start_date|default:'' }}">
+                </div>
+                
+                <div class="search-group">
+                    <label for="end_date">结束时间</label>
+                    <input type="date" id="end_date" name="end_date" value="{{ end_date|default:'' }}">
+                </div>
+                
+                <div class="search-group">
+                    <label for="container_number">柜号</label>
+                    <input type="text" id="container_number" name="container_number" placeholder="输入柜号" value="{{ container_number|default:'' }}">
+                </div>
+                
+                <div class="search-group">
+                    <label for="destination">仓点</label>
+                    <input type="text" id="destination" name="destination" placeholder="输入仓点" value="{{ destination|default:'' }}">
+                </div>
+                
+                <div class="search-group">
+                    <label for="warehouse">仓库</label>
+                    <select id="warehouse" name="warehouse">
+                        <option value="">全部仓库</option>
+                        <option value="NJ" {% if warehouse == 'NJ' %}selected{% endif %}>NJ</option>
+                        <option value="SAV" {% if warehouse == 'SAV' %}selected{% endif %}>SAV</option>
+                        <option value="LA" {% if warehouse == 'LA' %}selected{% endif %}>LA</option>
+                    </select>
+                </div>
+                
+                <button type="submit">搜索</button>
+            </div>
+        </form>
+    </div>
+
+    <div class="results-section">
+        {% if results %}
+        <div class="table-wrapper">
+            <table class="group-table" id="masterShipmentTable">
+                <thead>
+                    <tr>
+                        <th>柜号</th>
+                        <th>仓点</th>
+                        <th>状态</th>
+                        <th>主约批次号</th>
+                        <th>appointment_id</th>
+                        <th>预约时间</th>
+                        <th>出库时间</th>
+                        <th>送达时间</th>
+                        <th>上传POD</th>
+                    </tr>
+                    <tr class="search-row">
+                        <td><input type="text" class="table-search-input" placeholder="搜索柜号" data-col="0"></td>
+                        <td><input type="text" class="table-search-input" placeholder="搜索仓点" data-col="1"></td>
+                        <td>
+                            <select class="table-search-select" data-col="2">
+                                <option value="">全部状态</option>
+                                <option value="已完成">已完成</option>
+                                <option value="已送达">已送达</option>
+                                <option value="已出库">已出库</option>
+                                <option value="已预约">已预约</option>
+                                <option value="未预约">未预约</option>
+                            </select>
+                        </td>
+                        <td><input type="text" class="table-search-input" placeholder="搜索预约批次" data-col="3"></td>
+                        <td><input type="text" class="table-search-input" placeholder="搜索appointment_id" data-col="4"></td>
+                        <td><input type="text" class="table-search-input" placeholder="搜索预约时间" data-col="5"></td>
+                        <td><input type="text" class="table-search-input" placeholder="搜索出库时间" data-col="6"></td>
+                        <td><input type="text" class="table-search-input" placeholder="搜索送达时间" data-col="7"></td>
+                        <td></td>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in results %}
+                    <tr>
+                        <td>{{ item.container_number|default:'-' }}</td>
+                        <td>{{ item.destination|default:'-' }}</td>
+                        <td>
+                            <span class="status-badge status-{{ item.status_class }}">{{ item.status }}</span>
+                        </td>
+                        {% if item.has_master_shipment %}
+                        <td>{{ item.shipment_batch_number|default:'-' }}</td>
+                        <td>{{ item.appointment_id|default:'-' }}</td>
+                        <td>{{ item.shipment_appointment_date|default:'-' }}</td>
+                        <td>{{ item.shipped_at_date|default:'-' }}</td>
+                        <td>{{ item.arrived_at_date|default:'-' }}</td>
+                        <td>
+                            {% if item.pod_link %}
+                            <a href="{{ item.pod_link }}" class="pod-link" target="_blank">查看POD</a>
+                            {% else %}
+                            -
+                            {% endif %}
+                        </td>
+                        {% else %}
+                        <td colspan="6" style="text-align: center;">
+                            <button class="create-fictional-btn" onclick="openCreateFictionalModal('{{ item.ids_string }}')">创建虚构主约</button>
+                        </td>
+                        {% endif %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="no-results">
+            <i class="fas fa-inbox" style="font-size: 3rem; margin-bottom: 15px; display: block;"></i>
+            没有查询到任何信息
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+    <div class="modal-overlay" id="createFictionalModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">创建虚构主约</h3>
+                <button class="modal-close" onclick="closeCreateFictionalModal()">&times;</button>
+            </div>
+            <form method="POST" id="createFictionalForm">
+                {% csrf_token %}
+                <input type="hidden" name="step" value="create_fictional_master">
+                <input type="hidden" name="ids_string" id="modalIdsString" value="">
+                
+                <div class="modal-form-group">
+                    <div class="modal-form-item">
+                        <label for="appointment_type">预约类型</label>
+                        <select id="appointment_type" name="appointment_type">
+                            <option value="FTL">FTL</option>
+                            <option value="LTL">LTL</option>
+                        </select>
+                    </div>
+                    <div class="modal-form-item">
+                        <label for="appointment_account">预约账号</label>
+                        <select id="appointment_account" name="appointment_account">
+                            <option value="Carrier Central1">Carrier Central1</option>
+                            <option value="Carrier Central2">Carrier Central2</option>
+                            <option value="ZEM-AMF">ZEM-AMF</option>
+                            <option value="ARM-AMF">ARM-AMF</option>
+                            <option value="walmart">walmart</option>
+                        </select>
+                    </div>
+                    <div class="modal-form-item">
+                        <label for="appointment_number">预约号</label>
+                        <input type="text" id="appointment_number" name="appointment_number" placeholder="输入预约号">
+                    </div>
+                    <div class="modal-form-item">
+                        <label for="scheduled_time">Scheduled Time</label>
+                        <input type="datetime-local" id="scheduled_time" name="scheduled_time">
+                    </div>
+                    <div class="modal-form-item">
+                        <label for="pickup_time">Pickup Time</label>
+                        <input type="datetime-local" id="pickup_time" name="pickup_time">
+                    </div>
+                    <div class="modal-form-item">
+                        <label for="shipping_warehouse">发货仓库</label>
+                        <select id="shipping_warehouse" name="shipping_warehouse">
+                            <option value="NJ-07001">NJ-07001</option>
+                            <option value="SAV-31407">SAV-31407</option>
+                            <option value="LA-91731">LA-91731</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="modal-form-group">
+                    <div class="modal-form-item">
+                        <label for="loading_type">装车类型</label>
+                        <select id="loading_type" name="loading_type">
+                            <option value="卡板">卡板</option>
+                            <option value="地板">地板</option>
+                        </select>
+                    </div>
+                    <div class="modal-form-item">
+                        <label for="pickup_number">Pickup Number</label>
+                        <input type="text" id="pickup_number" name="pickup_number" placeholder="输入Pickup Number" value="ZEM-RC-0410-ACY2-LCC">
+                    </div>
+                    <div class="modal-form-item">
+                        <label for="destination">目的地</label>
+                        <input type="text" id="destination" name="destination" placeholder="输入目的地" value="ACY2">
+                    </div>
+                    <div class="modal-form-item">
+                        <label for="address">地址</label>
+                        <input type="text" id="address" name="address" placeholder="输入地址">
+                    </div>
+                    <div class="modal-form-item">
+                        <label for="note">备注</label>
+                        <input type="text" id="note" name="note" placeholder="输入备注">
+                    </div>
+                    <div class="modal-form-item">
+                        <label for="shipment_id">shipment ID</label>
+                        <input type="text" id="shipment_id" name="shipment_id" placeholder="输入shipment ID">
+                    </div>
+                </div>
+                
+                <div class="modal-footer">
+                    <button type="button" class="btn-cancel" onclick="closeCreateFictionalModal()">取消</button>
+                    <button type="submit" class="btn-confirm">确认创建</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const table = document.getElementById('masterShipmentTable');
+        if (!table) return;
+
+        const tbody = table.querySelector('tbody');
+        const searchInputs = table.querySelectorAll('.table-search-input, .table-search-select');
+
+        searchInputs.forEach(input => {
+            input.addEventListener('input', function() {
+                filterTable();
+            });
+            input.addEventListener('change', function() {
+                filterTable();
+            });
+        });
+
+        function filterTable() {
+            const rows = tbody.querySelectorAll('tr');
+            const searchValues = [];
+
+            searchInputs.forEach(input => {
+                const col = input.getAttribute('data-col');
+                searchValues[col] = input.value.toLowerCase();
+            });
+
+            rows.forEach(row => {
+                let show = true;
+                const cells = row.querySelectorAll('td');
+
+                searchInputs.forEach(input => {
+                    const col = parseInt(input.getAttribute('data-col'));
+                    const searchValue = searchValues[col];
+
+                    if (searchValue) {
+                        const cell = cells[col];
+                        if (cell) {
+                            const cellText = cell.textContent.toLowerCase();
+                            if (!cellText.includes(searchValue)) {
+                                show = false;
+                            }
+                        }
+                    }
+                });
+
+                row.style.display = show ? '' : 'none';
+            });
+        }
+    });
+    
+    function openCreateFictionalModal(idsString) {
+        document.getElementById('modalIdsString').value = idsString;
+        document.getElementById('createFictionalModal').classList.add('active');
+    }
+    
+    function closeCreateFictionalModal() {
+        document.getElementById('createFictionalModal').classList.remove('active');
+    }
+</script>
+{% endblock %}
