@@ -234,13 +234,14 @@
     }
     
     .modal-content {
-        background: white;
+        background: linear-gradient(135deg, #f8f9fa, #e9ecef);
         border-radius: 12px;
         padding: 30px;
         width: 90%;
         max-width: 1200px;
         max-height: 90vh;
         overflow-y: auto;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
     }
     
     .modal-header {
@@ -525,6 +526,9 @@
                         <label for="pickup_time">Pickup Time</label>
                         <input type="datetime-local" id="pickup_time" name="pickup_time">
                     </div>
+                </div>
+                
+                <div class="modal-form-group">
                     <div class="modal-form-item">
                         <label for="shipping_warehouse">发货仓库</label>
                         <select id="shipping_warehouse" name="shipping_warehouse">
@@ -533,9 +537,10 @@
                             <option value="LA-91731">LA-91731</option>
                         </select>
                     </div>
-                </div>
-                
-                <div class="modal-form-group">
+                    <div class="modal-form-item">
+                        <label for="shipment_id">shipment ID</label>
+                        <input type="text" id="shipment_id" name="shipment_id" placeholder="输入shipment ID">
+                    </div>
                     <div class="modal-form-item">
                         <label for="loading_type">装车类型</label>
                         <select id="loading_type" name="loading_type">
@@ -555,13 +560,9 @@
                         <label for="address">地址</label>
                         <input type="text" id="address" name="address" placeholder="输入地址">
                     </div>
-                    <div class="modal-form-item">
+                    <div class="modal-form-item" style="flex: 2;">
                         <label for="note">备注</label>
                         <input type="text" id="note" name="note" placeholder="输入备注">
-                    </div>
-                    <div class="modal-form-item">
-                        <label for="shipment_id">shipment ID</label>
-                        <input type="text" id="shipment_id" name="shipment_id" placeholder="输入shipment ID">
                     </div>
                 </div>
                 

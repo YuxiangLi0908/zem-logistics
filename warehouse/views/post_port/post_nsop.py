@@ -6864,6 +6864,7 @@ class PostNsop(View):
             in_use=True,
             is_canceled=False,
             is_notified_customer=True,
+            is_virtual_sp=False,
         )
         if group and 'ltl' in group.lower():  # 如果group包含ltl（不区分大小写）
             sp_base_q = base_q & models.Q(shipment_type__in=['LTL', '客户自提'])
@@ -8392,6 +8393,7 @@ class PostNsop(View):
                 shipment_type='FTL',
                 is_canceled=False,
                 in_use=True,
+                is_virtual_sp=False
             )
         else:
             base_q = Q(
@@ -8401,6 +8403,7 @@ class PostNsop(View):
                 shipment_type='FTL',
                 is_canceled=False,
                 in_use=True,
+                is_virtual_sp=False
             )
         if four_major_whs == "four_major_whs":
             base_q &= models.Q(destination__in=FOUR_MAJOR_WAREHOUSES)
