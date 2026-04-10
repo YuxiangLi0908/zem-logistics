@@ -234,28 +234,38 @@
     }
     
     .modal-content {
-        background: white;
+        background: linear-gradient(135deg, #f8f9fa, #e9ecef);
         border-radius: 12px;
         padding: 30px;
         width: 90%;
         max-width: 1200px;
         max-height: 90vh;
         overflow-y: auto;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
     }
     
     .modal-header {
+        background-color: #2c3e50;
+        color: white;
+        padding: 15px 20px;
+        border-radius: 8px 8px 0 0;
+        margin: -30px -30px 20px -30px;
         display: flex;
         justify-content: space-between;
         align-items: center;
-        margin-bottom: 25px;
-        padding-bottom: 15px;
-        border-bottom: 1px solid #e9ecef;
     }
     
     .modal-title {
         font-size: 1.4rem;
         font-weight: bold;
-        color: #2c3e50;
+        color: white;
+    }
+    
+    .modal-form-container {
+        background-color: #ffffff;
+        padding: 20px;
+        border-radius: 8px;
+        margin-bottom: 20px;
     }
     
     .modal-close {
@@ -263,11 +273,11 @@
         border: none;
         font-size: 1.8rem;
         cursor: pointer;
-        color: #6c757d;
+        color: white;
     }
     
     .modal-close:hover {
-        color: #2c3e50;
+        color: #e9ecef;
     }
     
     .modal-form-group {
@@ -301,7 +311,7 @@
     .modal-form-item input:focus,
     .modal-form-item select:focus {
         outline: none;
-        border-color: #3498db;
+        border-color: #2c3e50;
         box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
     }
     
@@ -467,7 +477,7 @@
                         </td>
                         {% else %}
                         <td colspan="6" style="text-align: center;">
-                            <button class="create-fictional-btn" onclick="openCreateFictionalModal('{{ item.ids_string }}')">创建虚构主约</button>
+                            <button class="create-fictional-btn" onclick="openCreateFictionalModal('{{ item.ids_string }}', '{{ item.destination|default:'' }}')">创建虚构主约</button>
                         </td>
                         {% endif %}
                     </tr>
@@ -490,141 +500,185 @@
                 <h3 class="modal-title">创建虚构主约</h3>
                 <button class="modal-close" onclick="closeCreateFictionalModal()">&times;</button>
             </div>
-            <form method="POST" id="createFictionalForm">
-                {% csrf_token %}
-                <input type="hidden" name="step" value="create_fictional_master">
-                <input type="hidden" name="ids_string" id="modalIdsString" value="">
-                
-                <div class="modal-form-group">
-                    <div class="modal-form-item">
-                        <label for="appointment_type">预约类型</label>
-                        <select id="appointment_type" name="appointment_type">
-                            <option value="FTL">FTL</option>
-                            <option value="LTL">LTL</option>
-                        </select>
+            <div class="modal-form-container">
+                <form method="POST" id="createFictionalForm">
+                    {% csrf_token %}
+                    <input type="hidden" name="step" value="create_fictional_master">
+                    <input type="hidden" name="ids_string" id="modalIdsString" value="">
+                    
+                    <div class="modal-form-group">
+                        <div class="modal-form-item">
+                            <label for="appointment_type">预约类型</label>
+                            <select id="appointment_type" name="appointment_type">
+                                <option value="FTL">FTL</option>
+                                <option value="LTL">LTL</option>
+                            </select>
+                        </div>
+                        <div class="modal-form-item">
+                            <label for="appointment_account">预约账号</label>
+                            <select id="appointment_account" name="appointment_account">
+                                <option value="Carrier Central1">Carrier Central1</option>
+                                <option value="Carrier Central2">Carrier Central2</option>
+                                <option value="ZEM-AMF">ZEM-AMF</option>
+                                <option value="ARM-AMF">ARM-AMF</option>
+                                <option value="walmart">walmart</option>
+                            </select>
+                        </div>
+                        <div class="modal-form-item">
+                            <label for="appointment_number">预约号</label>
+                            <input type="text" id="appointment_number" name="appointment_number" placeholder="输入预约号">
+                        </div>
+                        <div class="modal-form-item">
+                            <label for="scheduled_time">Scheduled Time</label>
+                            <input type="datetime-local" id="scheduled_time" name="scheduled_time">
+                        </div>
+                        <div class="modal-form-item">
+                            <label for="pickup_time">Pickup Time</label>
+                            <input type="datetime-local" id="pickup_time" name="pickup_time">
+                        </div>
                     </div>
-                    <div class="modal-form-item">
-                        <label for="appointment_account">预约账号</label>
-                        <select id="appointment_account" name="appointment_account">
-                            <option value="Carrier Central1">Carrier Central1</option>
-                            <option value="Carrier Central2">Carrier Central2</option>
-                            <option value="ZEM-AMF">ZEM-AMF</option>
-                            <option value="ARM-AMF">ARM-AMF</option>
-                            <option value="walmart">walmart</option>
-                        </select>
+                    
+                    <div class="modal-form-group">
+                        <div class="modal-form-item">
+                            <label for="shipping_warehouse">发货仓库</label>
+                            <select id="shipping_warehouse" name="shipping_warehouse">
+                                <option value="NJ-07001">NJ-07001</option>
+                                <option value="SAV-31407">SAV-31407</option>
+                                <option value="LA-91731">LA-91731</option>
+                            </select>
+                        </div>
+                        <div class="modal-form-item">
+                            <label for="shipment_id">shipment ID</label>
+                            <input type="text" id="shipment_id" name="shipment_id" placeholder="输入shipment ID">
+                        </div>
+                        <div class="modal-form-item">
+                            <label for="loading_type">装车类型</label>
+                            <select id="loading_type" name="loading_type">
+                                <option value="卡板">卡板</option>
+                                <option value="地板">地板</option>
+                            </select>
+                        </div>
+                        <div class="modal-form-item">
+                            <label for="pickup_number">Pickup Number</label>
+                            <input type="text" id="pickup_number" name="pickup_number" placeholder="输入Pickup Number" value="">
+                        </div>
+                        <div class="modal-form-item">
+                            <label for="sp_destination">目的地</label>
+                            <input type="text" id="sp_destination" name="sp_destination" placeholder="输入目的地" value="">
+                        </div>
+                        <div class="modal-form-item">
+                            <label for="address">地址</label>
+                            <input type="text" id="address" name="address" placeholder="输入地址">
+                        </div>
+                        <div class="modal-form-item" style="flex: 2;">
+                            <label for="note">备注</label>
+                            <input type="text" id="note" name="note" placeholder="输入备注">
+                        </div>
                     </div>
-                    <div class="modal-form-item">
-                        <label for="appointment_number">预约号</label>
-                        <input type="text" id="appointment_number" name="appointment_number" placeholder="输入预约号">
+                    
+                    <div class="modal-footer">
+                        <button type="button" class="btn-cancel" onclick="closeCreateFictionalModal()">取消</button>
+                        <button type="submit" class="btn-confirm">确认创建</button>
                     </div>
-                    <div class="modal-form-item">
-                        <label for="scheduled_time">Scheduled Time</label>
-                        <input type="datetime-local" id="scheduled_time" name="scheduled_time">
-                    </div>
-                    <div class="modal-form-item">
-                        <label for="pickup_time">Pickup Time</label>
-                        <input type="datetime-local" id="pickup_time" name="pickup_time">
-                    </div>
-                    <div class="modal-form-item">
-                        <label for="shipping_warehouse">发货仓库</label>
-                        <select id="shipping_warehouse" name="shipping_warehouse">
-                            <option value="NJ-07001">NJ-07001</option>
-                            <option value="SAV-31407">SAV-31407</option>
-                            <option value="LA-91731">LA-91731</option>
-                        </select>
-                    </div>
-                </div>
-                
-                <div class="modal-form-group">
-                    <div class="modal-form-item">
-                        <label for="loading_type">装车类型</label>
-                        <select id="loading_type" name="loading_type">
-                            <option value="卡板">卡板</option>
-                            <option value="地板">地板</option>
-                        </select>
-                    </div>
-                    <div class="modal-form-item">
-                        <label for="pickup_number">Pickup Number</label>
-                        <input type="text" id="pickup_number" name="pickup_number" placeholder="输入Pickup Number" value="ZEM-RC-0410-ACY2-LCC">
-                    </div>
-                    <div class="modal-form-item">
-                        <label for="destination">目的地</label>
-                        <input type="text" id="destination" name="destination" placeholder="输入目的地" value="ACY2">
-                    </div>
-                    <div class="modal-form-item">
-                        <label for="address">地址</label>
-                        <input type="text" id="address" name="address" placeholder="输入地址">
-                    </div>
-                    <div class="modal-form-item">
-                        <label for="note">备注</label>
-                        <input type="text" id="note" name="note" placeholder="输入备注">
-                    </div>
-                    <div class="modal-form-item">
-                        <label for="shipment_id">shipment ID</label>
-                        <input type="text" id="shipment_id" name="shipment_id" placeholder="输入shipment ID">
-                    </div>
-                </div>
-                
-                <div class="modal-footer">
-                    <button type="button" class="btn-cancel" onclick="closeCreateFictionalModal()">取消</button>
-                    <button type="submit" class="btn-confirm">确认创建</button>
-                </div>
-            </form>
+                </form>
+            </div>
         </div>
     </div>
 
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         const table = document.getElementById('masterShipmentTable');
-        if (!table) return;
-
-        const tbody = table.querySelector('tbody');
-        const searchInputs = table.querySelectorAll('.table-search-input, .table-search-select');
-
-        searchInputs.forEach(input => {
-            input.addEventListener('input', function() {
-                filterTable();
-            });
-            input.addEventListener('change', function() {
-                filterTable();
-            });
-        });
-
-        function filterTable() {
-            const rows = tbody.querySelectorAll('tr');
-            const searchValues = [];
+        if (table) {
+            const tbody = table.querySelector('tbody');
+            const searchInputs = table.querySelectorAll('.table-search-input, .table-search-select');
 
             searchInputs.forEach(input => {
-                const col = input.getAttribute('data-col');
-                searchValues[col] = input.value.toLowerCase();
+                input.addEventListener('input', function() {
+                    filterTable();
+                });
+                input.addEventListener('change', function() {
+                    filterTable();
+                });
             });
 
-            rows.forEach(row => {
-                let show = true;
-                const cells = row.querySelectorAll('td');
+            function filterTable() {
+                const rows = tbody.querySelectorAll('tr');
+                const searchValues = [];
 
                 searchInputs.forEach(input => {
-                    const col = parseInt(input.getAttribute('data-col'));
-                    const searchValue = searchValues[col];
-
-                    if (searchValue) {
-                        const cell = cells[col];
-                        if (cell) {
-                            const cellText = cell.textContent.toLowerCase();
-                            if (!cellText.includes(searchValue)) {
-                                show = false;
-                            }
-                        }
-                    }
+                    const col = input.getAttribute('data-col');
+                    searchValues[col] = input.value.toLowerCase();
                 });
 
-                row.style.display = show ? '' : 'none';
+                rows.forEach(row => {
+                    let show = true;
+                    const cells = row.querySelectorAll('td');
+
+                    searchInputs.forEach(input => {
+                        const col = parseInt(input.getAttribute('data-col'));
+                        const searchValue = searchValues[col];
+
+                        if (searchValue) {
+                            const cell = cells[col];
+                            if (cell) {
+                                const cellText = cell.textContent.toLowerCase();
+                                if (!cellText.includes(searchValue)) {
+                                    show = false;
+                                }
+                            }
+                        }
+                    });
+
+                    row.style.display = show ? '' : 'none';
+                });
+            }
+        }
+
+        const createFictionalForm = document.getElementById('createFictionalForm');
+        if (createFictionalForm) {
+            createFictionalForm.addEventListener('submit', function(e) {
+                const scheduledTime = document.getElementById('scheduled_time').value;
+                const appointmentType = document.getElementById('appointment_type').value;
+                const appointmentAccount = document.getElementById('appointment_account').value;
+                const shippingWarehouse = document.getElementById('shipping_warehouse').value;
+                const loadingType = document.getElementById('loading_type').value;
+                const destination = document.getElementById('sp_destination').value;
+
+                let errorMessage = '';
+
+                if (!scheduledTime) {
+                    errorMessage += 'Scheduled Time不能为空\n';
+                }
+                if (!appointmentType) {
+                    errorMessage += '预约类型不能为空\n';
+                }
+                if (!appointmentAccount) {
+                    errorMessage += '预约账号不能为空\n';
+                }
+                if (!shippingWarehouse) {
+                    errorMessage += '发货仓库不能为空\n';
+                }
+                if (!loadingType) {
+                    errorMessage += '装车类型不能为空\n';
+                }
+                if (!destination) {
+                    errorMessage += '目的地不能为空\n';
+                }
+
+                if (errorMessage) {
+                    e.preventDefault();
+                    alert(errorMessage);
+                    return false;
+                }
             });
         }
     });
     
-    function openCreateFictionalModal(idsString) {
+    function openCreateFictionalModal(idsString, destination) {
         document.getElementById('modalIdsString').value = idsString;
+        if (destination) {
+            document.getElementById('sp_destination').value = destination;
+        }
         document.getElementById('createFictionalModal').classList.add('active');
     }
     

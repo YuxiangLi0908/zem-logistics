@@ -6864,6 +6864,7 @@ class PostNsop(View):
             in_use=True,
             is_canceled=False,
             is_notified_customer=True,
+            is_virtual_sp=False,
         )
         if group and 'ltl' in group.lower():  # 如果group包含ltl（不区分大小写）
             sp_base_q = base_q & models.Q(shipment_type__in=['LTL', '客户自提'])
@@ -8392,6 +8393,7 @@ class PostNsop(View):
                 shipment_type='FTL',
                 is_canceled=False,
                 in_use=True,
+                is_virtual_sp=False
             )
         else:
             base_q = Q(
@@ -8401,6 +8403,7 @@ class PostNsop(View):
                 shipment_type='FTL',
                 is_canceled=False,
                 in_use=True,
+                is_virtual_sp=False
             )
         if four_major_whs == "four_major_whs":
             base_q &= models.Q(destination__in=FOUR_MAJOR_WAREHOUSES)
@@ -12615,19 +12618,37 @@ class PostNsop(View):
         shipping_warehouse = request.POST.get('shipping_warehouse', '')
         loading_type = request.POST.get('loading_type', '')
         pickup_number = request.POST.get('pickup_number', '')
-        destination = request.POST.get('destination', '')
+        destination = request.POST.get('sp_destination', '')
         address = request.POST.get('address', '')
         note = request.POST.get('note', '')
         shipment_id = request.POST.get('shipment_id', '')
         
+        # 先检查一下这个ISA有没有用过
+        if not appointment_number and appointment_type == "FTL":
+            # 没有值，创建随机的11位数
+            while True:
+                # 生成11位随机数（第一位不能是0）
+                appointment_number = str(random.randint(10000000000, 99999999999))
+                # 检查是否已存在
+                if not await sync_to_async(Shipment.objects.filter(appointment_id=appointment_number).exists)():
+                    break
+        else:
+            # 有值，检查是否已存在
+            if await sync_to_async(Shipment.objects.filter(appointment_id=appointment_number).exists()):
+                template, search_context = await self.handle_master_shipment_check_post(request)
+                context.update(search_context)
+                return template, context
+
+        # 自动生成批次号
+        shipment_batch_number = await self.generate_unique_batch_number(destination)
         # 创建新的Shipment记录
         new_shipment = Shipment()
         
         new_shipment.shipment_type = appointment_type
         new_shipment.shipment_account = appointment_account
         new_shipment.appointment_id = appointment_number
-        if scheduled_time:
-            new_shipment.shipment_schduled_at = scheduled_time
+        new_shipment.shipment_schduled_at = timezone.now()
+        new_shipment.shipment_appointment = scheduled_time
         if pickup_time:
             new_shipment.pickup_time = pickup_time
         new_shipment.origin = shipping_warehouse
@@ -12636,13 +12657,9 @@ class PostNsop(View):
         new_shipment.destination = destination
         new_shipment.address = address
         new_shipment.note = note
-        new_shipment.shipment_batch_number = shipment_id
+        new_shipment.shipment_batch_number = shipment_batch_number
+        new_shipment.shipment_cargo_id = shipment_id
         new_shipment.is_virtual_sp = True
-        
-        # 生成shipment_batch_number（如果没有提供）
-        if not new_shipment.shipment_batch_number:
-            timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
-            new_shipment.shipment_batch_number = f"FIC-{timestamp}"
         
         await sync_to_async(new_shipment.save)()
         
@@ -12674,8 +12691,7 @@ class PostNsop(View):
         context = {
             'success_messages': '虚构主约创建成功!'
         }
-            
-        
+                  
         # 重新调用搜索功能
         template, search_context = await self.handle_master_shipment_check_post(request)
         context.update(search_context)
