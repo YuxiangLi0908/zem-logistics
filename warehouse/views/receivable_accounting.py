@@ -3594,7 +3594,6 @@ class ReceivableAccounting(View):
                         status_obj = invoice.receivable_status_list[0]
                     
                     base_data = build_order_data(invoice, status_obj)
-                    
                     preport_status = base_data['preport_status']
                     
                     # 根据状态分组 (逻辑完全参考原代码)
