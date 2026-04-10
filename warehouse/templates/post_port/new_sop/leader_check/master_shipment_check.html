@@ -477,7 +477,7 @@
                         </td>
                         {% else %}
                         <td colspan="6" style="text-align: center;">
-                            <button class="create-fictional-btn" onclick="openCreateFictionalModal('{{ item.ids_string }}')">创建虚构主约</button>
+                            <button class="create-fictional-btn" onclick="openCreateFictionalModal('{{ item.ids_string }}', '{{ item.destination|default:'' }}')">创建虚构主约</button>
                         </td>
                         {% endif %}
                     </tr>
@@ -674,8 +674,11 @@
         }
     });
     
-    function openCreateFictionalModal(idsString) {
+    function openCreateFictionalModal(idsString, destination) {
         document.getElementById('modalIdsString').value = idsString;
+        if (destination) {
+            document.getElementById('sp_destination').value = destination;
+        }
         document.getElementById('createFictionalModal').classList.add('active');
     }
     

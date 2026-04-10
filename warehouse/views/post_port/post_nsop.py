@@ -12639,14 +12639,16 @@ class PostNsop(View):
                 context.update(search_context)
                 return template, context
 
+        # 自动生成批次号
+        shipment_batch_number = await self.generate_unique_batch_number(destination)
         # 创建新的Shipment记录
         new_shipment = Shipment()
         
         new_shipment.shipment_type = appointment_type
         new_shipment.shipment_account = appointment_account
         new_shipment.appointment_id = appointment_number
-        if scheduled_time:
-            new_shipment.shipment_schduled_at = scheduled_time
+        new_shipment.shipment_schduled_at = timezone.now()
+        new_shipment.shipment_appointment = scheduled_time
         if pickup_time:
             new_shipment.pickup_time = pickup_time
         new_shipment.origin = shipping_warehouse
@@ -12655,13 +12657,9 @@ class PostNsop(View):
         new_shipment.destination = destination
         new_shipment.address = address
         new_shipment.note = note
-        new_shipment.shipment_batch_number = shipment_id
+        new_shipment.shipment_batch_number = shipment_batch_number
+        new_shipment.shipment_cargo_id = shipment_id
         new_shipment.is_virtual_sp = True
-        
-        # 生成shipment_batch_number（如果没有提供）
-        if not new_shipment.shipment_batch_number:
-            timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
-            new_shipment.shipment_batch_number = f"FIC-{timestamp}"
         
         await sync_to_async(new_shipment.save)()
         
