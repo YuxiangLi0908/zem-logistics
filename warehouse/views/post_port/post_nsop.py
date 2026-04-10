@@ -509,6 +509,12 @@ class PostNsop(View):
         elif step == "fleet_po_delete":
             template, context = await self.handle_fleet_po_delete_post(request)
             return render(request, template, context)
+        elif step == "add_po_query_plt":
+            template, context = await self.handle_add_po_query_plt(request)
+            return render(request, template, context)
+        elif step == "add_pallets_to_shipment":
+            template, context = await self.handle_add_pallets_to_shipment(request)
+            return render(request, template, context)
         else:
             raise ValueError('输入错误',step)
     
@@ -12067,9 +12073,10 @@ class PostNsop(View):
         
         return best_shipment
 
-    async def handle_fleet_po_search_post(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
+    async def handle_fleet_po_search_post(self, request: HttpRequest, context=None) -> tuple[str, dict[str, Any]]:
         """车队PO核对搜索功能"""
-        context = {}
+        if context is None:
+            context = {}
         
         # 获取搜索条件
         fleet_number = request.POST.get('fleet_number', '').strip()
@@ -12306,3 +12313,113 @@ class PostNsop(View):
         return await sync_to_async(
             lambda: user.groups.filter(name="four_major_whs").exists()
         )()
+
+    async def handle_add_po_query_plt(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
+        """查询柜号仓点对应的pallet记录"""
+        context = {}
+        
+        query_container_number = request.POST.get('query_container_number', '').strip().upper()
+        query_destination = request.POST.get('query_destination', '').strip().upper()
+        
+        # 保存查询条件到前端
+        context.update({
+            'query_container_number': query_container_number,
+            'query_destination': query_destination
+        })
+        
+        # 构建查询条件
+        criteria = Q()
+        if query_container_number:
+            criteria &= Q(container_number__container_number__icontains=query_container_number)
+        if query_destination:
+            criteria &= Q(destination__icontains=query_destination)
+        
+        try:
+            # 查询pallet数据，按id分组
+            pallets = await sync_to_async(list)(
+                Pallet.objects.select_related('container_number', 'shipment_batch_number')
+                .filter(criteria)
+                .values('id', 'container_number__container_number', 'destination', 'shipment_batch_number__shipment_batch_number', 'shipment_batch_number__appointment_id')
+                .order_by('id')
+            )
+            
+            # 处理数据，移除status状态
+            processed_pallets = []
+            for pallet in pallets:
+                processed_pallets.append({
+                    'id': pallet['id'],
+                    'container_number': pallet.get('container_number__container_number', ''),
+                    'destination': pallet.get('destination', ''),
+                    'shipment_batch_number': pallet.get('shipment_batch_number__shipment_batch_number', ''),
+                    'appointment_id': pallet.get('shipment_batch_number__appointment_id', '')
+                })
+            
+            context['query_pallets'] = processed_pallets
+            context['show_pallet_modal'] = True
+            
+        except Exception as e:
+            context['error_messages'] = f'查询失败: {str(e)}'
+        request.POST._mutable = True
+        shipment_value = request.POST.pop('search_shipment_batch_number')[0]
+        request.POST['shipment_batch_number'] = shipment_value
+        isa_value = request.POST.pop('search_isa')[0]
+        request.POST['isa'] = isa_value
+        request.POST._mutable = False
+
+        return await self.handle_fleet_po_search_post(request,context)
+
+    async def handle_add_pallets_to_shipment(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
+        """将选中的pallet记录关联到shipment"""
+        context = {}
+        # 获取参数
+        selected_pallet_ids_str = request.POST.get('selected_pallet_ids', '').strip()
+        shipment_batch_number = request.POST.get('shipment_batch_number', '').strip()
+        isa = request.POST.get('isa', '').strip()
+        
+        if not selected_pallet_ids_str:
+            context['error_messages'] = '缺少选中的pallet记录'
+            return self.template_fleet_po_check, context
+        
+        # 解析pallet IDs
+        selected_pallet_ids = [int(pid.strip()) for pid in selected_pallet_ids_str.split(',') if pid.strip()]
+        
+        # 根据搜索条件查找对应的shipment
+        shipment_criteria = Q()
+        if shipment_batch_number:
+            shipment_criteria &= Q(shipment_batch_number__icontains=shipment_batch_number)
+        elif isa:
+            shipment_criteria &= Q(appointment_id__icontains=isa)
+        # 查找shipment
+        target_shipment = await sync_to_async(Shipment.objects.get)(shipment_criteria)
+        
+        if not target_shipment:
+            context['error_messages'] = '未找到对应的预约批次'
+            return self.template_fleet_po_check, context
+        
+        # 更新选中的pallet记录的shipment_batch_number
+        updated_count = await sync_to_async(Pallet.objects.filter(id__in=selected_pallet_ids).update)(
+            shipment_batch_number=target_shipment
+        )
+        
+        context['success_messages'] = f'成功关联{updated_count}个板子记录到预约批次'
+        
+        # 重新调用搜索功能以刷新页面，并传递原有的搜索条件
+        from django.http import QueryDict
+        
+        # 构建包含原有搜索条件的POST数据
+        post_data = QueryDict(mutable=True)
+        post_data.update({
+            'step': 'fleet_po_search',
+            'shipment_batch_number': shipment_batch_number,
+            'isa': isa,
+        })
+        
+        # 创建新的请求对象
+        new_request = HttpRequest()
+        new_request.method = 'POST'
+        new_request.POST = post_data
+        new_request.FILES = request.FILES
+        new_request.user = request.user
+        
+        # 调用搜索功能
+        return await self.handle_fleet_po_search_post(new_request, context)

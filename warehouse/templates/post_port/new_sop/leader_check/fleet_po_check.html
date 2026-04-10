@@ -38,15 +38,9 @@
         flex-wrap: wrap;
         align-items: center;
         gap: 15px;
-        background: rgba(255, 255, 255, 0.95);
-        padding: 20px;
-        border-radius: 10px;
-        margin-top: 15px;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-        border: 1px solid #e0e0e0;
-        width: 80%;
-        margin-left: auto;
-        margin-right: auto;
+        padding: 0;
+        margin-top: 0;
+        width: 100%;
     }
 
     .search-group {
@@ -59,7 +53,7 @@
     .search-group label {
         font-weight: 600;
         font-size: 0.9rem;
-        color: white;
+        color: #2c3e50;
     }
 
     .search-controls input {
@@ -182,6 +176,103 @@
         color: #6c757d;
         font-size: 1.1rem;
     }
+
+    /* 弹窗样式 */
+    .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        display: none;
+        justify-content: center;
+        align-items: center;
+        z-index: 1000;
+    }
+
+    .modal-content {
+        background: white;
+        border-radius: 8px;
+        padding: 20px;
+        max-width: 600px;
+        max-height: 70vh;
+        overflow-y: auto;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+        position: relative;
+    }
+
+    .modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
+        border-bottom: 1px solid #e0e0e0;
+        padding-bottom: 10px;
+    }
+
+    .modal-title {
+        font-size: 1.2rem;
+        font-weight: bold;
+        color: #2c3e50;
+    }
+
+    .modal-subtitle {
+        font-size: 0.9rem;
+        color: #6c757d;
+        margin-bottom: 15px;
+        padding: 8px 0;
+        border-bottom: 1px solid #e9ecef;
+    }
+
+    .close-modal {
+        background: none;
+        border: none;
+        font-size: 1.3rem;
+        cursor: pointer;
+        color: #6c757d;
+    }
+
+    .pallet-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 15px;
+    }
+
+    .pallet-table th,
+    .pallet-table td {
+        padding: 8px 10px;
+        border: 1px solid #dee2e6;
+        text-align: left;
+        font-size: 0.9rem;
+    }
+
+    .pallet-table th {
+        background: #f8f9fa;
+        font-weight: 600;
+    }
+
+    .modal-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+        margin-top: 15px;
+    }
+
+    .add-po-btn {
+        padding: 10px 20px;
+        background: #28a745;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-weight: 600;
+    }
+
+    .add-po-btn:disabled {
+        background: #6c757d;
+        cursor: not-allowed;
+    }
 </style>
 
 <div class="fleet-po-check">
@@ -192,44 +283,72 @@
         </div>
     </div>
 
-    <form method="POST" id="searchForm">
-        {% csrf_token %}
-        <input type="hidden" name="step" value="fleet_po_search">
-        
-        <div class="search-controls">
-            <div class="search-group">
-                <label for="fleet_number">车次号</label>
-                <input type="text" id="fleet_number" name="fleet_number" placeholder="输入车次号" value="{{ fleet_number|default:'' }}">
-            </div>
+    <div class="combined-search-section" style="width: 80%; margin: 20px auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);">
+        <form method="POST" id="searchForm">
+            {% csrf_token %}
+            <input type="hidden" name="step" value="fleet_po_search">
             
-            <div class="search-group">
-                <label for="pickup_number">Pickup Number</label>
-                <input type="text" id="pickup_number" name="pickup_number" placeholder="输入Pickup Number" value="{{ pickup_number|default:'' }}">
+            <div class="search-controls">
+                <div class="search-group">
+                    <label for="fleet_number">车次号</label>
+                    <input type="text" id="fleet_number" name="fleet_number" placeholder="输入车次号" value="{{ fleet_number|default:'' }}">
+                </div>
+                
+                <div class="search-group">
+                    <label for="pickup_number">Pickup Number</label>
+                    <input type="text" id="pickup_number" name="pickup_number" placeholder="输入Pickup Number" value="{{ pickup_number|default:'' }}">
+                </div>
+                
+                <div class="search-group">
+                    <label for="container_number">柜号</label>
+                    <input type="text" id="container_number" name="container_number" placeholder="输入柜号" value="{{ container_number|default:'' }}">
+                </div>
+                
+                <div class="search-group">
+                    <label for="destination">仓点</label>
+                    <input type="text" id="destination" name="destination" placeholder="输入仓点" value="{{ destination|default:'' }}">
+                </div>
+                
+                <div class="search-group">
+                    <label for="shipment_batch_number">预约批次号</label>
+                    <input type="text" id="shipment_batch_number" name="shipment_batch_number" placeholder="输入预约批次号" value="{{ shipment_batch_number|default:'' }}">
+                </div>
+                
+                <div class="search-group">
+                    <label for="isa">ISA</label>
+                    <input type="text" id="isa" name="isa" placeholder="输入ISA" value="{{ isa|default:'' }}">
+                </div>
+                
+                <button type="submit">确认搜索</button>
             </div>
-            
-            <div class="search-group">
-                <label for="container_number">柜号</label>
-                <input type="text" id="container_number" name="container_number" placeholder="输入柜号" value="{{ container_number|default:'' }}">
-            </div>
-            
-            <div class="search-group">
-                <label for="destination">仓点</label>
-                <input type="text" id="destination" name="destination" placeholder="输入仓点" value="{{ destination|default:'' }}">
-            </div>
-            
-            <div class="search-group">
-                <label for="shipment_batch_number">预约批次号</label>
-                <input type="text" id="shipment_batch_number" name="shipment_batch_number" placeholder="输入预约批次号" value="{{ shipment_batch_number|default:'' }}">
-            </div>
-            
-            <div class="search-group">
-                <label for="isa">ISA</label>
-                <input type="text" id="isa" name="isa" placeholder="输入ISA" value="{{ isa|default:'' }}">
-            </div>
-            
-            <button type="submit">确认搜索</button>
+        </form>
+
+        {% if shipment_batch_number or isa %}
+        <div style="margin-top: 20px; border-top: 1px solid #e0e0e0; padding-top: 20px;">
+            <form method="POST" id="containerQueryForm">
+                {% csrf_token %}
+                <input type="hidden" name="step" value="add_po_query_plt">
+                <input type="hidden" name="search_container_number" value="{{ container_number|default:'' }}">
+                <input type="hidden" name="search_destination" value="{{ destination|default:'' }}">
+                <input type="hidden" name="search_shipment_batch_number" value="{{ shipment_batch_number|default:'' }}">
+                <input type="hidden" name="search_isa" value="{{ isa|default:'' }}">
+                
+                <div style="display: flex; gap: 12px; align-items: center;">
+                    <span style="font-size: 18px; font-weight: 600; color: #2c3e50;">要加塞的PO：</span>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <label style="font-weight: 500; color: #495057; white-space: nowrap;">柜号</label>
+                        <input type="text" name="query_container_number" placeholder="柜号" style="padding: 6px 10px; border: 1px solid #ced4da; border-radius: 4px; width: 150px;" value="{{ query_container_number|default:'' }}">
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <label style="font-weight: 500; color: #495057; white-space: nowrap;">仓点</label>
+                        <input type="text" name="query_destination" placeholder="仓点" style="padding: 6px 10px; border: 1px solid #ced4da; border-radius: 4px; width: 150px;" value="{{ query_destination|default:'' }}">
+                    </div>
+                    <button type="submit" style="padding: 6px 16px; background: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 500;">查询</button>
+                </div>
+            </form>
         </div>
-    </form>
+        {% endif %}
+    </div>
 
     <div class="results-section">
         {% if search_results %}
@@ -292,6 +411,55 @@
         
     </div>
 </div>
+{% include 'post_port/new_sop/02_shipment/modals/message_modal.html' %}
+<!-- 弹窗结构 -->
+    {% if show_pallet_modal and query_pallets %}
+    <div class="modal-overlay" id="palletModal" style="display: flex;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title" id="modalTitle">要加塞的po</h2>
+                <button class="close-modal" onclick="closeModal()">&times;</button>
+            </div>
+            <div class="modal-subtitle" id="selectedCount">已选择：0 板</div>
+            <div id="palletTableContainer">
+                <table class="pallet-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 50px;">
+                                <input type="checkbox" id="selectAllCheckbox" onchange="toggleSelectAll()">
+                            </th>
+                            <th>ID</th>
+                            <th>预约批次号</th>
+                            <th>ISA</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for pallet in query_pallets %}
+                        <tr>
+                            <td style="text-align: center;">
+                                <input type="checkbox" class="pallet-checkbox" value="{{ pallet.id }}" onchange="updateSelectedCount()">
+                            </td>
+                            <td>{{ pallet.id }}</td>
+                            <td>{{ pallet.shipment_batch_number|default:'-' }}</td>
+                            <td>{{ pallet.appointment_id|default:'-' }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <div class="modal-actions">
+                <button class="add-po-btn" id="addPoBtn" onclick="addSelectedPallets()" disabled>添加PO</button>
+            </div>
+            
+            <input type="hidden" id="search_fleet_number" value="{{ fleet_number|default:'' }}">
+            <input type="hidden" id="search_pickup_number" value="{{ pickup_number|default:'' }}">
+            <input type="hidden" id="search_container_number" value="{{ container_number|default:'' }}">
+            <input type="hidden" id="search_destination" value="{{ destination|default:'' }}">
+            <input type="hidden" id="search_shipment_batch_number" value="{{ shipment_batch_number|default:'' }}">
+            <input type="hidden" id="search_isa" value="{{ isa|default:'' }}">
+        </div>
+    </div>
+    {% endif %}
 
 <script>
     function deletePallets(palletIds, shipmentId, button) {
@@ -390,6 +558,142 @@
                     });
                 });
             });
+        }
+    });
+
+    // 全选/取消全选
+    function toggleSelectAll() {
+        const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+        const checkboxes = document.querySelectorAll('.pallet-checkbox');
+        const addPoBtn = document.getElementById('addPoBtn');
+        
+        checkboxes.forEach(checkbox => {
+            checkbox.checked = selectAllCheckbox.checked;
+        });
+        
+        updateSelectedCount();
+    }
+
+    // 更新选中计数
+    function updateSelectedCount() {
+        const checkboxes = document.querySelectorAll('.pallet-checkbox:checked');
+        const count = checkboxes.length;
+        const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+        const allCheckboxes = document.querySelectorAll('.pallet-checkbox');
+        const addPoBtn = document.getElementById('addPoBtn');
+        
+        // 更新计数显示
+        document.getElementById('selectedCount').textContent = '已选择：' + count + ' 板';
+        
+        // 更新全选框状态
+        selectAllCheckbox.checked = count > 0 && count === allCheckboxes.length;
+        
+        // 更新添加PO按钮状态
+        addPoBtn.disabled = count === 0;
+    }
+
+    // 页面加载完成后初始化弹窗功能
+    document.addEventListener('DOMContentLoaded', function() {
+        // 如果后端返回了查询结果，显示弹窗
+        {% if show_pallet_modal and query_pallets %}
+        const modal = document.getElementById('palletModal');
+        if (modal) {
+            // 初始化计数
+            updateSelectedCount();
+        }
+        {% endif %}
+    });
+
+    // 关闭弹窗
+    function closeModal() {
+        document.getElementById('palletModal').style.display = 'none';
+    }
+
+    // 添加选中的PO
+    function addSelectedPallets() {
+        const selectedCheckboxes = document.querySelectorAll('.pallet-checkbox:checked');
+        const selectedIds = Array.from(selectedCheckboxes).map(cb => cb.value);
+        
+        if (selectedIds.length === 0) {
+            alert('请选择要添加的记录');
+            return;
+        }
+        
+        // 从隐藏字段获取搜索条件
+        const shipmentBatchNumber = document.getElementById('search_shipment_batch_number').value;
+        const isa = document.getElementById('search_isa').value;
+        const containerNumber = document.getElementById('search_container_number').value;
+        const destination = document.getElementById('search_destination').value;
+        
+        if (!shipmentBatchNumber && !isa) {
+            alert('缺少搜索条件');
+            return;
+        }
+        
+        // 创建表单提交
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '';
+        
+        // 添加CSRF token
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+        const csrfInput = document.createElement('input');
+        csrfInput.type = 'hidden';
+        csrfInput.name = 'csrfmiddlewaretoken';
+        csrfInput.value = csrfToken;
+        form.appendChild(csrfInput);
+        
+        // 添加step参数
+        const stepInput = document.createElement('input');
+        stepInput.type = 'hidden';
+        stepInput.name = 'step';
+        stepInput.value = 'add_pallets_to_shipment';
+        form.appendChild(stepInput);
+        
+        // 添加选中的pallet IDs
+        const palletIdsInput = document.createElement('input');
+        palletIdsInput.type = 'hidden';
+        palletIdsInput.name = 'selected_pallet_ids';
+        palletIdsInput.value = selectedIds.join(',');
+        form.appendChild(palletIdsInput);
+        
+        // 添加搜索条件
+        const shipmentBatchNumberInput = document.createElement('input');
+        shipmentBatchNumberInput.type = 'hidden';
+        shipmentBatchNumberInput.name = 'shipment_batch_number';
+        shipmentBatchNumberInput.value = shipmentBatchNumber;
+        form.appendChild(shipmentBatchNumberInput);
+        
+        const isaInput = document.createElement('input');
+        isaInput.type = 'hidden';
+        isaInput.name = 'isa';
+        isaInput.value = isa;
+        form.appendChild(isaInput);
+        
+        const containerNumberInput = document.createElement('input');
+        containerNumberInput.type = 'hidden';
+        containerNumberInput.name = 'container_number';
+        containerNumberInput.value = containerNumber;
+        form.appendChild(containerNumberInput);
+        
+        const destinationInput = document.createElement('input');
+        destinationInput.type = 'hidden';
+        destinationInput.name = 'destination';
+        destinationInput.value = destination;
+        form.appendChild(destinationInput);
+        
+        // 提交表单
+        document.body.appendChild(form);
+        form.submit();
+        
+        // 关闭弹窗
+        closeModal();
+    }
+    
+    // 点击弹窗外部关闭
+    document.getElementById('palletModal').addEventListener('click', function(e) {
+        if (e.target === this) {
+            closeModal();
         }
     });
 </script>
