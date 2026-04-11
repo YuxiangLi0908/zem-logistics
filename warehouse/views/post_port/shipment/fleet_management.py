@@ -4162,6 +4162,12 @@ class FleetManagement(View):
 
         if len(shipment_ids) == 0: raise ValueError("传过来的预约批次是空的！")
 
+        shipment = await sync_to_async(list)(
+                Shipment.objects.filter(id__in=shipment_ids)
+            )
+        shipment_type = shipment[0].shipment_type if shipment else None
+        fleet_type = request.POST.get("fleet_type", "") or shipment_type
+
         try:
             await sync_to_async(Fleet.objects.get)(
                 fleet_number=fleet_data["fleet_number"]
@@ -4182,10 +4188,11 @@ class FleetManagement(View):
                     "scheduled_at": current_time,
                     "note": request.POST.get("note", ""),
                     "multipule_destination": True if len(shipment_ids) > 1 else False,
-                    "fleet_type": request.POST.get("fleet_type",""),
+                    "fleet_type": fleet_type,
                     "fleet_cost": request.POST.get("fleet_cost")
                 }
             )
+
             if not fleet_data.get("fleet_number"):
                 # 如果字典里没有，尝试从 request.POST 直接读取
                 req_fleet_no = request.POST.get("fleet_number")
@@ -4196,9 +4203,7 @@ class FleetManagement(View):
                     raise ValueError("无法获取车次号(fleet_number)，请检查参数传递")
             fleet = Fleet(**fleet_data)
             await sync_to_async(fleet.save)()
-            shipment = await sync_to_async(list)(
-                Shipment.objects.filter(id__in=shipment_ids)
-            )
+            
             for s in shipment:
                 s.fleet_number = fleet
             await sync_to_async(bulk_update_with_history)(
