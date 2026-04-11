@@ -426,6 +426,7 @@
                         <th>柜号</th>
                         <th>仓点</th>
                         <th>状态</th>
+                        <th>是否虚构</th>
                         <th>主约批次号</th>
                         <th>appointment_id</th>
                         <th>预约时间</th>
@@ -446,11 +447,18 @@
                                 <option value="未预约">未预约</option>
                             </select>
                         </td>
-                        <td><input type="text" class="table-search-input" placeholder="搜索预约批次" data-col="3"></td>
-                        <td><input type="text" class="table-search-input" placeholder="搜索appointment_id" data-col="4"></td>
-                        <td><input type="text" class="table-search-input" placeholder="搜索预约时间" data-col="5"></td>
-                        <td><input type="text" class="table-search-input" placeholder="搜索出库时间" data-col="6"></td>
-                        <td><input type="text" class="table-search-input" placeholder="搜索送达时间" data-col="7"></td>
+                        <td>
+                            <select class="table-search-select" data-col="3">
+                                <option value="">全部</option>
+                                <option value="是">是</option>
+                                <option value="否">否</option>
+                            </select>
+                        </td>
+                        <td><input type="text" class="table-search-input" placeholder="搜索预约批次" data-col="4"></td>
+                        <td><input type="text" class="table-search-input" placeholder="搜索appointment_id" data-col="5"></td>
+                        <td><input type="text" class="table-search-input" placeholder="搜索预约时间" data-col="6"></td>
+                        <td><input type="text" class="table-search-input" placeholder="搜索出库时间" data-col="7"></td>
+                        <td><input type="text" class="table-search-input" placeholder="搜索送达时间" data-col="8"></td>
                         <td></td>
                     </tr>
                 </thead>
@@ -463,6 +471,13 @@
                             <span class="status-badge status-{{ item.status_class }}">{{ item.status }}</span>
                         </td>
                         {% if item.has_master_shipment %}
+                        <td>
+                            {% if item.is_virtual_sp %}
+                            ✓
+                            {% else %}
+                            ✗
+                            {% endif %}
+                        </td>
                         <td>{{ item.shipment_batch_number|default:'-' }}</td>
                         <td>{{ item.appointment_id|default:'-' }}</td>
                         <td>{{ item.shipment_appointment_date|default:'-' }}</td>
@@ -476,8 +491,10 @@
                             {% endif %}
                         </td>
                         {% else %}
+                        <td>-</td>
                         <td colspan="6" style="text-align: center;">
-                            <button class="create-fictional-btn" onclick="openCreateFictionalModal('{{ item.ids_string }}', '{{ item.destination|default:'' }}')">创建虚构主约</button>
+                            <button class="create-fictional-btn" onclick="openCreateFictionalModal('{{ item.ids_string }}', '{{ item.destination|default:'' }}')" style="margin-right: 10px;">创建虚构主约</button>
+                            <button class="create-fictional-btn" onclick="openBindShipmentModal('{{ item.ids_string }}')" style="background-color: #28a745; color: white;">绑定已有的约</button>
                         </td>
                         {% endif %}
                     </tr>
@@ -585,6 +602,38 @@
         </div>
     </div>
 
+    <div class="modal-overlay" id="bindShipmentModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">绑定已有的约</h3>
+                <button class="modal-close" onclick="closeBindShipmentModal()">&times;</button>
+            </div>
+            <div class="modal-form-container">
+                <form method="POST" id="bindShipmentForm">
+                    {% csrf_token %}
+                    <input type="hidden" name="step" value="bind_existing_shipment">
+                    <input type="hidden" name="bind_ids_string" id="bindIdsString" value="">
+                    
+                    <div class="modal-form-group">
+                        <div class="modal-form-item">
+                            <label for="bind_shipment_batch_number">预约批次号</label>
+                            <input type="text" id="bind_shipment_batch_number" name="bind_shipment_batch_number" placeholder="输入预约批次号">
+                        </div>
+                        <div class="modal-form-item">
+                            <label for="bind_appointment_id">appointment_id</label>
+                            <input type="text" id="bind_appointment_id" name="bind_appointment_id" placeholder="输入appointment_id">
+                        </div>
+                    </div>
+                    
+                    <div class="modal-footer">
+                        <button type="button" class="btn-cancel" onclick="closeBindShipmentModal()">取消</button>
+                        <button type="submit" class="btn-confirm">确认绑定</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         const table = document.getElementById('masterShipmentTable');
@@ -672,6 +721,20 @@
                 }
             });
         }
+
+        const bindShipmentForm = document.getElementById('bindShipmentForm');
+        if (bindShipmentForm) {
+            bindShipmentForm.addEventListener('submit', function(e) {
+                const bindShipmentBatchNumber = document.getElementById('bind_shipment_batch_number').value;
+                const bindAppointmentId = document.getElementById('bind_appointment_id').value;
+
+                if (!bindShipmentBatchNumber && !bindAppointmentId) {
+                    e.preventDefault();
+                    alert('请输入预约批次号或appointment_id！');
+                    return false;
+                }
+            });
+        }
     });
     
     function openCreateFictionalModal(idsString, destination) {
@@ -684,6 +747,15 @@
     
     function closeCreateFictionalModal() {
         document.getElementById('createFictionalModal').classList.remove('active');
+    }
+    
+    function openBindShipmentModal(idsString) {
+        document.getElementById('bindIdsString').value = idsString;
+        document.getElementById('bindShipmentModal').classList.add('active');
+    }
+    
+    function closeBindShipmentModal() {
+        document.getElementById('bindShipmentModal').classList.remove('active');
     }
 </script>
 {% endblock %}
