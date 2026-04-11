@@ -352,6 +352,15 @@
         background: #218838;
     }
     
+    .modal-content.bind-modal {
+        max-width: 600px;
+        padding: 25px;
+    }
+    
+    .modal-content.bind-modal .modal-header {
+        margin: -25px -25px 15px -25px;
+    }
+    
     .create-fictional-btn {
         padding: 6px 16px;
         background: #ffc107;
@@ -603,7 +612,7 @@
     </div>
 
     <div class="modal-overlay" id="bindShipmentModal">
-        <div class="modal-content">
+        <div class="modal-content bind-modal">
             <div class="modal-header">
                 <h3 class="modal-title">绑定已有的约</h3>
                 <button class="modal-close" onclick="closeBindShipmentModal()">&times;</button>
