@@ -12705,75 +12705,71 @@ class PostNsop(View):
         return template, context
     
     async def handle_bind_existing_shipment_post(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
-        """绑定已有的约"""       
+        """po绑定已有的约为主约"""       
         context = {}
-        
         # 获取表单数据
         ids_string = request.POST.get('bind_ids_string', '')
         bind_shipment_batch_number = request.POST.get('bind_shipment_batch_number', '')
         bind_appointment_id = request.POST.get('bind_appointment_id', '')
         
-        try:
-            # 查找目标shipment
-            target_shipment = None
-            if bind_shipment_batch_number:
-                target_shipment = await sync_to_async(Shipment.objects.filter)(
-                    shipment_batch_number=bind_shipment_batch_number
-                ).first()
-            elif bind_appointment_id:
-                target_shipment = await sync_to_async(Shipment.objects.filter)(
-                    appointment_id=bind_appointment_id
-                ).first()
+        # 查找目标shipment
+        target_shipment = None
+        if bind_shipment_batch_number:
+            target_shipment = await sync_to_async(Shipment.objects.get)(
+                shipment_batch_number=bind_shipment_batch_number
+            )
+        elif bind_appointment_id:
+            target_shipment = await sync_to_async(Shipment.objects.get)(
+                appointment_id=bind_appointment_id
+            )
+        
+        if not target_shipment:
+            context['error_messages'] = '未找到对应的约'
+            template, search_context = await self.handle_master_shipment_check_post(request)
+            context.update(search_context)
+            return template, context
+        
+        # 解析ids_string
+        ids_list = ids_string.split(',') if ids_string else []
+        
+        pallet_ids = []
+        packinglist_ids = []
+        po_ids = set()
+        
+        for id_str in ids_list:
+            if id_str.startswith('plt_'):
+                pallet_ids.append(id_str.replace('plt_', ''))
+            elif id_str.startswith('pl_'):
+                packinglist_ids.append(id_str.replace('pl_', ''))
+        
+        # 更新Pallet记录
+        if pallet_ids:
+            await sync_to_async(Pallet.objects.filter(id__in=pallet_ids).update)(
+                master_shipment_batch_number=target_shipment
+            )
             
-            if not target_shipment:
-                context['error_messages'] = '未找到对应的约'
-                template, search_context = await self.handle_master_shipment_check_post(request)
-                context.update(search_context)
-                return template, context
-            
-            # 解析ids_string
-            ids_list = ids_string.split(',') if ids_string else []
-            
-            pallet_ids = []
-            packinglist_ids = []
-            po_ids = set()
-            
-            for id_str in ids_list:
-                if id_str.startswith('plt_'):
-                    pallet_ids.append(id_str.replace('plt_', ''))
-                elif id_str.startswith('pl_'):
-                    packinglist_ids.append(id_str.replace('pl_', ''))
-            
-            # 更新Pallet记录
-            if pallet_ids:
-                await sync_to_async(Pallet.objects.filter(id__in=pallet_ids).update)(
-                    master_shipment_batch_number=target_shipment
-                )
-                
-                # 获取这些pallet的PO_ID
-                pallets = await sync_to_async(list)(
-                    Pallet.objects.filter(id__in=pallet_ids)
-                )
-                for pallet in pallets:
-                    if pallet.PO_ID:
-                        po_ids.add(pallet.PO_ID)
-            
-            # 更新PackingList记录
-            if packinglist_ids:
-                await sync_to_async(PackingList.objects.filter(id__in=packinglist_ids).update)(
-                    master_shipment_batch_number=target_shipment
-                )
-            
-            # 如果有pallet绑定了，也把相同PO_ID的packinglist绑定上
-            if po_ids:
-                await sync_to_async(PackingList.objects.filter(PO_ID__in=po_ids).update)(
-                    master_shipment_batch_number=target_shipment
-                )
-            
-            context['success_messages'] = '绑定成功!'
-            
-        except Exception as e:
-            context['error_messages'] = f'绑定失败: {str(e)}'
+            # 获取这些pallet的PO_ID
+            pallets = await sync_to_async(list)(
+                Pallet.objects.filter(id__in=pallet_ids)
+            )
+            for pallet in pallets:
+                if pallet.PO_ID:
+                    po_ids.add(pallet.PO_ID)
+        
+        # 更新PackingList记录
+        if packinglist_ids:
+            await sync_to_async(PackingList.objects.filter(id__in=packinglist_ids).update)(
+                master_shipment_batch_number=target_shipment
+            )
+        
+        # 如果有pallet绑定了，也把相同PO_ID的packinglist绑定上
+        if po_ids:
+            await sync_to_async(PackingList.objects.filter(PO_ID__in=po_ids).update)(
+                master_shipment_batch_number=target_shipment
+            )
+        
+        context['success_messages'] = '绑定成功!'
+
         
         # 重新调用搜索功能
         template, search_context = await self.handle_master_shipment_check_post(request)

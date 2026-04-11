@@ -228,7 +228,7 @@ class PostportDash(View):
                 )
             elif pickup_number:
                 criteria &= models.Q(
-                    shipment_batch_number__pickup_number=pickup_number
+                    shipment_batch_number__fleet_number__pickup_number=pickup_number
                 )
 
             if not destination and not shipping_marks and not fba_ids and not ref_ids and not act_destination:
