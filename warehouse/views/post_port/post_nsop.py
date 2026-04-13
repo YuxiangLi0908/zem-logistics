@@ -60,7 +60,7 @@ from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
 from django.views import View
 from django.utils import timezone
-from datetime import timedelta
+from datetime import timedelta, datetime, date
 from dateutil.parser import parse
 from django.core.serializers.json import DjangoJSONEncoder
 from django.contrib.auth.models import User
@@ -815,7 +815,6 @@ class PostNsop(View):
                             appointment_time = row.get('预约时间')
                             # 转换时间格式
                             try:
-                                from datetime import datetime
                                 if isinstance(appointment_time, str):
                                     # 处理字符串格式的时间
                                     # 尝试不同的时间格式
@@ -9025,6 +9024,15 @@ class PostNsop(View):
             x.get('destination') or '',                          # 第七优先级
             x.get('shipping_marks') or x.get('shipping_mark') or ''
         ))
+        # 已拆柜的，按照下面排序：
+            # 第一优先级：pickup 有日期的，
+            # 第二优先级：日期按从小到大排列，
+            # 第三优先级：有关联ID的，
+            # 第四优先级：pickup 有文字的
+            # 第五优先级： 暂扣的
+        # 未拆柜的：
+            # 有实际提柜时间的，实际两个字替换成实际提柜
+            # 有实际放行时间，放行两个字替换成实际放行
 
         # 3. 为“一提多卸”组分配背景颜色
         # 定义一组浅色调背景，避开红色/黄色等警告色
@@ -10935,6 +10943,7 @@ class PostNsop(View):
     async def handle_appointment_management_post(
         self, request: HttpRequest, context: dict| None = None,
     ) -> tuple[str, dict[str, Any]]:
+        '''亚马逊备约管理'''
         warehouse = request.POST.get("warehouse")
         if warehouse:
             warehouse_name = warehouse.split('-')[0]
@@ -11075,7 +11084,7 @@ class PostNsop(View):
     async def _invalid_po_check(
         self, warehouse
     ) -> dict[str, dict]:
-        '''查询失效的po'''
+        '''亚马逊备约之查询失效的po'''
         warehouse = warehouse.split('-')[0]
         # 如果提柜前一天状态为失效，或者提柜前一天没有查，到港前一周查了是失效
         # --- 1. 构建查询条件 (保持不变) ---
@@ -11093,6 +11102,7 @@ class PostNsop(View):
         )
         query &= models.Q(ref_id__isnull=False)
         query &= ~models.Q(ref_id="")
+        query &= models.Q(vessel_eta__gt=date(2026, 3, 31))
 
         # --- 2. 定义同步查询函数 (关键修改) ---
         def get_po_data():
@@ -12822,7 +12832,6 @@ class PostNsop(View):
     
     def _process_master_shipment_item(self, item, source_type):
         """处理单个master_shipment项目，计算状态和格式化日期"""
-        from datetime import datetime
         
         # 获取shipment相关字段
         shipment_batch_number = item.get('master_shipment_batch_number__shipment_batch_number', '')
