@@ -1129,13 +1129,13 @@ class PostNsop(View):
                         return Pallet.objects.filter(
                             container_number__container_number=container_number,
                             destination=warehouse
-                        )
+                        ).exclude(delivery_method__contains="暂扣留仓")
                     
                     def check_packinglist_records():
                         return PackingList.objects.filter(
                             container_number__container_number=container_number,
                             destination=warehouse
-                        )
+                        ).exclude(delivery_method__contains="暂扣留仓")
                     
                     def get_shipment(shipment_id):
                         try:
