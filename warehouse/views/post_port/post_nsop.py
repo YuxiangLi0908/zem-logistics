@@ -11427,12 +11427,7 @@ class PostNsop(View):
                             container_number__orders__retrieval_id__planned_release_time__isnull=False,
                             then=Value(True)
                         ),
-                        # 2. 如果没有 planned_release_time，看 temp_t49_available_for_pickup 是否为 True
-                        When(
-                            container_number__orders__retrieval_id__temp_t49_available_for_pickup=True,
-                            then=Value(True)
-                        ),
-                        # 3. 都不满足则为 False
+                        # 2. 都不满足则为 False
                         default=Value(False),
                         output_field=BooleanField()
                     ),
