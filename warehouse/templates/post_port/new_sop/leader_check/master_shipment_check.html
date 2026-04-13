@@ -9,7 +9,6 @@
         background: white;
         border-radius: 12px;
         box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
-        overflow: hidden;
     }
 
     .master-shipment-header {
@@ -99,11 +98,11 @@
 
     .group-table {
         width: 98%;
-        border-collapse: collapse;
+        border-collapse: separate;
+        border-spacing: 0;
         margin-bottom: 30px;
         background: white;
         border-radius: 8px;
-        overflow: hidden;
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
         margin-left: auto;
         margin-right: auto;
@@ -119,6 +118,10 @@
     }
 
     .search-row {
+        background: #f1f3f4;
+    }
+    
+    .search-row td {
         background: #f1f3f4;
     }
 
@@ -214,6 +217,29 @@
         overflow-x: auto;
         width: 98%;
         margin: 0 auto;
+        max-height: 500px;
+        overflow-y: auto;
+        position: relative;
+    }
+    
+    .group-table thead {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+    }
+    
+    .group-table thead tr:first-child th {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        background: #f8f9fa;
+    }
+    
+    .group-table thead tr.search-row td {
+        position: sticky;
+        top: 52px;
+        z-index: 9;
+        background: #f1f3f4;
     }
     
     .modal-overlay {
@@ -409,6 +435,14 @@
                 <div class="search-group">
                     <label for="destination">仓点</label>
                     <input type="text" id="destination" name="destination" placeholder="输入仓点" value="{{ destination|default:'' }}">
+                </div>
+
+                <div class="search-group">
+                    <label for="delivery_type">仓点类型</label>
+                    <select id="delivery_type" name="delivery_type">
+                        <option value="public" {% if delivery_type == 'public' %}selected{% endif %}>公仓</option>
+                        <option value="other" {% if delivery_type == 'other' %}selected{% endif %}>私仓</option>
+                    </select>
                 </div>
                 
                 <div class="search-group">

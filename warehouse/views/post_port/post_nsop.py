@@ -12477,6 +12477,7 @@ class PostNsop(View):
         container_number = request.POST.get('container_number', '').strip()
         destination = request.POST.get('destination', '').strip()
         warehouse = request.POST.get('warehouse', '').strip()
+        delivery_type = request.POST.get('delivery_type', 'public').strip()
         
         # 将搜索条件传递到前端
         context.update({
@@ -12517,6 +12518,8 @@ class PostNsop(View):
         if warehouse:
             base_criteria &= Q(container_number__orders__retrieval_id__retrieval_destination_area=warehouse)
         
+        base_criteria &= Q(delivery_type=delivery_type)
+        print('delivery_type',delivery_type)
         # 分别构建Pallet和PackingList的查询条件
         pallet_criteria = base_criteria & Q(container_number__orders__offload_id__offload_at__isnull=False)
         packinglist_criteria = base_criteria & Q(container_number__orders__offload_id__offload_at__isnull=True)
