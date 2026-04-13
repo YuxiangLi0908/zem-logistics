@@ -206,6 +206,63 @@
         text-decoration: underline;
     }
 
+    .table-btn {
+        padding: 5px 12px;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 0.8rem;
+        font-weight: 500;
+        transition: all 0.3s ease;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+    }
+
+    .btn-success-small {
+        background: linear-gradient(135deg, #28a745, #20c997);
+        color: white;
+        box-shadow: 0 2px 4px rgba(40, 167, 69, 0.3);
+    }
+
+    .btn-success-small:hover {
+        background: linear-gradient(135deg, #218838, #1abc9c);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 8px rgba(40, 167, 69, 0.4);
+    }
+
+    .btn-success-small:active {
+        transform: translateY(0);
+        box-shadow: 0 1px 2px rgba(40, 167, 69, 0.3);
+    }
+
+    .pod-upload-form {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+
+    .pod-upload-input {
+        padding: 4px 8px;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        background: white;
+        cursor: pointer;
+        transition: border-color 0.3s ease;
+    }
+
+    .pod-upload-input:hover {
+        border-color: #28a745;
+    }
+
+    .pod-upload-input:focus {
+        outline: none;
+        border-color: #28a745;
+        box-shadow: 0 0 0 2px rgba(40, 167, 69, 0.2);
+    }
+
     .no-results {
         text-align: center;
         padding: 40px;
@@ -543,15 +600,17 @@
                             <a href="{{ item.pod_link }}" class="pod-link" target="_blank">查看POD</a>
                             {% else %}
                                 {% if item.is_virtual_sp %}
-                                <form method="post" enctype="multipart/form-data" action="" style="display: flex; gap: 5px; align-items: center;">
+                                <form method="post" enctype="multipart/form-data" action="" class="pod-upload-form">
                                     {% csrf_token %}
-                                    <input type="file" name="file" class="table-input" style="font-size: 0.8rem;" required>
+                                    <input type="file" name="file" class="pod-upload-input" required>
                                     <input type="hidden" name="step" value="pod_upload">
                                     <input type="hidden" name="shipment_batch_number" value="{{ item.shipment_batch_number }}">
                                     <input type="hidden" name="warehouse" value="{{ warehouse|default:'' }}">
                                     <input type="hidden" name="arrived_at" value="{{ item.arrived_at_date|default:'' }}">
                                     <input type="hidden" name="page" value="master_shipment_check">
-                                    <button type="submit" class="table-btn btn-success-small">上传</button>
+                                    <button type="submit" class="table-btn btn-success-small">
+                                        <i class="fas fa-upload"></i> 上传
+                                    </button>
                                 </form>
                                 {% else %}
                                 -

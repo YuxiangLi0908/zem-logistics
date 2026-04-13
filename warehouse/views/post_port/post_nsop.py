@@ -798,6 +798,20 @@ class PostNsop(View):
                         # 检查必填项
                         if container_number and warehouse and cbm and pallet:
                             # 这是柜号信息行
+                            # 提取卡板的整数值用于比较
+                            pallet_int = None
+                            try:
+                                if isinstance(pallet, (int, float)):
+                                    pallet_int = int(pallet)
+                                else:
+                                    # 尝试从字符串中提取数字
+                                    import re
+                                    match = re.search(r'\d+', str(pallet))
+                                    if match:
+                                        pallet_int = int(match.group())
+                            except (ValueError, TypeError):
+                                pass
+                            
                             # 检查是否已存在相同的柜号和仓点组合
                             is_duplicate = False
                             for existing_container in current_group['containers']:
@@ -809,7 +823,8 @@ class PostNsop(View):
                                     'container_number': container_number,
                                     'warehouse': warehouse,
                                     'cbm': cbm,
-                                    'pallet': pallet
+                                    'pallet': pallet,
+                                    'pallet_int': pallet_int
                                 })
                         
                         # 提取预约信息（只提取非空值）
@@ -1100,6 +1115,7 @@ class PostNsop(View):
                     container_number = container.get('container_number')
                     warehouse = container.get('warehouse')
                     pallet_count = container.get('pallet')
+                    pallet_count_int = container.get('pallet_int')
                     
                     # 初始化容器验证信息
                     container['validation'] = {
@@ -1139,10 +1155,14 @@ class PostNsop(View):
                         'pallet_only': True
                     }
                     
+                    # 添加是否打板标记
+                    container['is_pallet'] = False
+                    
                     if await sync_to_async(pallet_records.exists)():
+                        container['is_pallet'] = True
                         # 检查数量是否小于卡板值
                         found_count = await sync_to_async(lambda: pallet_records.count())()
-                        if found_count < int(pallet_count):
+                        if pallet_count_int is not None and found_count < pallet_count_int:
                             container['validation']['status'] = '错误'
                             container['validation']['message'] = f'实际板数为{found_count}板'
                         else:
@@ -1179,48 +1199,43 @@ class PostNsop(View):
                     else:
                         # 去Packinglist表查找
                         packinglist_records = await sync_to_async(check_packinglist_records)()
-                        
                         if await sync_to_async(packinglist_records.exists)():
                             # 检查数量是否小于卡板值
                             found_count = await sync_to_async(lambda: packinglist_records.count())()
-                            if found_count < int(pallet_count):
-                                container['validation']['status'] = '错误'
-                                container['validation']['message'] = f'实际板数为{found_count}板'
-                            else:
-                                # 检查shipment_batch_number_id是否有值
-                                packinglist_list = await sync_to_async(list)(packinglist_records)
-                                # 统计packinglist表的信息
-                                total_weight = 0
-                                total_pcs = 0
-                                total_cbm = 0
-                                total_pallet = 0
-                                
-                                for record in packinglist_list:
-                                    total_weight += record.total_weight_lbs or 0
-                                    total_pcs += record.pcs or 0
-                                    total_cbm += record.cbm or 0
-                                    if record.shipment_batch_number_id:
-                                        # 查找对应的shipment
-                                        shipment = await sync_to_async(get_shipment)(record.shipment_batch_number_id)
-                                        if shipment:
-                                            container['validation']['status'] = '错误'
-                                            container['validation']['message'] = f'板子已有约，约是{shipment.shipment_batch_number}'
-                                            break
-                                # 计算板数（总CBM/1.8）
-                                if total_cbm > 0:
-                                    total_pallet = round(total_cbm / 1.8, 1)
-                                
-                                # 如果没有错误，收集id
-                                if container['validation']['status'] == '正确':
-                                    container['validation']['ids'] = [f'pl_id{record.id}' for record in packinglist_list]
-                                    # 更新统计信息
-                                    container['stats'] = {
-                                        'total_weight': total_weight,
-                                        'total_pcs': total_pcs,
-                                        'total_cbm': total_cbm,
-                                        'total_pallet': total_pallet,
-                                        'pallet_only': False
-                                    }
+                            # 检查shipment_batch_number_id是否有值
+                            packinglist_list = await sync_to_async(list)(packinglist_records)
+                            # 统计packinglist表的信息
+                            total_weight = 0
+                            total_pcs = 0
+                            total_cbm = 0
+                            total_pallet = 0
+                            
+                            for record in packinglist_list:
+                                total_weight += record.total_weight_lbs or 0
+                                total_pcs += record.pcs or 0
+                                total_cbm += record.cbm or 0
+                                if record.shipment_batch_number_id:
+                                    # 查找对应的shipment
+                                    shipment = await sync_to_async(get_shipment)(record.shipment_batch_number_id)
+                                    if shipment:
+                                        container['validation']['status'] = '错误'
+                                        container['validation']['message'] = f'板子已有约，约是{shipment.shipment_batch_number}'
+                                        break
+                            # 计算板数（总CBM/1.8）
+                            if total_cbm > 0:
+                                total_pallet = round(total_cbm / 1.8, 1)
+                            
+                            # 如果没有错误，收集id
+                            if container['validation']['status'] == '正确':
+                                container['validation']['ids'] = [f'pl_id{record.id}' for record in packinglist_list]
+                                # 更新统计信息
+                                container['stats'] = {
+                                    'total_weight': total_weight,
+                                    'total_pcs': total_pcs,
+                                    'total_cbm': total_cbm,
+                                    'total_pallet': total_pallet,
+                                    'pallet_only': False
+                                }
                         else:
                             # 两个表都没找到
                             container['validation']['status'] = '错误'
@@ -1550,59 +1565,56 @@ class PostNsop(View):
                     
                     # 根据shipment_type选择不同的处理方法
                     shipment_type = group.get('appointment_type')
-                    if 1:
-                        if shipment_type in ['FTL', '快递', '外配']:
-                            # 调用ShippingManagement的handle_appointment_post方法
-                            info = await sm.handle_appointment_post(request, 'post_nsop')
-                            # info =  {'success': '预约出库成功'}
-                            # 检查结果
-                            if info:
-                                status = '成功'
-                                message = '预约出库成功'
-                                # 收集成功的预约ID
-                                success_appointment_ids.append(group.get('appointment_id'))
-                            else:
-                                status = '失败'
-                                message = info.get('message', '预约出库失败')
-                        elif shipment_type in ['LTL', '客户自提']:
-                            # 准备LTL和客户自提的数据
-                            # 基于现有的post_data创建新的post_data
-                            ltl_post_data = post_data.copy()
-                            
-                            # 这里需要从group中获取相关信息，暂时使用默认值
-                            # 后续需要修改前端，在预约信息中包含更多详细信息
-                            ltl_post_data['destination'] = destination
-                            ltl_post_data['address'] = ''  # 需要从前端获取
-                            ltl_post_data['carrier'] = 'Maersk'
-                            ltl_post_data['shipment_appointment'] = group.get('appointment_time')
-                            ltl_post_data['arm_bol'] = ''  # 需要从前端获取
-                            ltl_post_data['arm_pro'] = ''  # 需要生成
-                            ltl_post_data['shipment_type'] = shipment_type
-                            ltl_post_data['auto_fleet'] = 'true'  # 默认值
-                            ltl_post_data['fleet_cost'] = '0'  # 默认值
-                            ltl_post_data['maersk_batch_number'] = shipment_batch_number
-                            ltl_post_data['note'] = ''  # 需要从前端获取
-                            ltl_post_data['warehouse'] = destination  # 假设warehouse和destination相同
-                            
-                            # 更新request.POST
-                            request.POST = ltl_post_data
-                            # 调用私仓绑定逻辑
-                            #_, context = await self.handle_ltl_bind_group_shipment(request)
-                            context =  {'success': '预约出库成功'}
-                            # 检查结果
-                            if context.get('success'):
-                                status = '成功'
-                                message = '预约出库成功'
-                                # 收集成功的预约ID（这里需要根据实际返回值调整）
-                                # 暂时假设返回的context中包含appointment_id
-                                if context.get('appointment_id'):
-                                    success_appointment_ids.append(context.get('appointment_id'))
-                            else:
-                                status = '失败'
-                                message = context.get('error', '预约出库失败')
+
+                    if shipment_type in ['FTL', '快递', '外配']:
+                        # 调用ShippingManagement的handle_appointment_post方法
+                        info = await sm.handle_appointment_post(request, 'post_nsop')
+                        # info =  {'success': '预约出库成功'}
+                        # 检查结果
+                        if info:
+                            status = '成功'
+                            message = '预约出库成功'
+                            # 收集成功的预约ID
+                            success_appointment_ids.append(group.get('appointment_id'))
                         else:
                             status = '失败'
-                            message = f'不支持的预约类型: {shipment_type}'
+                            message = info.get('message', '预约出库失败')
+                    elif shipment_type in ['LTL', '客户自提']:
+                        # 准备LTL和客户自提的数据
+                        # 基于现有的post_data创建新的post_data
+                        ltl_post_data = post_data.copy()
+                        
+                        # 这里需要从group中获取相关信息，暂时使用默认值
+                        # 后续需要修改前端，在预约信息中包含更多详细信息
+                        ltl_post_data['destination'] = destination
+                        ltl_post_data['address'] = ''  # 需要从前端获取
+                        ltl_post_data['carrier'] = 'Maersk'
+                        ltl_post_data['shipment_appointment'] = group.get('appointment_time')
+                        ltl_post_data['arm_bol'] = ''  # 需要从前端获取
+                        ltl_post_data['arm_pro'] = ''  # 需要生成
+                        ltl_post_data['shipment_type'] = shipment_type
+                        ltl_post_data['auto_fleet'] = 'true'  # 默认值
+                        ltl_post_data['fleet_cost'] = '0'  # 默认值
+                        ltl_post_data['maersk_batch_number'] = shipment_batch_number
+                        ltl_post_data['note'] = ''  # 需要从前端获取
+                        ltl_post_data['warehouse'] = destination  # 假设warehouse和destination相同
+                        
+                        # 更新request.POST
+                        request.POST = ltl_post_data
+                        # 调用私仓绑定逻辑
+                        #_, context = await self.handle_ltl_bind_group_shipment(request)
+                        context =  {'success': '预约出库成功'}
+                        # 检查结果
+                        if context.get('success'):
+                            status = '成功'
+                            message = '预约出库成功'
+                            # 收集成功的预约ID（这里需要根据实际返回值调整）
+                            # 暂时假设返回的context中包含appointment_id
+                            if context.get('appointment_id'):
+                                success_appointment_ids.append(context.get('appointment_id'))
+                        else:
+                            status = '失败'
+                            message = context.get('error', '预约出库失败')
                     # except Exception as e:
                     #     status = '失败'
                     #     message = f'预约出库失败: {str(e)}'

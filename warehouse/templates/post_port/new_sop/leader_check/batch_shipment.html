@@ -290,7 +290,7 @@
                 <input type="hidden" name="group_{{ forloop.counter }}_appointment_type" value="{{ group.appointment_type }}">
                 <input type="hidden" name="group_{{ forloop.counter }}_loading_type" value="{{ group.loading_type }}">
                 <input type="hidden" name="group_{{ forloop.counter }}_car_group" value="{{ group.car_group }}">
-                <input type="hidden" name="group_{{ forloop.counter }}_destination" value="{{ group.destination|default:'' }}">
+                <input type="hidden" name="group_{{ forloop.counter }}_destination" id="group_{{ forloop.counter }}_destination" value="{{ group.destination|default:'' }}">
                 <input type="hidden" name="group_{{ forloop.counter }}_total_weight" value="{{ group.total_weight|default:0 }}">
                 <input type="hidden" name="group_{{ forloop.counter }}_total_pcs" value="{{ group.total_pcs|default:0 }}">
                 <input type="hidden" name="group_{{ forloop.counter }}_total_cbm" value="{{ group.total_cbm|default:0 }}">
@@ -333,7 +333,7 @@
                         <input type="hidden" name="group_1_appointment_type" value="{{ group.appointment_type }}">
                         <input type="hidden" name="group_1_loading_type" value="{{ group.loading_type }}">
                         <input type="hidden" name="group_1_car_group" value="{{ group.car_group }}">
-                        <input type="hidden" name="group_1_destination" value="{{ group.destination|default:'' }}">
+                        <input type="hidden" name="group_1_destination" id="single_group_{{ forloop.counter }}_destination" value="{{ group.destination|default:'' }}">
                         <input type="hidden" name="group_1_total_weight" value="{{ group.total_weight|default:0 }}">
                         <input type="hidden" name="group_1_total_pcs" value="{{ group.total_pcs|default:0 }}">
                         <input type="hidden" name="group_1_total_cbm" value="{{ group.total_cbm|default:0 }}">
@@ -386,7 +386,7 @@
                         </div>
                         <div>
                             <span style="font-size: 12px; color: #86909C;">目的地:</span>
-                            <p style="font-size: 14px; font-weight: 500;">{{ group.destination|default:'-' }}</p>
+                            <input type="text" class="destination-input" data-group-index="{{ forloop.counter }}" data-form-index="{{ forloop.counter }}" value="{{ group.destination|default:'' }}" style="width: 100%; padding: 6px 8px; border: 1px solid #ced4da; border-radius: 4px; font-size: 14px; font-weight: 500;">
                         </div>
                         <div>
                             <span style="font-size: 12px; color: #86909C;">备注:</span>
@@ -417,7 +417,12 @@
                 
                 <!-- 柜子信息 -->
                 <div>
-                    <h6 style="font-size: 12px; font-weight: 600; color: #666666; margin-bottom: 12px;">柜子信息 ({{ group.containers|length }} 个柜)</h6>
+                    <h6 style="font-size: 12px; font-weight: 600; color: #666666; margin-bottom: 12px;">
+                        柜子信息 ({{ group.containers|length }} 个柜)
+                        <span style="font-size: 10px; font-weight: normal; color: #999; margin-left: 8px;">
+                            提示：已打板的按卡板列的板数预约，未打板的全部预约
+                        </span>
+                    </h6>
                     <div class="table-responsive">
                         <table class="result-table" style="font-size: 12px;">
                             <thead>
@@ -426,7 +431,8 @@
                                     <th style="padding: 8px;">仓点</th>
                                     <th style="padding: 8px;">CBM</th>
                                     <th style="padding: 8px;">卡板</th>
-                                    <th style="padding: 8px;">状态</th>
+                                    <th style="padding: 8px;">是否打板</th>
+                                    <th style="padding: 8px;">是否合规</th>
                                     <th style="padding: 8px;">ID</th>
                                 </tr>
                             </thead>
@@ -437,6 +443,13 @@
                                     <td style="padding: 8px;">{{ container.warehouse }}</td>
                                     <td style="padding: 8px;">{{ container.cbm }}</td>
                                     <td style="padding: 8px;">{{ container.pallet }}</td>
+                                    <td style="padding: 8px;">
+                                        {% if container.is_pallet %}
+                                        <span style="color: #28a745; font-weight: 600; font-size: 18px;">✓</span>
+                                        {% else %}
+                                        <span style="color: #dc3545; font-weight: 600; font-size: 18px;">✗</span>
+                                        {% endif %}
+                                    </td>
                                     <td style="padding: 8px; display: flex; align-items: center; gap: 8px;">
                                         <span style="padding: 4px 8px; border-radius: 4px; font-weight: 500; {% if container.validation.status == '错误' %}background: #f8d7da; color: #dc3545; border: 1px solid #dc3545;{% else %}background: #e8f5e8; color: #28a745; border: 1px solid #28a745;{% endif %}">
                                             {% if container.validation.status == '正确' %}✓{% else %}✗{% endif %}
@@ -534,6 +547,27 @@
         fileName.classList.remove('file-name');
         fileName.classList.add('file-placeholder');
         clearFile.style.display = 'none';
+    });
+
+    // 处理目的地输入框变化
+    const destinationInputs = document.querySelectorAll('.destination-input');
+    destinationInputs.forEach(input => {
+        input.addEventListener('input', function() {
+            const groupIndex = this.getAttribute('data-group-index');
+            const newValue = this.value;
+            
+            // 更新批量预约表单中的隐藏字段
+            const batchDestInput = document.getElementById('group_' + groupIndex + '_destination');
+            if (batchDestInput) {
+                batchDestInput.value = newValue;
+            }
+            
+            // 更新单个预约出库表单中的隐藏字段
+            const singleDestInput = document.getElementById('single_group_' + groupIndex + '_destination');
+            if (singleDestInput) {
+                singleDestInput.value = newValue;
+            }
+        });
     });
 </script>
 
