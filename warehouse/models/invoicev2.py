@@ -26,6 +26,8 @@ class Invoicev2(models.Model):
     receivable_delivery_public_amount = models.FloatField(null=True, blank=True)
     receivable_delivery_other_amount = models.FloatField(null=True, blank=True)
     receivable_direct_amount = models.FloatField(null=True, blank=True)
+
+    payout_total_amount = models.FloatField(null=True, blank=True, verbose_name="赔付的费用")
     receivable_is_locked = models.BooleanField(default=False)  # 财务确认后锁定
     is_invoice_delivered = models.BooleanField(default=False) # 是否通知客户
     received_amount = models.FloatField(null=True, blank=True) # 客户支付的金额
@@ -173,7 +175,8 @@ class InvoiceItemv2(models.Model):
         ("delivery_public", "公仓派送"),
         ("delivery_other", "私仓派送"),
         ("activation_fee", "激活费"),
-        ('combina_extra_fee', '组合费额外费用')
+        ('combina_extra_fee', '组合费额外费用'),
+        ('payout_fee', '赔付费用')
     ]
     container_number = models.ForeignKey(
         Container, on_delete=models.CASCADE, related_name="invoice_itemv2"
