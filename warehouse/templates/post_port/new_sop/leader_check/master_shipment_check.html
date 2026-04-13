@@ -1,4 +1,4 @@
-{% extends 'base.html' %}
+﻿{% extends 'base.html' %}
 {% load static %}
 
 {% block content %}
@@ -542,7 +542,20 @@
                             {% if item.pod_link %}
                             <a href="{{ item.pod_link }}" class="pod-link" target="_blank">查看POD</a>
                             {% else %}
-                            -
+                                {% if item.is_virtual_sp %}
+                                <form method="post" enctype="multipart/form-data" action="" style="display: flex; gap: 5px; align-items: center;">
+                                    {% csrf_token %}
+                                    <input type="file" name="file" class="table-input" style="font-size: 0.8rem;" required>
+                                    <input type="hidden" name="step" value="pod_upload">
+                                    <input type="hidden" name="shipment_batch_number" value="{{ item.shipment_batch_number }}">
+                                    <input type="hidden" name="warehouse" value="{{ warehouse|default:'' }}">
+                                    <input type="hidden" name="arrived_at" value="{{ item.arrived_at_date|default:'' }}">
+                                    <input type="hidden" name="page" value="master_shipment_check">
+                                    <button type="submit" class="table-btn btn-success-small">上传</button>
+                                </form>
+                                {% else %}
+                                -
+                                {% endif %}
                             {% endif %}
                         </td>
                         {% else %}
