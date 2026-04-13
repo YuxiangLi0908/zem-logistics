@@ -166,7 +166,8 @@ class ReceivableAccounting(View):
             context = {"warehouse_options": self.warehouse_options,"order_form": OrderForm()}
             return render(request, self.template_delivery_entry, context)
         elif step == "confirm":
-            context = {"warehouse_options": self.warehouse_options,"order_form": OrderForm()}
+            existing_customers = Customer.objects.all().order_by("zem_name")
+            context = {"warehouse_options": self.warehouse_options,"order_form": OrderForm(), "existing_customers": existing_customers}
             return render(request, self.template_confirm_entry, context)
         elif step == "container_confirm":
             template, context = self.handle_container_invoice_confirm_get(request)
@@ -4591,6 +4592,8 @@ class ReceivableAccounting(View):
                         })
                         previous_order_data_list.append(row_data)
         
+        existing_customers = Customer.objects.all().order_by("zem_name")
+        
         context.update({
             'start_date': start_date,
             'end_date': end_date,
@@ -4599,6 +4602,7 @@ class ReceivableAccounting(View):
             "order_form": OrderForm(),
             "warehouse_options": self.warehouse_options,
             "warehouse_filter": warehouse,
+            "existing_customers": existing_customers,
         })
         return self.template_confirm_entry, context
     
