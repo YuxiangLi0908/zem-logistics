@@ -526,6 +526,9 @@ class PostNsop(View):
         elif step == "bind_existing_shipment":
             template, context = await self.handle_bind_existing_shipment_post(request)
             return render(request, template, context)
+        elif step == "save_virtual_shipment_time":
+            template, context = await self.handle_save_virtual_shipment_time_post(request)
+            return render(request, template, context)
         elif step == "fleet_po_delete":
             template, context = await self.handle_fleet_po_delete_post(request)
             return render(request, template, context)
@@ -9807,7 +9810,7 @@ class PostNsop(View):
                 f"{current_date.strftime('%Y%m%d')}C{customer_id}{order_id}"
             ),
             created_at=current_date,
-            is_master=True,
+            is_master_bill=True,
         )
 
         # 5️⃣ 创建 InvoiceStatus
@@ -12771,6 +12774,50 @@ class PostNsop(View):
         
         context['success_messages'] = '绑定成功!'
 
+        
+        # 重新调用搜索功能
+        template, search_context = await self.handle_master_shipment_check_post(request)
+        context.update(search_context)
+        
+        return template, context
+    
+    async def handle_save_virtual_shipment_time_post(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
+        """保存虚构约的出库时间或送达时间"""
+        context = {}
+        
+        shipment_batch_number = request.POST.get('shipment_batch_number', '')
+        time_type = request.POST.get('time_type', '')
+        time_value = request.POST.get('time_value', '')
+        
+        try:
+            # 查找shipment
+            shipment = await sync_to_async(Shipment.objects.get)(
+                shipment_batch_number=shipment_batch_number
+            )
+            
+            if not shipment:
+                context['error_messages'] = '未找到对应的约'
+                template, search_context = await self.handle_master_shipment_check_post(request)
+                context.update(search_context)
+                return template, context
+            
+            # 解析时间
+            time_obj = datetime.strptime(time_value, '%Y-%m-%d')
+            
+            # 更新对应字段
+            if time_type == 'shipped':
+                shipment.shipped_at = time_obj
+                shipment.is_shipped = True
+            elif time_type == 'arrived':
+                shipment.arrived_at = time_obj
+                shipment.is_arrived = True
+            
+            await sync_to_async(shipment.save, thread_sensitive=True)()
+            
+            context['success_messages'] = '保存成功!'
+            
+        except Exception as e:
+            context['error_messages'] = f'保存失败: {str(e)}'
         
         # 重新调用搜索功能
         template, search_context = await self.handle_master_shipment_check_post(request)

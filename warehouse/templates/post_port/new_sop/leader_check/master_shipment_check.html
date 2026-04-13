@@ -480,18 +480,30 @@
                             <span class="status-badge status-{{ item.status_class }}">{{ item.status }}</span>
                         </td>
                         {% if item.has_master_shipment %}
-                        <td>
+                        <td style="text-align: center;">
                             {% if item.is_virtual_sp %}
-                            ✓
+                            <span style="color: #28a745; font-weight: bold;">✓</span>
                             {% else %}
-                            ✗
+                            <span style="color: #dc3545; font-weight: bold;">✗</span>
                             {% endif %}
                         </td>
                         <td>{{ item.shipment_batch_number|default:'-' }}</td>
                         <td>{{ item.appointment_id|default:'-' }}</td>
                         <td>{{ item.shipment_appointment_date|default:'-' }}</td>
-                        <td>{{ item.shipped_at_date|default:'-' }}</td>
-                        <td>{{ item.arrived_at_date|default:'-' }}</td>
+                        <td>
+                            {% if item.is_virtual_sp %}
+                            <input type="date" class="virtual-time-input" data-type="shipped" data-shipment="{{ item.shipment_batch_number }}" value="{{ item.shipped_at_date|default:'' }}">
+                            {% else %}
+                            {{ item.shipped_at_date|default:'-' }}
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if item.is_virtual_sp %}
+                            <input type="date" class="virtual-time-input" data-type="arrived" data-shipment="{{ item.shipment_batch_number }}" value="{{ item.arrived_at_date|default:'' }}">
+                            {% else %}
+                            {{ item.arrived_at_date|default:'-' }}
+                            {% endif %}
+                        </td>
                         <td>
                             {% if item.pod_link %}
                             <a href="{{ item.pod_link }}" class="pod-link" target="_blank">查看POD</a>
@@ -679,9 +691,22 @@
                         if (searchValue) {
                             const cell = cells[col];
                             if (cell) {
-                                const cellText = cell.textContent.toLowerCase();
-                                if (!cellText.includes(searchValue)) {
-                                    show = false;
+                                if (col === 3) {
+                                    const cellText = cell.textContent;
+                                    if (searchValue === '是') {
+                                        if (!cellText.includes('✓')) {
+                                            show = false;
+                                        }
+                                    } else if (searchValue === '否') {
+                                        if (!cellText.includes('✗')) {
+                                            show = false;
+                                        }
+                                    }
+                                } else {
+                                    const cellText = cell.textContent.toLowerCase();
+                                    if (!cellText.includes(searchValue)) {
+                                        show = false;
+                                    }
                                 }
                             }
                         }
@@ -744,7 +769,59 @@
                 }
             });
         }
+
+        const virtualTimeInputs = document.querySelectorAll('.virtual-time-input');
+        virtualTimeInputs.forEach(input => {
+            input.addEventListener('change', function() {
+                const shipmentBatchNumber = this.getAttribute('data-shipment');
+                const type = this.getAttribute('data-type');
+                const timeValue = this.value;
+
+                if (timeValue && shipmentBatchNumber) {
+                    saveVirtualShipmentTime(shipmentBatchNumber, type, timeValue);
+                }
+            });
+        });
     });
+
+    function saveVirtualShipmentTime(shipmentBatchNumber, type, timeValue) {
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.style.display = 'none';
+
+        const csrfInput = document.createElement('input');
+        csrfInput.type = 'hidden';
+        csrfInput.name = 'csrfmiddlewaretoken';
+        csrfInput.value = document.querySelector('[name=csrfmiddlewaretoken]').value;
+        form.appendChild(csrfInput);
+
+        const stepInput = document.createElement('input');
+        stepInput.type = 'hidden';
+        stepInput.name = 'step';
+        stepInput.value = 'save_virtual_shipment_time';
+        form.appendChild(stepInput);
+
+        const shipmentInput = document.createElement('input');
+        shipmentInput.type = 'hidden';
+        shipmentInput.name = 'shipment_batch_number';
+        shipmentInput.value = shipmentBatchNumber;
+        form.appendChild(shipmentInput);
+
+        const typeInput = document.createElement('input');
+        typeInput.type = 'hidden';
+        typeInput.name = 'time_type';
+        typeInput.value = type;
+        form.appendChild(typeInput);
+
+        const timeInput = document.createElement('input');
+        timeInput.type = 'hidden';
+        timeInput.name = 'time_value';
+        timeInput.value = timeValue;
+        form.appendChild(timeInput);
+
+        document.body.appendChild(form);
+        form.submit();
+    }
     
     function openCreateFictionalModal(idsString, destination) {
         document.getElementById('modalIdsString').value = idsString;
