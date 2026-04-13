@@ -336,6 +336,8 @@ class PostNsop(View):
                 template, context = await self.handle_unscheduled_pos_post(request)
             elif page == "ltl_pod_section":
                 template, context = await self.handle_ltl_unscheduled_pos_post(request)
+            elif page == "master_shipment_check":
+                template, context = await self.handle_master_shipment_check_post(request)
             else:
                 template, context = await self.handle_fleet_schedule_post(request)
             context.update({"success_messages": 'POD上传成功!'})           
@@ -12485,7 +12487,8 @@ class PostNsop(View):
             'end_date': end_date,
             'container_number': container_number,
             'destination': destination,
-            'warehouse': warehouse
+            'warehouse': warehouse,
+            'delivery_type': delivery_type
         })
         
         # 如果没有输入任何值，默认最近三个月
@@ -12626,7 +12629,6 @@ class PostNsop(View):
     async def handle_create_fictional_master_post(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
         """创建虚构主约"""       
         # 获取表单数据
-        print(request.POST)
         ids_string = request.POST.get('ids_string', '')
         appointment_type = request.POST.get('appointment_type', '')
         appointment_account = request.POST.get('appointment_account', '')
