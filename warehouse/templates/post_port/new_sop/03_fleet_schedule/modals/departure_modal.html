@@ -652,7 +652,7 @@
                 estWarning.textContent = '存在异常 ID 配置（双ID或无ID），请核实！';
             } else if (anyUnplated) {
                 estWarning.style.display = 'block';
-                estWarning.textContent = '存在未打板货物（pltId 为空且 cargoId 有值），请核实！';
+                estWarning.textContent = '存在未打板货物，请核实！';
             } else {
                 // 如果仅仅是实际小于计划（未满）但没有未打板，按照你原需求，这种不一定阻止提交，
                 // 这里我们仍显示提示（原行为）但文案更明确；如果不想显示，可把下面两行删掉。
@@ -743,7 +743,7 @@
         }
 
         if (foundUnplated) {
-            alert('存在未打板货物（pltId 为空且 cargoId 有值），请核实后再提交。');
+            alert('存在未打板货物，请核实后再提交。');
             return;
         }
 

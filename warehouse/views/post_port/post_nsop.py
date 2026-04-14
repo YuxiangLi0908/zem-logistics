@@ -7292,6 +7292,7 @@ class PostNsop(View):
         }
         if not context:
             context = {}
+
         context.update({
             'delivery_shipments': delivery_data['shipments'],
             'pod_shipments': pod_data['fleet'],
