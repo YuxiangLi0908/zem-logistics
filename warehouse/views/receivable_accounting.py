@@ -2541,6 +2541,7 @@ class ReceivableAccounting(View):
                 'delivery_public': invoice.receivable_delivery_public_amount or 0,
                 'delivery_other': invoice.receivable_delivery_other_amount or 0,
                 'combina_extra': ctx.get('combina_extra_fee'),
+                'payout_fee': invoice.payout_total_amount or 0,
             }
             return self.template_invoice_items_edit, ctx
         
@@ -2723,7 +2724,7 @@ class ReceivableAccounting(View):
                     # 其他类别的所有项目都添加到其他数据
                     other_items.extend(data['items'])
                     if category == "combina_extra_fee":
-                        combina_extra_fee += item.amount or 0
+                        combina_extra_fee += data['total_amount']
             
             # 5. 分别计算统计数据
             # 组合柜统计
@@ -2735,9 +2736,16 @@ class ReceivableAccounting(View):
             }
             
             # 其他项目统计
+            other_total_amount = 0
+            for item in other_items:
+                amount = item.amount or 0
+                if item.item_category == 'payout_fee':
+                    other_total_amount -= amount
+                else:
+                    other_total_amount += amount
             other_stats = {
                 'total_items': len(other_items),
-                'total_amount': sum(item.amount or 0 for item in other_items),
+                'total_amount': other_total_amount,
                 'category_counts': {
                     category: data['count'] 
                     for category, data in categories_data.items()
@@ -2745,9 +2753,16 @@ class ReceivableAccounting(View):
             }
             
             # 总体统计
+            total_amount = 0
+            for item in items:
+                amount = item.amount or 0
+                if item.item_category == 'payout_fee':
+                    total_amount -= amount
+                else:
+                    total_amount += amount
             total_stats = {
                 'total_items': len(items),
-                'total_amount': sum(item.amount or 0 for item in items),
+                'total_amount': total_amount,
             }
             
             # 6. 获取item_category的中文显示名称
