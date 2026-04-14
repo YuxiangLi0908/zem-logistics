@@ -2500,6 +2500,9 @@ class ReceivableAccounting(View):
             status_obj.delivery_public_status = "rejected"
             status_obj.delivery_public_reason = reject_reason
             reject_status = "私仓派送"
+        elif category == "payout_fee":
+            status_obj.finance_status = "tobeconfirmed"
+            reject_status = "赔付费用"
         status_obj.save()
 
         container_number = request.POST.get("container_number")
