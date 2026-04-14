@@ -2180,6 +2180,8 @@ class ReceivableAccounting(View):
     def handle_confirm_save_all(
         self, request: HttpRequest
     ) -> tuple[Any, Any]:
+        '''转运账单财务确认'''
+        print(request.POST)
         context = {}
         container_number = request.POST.get("container_number")
         invoice_number = request.POST.get("invoice_number")
@@ -2570,6 +2572,7 @@ class ReceivableAccounting(View):
                 "delivery_public": [],
                 "delivery_other": [],
                 "activation_fee": [],
+                "payout_fee": [],
             }
 
                 # 计算每个类别的总金额
@@ -2593,6 +2596,7 @@ class ReceivableAccounting(View):
                 ("delivery_public", "🚚 公仓派送", grouped.get("delivery_public", [])),
                 ("delivery_other", "🚚 私仓派送", grouped.get("delivery_other", [])),
                 ("activation_fee", "⚡ PO激活费", grouped.get("activation_fee", [])),
+                ("payout_fee", "💰 赔付费用", grouped.get("payout_fee", [])),
             ]
             
             context = {
