@@ -50,6 +50,7 @@ class POD(View):
 
     def get(self, request: HttpRequest) -> HttpResponse:
         step = request.GET.get("step", None)
+        print('POD GET STEP',step)
         if step == "select":
             return render(
                 request, self.template_shipment_detail, self.handle_select_get(request)
@@ -61,6 +62,7 @@ class POD(View):
 
     def post(self, request: HttpRequest) -> HttpResponse:
         step = request.POST.get("step", None)
+        print('POD POST STEP',step)
         if step == "confirm_delivery":
             return render(
                 request, self.template_main, self.handle_confirm_delivery_post(request)

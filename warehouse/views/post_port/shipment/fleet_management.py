@@ -4451,6 +4451,7 @@ class FleetManagement(View):
         return response
 
     async def handle_export_bol_post(self, request: HttpRequest) -> HttpResponse:
+        '''导出BOL文件的基础函数'''
         batch_number = request.POST.get("shipment_batch_number")
         warehouse = request.POST.get("warehouse")
         customerInfo = request.POST.get("customerInfo")
