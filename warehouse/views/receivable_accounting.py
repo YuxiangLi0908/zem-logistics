@@ -1111,6 +1111,14 @@ class ReceivableAccounting(View):
             item_category="combina_extra_fee",
         ).aggregate(total=models.Sum('amount'))['total'] or 0
         total_amount += float(combina_extra_items_total)
+
+        payout_items_total = InvoiceItemv2.objects.filter(
+            invoice_number=invoice,
+            container_number=container,
+            invoice_type="receivable",
+            item_category="payout_fee",
+        ).aggregate(total=models.Sum('amount'))['total'] or 0
+        total_amount -= float(payout_items_total)
         
         # 更新发票
         invoice.receivable_total_amount = total_amount
@@ -1119,6 +1127,7 @@ class ReceivableAccounting(View):
         invoice.receivable_wh_other_amount = receivable_wh_other_amount
         invoice.receivable_delivery_public_amount = receivable_delivery_public_amount + activation_items_total
         invoice.receivable_delivery_other_amount = receivable_delivery_other_amount
+        invoice.payout_total_amount = payout_items_total
         if is_update_remain:
             invoice.remain_offset = total_amount
         invoice.save()
@@ -2181,7 +2190,6 @@ class ReceivableAccounting(View):
         self, request: HttpRequest
     ) -> tuple[Any, Any]:
         '''转运账单财务确认'''
-        print(request.POST)
         context = {}
         container_number = request.POST.get("container_number")
         invoice_number = request.POST.get("invoice_number")
@@ -2325,13 +2333,13 @@ class ReceivableAccounting(View):
                 return self.handle_confirm_entry_post(request, context)
         
         # 更新发票总额
+        self._calculate_invoice_total_amount(invoice)
+        
         try:
-            invoice.receivable_total_amount = total_amount
-            invoice.remain_offset = total_amount
             invoice.receivable_is_locked = True
             invoice.save()
         except Exception as e:
-            error_messages = f'更新发票总额失败: {str(e)}'
+            error_messages = f'更新发票状态失败: {str(e)}'
             context.update({'error_messages': error_messages})
             return self.handle_confirm_entry_post(request, context)
         
@@ -2585,7 +2593,13 @@ class ReceivableAccounting(View):
             for it in items:
                 grouped.setdefault(it.item_category, []).append(it)
                 if it.amount:
-                    total_amount += float(it.amount)
+                    amount = float(it.amount)
+        
+                    # 如果是 payout_fee 类别，减去金额；否则加上金额
+                    if it.item_category == "payout_fee":
+                        total_amount -= amount
+                    else:
+                        total_amount += amount
             
             # 计算每个类别的金额
             for category, items_list in grouped.items():
@@ -7737,6 +7751,7 @@ class ReceivableAccounting(View):
         return self.handle_warehouse_entry_post(request, context)
 
     def _calculate_invoice_total_amount(self, invoice:Invoicev2):
+        '''更新invoice应收相关的所有总费用'''
         def to_decimal(value, default='0.0'):
             """安全转换为 Decimal"""
             if value is None:
@@ -7746,6 +7761,9 @@ class ReceivableAccounting(View):
             if isinstance(value, float):
                 return Decimal(str(value))
             return Decimal(str(value))
+        
+        self._update_invoice_total(invoice,invoice.container_number,True)
+
         # 计算仓库总金额
         wh_public = to_decimal(invoice.receivable_wh_public_amount)
         wh_other = to_decimal(invoice.receivable_wh_other_amount)
@@ -9183,12 +9201,21 @@ class ReceivableAccounting(View):
                 }
             )
         display_data["extra_fees"]["overpallets"]["max_price_used"] = max_price
-        # 总费用
+        # 赔付费用总金额
+        payout_items = InvoiceItemv2.objects.filter(
+            invoice_number=invoice,
+            invoice_type="receivable",
+            item_category="payout_fee"
+        )
+        payout_total_amount = sum(item.amount or 0 for item in payout_items)
+        
+        # 总费用（减去赔付费用）
         total_amount = (
             base_fee
             + overpallets_fee
             + overregion_pickup_fee
             + addition_fee['add_fee']
+            - payout_total_amount
         )
 
         # 查询组合柜和非组合的仓点数量

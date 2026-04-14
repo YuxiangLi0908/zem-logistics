@@ -104,7 +104,13 @@ def sum_numeric(values_list, attr_name):
 def sum_amount(items):
     """计算额外费用的总金额"""
     try:
-        total = sum(float(item.get('amount', 0)) for item in items)
+        total = 0
+        for item in items:
+            amount = float(item.get('amount', 0))
+            if item.get('item_category') == 'payout_fee':
+                total -= amount
+            else:
+                total += amount
         return total
     except (ValueError, TypeError):
         return 0

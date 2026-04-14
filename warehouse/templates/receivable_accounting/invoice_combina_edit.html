@@ -886,6 +886,7 @@
                                         <option value="delivery_other" {% if fee.item_category == 'delivery_other' %}selected{% endif %}>私仓派送</option>
                                         <option value="activation_fee" {% if fee.item_category == 'activation_fee' %}selected{% endif %}>激活费</option>
                                         <option value="combina_extra_fee" {% if fee.item_category == 'combina_extra_fee' %}selected{% endif %}>组合费额外</option>
+                                        <option value="payout_fee" {% if fee.item_category == 'payout_fee' %}selected{% endif %}>赔付费用</option>
                                     </select>
                                 </td>
                                 <td><input type="text" class="form-control form-control-sm fee-input" name="description" value="{{ fee.description }}" disabled></td>
@@ -1352,7 +1353,13 @@
         let sum = 0;
         document.querySelectorAll('.fee-row').forEach(row => {
             if (row.style.display !== 'none') {
-                sum += parseFloat(row.querySelector('[name="amount"]').value) || 0;
+                const amount = parseFloat(row.querySelector('[name="amount"]').value) || 0;
+                const itemCategory = row.querySelector('[name="item_category"]').value;
+                if (itemCategory === 'payout_fee') {
+                    sum -= amount;
+                } else {
+                    sum += amount;
+                }
             }
         });
         document.getElementById('extraFeesTotal').textContent = '$' + sum.toFixed(2);
