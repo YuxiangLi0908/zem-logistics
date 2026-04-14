@@ -1,0 +1,709 @@
+{% extends 'base.html' %} 
+{% load static %}
+
+{% block content %}
+<style>
+    .finance-system {
+        max-width: 102%;  /* 大幅增加宽度占比 */
+        margin: 20px auto;
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+        overflow: hidden;
+    }
+
+    :root {
+        --primary-color: #1b5e20;
+        --secondary-color: #0d3d14;
+        --success-color: #2e7d32;
+        --warning-color: #ff6f00;
+        --danger-color: #b71c1c;
+        --light-bg: #f8f9fa;
+        --card-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+        --border-radius: 12px;
+    }
+
+    .finance-header { 
+        background: linear-gradient(135deg, #0d3d14, #1b5e20);
+        color: white; 
+        padding: 25px 30px;
+        display: flex; 
+        justify-content: space-between; 
+        align-items: center; 
+    }
+    
+    .finance-logo {
+        display: flex;
+        align-items: center;
+        font-size: 1.5rem;  /* 保持原有大小 */
+        font-weight: bold;
+    }
+
+    .finance-logo i {
+        margin-right: 12px;
+        font-size: 1.8rem;  /* 保持原有大小 */
+    }
+
+    .filter-controls {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 20px;
+        background: rgba(255, 255, 255, 0.15);
+        padding: 15px 25px;
+        border-radius: 10px;
+    }
+
+    .filter-group {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .filter-group label {
+        font-weight: 600;
+        font-size: 0.9rem;
+    }
+
+    .filter-controls select,
+    .filter-controls input {
+        padding: 10px 15px;
+        border: none;
+        border-radius: 6px;
+        background: white;
+        font-size: 0.95rem;
+        min-width: 150px;
+    }
+
+    .filter-controls button {
+        padding: 10px 20px;
+        background: var(--success-color);
+        color: white;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-weight: 600;
+        transition: all 0.3s ease;
+    }
+
+    .filter-controls button:hover {
+        background: #219652;
+        transform: translateY(-1px);
+    }
+
+    .finance-main {
+        padding: 25px;
+    }
+
+
+
+   .search-row .th {
+        background: #e9ecef !important;
+        position: sticky;
+        top: 50px !important;  /* 表头高度 */
+        z-index: 9;
+        padding: 4px 14px 4px 20px !important;  /* 减小内边距 */
+        height: 36px !important;  /* 固定搜索行高度 */
+        border-bottom: 1px solid #dee2e6 !important;
+    }
+
+    .search-row .th input[type="text"] {
+        width: 100%;
+        padding: 4px 8px;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+        font-size: 12px;
+        box-sizing: border-box;
+        transition: all 0.3s ease;
+        background: white;
+        height: 26px;  /* 搜索框高度 */
+    }
+
+    .search-row .th input[type="text"]:focus {
+        outline: none;
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 2px rgba(27, 94, 32, 0.1);
+    }
+
+    .search-row .th .date-search-container {
+        display: flex;
+        gap: 4px;
+        align-items: center;
+        height: 26px;
+    }
+
+    .search-row .th .date-search-input {
+        flex: 1;
+        padding: 0;  /* 左内边距减小为4px */
+        border: 1px solid #ced4da;
+        border-radius: 4px 0 0 4px;  /* 左侧圆角，右侧直角 */
+        font-size: 11px;
+        box-sizing: border-box;
+        background: white;
+        height: 26px;
+        width: calc(100% - 20px); 
+        border-right: none;  
+        margin-left: 0;  
+    }
+    .search-row .th:has(.date-search-input) {
+        padding-left: 10px !important;
+    }
+    .search-row .th .clear-date-btn {
+        padding: 4px 6px;
+        border: 1px solid #dc3545;
+        border-radius: 4px;
+        background: #fff;
+        color: #dc3545;
+        cursor: pointer;
+        font-size: 10px;
+        height: 26px;
+        white-space: nowrap;
+        transition: all 0.3s ease;
+    }
+
+    .search-row .th .clear-date-btn:hover {
+        background: #dc3545;
+        color: white;
+    }
+    .tables-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 25px;
+        height: 650px;  /* 稍微增加高度 */
+    }
+
+    .container-section {
+        background: white;
+        border-radius: var(--border-radius);
+        box-shadow: var(--card-shadow);
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        border: 1px solid #f0f0f0;
+    }
+
+    .section-header {
+        background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+        padding: 20px;
+        border-bottom: 1px solid #dee2e6;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-shrink: 0;
+    }
+
+    .section-header h3 {
+        margin: 0;
+        color: var(--secondary-color);
+        font-size: 1.2rem;
+        font-weight: 600;
+    }
+
+    .section-count {
+        background: var(--primary-color);
+        color: white;
+        border-radius: 20px;
+        padding: 4px 12px;
+        font-size: 0.85rem;
+        font-weight: 600;
+    }
+
+    /* 表格样式优化 */
+    .table-container {
+        overflow-x: auto;
+        overflow-y: auto;
+        flex: 1;
+        background: #fafbfc;
+    }
+
+    .table {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0;
+        font-size: 14px;
+        background: white;
+        table-layout: fixed;
+    }
+
+    .th {
+        background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+        padding: 18px 14px 18px 20px;  /* 增加表头内边距 */
+        text-align: left;
+        font-weight: 700;
+        border-bottom: 2px solid #dee2e6;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        color: var(--secondary-color);
+        font-size: 0.95rem;
+        border-right: 1px solid #e9ecef;
+        height: 50px;  /* 固定表头高度 */
+    }
+
+    .th:last-child {
+        border-right: none;
+    }
+    
+    /* 调整列宽设置 */
+    .th[data-column="customer"],
+    .td[data-column="customer"] {
+        width: 12%;
+    }
+    
+    .th[data-column="container"],
+    .td[data-column="container"] {
+        width: 18%;
+    }
+    
+    .th[data-column="warehouse"],
+    .td[data-column="warehouse"] {
+        width: 15%;
+    }
+    
+    .th[data-column="warehouse-in"],
+    .td[data-column="warehouse-in"] {
+        width: 14%;
+    }
+    
+    .th[data-column="empty-returned"],
+    .td[data-column="empty-returned"] {
+        width: 14%;
+    }
+    
+    .th[data-column="shipped-count"],
+    .td[data-column="shipped-count"] {
+        width: 12%;  /* 已出库数 */
+        text-align: center;
+    }
+    
+    .th[data-column="status"],
+    .td[data-column="status"] {
+        width: 15%;
+    }
+    
+    .th[data-column="reject-reason"],
+    .td[data-column="reject-reason"] {
+        width: 16%;
+    }
+    
+    /* 暂扣标记样式 */
+    .hold-badge {
+        display: inline-block;
+        background-color: #ff6b6b;
+        color: white;
+        font-size: 10px;
+        font-weight: bold;
+        padding: 2px 6px;
+        border-radius: 10px;
+        margin-left: 8px;
+        vertical-align: middle;
+        animation: pulse 2s infinite;
+    }
+    .status-rejected-row {
+        background-color: #ffebee !important;  /* 浅红色背景 */
+        border-left: 4px solid #f44336;  /* 左侧红色边框作为强调 */
+    }
+
+    .status-rejected-row:hover {
+        background-color: #ffcdd2 !important;  /* 悬停时加深颜色 */
+    }
+
+    /* 状态徽章样式优化 */
+    .status-badge.rejected {
+        background-color: #f44336;
+        color: white;
+        padding: 3px 8px;
+        border-radius: 12px;
+        font-size: 12px;
+        font-weight: bold;
+    }
+    @keyframes pulse {
+        0% {
+            opacity: 0.8;
+        }
+        50% {
+            opacity: 1;
+        }
+        100% {
+            opacity: 0.8;
+        }
+    }
+    
+    /* 出库统计样式 */
+    .shipment-count {
+        font-weight: 600;
+        font-size: 13px;
+        padding: 6px 10px;
+        border-radius: 8px;
+        display: inline-block;
+        min-width: 60px;
+        text-align: center;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .shipment-count.completed {
+        background: #e8f5e9;
+        color: #2e7d32;
+        border: 1px solid #c8e6c9;
+    }
+
+    /* 响应式设计 */
+    @media (max-width: 768px) {
+        .batch-shipment-container {
+            padding: 16px;
+        }
+        
+        .card {
+            padding: 16px;
+        }
+        
+        .button-container {
+            flex-direction: column;
+        }
+        
+        .result-table {
+            font-size: 12px;
+        }
+        
+        .result-table th,
+        .result-table td {
+            padding: 8px;
+        }
+    }
+</style>
+
+<div class="finance-system">
+    <form method="post" action="" onsubmit="showLoadingBar()" class="warehouse-selector">
+        {% csrf_token %}
+        <div class="finance-header">
+            <div class="finance-logo">
+                <i class="fas fa-truck"></i>
+                <span>赔付账单管理 - 应收</span>
+            </div>       
+            <div class="filter-controls">                      
+                <div class="filter-group">
+                    <b style="margin-right: 5px;">客户:</b>
+                    {{ order_form.customer_name }}
+                    <b style="margin-right: 5px;">仓库:</b>
+                    <select name="warehouse_filter">
+                        {% for k, v in warehouse_options.items %}
+                            {% if warehouse_filter == v %}
+                                <option value="{{ v }}" selected>{{ k }}</option>
+                            {% else %}
+                                <option value="{{ v }}">{{ k }}</option>
+                            {% endif %}
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label for="start_date"><i class="fas fa-calendar-alt"></i> ETD开始:</label>
+                    <input type="date" name="start_date" id="start_date" value="{{ start_date }}">
+                </div>
+                <div class="filter-group">
+                    <label for="end_date"><i class="fas fa-calendar-alt"></i> ETD结束:</label>
+                    <input type="date" name="end_date" id="end_date" value="{{ end_date }}">
+                </div>
+                <button type="submit" class="btn-filter">
+                    <i class="fas fa-search"></i> 查询
+                </button>
+                <input type="hidden" name="step" value="payout_search">
+            </div>      
+        </div>
+    </form>
+
+    <div class="finance-main">
+        <div class="tables-grid">
+            <!-- 财务待确认 -->
+            <div class="container-section">
+                <div class="section-header">
+                    <h3>财务待确认
+                        <span style="display: inline-block; color: #495057; background-color: #f8f9fa; padding: 1px 8px; border-radius: 10px; font-size: 0.85em; margin-left: 8px; border: 1px solid #dee2e6;">
+                            {{ unconfirm_list|length }}
+                        </span>
+                    </h3>
+                    
+                    <form method="post" action="" class="order-type-form">
+                        {% csrf_token %}
+                        <input type="hidden" name="step" value="supplement_order">
+                        <input type="hidden" name="status" value="finance_status">
+                        <input type="text" 
+                            name="container_number" 
+                            placeholder="输入柜号"
+                            style="padding: 3px 12px; border: 1px solid #1b5e20; border-radius: 4px; width: 140px;">
+
+                        <button type="submit" 
+                            class="btn-change-order-type"
+                            style="padding: 3px 16px; background: linear-gradient(135deg, #2e7d32, #1b5e20); color: white; border: none; border-radius: 4px; cursor: pointer;">
+                            <i class="fas fa-exchange-alt"></i>
+                            补开
+                        </button>
+                    </form>
+                </div>
+                <div class="table-container">
+                        <table class="table" id="unconfirm-table">
+                            <thead>
+                                <tr>
+                                    <th class="th" data-column="customer">客户</th>
+                                    <th class="th" data-column="container">柜号</th>
+                                    <th class="th" data-column="warehouse">仓库</th>
+                                    <th class="th" data-column="warehouse-in">入库时间</th>
+                                    <th class="th" data-column="empty-returned">还空时间</th>
+                                </tr>
+                                <tr class="search-row">
+                                    <th class="th" data-column="customer">
+                                        <input type="text" class="search-input" placeholder="搜索客户..." oninput="filterTable(this, 0, 'unconfirm-table')">
+                                    </th>
+                                    <th class="th" data-column="container">
+                                        <input type="text" class="search-input" placeholder="搜索柜号..." oninput="filterTable(this, 1, 'unconfirm-table')">
+                                    </th>
+                                    <th class="th" data-column="warehouse">
+                                        <input type="text" class="search-input" placeholder="搜索仓库..." oninput="filterTable(this, 2, 'unconfirm-table')">
+                                    </th>
+                                    <th class="th" data-column="warehouse-in">
+                                        <div class="date-search-container">
+                                            <input type="date" class="date-search-input" placeholder="搜索入库时间..." onchange="filterTableByDate(this, 'warehouse_in', 'unconfirm-table')">
+                                            <button type="button" class="clear-date-btn" onclick="clearDateFilter('warehouse_in', 'unconfirm-table')"><b>x</b></button>
+                                        </div>
+                                    </th>
+                                    <th class="th" data-column="empty-returned">
+                                        <div class="date-search-container">
+                                            <input type="date" class="date-search-input" placeholder="搜索还空时间..." onchange="filterTableByDate(this, 'empty_returned', 'unconfirm-table')">
+                                            <button type="button" class="clear-date-btn" onclick="clearDateFilter('empty_returned', 'unconfirm-table')"><b>x</b></button>
+                                        </div>
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% if unconfirm_list %}
+                                    {% for item in unconfirm_list %}
+                                    <tr data-customer="{{ item.order.customer_name.zem_name|lower }}" 
+                                        data-container="{{ item.order.container_number.container_number|lower }}" 
+                                        data-warehouse="{{ item.order.retrieval_id.retrieval_destination_precise|default:''|lower }}"
+                                        data-warehouse_in="{% if item.order.offload_time %}{{ item.order.offload_time|date:'Y-m-d' }}{% endif %}" 
+                                        data-empty_returned="{% if item.order.empty_returned_time %}{{ item.order.empty_returned_time|date:'Y-m-d' }}{% endif %}">
+                                        <td class="td" data-column="customer">{{ item.order.customer_name.zem_name }}</td>
+                                        <td class="td" data-column="container">
+                                            {% if item.has_invoice %}
+                                                <a href="/receivable_accounting/?step=container_payout&container_number={{ item.order.container_number.container_number }}&invoice_id={{ item.invoice_id }}&start_date={{ start_date }}&end_date={{ end_date }}&warehouse_filter={{ warehouse_filter }}" class="container-link">
+                                                    {{ item.order.container_number.container_number }}
+                                                    {% if not item.is_master_bill %}
+                                                        <span style="display: inline-block; background: #ff9800; color: white; padding: 1px 8px; border-radius: 10px; font-size: 0.8em; margin-left: 5px;">副账单</span>
+                                                    {% endif %}
+                                                </a>
+                                            {% else %}
+                                                <a href="/receivable_accounting/?step=container_payout&container_number={{ item.order.container_number.container_number }}&start_date={{ start_date }}&end_date={{ end_date }}&warehouse_filter={{ warehouse_filter }}" class="container-link">
+                                                    {{ item.order.container_number.container_number }}
+                                                    {% if not item.is_master_bill %}
+                                                        <span style="display: inline-block; background: #ff9800; color: white; padding: 1px 8px; border-radius: 10px; font-size: 0.8em; margin-left: 5px;">副账单</span>
+                                                    {% endif %}
+                                                </a>
+                                            {% endif %}
+                                        </td>
+                                        <td class="td" data-column="warehouse">{{ item.order.retrieval_id.retrieval_destination_precise|default:"-" }}</td>
+                                        <td class="td" data-column="warehouse-in">
+                                            {% if item.order.offload_time %}
+                                                {{ item.order.offload_time|date:"Y-m-d" }}
+                                            {% else %}
+                                                <span style="color: var(--warning-color);">待入库</span>
+                                            {% endif %}
+                                        </td>
+                                        <td class="td" data-column="empty-returned">
+                                            {% if item.order.empty_returned_time %}
+                                                {{ item.order.empty_returned_time|date:"Y-m-d" }}
+                                            {% else %}
+                                                <span style="color: var(--warning-color);">未还空</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                {% else %}
+                                    <tr>
+                                        <td colspan="5" class="td" style="text-align: center; color: #6c757d;">
+                                            暂无财务待确认订单
+                                        </td>
+                                    </tr>
+                                {% endif %}
+                            </tbody>
+                        </table>
+                </div>
+            </div>
+
+            <!-- 财务已确认 -->
+            <div class="container-section">
+                <div class="section-header">
+                    <h3>财务已确认
+                        <span style="display: inline-block; color: #495057; background-color: #f8f9fa; padding: 1px 8px; border-radius: 10px; font-size: 0.85em; margin-left: 8px; border: 1px solid #dee2e6;">
+                            {{ confirm_list|length }}
+                        </span>
+                    </h3>
+                </div>
+                <div class="table-container">
+                        <table class="table" id="confirm-table">
+                            <thead>
+                                <tr>
+                                    <th class="th" data-column="customer">客户</th>
+                                    <th class="th" data-column="container">柜号</th>
+                                    <th class="th" data-column="warehouse">仓库</th>
+                                    <th class="th" data-column="warehouse-in">入库时间</th>
+                                </tr>
+                                <tr class="search-row">
+                                    <th class="th" data-column="customer">
+                                        <input type="text" class="search-input" placeholder="搜索客户..." oninput="filterTable(this, 0, 'confirm-table')">
+                                    </th>
+                                    <th class="th" data-column="container">
+                                        <input type="text" class="search-input" placeholder="搜索柜号..." oninput="filterTable(this, 1, 'confirm-table')">
+                                    </th>
+                                    <th class="th" data-column="warehouse">
+                                        <input type="text" class="search-input" placeholder="搜索仓库..." oninput="filterTable(this, 2, 'confirm-table')">
+                                    </th>
+                                    <th class="th" data-column="warehouse-in">
+                                        <div class="date-search-container">
+                                            <input type="date" class="date-search-input" placeholder="搜索入库时间..." onchange="filterTableByDate(this, 'warehouse_in', 'confirm-table')">
+                                            <button type="button" class="clear-date-btn" onclick="clearDateFilter('warehouse_in', 'confirm-table')"><b>x</b></button>
+                                        </div>
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% if confirm_list %}
+                                    {% for item in confirm_list %}
+                                    <tr data-customer="{{ item.order.customer_name.zem_name|lower }}" 
+                                        data-container="{{ item.order.container_number.container_number|lower }}" 
+                                        data-warehouse="{{ item.order.retrieval_id.retrieval_destination_precise|default:''|lower }}"
+                                        data-warehouse_in="{% if item.order.offload_time %}{{ item.order.offload_time|date:'Y-m-d' }}{% endif %}">
+                                        <td class="td" data-column="customer">{{ item.order.customer_name.zem_name }}</td>
+                                        <td class="td" data-column="container">
+                                            <a href="/receivable_accounting/?step=container_payout&container_number={{ item.order.container_number.container_number }}&invoice_id={{ item.invoice_id }}&start_date={{ start_date }}&end_date={{ end_date }}&warehouse_filter={{ warehouse_filter }}" class="container-link">
+                                                {{ item.order.container_number.container_number }}
+                                                {% if not item.is_master_bill %}
+                                                    <span style="display: inline-block; background: #ff9800; color: white; padding: 1px 8px; border-radius: 10px; font-size: 0.8em; margin-left: 5px;">副账单</span>
+                                                {% endif %}
+                                            </a>
+                                        </td>
+                                        <td class="td" data-column="warehouse">{{ item.order.retrieval_id.retrieval_destination_precise|default:"-" }}</td>
+                                        <td class="td" data-column="warehouse-in">
+                                            {% if item.order.offload_time %}
+                                                {{ item.order.offload_time|date:"Y-m-d" }}
+                                            {% else %}
+                                                <span style="color: var(--warning-color);">待入库</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                {% else %}
+                                    <tr>
+                                        <td colspan="4" class="td" style="text-align: center; color: #6c757d;">
+                                            暂无财务已确认订单
+                                        </td>
+                                    </tr>
+                                {% endif %}
+                            </tbody>
+                        </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+
+    // 表格搜索功能
+    function filterTable(input, columnIndex, tableId) {
+        const filterValue = input.value.toLowerCase();
+        const table = document.getElementById(tableId);
+        const rows = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
+        
+        for (let i = 0; i < rows.length; i++) {
+            const cell = rows[i].getElementsByTagName('td')[columnIndex];
+            if (cell) {
+                const cellText = cell.textContent || cell.innerText;
+                if (cellText.toLowerCase().indexOf(filterValue) > -1) {
+                    rows[i].style.display = '';
+                } else {
+                    rows[i].style.display = 'none';
+                }
+            }
+        }
+    }
+
+    // 日期搜索功能
+    function filterTableByDate(input, dataAttribute, tableId) {
+        const filterValue = input.value;
+        const table = document.getElementById(tableId);
+        const rows = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
+        
+        for (let i = 0; i < rows.length; i++) {
+            const rowData = rows[i].getAttribute('data-' + dataAttribute);
+            if (filterValue === '' || rowData === filterValue) {
+                rows[i].style.display = '';
+            } else {
+                rows[i].style.display = 'none';
+            }
+        }
+    }
+
+    // 清除日期筛选
+    function clearDateFilter(dataAttribute, tableId) {
+        const table = document.getElementById(tableId);
+        const inputs = table.querySelectorAll('input[type="date"]');
+        
+        inputs.forEach(input => {
+            if (input.getAttribute('onchange').includes(dataAttribute)) {
+                input.value = '';
+                filterTableByDate(input, dataAttribute, tableId);
+            }
+        });
+    }
+
+    // 状态筛选功能
+    function filterTableByStatus(select, tableId) {
+        const filterValue = select.value;
+        const table = document.getElementById(tableId);
+        const rows = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
+        
+        for (let i = 0; i < rows.length; i++) {
+            const rowStatus = rows[i].getAttribute('data-status');
+            if (filterValue === '' || rowStatus === filterValue) {
+                rows[i].style.display = '';
+            } else {
+                rows[i].style.display = 'none';
+            }
+        }
+    }
+
+    // 加载动画显示
+    function showLoadingBar() {
+        const loadingBar = document.createElement('div');
+        loadingBar.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 3px;
+            background: linear-gradient(90deg, var(--primary-color), var(--success-color));
+            z-index: 9999;
+            animation: loading 2s infinite;
+        `;
+        
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes loading {
+                0% { transform: translateX(-100%); }
+                100% { transform: translateX(100%); }
+            }
+        `;
+        
+        document.head.appendChild(style);
+        document.body.appendChild(loadingBar);
+        
+        setTimeout(() => {
+            document.body.removeChild(loadingBar);
+            document.head.removeChild(style);
+        }, 2000);
+    }
+
+
+</script>
+
+{% endblock %}
