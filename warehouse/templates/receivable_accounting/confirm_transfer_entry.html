@@ -1153,7 +1153,13 @@
     function updateTotalAmount() {
         let total = 0;
         $('.amount-input').each(function() {
-            total += parseFloat($(this).val()) || 0;
+            const amount = parseFloat($(this).val()) || 0;
+            const category = $(this).data('category');
+            if (category === 'payout_fee') {
+                total -= amount;
+            } else {
+                total += amount;
+            }
         });
         $('#total-amount').text(total.toFixed(2));
         $('#total-amount-display').text(total.toFixed(2) + ' USD');
