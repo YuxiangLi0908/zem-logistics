@@ -11586,6 +11586,7 @@ class PostNsop(View):
                     total_cbm = Round(Sum("cbm", output_field=FloatField()), 3),
                     total_weight_lbs=Round(Sum("total_weight_lbs", output_field=FloatField()),3),
                     total_n_pallet_est= Ceil(Sum("cbm", output_field=FloatField()) / 2),
+                    total_n_pallet_act= Ceil(Sum("cbm", output_field=FloatField()) / 2),
                     label=Value("EST"),
                     note_sp=StringAgg("note_sp", delimiter=",", distinct=True)
                 )
