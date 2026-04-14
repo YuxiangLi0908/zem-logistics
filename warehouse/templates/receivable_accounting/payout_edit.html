@@ -1,0 +1,617 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load custom_filters %}
+
+{% block content %}
+<style>
+    :root {
+        --primary-color: #1b5e20;
+        --secondary-color: #0d3d14;
+        --success-color: #2e7d32;
+        --warning-color: #ff6f00;
+        --danger-color: #b71c1c;
+        --light-bg: #f1f5f9;
+        --text-dark: #0f172a;
+        --radius: 14px;
+        --shadow-strong: 0 10px 40px rgba(0,0,0,0.12);
+        --shadow-soft: 0 4px 18px rgba(0,0,0,0.06);
+        --page-padding: 40px;
+        --content-max-width: 1800px;
+        --font-large: 1.1rem;
+        --font-xl: 1.4rem;
+        --scale-factor: 0.8;
+    }
+    
+    body {
+        background: #eef2f7;
+        padding: var(--page-padding);
+        font-size: var(--font-large);
+    }
+    
+    .invoice-container {
+        zoom: 0.8; 
+        width: 100%;
+        max-width: var(--content-max-width);
+        margin: auto;
+        background: white;
+        border-radius: var(--radius);
+        box-shadow: var(--shadow-strong);
+        overflow: hidden;
+    }
+
+    .invoice-header {
+        background: linear-gradient(135deg, #0d3d14, #1b5e20);
+        padding: 40px 50px;
+        color: white;
+    }
+
+    .header-main {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
+    }
+
+    .header-title {
+        font-size: 2.4rem;
+        font-weight: 700;
+        letter-spacing: 1px;
+    }
+
+    .header-badges {
+        margin-top: 12px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+    }
+    
+    .badge {
+        display: flex; 
+        padding: 8px 18px;
+        font-size: 1rem;
+        background: rgba(255,255,255,0.18);
+        border-radius: 999px;
+        backdrop-filter: blur(4px);
+        align-items: center;
+    }
+    
+    .invoice-content {
+        padding: 40px 50px;
+    }
+
+    .fee-section {
+        margin-bottom: 30px;
+    }
+    
+    .amount-zero {
+        color: #94a3b8 !important;
+        font-style: italic;
+        opacity: 0.7;
+        font-weight: 400;
+    }
+
+    .amount-zero-row .fee-cell:not(:first-child):not(:last-child) {
+        opacity: 0.8;
+    }
+    
+    .section-title {
+        font-size: 1.8rem;
+        margin: 0;
+        color: var(--text-dark);
+        font-weight: 700;
+        border-left: 6px solid var(--primary-color);
+        padding-left: 14px;
+    }
+    
+    .fee-section-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 25px;
+    }
+    
+    .fee-table {
+        width: 100%;
+        background: white;
+        overflow: hidden;
+        border-radius: var(--radius);
+        box-shadow: var(--shadow-soft);
+        margin-top: 20px;
+    }
+
+    .table-header {
+        display: grid;
+        grid-template-columns: 2fr 1.5fr 1.5fr 1.5fr 1.5fr 2fr 80px;
+        background: #f8fafc;
+    }
+
+    .table-header-cell {
+        padding: 22px 10px;
+        font-weight: 700;
+        text-align: center;
+        color: #000000;
+        font-size: 1.3rem;
+        border-right: 1px solid #e2e8f0;
+    }
+
+    .table-header-cell:last-child {
+        border-right: none;
+    }
+
+    .fee-row {
+        display: grid;
+        grid-template-columns: 2fr 1.5fr 1.5fr 1.5fr 1.5fr 2fr 80px;
+        padding: 8px 0;
+        border-bottom: 1px solid #e2e8f0;
+        font-size: 1.3rem;
+        transition: background 0.15s;
+    }
+    
+    .fee-row:hover {
+        background: #f9fafb;
+    }
+
+    .fee-cell {
+        padding: 14px 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        font-size: inherit;
+    }
+
+    .fee-name {
+        font-weight: 500;
+        color: var(--secondary-color);
+    }
+
+    .input-field {
+        padding: 12px 10px;
+        font-size: 1.2rem;
+        border-radius: 8px;
+        border: 1px solid #cbd5e1;
+        width: 100%;
+    }
+
+    .input-field:focus {
+        outline: none;
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 3px rgba(27, 94, 32, 0.1);
+    }
+
+    .amount-display {
+        font-size: 1.4rem;
+        font-weight: 700;
+        color: var(--text-dark);
+    }
+
+    .note-input, .description-input {
+        text-align: left !important;
+    }
+
+    .remove-btn {
+        width: 42px;
+        height: 42px;
+        font-size: 1.4rem;
+        border-radius: 8px;
+        background: var(--danger-color);
+        color: white;
+        border: none;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .remove-btn:hover {
+        background: #8b0000;
+        transform: scale(1.05);
+    }
+
+    .action-buttons {
+        margin-top: 40px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 18px;
+        justify-content: center;
+    }
+
+    .btn {
+        padding: 14px 30px;
+        font-size: 1.1rem;
+        font-weight: 700;
+        border-radius: 10px;
+        border: none;
+        cursor: pointer;
+        box-shadow: var(--shadow-soft);
+        transition: all 0.3s ease;
+    }
+
+    .btn-primary {
+        background: var(--primary-color);
+        color: white;
+    }
+
+    .btn-primary:hover {
+        background: #2e7d32;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(46, 125, 50, 0.3);
+    }
+
+    .btn-success {
+        background: var(--success-color);
+        color: white;
+    }
+
+    .btn-success:hover {
+        background: #1b5e20;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(27, 94, 32, 0.3);
+    }
+
+    .total-section {
+        margin-top: 40px;
+        padding: 25px;
+        border-radius: var(--radius);
+        background: linear-gradient(135deg, #e8f5e9, #c8e6c9);
+        border: 2px solid #1b5e20;
+        text-align: center;
+    }
+
+    .total-amount {
+        font-size: 2.4rem;
+        font-weight: 800;
+        color: var(--secondary-color);
+    }
+
+    .add-fee-btn {
+        background: var(--primary-color);
+        color: white;
+        border-radius: 10px;
+        padding: 12px 26px;
+        font-size: 1.05rem;
+        font-weight: 700;
+        border: none;
+        box-shadow: var(--shadow-soft);
+        transition: 0.25s;
+        margin: 0;
+        cursor: pointer;
+    }
+    
+    .add-fee-btn:hover {
+        background: #2e7d32;
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-strong);
+    }
+    
+    .status-card {
+        background: linear-gradient(135deg, #fff3e0, #ffe0b2);
+        border: 1px solid #ff6f00;
+        border-radius: var(--radius);
+        padding: 20px 25px;
+        box-shadow: var(--shadow-soft);
+        margin-bottom: 25px;
+    }
+    
+    .status-title {
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: var(--warning-color);
+        margin-bottom: 8px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .status-badge {
+        padding: 6px 16px;
+        border-radius: 20px;
+        font-weight: 600;
+        font-size: 0.9rem;
+        display: inline-block;
+    }
+    
+    .status-completed {
+        background: linear-gradient(135deg, #d1fae5, #a7f3d0);
+        color: #065f46;
+    }
+    
+    .status-in_progress {
+        background: linear-gradient(135deg, #fed7aa, #fdba74);
+        color: #92400e;
+    }
+    
+    .status-unstarted {
+        background: linear-gradient(135deg, #fecaca, #fca5a5);
+        color: #991b1b;
+    }
+    
+    .status-confirmed {
+        background: linear-gradient(135deg, #bfdbfe, #93c5fd);
+        color: #1e40af;
+    }
+</style>
+
+<div class="invoice-container">
+    <div class="invoice-header">
+        <div class="header-main">
+            <h1 class="header-title">赔付账单编辑 - {{ container_number }} - {{ invoice_number }}</h1>
+            <div class="header-badges">
+                <span class="badge">柜号: {{ container_number }}</span>
+                <span class="badge">账单: {{ invoice_number }}</span>
+                <button onclick="window.history.back()" style="background: linear-gradient(135deg, #9ca3af, #6b7280);
+                           border: 1px solid rgba(255,255,255,0.3);
+                           color: white;
+                           padding: 10px 20px;
+                           border-radius: 8px;
+                           cursor: pointer;
+                           display: flex;
+                           align-items: center;
+                           gap: 8px;
+                           transition: all 0.2s ease;">
+                    <i class="fas fa-arrow-left"></i>
+                    返回
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <div class="invoice-content">
+        <div class="status-card">
+            <div class="status-title">
+                <i class="fas fa-exclamation-triangle"></i>
+                账单信息
+            </div>
+            <div>
+                <strong>柜号:</strong> {{ container_number }} | 
+                <strong>账单号:</strong> {{ invoice_number }}
+                {% if receivable_is_locked %}
+                <div style="margin-top: 10px; color: #64748b; font-size: 0.9rem;">
+                    <i class="fas fa-lock"></i> 账单已确认，不可编辑
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        {% if receivable_is_locked %}
+        <div style="background: #ffebee; color: #c62828; padding: 15px; border-radius: 8px; margin-bottom: 20px; text-align: center; border: 1px solid #ffcdd2;">
+            <i class="fas fa-lock"></i> 账单已确认，不可编辑
+        </div>
+        {% endif %}
+
+        <form method="post" action="" id="invoice-form">
+            {% csrf_token %}
+            <div class="fee-section">
+                <div class="fee-section-header">
+                    <h3 class="section-title">赔付费用明细</h3>
+                    <button type="button" class="add-fee-btn" onclick="addFeeItem()">
+                        <i class="fas fa-plus-circle"></i>
+                        添加费用项目
+                    </button>
+                </div>
+                
+                <div class="fee-table">
+                    <div class="table-header">
+                        <div class="table-header-cell">费用名称</div>
+                        <div class="table-header-cell">单价</div>
+                        <div class="table-header-cell">数量</div>
+                        <div class="table-header-cell">附加费</div>
+                        <div class="table-header-cell">总价</div>
+                        <div class="table-header-cell">备注</div>
+                        <div class="table-header-cell">操作</div>
+                    </div>
+
+                    <div id="fee-items-container">
+                        {% for item in existing_items %}
+                        <div class="fee-row {% if item.amount == 0 %}amount-zero-row{% endif %}" data-fee-id="{{ item.id }}">
+                            <input type="hidden" name="fee_id" value="{{ item.id|default_if_none:'' }}">
+                            
+                            <div class="fee-cell">
+                                <input type="text" class="input-field description-input" name="fee_description" 
+                                       value="{{ item.description }}" placeholder="费用名称">
+                            </div>
+                            
+                            <div class="fee-cell">
+                                <input type="number" class="input-field rate-input" name="fee_rate" 
+                                       value="{{ item.rate }}" step="0.01"
+                                       oninput="calculateFeeTotal(this)">
+                            </div>
+                            
+                            <div class="fee-cell">
+                                <input type="number" class="input-field qty-input" name="fee_qty" 
+                                       value="{{ item.qty }}" step="0.01"
+                                       oninput="calculateFeeTotal(this)">
+                            </div>
+                            
+                            <div class="fee-cell">
+                                <input type="number" class="input-field surcharge-input" name="fee_surcharges" 
+                                       value="{{ item.surcharges|default:0 }}" step="0.01"
+                                       oninput="calculateFeeTotal(this)"
+                                       placeholder="附加费">
+                            </div>
+                            
+                            <div class="fee-cell">
+                                <span class="amount-display {% if item.amount == 0 %}amount-zero{% endif %}">{{ item.amount|floatformat:2 }}</span>
+                                <input type="hidden" name="fee_amount" value="{{ item.amount }}">
+                            </div>
+                            
+                            <div class="fee-cell">
+                                <input type="text" class="input-field note-input" name="fee_note" 
+                                       value="{{ item.note }}" placeholder="备注信息">
+                            </div>
+                            
+                            <div class="fee-cell">
+                                <button type="button" class="remove-btn" onclick="removeFeeItem(this)">
+                                    ×
+                                </button>
+                            </div>
+                        </div>
+                        {% empty %}
+                        <div class="fee-row">
+                            <div class="fee-cell" style="grid-column: 1 / -1; padding: 40px; color: #94a3b8;">
+                                暂无费用项目，点击"添加费用项目"开始添加
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <div class="total-section">
+                <h3 class="total-amount">
+                    <i class="fas fa-dollar-sign"></i>
+                    总费用: $<span id="total-amount">0.00</span>
+                </h3>
+                <input type="hidden" name="total_amount" id="total-amount-input" value="0">
+            </div>
+
+            <input type="hidden" name="step" value="payout_save">
+            <input type="hidden" name="container_number" value="{{ container_number }}">
+            <input type="hidden" name="invoice_id" value="{{ invoice.id }}">
+            <input type="hidden" name="start_date" value="{{ start_date }}">
+            <input type="hidden" name="end_date" value="{{ end_date }}">
+            <input type="hidden" name="warehouse_filter" value="{{ warehouse_filter }}">
+
+            {% if not receivable_is_locked %}
+                <div class="action-buttons">
+                    <button type="submit" class="btn btn-success">
+                        <i class="fas fa-check-circle"></i>
+                        保存
+                    </button>
+                </div>
+            {% else %}
+                账单已经财务确认，不可修改
+            {% endif %}
+        </form>
+    </div>
+</div>
+
+<script>
+    function calculateFeeTotal(input) {
+        const feeRow = input.closest('.fee-row');
+        const rateInput = feeRow.querySelector('.rate-input');
+        const qtyInput = feeRow.querySelector('.qty-input');
+        const surchargeInput = feeRow.querySelector('.surcharge-input');
+        const amountDisplay = feeRow.querySelector('.amount-display');
+        const amountInput = feeRow.querySelector('input[name="fee_amount"]');
+        
+        const rate = parseFloat(rateInput?.value) || 0;
+        const qty = parseFloat(qtyInput?.value) || 0;
+        const surcharges = parseFloat(surchargeInput?.value) || 0;
+        const amount = Math.round((rate * qty + surcharges) * 100) / 100;
+        
+        if (amountDisplay) {
+            amountDisplay.textContent = amount.toFixed(2);
+            if (amount === 0) {
+                amountDisplay.classList.add('amount-zero');
+            } else {
+                amountDisplay.classList.remove('amount-zero');
+            }
+        }
+        if (amountInput) amountInput.value = amount;
+        
+        calculateTotalAmount();
+    }
+    
+    function calculateTotalAmount() {
+        let total = 0;
+        document.querySelectorAll('input[name="fee_amount"]').forEach(input => {
+            total += parseFloat(input.value) || 0;
+        });
+        
+        const formattedTotal = Math.round(total * 100) / 100;
+        document.getElementById('total-amount').textContent = formattedTotal.toFixed(2);
+        document.getElementById('total-amount-input').value = formattedTotal;
+    }
+    
+    function removeFeeItem(button) {
+        if (confirm('确定要删除这个费用项目吗？')) {
+            const container = document.getElementById('fee-items-container');
+            button.closest('.fee-row').remove();
+            
+            if (container.querySelectorAll('.fee-row').length === 0) {
+                const emptyRow = document.createElement('div');
+                emptyRow.className = 'fee-row';
+                emptyRow.innerHTML = `
+                    <div class="fee-cell" style="grid-column: 1 / -1; padding: 40px; color: #94a3b8;">
+                        暂无费用项目，点击"添加费用项目"开始添加
+                    </div>
+                `;
+                container.appendChild(emptyRow);
+            }
+            
+            calculateTotalAmount();
+        }
+    }
+    
+    function addFeeItem() {
+        const container = document.getElementById('fee-items-container');
+        
+        const emptyRow = container.querySelector('.fee-cell[style*="grid-column"]');
+        if (emptyRow) {
+            emptyRow.closest('.fee-row').remove();
+        }
+        
+        const newRow = document.createElement('div');
+        newRow.className = 'fee-row';
+        newRow.innerHTML = `
+            <input type="hidden" name="fee_id" value="">
+            
+            <div class="fee-cell">
+                <input type="text" class="input-field description-input" name="fee_description" 
+                       value="" placeholder="费用名称">
+            </div>
+            
+            <div class="fee-cell">
+                <input type="number" class="input-field rate-input" name="fee_rate" 
+                       value="0" step="0.01"
+                       oninput="calculateFeeTotal(this)">
+            </div>
+            
+            <div class="fee-cell">
+                <input type="number" class="input-field qty-input" name="fee_qty" 
+                       value="1" step="0.01"
+                       oninput="calculateFeeTotal(this)">
+            </div>
+            
+            <div class="fee-cell">
+                <input type="number" class="input-field surcharge-input" name="fee_surcharges" 
+                       value="0" step="0.01"
+                       oninput="calculateFeeTotal(this)"
+                       placeholder="附加费">
+            </div>
+            
+            <div class="fee-cell">
+                <span class="amount-display amount-zero">0.00</span>
+                <input type="hidden" name="fee_amount" value="0">
+            </div>
+            
+            <div class="fee-cell">
+                <input type="text" class="input-field note-input" name="fee_note" 
+                       value="" placeholder="备注信息">
+            </div>
+            
+            <div class="fee-cell">
+                <button type="button" class="remove-btn" onclick="removeFeeItem(this)">
+                    ×
+                </button>
+            </div>
+        `;
+        container.appendChild(newRow);
+        calculateTotalAmount();
+    }
+    
+    document.addEventListener('DOMContentLoaded', function() {
+        calculateTotalAmount();
+        
+        const container = document.getElementById('fee-items-container');
+        container.addEventListener('input', function(event) {
+            if (event.target.classList.contains('rate-input') ||
+                event.target.classList.contains('qty-input') ||
+                event.target.classList.contains('surcharge-input')) {
+                calculateFeeTotal(event.target);
+            }
+        });
+    });
+</script>
+{% endblock %}

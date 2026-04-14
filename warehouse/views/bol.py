@@ -42,6 +42,7 @@ class BOL(View):
 
     def get(self, request: HttpRequest) -> HttpResponse:
         step = request.GET.get("step", None)
+        print('bol GET STEP',step)
         if step == "select":
             return render(request, self.template_main, self.handle_select_get(request))
         elif step == "summary_table":
@@ -60,6 +61,7 @@ class BOL(View):
 
     def post(self, request: HttpRequest) -> HttpResponse:
         step = request.POST.get("step", None)
+        print('bol POST STEP',step)
         if step == "search":
             return render(request, self.template_main, self.handle_search_post(request))
         elif step == "export_bol":

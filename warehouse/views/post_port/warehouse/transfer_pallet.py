@@ -79,6 +79,7 @@ class TransferPallet(View):
         if not await self._user_authenticate(request):
             return redirect("login")
         step = request.POST.get("step")
+        print('transfer pallet post step',step)
         if step == "warehouse":
             template, context = await self.handle_warehouse_post(request)
             return render(request, template, context)

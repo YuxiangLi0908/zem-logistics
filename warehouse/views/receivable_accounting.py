@@ -181,9 +181,6 @@ class ReceivableAccounting(View):
         elif step == "supplementary": #补开账单
             context = {"warehouse_options": self.warehouse_options,"order_form": OrderForm()}
             return render(request, self.template_supplementary_entry, context) 
-        elif step == "finance_stats": #财务统计分析
-            template, context = self.handle_financial_statistics_get(request)
-            return render(request, template, context)
         elif step == "quotation_management": #报价表管理
             quotes = QuotationMaster.objects.filter(quote_type="receivable")
             context = {"order_form": OrderForm(), "quotes": quotes}
@@ -251,6 +248,9 @@ class ReceivableAccounting(View):
         elif step == "preport_save":
             context = self.handle_invoice_preport_save(request)
             return render(request, self.template_preport_entry, context)
+        elif step == "payout_save":
+            context = self.handle_payout_save(request)
+            return render(request, self.template_payout_entry, context)
         elif step == "modify_order_type":
             template, context = self.handle_modify_order_type(request)
             return render(request, template, context)
@@ -2508,6 +2508,7 @@ class ReceivableAccounting(View):
     def handle_container_invoice_confirm_get(
         self, request: HttpRequest
     ) -> tuple[Any, Any]:
+        '''财务确认点击账单'''
         container_number = request.GET.get("container_number")
         invoice_id = request.GET.get("invoice_id")
         status = request.GET.get("status")
@@ -7884,6 +7885,110 @@ class ReceivableAccounting(View):
         context["success_messages"] = success_msg
         
         return self.handle_preport_entry_post(request,context)
+
+    def handle_payout_save(self, request:HttpRequest) -> Dict[str, Any]:
+        '''赔付账单保存'''
+        from decimal import Decimal
+        context = {} 
+        invoice_id = request.POST.get("invoice_id")
+
+        current_user = request.user 
+        username = current_user.username 
+ 
+        invoice = Invoicev2.objects.get(id=invoice_id)
+        
+        container_number = request.POST.get("container_number")
+        order = Order.objects.select_related(
+            "customer_name", "container_number"
+        ).get(container_number__container_number=container_number)
+        
+        fee_ids = request.POST.getlist("fee_id")
+        descriptions = request.POST.getlist("fee_description")
+        rates = request.POST.getlist("fee_rate")
+        qtys = request.POST.getlist("fee_qty")
+        surcharges = request.POST.getlist("fee_surcharges")
+        notes = request.POST.getlist("fee_note")
+
+        total_amount = Decimal("0.00")
+
+        existing_items = InvoiceItemv2.objects.filter(invoice_number=invoice, item_category="payout_fee")
+        existing_ids = set(item.id for item in existing_items if item.id is not None)
+        submitted_ids = set(int(fid) for fid in fee_ids if fid)
+        to_delete_ids = existing_ids - submitted_ids
+        if to_delete_ids:
+            InvoiceItemv2.objects.filter(id__in=to_delete_ids).delete()
+
+        for i in range(len(descriptions)):
+            fee_id = fee_ids[i] or None
+            description = descriptions[i]
+            if not description:
+                continue
+            rate = Decimal(rates[i] or 0)
+            qty = Decimal(qtys[i] or 0)
+            surcharge = Decimal(surcharges[i] or 0)
+
+            amount = rate * qty + surcharge
+            note = notes[i] or ""
+            total_amount += amount
+
+            if fee_id:
+                try:
+                    item = InvoiceItemv2.objects.get(id=fee_id, invoice_number=invoice)
+                    item.description = description
+                    item.rate = rate
+                    item.qty = qty
+                    item.surcharges = surcharge
+                    item.amount = amount
+                    item.note = note
+                    item.registered_user = username
+                    item.save()
+                except InvoiceItemv2.DoesNotExist:
+                    InvoiceItemv2.objects.create(
+                        container_number=order.container_number,
+                        invoice_number=invoice,
+                        invoice_type="receivable",
+                        item_category="payout_fee",
+                        description=description,
+                        rate=rate,
+                        qty=qty,
+                        surcharges=surcharge,
+                        amount=amount,
+                        note=note,
+                        registered_user=username
+                    )
+            else:
+                InvoiceItemv2.objects.create(
+                    container_number=order.container_number,
+                    invoice_number=invoice,
+                    invoice_type="receivable",
+                    item_category="payout_fee",
+                    description=description,
+                    rate=rate,
+                    qty=qty,
+                    surcharges=surcharge,
+                    amount=amount,
+                    note=note,
+                    registered_user=username
+                )
+
+        payout_total_amount = InvoiceItemv2.objects.filter(
+            invoice_number=invoice,
+            container_number=order.container_number,
+            invoice_type="receivable",
+            item_category="payout_fee",
+        ).aggregate(total=models.Sum('amount'))['total'] or 0
+        invoice.payout_total_amount = payout_total_amount
+        invoice.save()
+        
+        self._calculate_invoice_total_amount(invoice)
+        
+        success_msg = mark_safe(
+            f"{container_number} 柜号赔付账单保存成功！<br>"
+            f"总费用: <strong>${total_amount:.2f}</strong>"
+        )
+        context["success_messages"] = success_msg
+        
+        return self.handle_payout_entry_post(request, context)
 
     def _extract_number(self, value):
         """从字符串里提取数字，失败则返回 0"""

@@ -35,6 +35,7 @@ class PostportDash(View):
     warehouse_mapping = {"NJ": "NJ-07001", "SAV": "SAV-31326", "LA": "LA-91761", "LA-91789": "LA-91789", "LA-91748": "LA-91748", "LA-91766": "LA-91766",}
 
     async def get(self, request: HttpRequest) -> HttpResponse:
+        print('GET STEP',step)
         if not await self._user_authenticate(request):
             return redirect("login")
         step = request.GET.get("step")
@@ -49,6 +50,7 @@ class PostportDash(View):
         if not await self._user_authenticate(request):
             return redirect("login")
         step = request.POST.get("step")
+        print('POST STEP',step)
         if step == "summary_warehouse":
             template, context = await self.handle_summary_warehouse_post(request)
             return render(request, template, context)

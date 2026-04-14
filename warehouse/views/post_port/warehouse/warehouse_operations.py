@@ -83,6 +83,7 @@ class WarehouseOperations(View):
         if not await self._user_authenticate(request):
             return redirect("login")
         step = request.POST.get("step", None)
+        print('warehouse_operation post step',step)
         if step == "export_palletization_list":
             action_type = request.POST.get('action_type', 'export')
             # 1. 第一次请求：执行导出操作
