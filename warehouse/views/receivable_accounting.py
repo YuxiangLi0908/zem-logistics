@@ -111,6 +111,7 @@ class ReceivableAccounting(View):
     template_delivery_other_edit = "receivable_accounting/delivery_other_edit.html"
 
     template_payout_entry = "receivable_accounting/payout_entry.html"
+    template_payout_edit = "receivable_accounting/payout_edit.html"
 
     template_confirm_entry = "receivable_accounting/confirm_entry.html"
     template_confirm_transfer_edit = "receivable_accounting/confirm_transfer_entry.html"
@@ -200,6 +201,9 @@ class ReceivableAccounting(View):
         elif step == "container_delivery":
             template, context = self.handle_container_delivery_post(request)
             return render(request, template, context)   
+        elif step == "container_payout":
+            tempalte, context = self.handle_container_payout_post(request)
+            return render(request, tempalte, context)
         elif step == "invoice_manual":
             template, context = self.handle_invoice_item_search(request)
             return render(request, template, context)
@@ -5404,6 +5408,58 @@ class ReceivableAccounting(View):
         else:
             return self.handle_container_preport_post(request, context)
 
+    def handle_container_payout_post(self, request:HttpRequest, context: dict|None=None) -> Dict[str, Any]:
+        '''处理柜号点击进入赔付账单编辑页面'''
+        if not context:
+            context = {}
+        start_date = request.GET.get("start_date")
+        end_date = request.GET.get("end_date")
+
+        container_number = request.GET.get("container_number")
+        invoice_id = request.GET.get("invoice_id")
+        
+        #获取订单信息
+        order = Order.objects.select_related(
+            "retrieval_id", "container_number", "warehouse"
+        ).get(container_number__container_number=container_number)
+
+        if invoice_id and invoice_id != 'None':
+            #找到要修改的那份账单
+            invoice = Invoicev2.objects.get(id=invoice_id)
+            invoice_status, created = InvoiceStatusv2.objects.get_or_create(
+                invoice=invoice,
+                invoice_type="receivable",
+                defaults={
+                    "container_number": order.container_number,
+                    "invoice": invoice,
+                }
+            )
+        else:
+            #说明这个柜子没有创建过账单，需要创建
+            invoice, invoice_status, invoice_status_payable = self._create_invoice_and_status(container_number)
+
+        # 获取现有的费用项目
+        existing_items = InvoiceItemv2.objects.filter(
+            invoice_number=invoice,
+            item_category="payout_fee"
+        )
+        context.update({
+            "warehouse": order.retrieval_id.retrieval_destination_area,
+            "warehouse_filter": request.GET.get("warehouse_filter"),
+            "order_type": order.order_type,
+            "reject_reason": order.invoice_reject_reason,
+            "container_number": container_number,
+            "start_date": start_date,
+            "end_date": end_date,
+            "receivable_is_locked": invoice.receivable_is_locked,
+            "invoice_type": "receivable",
+            "invoice_number": invoice.invoice_number,
+            "invoice": invoice,  # 传递整个invoice对象
+            "existing_items": existing_items
+        })
+
+        return self.template_payout_edit, context
+        
     def handle_container_preport_post(self, request:HttpRequest, context: dict|None=None) -> Dict[str, Any]:
         """处理柜号点击进入港前账单编辑页面"""
         if not context:
