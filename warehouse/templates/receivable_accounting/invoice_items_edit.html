@@ -471,7 +471,7 @@
 
     .category-grid {
         display: grid;
-        grid-template-columns: repeat(6, 1fr);
+        grid-template-columns: repeat(7, 1fr);
         gap: 1px;
         background: var(--border-color);
     }
@@ -577,6 +577,11 @@
             font-size: 1.5rem;
         }
     }
+    @media (max-width: 1400px) {
+        .category-grid {
+            grid-template-columns: repeat(4, 1fr);
+        }
+    }
     @media (max-width: 1200px) {
         .category-grid {
             grid-template-columns: repeat(3, 1fr);
@@ -652,7 +657,11 @@
             </div>
             <div class="category-item">
                 <div class="category-label">组合柜额外费用</div>
-                <div class="category-amount">${{ category_totals.combina_extra_fee|floatformat:2 }}</div>
+                <div class="category-amount">${{ category_totals.combina_extra|floatformat:2 }}</div>
+            </div>
+            <div class="category-item">
+                <div class="category-label">赔付费用</div>
+                <div class="category-amount">${{ category_totals.payout_fee|floatformat:2 }}</div>
             </div>
         </div>
     </div>
@@ -772,6 +781,8 @@
                                 <span class="category-badge category-delivery-public">公仓派送</span>
                                 {% elif item.item_category == 'delivery_other' %}
                                 <span class="category-badge category-delivery-other">私仓派送</span>
+                                {% elif item.item_category == 'payout_fee' %}
+                                <span class="category-badge" style="background: rgba(244, 67, 54, 0.1); color: #d32f2f; border: 1px solid rgba(244, 67, 54, 0.2);">赔付费用</span>
                                 {% else %}
                                 <span class="category-badge">{{ item.item_category }}</span>
                                 {% endif %}
