@@ -519,6 +519,39 @@
             <strong>柜子已放行</strong>、
             <strong>派送方式为非自提</strong>
         </div>
+        <div class="sorting-notice" style="font-size: 13px; padding: 8px 12px; background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 4px; margin-top: 10px;">
+            <i class="fas fa-sort-amount-down"></i> 
+            <strong>数据排序规则：</strong>
+            <div style="margin-top: 6px; margin-left: 22px;">
+                <div><strong>1. Pallet 数据在前，PackingList 数据在后</strong></div>
+                <div style="display: flex; gap: 30px; margin-top: 8px;">
+                    <div style="flex: 1;">
+                        <strong>Pallet 数据排序：</strong>
+                        <div style="margin-left: 15px; margin-top: 4px;">
+                            • 第一组：跟进状态有日期的（日期格式 4/1 或 4.1），按日期从小到大排序
+                        </div>
+                        <div style="margin-left: 15px;">
+                            • 第二组：有关联 ID 的，相同关联 ID 排在一起
+                        </div>
+                        <div style="margin-left: 15px;">
+                            • 第三组：跟进状态有值但没有日期的
+                        </div>
+                        <div style="margin-left: 15px;">
+                            • 第四组：派送方式包含暂扣的
+                        </div>
+                    </div>
+                    <div style="flex: 1;">
+                        <strong>PackingList 数据排序：</strong>
+                        <div style="margin-left: 15px; margin-top: 4px;">
+                            • 第一组：有实际提柜时间的
+                        </div>
+                        <div style="margin-left: 15px;">
+                            • 第二组：有实际放行时间的
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
         <span style="display: inline-block; color: white; background-color: #3498db; padding: 2px 10px; border-radius: 12px; font-size: 0.85em; margin-left: 8px; border: 2px solid #2980b9; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">
             <span id="selfdel_filteredCount">{{ selfdel_cargos|length }}</span>
         </span>
