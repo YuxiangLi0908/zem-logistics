@@ -3317,6 +3317,7 @@ class Accounting(View):
 
             if fleet_id not in deliverys:
                 carrier = order.fleet_number.carrier if (order.fleet_number and order.fleet_number.carrier) else None
+                Supplier = order.fleet_number.Supplier if (order.fleet_number and order.fleet_number.Supplier) else None
                 fleet_number = order.fleet_number.fleet_number if (
                         order.fleet_number and order.fleet_number.fleet_number) else None
                 deliverys[fleet_id] = {
@@ -3325,6 +3326,7 @@ class Accounting(View):
                     "total_expense": Decimal("0.0000"),
                     "total_rows": 0,
                     "carrier": carrier,
+                    "Supplier": Supplier,
                     "fleet_number": fleet_number,
                     "fleet_id": fleet_id,
                     "ltl_correlation_id": corr_id,
@@ -3374,6 +3376,7 @@ class Accounting(View):
                 "pallet_destination": order.pallet_destination or "",
                 "shipping_mark": order.shipping_mark or "",
                 "carrier": deliverys[fleet_id]["carrier"],
+                "Supplier": deliverys[fleet_id]["Supplier"],
                 "fleet_number": deliverys[fleet_id]["fleet_number"],
                 "itemv2_data": itemv2_data,
                 "ltl_correlation_id": corr_id,
@@ -3535,6 +3538,7 @@ class Accounting(View):
 
             if fid not in confirm_fleets:
                 carrier = o.fleet_number.carrier if (o.fleet_number and o.fleet_number.carrier) else ""
+                Supplier = o.fleet_number.Supplier if (o.fleet_number and o.fleet_number.Supplier) else ""
                 fnum = o.fleet_number.fleet_number if (o.fleet_number and o.fleet_number.fleet_number) else ""
                 confirm_fleets[fid] = {
                     "fleets": {},
@@ -3542,6 +3546,7 @@ class Accounting(View):
                     "total_expense": Decimal("0.0000"),
                     "total_rows": 0,
                     "carrier": carrier,
+                    "Supplier": Supplier,
                     "fleet_number": fnum,
                     "fleet_id": fid,
                     "ltl_correlation_id": cid,
@@ -3577,6 +3582,7 @@ class Accounting(View):
                 "pallet_destination": o.pallet_destination or "",
                 "shipping_mark": o.shipping_mark or "",
                 "carrier": confirm_fleets[fid]["carrier"],
+                "Supplier": confirm_fleets[fid]["Supplier"],
                 "fleet_number": confirm_fleets[fid]["fleet_number"],
                 "itemv2_data": itemv2_data,
                 "ltl_correlation_id": cid,
