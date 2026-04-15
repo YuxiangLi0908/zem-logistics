@@ -341,65 +341,70 @@
             width: 150px !important;
         }
 
-        /* Pickup Number */
+        /* 供应商 */
         #delivery-pending .table th:nth-child(4) {
+            width: 150px !important;
+        }
+
+        /* Pickup Number */
+        #delivery-pending .table th:nth-child(5) {
             width: 250px !important;
         }
 
         /* ISA */
-        #delivery-pending .table th:nth-child(5) {
+        #delivery-pending .table th:nth-child(6) {
             width: 80px !important;
         }
 
         /* 柜号 */
-        #delivery-pending .table th:nth-child(6) {
+        #delivery-pending .table th:nth-child(7) {
             width: 130px !important;
         }
 
         /* 目的地 */
-        #delivery-pending .table th:nth-child(7) {
+        #delivery-pending .table th:nth-child(8) {
             width: 120px !important;
         }
 
         /* 唛头 */
-        #delivery-pending .table th:nth-child(8) {
+        #delivery-pending .table th:nth-child(9) {
             width: 150px !important;
         }
 
         /* 板数 */
-        #delivery-pending .table th:nth-child(9) {
-            width: 80px !important;
-        }
-
-        /* 价格 */
         #delivery-pending .table th:nth-child(10) {
             width: 80px !important;
         }
 
-        /* 单板成本 */
+        /* 价格 */
         #delivery-pending .table th:nth-child(11) {
-            width: 120px !important;
+            width: 80px !important;
         }
 
-        /* 车次总板数 */
+        /* 单板成本 */
         #delivery-pending .table th:nth-child(12) {
             width: 120px !important;
         }
 
-        /* 车次总成本 */
+        /* 车次总板数 */
         #delivery-pending .table th:nth-child(13) {
             width: 120px !important;
         }
 
-        /* 核销金额 */
+        /* 车次总成本 */
         #delivery-pending .table th:nth-child(14) {
+            width: 120px !important;
+        }
+
+        /* 核销金额 */
+        #delivery-pending .table th:nth-child(15) {
             width: 180px !important;
         }
 
 
         /* 为待确认/已确认表格的每一列添加强制固定宽度（补充原有缺失） */
-        #delivery-pending .table th:nth-child(15),
-        #delivery-confirm .table th:nth-child(16) {
+        #delivery-pending .table th:nth-child(16),
+        #delivery-confirm .table th:nth-child(17) {
             width: 200px !important;
             min-width: 200px !important;
             max-width: 200px !important;
@@ -420,68 +425,73 @@
             width: 150px !important;
         }
 
-        /* Pickup Number */
+        /* 供应商 */
         #delivery-confirm .table th:nth-child(4) {
+            width: 150px !important;
+        }
+
+        /* Pickup Number */
+        #delivery-confirm .table th:nth-child(5) {
             width: 250px !important;
         }
 
         /* ISA */
-        #delivery-confirm .table th:nth-child(5) {
+        #delivery-confirm .table th:nth-child(6) {
             width: 80px !important;
         }
 
         /* 柜号 */
-        #delivery-confirm .table th:nth-child(6) {
+        #delivery-confirm .table th:nth-child(7) {
             width: 130px !important;
         }
 
         /* 目的地 */
-        #delivery-confirm .table th:nth-child(7) {
+        #delivery-confirm .table th:nth-child(8) {
             width: 120px !important;
         }
 
         /* 唛头 */
-        #delivery-confirm .table th:nth-child(8) {
+        #delivery-confirm .table th:nth-child(9) {
             width: 150px !important;
         }
 
         /* 板数 */
-        #delivery-confirm .table th:nth-child(9) {
-            width: 80px !important;
-        }
-
-        /* 价格 */
         #delivery-confirm .table th:nth-child(10) {
             width: 80px !important;
         }
 
-        /* 单板成本 */
+        /* 价格 */
         #delivery-confirm .table th:nth-child(11) {
-            width: 120px !important;
+            width: 80px !important;
         }
 
-        /* 车次总板数 */
+        /* 单板成本 */
         #delivery-confirm .table th:nth-child(12) {
             width: 120px !important;
         }
 
-        /* 车次总成本 */
+        /* 车次总板数 */
         #delivery-confirm .table th:nth-child(13) {
             width: 120px !important;
         }
 
-        /* 核销金额 */
+        /* 车次总成本 */
         #delivery-confirm .table th:nth-child(14) {
-            width: 100px !important;
+            width: 120px !important;
         }
 
-        /* 核销时间 */
+        /* 核销金额 */
         #delivery-confirm .table th:nth-child(15) {
             width: 100px !important;
         }
 
-        /* 备注 */
+        /* 核销时间 */
         #delivery-confirm .table th:nth-child(16) {
+            width: 100px !important;
+        }
+
+        /* 备注 */
+        #delivery-confirm .table th:nth-child(17) {
             width: 150px !important;
         }
 
@@ -1251,6 +1261,7 @@
                                             </th>
                                             <th class="th" style="vertical-align: middle;">车次</th>
                                             <th class="th" style="vertical-align: middle;">Carrier</th>
+                                            <th class="th" style="vertical-align: middle;">供应商</th>
                                             <th class="th" style="vertical-align: middle;">Pickup Number</th>
                                             <th class="th" style="vertical-align: middle;">ISA</th>
                                             <th class="th" style="vertical-align: middle;">柜号</th>
@@ -1286,6 +1297,14 @@
                                             <th class="th">
                                                 <input type="text" class="search-input"
                                                        data-column-index="4"
+                                                       data-field="供应商"
+                                                       placeholder="搜索供应商"
+                                                       data-column-name="供应商"
+                                                       data-search-type="multi-text">
+                                            </th>
+                                            <th class="th">
+                                                <input type="text" class="search-input"
+                                                       data-column-index="5"
                                                 data-field="Pickup Number"
                                                 placeholder="搜索Pickup Number"
                                                 data-column-name="Pickup Number"
@@ -1293,7 +1312,7 @@
                                             </th>
                                             <th class="th">
                                                 <input type="text" class="search-input"
-                                                       data-column-index="5"
+                                                       data-column-index="6"
                                                 data-field="ISA"
                                                 placeholder="搜索ISA"
                                                 data-column-name="ISA"
@@ -1301,7 +1320,7 @@
                                             </th>
                                             <th class="th">
                                                 <input type="text" class="search-input"
-                                                       data-column-index="6"
+                                                       data-column-index="7"
                                                 data-field="柜号"
                                                 placeholder="搜索柜号（空格分隔多个）"
                                                 data-column-name="柜号"
@@ -1309,7 +1328,7 @@
                                             </th>
                                             <th class="th">
                                                 <input type="text" class="search-input"
-                                                       data-column-index="7"
+                                                       data-column-index="8"
                                                 data-field="目的地"
                                                 placeholder="搜索目的地"
                                                 data-column-name="目的地"
@@ -1317,7 +1336,7 @@
                                             </th>
                                             <th class="th">
                                                 <input type="text" class="search-input"
-                                                       data-column-index="8"
+                                                       data-column-index="9"
                                                 data-field="唛头"
                                                 placeholder="搜索唛头"
                                                 data-column-name="唛头"
@@ -1325,7 +1344,7 @@
                                             </th>
                                             <th class="th">
                                                 <input type="number" class="search-input"
-                                                       data-column-index="9"
+                                                       data-column-index="10"
                                                 data-field="板数"
                                                 min="0"
                                                 placeholder="板数≥"
@@ -1387,6 +1406,11 @@
                                                                         rowspan="{{ pickup_data.total_rows }}"
                                                                         style="vertical-align: middle;">
                                                                         {{ fleet.carrier|default_if_none:"" }}
+                                                                    </td>
+                                                                    <td class="td"
+                                                                        rowspan="{{ pickup_data.total_rows }}"
+                                                                        style="vertical-align: middle;">
+                                                                        {{ fleet.Supplier|default_if_none:"" }}
                                                                     </td>
                                                                     <td class="td"
                                                                         rowspan="{{ pickup_data.total_rows }}"
@@ -1664,6 +1688,14 @@
                                             <th class="th">
                                                 <input type="text" class="search-input"
                                                        data-column-index="4"
+                                                       data-field="供应商"
+                                                       placeholder="搜索供应商"
+                                                       data-column-name="供应商"
+                                                       data-search-type="multi-text">
+                                            </th>
+                                            <th class="th">
+                                                <input type="text" class="search-input"
+                                                       data-column-index="5"
                                                 data-field="Pickup Number"
                                                 placeholder="搜索Pickup Number"
                                                 data-column-name="Pickup Number"
@@ -1671,7 +1703,7 @@
                                             </th>
                                             <th class="th">
                                                 <input type="text" class="search-input"
-                                                       data-column-index="5"
+                                                       data-column-index="6"
                                                 data-field="ISA"
                                                 placeholder="搜索ISA"
                                                 data-column-name="ISA"
@@ -1679,7 +1711,7 @@
                                             </th>
                                             <th class="th">
                                                 <input type="text" class="search-input"
-                                                       data-column-index="6"
+                                                       data-column-index="7"
                                                 data-field="柜号"
                                                 placeholder="搜索柜号（空格分隔多个）"
                                                 data-column-name="柜号"
@@ -1687,7 +1719,7 @@
                                             </th>
                                             <th class="th">
                                                 <input type="text" class="search-input"
-                                                       data-column-index="7"
+                                                       data-column-index="8"
                                                 data-field="目的地"
                                                 placeholder="搜索目的地"
                                                 data-column-name="目的地"
@@ -1695,7 +1727,7 @@
                                             </th>
                                             <th class="th">
                                                 <input type="text" class="search-input"
-                                                       data-column-index="8"
+                                                       data-column-index="9"
                                                 data-field="唛头"
                                                 placeholder="搜索唛头"
                                                 data-column-name="唛头"
@@ -1703,7 +1735,7 @@
                                             </th>
                                             <th class="th">
                                                 <input type="number" class="search-input"
-                                                       data-column-index="9"
+                                                       data-column-index="10"
                                                 data-field="板数"
                                                 min="0"
                                                 placeholder="板数≥"
@@ -1758,6 +1790,11 @@
                                                                         rowspan="{{ pickup_data.total_rows }}"
                                                                         style="vertical-align: middle;">
                                                                         {{ fleet.carrier|default_if_none:"" }}
+                                                                    </td>
+                                                                    <td class="td"
+                                                                        rowspan="{{ pickup_data.total_rows }}"
+                                                                        style="vertical-align: middle;">
+                                                                        {{ fleet.Supplier|default_if_none:"" }}
                                                                     </td>
                                                                     <td class="td"
                                                                         rowspan="{{ pickup_data.total_rows }}"
