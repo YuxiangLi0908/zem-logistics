@@ -270,7 +270,7 @@
                         <td class="td" style="padding: 12px 10px; font-size: 14px; white-space: nowrap; border-right: 1px solid #e5e6eb; border-bottom: 1px solid #e5e6eb; color: #555;">
                             <form action="" method="post" style="margin: 0; display: flex; align-items: center; gap: 6px;">
                             {% csrf_token %}
-                            <input type="number" name="fleet_cost" value="{{ f.fleet_number.fleet_cost }}" style="font-size: 13px; padding: 8px 10px; width: 90px; flex-shrink: 0; border-radius: 4px; border: 1px solid #dcdfe6;">
+                            <input type="number" name="fleet_cost" value="{{ f.fleet_number.fleet_cost }}" step="any" style="font-size: 13px; padding: 8px 10px; width: 90px; flex-shrink: 0; border-radius: 4px; border: 1px solid #dcdfe6;">
                             <!-- 关键修复：单条操作传递正确的数字ID -->
                             <input type="hidden" name="fleet_id" value="{{ f.fleet_number.id }}">
                             <input type="hidden" name="fleet_number" value="{{ f.fleet_number.fleet_number }}">
