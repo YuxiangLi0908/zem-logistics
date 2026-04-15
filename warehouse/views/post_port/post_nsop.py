@@ -3978,7 +3978,7 @@ class PostNsop(View):
 
         # 确认出库-分摊成本
         fleet = await sync_to_async(Fleet.objects.get)(fleet_number=fleet_num_str)
-        if fleet.fleet_cost > 0:
+        if fleet.fleet_cost is not None and fleet.fleet_cost > 0:
             await fm.insert_fleet_shipment_pallet_fleet_cost(
                 request, fleet_num_str, fleet.fleet_cost
             )
@@ -8964,11 +8964,11 @@ class PostNsop(View):
                     offload_tag=Case(
                         When(
                             container_number__orders__retrieval_id__actual_retrieval_timestamp__isnull=False,
-                            then=Value("实际")
+                            then=Value("实际提柜")
                         ),
                         When(
                             container_number__orders__retrieval_id__planned_release_time__isnull=False,
-                            then=Value("放行")
+                            then=Value("实际放行")
                         ),
                         default=Value("ETA")
                     )
@@ -9025,18 +9025,58 @@ class PostNsop(View):
                     return (month, day)
                 except ValueError:
                     pass
-            return (99, 99) # 没匹配到日期的排在 pickup 类的最后
+            # 搜索数字.数字格式 (如 2.1 或 02.18)
+            match = re.search(r'(\d+)\.(\d+)', str(status))
+            if match:
+                try:
+                    month = int(match.group(1))
+                    day = int(match.group(2))
+                    return (month, day)
+                except ValueError:
+                    pass
+            return (99, 99) # 没匹配到日期的排在最后
 
-        # 2. 统一排序逻辑
-        # Python 的 sort 是稳定的，可以一次性处理整个 data 列表
+        # 2. 检查 ltl_follow_status 是否有日期
+        def has_date_in_status(status):
+            if not status:
+                return False
+            if re.search(r'\d+/\d+', str(status)):
+                return True
+            if re.search(r'\d+\.\d+', str(status)):
+                return True
+            return False
+
+        # 3. 统一排序逻辑
         data.sort(key=lambda x: (
-            0 if x.get('ltl_correlation_id') else 1,             # 第一优先级：有关联ID的在前
-            x.get('ltl_correlation_id') or '',                    # 第二优先级：相同 ID 聚合
-            x.get('is_pickup_priority', 1),                      # 第三优先级：pickup 状态
-            get_pickup_date_key(x.get('ltl_follow_status', '')), # 第四优先级：状态日期
-            x.get('offload_at') or '',                           # 第五优先级
-            x.get('container_number') or '',                          # 第六优先级
-            x.get('destination') or '',                          # 第七优先级
+            # 第一优先级：pallet数据在前，packinglist数据在后
+            0 if x.get('data_source') == 'PALLET' else 1,
+            
+            # 第二优先级开始：pallet数据的排序规则
+            # 第一组：ltl_follow_status 有日期的
+            0 if (x.get('data_source') == 'PALLET' and has_date_in_status(x.get('ltl_follow_status', ''))) else 1,
+            # 这组里按日期从小到大
+            get_pickup_date_key(x.get('ltl_follow_status', '')) if (x.get('data_source') == 'PALLET' and has_date_in_status(x.get('ltl_follow_status', ''))) else (99, 99),
+            
+            # 第二组：ltl_correlation_id 有值的
+            0 if (x.get('data_source') == 'PALLET' and x.get('ltl_correlation_id')) else 1,
+            # 相同的 ltl_correlation_id 排在一起
+            x.get('ltl_correlation_id') or '',
+            
+            # 第三组：ltl_follow_status 有值但没有日期的
+            0 if (x.get('data_source') == 'PALLET' and x.get('ltl_follow_status') and not has_date_in_status(x.get('ltl_follow_status'))) else 1,
+            
+            # 第四组：delivery_method 包含暂扣的
+            0 if (x.get('data_source') == 'PALLET' and x.get('delivery_method') and '暂扣' in str(x.get('delivery_method'))) else 1,
+            
+            # packinglist数据的排序规则
+            # 第一组：offload_tag 有实际提柜的
+            0 if (x.get('data_source') == 'PACKINGLIST' and x.get('offload_tag') == '实际提柜') else 1,
+            # 第二组：offload_tag 有实际放行的
+            0 if (x.get('data_source') == 'PACKINGLIST' and x.get('offload_tag') == '实际放行') else 1,
+            
+            # 后续排序：默认规则
+            x.get('offload_at') or '',
+            x.get('destination') or '',
             x.get('shipping_marks') or x.get('shipping_mark') or ''
         ))
         # 已拆柜的，按照下面排序：
