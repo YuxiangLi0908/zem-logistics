@@ -294,6 +294,7 @@
                         <input type="checkbox" id="unscheduled_selectAllCargos">
                     </th>
                     <th>客户</th>
+                    <th>ETA</th>
                     <th>柜号</th>
                     <th>目的地</th>
                     <th class="fleet-mark-col">唛头</th>
@@ -316,37 +317,40 @@
                         <input type="text" class="filter-input" placeholder="筛选客户..." data-column="0" onkeyup="applyColumnFilter(this)">
                     </td>
                     <td>
-                        <input type="text" class="filter-input" placeholder="筛选柜号..." data-column="1" onkeyup="applyColumnFilter(this)">
+                        <input type="date" class="filter-input" placeholder="筛选ETA..." data-column="1" onchange="applyColumnFilter(this)">
                     </td>
                     <td>
-                        <input type="text" class="filter-input" placeholder="筛选目的地..." data-column="2" onkeyup="applyColumnFilter(this)">
+                        <input type="text" class="filter-input" placeholder="筛选柜号..." data-column="2" onkeyup="applyColumnFilter(this)">
+                    </td>
+                    <td>
+                        <input type="text" class="filter-input" placeholder="筛选目的地..." data-column="3" onkeyup="applyColumnFilter(this)">
                     </td>
                     <td class="fleet-mark-col">
-                        <input type="text" class="filter-input" placeholder="筛选唛头..." data-column="3" onkeyup="applyColumnFilter(this)">
+                        <input type="text" class="filter-input" placeholder="筛选唛头..." data-column="4" onkeyup="applyColumnFilter(this)">
                     </td>
                     <td>
-                        <input type="text" class="filter-input" placeholder="筛选地址..." data-column="4" onkeyup="applyColumnFilter(this)">
-                    </td>
-                    <td>
-                        <input type="text" class="filter-input" placeholder="筛选备注..." data-column="5" onkeyup="applyColumnFilter(this)">
+                        <input type="text" class="filter-input" placeholder="筛选地址..." data-column="5" onkeyup="applyColumnFilter(this)">
                     </td>
                     <td>
                         <input type="text" class="filter-input" placeholder="筛选备注..." data-column="6" onkeyup="applyColumnFilter(this)">
                     </td>
                     <td>
-                        <input type="text" class="filter-input" placeholder="筛选CBM..." data-column="7" onkeyup="applyColumnFilter(this)">
+                        <input type="text" class="filter-input" placeholder="筛选备注..." data-column="7" onkeyup="applyColumnFilter(this)">
                     </td>
                     <td>
-                        <input type="text" class="filter-input" placeholder="筛选件数..." data-column="8" onkeyup="applyColumnFilter(this)">
+                        <input type="text" class="filter-input" placeholder="筛选CBM..." data-column="8" onkeyup="applyColumnFilter(this)">
                     </td>
                     <td>
-                        <input type="text" class="filter-input" placeholder="筛选重量..." data-column="9" onkeyup="applyColumnFilter(this)">
+                        <input type="text" class="filter-input" placeholder="筛选件数..." data-column="9" onkeyup="applyColumnFilter(this)">
                     </td>
                     <td>
                         <input type="text" class="filter-input" placeholder="筛选重量..." data-column="10" onkeyup="applyColumnFilter(this)">
                     </td>
                     <td>
-                        <select class="filter-select" data-column="11" onchange="applyColumnFilter(this)">
+                        <input type="text" class="filter-input" placeholder="筛选重量..." data-column="11" onkeyup="applyColumnFilter(this)">
+                    </td>
+                    <td>
+                        <select class="filter-select" data-column="12" onchange="applyColumnFilter(this)">
                             <option value="">全部状态</option>
                             <option value="已核实">已核实</option>
                             <option value="未核实">未核实</option>
@@ -362,6 +366,7 @@
                 <tr class="data-row" 
                     data-cargo-id="{{ cargo.ids }}" 
                     data-customer="{{ cargo.customer_name|default:'' }}"
+                    data-vessel-eta="{{ cargo.vessel_eta|default:'' }}"
                     data-destination="{{ cargo.destination|default:'' }}" 
                     data-shipping-mark="{{ cargo.shipping_marks|default:'' }}"
                     data-container-number="{{ cargo.container_numbers|default:'' }}"
@@ -377,6 +382,7 @@
                             onchange="updateSelectedCount()">
                     </td>
                     <td>{{ cargo.customer_name|default:"-" }}</td>
+                    <td>{{ cargo.vessel_eta|date:"Y/n/j"|default:"-" }}</td>
                     <td class="container-col" title="{{ cargo.container_numbers|default:'' }}">
                         {{ cargo.container_numbers|default:"-" }}
                     </td>
@@ -458,7 +464,7 @@
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="14" style="text-align: center; padding: 20px;">
+                    <td colspan="15" style="text-align: center; padding: 20px;">
                         暂无未放行货物
                     </td>
                 </tr>
@@ -684,11 +690,39 @@
                     let cellValue = '';
                     
                     if (cell) {
+                        // 特殊处理 ETA 列（第1列，日期筛选）
+                        if (idx === 1) {
+                            if (filterValue) {
+                                // 获取单元格显示的文本（Y/n/j 格式如 2025/4/15）
+                                const displayText = cell.textContent.trim();
+                                // 将筛选值（YYYY-MM-DD）转换为 Y/n/j 格式进行比较
+                                const filterDateObj = new Date(filterValue);
+                                if (!isNaN(filterDateObj.getTime())) {
+                                    const filterYear = filterDateObj.getFullYear();
+                                    const filterMonth = filterDateObj.getMonth() + 1;
+                                    const filterDay = filterDateObj.getDate();
+                                    const filterFormatted = `${filterYear}/${filterMonth}/${filterDay}`;
+                                    
+                                    if (displayText.indexOf(filterFormatted) === -1) {
+                                        match = false;
+                                        break;
+                                    }
+                                } else {
+                                    // 如果无法解析日期，尝试直接匹配
+                                    if (displayText.indexOf(filterValue) === -1) {
+                                        match = false;
+                                        break;
+                                    }
+                                }
+                            }
+                            continue;
+                        }
+                        
                         // 获取单元格文本
                         cellValue = cell.textContent.toLowerCase().trim();
                         
                         // 特殊处理核实状态列
-                        if (idx === 12) { // 核实状态是第10列（0-based，排除复选框）
+                        if (idx === 13) { // 核实状态是第13列（0-based，排除复选框）
                             const isVerified = row.dataset.isVerify === '1';
                             cellValue = isVerified ? '已核实' : '未核实';
                         }

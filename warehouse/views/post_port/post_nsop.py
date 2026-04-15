@@ -10436,8 +10436,11 @@ class PostNsop(View):
                 else:
                     selfdel_cargos.append(item)
 
-        # 针对未放行进行排序 (对应你原来的逻辑)
-        release_cargos.sort(key=lambda x: (x.get('ltl_verify', False),))
+        # 针对未放行进行排序：未核实排在前面，然后按 vessel_eta 排序，时间早的在前
+        release_cargos.sort(key=lambda x: (
+            x.get('ltl_verify', False),  # 第一优先级：未核实（False）在前
+            x.get('vessel_eta') or '9999-12-31'  # 第二优先级：vessel_eta，时间早的在前
+        ))
         
         return release_cargos, selfpick_cargos, selfdel_cargos
 
