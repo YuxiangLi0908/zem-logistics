@@ -137,6 +137,7 @@
                         <th class="text-right">库内应付</th>
                         <th class="text-right">派送应收</th>
                         <th class="text-right">派送应付</th>
+                        <th class="text-right">赔付费用</th>
                         <th class="text-right summary-col highlight-income">总收入</th>
                         <th class="text-right summary-col highlight-expense">总支出</th>
                         <th class="text-right summary-col highlight-profit">总利润</th>
@@ -155,6 +156,7 @@
                         <td class="text-right expense">${{ container.payable_warehouse|floatformat:2 }}</td>
                         <td class="text-right">${{ container.receivable_delivery|floatformat:2 }}</td>
                         <td class="text-right">${{ container.payable_delivery|floatformat:2 }}</td>
+                        <td class="text-right expense">${{ container.payout_fee|floatformat:2 }}</td>
                         <td class="text-right summary-col highlight-income">${{ container.total_income|floatformat:2 }}</td>
                         <td class="text-right summary-col highlight-expense">${{ container.total_expense|floatformat:2 }}</td>
                         <td class="text-right summary-col highlight-profit profit-value" 
