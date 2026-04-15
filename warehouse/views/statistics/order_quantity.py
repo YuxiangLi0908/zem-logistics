@@ -48,6 +48,7 @@ class OrderQuantity(View):
 
     async def get(self, request: HttpRequest, **kwargs) -> HttpResponse:
         step = request.GET.get("step", None)
+        print('order_quantity GET STEP',step)
         if step == "maersk_rate":
             # 获取所有MaerskPriceRate记录
             maersk_rates = await sync_to_async(list)(MaerskPriceRate.objects.all())
@@ -130,6 +131,7 @@ class OrderQuantity(View):
     async def post(self, request: HttpRequest) -> HttpResponse:
 
         step = request.POST.get("step")
+        print('order_quantity POST STEP',step)
         if step == "maersk_rate_add":
             # 处理新增MaerskPriceRate记录
             is_user_exclusive = request.POST.get("is_user_exclusive") == "on"
@@ -1491,9 +1493,11 @@ class OrderQuantity(View):
 
         # 5. 转换为列表格式返回
         return list(region_map.values())
+    
     async def handle_order_profit_get(
         self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
+        '''转运订单利润统计'''
         start_date = request.POST.get("start_date")
         end_date = request.POST.get("end_date")
         today = datetime.today()
@@ -1565,6 +1569,7 @@ class OrderQuantity(View):
         total_preport_payable = 0
         receivable_delivery = 0
         payable_delivery = 0
+        total_payout_fee = 0
         for order in orders:
             container_number = order.container_number.container_number
             customer_name = order.customer_name.zem_name
@@ -1637,6 +1642,16 @@ class OrderQuantity(View):
             )()   
 
             other_fees = activation_items_total + combina_extra_items_total
+            
+            # 查询这个柜子的所有应收账单的赔付费用
+            payout_total = await sync_to_async(
+                lambda: InvoiceItemv2.objects.filter(
+                    invoice_number=invoice,
+                    invoice_type="receivable",
+                    item_category="payout_fee",
+                ).aggregate(total=Sum('amount'))['total'] or 0
+            )()   
+            payout_fee = float(payout_total)
             # else:
             #     items = await sync_to_async(list)(
             #         InvoiceItemv2.objects.filter(
@@ -1678,7 +1693,7 @@ class OrderQuantity(View):
                 + other_fees
             )
             # 提拆的成本
-            total_expense_per_container = payable_preport + payable_warehouse + payable_delivery
+            total_expense_per_container = payable_preport + payable_warehouse + payable_delivery + payout_fee
 
             # 柜子的利润
             profit_per_container = (
@@ -1697,6 +1712,8 @@ class OrderQuantity(View):
             total_expense += total_expense_per_container
             # 总利润
             total_profit += profit_per_container
+            # 总赔付费用
+            total_payout_fee += payout_fee
             # 所有柜子的利润
             profit_values.append(profit_per_container)
 
@@ -1711,6 +1728,7 @@ class OrderQuantity(View):
                     "payable_preport": payable_preport,
                     "payable_warehouse": payable_warehouse,
                     "payable_delivery": payable_delivery,
+                    "payout_fee": payout_fee,
                     "total_income": total_income_per_container,
                     "total_expense": total_expense_per_container,
                     "profit": profit_per_container,
