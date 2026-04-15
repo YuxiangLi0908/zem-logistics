@@ -8764,6 +8764,8 @@ class PostNsop(View):
                     "address", 
                     "is_dropped_pallet",
                     "shipment_batch_number__shipment_batch_number",
+                    "shipment_batch_number__shipped_at",
+                    "shipment_batch_number__arrived_at",
                     "data_source",
                     "shipment_batch_number__fleet_number__fleet_number",
                     "location",
@@ -8926,6 +8928,8 @@ class PostNsop(View):
                     "ltl_release_command",
                     "ltl_contact_method",
                     "shipment_batch_number__shipment_batch_number",
+                    "shipment_batch_number__shipped_at",
+                    "shipment_batch_number__arrived_at",
                     "shipment_batch_number__fleet_number__fleet_number",
                     "ltl_correlation_id",
                     warehouse=F("container_number__orders__retrieval_id__retrieval_destination_precise"),
@@ -10341,7 +10345,7 @@ class PostNsop(View):
     async def handle_ltl_history_pos_post(
         self, request: HttpRequest, context: dict| None = None,
     ) -> tuple[str, dict[str, Any]]:
-        '''LTL组的港后全流程'''
+        '''LTL组的历史港后数据'''
         warehouse = request.POST.get("warehouse")
         start_date = request.POST.get("start_date")
         end_date = request.POST.get("end_date")
@@ -10350,8 +10354,11 @@ class PostNsop(View):
         if warehouse:
             warehouse_name = warehouse.split('-')[0]
         else:
-            context.update({'error_messages':"没选仓库！"})
-            return self.template_unscheduled_pos_all, context
+            context.update({
+                'error_messages':"没选仓库！",
+                'warehouse_options': self.warehouse_options,
+            })
+            return self.template_ltl_history_pos, context
         
         # 未给定时间时，自动查询过去三个月的
         current_date = datetime.now().date()
@@ -10377,7 +10384,7 @@ class PostNsop(View):
         )
 
         # 已放行-客提
-        release_cargos, selfpick_cargos, selfdel_cargos = await self._get_classified_cargos(pl_criteria, plt_criteria)
+        _, selfpick_cargos, selfdel_cargos = await self._get_classified_cargos(pl_criteria, plt_criteria)
         #selfpick_cargos = await self._ltl_scheduled_self_pickup(pl_criteria, plt_criteria)
         # 已放行-自发
         #selfdel_cargos = await self._ltl_self_delivery(pl_criteria, plt_criteria)
@@ -10439,7 +10446,7 @@ class PostNsop(View):
         # 针对未放行进行排序：未核实排在前面，然后按 vessel_eta 排序，时间早的在前
         release_cargos.sort(key=lambda x: (
             x.get('ltl_verify', False),  # 第一优先级：未核实（False）在前
-            x.get('vessel_eta') or '9999-12-31'  # 第二优先级：vessel_eta，时间早的在前
+            str(x.get('vessel_eta')) or '9999-12-31'  # 第二优先级：vessel_eta，时间早的在前
         ))
         
         return release_cargos, selfpick_cargos, selfdel_cargos
