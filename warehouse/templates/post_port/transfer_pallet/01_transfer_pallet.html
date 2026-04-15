@@ -152,13 +152,41 @@
         top: 50%;
         left: 50%;
         transform: translate(-50%, -50%);
-        width: 450px;
+        width: 900px;
+        max-height: 85vh;
+        overflow-y: auto;
         background: #ffffff;
         border-radius: 8px;
         box-shadow: 0 10px 25px rgba(0,0,0,0.15);
         z-index: 1000;
-        overflow: hidden;
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+    
+    .batch-info-row {
+        display: flex;
+        gap: 12px;
+        margin-bottom: 12px;
+        flex-wrap: wrap;
+        align-items: flex-end;
+    }
+    
+    .batch-info-item {
+        flex: 1;
+        min-width: 140px;
+        max-width: 200px;
+    }
+    
+    .batch-info-item label {
+        display: block;
+        font-size: 12px;
+        color: #495057;
+        margin-bottom: 4px;
+        font-weight: 500;
+    }
+    
+    .batch-info-item .form-control-custom {
+        padding: 6px 10px;
+        font-size: 13px;
     }
 
     /* 头部样式 */
@@ -173,7 +201,7 @@
 
     /* 表单区域 */
     #transferForm {
-        padding: 20px;
+        padding: 15px 25px 25px 25px;
     }
 
     .transfer-info-table td {
@@ -222,6 +250,53 @@
 
     .btn-primary-custom { background: #007bff; color: white; }
     .btn-secondary-custom { background: #6c757d; color: white; }
+    
+    .section-divider {
+        margin: 15px 0;
+        border-top: 2px solid #e9ecef;
+        padding-top: 15px;
+    }
+    
+    .section-title {
+        font-size: 16px;
+        font-weight: 600;
+        color: #333;
+        margin-bottom: 12px;
+        padding-left: 8px;
+        border-left: 4px solid #007bff;
+    }
+    
+    .po-info-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 12px;
+    }
+    
+    .po-info-table th,
+    .po-info-table td {
+        border: 1px solid #dee2e6;
+        padding: 8px;
+        text-align: center;
+    }
+    
+    .po-info-table th {
+        background: #e9ecef;
+        font-weight: 600;
+    }
+    
+    .po-info-table .actual-pallet-input {
+        width: 80px;
+        padding: 4px 8px;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+        text-align: center;
+    }
+    
+    .po-info-table .actual-pallet-input:focus {
+        border-color: #007bff;
+        outline: none;
+        box-shadow: 0 0 0 2px rgba(0,123,255,0.1);
+    }
 </style>
 
 <div class="inventory-container">
@@ -329,57 +404,78 @@
         <input type="hidden" name="step" value="transfer_warehouse">
         <input type="hidden" name="warehouse" value="{{ warehouse }}">
         
-        <table class="transfer-info-table" style="width: 100%;">
-            <tr>
-                <td width="30%"><strong>发货仓库:</strong></td>
-                <td>
+        <div id="batchInfoSection">
+            <div class="section-title">批次信息</div>
+            <div class="batch-info-row">
+                <div class="batch-info-item">
+                    <label>发货仓库:</label>
                     <select name="shipping_warehouse" class="form-control-custom">
                         {% for k, v in warehouse_options.items %}
                             <option value="{{ v }}" {% if k == warehouse %}selected{% endif %}>{{ k }}</option>
                         {% endfor %}
                     </select>
-                </td>
-            </tr>
-            <tr>
-                <td><strong>收货仓库:</strong></td>
-                <td>
-                    <select name="receiving_warehouse" class="form-control-custom">
+                </div>
+                <div class="batch-info-item">
+                    <label>收货仓库:</label>
+                    <select name="receiving_warehouse" class="form-control-custom" required>
                         {% for k, v in warehouse_options.items %}
                             <option value="{{ v }}">{{ k }}</option>
                         {% endfor %}
                     </select>
-                </td>
-            </tr>
-            <tr>
-                <td><strong>pickupNumber:</strong></td>
-                <td><input type="text" name="pickup_number" placeholder="可选输入" class="form-control-custom"></td>
-            </tr>
-            <tr>
-                <td><strong>carrier:</strong></td>
-                <td><input type="text" name="carrier" class="form-control-custom"></td>
-            </tr>
-            <tr>
-                <td><strong>备注:</strong></td>
-                <td><input type="text" name="note" class="form-control-custom"></td>
-            </tr>
-            <tr>
-                <td><strong>转仓成本:</strong></td>
-                <td><input type="number" step="0.01" name="fleet_transfer_cost" placeholder="请输入转仓成本" class="form-control-custom"></td>
-            </tr>
-            <tr>
-                <td><strong>车次成本:</strong></td>
-                <td><input type="number" step="0.01" name="fleet_cost" placeholder="请输入车次成本" class="form-control-custom"></td>
-            </tr>
-            <tr>
-                <td><strong>发货时间:</strong></td>
-                <td><input type="datetime-local" name="shipping_time" class="form-control-custom" required></td>
-            </tr>
-            <tr>
-                <td><strong>预计到达:</strong></td>
-                <td><input type="datetime-local" name="ETA" class="form-control-custom" required></td>
-            </tr>
-            
-        </table>
+                </div>
+                <div class="batch-info-item">
+                    <label>pickupNumber:</label>
+                    <input type="text" name="pickup_number" placeholder="可选" class="form-control-custom">
+                </div>
+                <div class="batch-info-item">
+                    <label>carrier:</label>
+                    <input type="text" name="carrier" class="form-control-custom">
+                </div>
+                <div class="batch-info-item">
+                    <label>备注:</label>
+                    <input type="text" name="note" class="form-control-custom">
+                </div>
+            </div>
+            <div class="batch-info-row">
+                <div class="batch-info-item">
+                    <label>转仓成本:</label>
+                    <input type="number" step="0.01" name="fleet_transfer_cost" placeholder="转仓成本" class="form-control-custom">
+                </div>
+                <div class="batch-info-item">
+                    <label>车次成本:</label>
+                    <input type="number" step="0.01" name="fleet_cost" placeholder="车次成本" class="form-control-custom">
+                </div>
+                <div class="batch-info-item">
+                    <label>发货时间:</label>
+                    <input type="datetime-local" name="shipping_time" class="form-control-custom" required>
+                </div>
+                <div class="batch-info-item">
+                    <label>预计到达:</label>
+                    <input type="datetime-local" name="ETA" class="form-control-custom" required>
+                </div>
+            </div>
+        </div>
+        
+        <div class="section-divider"></div>
+        
+        <div id="poInfoSection">
+            <div class="section-title">PO信息</div>
+            <div id="poInfoContainer">
+                <table class="po-info-table">
+                    <thead>
+                        <tr>
+                            <th>柜号</th>
+                            <th>目的地</th>
+                            <th>体积(CBM)</th>
+                            <th>卡板数</th>
+                            <th>实际卡板数</th>
+                        </tr>
+                    </thead>
+                    <tbody id="poInfoTableBody">
+                    </tbody>
+                </table>
+            </div>
+        </div>
         
         <div class="popup-buttons">
             <button type="button" class="btn-custom btn-secondary-custom" onclick="closeTransferPopup()">
@@ -397,6 +493,7 @@
     function editTransfer() {
         const popup = document.getElementById('transferPopup');
         const form = document.getElementById('transferForm');
+        const poInfoTableBody = document.getElementById('poInfoTableBody');
 
         const checkboxes = document.querySelectorAll('input[name="is_pallet_selected"]:checked');
         if (checkboxes.length === 0) {
@@ -406,20 +503,69 @@
 
         // 先清除旧的 hidden inputs，避免重复
         form.querySelectorAll('input[name="plt_ids"]').forEach(el => el.remove());
+        form.querySelectorAll('input[name="actual_pallets"]').forEach(el => el.remove());
+        form.querySelectorAll('input[name="row_index"]').forEach(el => el.remove());
+        
+        // 清空PO信息表格
+        poInfoTableBody.innerHTML = '';
 
-        // 遍历勾选的行，把 plt_ids 动态添加到 form
-        checkboxes.forEach(checkbox => {
+        // 遍历勾选的行，构建PO信息表格和隐藏输入框
+        checkboxes.forEach((checkbox, index) => {
             const row = checkbox.closest('tr');
-            const pltId = row.querySelector('input[name="plt_ids"]').value;
+            const pltIds = row.querySelector('input[name="plt_ids"]').value;
+            const container = row.cells[2].textContent;
+            const destination = row.cells[3].textContent;
+            const nPallet = row.cells[11].textContent;
+            const cbm = row.cells[10].textContent;
 
-            const hidden = document.createElement('input');
-            hidden.type = 'hidden';
-            hidden.name = 'plt_ids';
-            hidden.value = pltId;
-            form.appendChild(hidden);
+            // 创建PO信息表格行
+            const tableRow = document.createElement('tr');
+            tableRow.innerHTML = `
+                <td>${container}</td>
+                <td>${destination}</td>
+                <td>${cbm}</td>
+                <td>${nPallet}</td>
+                <td>
+                    <input type="number" 
+                           class="actual-pallet-input" 
+                           name="actual_pallets_${index}" 
+                           value="${parseFloat(nPallet)}" 
+                           min="0" 
+                           step="1"
+                           data-row-index="${index}"
+                           onchange="validateActualPallet(this, ${parseFloat(nPallet)})">
+                </td>
+            `;
+            poInfoTableBody.appendChild(tableRow);
+
+            // 添加隐藏的plt_ids输入框
+            const hiddenPltIds = document.createElement('input');
+            hiddenPltIds.type = 'hidden';
+            hiddenPltIds.name = 'plt_ids_' + index;
+            hiddenPltIds.value = pltIds;
+            form.appendChild(hiddenPltIds);
+
+            // 添加隐藏的row_index输入框，用于标识行索引
+            const hiddenRowIndex = document.createElement('input');
+            hiddenRowIndex.type = 'hidden';
+            hiddenRowIndex.name = 'row_index';
+            hiddenRowIndex.value = index;
+            form.appendChild(hiddenRowIndex);
         });
 
         popup.style.display = 'block';
+    }
+    
+    // 验证实际卡板数不能超过原始卡板数
+    function validateActualPallet(input, maxPallet) {
+        const value = parseInt(input.value);
+        if (value < 0) {
+            input.value = 0;
+            alert('实际卡板数不能小于0');
+        } else if (value > maxPallet) {
+            input.value = maxPallet;
+            alert(`实际卡板数不能超过原始卡板数 (${maxPallet})`);
+        }
     }
 
     
