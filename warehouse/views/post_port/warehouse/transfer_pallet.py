@@ -115,28 +115,56 @@ class TransferPallet(View):
         eta = request.POST.get("ETA", None)
         fleet_cost = request.POST.get("fleet_cost", None)
         fleet_transfer_cost = request.POST.get("fleet_transfer_cost", None)
-        selectedIds = request.POST.getlist("plt_ids")
+        
+        # 获取所有行索引
+        row_indices = request.POST.getlist("row_index")
         ids = []
+        
+        # 遍历每一行，根据实际卡板数选择pallet ID
+        for idx_str in row_indices:
+            idx = int(idx_str)
+            plt_ids_str = request.POST.get(f"plt_ids_{idx}", "")
+            actual_pallets_str = request.POST.get(f"actual_pallets_{idx}", "0")
+            
+            if not plt_ids_str:
+                continue
+                
+            # 解析plt_ids
+            plt_ids_list = plt_ids_str.split(",")
+            plt_ids_list = [int(i) for i in plt_ids_list if i.strip()]
+            
+            # 解析实际卡板数
+            try:
+                actual_pallets = int(float(actual_pallets_str))
+            except (ValueError, TypeError):
+                actual_pallets = 0
+            
+            # 选择前actual_pallets个ID
+            selected_count = min(actual_pallets, len(plt_ids_list))
+            if selected_count > 0:
+                ids.extend(plt_ids_list[:selected_count])
 
-        for plt_ids in selectedIds:
-            plt_ids = plt_ids.split(",")
-            plt_ids = [int(i) for i in plt_ids]
-            ids.extend(plt_ids)
         # 查找板子
-        pallets = await sync_to_async(list)(
-            Pallet.objects.select_related("container_number").filter(id__in=ids)
-        )
+        pallets = []
+        if ids:
+            pallets = await sync_to_async(list)(
+                Pallet.objects.select_related("container_number").filter(id__in=ids)
+            )
+        
         total_weight, total_cbm, total_pcs = 0.0, 0.0, 0
         for plt in pallets:
             plt.location = receiving_warehouse
             total_weight += plt.weight_lbs
             total_pcs += plt.pcs
             total_cbm += plt.cbm
-        await sync_to_async(bulk_update_with_history)(
-            pallets,
-            Pallet,
-            fields=["location"],
-        )
+        
+        if pallets:
+            await sync_to_async(bulk_update_with_history)(
+                pallets,
+                Pallet,
+                fields=["location"],
+            )
+        
         # 然后新建transfer_warehouse新记录
         container_numbers = [p.container_number.container_number for p in pallets]
         current_time = datetime.now()
@@ -152,7 +180,7 @@ class TransferPallet(View):
         if not pickup_number:
             ship_w = shipping_warehouse.split("-")[0]
             rec_w = receiving_warehouse.split("-")[0]
-            ca = request.POST.get("carrier").strip()
+            ca = request.POST.get("carrier", "").strip() or "DEFAULT"
             month_day = current_time.strftime("%m%d")
             random_code = "".join(
                 random.choices(string.ascii_uppercase + string.digits, k=2)
@@ -171,11 +199,11 @@ class TransferPallet(View):
             )
         
         fleet_cost = float(fleet_cost) if fleet_cost else 0.0
-        fleet_transfer_cost = float(fleet_transfer_cost) if fleet_cost else 0.0
+        fleet_transfer_cost = float(fleet_transfer_cost) if fleet_transfer_cost else 0.0
         fleet_number = "FO"+ current_time.strftime("%m%d%H%M%S")+ str(uuid.uuid4())[:2].upper()
         fleet = Fleet(
             **{
-                "carrier": request.POST.get("carrier").strip(),
+                "carrier": request.POST.get("carrier", "").strip() or "DEFAULT",
                 "fleet_type": "transfer",
                 "pickup_number": pickup_number,
                 "appointment_datetime": shipping_time,
