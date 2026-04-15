@@ -483,6 +483,19 @@
     .priority-highlight td {
         background-color: transparent !important;
     }
+
+    /* 预计提货日期有值时的整行底色 */
+    .pickup-date-has-value {
+        background-color: #e8f5e9 !important;
+    }
+
+    .pickup-date-has-value td {
+        background-color: transparent !important;
+    }
+
+    .pickup-date-has-value input {
+        background-color: transparent !important;
+    }
 </style>
 
 <div id="selfpick-page">
@@ -682,7 +695,7 @@
 
                 <!-- 数据行 -->
                 {% for cargo in selfpick_cargos %}
-                <tr class="data-row {% if cargo.is_pickup_priority == 0 %}priority-highlight{% endif %}"
+                <tr class="data-row {% if cargo.is_pickup_priority == 0 %}priority-highlight{% endif %}{% if cargo.est_pickup_time %} pickup-date-has-value{% endif %}"
                     data-cargo-id="{% if cargo.plt_ids %}plt_{{ cargo.plt_ids }}{% else %}{{ cargo.ids }}{% endif %}"
                     data-customer="{{ cargo.customer_name|default:'' }}"
                     data-follow-status="{{ cargo.ltl_follow_status|default:'' }}"
@@ -1869,5 +1882,24 @@
         window.showCopyNotification = showCopyNotification;
         window.selfpick_batchSaveRows = selfpick_batchSaveRows;
         window.batchUpdateDeliveryMethod = batchUpdateDeliveryMethod;
+
+        // 预计提货日期输入框事件监听，动态添加/移除底色
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('.pickup-date-input').forEach(function(input) {
+                updatePickupDateBackground(input);
+                input.addEventListener('change', function() {
+                    updatePickupDateBackground(this);
+                });
+            });
+        });
+
+        function updatePickupDateBackground(input) {
+            const tr = input.closest('tr');
+            if (input.value) {
+                tr.classList.add('pickup-date-has-value');
+            } else {
+                tr.classList.remove('pickup-date-has-value');
+            }
+        }
     })(); // 立即执行
 </script>
