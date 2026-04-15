@@ -3265,7 +3265,6 @@ class Accounting(View):
                     ).values("shipping_mark")[:1],
                     output_field=CharField()
                 ),
-                # ✅ 就加这一行！！！
                 has_written_off_delivery_itemv2=has_written_off_delivery_itemv2,
             )
             .filter(has_written_off_delivery_itemv2=False)
@@ -3388,9 +3387,7 @@ class Accounting(View):
 
             fleet_pickup_data = deliverys[fleet_id]["fleets"][pickup_number]
             fleet_pickup_data["ISA_total_pallets"] += cn_total_pallet
-            fleet_pickup_data["ISA_total_expense"] = (
-                    fleet_pickup_data["ISA_total_expense"] + cn_total_expense).quantize(Decimal("0.00"),
-                                                                                        rounding=ROUND_HALF_UP)
+            fleet_pickup_data["ISA_total_expense"] += cn_total_expense
             fleet_pickup_data["total_rows"] += 1
 
             fleet_data = deliverys[fleet_id]
@@ -3413,12 +3410,12 @@ class Accounting(View):
                     pdata["ISA_total_expense"] = float(pdata["ISA_total_expense"])
                     apps = {}
                     for aid, adata in pdata["appointments"].items():
-                        adata["total_expense"] = float(adata["total_expense"].quantize(Decimal("0.0000")))
+                        adata["total_expense"] = float(adata["total_expense"])
                         apps[aid] = adata
                     pdata["appointments"] = apps
                     fp[pid] = pdata
                 fdata["fleets"] = fp
-                fdata["total_expense"] = float(fdata["total_expense"].quantize(Decimal("0.0000")))
+                fdata["total_expense"] = float(fdata["total_expense"])
                 processed[fid] = fdata
 
             final_pending.append({
@@ -3428,7 +3425,7 @@ class Accounting(View):
                 "fleet_numbers": group["fleet_numbers"],
                 "carriers": group["carriers"],
                 "total_pallets": group["total_pallets"],
-                "total_expense": float(group["total_expense"].quantize(Decimal("0.0000"))),
+                "total_expense": float(group["total_expense"]),
                 "total_rows": group["total_rows"],
                 "fleets": processed,
             })
@@ -3468,7 +3465,6 @@ class Accounting(View):
                     ).values("destination")[:1],
                     output_field=CharField()
                 ),
-                # ✅ 替换
                 ltl_correlation_id=Subquery(
                     Pallet.objects.filter(
                         PO_ID=OuterRef("PO_ID"),
@@ -3594,7 +3590,7 @@ class Accounting(View):
 
             pd = confirm_fleets[fid]["fleets"][pn]
             pd["ISA_total_pallets"] += ctp
-            pd["ISA_total_expense"] = (pd["ISA_total_expense"] + cte).quantize(Decimal("0.00"), rounding=ROUND_HALF_UP)
+            pd["ISA_total_expense"] += cte
             pd["total_rows"] += 1
 
             fd = confirm_fleets[fid]
@@ -3617,12 +3613,12 @@ class Accounting(View):
                     pd["ISA_total_expense"] = float(pd["ISA_total_expense"])
                     aps = {}
                     for aid, ad in pd["appointments"].items():
-                        ad["total_expense"] = float(ad["total_expense"].quantize(Decimal("0.0000")))
+                        ad["total_expense"] = float(ad["total_expense"])
                         aps[aid] = ad
                     pd["appointments"] = aps
                     fproc[pid] = pd
                 fd["fleets"] = fproc
-                fd["total_expense"] = float(fd["total_expense"].quantize(Decimal("0.0000")))
+                fd["total_expense"] = float(fd["total_expense"])
                 proc[fid] = fd
 
             final_confirmed.append({
@@ -3632,7 +3628,7 @@ class Accounting(View):
                 "fleet_numbers": g["fleet_numbers"],
                 "carriers": g["carriers"],
                 "total_pallets": g["total_pallets"],
-                "total_expense": float(g["total_expense"].quantize(Decimal("0.0000"))),
+                "total_expense": float(g["total_expense"]),
                 "total_rows": g["total_rows"],
                 "fleets": proc,
             })
