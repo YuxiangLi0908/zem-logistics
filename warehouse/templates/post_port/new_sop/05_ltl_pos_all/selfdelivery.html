@@ -734,9 +734,9 @@
                         {% if cargo.offload_at %}
                             <span class="fleet-month-day">
                                 {{ cargo.offload_at }}
-                                {% if cargo.offload_tag == "实际" %}
+                                {% if cargo.offload_tag == "实际提柜" %}
                                     <span style="color:#e53935">{{ cargo.offload_tag }}</span>
-                                {% elif cargo.offload_tag == "预计" %}
+                                {% elif cargo.offload_tag == "实际放行" %}
                                     <span style="color:#fb8c00">{{ cargo.offload_tag }}</span>
                                 {% else %}
                                     <span style="color:#757575">{{ cargo.offload_tag }}</span>
