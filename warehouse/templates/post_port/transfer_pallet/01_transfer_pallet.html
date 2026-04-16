@@ -334,8 +334,10 @@
                         <input type="checkbox" id="selectAll" onclick="toggleAllSelection()">
                     </th>
                     <th class="th">客户</th>
+                    <th class="th">预报仓库</th>
                     <th class="th">柜号</th>
                     <th class="th">目的地</th>
+                    <th class="th">入库时间</th>
                     <th class="th">派送方式</th>
                     <th class="th" style="min-width: 200px;">唛头</th>
                     <th class="th" style="min-width: 200px;">FBA</th>
@@ -351,12 +353,14 @@
                 <tr class="filter-row">
                     <th class="th"></th>
                     <th class="th"></th>
-                    <th class="th"><input type="text" class="filter-input" placeholder="柜号1 柜号2..." oninput="filterTable(this, 2)"></th>
-                    <th class="th"><input type="text" class="filter-input" placeholder="目的地1 2..." oninput="filterTable(this, 3)"></th>
-                    <th class="th"><input type="text" class="filter-input" placeholder="派送方式..." oninput="filterTable(this, 4)"></th>
-                    <th class="th"><input type="text" class="filter-input" placeholder="搜索唛头..." oninput="filterTable(this, 5)"></th>
-                    <th class="th"><input type="text" class="filter-input" placeholder="搜索FBA..." oninput="filterTable(this, 6)"></th>
-                    <th class="th"><input type="text" class="filter-input" placeholder="搜索REF..." oninput="filterTable(this, 7)"></th>
+                    <th class="th"><input type="text" class="filter-input" placeholder="预报仓库..." oninput="filterTable(this, 2)"></th>
+                    <th class="th"><input type="text" class="filter-input" placeholder="柜号1 柜号2..." oninput="filterTable(this, 3)"></th>
+                    <th class="th"><input type="text" class="filter-input" placeholder="目的地1 2..." oninput="filterTable(this, 4)"></th>
+                    <th class="th"><input type="date" class="filter-input" placeholder="入库时间" oninput="filterTable(this, 5)"></th>
+                    <th class="th"><input type="text" class="filter-input" placeholder="派送方式..." oninput="filterTable(this, 6)"></th>
+                    <th class="th"><input type="text" class="filter-input" placeholder="搜索唛头..." oninput="filterTable(this, 7)"></th>
+                    <th class="th"><input type="text" class="filter-input" placeholder="搜索FBA..." oninput="filterTable(this, 8)"></th>
+                    <th class="th"><input type="text" class="filter-input" placeholder="搜索REF..." oninput="filterTable(this, 9)"></th>
                     <th class="th"></th>
                     <th class="th"></th>
                     <th class="th"></th>
@@ -375,8 +379,10 @@
                         <input type="hidden" name="orders" value='{{ p.container }}'>
                     </td>
                     <td class="td">{{ p.customer_name }}</td>
+                    <td class="td">{{ p.forecast_warehouse|default_if_none:"" }}</td>
                     <td class="td">{{ p.container }}</td>
                     <td class="td">{{ p.destination }}</td>
+                    <td class="td">{% if p.offload_at %}{{ p.offload_at|date:"Y/m/d" }}{% else %}-{% endif %}</td>
                     <td class="td">{{ p.delivery_method }}</td>
                     <td class="td" style="word-break: break-all;">{{ p.shipping_mark }}</td>
                     <td class="td" style="word-break: break-all;">{{ p.fba_id|default_if_none:"" }}</td>
@@ -513,10 +519,10 @@
         checkboxes.forEach((checkbox, index) => {
             const row = checkbox.closest('tr');
             const pltIds = row.querySelector('input[name="plt_ids"]').value;
-            const container = row.cells[2].textContent;
-            const destination = row.cells[3].textContent;
-            const nPallet = row.cells[11].textContent;
-            const cbm = row.cells[10].textContent;
+            const container = row.cells[3].textContent;
+            const destination = row.cells[4].textContent;
+            const nPallet = row.cells[13].textContent;
+            const cbm = row.cells[12].textContent;
 
             // 创建PO信息表格行
             const tableRow = document.createElement('tr');
@@ -603,9 +609,17 @@
         const filters = {};
         filterInputs.forEach((input, index) => {
             const filterText = input.value.trim().toLowerCase();
+            const inputType = input.type;
             if (filterText) {
-                // 列索引对应：柜号=2, 目的地=3, 派送方式=4, 唛头=5, FBA=6, REF=7
-                filters[index + 2] = filterText.split(' ').filter(val => val.length > 0);
+                const colIndex = index + 2; // 前两列是复选框和客户
+                if (inputType === 'date') {
+                    // 日期筛选：将 YYYY-MM-DD 转换为 YYYY/MM/DD 格式与显示匹配
+                    const formattedDate = filterText.replace(/-/g, '/');
+                    filters[colIndex] = { type: 'date', value: formattedDate };
+                } else {
+                    // 普通文本筛选
+                    filters[colIndex] = { type: 'text', values: filterText.split(' ').filter(val => val.length > 0) };
+                }
             }
         });
         
@@ -621,17 +635,25 @@
             let shouldShow = true;
             
             // 检查每一行的每个筛选条件
-            for (const [columnIndex, searchValues] of Object.entries(filters)) {
+            for (const [columnIndex, filterConfig] of Object.entries(filters)) {
                 const cell = row.cells[parseInt(columnIndex)];
                 if (cell) {
                     const cellText = cell.textContent.toLowerCase();
                     
-                    // 检查单元格文本是否包含任意一个搜索值
-                    const matches = searchValues.some(value => cellText.includes(value));
-                    
-                    if (!matches) {
-                        shouldShow = false;
-                        break; // 如果任一条件不满足，就跳出循环
+                    if (filterConfig.type === 'date') {
+                        // 日期匹配
+                        if (cellText !== filterConfig.value && cellText !== '-') {
+                            shouldShow = false;
+                            break;
+                        }
+                    } else {
+                        // 检查单元格文本是否包含任意一个搜索值
+                        const matches = filterConfig.values.some(value => cellText.includes(value));
+                        
+                        if (!matches) {
+                            shouldShow = false;
+                            break; // 如果任一条件不满足，就跳出循环
+                        }
                     }
                 }
             }
