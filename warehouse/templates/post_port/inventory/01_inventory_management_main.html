@@ -85,11 +85,15 @@
                     <td class="td">{{ p.container }}</td>
                     <td class="td">{{ p.destination }}</td>
                     <td class="td">{{ p.offload_at|date:"Y-m-d" }}</td>
-                    <td class="td">
+                    <td class="td"
+                        style="text-align: left !important;
+                           word-wrap: break-word;
+                           word-break: break-all;
+                           max-width: 200px;">
                         {% if '客户自提' in p.delivery_method %}
-                        {{ p.delivery_method }} - {{ p.shipping_mark }}
+                            {{ p.delivery_method }} - {{ p.shipping_mark }}
                         {% else %}
-                        {{ p.delivery_method }}
+                            {{ p.delivery_method }}
                         {% endif %}
                     </td>
                     <td class="td">{{ p.weight|floatformat:2 }}</td>
