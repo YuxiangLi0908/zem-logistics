@@ -41,6 +41,7 @@ from django.shortcuts import render
 from django.template.loader import get_template
 from django.utils.decorators import method_decorator
 from django.views import View
+from openpyxl.worksheet.page import PageMargins
 from xhtml2pdf import pisa
 
 from warehouse.models.order import Order
@@ -295,6 +296,23 @@ async def export_palletization_list_v2(request: HttpRequest) -> HttpResponse:
     ws = wb.active
     ws.title = "拆柜单"
 
+
+
+    # 纸张设为 Letter
+    ws.page_setup.paperSize = ws.PAPERSIZE_LETTER
+    # 横向打印（必须，否则列太宽超出）
+    ws.page_setup.orientation = ws.ORIENTATION_LANDSCAPE
+    # 缩放到 1页宽 1页高，保证不超出
+    ws.page_setup.fitToPage = True
+    ws.page_setup.fitToWidth = 1
+    ws.page_setup.fitToHeight = 0
+
+    # 缩小边距，给内容更多空间
+    ws.page_margins = PageMargins(
+        left=0.4, right=0.4, top=0.4, bottom=0.4,
+        header=0.2, footer=0.2
+    )
+
     thin_border = Border(
         left=Side(style='thin'),
         right=Side(style='thin'),
@@ -351,10 +369,18 @@ async def export_palletization_list_v2(request: HttpRequest) -> HttpResponse:
             cell.border = thin_border
             cell.alignment = left_alignment if col_idx == 6 else center_alignment
 
-    for col_idx in range(1, len(column_names)+1):
+    for col_idx in range(1, len(column_names) + 1):
         letter = get_column_letter(col_idx)
-        max_len = max(len(str(ws.cell(row, col_idx).value or "")) for row in range(1, ws.max_row+1))
-        ws.column_dimensions[letter].width = min(max_len + 2, 25)
+        max_len = max(len(str(ws.cell(row, col_idx).value or "")) for row in range(1, ws.max_row + 1))
+
+        if col_idx == 5:  # pcs
+            ws.column_dimensions[letter].width = 15
+        elif col_idx == 6:  # pl
+            ws.column_dimensions[letter].width = 10
+        elif col_idx == 7:  # note
+            ws.column_dimensions[letter].width = 30
+        else:
+            ws.column_dimensions[letter].width = min(max_len + 2, 22)
 
     wb.save(buffer)
     buffer.seek(0)

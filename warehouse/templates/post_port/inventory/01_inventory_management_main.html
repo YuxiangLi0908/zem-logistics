@@ -67,6 +67,7 @@
                     <th class="th">客户</th>
                     <th class="th">柜号</th>
                     <th class="th">目的地</th>
+                    <th class="th">拆柜时间</th>
                     <th class="th">派送方式</th>
                     <th class="th">weight(lbs)</th>
                     <th class="th">pcs</th>
@@ -83,6 +84,7 @@
                     <td class="td">{{ p.customer_name }}</td>
                     <td class="td">{{ p.container }}</td>
                     <td class="td">{{ p.destination }}</td>
+                    <td class="td">{{ p.offload_at|date:"Y-m-d" }}</td>
                     <td class="td">
                         {% if '客户自提' in p.delivery_method %}
                         {{ p.delivery_method }} - {{ p.shipping_mark }}
@@ -130,6 +132,7 @@
                     <th class="th">客户</th>
                     <th class="th">柜号</th>
                     <th class="th">目的地</th>
+                    <th class="th">拆柜时间</th>
                     <th class="th">派送方式</th>
                     <th class="th">派送类型</th>
                     <th class="th" style="min-width: 300px; max-width: 400px; word-break: break-all;">唛头</th>
@@ -181,6 +184,7 @@
                     <td class="td">{{ p.customer_name }}</td>
                     <td class="td">{{ p.container }}</td>
                     <td class="td">{{ p.destination }}</td>
+                    <td class="td">{{ p.offload_at|date:"Y-m-d" }}</td>
                     <td class="td">{{ p.delivery_method }}</td>
                     <td class="td">{{ p.delivery_type }}</td>
                     <td class="td" style="min-width: 300px; max-width: 400px; word-break: break-all;">{{ p.shipping_mark }}</td>
