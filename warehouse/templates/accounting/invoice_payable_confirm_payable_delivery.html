@@ -2277,7 +2277,15 @@
                 document.querySelectorAll('.search-input').forEach(i => {
                     const field = i.dataset.field;
                     const val = i.value.trim().toLowerCase();
-                    if (val) conditions.push({field, val});
+                    if (val) {
+                        // 🔥 核心修复：按空格分割成多个关键词
+                        const keywords = val.split(/\s+/).filter(k => k);
+                        conditions.push({
+                            field,
+                            keywords,  // 数组：多个关键词
+                            type: i.dataset.searchType
+                        });
+                    }
                 });
 
                 const rows = document.querySelectorAll('tbody tr:not(.search-row):not(.summary-row):not(.group-header-row)');
@@ -2311,9 +2319,19 @@
 
                 fleets.forEach((data, fleetId) => {
                     let show = true;
-                    conditions.forEach(c => {
-                        if (![...data.texts].some(t => t.includes(c.val))) show = false;
+                    const allTexts = [...data.texts];
+
+                    // 🔥 遍历所有搜索条件
+                    conditions.forEach(cond => {
+                        if (cond.type === 'multi-text') {
+                            // 🔥 必须包含所有关键词（空格分隔）
+                            const matchAll = cond.keywords.some(keyword =>
+                                allTexts.some(text => text.includes(keyword))
+                            );
+                            if (!matchAll) show = false;
+                        }
                     });
+
                     const display = show ? '' : 'none';
                     if (data.group) data.group.style.display = display;
                     data.rows.forEach(r => r.style.display = display);
