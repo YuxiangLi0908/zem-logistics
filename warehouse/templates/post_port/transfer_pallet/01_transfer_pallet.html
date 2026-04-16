@@ -334,6 +334,7 @@
                         <input type="checkbox" id="selectAll" onclick="toggleAllSelection()">
                     </th>
                     <th class="th">客户</th>
+                    <th class="th">预报仓库</th>
                     <th class="th">柜号</th>
                     <th class="th">目的地</th>
                     <th class="th">入库时间</th>
@@ -352,13 +353,14 @@
                 <tr class="filter-row">
                     <th class="th"></th>
                     <th class="th"></th>
-                    <th class="th"><input type="text" class="filter-input" placeholder="柜号1 柜号2..." oninput="filterTable(this, 2)"></th>
-                    <th class="th"><input type="text" class="filter-input" placeholder="目的地1 2..." oninput="filterTable(this, 3)"></th>
-                    <th class="th"><input type="date" class="filter-input" placeholder="入库时间" oninput="filterTable(this, 4)"></th>
-                    <th class="th"><input type="text" class="filter-input" placeholder="派送方式..." oninput="filterTable(this, 5)"></th>
-                    <th class="th"><input type="text" class="filter-input" placeholder="搜索唛头..." oninput="filterTable(this, 6)"></th>
-                    <th class="th"><input type="text" class="filter-input" placeholder="搜索FBA..." oninput="filterTable(this, 7)"></th>
-                    <th class="th"><input type="text" class="filter-input" placeholder="搜索REF..." oninput="filterTable(this, 8)"></th>
+                    <th class="th"><input type="text" class="filter-input" placeholder="预报仓库..." oninput="filterTable(this, 2)"></th>
+                    <th class="th"><input type="text" class="filter-input" placeholder="柜号1 柜号2..." oninput="filterTable(this, 3)"></th>
+                    <th class="th"><input type="text" class="filter-input" placeholder="目的地1 2..." oninput="filterTable(this, 4)"></th>
+                    <th class="th"><input type="date" class="filter-input" placeholder="入库时间" oninput="filterTable(this, 5)"></th>
+                    <th class="th"><input type="text" class="filter-input" placeholder="派送方式..." oninput="filterTable(this, 6)"></th>
+                    <th class="th"><input type="text" class="filter-input" placeholder="搜索唛头..." oninput="filterTable(this, 7)"></th>
+                    <th class="th"><input type="text" class="filter-input" placeholder="搜索FBA..." oninput="filterTable(this, 8)"></th>
+                    <th class="th"><input type="text" class="filter-input" placeholder="搜索REF..." oninput="filterTable(this, 9)"></th>
                     <th class="th"></th>
                     <th class="th"></th>
                     <th class="th"></th>
@@ -377,6 +379,7 @@
                         <input type="hidden" name="orders" value='{{ p.container }}'>
                     </td>
                     <td class="td">{{ p.customer_name }}</td>
+                    <td class="td">{{ p.forecast_warehouse|default_if_none:"" }}</td>
                     <td class="td">{{ p.container }}</td>
                     <td class="td">{{ p.destination }}</td>
                     <td class="td">{% if p.offload_at %}{{ p.offload_at|date:"Y/m/d" }}{% else %}-{% endif %}</td>
@@ -516,10 +519,10 @@
         checkboxes.forEach((checkbox, index) => {
             const row = checkbox.closest('tr');
             const pltIds = row.querySelector('input[name="plt_ids"]').value;
-            const container = row.cells[2].textContent;
-            const destination = row.cells[3].textContent;
-            const nPallet = row.cells[12].textContent;
-            const cbm = row.cells[11].textContent;
+            const container = row.cells[3].textContent;
+            const destination = row.cells[4].textContent;
+            const nPallet = row.cells[13].textContent;
+            const cbm = row.cells[12].textContent;
 
             // 创建PO信息表格行
             const tableRow = document.createElement('tr');
