@@ -2156,6 +2156,22 @@
             return val;
         }
 
+        // ========== 辅助函数：根据字段名获取列索引 ==========
+        function getColumnIndexByField(fieldName) {
+            const fieldMap = {
+                '车次': 2,
+                'Carrier': 3,
+                '供应商': 4,
+                'Pickup Number': 5,
+                'ISA': 6,
+                '柜号': 7,
+                '目的地': 8,
+                '唛头': 9,
+                '板数': 10
+            };
+            return fieldMap[fieldName] || 6;
+        }
+
         // ========== 页面初始化 ==========
         document.addEventListener('DOMContentLoaded', function () {
             updateSummaryRow();
@@ -2240,170 +2256,72 @@
             });
         }
 
-// ========== 【最终最终版：预存所有字段文本 + 完全无视DOM列号错位】 ==========
-function initTableSearch() {
-    if (window.searchRunning) return;
-    window.searchRunning = true;
+        // ========== 【安全修复版】搜索功能，不影响表格渲染 ==========
+        function initTableSearch() {
+            if (window.searchRunning) return;
+            window.searchRunning = true;
 
-    // 全局缓存：每一组的所有字段文本（主行+子行）
-    const groupFieldCache = new Map();
-
-    // 先一次性构建缓存（页面加载时做一次）
-    function buildFieldCache() {
-        const allRows = document.querySelectorAll('tbody tr:not(.search-row):not(.summary-row)');
-        const groups = new Map();
-
-        allRows.forEach(row => {
-            let mainRow = row;
-            while (mainRow && !mainRow.querySelector('.delivery-pending-checkbox, .delivery-export-checkbox')) {
-                mainRow = mainRow.previousElementSibling;
-                if (!mainRow) break;
-            }
-            if (!mainRow) return;
-
-            const fleetId = mainRow.querySelector('.delivery-pending-checkbox, .delivery-export-checkbox').value || 'x';
-            if (!groups.has(fleetId)) {
-                groups.set(fleetId, {
-                    groupHeader: mainRow.previousElementSibling?.classList.contains('group-header-row')
-                        ? mainRow.previousElementSibling
-                        : null,
-                    mainRow: mainRow,
-                    rows: []
+            const inputs = document.querySelectorAll('.search-input');
+            inputs.forEach(input => {
+                input.addEventListener('input', doSearch);
+                input.addEventListener('keydown', e => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        doSearch();
+                    }
                 });
-            }
-            groups.get(fleetId).rows.push(row);
-        });
-
-        // 为每组缓存：所有字段的所有行文本
-        groups.forEach((group, fleetId) => {
-            const cache = {
-                groupHeader: group.groupHeader,
-                rows: group.rows,
-                fields: {
-                    车次: [],
-                    Carrier: [],
-                    供应商: [],
-                    'Pickup Number': [],
-                    ISA: [],
-                    柜号: [],
-                    目的地: [],
-                    唛头: [],
-                    板数: []
-                }
-            };
-
-            const mainRow = group.mainRow;
-            const mainCells = mainRow.querySelectorAll('td');
-
-            // 主行：按原列取
-            const mainTexts = {
-                车次: mainCells[1]?.textContent.trim().toLowerCase() || '',
-                Carrier: mainCells[2]?.textContent.trim().toLowerCase() || '',
-                供应商: mainCells[3]?.textContent.trim().toLowerCase() || '',
-                'Pickup Number': mainCells[4]?.textContent.trim().toLowerCase() || '',
-                ISA: mainCells[5]?.textContent.trim().toLowerCase() || ''
-            };
-
-            // 本组所有行
-            group.rows.forEach(row => {
-                const cells = row.querySelectorAll('td');
-                const isMain = row === mainRow;
-
-                // 主行才有前面的字段
-                if (isMain) {
-                    cache.fields.车次.push(mainTexts.车次);
-                    cache.fields.Carrier.push(mainTexts.Carrier);
-                    cache.fields.供应商.push(mainTexts.供应商);
-                    cache.fields['Pickup Number'].push(mainTexts['Pickup Number']);
-                    cache.fields.ISA.push(mainTexts.ISA);
-                }
-
-                // 所有行（主/子）都有后面的字段
-                const idxOffset = isMain ? 6 : 0; // 主行前面多6列
-
-                const柜号 = cells[0 + idxOffset]?.textContent.trim().toLowerCase() || '';
-                const 目的地 = cells[1 + idxOffset]?.textContent.trim().toLowerCase() || '';
-                const 唛头 = cells[2 + idxOffset]?.textContent.trim().toLowerCase() || '';
-                const 板数 = cells[3 + idxOffset]?.textContent.trim().toLowerCase() || '';
-
-                cache.fields.柜号.push(柜号);
-                cache.fields.目的地.push(目的地);
-                cache.fields.唛头.push(唛头);
-                cache.fields.板数.push(板数);
             });
 
-            groupFieldCache.set(fleetId, cache);
-        });
-    }
+            function doSearch() {
+                let conditions = [];
+                document.querySelectorAll('.search-input').forEach(i => {
+                    const field = i.dataset.field;
+                    const val = i.value.trim().toLowerCase();
+                    if (val) conditions.push({field, val});
+                });
 
-    // 页面加载时先建缓存
-    buildFieldCache();
+                const rows = document.querySelectorAll('tbody tr:not(.search-row):not(.summary-row):not(.group-header-row)');
+                const fleets = new Map();
 
-    // 搜索事件
-    const inputs = document.querySelectorAll('.search-input');
-    inputs.forEach(input => {
-        input.addEventListener('input', doSearch);
-        input.addEventListener('keydown', e => {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                doSearch();
+                rows.forEach(row => {
+                    let fleetRow = row;
+                    while (fleetRow && !fleetRow.querySelector('.delivery-pending-checkbox, .delivery-export-checkbox')) {
+                        fleetRow = fleetRow.previousElementSibling;
+                    }
+                    if (!fleetRow) return;
+
+                    const checkbox = fleetRow.querySelector('.delivery-pending-checkbox, .delivery-export-checkbox');
+                    const fleetId = checkbox ? checkbox.value : 'none';
+
+                    if (!fleets.has(fleetId)) {
+                        fleets.set(fleetId, {
+                            main: fleetRow,
+                            group: fleetRow.previousElementSibling?.classList.contains('group-header-row') ? fleetRow.previousElementSibling : null,
+                            rows: [fleetRow],
+                            texts: new Set()
+                        });
+                    }
+
+                    fleets.get(fleetId).rows.push(row);
+                    const tds = row.querySelectorAll('td');
+                    tds.forEach(td => {
+                        if (td.textContent.trim()) fleets.get(fleetId).texts.add(td.textContent.trim().toLowerCase());
+                    });
+                });
+
+                fleets.forEach((data, fleetId) => {
+                    let show = true;
+                    conditions.forEach(c => {
+                        if (![...data.texts].some(t => t.includes(c.val))) show = false;
+                    });
+                    const display = show ? '' : 'none';
+                    if (data.group) data.group.style.display = display;
+                    data.rows.forEach(r => r.style.display = display);
+                });
+
+                updateSummaryRow();
             }
-        });
-    });
-
-    function doSearch() {
-        // 1. 收集条件
-        const conditions = [];
-        document.querySelectorAll('.search-input').forEach(input => {
-            const field = input.dataset.field;
-            const val = input.value.trim().toLowerCase();
-            if (!val) return;
-            const keywords = val.split(/\s+/).filter(k => k);
-            conditions.push({ field, keywords });
-        });
-
-        // 2. 遍历缓存，直接匹配（完全不管DOM）
-        groupFieldCache.forEach(group => {
-            let show = true;
-
-            for (const cond of conditions) {
-                const { field, keywords } = cond;
-                const texts = group.fields[field] || [];
-                const hasMatch = keywords.some(key =>
-                    texts.some(t => t.includes(key))
-                );
-                if (!hasMatch) {
-                    show = false;
-                    break;
-                }
-            }
-
-            // 显示/隐藏整组
-            const display = show ? '' : 'none';
-            if (group.groupHeader) group.groupHeader.style.display = display;
-            group.rows.forEach(r => r.style.display = display);
-        });
-
-        updateSummaryRow();
-    }
-}
-
-// 列名映射
-function getColumnIndexByField(fieldName) {
-    const map = {
-        '车次': 2,
-        'Carrier': 3,
-        '供应商': 4,
-        'Pickup Number': 5,
-        'ISA': 6,
-        '柜号': 7,
-        '目的地': 8,
-        '唛头': 9,
-        '板数': 10
-    };
-    return map[fieldName] || null;
-}
-
+        }
 
         // ========== 修复：总计行只算可见 + 勾选的行 ==========
         function updateSummaryRow() {
@@ -2419,9 +2337,9 @@ function getColumnIndexByField(fieldName) {
                 const row = checkbox.closest('tr');
                 if (row.style.display === 'none') return;
 
-                const pallets = parseFloat(row.querySelector('td:nth-child(13)')?.textContent || 0);
-                const cost = parseFloat(row.querySelector('td:nth-child(14)')?.textContent.replace('$', '') || 0);
-                const write = parseFloat(row.querySelector('td:nth-child(15) input')?.value || 0);
+                const pallets = parseFloat(row.querySelector('td:nth-child(12)')?.textContent || 0);
+                const cost = parseFloat(row.querySelector('td:nth-child(13)')?.textContent.replace('$', '') || 0);
+                const write = parseFloat(row.querySelector('td:nth-child(14) input')?.value || 0);
 
                 totalPallets += pallets;
                 totalCost += cost;
