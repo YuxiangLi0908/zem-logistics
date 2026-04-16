@@ -344,6 +344,9 @@ class ExceptionHandling(View):
         elif step == "recalculate_combine_delivery":
             template, context = await self.handle_recalculate_combine_delivery(request)
             return await sync_to_async(render)(request, template, context)
+        elif step == "pallet_transfer_LA":
+            template, context = await self.handle_pallet_transfer_LA(request)
+            return await sync_to_async(render)(request, template, context)
         elif step == "delete_shipment":
             template, context = await self.handle_delete_shipment(request)
             return await sync_to_async(render)(request, template, context)
@@ -1151,6 +1154,56 @@ class ExceptionHandling(View):
         context = {
             'success_messages': f'成功处理了{success_count}条记录，失败{failed_count}条！',
             'recalculate_by_container_records': result_records
+        }
+        return self.template_post_port_status, context
+
+    async def handle_pallet_transfer_LA(self, request):
+        '''批量将上面的柜子里，没出库的板子location都改到NJ-07001'''
+        container_numbers_str = request.POST.get('combine_container_numbers', '')
+        
+        # 按换行符和空格分割柜号
+        container_numbers = []
+        for line in container_numbers_str.split('\n'):
+            line = line.strip()
+            if line:
+                # 按空格分割
+                for num in line.split():
+                    num = num.strip()
+                    if num:
+                        container_numbers.append(num)
+        
+        # 去重
+        container_numbers = list(set(container_numbers))
+        
+        success_count = 0
+        total_count = 0
+        
+        for container_number in container_numbers:
+            # 查询这个柜号下的所有 Pallet
+            pallets = await sync_to_async(list)(
+                Pallet.objects.select_related('container_number', 'shipment_batch_number').filter(
+                    container_number__container_number=container_number
+                )
+            )
+            
+            for pallet in pallets:
+                total_count += 1
+                should_update = True
+                
+                # 检查 shipment_batch_number
+                if pallet.shipment_batch_number:
+                    shipment = pallet.shipment_batch_number
+                    if not shipment.is_shipped:
+                        # shipment_batch_number 不为空且 is_shipped 为假时，不修改
+                        should_update = False
+                
+                if should_update:
+                    pallet.location = 'NJ-07001'
+                    await sync_to_async(pallet.save)()
+                    success_count += 1
+        
+        context = {
+            'success_messages': f'处理完成！共检查了 {total_count} 条 Pallet 记录，成功更新了 {success_count} 条记录的 location 为 NJ-07001！'
         }
         return self.template_post_port_status, context
 
