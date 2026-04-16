@@ -954,6 +954,15 @@
             </div>
             <button type="submit" class="search-btn">重新计算组合柜派送</button>
         </form>
+        <form method="post" style="flex: 1; padding: 15px; background: #f8f9fa; border-radius: 8px;">
+            {% csrf_token %}
+            <input type="hidden" name="step" value="pallet_transfer_LA">
+            <div style="margin-bottom: 10px;">
+                <label for="NJ_container_numbers" style="display: block; margin-bottom: 5px; font-weight: 600;">批量输入柜号（每行一个或用空格分隔）：</label>
+                <textarea name="combine_container_numbers" id="combine_container_numbers" rows="5" cols="60" style="padding: 8px; border: 1px solid #ddd; border-radius: 4px; resize: vertical;"></textarea>
+            </div>
+            <button type="submit" class="search-btn">板子都归到NJ</button>
+        </form>
     </div>
 {% endif %}
 
@@ -1077,6 +1086,7 @@
 </div>
 {% endif %}
 
+{% include 'post_port/new_sop/05_ltl_pos_all/modal/message_modal.html' %}
 <script>
 // 自动隐藏消息提示
 setTimeout(() => {
