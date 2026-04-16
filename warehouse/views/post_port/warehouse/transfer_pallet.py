@@ -601,9 +601,13 @@ class TransferPallet(View):
                     round(v, 2)
                     if isinstance(v, float) or isinstance(v, int)
                     else (
-                        re.sub(r'[\x00-\x1F\x7F\t"\']', " ", v)
-                        if v != "None" and v
-                        else ""
+                        v.strftime("%Y/%m/%d")
+                        if isinstance(v, datetime) and v
+                        else (
+                            re.sub(r'[\x00-\x1F\x7F\t"\']', " ", v)
+                            if v != "None" and v
+                            else ""
+                        )
                     )
                 )
                 for k, v in p.items()
@@ -663,6 +667,8 @@ class TransferPallet(View):
                 container=F("container_number__container_number"),
                 shipment=F("shipment_batch_number__shipment_batch_number"),
                 appointment_id=F("shipment_batch_number__appointment_id"),
+                offload_at=F("container_number__orders__offload_id__offload_at"),
+                forecast_warehouse=F("container_number__orders__retrieval_id__retrieval_destination_precise"),              
             )
             .annotate(
                 plt_ids=StringAgg(
