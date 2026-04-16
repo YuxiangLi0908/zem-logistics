@@ -309,7 +309,7 @@ class Inventory(View):
             return self.template_inventory_list_and_merge, context
 
     async def handle_warehouse_post(
-        self, request: HttpRequest
+            self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
         warehouse = request.POST.get("warehouse")
         pallet = await self._get_inventory_pallet(warehouse)
@@ -317,26 +317,28 @@ class Inventory(View):
         pallet_json = {
             p.get("plt_ids"): {
                 k: (
-                    round(v, 2)
-                    if isinstance(v, float) or isinstance(v, int)
-                    else (
-                        re.sub(r'[\x00-\x1F\x7F\t"\']', " ", v)
-                        if v != "None" and v
-                        else ""
-                    )
+                    # 1. 数字类型：保留并保留两位小数
+                    round(v, 2) if isinstance(v, (float, int)) else
+                    # 2. 时间类型：转为字符串
+                    v.strftime("%Y-%m-%d %H:%M:%S") if isinstance(v, datetime) else
+                    # 3. 字符串类型：清洗特殊字符
+                    re.sub(r'[\x00-\x1F\x7F\t"\']', " ", str(v))
+                    if v not in (None, "None") else ""
                 )
                 for k, v in p.items()
             }
             for p in pallet
         }
-        total_cbm = sum([p.get("cbm") for p in pallet])
-        total_pallet = sum([p.get("n_pallet") for p in pallet])
+
+        total_cbm = sum([p.get("cbm", 0) for p in pallet])
+        total_pallet = sum([p.get("n_pallet", 0) for p in pallet])
+
         context = {
             "warehouse": warehouse,
             "warehouse_options": self.warehouse_options,
             "delivery_method_options": DELIVERY_METHOD_OPTIONS,
             "pallet": pallet,
-            "total_cbm": total_cbm,
+            "total_cbm": round(total_cbm, 2),
             "total_pallet": total_pallet,
             "pallet_json": json.dumps(pallet_json, ensure_ascii=False),
         }
@@ -999,6 +1001,7 @@ class Inventory(View):
                 "container_number",
                 "shipment_batch_number",
                 "container_number__orders__customer_name",
+                "container_number__orders__offload_id",
             )
             .filter(criteria)
             .annotate(str_id=Cast("id", CharField()))
@@ -1018,6 +1021,7 @@ class Inventory(View):
                 container=F("container_number__container_number"),
                 shipment=F("shipment_batch_number__shipment_batch_number"),
                 appointment_id=F("shipment_batch_number__appointment_id"),
+                offload_at=F("container_number__orders__offload_id__offload_at"),
             )
             .annotate(
                 # shipping_marks=StringAgg("shipping_mark", delimiter=",", distinct=True, ordering="shipping_mark"),
