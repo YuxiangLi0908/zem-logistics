@@ -2079,7 +2079,8 @@ class ReceivableAccounting(View):
                         invoice_type='receivable'
                     )
                     finance_status = status_obj.finance_status
-                    if finance_status != "completed":
+                    target_status = getattr(status_obj, status)
+                    if finance_status != "completed" or target_status != "completed":
                         context = {'error_messages': f'{container_number}还存在未开完的账单，不可重开！'}
                         if "delivery_public_status" in status or "delivery_other_status" in status:
                             context = self.handle_delivery_entry_post(request, context)
