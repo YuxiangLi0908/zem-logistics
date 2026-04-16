@@ -359,6 +359,9 @@ class ExceptionHandling(View):
         elif step == "assign_invoice_number":
             template, context = await self.handle_assign_invoice_number(request)
             return await sync_to_async(render)(request, template, context)
+        elif step == "invoicev2_modify_is_master_bill":
+            template, context = await self.handle_invoicev2_modify_is_master_bill(request)
+            return await sync_to_async(render)(request, template, context)
         elif step == "overweight_single_save":
             template, context = await self.handle_overweight_single_save(request)
             return await sync_to_async(render)(request, template, context)
@@ -569,6 +572,125 @@ class ExceptionHandling(View):
             'success_count': success_count,
             'failure_count': failure_count,
             'total_count': len(fleet_results)
+        }
+        return self.template_post_port_status, context
+
+    async def handle_invoicev2_modify_is_master_bill(self,request):
+        '''修改invoicev2表的is_master_bill字段'''
+        def perform_sync():
+            from django.db.models import Count, Min
+            from django.db import transaction
+            
+            results = []
+            success_count = 0
+            
+            # 第一步：处理只有一条记录的柜子，且is_master_bill为False的
+            single_invoice_containers = Invoicev2.objects.values('container_number') \
+                .annotate(count=Count('id')) \
+                .filter(count=1) \
+                .values_list('container_number', flat=True)
+            
+            # 查找这些柜子中is_master_bill=False的记录
+            invoices_to_update_single = Invoicev2.objects.filter(
+                container_number__in=single_invoice_containers,
+                is_master_bill=False
+            ).select_related('container_number')
+            
+            for invoice in invoices_to_update_single:
+                result = {
+                    'invoice_id': invoice.id,
+                    'container_number': invoice.container_number.container_number if invoice.container_number else '',
+                    'type': 'single',
+                    'success': False,
+                    'message': ''
+                }
+                try:
+                    invoice.is_master_bill = True
+                    invoice.save()
+                    result['success'] = True
+                    result['message'] = '已设置为主账单'
+                    success_count += 1
+                except Exception as e:
+                    result['message'] = f'处理失败：{str(e)}'
+                results.append(result)
+            
+            # 第二步：处理有多条记录的柜子
+            multi_invoice_containers = Invoicev2.objects.values('container_number') \
+                .annotate(count=Count('id')) \
+                .filter(count__gt=1) \
+                .values_list('container_number', flat=True)
+            
+            for container_id in multi_invoice_containers:
+                # 获取这个柜子的所有账单，按created_at排序
+                invoices = Invoicev2.objects.filter(
+                    container_number_id=container_id
+                ).select_related('container_number').order_by('created_at', 'id')
+                
+                if not invoices:
+                    continue
+                
+                container_number_str = invoices[0].container_number.container_number if invoices[0].container_number else ''
+                
+                # 找到时间最早的账单
+                earliest_invoice = invoices[0]
+                other_invoices = invoices[1:]
+                
+                # 检查是否需要更新
+                need_update = False
+                
+                # 检查最早的账单是否为主账单
+                if not earliest_invoice.is_master_bill:
+                    need_update = True
+                
+                # 检查其他账单是否有主账单
+                for inv in other_invoices:
+                    if inv.is_master_bill:
+                        need_update = True
+                        break
+                
+                if need_update:
+                    with transaction.atomic():
+                        # 设置最早的为主账单
+                        if not earliest_invoice.is_master_bill:
+                            earliest_invoice.is_master_bill = True
+                            earliest_invoice.save()
+                            result = {
+                                'invoice_id': earliest_invoice.id,
+                                'container_number': container_number_str,
+                                'type': 'multi_master',
+                                'success': True,
+                                'message': '已设置为主账单'
+                            }
+                            results.append(result)
+                            success_count += 1
+                        
+                        # 设置其他的为非主账单
+                        for inv in other_invoices:
+                            if inv.is_master_bill:
+                                inv.is_master_bill = False
+                                inv.save()
+                                result = {
+                                    'invoice_id': inv.id,
+                                    'container_number': container_number_str,
+                                    'type': 'multi_non_master',
+                                    'success': True,
+                                    'message': '已取消主账单'
+                                }
+                                results.append(result)
+                                success_count += 1
+            
+            return results, success_count
+        
+        results, success_count = await sync_to_async(perform_sync)()
+        
+        failure_count = len(results) - success_count
+        
+        context = {
+            'success_messages': f'成功更新{success_count}条记录！',
+            'invoice_master_results': results,
+            'success_count': success_count,
+            'failure_count': failure_count,
+            'total_count': len(results)
         }
         return self.template_post_port_status, context
 
