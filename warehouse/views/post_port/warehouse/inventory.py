@@ -1002,6 +1002,7 @@ class Inventory(View):
                 "shipment_batch_number",
                 "container_number__orders__customer_name",
                 "container_number__orders__offload_id",
+                "container_number__orders__retrieval_id__retrieval_destination_precise",
             )
             .filter(criteria)
             .annotate(str_id=Cast("id", CharField()))
@@ -1022,6 +1023,7 @@ class Inventory(View):
                 shipment=F("shipment_batch_number__shipment_batch_number"),
                 appointment_id=F("shipment_batch_number__appointment_id"),
                 offload_at=F("container_number__orders__offload_id__offload_at"),
+                retrieval_destination_precise=F("container_number__orders__retrieval_id__retrieval_destination_precise"),
             )
             .annotate(
                 # shipping_marks=StringAgg("shipping_mark", delimiter=",", distinct=True, ordering="shipping_mark"),
