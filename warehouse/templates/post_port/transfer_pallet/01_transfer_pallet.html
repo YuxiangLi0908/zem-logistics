@@ -37,7 +37,7 @@
     
     .transfer-btn-container {
         margin: 10px 0;
-        text-align: right;
+        text-align: left;
     }
     
     .btn-transfer {
@@ -68,22 +68,27 @@
         font-size: 11px;
     }
     
-    .th, .td {
+    .th, .td, .header-th, .filter-th {
         padding: 6px 8px;
         border: 1px solid #dee2e6;
         text-align: left;
     }
     
-    .th {
+    .header-th {
         background: #e9ecef;
         position: sticky;
         top: 0;
-        z-index: 10;
+        z-index: 11;
     }
     
-    .filter-row th {
+    .filter-th {
         background: #f8f9fa;
-        padding: 4px;
+        padding: 6px 8px;
+        position: sticky;
+        top: 37px;
+        z-index: 10;
+        border: 1px solid #dee2e6;
+        border-top: none;
     }
     
     .filter-input {
@@ -321,6 +326,10 @@
 
     {% if pallet %}
     <div class="transfer-btn-container">
+        <span style="margin-right: 20px; font-weight: bold;">当前显示：<span id="rowCountDisplay">{{ pallet|length }}</span> 条</span>
+        <button type="button" class="btn-transfer" style="margin-right: 10px;" onclick="exportFilteredTable()">
+            📊 导出表格
+        </button>
         <button type="button" id="transfer-btn" class="btn-transfer" onclick="editTransfer()">
             📦 转仓操作
         </button>
@@ -329,45 +338,45 @@
     <div class="table-container">
         <table class="table" id="inventory-summary-table">
             <thead>
-                <tr>
-                    <th class="th" style="width: 30px; text-align: center;">
+                <tr class="header-main-row">
+                    <th class="th header-th" style="width: 30px; text-align: center;">
                         <input type="checkbox" id="selectAll" onclick="toggleAllSelection()">
                     </th>
-                    <th class="th">客户</th>
-                    <th class="th">预报仓库</th>
-                    <th class="th">柜号</th>
-                    <th class="th">目的地</th>
-                    <th class="th">入库时间</th>
-                    <th class="th">派送方式</th>
-                    <th class="th" style="min-width: 200px;">唛头</th>
-                    <th class="th" style="min-width: 200px;">FBA</th>
-                    <th class="th" style="min-width: 200px;">REF</th>
-                    <th class="th">重量(lbs)</th>
-                    <th class="th">数量</th>
-                    <th class="th">体积(CBM)</th>
-                    <th class="th">卡板数</th>
-                    <th class="th" style="min-width: 150px;">备注</th>
-                    <th class="th">预约批次</th>
-                    <th class="th">预约号</th>
+                    <th class="th header-th">客户</th>
+                    <th class="th header-th">预报仓库</th>
+                    <th class="th header-th">柜号</th>
+                    <th class="th header-th">目的地</th>
+                    <th class="th header-th">入库时间</th>
+                    <th class="th header-th">派送方式</th>
+                    <th class="th header-th" style="min-width: 200px;">唛头</th>
+                    <th class="th header-th" style="min-width: 200px;">FBA</th>
+                    <th class="th header-th" style="min-width: 200px;">REF</th>
+                    <th class="th header-th">重量(lbs)</th>
+                    <th class="th header-th">数量</th>
+                    <th class="th header-th">体积(CBM)</th>
+                    <th class="th header-th">卡板数</th>
+                    <th class="th header-th" style="min-width: 150px;">备注</th>
+                    <th class="th header-th">预约批次</th>
+                    <th class="th header-th">预约号</th>
                 </tr>
                 <tr class="filter-row">
-                    <th class="th"></th>
-                    <th class="th"></th>
-                    <th class="th"><input type="text" class="filter-input" placeholder="预报仓库..." oninput="filterTable(this, 2)"></th>
-                    <th class="th"><input type="text" class="filter-input" placeholder="柜号1 柜号2..." oninput="filterTable(this, 3)"></th>
-                    <th class="th"><input type="text" class="filter-input" placeholder="目的地1 2..." oninput="filterTable(this, 4)"></th>
-                    <th class="th"><input type="date" class="filter-input" placeholder="入库时间" oninput="filterTable(this, 5)"></th>
-                    <th class="th"><input type="text" class="filter-input" placeholder="派送方式..." oninput="filterTable(this, 6)"></th>
-                    <th class="th"><input type="text" class="filter-input" placeholder="搜索唛头..." oninput="filterTable(this, 7)"></th>
-                    <th class="th"><input type="text" class="filter-input" placeholder="搜索FBA..." oninput="filterTable(this, 8)"></th>
-                    <th class="th"><input type="text" class="filter-input" placeholder="搜索REF..." oninput="filterTable(this, 9)"></th>
-                    <th class="th"></th>
-                    <th class="th"></th>
-                    <th class="th"></th>
-                    <th class="th"></th>
-                    <th class="th"></th>
-                    <th class="th"></th>
-                    <th class="th"></th>
+                    <th class="filter-th"></th>
+                    <th class="filter-th"></th>
+                    <th class="filter-th"><input type="text" class="filter-input" placeholder="预报仓库..." oninput="filterTable(this, 2)"></th>
+                    <th class="filter-th"><input type="text" class="filter-input" placeholder="柜号1 柜号2..." oninput="filterTable(this, 3)"></th>
+                    <th class="filter-th"><input type="text" class="filter-input" placeholder="目的地1 2..." oninput="filterTable(this, 4)"></th>
+                    <th class="filter-th"><input type="text" class="filter-input" placeholder="入库时间(如2025,2025/4,2025/4/16)" oninput="filterTable(this, 5)"></th>
+                    <th class="filter-th"><input type="text" class="filter-input" placeholder="派送方式..." oninput="filterTable(this, 6)"></th>
+                    <th class="filter-th"><input type="text" class="filter-input" placeholder="搜索唛头..." oninput="filterTable(this, 7)"></th>
+                    <th class="filter-th"><input type="text" class="filter-input" placeholder="搜索FBA..." oninput="filterTable(this, 8)"></th>
+                    <th class="filter-th"><input type="text" class="filter-input" placeholder="搜索REF..." oninput="filterTable(this, 9)"></th>
+                    <th class="filter-th"></th>
+                    <th class="filter-th"></th>
+                    <th class="filter-th"></th>
+                    <th class="filter-th"></th>
+                    <th class="filter-th"></th>
+                    <th class="filter-th"></th>
+                    <th class="filter-th"></th>
                 </tr>
             </thead>
             <tbody id="warehouse-trans">
@@ -609,13 +618,13 @@
         const filters = {};
         filterInputs.forEach((input, index) => {
             const filterText = input.value.trim().toLowerCase();
-            const inputType = input.type;
+            const colIndex = index + 2; // 前两列是复选框和客户
             if (filterText) {
-                const colIndex = index + 2; // 前两列是复选框和客户
-                if (inputType === 'date') {
-                    // 日期筛选：将 YYYY-MM-DD 转换为 YYYY/MM/DD 格式与显示匹配
-                    const formattedDate = filterText.replace(/-/g, '/');
-                    filters[colIndex] = { type: 'date', value: formattedDate };
+                // 入库时间列是第5列（colIndex=5），使用灵活日期匹配
+                if (colIndex === 5) {
+                    // 将横杠转换为斜杠，统一格式
+                    const normalizedDate = filterText.replace(/-/g, '/');
+                    filters[colIndex] = { type: 'flexible_date', value: normalizedDate };
                 } else {
                     // 普通文本筛选
                     filters[colIndex] = { type: 'text', values: filterText.split(' ').filter(val => val.length > 0) };
@@ -623,43 +632,98 @@
             }
         });
         
+        let visibleCount = 0;
+        
         // 如果没有筛选条件，显示所有行
         if (Object.keys(filters).length === 0) {
             rows.forEach(row => {
                 row.style.display = '';
+                visibleCount++;
             });
-            return;
-        }
-        
-        rows.forEach(row => {
-            let shouldShow = true;
-            
-            // 检查每一行的每个筛选条件
-            for (const [columnIndex, filterConfig] of Object.entries(filters)) {
-                const cell = row.cells[parseInt(columnIndex)];
-                if (cell) {
-                    const cellText = cell.textContent.toLowerCase();
-                    
-                    if (filterConfig.type === 'date') {
-                        // 日期匹配
-                        if (cellText !== filterConfig.value && cellText !== '-') {
-                            shouldShow = false;
-                            break;
-                        }
-                    } else {
-                        // 检查单元格文本是否包含任意一个搜索值
-                        const matches = filterConfig.values.some(value => cellText.includes(value));
+        } else {
+            rows.forEach(row => {
+                let shouldShow = true;
+                
+                // 检查每一行的每个筛选条件
+                for (const [columnIndex, filterConfig] of Object.entries(filters)) {
+                    const cell = row.cells[parseInt(columnIndex)];
+                    if (cell) {
+                        const cellText = cell.textContent.toLowerCase();
                         
-                        if (!matches) {
-                            shouldShow = false;
-                            break; // 如果任一条件不满足，就跳出循环
+                        if (filterConfig.type === 'flexible_date') {
+                            // 灵活日期匹配：支持只年、只年月、或完整日期
+                            if (cellText !== '-') {
+                                if (!cellText.startsWith(filterConfig.value)) {
+                                    shouldShow = false;
+                                    break;
+                                }
+                            } else {
+                                // 无日期的行不显示
+                                shouldShow = false;
+                                break;
+                            }
+                        } else {
+                            // 检查单元格文本是否包含任意一个搜索值
+                            const matches = filterConfig.values.some(value => cellText.includes(value));
+                            
+                            if (!matches) {
+                                shouldShow = false;
+                                break; // 如果任一条件不满足，就跳出循环
+                            }
                         }
                     }
                 }
-            }
-            
-            row.style.display = shouldShow ? '' : 'none';
+                
+                row.style.display = shouldShow ? '' : 'none';
+                if (shouldShow) {
+                    visibleCount++;
+                }
+            });
+        }
+        
+        // 更新条数显示
+        document.getElementById('rowCountDisplay').textContent = visibleCount;
+    }
+    
+    // 导出筛选后的表格
+    function exportFilteredTable() {
+        const table = document.getElementById('inventory-summary-table');
+        const rows = Array.from(table.querySelectorAll('#warehouse-trans tr')).filter(row => row.style.display !== 'none');
+        
+        if (rows.length === 0) {
+            alert('没有可导出的数据');
+            return;
+        }
+        
+        // 获取表头（排除复选框列）
+        const headers = Array.from(table.querySelectorAll('thead tr:first-child th')).slice(1).map(th => th.textContent.trim());
+        
+        // 构建 CSV 内容
+        let csvContent = headers.join(',') + '\n';
+        
+        rows.forEach(row => {
+            const cells = Array.from(row.cells).slice(1); // 排除复选框列
+            const rowData = cells.map(cell => {
+                let text = cell.textContent.trim();
+                // 处理包含逗号或引号的文本
+                if (text.includes(',') || text.includes('"')) {
+                    text = '"' + text.replace(/"/g, '""') + '"';
+                }
+                return text;
+            });
+            csvContent += rowData.join(',') + '\n';
         });
+        
+        // 创建下载链接
+        const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        link.setAttribute('href', url);
+        link.setAttribute('download', '转仓数据_' + new Date().toISOString().slice(0,10) + '.csv');
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
     }
     
     // 点击外部关闭弹出窗口
@@ -668,6 +732,12 @@
         if (popup.style.display === 'block' && !popup.contains(e.target) && e.target.id !== 'transfer-btn') {
             closeTransferPopup();
         }
+    });
+    
+    // 页面加载时初始化条数显示
+    document.addEventListener('DOMContentLoaded', function() {
+        const rows = document.querySelectorAll('#warehouse-trans tr');
+        document.getElementById('rowCountDisplay').textContent = rows.length;
     });
 </script>
 {% endblock %}
