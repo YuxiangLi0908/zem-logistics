@@ -6149,12 +6149,14 @@ class Accounting(View):
                 fleet_id = order.fleet_number_id
                 if fleet_id not in deliverys:
                     carrier = order.fleet_number.carrier if order.fleet_number else None
+                    Supplier = order.fleet_number.Supplier if order.fleet_number else None
                     deliverys[fleet_id] = {
                         "fleets": {},
                         "total_pallets": 0,
                         "total_expense": 0,
                         "total_rows": 0,
                         "carrier": carrier,
+                        "Supplier": Supplier,
                         "fleet_number": order.fleet_number.fleet_number if order.fleet_number else '',  # 车次号
                     }
 
@@ -6231,6 +6233,7 @@ class Accounting(View):
                     "total_pallets": int(fleet_data["total_pallets"]),
                     "total_expense": fleet_data["total_expense"],
                     "carrier": fleet_data["carrier"],
+                    "Supplier": fleet_data["Supplier"],
                     "fleet_number": fleet_data["fleet_number"],  # 车次号
                     "fleet_id": fleet_id,  # fleet id
                 }
@@ -6245,6 +6248,7 @@ class Accounting(View):
                             row = [
                                 fleet["fleet_number"] or '',  # 车次
                                 fleet["carrier"] or '',  # Carrier
+                                fleet["Supplier"] or '',  # 供应商
                                 pickup_number or '',  # Pickup Number
                                 appointment_id or '',  # ISA
                                 order["container_num"] or '',  # 柜号
@@ -6262,7 +6266,7 @@ class Accounting(View):
 
             # 生成Excel文件（兼容无数据场景，避免空文件报错）
             columns = [
-                "车次", "Carrier", "Pickup Number", "ISA", "柜号", "目的地",
+                "车次", "Carrier", "供应商", "Pickup Number", "ISA", "柜号", "目的地",
                 "板数", "价格", "单板成本", "车次总板数", "车次总成本",
                 "核销金额", "核销时间", "备注"
             ]
