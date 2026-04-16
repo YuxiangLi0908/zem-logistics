@@ -588,7 +588,7 @@
                             <td class="td" data-col="unload" style="padding: 10px 12px; border: 1px solid #eee; white-space: nowrap; font-size:14px;">{{ f.offload_at|default_if_none:"-"|date:"Y-m-d H:i" }}</td>
                             <td class="td" data-col="batch" style="padding: 10px 12px; border: 1px solid #eee; white-space: nowrap; font-size:14px;">{{ f.fleet_number.fleet_number|default_if_none:"-" }}</td>
                             <td class="td" data-col="appointment" style="padding: 10px 12px; border: 1px solid #eee; white-space: nowrap; font-size:14px;">{{ f.shipment_batch_number|default_if_none:"-" }}</td>
-                            <td class="td" data-col="carrier" style="padding: 10px 12px; border: 1px solid #eee; white-space: nowrap; font-size:14px;">{{ f.carrier|default_if_none:"-" }}</td>
+                            <td class="td" data-col="carrier" style="padding: 10px 12px; border: 1px solid #eee; white-space: nowrap; font-size:14px;">{{ f.fleet_number.carrier|default_if_none:"-" }}</td>
                             <td class="td" data-col="note" style="padding: 10px 12px; border: 1px solid #eee; width: 200px !important; min-width: 200px; max-width: 200px; font-size:14px; white-space: normal; word-wrap: break-word; line-height: 1.2;">
                                 <form action="" method="post" style="margin: 0; display: flex; gap: 6px; align-items: flex-start; flex-wrap: wrap;">
                                     {% csrf_token %}
