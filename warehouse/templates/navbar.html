@@ -232,12 +232,12 @@
                                         <a href="{% url 'receivable_accounting' %}?step=warehouse" target="_blank">库内账单录入</a>
                                         <a href="{% url 'receivable_accounting' %}?step=delivery" target="_blank">派送账单录入</a>
                                         <a href="{% url 'receivable_accounting' %}?step=pay_out" target="_blank">赔付账单录入</a>
+                                        <a href="{% url 'receivable_accounting' %}?step=supplementary" target="_blank">应收手动更改</a>
                                     </div>
                                 </div>                            
                                 
                                 <!-- 财务管理 -->
-                                <a href="{% url 'receivable_accounting' %}?step=confirm" target="_blank">应收财务确认</a>
-                                <a href="{% url 'receivable_accounting' %}?step=supplementary" target="_blank">应收手动更改</a>
+                                <a href="{% url 'receivable_accounting' %}?step=confirm" target="_blank">应收财务确认</a>                             
                                 <!-- 应付账单 -->
                                 <a href="{% url 'accounting' %}?step=invoice_payable_v1" target="_blank">应付账单</a>
 
