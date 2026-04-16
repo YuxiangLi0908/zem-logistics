@@ -930,6 +930,11 @@
         <input type="hidden" name="step" value="assign_invoice_number">
         <button type="submit" class="search-btn">给空的invoice number赋值</button>
     </form>
+    <form method="post" style="display: inline-block; margin: 2px;">
+        {% csrf_token %}
+        <input type="hidden" name="step" value="invoicev2_modify_is_master_bill">
+        <button type="submit" class="search-btn">invoicev2赋值is_master_bill</button>
+    </form>
     <div style="display: flex; gap: 20px; margin-top: 15px;">
         <form method="post" style="flex: 1; padding: 15px; background: #f8f9fa; border-radius: 8px;">
             {% csrf_token %}
@@ -1021,6 +1026,48 @@
                         <td>{% if result.success %}成功{% else %}失败{% endif %}</td>
                         <td>{{ result.message }}</td>
                         <td>{{ result.invoice_number }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- 主账单设置结果 -->
+{% if invoice_master_results %}
+<div class="card mt-4">
+    <div class="card-header">
+        <h4>主账单设置结果</h4>
+        <p class="text-muted">
+            总计处理: {{ total_count }} 条，成功: {{ success_count }} 条，失败: {{ failure_count }} 条
+        </p>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Invoice ID</th>
+                        <th>柜号</th>
+                        <th>类型</th>
+                        <th>处理结果</th>
+                        <th>备注</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for result in invoice_master_results %}
+                    <tr>
+                        <td>{{ result.invoice_id }}</td>
+                        <td>{{ result.container_number }}</td>
+                        <td>
+                            {% if result.type == 'single' %}单账单{% endif %}
+                            {% if result.type == 'multi_master' %}多账单-主账单{% endif %}
+                            {% if result.type == 'multi_non_master' %}多账单-非主账单{% endif %}
+                        </td>
+                        <td>{% if result.success %}成功{% else %}失败{% endif %}</td>
+                        <td>{{ result.message }}</td>
                     </tr>
                     {% endfor %}
                 </tbody>
