@@ -1,0 +1,293 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<style>
+    .pod-reupload-container {
+        max-width: 98%;
+        margin: 20px auto;
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+    }
+
+    .pod-reupload-header {
+        background: linear-gradient(135deg, #2c3e50, #34495e);
+        color: white;
+        padding: 25px 30px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .pod-reupload-logo {
+        display: flex;
+        align-items: center;
+        font-size: 1.5rem;
+        font-weight: bold;
+    }
+
+    .pod-reupload-logo i {
+        margin-right: 12px;
+        font-size: 1.8rem;
+    }
+
+    .search-section {
+        width: 98%;
+        margin: 20px auto;
+        background: white;
+        padding: 20px;
+        border-radius: 10px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .search-controls {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 15px;
+        padding: 0;
+        margin-top: 0;
+        width: 100%;
+    }
+
+    .search-group {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+        min-width: 180px;
+    }
+
+    .search-group label {
+        font-weight: 600;
+        font-size: 0.9rem;
+        color: #2c3e50;
+    }
+
+    .search-controls input,
+    .search-controls select {
+        padding: 8px 12px;
+        border: 1px solid #ced4da;
+        border-radius: 6px;
+        background: white;
+        font-size: 0.9rem;
+        min-width: 150px;
+    }
+
+    .search-controls button {
+        padding: 10px 20px;
+        background: #3498db;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        align-self: flex-end;
+        margin-top: 20px;
+    }
+
+    .search-controls button:hover {
+        background: #2980b9;
+        transform: translateY(-1px);
+    }
+
+    .results-section {
+        padding: 25px;
+    }
+
+    .data-table {
+        width: 98%;
+        border-collapse: collapse;
+        margin-bottom: 30px;
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        margin-left: auto;
+        margin-right: auto;
+    }
+
+    .data-table th {
+        background: #f8f9fa;
+        padding: 12px 8px;
+        text-align: left;
+        font-weight: 600;
+        border-bottom: 2px solid #dee2e6;
+        font-size: 0.9rem;
+    }
+
+    .data-table td {
+        padding: 10px 8px;
+        border-bottom: 1px solid #e9ecef;
+        font-size: 0.85rem;
+    }
+
+    .data-table tr:hover {
+        background-color: #f8f9fa;
+    }
+
+    .table-wrapper {
+        overflow-x: auto;
+        width: 98%;
+        margin: 0 auto;
+        max-height: 600px;
+        overflow-y: auto;
+        position: relative;
+    }
+
+    .pod-link {
+        color: #3498db;
+        text-decoration: none;
+        font-weight: 500;
+    }
+
+    .pod-link:hover {
+        text-decoration: underline;
+    }
+
+    .table-input {
+        padding: 6px 8px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 0.8rem;
+    }
+
+    .table-btn {
+        padding: 6px 12px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 0.8rem;
+        font-weight: 500;
+        transition: all 0.3s;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+    }
+
+    .btn-success-small {
+        background: #28a745;
+        color: white;
+    }
+
+    .btn-success-small:hover {
+        background: #218838;
+    }
+
+    .upload-form {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+
+    .no-results {
+        text-align: center;
+        padding: 40px;
+        color: #6c757d;
+        font-size: 1.1rem;
+    }
+</style>
+
+<div class="pod-reupload-container">
+    <div class="pod-reupload-header">
+        <div class="pod-reupload-logo">
+            <i class="fas fa-file-upload"></i>
+            POD重新上传
+        </div>
+    </div>
+
+    <div class="search-section">
+        <form method="POST" id="searchForm">
+            {% csrf_token %}
+            <input type="hidden" name="step" value="pod_reupload_search">
+            
+            <div class="search-controls">
+                <div class="search-group">
+                    <label for="start_date">预约开始时间</label>
+                    <input type="date" id="start_date" name="start_date" value="{{ start_date|default:'' }}">
+                </div>
+                
+                <div class="search-group">
+                    <label for="end_date">预约结束时间</label>
+                    <input type="date" id="end_date" name="end_date" value="{{ end_date|default:'' }}">
+                </div>
+                
+                <div class="search-group">
+                    <label for="shipment_batch_number">批次号</label>
+                    <input type="text" id="shipment_batch_number" name="shipment_batch_number" placeholder="输入批次号" value="{{ shipment_batch_number|default:'' }}">
+                </div>
+                
+                <div class="search-group">
+                    <label for="appointment_id">ISA</label>
+                    <input type="text" id="appointment_id" name="appointment_id" placeholder="输入ISA" value="{{ appointment_id|default:'' }}">
+                </div>
+                
+                <button type="submit">搜索</button>
+            </div>
+        </form>
+    </div>
+
+    <div class="results-section">
+        {% if results %}
+        <div class="table-wrapper">
+            <table class="data-table" id="podReuploadTable">
+                <thead>
+                    <tr>
+                        <th>批次号</th>
+                        <th>appointment_id</th>
+                        <th>预约时间</th>
+                        <th>是否有POD</th>
+                        <th>查看POD</th>
+                        <th>重新上传</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in results %}
+                    <tr>
+                        <td>{{ item.shipment_batch_number }}</td>
+                        <td>{{ item.appointment_id|default:'-' }}</td>
+                        <td>{{ item.shipment_appointment|date:'Y-m-d H:i'|default:'-' }}</td>
+                        <td>
+                            {% if item.pod_link %}
+                            <span style="color: #28a745; font-weight: 600;">是</span>
+                            {% else %}
+                            <span style="color: #dc3545; font-weight: 600;">否</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if item.pod_link %}
+                            <a href="{{ item.pod_link }}" class="pod-link" target="_blank">
+                                <i class="fas fa-eye"></i> 查看
+                            </a>
+                            {% else %}
+                            -
+                            {% endif %}
+                        </td>
+                        <td>
+                            <form method="post" enctype="multipart/form-data" action="" class="upload-form">
+                                {% csrf_token %}
+                                <input type="file" name="file" class="table-input" style="font-size: 0.8rem;" required>
+                                <input type="hidden" name="step" value="pod_reupload">
+                                <input type="hidden" name="shipment_batch_number" value="{{ item.shipment_batch_number }}">
+                                <button type="submit" class="table-btn btn-success-small">
+                                    <i class="fas fa-upload"></i> 上传
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+            {% if search_performed %}
+            <div class="no-results">
+                <i class="fas fa-inbox" style="font-size: 3rem; margin-bottom: 15px; display: block;"></i>
+                没有查询到任何信息
+            </div>
+            {% endif %}
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

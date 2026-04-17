@@ -108,6 +108,7 @@ class PostNsop(View):
     template_batch_shipment = "post_port/new_sop/leader_check/batch_shipment.html"
     template_fleet_check = "post_port/new_sop/leader_check/fleet_check.html"
     template_master_shipment_check = "post_port/new_sop/leader_check/master_shipment_check.html"
+    template_pod_reupload = "post_port/new_sop/leader_check/pod_reupload.html"
     template_fleet_po_check = "post_port/new_sop/leader_check/fleet_po_check.html"
     template_bol = "export_file/bol_base_template.html"
     template_bol_pickup = "export_file/bol_template.html"
@@ -195,7 +196,13 @@ class PostNsop(View):
                     "You are not authenticated to access this page!"
                 )
             template, context = await self.handle_fleet_leader_check_get(request)
-            return render(request, template, context)         
+            return render(request, template, context)       
+        elif step == "pod_reupload_check":
+            if not await self._validate_user_check_po_group(request.user):
+                return HttpResponseForbidden(
+                    "You are not authenticated to access this page!"
+                )
+            return render(request, self.template_pod_reupload, {})       
         elif step == "fleet_po_check":
             if not await self._validate_user_check_po_group(request.user):
                 return HttpResponseForbidden(
@@ -533,6 +540,12 @@ class PostNsop(View):
             return render(request, template, context)
         elif step == "unbind_master_shipment":
             template, context = await self.handle_unbind_master_shipment_post(request)
+            return render(request, template, context)
+        elif step == "pod_reupload_search":
+            template, context = await self.handle_pod_reupload_post(request)
+            return render(request, template, context)
+        elif step == "pod_reupload":
+            template, context = await self.handle_pod_reupload_upload_post(request)
             return render(request, template, context)
         elif step == "fleet_po_delete":
             template, context = await self.handle_fleet_po_delete_post(request)
@@ -12966,6 +12979,89 @@ class PostNsop(View):
         context.update(search_context)
         
         return template, context
+    
+    async def handle_pod_reupload_post(self, request: HttpRequest, context: str | None = None) -> tuple[str, dict[str, Any]]:
+        """POD重新上传搜索"""
+        start_date = request.POST.get('start_date', '').strip()
+        end_date = request.POST.get('end_date', '').strip()
+        shipment_batch_number = request.POST.get('shipment_batch_number', '').strip()
+        appointment_id = request.POST.get('appointment_id', '').strip()
+
+        if not any([start_date, end_date, shipment_batch_number, appointment_id]):
+            # 设置时间范围为前一个月
+            end_date = datetime.now().strftime('%Y-%m-%d')
+            start_date = (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d')
+        
+        context = {
+            'start_date': start_date,
+            'end_date': end_date,
+            'shipment_batch_number': shipment_batch_number,
+            'appointment_id': appointment_id,
+            'search_performed': True,
+            'results': [],
+        }
+        
+        query = Q()
+        
+        if start_date:
+            start_datetime = timezone.make_aware(datetime.strptime(start_date, '%Y-%m-%d'))
+            query &= Q(shipment_appointment__gte=start_datetime)
+        
+        if end_date:
+            end_datetime = timezone.make_aware(datetime.strptime(end_date, '%Y-%m-%d') + timedelta(days=1))
+            query &= Q(shipment_appointment__lt=end_datetime)
+        
+        if shipment_batch_number:
+            query &= Q(shipment_batch_number__icontains=shipment_batch_number)
+        
+        if appointment_id:
+            query &= Q(appointment_id__icontains=appointment_id)
+        
+        if query:
+            shipments = await sync_to_async(list)(
+                Shipment.objects.filter(query).values(
+                    'shipment_batch_number',
+                    'appointment_id',
+                    'shipment_appointment',
+                    'pod_link',
+                ).order_by('-shipment_appointment')
+            )
+            
+            context['results'] = shipments
+        else:
+            context['error_messages'] = '请至少输入一个搜索条件'
+        
+        return self.template_pod_reupload, context
+    
+    async def _delete_old_pod_file(self, shipment_batch_number: str) -> None:
+        """删除旧的POD文件 - 预留函数，内容待补充"""
+        # TODO: 补充删除旧文件的逻辑
+        pass
+    
+    async def handle_pod_reupload_upload_post(self, request: HttpRequest) -> tuple[str, dict[str, Any]]:
+        """POD重新上传处理"""
+        context = {}
+        
+        shipment_batch_number = request.POST.get('shipment_batch_number', '').strip()
+        
+        if not shipment_batch_number:
+            context['error_messages'] = '缺少批次号'
+            return self.template_pod_reupload, context
+        
+        if "file" not in request.FILES:
+            context['error_messages'] = '请选择要上传的文件'
+            return self.template_pod_reupload, context
+        
+        # 先删除旧文件
+        await self._delete_old_pod_file(shipment_batch_number)
+        
+        # 调用 FleetManagement 类的上传方法
+        fm = FleetManagement()
+        await fm.handle_pod_upload_post(request, 'post_nsop')
+        
+        context['success_messages'] = 'POD修改成功！'
+        
+        return await self.handle_pod_reupload_post(request, context)
     
     def _process_master_shipment_item(self, item, source_type):
         """处理单个master_shipment项目，计算状态和格式化日期"""
