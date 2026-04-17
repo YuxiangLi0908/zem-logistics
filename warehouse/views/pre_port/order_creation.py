@@ -291,9 +291,9 @@ class OrderCreation(View):
         # 2. 只查询选中的订单 + delivery_type=other + 按柜号统计数量
         orders = await sync_to_async(list)(
             PackingList.objects
-            .select_related("container_number")
+            .select_related("container_number", "container_number__orders__warehouse")
             .filter(container_number__container_number__in=selected_orders, delivery_type="other")
-            .values("container_number__container_number")
+            .values("container_number__container_number", "container_number__orders__warehouse__name")
             .annotate(packinglist_count=Count("id"))
             .order_by("container_number__container_number")
         )
@@ -303,6 +303,7 @@ class OrderCreation(View):
         df = df.rename(
             {
                 "container_number__container_number": "柜号",
+                "container_number__orders__warehouse__name": "仓库",
                 "packinglist_count": "packinglist私仓数量",
             },
             axis=1,
