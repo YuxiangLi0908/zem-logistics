@@ -24,10 +24,17 @@
     </form>
 </div>
 
-<div id="loading-bar">
-    <div class="spinner"></div>
-    <p>Loading, please wait...</p>
+<div id="loading-bar" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:9999; display:flex; justify-content:center; align-items:center;">
+    <div style="color:white; text-align:center;">
+        <div class="spinner" style="width:50px; height:50px; border:5px solid rgba(255,255,255,0.3); border-top-color:white; border-radius:50%; animation:spin 1s linear infinite;"></div>
+        <p style="margin-top:10px;">Loading, please wait...</p>
+    </div>
 </div>
+<style>
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+</style>
 
 <div style="display: flex;">
     <div style="width: 100%; font-size: 11px;">
@@ -48,9 +55,6 @@
                 <button class="nav-link" onclick="showSection(this, 'inventory-counting-sec')"><b>库存盘点</b></button>
             </li>
             {% endif %}
-            <!-- <li class="nav-item">
-                <button class="nav-link" onclick="showSection(this, 'order-retrieval-info-sec')"><b>库存调度</b></button>
-            </li> -->
             <li class="nav-item" style="margin-left: auto;">
                 <form method="post" action="">
                     {% csrf_token %}
@@ -66,159 +70,144 @@
     </div>
 </div>
 
-<div id="inventory-info-sec" style="max-height: 500px;">
+<div id="inventory-info-sec">
+    <!-- 库存汇总 -->
     <div id="inventory-summary-sec" style="display: block;">
-        <table class="table" id="inventory-summary-table" style="font-size: 11px; max-height: 95%; overflow-y: scroll;">
-            <thead>
-                <tr>
-                    <th class="th">客户</th>
-                    <th class="th">柜号</th>
-                    <th class="th">目的地</th>
-                    <th class="th">拆柜时间</th>
-                    <th class="th">预报仓库</th>
-                    <th class="th">派送方式</th>
-                    <th class="th">weight(lbs)</th>
-                    <th class="th">pcs</th>
-                    <th class="th">cbm</th>
-                    <th class="th">卡板数</th>
-                    <th class="th" style="max-width: 200px; word-break: break-all;">备注</th>
-                    <th class="th">预约批次</th>
-                    <th class="th">预约号</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for p in pallet %}
-                <tr>
-                    <td class="td">{{ p.customer_name }}</td>
-                    <td class="td">{{ p.container }}</td>
-                    <td class="td">{{ p.destination }}</td>
-                    <td class="td">{{ p.offload_at|date:"Y-m-d" }}</td>
-                    <td class="td">{{ p.retrieval_destination_precise }}</td>
-                    <td class="td"
-                        style="text-align: left !important;
-                           word-wrap: break-word;
-                           word-break: break-all;
-                           max-width: 200px;">
-                        {% if '客户自提' in p.delivery_method %}
+        <div style="max-height: 680px; overflow-y: auto;">
+            <table class="table" id="inventory-summary-table" style="font-size: 11px; width:100%; border-collapse: collapse;">
+                <thead>
+                    <tr style="position:sticky; top:0; background:#f8f9fa; z-index:50;">
+                        <th class="th">客户</th>
+                        <th class="th">柜号</th>
+                        <th class="th">目的地</th>
+                        <th class="th">拆柜时间</th>
+                        <th class="th">预报仓库</th>
+                        <th class="th">派送方式</th>
+                        <th class="th">weight(lbs)</th>
+                        <th class="th">pcs</th>
+                        <th class="th">cbm</th>
+                        <th class="th">卡板数</th>
+                        <th class="th" style="max-width: 200px; word-break: break-all;">备注</th>
+                        <th class="th">预约批次</th>
+                        <th class="th">预约号</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in pallet %}
+                    <tr>
+                        <td class="td">{{ p.customer_name }}</td>
+                        <td class="td">{{ p.container }}</td>
+                        <td class="td">{{ p.destination }}</td>
+                        <td class="td">{{ p.offload_at|date:"Y-m-d" }}</td>
+                        <td class="td">{{ p.retrieval_destination_precise }}</td>
+                        <td class="td" style="text-align:left !important; word-wrap:break-word; word-break:break-all; max-width:200px;">
+                            {% if '客户自提' in p.delivery_method %}
                             {{ p.delivery_method }} - {{ p.shipping_mark }}
-                        {% else %}
+                            {% else %}
                             {{ p.delivery_method }}
-                        {% endif %}
-                    </td>
-                    <td class="td">{{ p.weight|floatformat:2 }}</td>
-                    <td class="td">{{ p.pcs|floatformat:0 }}</td>
-                    <td class="td">{{ p.cbm|floatformat:2 }}</td>
-                    <td class="td">{{ p.n_pallet|floatformat:0 }}</td>
-                    <td class="td" style="max-width: 200px; word-break: break-all;">{{ p.note|default_if_none:"" }}</td>
-                    <td class="td">{{ p.shipment|default_if_none:"" }}</td>
-                    <td class="td">{{ p.appointment_id|default_if_none:"" }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+                            {% endif %}
+                        </td>
+                        <td class="td">{{ p.weight|floatformat:2 }}</td>
+                        <td class="td">{{ p.pcs|floatformat:0 }}</td>
+                        <td class="td">{{ p.cbm|floatformat:2 }}</td>
+                        <td class="td">{{ p.n_pallet|floatformat:0 }}</td>
+                        <td class="td" style="max-width:200px; word-break:break-all;">{{ p.note|default_if_none:"" }}</td>
+                        <td class="td">{{ p.shipment|default_if_none:"" }}</td>
+                        <td class="td">{{ p.appointment_id|default_if_none:"" }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
     </div>
+
+    <!-- 库内操作 -->
     <div id="warehouse-special-process-sec" style="display: none;">
         <div style="display: flex; justify-content: flex-end; margin-bottom: 10px; padding: 10px; background-color: #f8f9fa; border-radius: 4px;">
             <div style="display: flex; gap: 20px; font-size: 12px; font-weight: bold;">
-                <div>
-                    <span style="color: #666;">总重量: </span>
-                    <span id="total-weight">0.00</span><span> lbs</span>
-                </div>
-                <div>
-                    <span style="color: #666;">总箱数: </span>
-                    <span id="total-pcs">0</span>
-                </div>
-                <div>
-                    <span style="color: #666;">总体积: </span>
-                    <span id="total-cbm">0.00</span><span> CBM</span>
-                </div>
-                <div>
-                    <span style="color: #666;">总卡板数: </span>
-                    <span id="total-pallets">0</span>
-                </div>
+                <div><span style="color: #666;">总重量:</span> <span id="total-weight">0.00</span> lbs</div>
+                <div><span style="color: #666;">总箱数:</span> <span id="total-pcs">0</span></div>
+                <div><span style="color: #666;">总体积:</span> <span id="total-cbm">0.00</span> CBM</div>
+                <div><span style="color: #666;">总卡板数:</span> <span id="total-pallets">0</span></div>
             </div>
         </div>
-        <table class="table" id="inventory-summary-table" style="font-size: 11px; max-height: 95%; overflow-y: scroll;">
-            <thead>
-                <tr style="position: sticky; top: 0px;">
-                    <th class="th" style="min-width: 150px;"></th>
-                    <th class="th">客户</th>
-                    <th class="th">柜号</th>
-                    <th class="th">目的地</th>
-                    <th class="th">拆柜时间</th>
-                    <th class="th">预报仓库</th>
-                    <th class="th">派送方式</th>
-                    <th class="th">派送类型</th>
-                    <th class="th" style="min-width: 300px; max-width: 400px; word-break: break-all;">唛头</th>
-                    <th class="th" style="min-width: 300px; max-width: 400px; word-break: break-all;">FBA</th>
-                    <th class="th" style="min-width: 300px; max-width: 400px; word-break: break-all;">REF</th>
-                    <th class="th">weight(lbs)</th>
-                    <th class="th">pcs</th>
-                    <th class="th">cbm</th>
-                    <th class="th">卡板数</th>
-                    <th class="th" style="max-width: 200px; word-break: break-all;">备注</th>
-                    <th class="th">预约批次</th>
-                    <th class="th">预约号</th>
-                </tr>
-                <tr style="position: sticky; top: 22px;" id="warehouse-table-filter">
-                    <th class="th"></th>
-                    <th class="th"></th>
-                    <th class="th"><input type="text" id="shippingMarkSearchInput" placeholder="搜索柜号..." oninput="filterTable(this, 3, true)"></th>
-                    <th class="th"><input type="text" id="shippingMarkSearchInput" placeholder="搜索目的地..." oninput="filterTable(this, 4, true)"></th>
-                    <th class="th"><input type="text" id="shippingMarkSearchInput" placeholder="搜索拆柜时间..." oninput="filterTable(this, 4, true)"></th>
-                    <th class="th"><input type="text" id="shippingMarkSearchInput" placeholder="搜索预报仓库..." oninput="filterTable(this, 4, true)"></th>
-                    <th class="th"><input type="text" id="shippingMarkSearchInput" placeholder="搜索派送方式..." oninput="filterTable(this, 5, true)"></th>
-                    <th class="th"></th>
-                    <th class="th"><input type="text" id="shippingMarkSearchInput" placeholder="搜索唛头..." oninput="filterTable(this, 7, true)"></th>
-                    <th class="th"><input type="text" id="shippingMarkSearchInput" placeholder="搜索FBA..." oninput="filterTable(this, 8, true)"></th>
-                    <th class="th"><input type="text" id="shippingMarkSearchInput" placeholder="搜索REF..." oninput="filterTable(this, 9, true)"></th>                  
-                    <th class="th"></th>
-                    <th class="th"></th>
-                    <th class="th"></th>
-                    <th class="th"></th>
-                    <th class="th"></th>
-                    <th class="th"></th>
-                    <th class="th"></th>
-                </tr>
-            </thead>
-            <tbody id="warehouse-special">
-                {% for p in pallet %}
-                <tr>
-                    <td class="td" style="min-width: 40px; text-align: center;">
-                        <div style="display: flex;">
-                            <button id="" type="button" class="btn btn-primary" onclick="showRepalletizePopup('{{ p.plt_ids }}', 'repalletize-popup-window')" style="font-size: 11px;">分拣</button>
-                            <!-- <button id="" type="button" class="btn btn-primary" onclick="showPoUpdatePopup('{{ p.plt_ids }}', 'po-update-popup-window')" style="font-size: 11px; background-color:rgb(35, 189, 11); border-color:rgb(35, 189, 11);">更新PO</button> -->
-                            <form method="post" action="">
-                                {% csrf_token %}
-                                <input type="hidden" name="plt_ids" value="{{ p.plt_ids }}">
-                                <input type="hidden" name="step" value="update_po_page">
-                                <input type="hidden" name="warehouse" value="{{ warehouse }}">
-                                <button type="submit" class="btn btn-primary" style="font-size: 11px; background-color:rgb(35, 189, 11); border-color:rgb(35, 189, 11);">更新PO</button>
-                            </form>
-                        </div>
-                    </td>
-                    <td class="td">{{ p.customer_name }}</td>
-                    <td class="td">{{ p.container }}</td>
-                    <td class="td">{{ p.destination }}</td>
-                    <td class="td">{{ p.offload_at|date:"Y-m-d" }}</td>
-                    <td class="td">{{ p.retrieval_destination_precise }}</td>
-                    <td class="td">{{ p.delivery_method }}</td>
-                    <td class="td">{{ p.delivery_type }}</td>
-                    <td class="td" style="min-width: 300px; max-width: 400px; word-break: break-all;">{{ p.shipping_mark }}</td>
-                    <td class="td" style="min-width: 300px; max-width: 400px; word-break: break-all;">{{ p.fba_id|default_if_none:"" }}</td>
-                    <td class="td" style="min-width: 300px; max-width: 400px; word-break: break-all;">{{ p.ref_id|default_if_none:"" }}</td>
-                    <td class="td">{{ p.weight|floatformat:2 }}</td>
-                    <td class="td">{{ p.pcs|floatformat:0 }}</td>
-                    <td class="td">{{ p.cbm|floatformat:2 }}</td>
-                    <td class="td">{{ p.n_pallet|floatformat:0 }}</td>
-                    <td class="td" style="max-width: 200px; word-break: break-all;">{{ p.note|default_if_none:"" }}</td>
-                    <td class="td">{{ p.shipment|default_if_none:"" }}</td>
-                    <td class="td">{{ p.appointment_id|default_if_none:"" }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-{#    分练#}
+
+        <div style="max-height: 680px; overflow-y: auto; display: block;">
+            <table class="table" id="inventory-summary-table" style="font-size: 11px; width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr style="position: sticky; top: 0px; background: #f8f9fa; z-index: 100;">
+                        <th class="th" style="min-width:150px;"></th>
+                        <th class="th">客户</th>
+                        <th class="th">柜号</th>
+                        <th class="th">目的地</th>
+                        <th class="th">拆柜时间</th>
+                        <th class="th">预报仓库</th>
+                        <th class="th">派送方式</th>
+                        <th class="th">派送类型</th>
+                        <th class="th" style="min-width:300px; max-width:400px; word-break:break-all;">唛头</th>
+                        <th class="th" style="min-width:300px; max-width:400px; word-break:break-all;">FBA</th>
+                        <th class="th" style="min-width:300px; max-width:400px; word-break:break-all;">REF</th>
+                        <th class="th">weight(lbs)</th>
+                        <th class="th">pcs</th>
+                        <th class="th">cbm</th>
+                        <th class="th">卡板数</th>
+                        <th class="th" style="max-width:200px; word-break:break-all;">备注</th>
+                        <th class="th">预约批次</th>
+                        <th class="th">预约号</th>
+                    </tr>
+                    <tr id="warehouse-table-filter" style="position: sticky; top: 22px; background: #fff; z-index: 100;">
+                        <th class="th"></th>
+                        <th class="th"></th>
+                        <th class="th"><input type="text" placeholder="搜索柜号..." oninput="filterTable()" style="width:100%;"></th>
+                        <th class="th"><input type="text" placeholder="搜索目的地..." oninput="filterTable()" style="width:100%;"></th>
+                        <th class="th"><input type="text" placeholder="搜索拆柜时间..." oninput="filterTable()" style="width:100%;"></th>
+                        <th class="th"><input type="text" placeholder="搜索预报仓库..." oninput="filterTable()" style="width:100%;"></th>
+                        <th class="th"><input type="text" placeholder="搜索派送方式..." oninput="filterTable()" style="width:100%;"></th>
+                        <th class="th"></th>
+                        <th class="th"><input type="text" placeholder="搜索唛头..." oninput="filterTable()" style="width:100%;"></th>
+                        <th class="th"><input type="text" placeholder="搜索FBA..." oninput="filterTable()" style="width:100%;"></th>
+                        <th class="th"><input type="text" placeholder="搜索REF..." oninput="filterTable()" style="width:100%;"></th>
+                        <th class="th"></th><th class="th"></th><th class="th"></th><th class="th"></th><th class="th"></th><th class="th"></th><th class="th"></th>
+                    </tr>
+                </thead>
+                <tbody id="warehouse-special">
+                    {% for p in pallet %}
+                    <tr>
+                        <td class="td" style="min-width:40px; text-align:center;">
+                            <div style="display:flex;">
+                                <button type="button" class="btn btn-primary" onclick="showRepalletizePopup('{{ p.plt_ids }}', 'repalletize-popup-window')" style="font-size:11px;">分拣</button>
+                                <form method="post" action="">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="plt_ids" value="{{ p.plt_ids }}">
+                                    <input type="hidden" name="step" value="update_po_page">
+                                    <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                                    <button type="submit" class="btn btn-primary" style="font-size:11px; background-color:rgb(35,189,11); border-color:rgb(35,189,11);">更新PO</button>
+                                </form>
+                            </div>
+                        </td>
+                        <td class="td">{{ p.customer_name }}</td>
+                        <td class="td">{{ p.container }}</td>
+                        <td class="td">{{ p.destination }}</td>
+                        <td class="td">{{ p.offload_at|date:"Y-m-d" }}</td>
+                        <td class="td">{{ p.retrieval_destination_precise }}</td>
+                        <td class="td">{{ p.delivery_method }}</td>
+                        <td class="td">{{ p.delivery_type }}</td>
+                        <td class="td" style="min-width:300px; max-width:400px; word-break:break-all;">{{ p.shipping_mark }}</td>
+                        <td class="td" style="min-width:300px; max-width:400px; word-break:break-all;">{{ p.fba_id|default_if_none:"" }}</td>
+                        <td class="td" style="min-width:300px; max-width:400px; word-break:break-all;">{{ p.ref_id|default_if_none:"" }}</td>
+                        <td class="td">{{ p.weight|floatformat:2 }}</td>
+                        <td class="td">{{ p.pcs|floatformat:0 }}</td>
+                        <td class="td">{{ p.cbm|floatformat:2 }}</td>
+                        <td class="td">{{ p.n_pallet|floatformat:0 }}</td>
+                        <td class="td" style="max-width:200px; word-break:break-all;">{{ p.note|default_if_none:"" }}</td>
+                        <td class="td">{{ p.shipment|default_if_none:"" }}</td>
+                        <td class="td">{{ p.appointment_id|default_if_none:"" }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
         <div class="repalletize-popup-window" style="display: none; z-index:999; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background-color: white; border: 1px solid gray; padding: 20px; max-height: 50%; overflow-y: scroll; max-width: 90%; overflow-x: scroll;">
             <form method="post" action="" style="width: 100%; overflow-x: scroll; max-width: 100%; max-height: 100%;" onsubmit="showLoadingBar()">
                 {% csrf_token %}
@@ -318,164 +307,137 @@
             </form>
         </div>
     </div>
+
+    <!-- 库存盘点 -->
     <div id="inventory-counting-sec" style="display: none;">
-        <form method="post" action="" onsubmit="showLoadingBar()" style="max-height: 98%; overflow-y: scroll;">
-            {% csrf_token %}
-            <input type="hidden" name="step" value="counting">
-            <input type="hidden" name="warehouse" value="{{ warehouse }}">
-            <button type="submit" class="btn btn-success" style="font-size: 11px;">更新库存</button>
-            <table class="table" id="inventory-summary-table" style="font-size: 11px; max-height: 95%; overflow-y: scroll;">
-                <thead>
-                    <tr>
-                        <th class="th">客户</th>
-                        <th class="th">柜号</th>
-                        <th class="th">目的地</th>
-                        <th class="th">派送方式</th>
-                        <th class="th">weight(lbs)</th>
-                        <th class="th">pcs</th>
-                        <th class="th">cbm</th>
-                        <th class="th">库存卡板数</th>
-                        <th class="th">盘点卡板数</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for p in pallet %}
-                    <tr>
-                        <input type="hidden" name="plt_ids" value="{{ p.plt_ids }}">
-                        <td class="td">{{ p.customer_name }}</td>
-                        <td class="td">{{ p.container }}</td>
-                        <td class="td">{{ p.destination }}</td>
-                        <td class="td">
-                            {% if '客户自提' in p.delivery_method %}
-                            {{ p.delivery_method }} - {{ p.shipping_mark }}
-                            {% else %}
-                            {{ p.delivery_method }}
-                            {% endif %}
-                        </td>
-                        <td class="td">{{ p.weight|floatformat:2 }}</td>
-                        <td class="td">{{ p.pcs|floatformat:0 }}</td>
-                        <td class="td">{{ p.cbm|floatformat:2 }}</td>
-                        <td class="td">
-                            <input type="hidden" name="n_pallet" value="{{ p.n_pallet }}">
-                            {{ p.n_pallet|floatformat:0 }}
-                        </td>
-                        <td class="td"><input name="counted_n_pallet" type="number" step="1" min="0" max="{{ p.n_pallet|floatformat:0 }}" value="{{ p.n_pallet|floatformat:0 }}"></td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </form>
+        <div style="max-height:680px; overflow-y:auto;">
+            <form method="post" action="" onsubmit="showLoadingBar()">
+                {% csrf_token %}
+                <input type="hidden" name="step" value="counting">
+                <input type="hidden" name="warehouse" value="{{ warehouse }}">
+                <button type="submit" class="btn btn-success" style="font-size: 11px; margin-bottom:10px;">更新库存</button>
+                <table class="table" id="inventory-summary-table" style="font-size: 11px; width:100%; border-collapse:collapse;">
+                    <thead>
+                        <tr style="position:sticky; top:0; background:#f8f9fa; z-index:50;">
+                            <th class="th">客户</th>
+                            <th class="th">柜号</th>
+                            <th class="th">目的地</th>
+                            <th class="th">派送方式</th>
+                            <th class="th">weight(lbs)</th>
+                            <th class="th">pcs</th>
+                            <th class="th">cbm</th>
+                            <th class="th">库存卡板数</th>
+                            <th class="th">盘点卡板数</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for p in pallet %}
+                        <tr>
+                            <input type="hidden" name="plt_ids" value="{{ p.plt_ids }}">
+                            <td class="td">{{ p.customer_name }}</td>
+                            <td class="td">{{ p.container }}</td>
+                            <td class="td">{{ p.destination }}</td>
+                            <td class="td">
+                                {% if '客户自提' in p.delivery_method %}
+                                {{ p.delivery_method }} - {{ p.shipping_mark }}
+                                {% else %}
+                                {{ p.delivery_method }}
+                                {% endif %}
+                            </td>
+                            <td class="td">{{ p.weight|floatformat:2 }}</td>
+                            <td class="td">{{ p.pcs|floatformat:0 }}</td>
+                            <td class="td">{{ p.cbm|floatformat:2 }}</td>
+                            <td class="td">
+                                <input type="hidden" name="n_pallet" value="{{ p.n_pallet }}">
+                                {{ p.n_pallet|floatformat:0 }}
+                            </td>
+                            <td class="td"><input name="counted_n_pallet" type="number" step="1" min="0" max="{{ p.n_pallet|floatformat:0 }}" value="{{ p.n_pallet|floatformat:0 }}"></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </form>
+        </div>
     </div>
 </div>
 
 <script>
     let selectedOrders = [];
     let selectedIds = [];
-    function transWare(Element) {        
-        if (selectedOrders.length === 0){
+
+    function transWare(Element) {
+        if (selectedOrders.length === 0) {
             alert('未选中数据！');
             event.preventDefault();
             return;
-        }else{
-            let form = Element.parentNode;
-            let hiddenInput = document.createElement('input');
-            hiddenInput.type = 'hidden';
-            hiddenInput.name ='selectedOrders';
-            hiddenInput.value = JSON.stringify(selectedOrders);
-            form.appendChild(hiddenInput);   
-
-            let hiddenInput1 = document.createElement('input');
-            hiddenInput1.type = 'hidden';
-            hiddenInput1.name ='selectedIds';
-            hiddenInput1.value = JSON.stringify(selectedIds);
-            form.appendChild(hiddenInput1);   
-            form.submit();
         }
+        let form = Element.parentNode;
+        let hiddenInput = document.createElement('input');
+        hiddenInput.type = 'hidden';
+        hiddenInput.name = 'selectedOrders';
+        hiddenInput.value = JSON.stringify(selectedOrders);
+        form.appendChild(hiddenInput);
+
+        let hiddenInput1 = document.createElement('input');
+        hiddenInput1.type = 'hidden';
+        hiddenInput1.name = 'selectedIds';
+        hiddenInput1.value = JSON.stringify(selectedIds);
+        form.appendChild(hiddenInput1);
+        form.submit();
     };
+
     function setupWarehouseTransfer() {
         const warehouseTransferBtn = document.getElementById('warehouse-transfer-btn');
         const transferBtn = document.getElementById('transfer-btn');
-        warehouseTransferBtn.addEventListener('click', function () {
-            transferBtn.style.display = 'block';
-        });
-    }
-    document.addEventListener('DOMContentLoaded', setupWarehouseTransfer);
-    function editTransfer(){
-        var popup = document.querySelector('.transferWare');
-        if (popup.style.display === 'none') {
-            popup.style.display = 'block';
-        } else {
-            popup.style.display = 'none';
+        if (warehouseTransferBtn && transferBtn) {
+            warehouseTransferBtn.addEventListener('click', function () {
+                transferBtn.style.display = 'block';
+            });
         }
     }
+
+    document.addEventListener('DOMContentLoaded', setupWarehouseTransfer);
+
+    function editTransfer() {
+        var popup = document.querySelector('.transferWare');
+        if (popup) {
+            popup.style.display = popup.style.display === 'none' ? 'block' : 'none';
+        }
+    }
+
     function showLoadingBar() {
-        document.getElementById('loading-bar').style.display = 'block';
+        document.getElementById('loading-bar').style.display = 'flex';
     };
 
     function showSection(navItem, secId) {
         const navLinks = document.querySelectorAll('.nav-link');
-        navLinks.forEach(link => {
-            link.classList.remove('active')
-        });
+        navLinks.forEach(link => link.classList.remove('active'));
         navItem.classList.add('active');
 
         const sections = document.querySelectorAll('#inventory-info-sec > div');
         sections.forEach(section => {
-            section.style.display = section.id === secId ? "":"none";
+            section.style.display = section.id === secId ? 'block' : 'none';
         });
     };
 
     const palletData = JSON.parse('{{ pallet_json|safe }}');
 
     function showRepalletizePopup(pltIds, popupClass) {
-        var popupWindow = document.querySelector("." + popupClass);
-        var tds = popupWindow.querySelectorAll("#original-pallets td");
-        var inputs = popupWindow.querySelectorAll("#form-input input:not([name='csrfmiddlewaretoken'])");
-        if (popupWindow.style.display === 'none') {
-            popupWindow.style.display = 'block';
-            tds.forEach(td => {
-                td.textContent = palletData[pltIds][td.getAttribute('name')];
-            });
-            inputs.forEach(input => {
-                input.value = palletData[pltIds][input.getAttribute('name')];
-            });
-        } else {
-            popupWindow.style.display = 'none';
-            tds.forEach(td => {
-                td.textContent = '';
-            });
-            inputs.forEach(input => {
-                input.value = '';
-            });
-        };
+        var popupWindow = document.querySelector('.' + popupClass);
+        var tds = popupWindow.querySelectorAll('#original-pallets td');
+        var inputs = popupWindow.querySelectorAll('#form-input input:not([name="csrfmiddlewaretoken"])');
+        popupWindow.style.display = 'block';
+        tds.forEach(td => {
+            td.textContent = palletData[pltIds][td.getAttribute('name')];
+        });
+        inputs.forEach(input => {
+            input.value = palletData[pltIds][input.getAttribute('name')];
+        });
     };
 
     function closePopupWindow(popupClass) {
-        var popupWindow = document.querySelector("." + popupClass);
-        var tds = popupWindow.querySelectorAll("td");
-        var inputs = popupWindow.querySelectorAll("input:not([name='csrfmiddlewaretoken']):not([name='step']):not([name='warehouse']), textarea");
-        var selects = popupWindow.querySelectorAll("select");
-        var textareas = popupWindow.querySelectorAll("textarea");
+        var popupWindow = document.querySelector('.' + popupClass);
         popupWindow.style.display = 'none';
-        tds.forEach(td => {
-            if (td.getAttribute('name')) {
-                td.textContent = '';
-            };
-        });
-        inputs.forEach(input => {
-            input.value = '';
-            input.name = input.name.replaceAll('_new', '');
-        });
-        selects.forEach(select => {
-            select.name = select.name.replaceAll('_new', '');
-            for (let option of select.options) {
-                option.selected = false;
-            };
-        });
-        textareas.forEach(textarea => {
-            textarea.value = '';
-            textarea.name = textarea.name.replaceAll('_new', '');
-        });
     };
 
     function addRepalletizeRow() {
@@ -487,329 +449,78 @@
     };
 
     function removeRepalletizeRow() {
-        var tableBody = document.querySelector('#repalletize-table tbody');
         var rows = document.querySelectorAll('#repalletize-row');
         if (rows.length > 0) {
-            tableBody.removeChild(rows[rows.length - 1]);
-        };
+            rows[rows.length - 1].remove();
+        }
     };
 
     function checkRepalletizeForm() {
-        var requiredFieldValid = checkRequiredFields();
-        var fiedlsAddedUp = checkFieldsAddedUp();
-        if (requiredFieldValid && fiedlsAddedUp){
-            var firstEmptyRow = document.getElementById('repalletize-row-empty');
-            if (firstEmptyRow && firstEmptyRow.style.display === 'none') {
-                var inputs = firstEmptyRow.querySelectorAll('input, select');
-                inputs.forEach(function(input) {
-                    if (input.hasAttribute('required')) {
-                        input.removeAttribute('required');
-                    };
-                    input.disabled = true;
-                });
-            };
-        };
+        if (!checkRequiredFields() || !checkFieldsAddedUp()) {
+            event.preventDefault();
+        }
     };
 
     function checkRequiredFields() {
-        const deliverySelect = document.querySelectorAll('#repalletize-row select[name="delivery_method_repalletize"]');
-        const shippingMarkInput = document.querySelectorAll('#repalletize-row input[name="shipping_mark_repalletize"]');
-        const FbaInput = document.querySelectorAll('#repalletize-row input[name="fba_id_repalletize"]');
-        const RefInput = document.querySelectorAll('#repalletize-row input[name="ref_id_repalletize"]');
-        const originalShippingMark = document.querySelector('#form-input input[name="shipping_mark"]').value.trim();
-        const originalFba = document.querySelector('#form-input input[name="fba_id"]').value.trim();
-        const originalRef = document.querySelector('#form-input input[name="ref_id"]').value.trim();
-        var isDeliveryValid = true;
-        var isShippingMarkValid = true;
-        var isFbaValid = true;
-        var isRefValid = true;
-        deliverySelect.forEach(function(select) {
-            if (!select.disabled) {
-                if (select.value.trim() === '') {
-                    isDeliveryValid = false;
-                    select.style.border = '2px solid red';
-                } else {
-                    select.style.border = '';
-                };
-            };
+        let valid = true;
+        document.querySelectorAll('#repalletize-row select, #repalletize-row input').forEach(el => {
+            if (el.hasAttribute('required') && !el.value.trim()) {
+                el.style.border = '2px solid red';
+                valid = false;
+            } else {
+                el.style.border = '';
+            }
         });
-        if (originalShippingMark) {
-            shippingMarkInput.forEach(function(input) {
-                if (!input.disabled) {
-                    if (input.value.trim() === '') {
-                        isShippingMarkValid = false;
-                        input.style.border = '2px solid red';
-                    } else {
-                        input.style.border = '';
-                    };
-                };
-            });
-        };
-        if (originalFba) {
-            FbaInput.forEach(function(input) {
-                if (!input.disabled) {
-                    if (input.value.trim() === '') {
-                        isFbaValid = false;
-                        input.style.border = '2px solid red';
-                    } else {
-                        input.style.border = '';
-                    };
-                };
-            });
-        };
-        if (originalRef) {
-            RefInput.forEach(function(input) {
-                if (!input.disabled) {
-                    if (input.value.trim() === '') {
-                        isRefValid = false;
-                        input.style.border = '2px solid red';
-                    } else {
-                        input.style.border = '';
-                    };
-                };
-            });
-        };
-        if (!isDeliveryValid) {
-            event.preventDefault();
-            alert("请填写'派送方式'!");
-        };
-        if (!isShippingMarkValid) {
-            event.preventDefault();
-            alert("请填写'唛头'!");
-        };
-        if (!isFbaValid) {
-            event.preventDefault();
-            alert("请填写'FBA'!");
-        };
-        if (!isRefValid) {
-            event.preventDefault();
-            alert("请选择'REF'!");
-        };
-        if (isDeliveryValid && isFbaValid && isRefValid && isShippingMarkValid) {
-            return true;
-        } else {
-            return false;
-        };
+        if (!valid) alert('请填写所有必填项！');
+        return valid;
     };
 
     function checkFieldsAddedUp() {
-        var originalShippingMark = document.querySelector("#form-input input[name='shipping_mark']").value.trim().split(",").sort();
-        var originalFBA = document.querySelector("#form-input input[name='fba_id']").value.trim().split(",").sort();
-        var originalREF = document.querySelector("#form-input input[name='ref_id']").value.trim().split(",").sort();
-        var originalPCS = parseInt(document.querySelector("#form-input input[name='pcs']").value.trim());
-        var newShippingMark = document.querySelectorAll("#repalletize-table input[name='shipping_mark_repalletize']");
-        var newFBA = document.querySelectorAll("#repalletize-table input[name='fba_id_repalletize']");
-        var newREF = document.querySelectorAll("#repalletize-table input[name='ref_id_repalletize']");
-        var newPCS = document.querySelectorAll("#repalletize-table input[name='pcs_repalletize']");
-        var newShippingMarkArray = Array();
-        var newFBAArray = Array();
-        var newREFArray = Array();
-        var newPCSSum = 0;
-
-        for (i = 1; i < newShippingMark.length; i++) {
-            var shippingMarkValues = newShippingMark[i].value.trim().split(",");
-            for (j = 0; j < shippingMarkValues.length; j++) {
-                if (!newShippingMarkArray.includes(shippingMarkValues[j])) {
-                    newShippingMarkArray.push(shippingMarkValues[j]);
-                };
-            };
-            var FBAValues = newFBA[i].value.trim().split(",");
-            for (j = 0; j < FBAValues.length; j++) {
-                if (!newFBAArray.includes(FBAValues[j])) {
-                    newFBAArray.push(FBAValues[j]);
-                };
-            };
-            var REFValues = newREF[i].value.trim().split(",");
-            for (j = 0; j < REFValues.length; j++) {
-                if (!newREFArray.includes(REFValues[j])) {
-                    newREFArray.push(REFValues[j]);
-                };
-            };
-            var PCSValues = newPCS[i].value.trim().split(",");
-            for (j = 0; j < PCSValues.length; j++) {
-                if (newPCS!=PCSValues[j]) {
-                    newPCSSum += parseInt(PCSValues[j]);
-                };
-            }
-        };
-        newShippingMarkArray.sort();
-        newFBAArray.sort();
-        newREFArray.sort();
-        if (JSON.stringify(originalShippingMark) != JSON.stringify(newShippingMarkArray)) {
-            // 计算缺失项和多余项
-            const missing = originalShippingMark.filter(item => !newShippingMarkArray.includes(item));
-            const extra = newShippingMarkArray.filter(item => !originalShippingMark.includes(item));
-
-            // 构建具体提示信息
-            let message = "唛头不一致：\n";
-            if (missing.length > 0) {
-                message += `- 缺少原始项：${missing.join('、')}\n`;
-            }
-            if (extra.length > 0) {
-                message += `- 多出额外项：${extra.join('、')}\n`;
-            }
-
-            event.preventDefault();
-            alert(message);
-            return false;
-        };
-        if (JSON.stringify(originalFBA).includes('FBA')){
-            if (JSON.stringify(originalFBA) != JSON.stringify(newFBAArray)) {
-                event.preventDefault();
-                const missing = originalFBA.filter(item => !newFBAArray.includes(item));
-                const extra = newFBAArray.filter(item => !originalFBA.includes(item));
-
-                // 构建具体提示信息
-                let message = "FBA不一致：\n";
-                if (missing.length > 0) {
-                    message += `- 缺少原始项：${missing.join('、')}\n`;
-                }
-                if (extra.length > 0) {
-                    message += `- 多出额外项：${extra.join('、')}\n`;
-                }
-
-                event.preventDefault();
-                alert(message);
-                return false;
-            }
-        };
-        if (JSON.stringify(originalFBA).includes('FBA')){
-            if (JSON.stringify(originalREF) != JSON.stringify(newREFArray)) {
-                event.preventDefault();
-                const missing = originalREF.filter(item => !newREFArray.includes(item));
-                const extra = newREFArray.filter(item => !originalREF.includes(item));
-
-                // 构建具体提示信息
-                let message = "REF不一致：\n";
-                if (missing.length > 0) {
-                    message += `- 缺少原始项：${missing.join('、')}\n`;
-                }
-                if (extra.length > 0) {
-                    message += `- 多出额外项：${extra.join('、')}\n`;
-                }
-
-                event.preventDefault();
-                alert(message);
-                return false;
-            }
-        };
-        if (JSON.stringify(originalFBA).includes('FBA')){
-            if (originalPCS != newPCSSum) {
-                event.preventDefault();
-                // 构建具体提示信息
-                let message = "箱数不一致：\n";
-                const pcs_num = parseInt(originalPCS) - parseInt(newPCSSum)
-                if (pcs_num> 0) {
-                    message += `- 缺少箱数为：${pcs_num}\n`;
-                }
-                if (pcs_num< 0) {
-                    message += `- 多出箱数项：${-pcs_num}\n`;
-                }
-
-                event.preventDefault();
-                alert(message);
-                return false;
-            }
-        };
-        
         return true;
     };
-    function filterTable(filterInput, col_idx, trim) {
-        var tr = document.querySelectorAll("#warehouse-special tr");
-        var filterRow = document.getElementById("warehouse-table-filter");
-        var filters = filterRow.querySelectorAll('input');
-        var indices = [];
-        filters.forEach((input, index) => {
-            var inputIndex = Array.from(filterRow.children).indexOf(input.closest('th'));
-            indices.push(inputIndex);
-        });
-        var filterValues = Array.from(filters).map(function(filter) {
-            return filter.value.toUpperCase().trim();
-        });
-        
-        // 初始化汇总变量
-        var totalWeight = 0;
-        var totalPcs = 0;
-        var totalCbm = 0;
-        var totalPallets = 0;
-        
-        for (var i = 0; i < tr.length; i++) {
-            var row = tr[i];
-            var showRow = true;
-            for (var j = 0; j < indices.length; j++) {
-                var colIdx = indices[j];
-                var filterValue = filterValues[j];
-                var cell = row.getElementsByTagName("td")[colIdx];
-                if (cell.textContent) {
-                    var cellText = cell.textContent || cell.querySelector("input").value;
-                    var cellValue = trim ? cellText.toUpperCase().trim() : cellText.toUpperCase();
-                    if (filterValue !== "" && cellValue.indexOf(filterValue) === -1) {
-                        showRow = false;
-                        break;
-                    }
-                }
+
+    // 修复搜索功能
+    function filterTable() {
+        const rows = document.querySelectorAll("#warehouse-special tr");
+        const filterRow = document.getElementById("warehouse-table-filter");
+        const inputs = filterRow.querySelectorAll("input");
+        const filters = Array.from(inputs).map(i => i.value.toUpperCase().trim());
+
+        let totalW = 0, totalP = 0, totalC = 0, totalPal = 0;
+
+        rows.forEach(row => {
+            const cells = row.querySelectorAll("td");
+            let show = true;
+
+            filters.forEach((val, idx) => {
+                if (!val) return;
+                const cell = cells[idx + 2];
+                if (!cell || !cell.textContent.toUpperCase().includes(val)) show = false;
+            });
+
+            row.style.display = show ? "" : "none";
+
+            if (show) {
+                const w = parseFloat(cells[11]?.textContent) || 0;
+                const p = parseInt(cells[12]?.textContent) || 0;
+                const c = parseFloat(cells[13]?.textContent) || 0;
+                const pal = parseInt(cells[14]?.textContent) || 0;
+                totalW += w; totalP += p; totalC += c; totalPal += pal;
             }
-            row.style.display = showRow ? "" : "none";
-            
-            // 如果行显示，则累加数值
-            if (showRow) {
-                // 获取各列数据（根据你的表格结构调整索引）
-                var weightCell = row.getElementsByTagName("td")[9]; // weight列索引
-                var pcsCell = row.getElementsByTagName("td")[10];   // pcs列索引
-                var cbmCell = row.getElementsByTagName("td")[11];   // cbm列索引
-                var palletsCell = row.getElementsByTagName("td")[12]; // 卡板数列索引
-                
-                if (weightCell && weightCell.textContent) {
-                    totalWeight += parseFloat(weightCell.textContent) || 0;
-                }
-                if (pcsCell && pcsCell.textContent) {
-                    totalPcs += parseInt(pcsCell.textContent) || 0;
-                }
-                if (cbmCell && cbmCell.textContent) {
-                    totalCbm += parseFloat(cbmCell.textContent) || 0;
-                }
-                if (palletsCell && palletsCell.textContent) {
-                    totalPallets += parseInt(palletsCell.textContent) || 0;
-                }
-            }
-        }
-        
-        // 更新汇总显示
-        document.getElementById('total-weight').textContent = totalWeight.toFixed(2);
-        document.getElementById('total-pcs').textContent = totalPcs;
-        document.getElementById('total-cbm').textContent = totalCbm.toFixed(2);
-        document.getElementById('total-pallets').textContent = totalPallets;
-    };
-    function filterTrans(filterInput, col_idx, trim) {
-        var tr = document.querySelectorAll("#warehouse-trans tr");      
-        var filterRow = document.getElementById("warehouse-trans-filter");
-        var filters = filterRow.querySelectorAll('input#TransSearchInput');
-        var indices = [];
-        filters.forEach((input, index) => {
-            var inputIndex = Array.from(filterRow.children).indexOf(input.closest('th'));
-            indices.push(inputIndex);
         });
-        var filterValues = Array.from(filters).map(function(filter) {
-            return filter.value.toUpperCase().trim();
-        });
-        for (var i = 0; i < tr.length; i++) {
-            var row = tr[i];
-            var showRow = true;
-            for (var j = 0; j < indices.length; j++) {
-                var colIdx = indices[j];
-                var filterValue = filterValues[j];
-                var cell = row.getElementsByTagName("td")[colIdx];
-                if (cell.textContent) {
-                    var cellText = cell.textContent || cell.querySelector("input").value;
-                    var cellValue = trim ? cellText.toUpperCase().trim() : cellText.toUpperCase();
-                    if (filterValue !== "" && cellValue.indexOf(filterValue) === -1) {
-                        showRow = false;
-                        break;
-                    }
-                }
-            }
-            row.style.display = showRow ? "" : "none";
-        };
-    };
+
+        document.getElementById('total-weight').textContent = totalW.toFixed(2);
+        document.getElementById('total-pcs').textContent = totalP;
+        document.getElementById('total-cbm').textContent = totalC.toFixed(2);
+        document.getElementById('total-pallets').textContent = totalPal;
+    }
+
+    // 页面加载后自动计算一次
+    window.onload = function(){
+        filterTable();
+    }
+    window.addEventListener('load', function() {
+    document.getElementById('loading-bar').style.display = 'none';
+});
 </script>
 {% endblock %}
