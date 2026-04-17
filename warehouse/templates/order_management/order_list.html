@@ -19,11 +19,17 @@
     </form>
 
     <!-- 导出按钮组 -->
-    <div style="display: flex; align-items: center; gap: 10px; flex: 1; justify-content: flex-end; flex-wrap: wrap;">
+    <div style="display: flex; align-items: center; gap: 10px; flex: 1; justify-content: flex-end; flex-wrap: nowrap;">
         <form method="post" enctype="multipart/form-data" style="margin: 0;">
             {% csrf_token %}
             <input type="hidden" name="step" value="export_forecast">
-            <button type="submit" onclick="exportForecast(this)" class="btn btn-primary" style="width: 100px; height: 35px; border: none; border-radius: 4px; cursor: pointer; background-color: #007bff;">导出预报</button>
+            <button type="submit" onclick="exportForecast(this)" class="btn btn-primary" style="width: 200px; height: 35px; border: none; border-radius: 4px; cursor: pointer; background-color: #007bff;">导出选中预报</button>
+        </form>
+
+        <form method="post" enctype="multipart/form-data" style="margin: 0;">
+            {% csrf_token %}
+            <input type="hidden" name="step" value="export_forecast_other">
+            <button type="submit" onclick="exportForecastOther(this)" class="btn btn-primary" style="width: 200px; height: 35px; border: none; border-radius: 4px; cursor: pointer; background-color: #007bff;">导出私仓预报</button>
         </form>
 
         <form method="post" enctype="multipart/form-data" style="margin: 0;">
@@ -350,6 +356,22 @@
     });
     //导出预报时，增加隐藏的input
     function exportForecast(Element){
+        if (selectedOrders.length === 0){
+            alert('未选中数据！');
+            event.preventDefault();
+            return;
+        }else{
+            let form = Element.parentNode;
+            let hiddenInput = document.createElement('input');
+            hiddenInput.type = 'hidden';
+            hiddenInput.name ='selectedOrders';
+            hiddenInput.value = JSON.stringify(selectedOrders);
+            form.appendChild(hiddenInput);
+            form.submit();
+        }
+    };
+    //导出私仓预报
+    function exportForecastOther(Element){
         if (selectedOrders.length === 0){
             alert('未选中数据！');
             event.preventDefault();

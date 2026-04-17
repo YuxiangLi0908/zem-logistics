@@ -178,6 +178,8 @@ class OrderCreation(View):
             return await sync_to_async(render)(request, template, context)
         elif step == "export_forecast":
             return await self.handle_export_forecast(request)
+        elif step == "export_forecast_other":
+            return await self.handle_export_forecast_other(request)
         elif step == "export_details_by_destination":
             return await self.handle_export_details_by_destination(request)
         elif step == "update_delivery_type_all":
@@ -277,6 +279,40 @@ class OrderCreation(View):
         response = HttpResponse(content_type="text/csv")
         response["Content-Disposition"] = f"attachment; filename=forecast.csv"
         df.to_csv(path_or_buf=response, index=False, encoding="utf-8-sig")
+        return response
+
+    async def handle_export_forecast_other(self, request: HttpRequest) -> HttpResponse:
+        """导出私仓预报（只导出前端选中的订单）"""
+
+        # 1. 获取前端选中的订单 ID
+        selected_orders = json.loads(request.POST.get("selectedOrders", "[]"))
+        selected_orders = list(set(selected_orders))
+
+        # 2. 只查询选中的订单 + delivery_type=other + 按柜号统计数量
+        orders = await sync_to_async(list)(
+            PackingList.objects
+            .select_related("container_number")
+            .filter(container_number__container_number__in=selected_orders, delivery_type="other")
+            .values("container_number__container_number")
+            .annotate(packinglist_count=Count("id"))
+            .order_by("container_number__container_number")
+        )
+
+        # 3. 生成表格
+        df = pd.DataFrame(orders)
+        df = df.rename(
+            {
+                "container_number__container_number": "柜号",
+                "packinglist_count": "packinglist私仓数量",
+            },
+            axis=1,
+        )
+
+        # 4. 导出 CSV
+        response = HttpResponse(content_type="text/csv")
+        response["Content-Disposition"] = 'attachment; filename="forecast.csv"'
+        df.to_csv(path_or_buf=response, index=False, encoding="utf-8-sig")
+
         return response
 
     async def handle_export_details_by_destination(
