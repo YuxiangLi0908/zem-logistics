@@ -145,6 +145,7 @@ class Inventory(View):
             "客户名称",
             "柜号",
             "目的地",
+            "拆柜时间",
             "派送方式",
             "重量(kg)",
             "件数",
@@ -168,6 +169,7 @@ class Inventory(View):
                 p.get("customer_name", ""),
                 p.get("container", ""),
                 p.get("destination", ""),
+                p.get("offload_at", ""),
                 delivery_method,
                 round(float(p.get("weight", 0)), 2),
                 int(float(p.get("pcs", 0))),
@@ -1006,6 +1008,15 @@ class Inventory(View):
             )
             .filter(criteria)
             .annotate(str_id=Cast("id", CharField()))
+
+            # 格式化时间为 年月日
+            .annotate(
+                offload_date=Cast(
+                    F("container_number__orders__offload_id__offload_at"),
+                    output_field=models.DateField()
+                )
+            )
+
             .values(
                 "destination",
                 "delivery_method",
@@ -1022,13 +1033,11 @@ class Inventory(View):
                 container=F("container_number__container_number"),
                 shipment=F("shipment_batch_number__shipment_batch_number"),
                 appointment_id=F("shipment_batch_number__appointment_id"),
-                offload_at=F("container_number__orders__offload_id__offload_at"),
-                retrieval_destination_precise=F("container_number__orders__retrieval_id__retrieval_destination_precise"),
+                offload_at=F("offload_date"),
+                retrieval_destination_precise=F(
+                    "container_number__orders__retrieval_id__retrieval_destination_precise"),
             )
             .annotate(
-                # shipping_marks=StringAgg("shipping_mark", delimiter=",", distinct=True, ordering="shipping_mark"),
-                # fba_ids=StringAgg("fba_id", delimiter=",", distinct=True, ordering="fba_id"),
-                # ref_ids=StringAgg("ref_id", delimiter=",", distinct=True, ordering="ref_id"),
                 plt_ids=StringAgg(
                     "str_id", delimiter=",", distinct=True, ordering="str_id"
                 ),
