@@ -12,6 +12,12 @@
                 <option value="{{ v }}" {% if k == warehouse %}selected{% endif %}>{{ k }}</option>
                 {% endfor %}
             </select>
+            <b style="margin-right: 5px;">派送类型:</b>
+            <select name="delivery_type">
+                {% for k, v in delivery_type_options.items %}
+                <option value="{{ v }}" {% if k == delivery_type %}selected{% endif %}>{{ k }}</option>
+                {% endfor %}
+            </select>
             <input type="hidden" name="step" value="warehouse">
             <button type="submit">确认</button>
         </div>

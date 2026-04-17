@@ -65,6 +65,12 @@ class Inventory(View):
         "LA-91766": "LA-91766",
     }
 
+    delivery_type_options = {
+        "": "",
+        "other": "other",
+        "public": "public",
+    }
+
     async def get(self, request: HttpRequest, **kwargs) -> HttpResponse:
         if not await self._user_authenticate(request):
             return redirect("login")
@@ -314,7 +320,11 @@ class Inventory(View):
             self, request: HttpRequest
     ) -> tuple[str, dict[str, Any]]:
         warehouse = request.POST.get("warehouse")
-        pallet = await self._get_inventory_pallet(warehouse)
+        delivery_type = request.POST.get("delivery_type")
+        if delivery_type != "":
+            pallet = await self._get_inventory_pallet(warehouse, models.Q(delivery_method=delivery_type))
+        else:
+            pallet = await self._get_inventory_pallet(warehouse)
         pallet_json = {}
         pallet_json = {
             p.get("plt_ids"): {
@@ -337,7 +347,9 @@ class Inventory(View):
 
         context = {
             "warehouse": warehouse,
+            "delivery_type": delivery_type,
             "warehouse_options": self.warehouse_options,
+            "delivery_type_options": self.delivery_type_options,
             "delivery_method_options": DELIVERY_METHOD_OPTIONS,
             "pallet": pallet,
             "total_cbm": round(total_cbm, 2),
@@ -984,20 +996,20 @@ class Inventory(View):
     async def _get_inventory_pallet(
         self, warehouse: str, criteria: models.Q | None = None
     ) -> list[Pallet]:
+        # 固定基础条件：未发货 / 未装箱
+        base_q = models.Q(
+            models.Q(shipment_batch_number__isnull=True) |
+            models.Q(shipment_batch_number__is_shipped=False)
+        )
+
+        # 重点：先合并你传入的筛选条件 + 基础条件
         if criteria:
-            criteria &= models.Q(location=warehouse)
-            criteria &= models.Q(
-                models.Q(shipment_batch_number__isnull=True)
-                | models.Q(shipment_batch_number__is_shipped=False)
-            )
+            criteria &= base_q
         else:
-            criteria = models.Q(
-                models.Q(location=warehouse)
-                & models.Q(
-                    models.Q(shipment_batch_number__isnull=True)
-                    | models.Q(shipment_batch_number__is_shipped=False)
-                )
-            )
+            criteria = base_q
+
+        # 最后再加上仓库条件（不会覆盖你的筛选）
+        criteria &= models.Q(location=warehouse)
         return await sync_to_async(list)(
             Pallet.objects.prefetch_related(
                 "container_number",
